@@ -52,10 +52,13 @@ class admm_qp
                                     _stages[k].A,
                                     _stages[k].B);
 
-            // Get gamma_{k+1}
-            _stages[k + 1].gamma =
+            // Get gamma_k
+            _stages[k].gamma =
               _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)) -
-              _guess.x.col(k);
+              _guess.x.col(k + 1);
+
+            std::cout << "gamma(" << k << "): " << _stages[k].gamma
+                      << std::endl;
 
             // Calculate Q_k
             _ocp.costs->hessian_xx(k,
@@ -243,6 +246,8 @@ class admm_qp
 
     const int _lqr_repeat_iter = 15;
 
+    // TODO: make more independent
+    // TODO: add constraint terms
     void _lqr(MatX &dX_hat, MatX &dU_hat)
     {
         // LQR step
@@ -250,16 +255,13 @@ class admm_qp
         _lqr_stages[_horizon].V = _stages[_horizon].Q;
         _lqr_stages[_horizon].u = _stages[_horizon].q;
 
-        // TODO: Add additional terms from (15)
-        // TODO: figure out indexing (paper is H-1 to 1)
-
         // Backward pass
         for (int k = _horizon - 1; k >= 0; --k)
         {
             _lqr_stages[k].h =
               _stages[k].r + _stages[k].B.transpose() *
                                (_lqr_stages[k + 1].u +
-                                _lqr_stages[k + 1].V * _stages[k + 1].gamma);
+                                _lqr_stages[k + 1].V * _stages[k].gamma);
 
             _lqr_stages[k].G =
               _stages[k].S.transpose() +
@@ -293,7 +295,7 @@ class admm_qp
               _stages[k].q + _lqr_stages[k].K.transpose() * _stages[k].r +
               (_stages[k].A + _stages[k].B * _lqr_stages[k].K).transpose() *
                 (_lqr_stages[k + 1].u +
-                 _lqr_stages[k + 1].V * _stages[k + 1].gamma);
+                 _lqr_stages[k + 1].V * _stages[k].gamma);
 
             _solution.V[k] = _lqr_stages[k].V;
             _solution.u[k] = _lqr_stages[k].u;
@@ -306,26 +308,16 @@ class admm_qp
         {
             dX_hat.col(k + 1) =
               (_stages[k].A + _stages[k].B * _lqr_stages[k].K) * dX_hat.col(k) +
-              _stages[k].B * _lqr_stages[k].k + _stages[k + 1].gamma;
+              _stages[k].B * _lqr_stages[k].k + _stages[k].gamma;
             dU_hat.col(k) = _lqr_stages[k].K * dX_hat.col(k) + _lqr_stages[k].k;
-            if (k == 1)
-            {
-                std::cout << "dU(1): " << dU_hat.col(1) << std::endl;
-                std::cout << "K: " << _lqr_stages[1].K << std::endl;
-                std::cout << "dX(1): " << dX_hat.col(1) << std::endl;
-                std::cout << "k: " << _lqr_stages[k].k << std::endl;
-            }
         }
-
-        std::cout << "dXhat: " << dX_hat << std::endl;
-        std::cout << "dUhat: " << dU_hat << std::endl;
     }
 
     void _step(const MatX &dX_hat, const MatX &dU_hat, MatX &dX, MatX &dU,
                MatX &y, MatX &z)
     {
         VecX z_hat;
-        for (uint k = 1; k < _horizon; ++k)
+        for (uint k = 0; k < _horizon; ++k)
         {
             z_hat = _alpha * (_stages[k].D * dX_hat.col(k) +
                               _stages[k].E * dU_hat.col(k)) +
