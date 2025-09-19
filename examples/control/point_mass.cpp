@@ -34,7 +34,7 @@ class Cost : public ssqp::cost::AbstractCost
                     const ssqp::VecX &u) const override
     {
         // a(k)^2 * dt
-        return u(0) * u(0) * 0.1;
+        return -u(0) * u(0) * 0.1;
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
@@ -84,7 +84,7 @@ class Constraints : public ssqp::constraint::AbstractConstraint
             v(5) = -x(1);
         }
         // horizon = 10
-        else if (k == 9)
+        else if (k == 10)
         {
             v(6) = x(0) - 1;
             v(7) = -x(0) + 1;
@@ -111,7 +111,7 @@ class Constraints : public ssqp::constraint::AbstractConstraint
             dX(4, 1) = 1;
             dX(5, 1) = -1;
         }
-        else if (k == 9)
+        else if (k == 10)
         {
             dX(6, 0) = 1;
             dX(7, 0) = -1;
