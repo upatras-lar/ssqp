@@ -51,6 +51,9 @@ class csqp
 
             admm_qp::Solution sol = qp_solver.solve();
 
+            std::cout << "dX: " << sol.dX << std::endl;
+            std::cout << "dU: " << sol.dU << std::endl;
+
             // Guess (x, u) update
             _golden_section_search(_guess.x, _guess.u, sol.dX, sol.dU);
 
@@ -67,7 +70,7 @@ class csqp
                 break;
             }
 
-            if (i == 10) break;
+            if (i == 50) break;
         }
 
         return _guess;
