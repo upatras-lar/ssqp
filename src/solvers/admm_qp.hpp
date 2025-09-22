@@ -24,7 +24,7 @@ class admm_qp
         MatX              dX_hat;
         std::vector<MatX> V;
         std::vector<VecX> u;
-        MatX              y;
+        MatX              y, z;
     };
 
     admm_qp(const OCP &ocp, const Guess &guess)
@@ -39,6 +39,11 @@ class admm_qp
     {
         assert(guess.x.cols() == guess.u.cols() + 1 &&
                "Inconsistent time horizon"); // ensure consistent time horizon
+
+        _solution.dX = MatX::Zero(_nx, _horizon + 1);
+        _solution.dU = MatX::Zero(_nu, _horizon);
+        _solution.y  = MatX::Zero(_nc, _horizon + 1);
+        _solution.z  = MatX::Zero(_nc, _horizon + 1);
 
         MatX tmp;
         VecX tmp2;
@@ -56,9 +61,6 @@ class admm_qp
             _stages[k].gamma =
               _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)) -
               _guess.x.col(k + 1);
-
-            std::cout << "gamma(" << k << "): " << _stages[k].gamma
-                      << std::endl;
 
             // Calculate Q_k
             _ocp.costs->hessian_xx(k,
@@ -137,6 +139,19 @@ class admm_qp
             // Get c
             _stages[k].c =
               _ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k));
+
+            // Add constraint cost
+            _stages[k].Q += _rho / 2 * _stages[k].D.transpose() * _stages[k].D +
+                            _sigma / 2 * MatX::Identity(_nx, _nx);
+            _stages[k].S += _rho / 2 * _stages[k].D.transpose() * _stages[k].E;
+            _stages[k].R += _rho / 2 * _stages[k].E.transpose() * _stages[k].E +
+                            _sigma / 2 * MatX::Identity(_nu, _nu);
+
+            VecX z        = -_solution.z.col(k) + 1 / _rho * _solution.y.col(k);
+            _stages[k].q += _rho * _stages[k].D.transpose() * z -
+                            _sigma * _solution.dX.col(k);
+            _stages[k].r += _rho * _stages[k].E.transpose() * z -
+                            _sigma * _solution.dU.col(k);
         }
 
         // Terminal values for Q, q, D and c
@@ -166,16 +181,20 @@ class admm_qp
         _stages[_horizon].c = _ocp.constraints->evaluate(_horizon,
                                                          _guess.x.col(_horizon),
                                                          VecX::Zero(1));
+
+        // Add terminal constraint cost
+        _stages[_horizon].Q =
+          _rho / 2 * _stages[_horizon].D.transpose() * _stages[_horizon].D;
+        _stages[_horizon].q =
+          _rho *
+          (-_solution.z.col(_horizon) + 1 / _rho * _solution.y.col(_horizon))
+            .transpose() *
+          _stages[_horizon].D;
     }
 
     Solution solve()
     {
         // Initialization
-        _solution.dX = MatX::Zero(_nx, _horizon + 1);
-        _solution.dU = MatX::Zero(_nu, _horizon);
-        _solution.y  = MatX::Zero(_nc, _horizon + 1);
-        MatX z       = MatX::Zero(_nc, _horizon + 1);
-
         _solution.dX_hat = MatX(_nx, _horizon + 1);
         MatX dU_hat(_nu, _horizon);
 
@@ -195,7 +214,7 @@ class admm_qp
                   _solution.dX,
                   _solution.dU,
                   _solution.y,
-                  z);
+                  _solution.z);
 
             // TODO: termination
             if (i == _lqr_repeat_iter - 1) break;
@@ -206,7 +225,6 @@ class admm_qp
 
   protected:
     // Data for each stage of the time horizon
-    // TODO: are sizes correct?
     struct StageData
     {
         MatX A;       // (nx) x (nx)
@@ -247,7 +265,6 @@ class admm_qp
     const int _lqr_repeat_iter = 15;
 
     // TODO: make more independent
-    // TODO: add constraint terms
     void _lqr(MatX &dX_hat, MatX &dU_hat)
     {
         // LQR step

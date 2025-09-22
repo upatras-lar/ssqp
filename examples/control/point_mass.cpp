@@ -17,14 +17,10 @@
  *  1) p(k+1) = p(k) + dt*v(k)
  *  2) v(k+1) = v(k) + dt*a(k)
  * Cost:
- *  sum_{k=0}{H-1} a(k)^2*dt
+ *  sum_{k=0}{H-1} a(k)^2*dt + (p(H) - 1)^2
  * Constraints:
  *  1) a(k) + 1 >= 0
  *  2) 1 - a(k) >= 0
- *  3) p(0) = 0 (p(0) >= 0 && -p(0) >= 0)
- *  4) v(0) = 0 (v(0) >= 0 && -v(0) >= 0)
- *  5) p(H) = 1 (p(H) - 1 >= 0 && -p(H) + 1 >= 0)
- *  6) v(H) = 0 (v(H) >= 0 && -v(H) >= 0)
  */
 
 class Cost : public ssqp::cost::AbstractCost
@@ -34,20 +30,21 @@ class Cost : public ssqp::cost::AbstractCost
                     const ssqp::VecX &u) const override
     {
         // a(k)^2 * dt
-        return u(0) * u(0) * 0.1;
+        return u(0) * u(0) * 0.001 + (x(0) - 1) * (x(0) - 1);
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                   ssqp::VecX &dx, ssqp::VecX &du) const override
     {
-        dx = Eigen::Vector2d::Zero();
-        du = (Eigen::VectorXd(1) << 0.2 * u(0)).finished();
+        dx = (Eigen::Vector2d() << 2 * (x(0) - 1), 0).finished();
+        du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
     }
 
     void hessian_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Hxx) const override
     {
-        Hxx = Eigen::Matrix2d::Zero();
+        Hxx       = Eigen::Matrix2d::Zero();
+        Hxx(0, 0) = 2;
     }
 
     void hessian_xu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
@@ -59,7 +56,7 @@ class Cost : public ssqp::cost::AbstractCost
     void hessian_uu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Huu) const override
     {
-        Huu = (Eigen::Matrix<double, 1, 1>() << 0.2).finished();
+        Huu = (Eigen::Matrix<double, 1, 1>() << 0.002).finished();
     }
 };
 
@@ -67,57 +64,26 @@ class Constraints : public ssqp::constraint::AbstractConstraint
 {
     int output_size() const override
     {
-        return 10;
+        return 2;
     }
 
     ssqp::VecX evaluate(const uint k, const ssqp::VecX &x,
                         const ssqp::VecX &u) const override
     {
-        Eigen::VectorXd v = Eigen::Vector<double, 10>::Zero();
+        Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
         v(0)              = u(0) + 1;
         v(1)              = 1 - u(0);
-        if (k == 0)
-        {
-            v(2) = x(0);
-            v(3) = -x(0);
-            v(4) = x(1);
-            v(5) = -x(1);
-        }
-        // horizon = 10
-        else if (k == 10)
-        {
-            v(6) = x(0) - 1;
-            v(7) = -x(0) + 1;
-            v(8) = x(1);
-            v(9) = -x(1);
-        }
-
         return v;
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                   ssqp::MatX &dX, ssqp::MatX &dU) const override
     {
-        dX = Eigen::Matrix<double, 10, 2>::Zero();
-        dU = Eigen::Matrix<double, 10, 1>::Zero();
+        dX = Eigen::Matrix<double, 2, 2>::Zero();
+        dU = Eigen::Matrix<double, 2, 1>::Zero();
 
         dU(0, 0) = 1;
         dU(1, 0) = -1;
-
-        if (k == 0)
-        {
-            dX(2, 0) = 1;
-            dX(3, 0) = -1;
-            dX(4, 1) = 1;
-            dX(5, 1) = -1;
-        }
-        else if (k == 10)
-        {
-            dX(6, 0) = 1;
-            dX(7, 0) = -1;
-            dX(8, 1) = 1;
-            dX(9, 1) = -1;
-        }
     }
 
     void hessprod_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
