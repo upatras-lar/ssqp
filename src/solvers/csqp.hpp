@@ -21,24 +21,23 @@ class csqp
       , _nx(ocp.dynamics->output_size())
       , _nu(ocp.dynamics->control_size())
       , _nc(ocp.constraints->output_size())
-      , _guess(
-          { Eigen::MatrixXd::Zero(ocp.dynamics->output_size(), _horizon + 1),
-            Eigen::MatrixXd::Zero(ocp.dynamics->control_size(), _horizon),
-            Eigen::MatrixXd::Zero(ocp.dynamics->output_size(), _horizon),
-            Eigen::MatrixXd::Zero(ocp.constraints->output_size(),
-                                  _horizon + 1) })
+      , _guess({ MatX::Zero(_nx, _horizon + 1),
+                 MatX::Zero(_nu, _horizon),
+                 MatX::Zero(_nx, _horizon),
+                 MatX::Zero(_nc, _horizon + 1) })
     {
-        for (int i = 0; i < _horizon; ++i)
-        {
-            _guess.x(0, i) = static_cast<double>(rand() % 100) / 100;
-            _guess.x(1, i) = static_cast<double>(rand() % 100) / 100;
-            _guess.u(0, i) = static_cast<double>(rand() % 100) / 100;
-        }
+        // for (int i = 0; i < _horizon; ++i)
+        //{
+        //     _guess.x(0, i) = static_cast<double>(rand() % 100) / 100;
+        //     _guess.x(1, i) = static_cast<double>(rand() % 100) / 100;
+        //     _guess.u(0, i) = static_cast<double>(rand() % 100) / 100;
+        // }
     }
 
     Guess solve()
     {
         int i = 0;
+
         while (true)
         {
             std::cout << "SQP iteration: " << i++ << std::endl;
@@ -56,6 +55,8 @@ class csqp
 
             // Guess (x, u) update
             _golden_section_search(_guess.x, _guess.u, sol.dX, sol.dU);
+            //_guess.x += sol.dX;
+            //_guess.u += sol.dU;
 
             // Lagrange multiplier update
             for (uint k = 0; k < _horizon; ++k)
@@ -77,6 +78,7 @@ class csqp
     }
 
   protected:
+    // TODO: change to H and H-1
     const int _horizon;
     int       _nx, _nu, _nc;
 
@@ -85,6 +87,9 @@ class csqp
     OCP   _ocp;
     Guess _guess;
 
+    // TODO: fix
+    // check: criteria 4 & 5 incorrect
+    // criteria 3 & 4 should be checked for each k, not sum
     bool _check_termination()
     {
         // Jacobian over x and y of lagrangian at current guess
@@ -156,6 +161,12 @@ class csqp
               _ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k));
         }
 
+        std::cout << lx_val.lpNorm<Eigen::Infinity>() << " "
+                  << lu_val.lpNorm<Eigen::Infinity>() << " "
+                  << dyn_val.lpNorm<Eigen::Infinity>() << " "
+                  << con_val.lpNorm<Eigen::Infinity>() << " "
+                  << tcon_val.lpNorm<Eigen::Infinity>() << std::endl;
+
         return lx_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
                lu_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
                dyn_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
@@ -164,6 +175,7 @@ class csqp
     }
 
     // Line search, updating x, u
+    // TODO: validity check
     void _golden_section_search(MatX &x, MatX &u, MatX &dX, MatX &dU)
     {
         static const double invphi    = (std::sqrt(5) - 1) / 2;
@@ -175,8 +187,8 @@ class csqp
         MatX b1 = x + dX;
         MatX b2 = u + dU;
 
-        while ((b1 - a1).maxCoeff() > tolerance ||
-               (b2 - a2).maxCoeff() > tolerance)
+        while ((b1 - a1).minCoeff() > tolerance ||
+               (b2 - a2).minCoeff() > tolerance)
         {
             MatX c1 = b1 - (b1 - a1) * invphi;
             MatX c2 = b2 - (b2 - a2) * invphi;
