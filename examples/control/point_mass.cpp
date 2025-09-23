@@ -30,13 +30,13 @@ class Cost : public ssqp::cost::AbstractCost
                     const ssqp::VecX &u) const override
     {
         // a(k)^2 * dt
-        return u(0) * u(0) * 0.001 + (x(0) - 1) * (x(0) - 1);
+        return u(0) * u(0) * 0.01 + 20 * (x(0) - 1) * (x(0) - 1);
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                   ssqp::VecX &dx, ssqp::VecX &du) const override
     {
-        dx = (Eigen::Vector2d() << 2 * (x(0) - 1), 0).finished();
+        dx = (Eigen::Vector2d() << 40 * (x(0) - 1), 0).finished();
         du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
     }
 
@@ -44,7 +44,7 @@ class Cost : public ssqp::cost::AbstractCost
                     ssqp::MatX &Hxx) const override
     {
         Hxx       = Eigen::Matrix2d::Zero();
-        Hxx(0, 0) = 2;
+        Hxx(0, 0) = 40;
     }
 
     void hessian_xu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,

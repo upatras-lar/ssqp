@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 
 #include "types.hpp"
+#include "solvers/lqr.hpp"
 #include "constraint/AbstractConstraint.hpp"
 #include "cost/AbstractCost.hpp"
 #include "dynamics/AbstractDynamics.hpp"
@@ -22,8 +23,8 @@ class admm_qp
     {
         MatX              dX, dU;
         MatX              dX_hat;
-        std::vector<MatX> V;
-        std::vector<VecX> u;
+        std::vector<MatX> P;
+        std::vector<VecX> p;
         MatX              y, z;
     };
 
@@ -35,7 +36,6 @@ class admm_qp
       , _nu(guess.u.rows())
       , _nc(guess.mu.rows())
       , _stages(std::vector<StageData>(_horizon + 1))
-      , _lqr_stages(std::vector<LQRStage>(_horizon + 1))
     {
         assert(guess.x.cols() == guess.u.cols() + 1 &&
                "Inconsistent time horizon"); // ensure consistent time horizon
@@ -139,19 +139,6 @@ class admm_qp
             // Get c
             _stages[k].c =
               _ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k));
-
-            // Add constraint cost
-            _stages[k].Q += _rho / 2 * _stages[k].D.transpose() * _stages[k].D +
-                            _sigma / 2 * MatX::Identity(_nx, _nx);
-            _stages[k].S += _rho / 2 * _stages[k].D.transpose() * _stages[k].E;
-            _stages[k].R += _rho / 2 * _stages[k].E.transpose() * _stages[k].E +
-                            _sigma / 2 * MatX::Identity(_nu, _nu);
-
-            VecX z        = -_solution.z.col(k) + 1 / _rho * _solution.y.col(k);
-            _stages[k].q += _rho * _stages[k].D.transpose() * z -
-                            _sigma * _solution.dX.col(k);
-            _stages[k].r += _rho * _stages[k].E.transpose() * z -
-                            _sigma * _solution.dU.col(k);
         }
 
         // Terminal values for Q, q, D and c
@@ -181,43 +168,74 @@ class admm_qp
         _stages[_horizon].c = _ocp.constraints->evaluate(_horizon,
                                                          _guess.x.col(_horizon),
                                                          VecX::Zero(1));
-
-        // Add terminal constraint cost
-        _stages[_horizon].Q =
-          _rho / 2 * _stages[_horizon].D.transpose() * _stages[_horizon].D;
-        _stages[_horizon].q =
-          _rho *
-          (-_solution.z.col(_horizon) + 1 / _rho * _solution.y.col(_horizon))
-            .transpose() *
-          _stages[_horizon].D;
     }
 
     Solution solve()
     {
-        // Initialization
-        _solution.dX_hat = MatX(_nx, _horizon + 1);
-        MatX dU_hat(_nu, _horizon);
+        MatX   r(_nc, _horizon + 1);
+        MatX   sx(_nx, _horizon + 1), su(_nu, _horizon);
+        double r_prim_norm, r_dual_norm;
 
-        _solution.V = std::vector<MatX>(_horizon);
-        _solution.u = std::vector<VecX>(_horizon);
-
-        for (uint i = 0;; ++i)
+        for (uint i = 0; i < 100; ++i)
         {
-            if (!(i % _lqr_repeat_iter))
-            {
-                // TODO: rho update
-                _lqr(_solution.dX_hat, dU_hat);
-            }
+            // _solution.y.setZero();
+            // _solution.z.setZero();
 
+            solvers::lqr::Output out = _lqr();
+            _solution.dX_hat         = out.x;
+            _solution.P              = out.P;
+            _solution.p              = out.p;
+
+            MatX prev_z = _solution.z;
             _step(_solution.dX_hat,
-                  dU_hat,
+                  out.u,
                   _solution.dX,
                   _solution.dU,
                   _solution.y,
                   _solution.z);
 
+            MatX dz = _solution.z - prev_z;
+
+            // Calculate residuals
+
+            // TODO: correct rho update should ensure constraints aren't
+            // violated
+            r_prim_norm = 0.0;
+            r_dual_norm = 0.0;
+            for (int k = 0; k <= _horizon; ++k)
+            {
+                r.col(k) =
+                  _stages[k].D * _solution.dX.col(k) - _solution.z.col(k);
+                if (k != _horizon)
+                {
+                    r.col(k) += _stages[k].E * _solution.dU.col(k);
+                }
+                r_prim_norm += r.col(k).squaredNorm();
+
+                sx.col(k) = _stages[k].D.transpose() * dz.col(k);
+
+                r_dual_norm += sx.col(k).squaredNorm();
+
+                if (k != _horizon)
+                {
+                    su.col(k)    = _stages[k].E.transpose() * dz.col(k);
+                    r_dual_norm += su.col(k).squaredNorm();
+                }
+            }
+
+            r_prim_norm = std::sqrt(r_prim_norm);
+            r_dual_norm = std::sqrt(r_dual_norm);
+
+            if (r_prim_norm > 10 * r_dual_norm)
+            {
+                _rho *= 2;
+            }
+            else if (r_dual_norm > 10 * r_prim_norm)
+            {
+                _rho /= 2;
+            }
+
             // TODO: termination
-            if (i == _lqr_repeat_iter - 1) break;
         }
 
         return _solution;
@@ -236,22 +254,11 @@ class admm_qp
         VecX c;       // (nc) x 1
     };
 
-    // Data for LQR
-    struct LQRStage
-    {
-        VecX h;
-        MatX G, H, V;
-        VecX u;
-        MatX K;
-        VecX k;
-    };
-
     uint _horizon;
     uint _nx, _nu, _nc;
 
     // Vector of stage data (including final stage, size H + 1)
     std::vector<StageData> _stages;
-    std::vector<LQRStage>  _lqr_stages;
 
     OCP   _ocp;
     Guess _guess;
@@ -262,72 +269,36 @@ class admm_qp
     const double _sigma = 10e-6;
     double       _rho   = 0.1;
 
-    const int _lqr_repeat_iter = 15;
+    const int _lqr_repeat_iter = 25;
 
-    // TODO: make more independent
-    void _lqr(MatX &dX_hat, MatX &dU_hat)
+    solvers::lqr::Output _lqr()
     {
-        // LQR step
-        // Initialization
-        _lqr_stages[_horizon].V = _stages[_horizon].Q;
-        _lqr_stages[_horizon].u = _stages[_horizon].q;
+        solvers::lqr::Input input(_horizon, _nx, _nu);
 
-        // Backward pass
-        for (int k = _horizon - 1; k >= 0; --k)
+        for (int k = 0; k < _horizon; ++k)
         {
-            _lqr_stages[k].h =
-              _stages[k].r + _stages[k].B.transpose() *
-                               (_lqr_stages[k + 1].u +
-                                _lqr_stages[k + 1].V * _stages[k].gamma);
-
-            _lqr_stages[k].G =
-              _stages[k].S.transpose() +
-              _stages[k].B.transpose() * _lqr_stages[k + 1].V * _stages[k].A;
-
-            _lqr_stages[k].H = _stages[k].R + _stages[k].B.transpose() *
-                                                _lqr_stages[k + 1].V *
-                                                _stages[k].B;
-
-            // TODO: is LLT appropriate?
-            if (_nu > 1)
-            {
-                Eigen::LLT H_llt = _lqr_stages[k].H.llt();
-                _lqr_stages[k].K = -H_llt.solve(_lqr_stages[k].G);
-                _lqr_stages[k].k = -H_llt.solve(_lqr_stages[k].h);
-            }
-            else
-            {
-                double coeff     = 1 / _lqr_stages[k].H(0, 0);
-                _lqr_stages[k].K = -coeff * _lqr_stages[k].G;
-                _lqr_stages[k].k = -coeff * _lqr_stages[k].h;
-            }
-
-            _lqr_stages[k].V =
-              _stages[k].Q +
-              _stages[k].A.transpose() * _lqr_stages[k + 1].V * _stages[k].A -
-              _lqr_stages[k].K.transpose() * _lqr_stages[k].H *
-                _lqr_stages[k].K;
-
-            _lqr_stages[k].u =
-              _stages[k].q + _lqr_stages[k].K.transpose() * _stages[k].r +
-              (_stages[k].A + _stages[k].B * _lqr_stages[k].K).transpose() *
-                (_lqr_stages[k + 1].u +
-                 _lqr_stages[k + 1].V * _stages[k].gamma);
-
-            _solution.V[k] = _lqr_stages[k].V;
-            _solution.u[k] = _lqr_stages[k].u;
+            input.A[k]     = _stages[k].A;
+            input.B[k]     = _stages[k].B;
+            input.gamma[k] = _stages[k].gamma;
+            input.Qxx[k]   = _stages[k].Q;
+            input.Qxu[k]   = _stages[k].S;
+            input.Quu[k]   = _stages[k].R;
+            input.qx[k]    = _stages[k].q;
+            input.qu[k]    = _stages[k].r;
+            input.D[k]     = _stages[k].D;
+            input.E[k]     = _stages[k].E;
         }
 
-        // Forward pass
-        dX_hat.col(0) = VecX::Zero(_nx);
+        input.Qt = _stages[_horizon].Q;
+        input.qt = _stages[_horizon].q;
+        input.Dt = _stages[_horizon].D;
 
-        for (uint k = 0; k < _horizon; ++k)
-        {
-            dX_hat.col(k + 1) =
-              (_stages[k].A + _stages[k].B * _lqr_stages[k].K) * dX_hat.col(k) +
-              _stages[k].B * _lqr_stages[k].k + _stages[k].gamma;
-            dU_hat.col(k) = _lqr_stages[k].K * dX_hat.col(k) + _lqr_stages[k].k;
-        }
+        input.x = _solution.dX;
+        input.u = _solution.dU;
+        input.z = _solution.z;
+        input.y = _solution.y;
+
+        return solvers::lqr::lqr(input, _rho, _alpha, _sigma);
     }
 
     void _step(const MatX &dX_hat, const MatX &dU_hat, MatX &dX, MatX &dU,
@@ -341,7 +312,7 @@ class admm_qp
                     (1 - _alpha) * z.col(k);
             dX.col(k) = _alpha * dX_hat.col(k) + (1 - _alpha) * dX.col(k);
             dU.col(k) = _alpha * dU_hat.col(k) + (1 - _alpha) * dU.col(k);
-            z.col(k)  = _stages[k].c.cwiseMax(z_hat + 1 / _rho * y.col(k));
+            z.col(k)  = _stages[k].c.cwiseMin(z_hat + 1 / _rho * y.col(k));
             y.col(k)  = y.col(k) + _rho * (z_hat - z.col(k));
         }
 
@@ -351,8 +322,12 @@ class admm_qp
           _alpha * dX_hat.col(_horizon) + (1 - _alpha) * dX.col(_horizon);
 
         z.col(_horizon) =
-          _stages[_horizon].c.cwiseMax(z_hat + 1 / _rho * y.col(_horizon));
+          _stages[_horizon].c.cwiseMin(z_hat + 1 / _rho * y.col(_horizon));
         y.col(_horizon) = y.col(_horizon) + _rho * (z_hat - z.col(_horizon));
+        // std::cout << "Next step:" << std::endl;
+        // std::cout << "z: " << z << std::endl;
+        // std::cout << "zhat: " << z_hat << std::endl;
+        // std::cout << "y: " << y << std::endl;
     }
 };
 }

@@ -61,7 +61,7 @@ class csqp
             // Lagrange multiplier update
             for (uint k = 0; k < _horizon; ++k)
             {
-                _guess.lambda.col(k) = sol.V[k] * sol.dX_hat.col(k) + sol.u[k];
+                _guess.lambda.col(k) = sol.P[k] * sol.dX_hat.col(k) + sol.p[k];
             }
             _guess.mu = sol.y;
 
@@ -161,11 +161,11 @@ class csqp
               _ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k));
         }
 
-        std::cout << lx_val.lpNorm<Eigen::Infinity>() << " "
-                  << lu_val.lpNorm<Eigen::Infinity>() << " "
-                  << dyn_val.lpNorm<Eigen::Infinity>() << " "
-                  << con_val.lpNorm<Eigen::Infinity>() << " "
-                  << tcon_val.lpNorm<Eigen::Infinity>() << std::endl;
+        // std::cout << lx_val.lpNorm<Eigen::Infinity>() << " "
+        //           << lu_val.lpNorm<Eigen::Infinity>() << " "
+        //           << dyn_val.lpNorm<Eigen::Infinity>() << " "
+        //           << con_val.lpNorm<Eigen::Infinity>() << " "
+        //           << tcon_val.lpNorm<Eigen::Infinity>() << std::endl;
 
         return lx_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
                lu_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
