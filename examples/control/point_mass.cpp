@@ -30,14 +30,14 @@ class Cost : public ssqp::cost::AbstractCost
                     const ssqp::VecX &u) const override
     {
         // a(k)^2 * dt
-        return u(0) * u(0) * 0.01 + 20 * (x(0) - 1) * (x(0) - 1);
+        return u(0) * u(0) * 0.1 + 20 * (x(0) - 1) * (x(0) - 1);
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                   ssqp::VecX &dx, ssqp::VecX &du) const override
     {
         dx = (Eigen::Vector2d() << 40 * (x(0) - 1), 0).finished();
-        du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
+        du = (Eigen::VectorXd(1) << 0.2 * u(0)).finished();
     }
 
     void hessian_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
@@ -71,8 +71,8 @@ class Constraints : public ssqp::constraint::AbstractConstraint
                         const ssqp::VecX &u) const override
     {
         Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
-        v(0)              = u(0) + 1;
-        v(1)              = 1 - u(0);
+        v(0)              = u(0) + 1000;
+        v(1)              = 1000 - u(0);
         return v;
     }
 
@@ -167,7 +167,7 @@ int main()
     ssqp::solvers::Guess solution = solver.solve();
 
     std::cout << "x: " << solution.x << std::endl;
-    std::cout << "y: " << solution.u << std::endl;
+    std::cout << "u: " << solution.u << std::endl;
 
     return 0;
 }

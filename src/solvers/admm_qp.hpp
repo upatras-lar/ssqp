@@ -25,7 +25,7 @@ class admm_qp
         MatX              dX_hat;
         std::vector<MatX> P;
         std::vector<VecX> p;
-        MatX              y, z;
+        MatX              z, y;
     };
 
     admm_qp(const OCP &ocp, const Guess &guess)
@@ -36,17 +36,24 @@ class admm_qp
       , _nu(guess.u.rows())
       , _nc(guess.mu.rows())
       , _stages(std::vector<StageData>(_horizon + 1))
+      , _r_prim(MatX(_nc, _horizon + 1))
+      , _r_dual(MatX(_nc, _horizon + 1))
     {
         assert(guess.x.cols() == guess.u.cols() + 1 &&
                "Inconsistent time horizon"); // ensure consistent time horizon
 
         _solution.dX = MatX::Zero(_nx, _horizon + 1);
         _solution.dU = MatX::Zero(_nu, _horizon);
-        _solution.y  = MatX::Zero(_nc, _horizon + 1);
         _solution.z  = MatX::Zero(_nc, _horizon + 1);
+        _solution.y  = MatX::Zero(_nc, _horizon + 1);
 
         MatX tmp;
         VecX tmp2;
+
+#ifdef DEBUG
+        std::cout << "Initialization" << std::endl;
+        std::cout << "=============" << std::endl;
+#endif
 
         for (uint k = 0; k < _horizon; ++k)
         {
@@ -139,6 +146,24 @@ class admm_qp
             // Get c
             _stages[k].c =
               _ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k));
+
+#ifdef DEBUG
+            std::cout << "Stage " << k << std::endl;
+            std::cout << "=============" << std::endl;
+            std::cout << "A:" << std::endl << _stages[k].A << std::endl;
+            std::cout << "B:" << std::endl << _stages[k].B << std::endl;
+            std::cout << "gamma:" << std::endl << _stages[k].gamma << std::endl;
+            std::cout << "Q:" << std::endl << _stages[k].Q << std::endl;
+            std::cout << "S:" << std::endl << _stages[k].S << std::endl;
+            std::cout << "R:" << std::endl << _stages[k].R << std::endl;
+            std::cout << "q:" << std::endl << _stages[k].q << std::endl;
+            std::cout << "r:" << std::endl << _stages[k].r << std::endl;
+            std::cout << "D:" << std::endl << _stages[k].D << std::endl;
+            std::cout << "E:" << std::endl << _stages[k].E << std::endl;
+            std::cout << "c:" << std::endl << _stages[k].c << std::endl;
+            std::cout << "=============" << std::endl;
+            std::cin.get();
+#endif
         }
 
         // Terminal values for Q, q, D and c
@@ -168,25 +193,41 @@ class admm_qp
         _stages[_horizon].c = _ocp.constraints->evaluate(_horizon,
                                                          _guess.x.col(_horizon),
                                                          VecX::Zero(1));
+#ifdef DEBUG
+        std::cout << "Terminal stage " << std::endl;
+        std::cout << "=============" << std::endl;
+        std::cout << "Q:" << std::endl << _stages[_horizon].Q << std::endl;
+        std::cout << "q:" << std::endl << _stages[_horizon].q << std::endl;
+        std::cout << "D:" << std::endl << _stages[_horizon].D << std::endl;
+        std::cout << "c:" << std::endl << _stages[_horizon].c << std::endl;
+        std::cout << "=============" << std::endl;
+        std::cin.get();
+#endif
     }
 
     Solution solve()
     {
-        MatX   r(_nc, _horizon + 1);
-        MatX   sx(_nx, _horizon + 1), su(_nu, _horizon);
-        double r_prim_norm, r_dual_norm;
+#ifdef DEBUG
+        std::cout << "Solving with ADMM" << std::endl;
+        std::cout << "=============" << std::endl;
+#endif
 
         for (uint i = 0; i < 100; ++i)
         {
-            // _solution.y.setZero();
-            // _solution.z.setZero();
-
             solvers::lqr::Output out = _lqr();
             _solution.dX_hat         = out.x;
             _solution.P              = out.P;
             _solution.p              = out.p;
 
-            MatX prev_z = _solution.z;
+#ifdef DEBUG
+            std::cout << "LQR solution, iteration " << i << std::endl;
+            std::cout << "=============" << std::endl;
+            std::cout << "x:" << std::endl;
+            std::cout << out.x << std::endl;
+            std::cout << "u:" << std::endl;
+            std::cout << out.u << std::endl;
+            std::cout << "=============" << std::endl;
+#endif
             _step(_solution.dX_hat,
                   out.u,
                   _solution.dX,
@@ -194,46 +235,50 @@ class admm_qp
                   _solution.y,
                   _solution.z);
 
-            MatX dz = _solution.z - prev_z;
-
-            // Calculate residuals
+#ifdef DEBUG
+            std::cout << "Update step, iteration " << i << std::endl;
+            std::cout << "=============" << std::endl;
+            std::cout << "x:" << std::endl;
+            std::cout << _solution.dX << std::endl;
+            std::cout << "u:" << std::endl;
+            std::cout << _solution.dU << std::endl;
+            std::cout << "z:" << std::endl;
+            std::cout << _solution.z << std::endl;
+            std::cout << "y:" << std::endl;
+            std::cout << _solution.y << std::endl;
+            std::cout << "=============" << std::endl;
+            std::cin.get();
+#endif
 
             // TODO: correct rho update should ensure constraints aren't
             // violated
-            r_prim_norm = 0.0;
-            r_dual_norm = 0.0;
-            for (int k = 0; k <= _horizon; ++k)
+            /*
+            bool updated = false;
+            for (uint k = 0; k < _horizon; ++k)
             {
-                r.col(k) =
-                  _stages[k].D * _solution.dX.col(k) - _solution.z.col(k);
-                if (k != _horizon)
+                VecX c = _ocp.constraints->evaluate(k,
+                                                    _solution.dX.col(k),
+                                                    _solution.dU.col(k));
+                for (uint l = 0; l < _nc; ++l)
                 {
-                    r.col(k) += _stages[k].E * _solution.dU.col(k);
-                }
-                r_prim_norm += r.col(k).squaredNorm();
-
-                sx.col(k) = _stages[k].D.transpose() * dz.col(k);
-
-                r_dual_norm += sx.col(k).squaredNorm();
-
-                if (k != _horizon)
-                {
-                    su.col(k)    = _stages[k].E.transpose() * dz.col(k);
-                    r_dual_norm += su.col(k).squaredNorm();
+                    if (c(l) < 0)
+                    {
+                        _rho    += 0.3;
+                        updated  = true;
+                        break;
+                    }
                 }
             }
 
-            r_prim_norm = std::sqrt(r_prim_norm);
-            r_dual_norm = std::sqrt(r_dual_norm);
+            if (!updated)
+            {
+                _rho = std::max(_rho - 0.05, 0.01);
+            }
+            */
 
-            if (r_prim_norm > 10 * r_dual_norm)
-            {
-                _rho *= 2;
-            }
-            else if (r_dual_norm > 10 * r_prim_norm)
-            {
-                _rho /= 2;
-            }
+#ifdef DEBUG
+            std::cout << "rho: " << _rho << std::endl;
+#endif
 
             // TODO: termination
         }
@@ -270,6 +315,8 @@ class admm_qp
     double       _rho   = 0.1;
 
     const int _lqr_repeat_iter = 25;
+
+    MatX _r_prim, _r_dual;
 
     solvers::lqr::Output _lqr()
     {
@@ -310,24 +357,21 @@ class admm_qp
             z_hat = _alpha * (_stages[k].D * dX_hat.col(k) +
                               _stages[k].E * dU_hat.col(k)) +
                     (1 - _alpha) * z.col(k);
-            dX.col(k) = _alpha * dX_hat.col(k) + (1 - _alpha) * dX.col(k);
-            dU.col(k) = _alpha * dU_hat.col(k) + (1 - _alpha) * dU.col(k);
-            z.col(k)  = _stages[k].c.cwiseMin(z_hat + 1 / _rho * y.col(k));
-            y.col(k)  = y.col(k) + _rho * (z_hat - z.col(k));
+            std::cout << z.col(k).transpose() << " vs " << z_hat.transpose()
+                      << std::endl;
+            dX.col(k)  = _alpha * dX_hat.col(k) + (1 - _alpha) * dX.col(k);
+            dU.col(k)  = _alpha * dU_hat.col(k) + (1 - _alpha) * dU.col(k);
+            z.col(k)   = (-_stages[k].c).cwiseMax(z_hat + 1 / _rho * y.col(k));
+            y.col(k)  += _rho * (z_hat - z.col(k));
         }
-
         z_hat = _alpha * _stages[_horizon].D * dX_hat.col(_horizon) +
                 (1 - _alpha) * z.col(_horizon);
         dX.col(_horizon) =
           _alpha * dX_hat.col(_horizon) + (1 - _alpha) * dX.col(_horizon);
 
         z.col(_horizon) =
-          _stages[_horizon].c.cwiseMin(z_hat + 1 / _rho * y.col(_horizon));
-        y.col(_horizon) = y.col(_horizon) + _rho * (z_hat - z.col(_horizon));
-        // std::cout << "Next step:" << std::endl;
-        // std::cout << "z: " << z << std::endl;
-        // std::cout << "zhat: " << z_hat << std::endl;
-        // std::cout << "y: " << y << std::endl;
+          (-_stages[_horizon].c).cwiseMax(z_hat + 1 / _rho * y.col(_horizon));
+        y.col(_horizon) += _rho * (z_hat - z.col(_horizon));
     }
 };
 }

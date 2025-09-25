@@ -17,7 +17,7 @@ class csqp
   public:
     csqp(const OCP &ocp)
       : _ocp(ocp)
-      , _horizon(10)
+      , _horizon(2)
       , _nx(ocp.dynamics->output_size())
       , _nu(ocp.dynamics->control_size())
       , _nc(ocp.constraints->output_size())
@@ -26,12 +26,6 @@ class csqp
                  MatX::Zero(_nx, _horizon),
                  MatX::Zero(_nc, _horizon + 1) })
     {
-        // for (int i = 0; i < _horizon; ++i)
-        //{
-        //     _guess.x(0, i) = static_cast<double>(rand() % 100) / 100;
-        //     _guess.x(1, i) = static_cast<double>(rand() % 100) / 100;
-        //     _guess.u(0, i) = static_cast<double>(rand() % 100) / 100;
-        // }
     }
 
     Guess solve()
@@ -71,7 +65,7 @@ class csqp
                 break;
             }
 
-            if (i == 50) break;
+            if (i == 1) break;
         }
 
         return _guess;

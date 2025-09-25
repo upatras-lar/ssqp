@@ -1,7 +1,15 @@
 # Compiler
-CXX = g++
-CXXFLAGS = -O3
-INCLUDES = -I/usr/include/eigen3 -I./src/
+CXX := g++
+CXXFLAGS := -std=c++17
+INCLUDES := -I/usr/include/eigen3 -I./src/
+
+DEBUG ?= 0
+
+ifeq ($(DEBUG), 1)
+	CXXFLAGS += -DDEBUG -O0
+else
+	CXXFLAGS += -O2
+endif
 
 build/main: main.cpp
 	$(CXX) $(INCLUDES) main.cpp -o build/main $(CXXFLAGS)
