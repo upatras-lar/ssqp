@@ -310,7 +310,7 @@ class admm_qp
 
     Solution _solution;
 
-    const double _alpha = 1.6;
+    const double _alpha = 1;
     const double _sigma = 10e-6;
     double       _rho   = 0.1;
 
@@ -357,8 +357,6 @@ class admm_qp
             z_hat = _alpha * (_stages[k].D * dX_hat.col(k) +
                               _stages[k].E * dU_hat.col(k)) +
                     (1 - _alpha) * z.col(k);
-            std::cout << z.col(k).transpose() << " vs " << z_hat.transpose()
-                      << std::endl;
             dX.col(k)  = _alpha * dX_hat.col(k) + (1 - _alpha) * dX.col(k);
             dU.col(k)  = _alpha * dU_hat.col(k) + (1 - _alpha) * dU.col(k);
             z.col(k)   = (-_stages[k].c).cwiseMax(z_hat + 1 / _rho * y.col(k));

@@ -76,22 +76,19 @@ Output lqr(const Input &input, const double rho = 0.1, const double alpha = 1.6,
 
     for (int k = 0; k < input.horizon; ++k)
     {
-        Qxx[k] += rho / 2 * input.D[k].transpose() * input.D[k] +
+        Qxx[k] += rho * input.D[k].transpose() * input.D[k] +
                   sigma / 2 * MatX::Identity(input.nx, input.nx);
-        Qxu[k] = rho / 2 * input.D[k].transpose() * input.E[k];
-        Quu[k] = rho / 2 * input.E[k].transpose() * input.E[k] +
+        Qxu[k] = rho * input.D[k].transpose() * input.E[k];
+        Quu[k] = rho * input.E[k].transpose() * input.E[k] +
                  sigma / 2 * MatX::Identity(input.nu, input.nu);
 
         qx[k] += input.D[k].transpose() * input.y.col(k) -
                  rho * input.D[k].transpose() * input.z.col(k) -
                  sigma * input.x.col(k);
 
-        // TODO: if constraints are not violated, shouldn't this be 0?
         qu[k] += input.E[k].transpose() * input.y.col(k) -
                  rho * input.E[k].transpose() * input.z.col(k) -
                  sigma * input.u.col(k);
-
-        std::cout << "qu[" << k << "]:" << std::endl << qu[k] << std::endl;
     }
 
     Qt = input.Qt + rho / 2 * input.Dt.transpose() * input.Dt;

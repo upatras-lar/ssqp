@@ -56,7 +56,7 @@ class Cost : public ssqp::cost::AbstractCost
     void hessian_uu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Huu) const override
     {
-        Huu = (Eigen::Matrix<double, 1, 1>() << 0.002).finished();
+        Huu = (Eigen::Matrix<double, 1, 1>() << 0.2).finished();
     }
 };
 
@@ -71,8 +71,8 @@ class Constraints : public ssqp::constraint::AbstractConstraint
                         const ssqp::VecX &u) const override
     {
         Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
-        v(0)              = u(0) + 1000;
-        v(1)              = 1000 - u(0);
+        v(0)              = u(0) + 10;
+        v(1)              = 10 - u(0);
         return v;
     }
 
