@@ -82,26 +82,30 @@ Output lqr(const Input &input, const double rho = 0.1, const double alpha = 1.6,
         Quu[k] = rho / 2 * input.E[k].transpose() * input.E[k] +
                  sigma / 2 * MatX::Identity(input.nu, input.nu);
 
-        VecX z  = -input.z.col(k) + 1 / rho * input.y.col(k);
-        qx[k]  += rho * input.D[k].transpose() * z - sigma * input.x.col(k);
-        qu[k]  += rho * input.E[k].transpose() * z - sigma * input.u.col(k);
+        qx[k] += input.D[k].transpose() * input.y.col(k) -
+                 rho * input.D[k].transpose() * input.z.col(k) -
+                 sigma * input.x.col(k);
+
+        // TODO: if constraints are not violated, shouldn't this be 0?
+        qu[k] += input.E[k].transpose() * input.y.col(k) -
+                 rho * input.E[k].transpose() * input.z.col(k) -
+                 sigma * input.u.col(k);
+
+        std::cout << "qu[" << k << "]:" << std::endl << qu[k] << std::endl;
     }
 
     Qt = input.Qt + rho / 2 * input.Dt.transpose() * input.Dt;
-    qt = input.qt +
-         rho * input.Dt.transpose() *
-           (-input.z.col(input.horizon) + 1 / rho * input.y.col(input.horizon));
+    qt = input.qt + input.Dt.transpose() * input.y.col(input.horizon) -
+         rho * input.Dt.transpose() * input.z.col(input.horizon);
 
     output.P[input.horizon] = input.Qt;
     output.p[input.horizon] = input.qt;
 
-    VecX r = VecX::Zero(input.nu);
-
     // Backward pass
     for (int k = input.horizon - 1; k >= 0; --k)
     {
-        VecX h = r + input.B[k].transpose() *
-                       (output.p[k + 1] + output.P[k + 1] * input.gamma[k]);
+        VecX h = qu[k] + input.B[k].transpose() *
+                           (output.p[k + 1] + output.P[k + 1] * input.gamma[k]);
 
         MatX G = Qxu[k].transpose() +
                  input.B[k].transpose() * output.P[k + 1] * input.A[k];
