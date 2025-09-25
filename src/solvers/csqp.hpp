@@ -17,7 +17,7 @@ class csqp
   public:
     csqp(const OCP &ocp)
       : _ocp(ocp)
-      , _horizon(2)
+      , _horizon(10)
       , _nx(ocp.dynamics->output_size())
       , _nu(ocp.dynamics->control_size())
       , _nc(ocp.constraints->output_size())
@@ -65,7 +65,7 @@ class csqp
                 break;
             }
 
-            if (i == 1) break;
+            if (i == 100) break;
         }
 
         return _guess;
