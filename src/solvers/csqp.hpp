@@ -1,9 +1,15 @@
+#include <iostream>
+#include <vector>
+#include <functional>
+
 #include "types.hpp"
-#include "constraint/AbstractConstraint.hpp"
-#include "cost/AbstractCost.hpp"
-#include "dynamics/AbstractDynamics.hpp"
+#include "model/constraint/AbstractConstraint.hpp"
+#include "model/cost/AbstractCost.hpp"
+#include "model/dynamics/AbstractDynamics.hpp"
 
 #include "solvers/admm_qp.hpp"
+#include "sqp_step/gss.hpp"
+#include "sqp_step/filter.hpp"
 
 #ifndef SSQP_CSQP_HPP
 #define SSQP_CSQP_HPP
@@ -21,6 +27,11 @@ class csqp
       , _nx(ocp.dynamics->output_size())
       , _nu(ocp.dynamics->control_size())
       , _nc(ocp.constraints->output_size())
+      , _filter_ls_costs(
+          { [this](const MatX &x, const MatX &u) { return this->_lf(x, u); },
+            [this](const MatX &x, const MatX &u)
+            { return this->_gammaf(x, u); },
+            [this](const MatX &x, const MatX &u) { return this->_cf(x, u); } })
       , _guess({ MatX::Zero(_nx, _horizon + 1),
                  MatX::Zero(_nu, _horizon),
                  MatX::Zero(_nx, _horizon),
@@ -48,9 +59,19 @@ class csqp
             std::cout << "dU: " << sol.dU << std::endl;
 
             // Guess (x, u) update
-            _golden_section_search(_guess.x, _guess.u, sol.dX, sol.dU);
-            //_guess.x += sol.dX;
-            //_guess.u += sol.dU;
+            /*
+            std::tie(_guess.x, _guess.u) = step::gss(_guess.x,
+                                                     _guess.u,
+                                                     sol.dX,
+                                                     sol.dU,
+                                                     _filter_ls_costs,
+                                                     { 1, 0.1, 0.1 });
+            */
+            std::tie(_guess.x, _guess.u) = step::filter(_guess.x,
+                                                        _guess.u,
+                                                        sol.dX,
+                                                        sol.dU,
+                                                        _filter_ls_costs);
 
             // Lagrange multiplier update
             for (uint k = 0; k < _horizon; ++k)
@@ -65,18 +86,19 @@ class csqp
                 break;
             }
 
-            if (i == 100) break;
+            if (i == 50) break;
         }
 
         return _guess;
     }
 
   protected:
-    // TODO: change to H and H-1
     const int _horizon;
     int       _nx, _nu, _nc;
 
     const double _tolerance = 10e-3;
+    const std::vector<std::function<double(const MatX &, const MatX &)>>
+      _filter_ls_costs;
 
     OCP   _ocp;
     Guess _guess;
@@ -168,59 +190,8 @@ class csqp
                tcon_val.lpNorm<Eigen::Infinity>() <= _tolerance;
     }
 
-    // Line search, updating x, u
-    // TODO: validity check
-    void _golden_section_search(MatX &x, MatX &u, MatX &dX, MatX &dU)
-    {
-        static const double invphi    = (std::sqrt(5) - 1) / 2;
-        static const double tolerance = 1e-5;
-
-        MatX a1 = x;
-        MatX a2 = u;
-
-        MatX b1 = x + dX;
-        MatX b2 = u + dU;
-
-        while ((b1 - a1).minCoeff() > tolerance ||
-               (b2 - a2).minCoeff() > tolerance)
-        {
-            MatX c1 = b1 - (b1 - a1) * invphi;
-            MatX c2 = b2 - (b2 - a2) * invphi;
-
-            MatX d1 = a1 + (b1 - a1) * invphi;
-            MatX d2 = a2 + (b2 - a2) * invphi;
-
-            // TODO: this assumes c or d are min
-            if (_isCostSmaller(c1, c2, d1, d2))
-            {
-                b1 = d1;
-                b2 = d2;
-            }
-            else
-            {
-                a1 = c1;
-                a2 = c2;
-            }
-        }
-
-        x = (b1 + a1) / 2;
-        u = (b2 + a2) / 2;
-    }
-
-    // Line search cost functions
-
-    // Using any cost function (filter search), returns whether (x1, u1) is
-    // smaller than (x2, u2)
-    // TODO: reuse function evaluations
-    bool _isCostSmaller(const MatX &x1, const MatX &u1, const MatX &x2,
-                        const MatX &u2)
-    {
-        return _lf(x1, u1) < _lf(x2, u2) || _gammaf(x1, u1) < _gammaf(x2, u2) ||
-               _cf(x1, u1) < _cf(x2, u2);
-    }
-
     // Trajectory cost
-    double _lf(const MatX &x, const MatX &u)
+    double _lf(const MatX &x, const MatX &u) const
     {
         double sum = 0.0;
         for (uint k = 0; k < _horizon; ++k)
@@ -233,7 +204,7 @@ class csqp
     }
 
     // Gap violation
-    double _gammaf(const MatX &x, const MatX &u)
+    double _gammaf(const MatX &x, const MatX &u) const
     {
         double sum = 0.0;
         for (uint k = 0; k < _horizon; ++k)
@@ -247,7 +218,7 @@ class csqp
     }
 
     // Constraint violation
-    double _cf(const MatX &x, const MatX &u)
+    double _cf(const MatX &x, const MatX &u) const
     {
         double sum = 0.0;
         for (uint k = 0; k < _horizon; ++k)
