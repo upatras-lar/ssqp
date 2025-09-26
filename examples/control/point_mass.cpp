@@ -30,7 +30,8 @@ class Cost : public ssqp::cost::AbstractCost
                     const ssqp::VecX &u) const override
     {
         // a(k)^2 * dt
-        return u(0) * u(0) * 0.1 + 20 * (x(0) - 1) * (x(0) - 1);
+        // TODO: u weight issue (larger -> blows up)
+        return u(0) * u(0) * 0.1 + 200 * (x(0) - 1) * (x(0) - 1);
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
@@ -71,8 +72,8 @@ class Constraints : public ssqp::constraint::AbstractConstraint
                         const ssqp::VecX &u) const override
     {
         Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
-        v(0)              = u(0) + 10;
-        v(1)              = 10 - u(0);
+        v(0)              = u(0) + 1000;
+        v(1)              = 1000 - u(0);
         return v;
     }
 
