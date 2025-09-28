@@ -31,13 +31,14 @@ class Cost : public ssqp::cost::AbstractCost
     {
         // a(k)^2 * dt
         // TODO: u weight issue (larger -> blows up)
-        return u(0) * u(0) * 0.1 + 200 * (x(0) - 1) * (x(0) - 1);
+        return u(0) * u(0) * 0.1 + 20 * (x(0) - 1) * (x(0) - 1);
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                   ssqp::VecX &dx, ssqp::VecX &du) const override
     {
         dx = (Eigen::Vector2d() << 40 * (x(0) - 1), 0).finished();
+        // TODO: If this is 0, convergence succeeds
         du = (Eigen::VectorXd(1) << 0.2 * u(0)).finished();
     }
 
