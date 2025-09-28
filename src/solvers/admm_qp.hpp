@@ -266,7 +266,6 @@ class admm_qp
 #ifdef DEBUG
             std::cout << "rho: " << _rho << std::endl;
 #endif
-
             // Termination
             double tolerance_prim =
               _tolerance_abs * std::sqrt(_nc) +
@@ -367,7 +366,7 @@ class admm_qp
         input.z = _solution.z;
         input.y = _solution.y;
 
-        return solvers::lqr::lqr(input, _rho, _alpha, _sigma);
+        return solvers::lqr::lqr(input, _rho, _sigma);
     }
 
     void _step(const MatX &dX_hat, const MatX &dU_hat, MatX &dX, MatX &dU,
