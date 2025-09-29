@@ -37,6 +37,14 @@ class csqp
                  MatX::Zero(_nx, _horizon),
                  MatX::Zero(_nc, _horizon + 1) })
     {
+        /*
+        for (int i = 0; i < _horizon; ++i)
+        {
+            _guess.x(0, i) = static_cast<double>(rand() % 100) / 100;
+            _guess.x(1, i) = static_cast<double>(rand() % 100) / 100;
+            _guess.u(0, i) = static_cast<double>(rand() % 100) / 100;
+        }
+        */
     }
 
     Guess solve()

@@ -71,18 +71,16 @@ Output lqr(const Input &input, const double rho = 0.1,
     std::vector<VecX> qx = input.qx;
     std::vector<VecX> qu = input.qu;
 
-    std::cout << "BC: qu[" << 0 << "]: " << qu[0].transpose() << std::endl;
-
-    MatX Qt;
-    VecX qt;
+    MatX Qt = input.Qt;
+    VecX qt = input.qt;
 
     for (int k = 0; k < input.horizon; ++k)
     {
         Qxx[k] += rho * input.D[k].transpose() * input.D[k] +
-                  sigma / 2 * MatX::Identity(input.nx, input.nx);
-        Qxu[k] = rho * input.D[k].transpose() * input.E[k];
-        Quu[k] = rho * input.E[k].transpose() * input.E[k] +
-                 sigma / 2 * MatX::Identity(input.nu, input.nu);
+                  sigma * MatX::Identity(input.nx, input.nx);
+        Qxu[k] += rho * input.D[k].transpose() * input.E[k];
+        Quu[k] += rho * input.E[k].transpose() * input.E[k] +
+                  sigma * MatX::Identity(input.nu, input.nu);
 
         qx[k] += input.D[k].transpose() * input.y.col(k) -
                  rho * input.D[k].transpose() * input.z.col(k) -
@@ -91,13 +89,12 @@ Output lqr(const Input &input, const double rho = 0.1,
         qu[k] += input.E[k].transpose() * input.y.col(k) -
                  rho * input.E[k].transpose() * input.z.col(k) -
                  sigma * input.u.col(k);
-        std::cout << "qu[" << k << "]: " << qu[k].transpose() << std::endl;
     }
-    std::cout << "===========" << std::endl;
 
-    Qt = input.Qt + rho * input.Dt.transpose() * input.Dt;
-    qt = input.qt + input.Dt.transpose() * input.y.col(input.horizon) -
-         rho * input.Dt.transpose() * input.z.col(input.horizon);
+    Qt += rho * input.Dt.transpose() * input.Dt +
+          sigma * MatX::Identity(input.nx, input.nx);
+    qt += input.Dt.transpose() * input.y.col(input.horizon) -
+          rho * input.Dt.transpose() * input.z.col(input.horizon);
 
     output.P[input.horizon] = input.Qt;
     output.p[input.horizon] = input.qt;
@@ -105,16 +102,14 @@ Output lqr(const Input &input, const double rho = 0.1,
     // Backward pass
     for (int k = input.horizon - 1; k >= 0; --k)
     {
+
         VecX h = qu[k] + input.B[k].transpose() *
                            (output.p[k + 1] + output.P[k + 1] * input.gamma[k]);
-        std::cout << "h[" << k << "]: " << h.transpose() << std::endl;
 
         MatX G = Qxu[k].transpose() +
                  input.B[k].transpose() * output.P[k + 1] * input.A[k];
 
         MatX H = Quu[k] + input.B[k].transpose() * output.P[k + 1] * input.B[k];
-
-        std::cout << "H[" << k << "]: " << std::endl << H << std::endl;
 
         // TODO: is LLT appropriate?
         if (input.nu > 1)
@@ -138,8 +133,6 @@ Output lqr(const Input &input, const double rho = 0.1,
                       (input.A[k] + input.B[k] * output.K[k]).transpose() *
                         (output.p[k + 1] + output.P[k + 1] * input.gamma[k]);
     }
-
-    std::cout << "---------------------------" << std::endl;
 
     // Forward pass
     output.x.col(0) = VecX::Zero(input.nx);
