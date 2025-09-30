@@ -20,7 +20,7 @@ namespace solvers
 {
 struct csqpParams
 {
-    uint   max_iter  = 100'000;
+    uint   max_iter  = 10'000;
     double tolerance = 1e-2;
 };
 
@@ -58,19 +58,9 @@ class csqp
     {
         for (_iter = 0;; ++_iter)
         {
-            /*
-            std::cout << "SQP iteration: " << _iter + 1 << std::endl;
-            std::cout << "Guess: " << std::endl
-                      << "x =" << std::endl
-                      << _guess.x << std::endl
-                      << "u =" << std::endl
-                      << _guess.u << std::endl;*/
             admm_qp qp_solver(_ocp, _guess);
 
             admm_qp::Solution sol = qp_solver.solve();
-
-            // std::cout << "dX: " << sol.dX << std::endl;
-            // std::cout << "dU: " << sol.dU << std::endl;
 
             // Guess (x, u) update
             std::tie(_guess.x, _guess.u) = step::filter(_guess.x,
@@ -109,9 +99,6 @@ class csqp
 
     uint _iter;
 
-    // TODO: fix
-    // check: criteria 4 & 5 incorrect
-    // criteria 3 & 4 should be checked for each k, not sum
     bool _check_termination()
     {
         if (_iter == _params.max_iter)
@@ -242,7 +229,6 @@ class csqp
         double sum = 0.0;
         for (uint k = 0; k < _horizon; ++k)
         {
-            // TODO: what is [ck(...)]_{-} ?
             sum += _ocp.constraints->evaluate(k, x.col(k), u.col(k))
                      .lpNorm<Eigen::Infinity>();
         }
