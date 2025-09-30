@@ -10,42 +10,6 @@ namespace solvers
 {
 namespace lqr
 {
-// TODO: change to vector of structs
-struct Input
-{
-    int horizon, nx, nu;
-
-    std::vector<MatX> A, B;
-    std::vector<VecX> gamma;
-    std::vector<MatX> Qxx, Qxu, Quu;
-    std::vector<VecX> qx, qu;
-
-    std::vector<MatX> D, E;
-
-    MatX Qt;
-    VecX qt;
-    MatX Dt;
-
-    MatX x, u, z, y;
-
-    Input(const int horizon, const int nx, const int nu)
-      : horizon(horizon)
-      , nx(nx)
-      , nu(nu)
-      , A(std::vector<MatX>(horizon))
-      , B(std::vector<MatX>(horizon))
-      , gamma(std::vector<VecX>(horizon))
-      , Qxx((std::vector<MatX>(horizon)))
-      , Qxu(std::vector<MatX>(horizon))
-      , Quu((std::vector<MatX>(horizon)))
-      , qx(std::vector<VecX>(horizon))
-      , qu(std::vector<VecX>(horizon))
-      , D((std::vector<MatX>(horizon)))
-      , E((std::vector<MatX>(horizon)))
-    {
-    }
-};
-
 struct Output
 {
     MatX              x, u;
@@ -53,66 +17,73 @@ struct Output
     std::vector<VecX> p, k;
 };
 
-Output lqr(const Input &input, const double rho = 0.1,
-           const double sigma = 10e-6)
+Output lqr(const QPData &qp, const admmQPSolution &current_sol,
+           const double rho = 0.1, const double sigma = 10e-6)
 {
     // Initialization
     Output output {
-        MatX(input.nx, input.horizon + 1),    MatX(input.nu, input.horizon),
-        std::vector<MatX>(input.horizon + 1), std::vector<MatX>(input.horizon),
-        std::vector<VecX>(input.horizon + 1), std::vector<VecX>(input.horizon)
+        MatX(qp.nx, qp.horizon + 1),       MatX(qp.nu, qp.horizon),
+        std::vector<MatX>(qp.horizon + 1), std::vector<MatX>(qp.horizon),
+        std::vector<VecX>(qp.horizon + 1), std::vector<VecX>(qp.horizon)
     };
 
     // Add constraints to cost
-    std::vector<MatX> Qxx = input.Qxx;
-    std::vector<MatX> Qxu = input.Qxu;
-    std::vector<MatX> Quu = input.Quu;
+    std::vector<MatX> Qxx(qp.horizon);
+    std::vector<MatX> Qxu(qp.horizon);
+    std::vector<MatX> Quu(qp.horizon);
 
-    std::vector<VecX> qx = input.qx;
-    std::vector<VecX> qu = input.qu;
+    std::vector<VecX> qx(qp.horizon);
+    std::vector<VecX> qu(qp.horizon);
 
-    MatX Qt = input.Qt;
-    VecX qt = input.qt;
+    MatX Qt = qp.Qxx_t;
+    VecX qt = qp.qx_t;
 
-    for (int k = 0; k < input.horizon; ++k)
+    for (int k = 0; k < qp.horizon; ++k)
     {
-        Qxx[k] += rho * input.D[k].transpose() * input.D[k] +
-                  sigma * MatX::Identity(input.nx, input.nx);
-        Qxu[k] += rho * input.D[k].transpose() * input.E[k];
-        Quu[k] += rho * input.E[k].transpose() * input.E[k] +
-                  sigma * MatX::Identity(input.nu, input.nu);
+        Qxx[k] = qp.stages[k].Qxx +
+                 rho * qp.stages[k].D.transpose() * qp.stages[k].D +
+                 sigma * MatX::Identity(qp.nx, qp.nx);
+        Qxu[k] =
+          qp.stages[k].Qxu + rho * qp.stages[k].D.transpose() * qp.stages[k].E;
+        Quu[k] = qp.stages[k].Quu +
+                 rho * qp.stages[k].E.transpose() * qp.stages[k].E +
+                 sigma * MatX::Identity(qp.nu, qp.nu);
 
-        qx[k] += input.D[k].transpose() * input.y.col(k) -
-                 rho * input.D[k].transpose() * input.z.col(k) -
-                 sigma * input.x.col(k);
+        qx[k] = qp.stages[k].qx +
+                qp.stages[k].D.transpose() * current_sol.y.col(k) -
+                rho * qp.stages[k].D.transpose() * current_sol.z.col(k) -
+                sigma * current_sol.dX.col(k);
 
-        qu[k] += input.E[k].transpose() * input.y.col(k) -
-                 rho * input.E[k].transpose() * input.z.col(k) -
-                 sigma * input.u.col(k);
+        qu[k] = qp.stages[k].qu +
+                qp.stages[k].E.transpose() * current_sol.y.col(k) -
+                rho * qp.stages[k].E.transpose() * current_sol.z.col(k) -
+                sigma * current_sol.dU.col(k);
     }
 
-    Qt += rho * input.Dt.transpose() * input.Dt +
-          sigma * MatX::Identity(input.nx, input.nx);
-    qt += input.Dt.transpose() * input.y.col(input.horizon) -
-          rho * input.Dt.transpose() * input.z.col(input.horizon);
+    Qt +=
+      rho * qp.Dt.transpose() * qp.Dt + sigma * MatX::Identity(qp.nx, qp.nx);
+    qt += qp.Dt.transpose() * current_sol.y.col(qp.horizon) -
+          rho * qp.Dt.transpose() * current_sol.z.col(qp.horizon);
 
-    output.P[input.horizon] = input.Qt;
-    output.p[input.horizon] = input.qt;
+    output.P[qp.horizon] = qp.Qxx_t;
+    output.p[qp.horizon] = qp.qx_t;
 
     // Backward pass
-    for (int k = input.horizon - 1; k >= 0; --k)
+    for (int k = qp.horizon - 1; k >= 0; --k)
     {
 
-        VecX h = qu[k] + input.B[k].transpose() *
-                           (output.p[k + 1] + output.P[k + 1] * input.gamma[k]);
+        VecX h =
+          qu[k] + qp.stages[k].B.transpose() *
+                    (output.p[k + 1] + output.P[k + 1] * qp.stages[k].gamma);
 
         MatX G = Qxu[k].transpose() +
-                 input.B[k].transpose() * output.P[k + 1] * input.A[k];
+                 qp.stages[k].B.transpose() * output.P[k + 1] * qp.stages[k].A;
 
-        MatX H = Quu[k] + input.B[k].transpose() * output.P[k + 1] * input.B[k];
+        MatX H = Quu[k] +
+                 qp.stages[k].B.transpose() * output.P[k + 1] * qp.stages[k].B;
 
         // TODO: is LLT appropriate?
-        if (input.nu > 1)
+        if (qp.nu > 1)
         {
             Eigen::LLT H_llt = H.llt();
             output.K[k]      = -H_llt.solve(G);
@@ -125,23 +96,25 @@ Output lqr(const Input &input, const double rho = 0.1,
             output.k[k]  = -coeff * h;
         }
 
-        output.P[k] = Qxx[k] +
-                      input.A[k].transpose() * output.P[k + 1] * input.A[k] -
-                      output.K[k].transpose() * H * output.K[k];
+        output.P[k] =
+          Qxx[k] +
+          qp.stages[k].A.transpose() * output.P[k + 1] * qp.stages[k].A -
+          output.K[k].transpose() * H * output.K[k];
 
-        output.p[k] = qx[k] + output.K[k].transpose() * qu[k] +
-                      (input.A[k] + input.B[k] * output.K[k]).transpose() *
-                        (output.p[k + 1] + output.P[k + 1] * input.gamma[k]);
+        output.p[k] =
+          qx[k] + output.K[k].transpose() * qu[k] +
+          (qp.stages[k].A + qp.stages[k].B * output.K[k]).transpose() *
+            (output.p[k + 1] + output.P[k + 1] * qp.stages[k].gamma);
     }
 
     // Forward pass
-    output.x.col(0) = VecX::Zero(input.nx);
+    output.x.col(0) = VecX::Zero(qp.nx);
 
-    for (uint k = 0; k < input.horizon; ++k)
+    for (uint k = 0; k < qp.horizon; ++k)
     {
         output.x.col(k + 1) =
-          (input.A[k] + input.B[k] * output.K[k]) * output.x.col(k) +
-          input.B[k] * output.k[k] + input.gamma[k];
+          (qp.stages[k].A + qp.stages[k].B * output.K[k]) * output.x.col(k) +
+          qp.stages[k].B * output.k[k] + qp.stages[k].gamma;
         output.u.col(k) = output.K[k] * output.x.col(k) + output.k[k];
     }
 

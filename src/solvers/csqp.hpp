@@ -58,9 +58,9 @@ class csqp
     {
         for (_iter = 0;; ++_iter)
         {
-            admm_qp qp_solver(_ocp, _guess);
-
-            admm_qp::Solution sol = qp_solver.solve();
+            QPData         qp = _setup_qp();
+            admm_qp        qp_solver(qp, _guess);
+            admmQPSolution sol = qp_solver.solve();
 
             // Guess (x, u) update
             std::tie(_guess.x, _guess.u) = step::filter(_guess.x,
@@ -98,6 +98,137 @@ class csqp
     Guess      _guess;
 
     uint _iter;
+
+    QPData _setup_qp()
+    {
+        QPData qp(_horizon, _nx, _nu, _nc);
+
+        VecX tmpVec;
+        MatX tmpMat;
+
+        for (uint k = 0; k < _horizon; ++k)
+        {
+            // Get A_k and B_k matrices
+            _ocp.dynamics->gradient(k,
+                                    _guess.x.col(k),
+                                    _guess.u.col(k),
+                                    qp.stages[k].A,
+                                    qp.stages[k].B);
+
+            // Get gamma_k
+            qp.stages[k].gamma =
+              _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)) -
+              _guess.x.col(k + 1);
+
+            // Calculate Q_k
+            _ocp.costs->hessian_xx(k,
+                                   _guess.x.col(k),
+                                   _guess.u.col(k),
+                                   qp.stages[k].Qxx);
+
+            _ocp.dynamics->hessprod_xx(k,
+                                       _guess.x.col(k),
+                                       _guess.u.col(k),
+                                       _guess.lambda.col(k),
+                                       tmpMat);
+            qp.stages[k].Qxx += tmpMat;
+
+            _ocp.constraints->hessprod_xx(k,
+                                          _guess.x.col(k),
+                                          _guess.u.col(k),
+                                          _guess.mu.col(k),
+                                          tmpMat);
+            qp.stages[k].Qxx += tmpMat;
+
+            // Calculate S_k
+            _ocp.costs->hessian_xu(k,
+                                   _guess.x.col(k),
+                                   _guess.u.col(k),
+                                   qp.stages[k].Qxu);
+
+            _ocp.dynamics->hessprod_xu(k,
+                                       _guess.x.col(k),
+                                       _guess.u.col(k),
+                                       _guess.lambda.col(k),
+                                       tmpMat);
+            qp.stages[k].Qxu += tmpMat;
+
+            _ocp.constraints->hessprod_xu(k,
+                                          _guess.x.col(k),
+                                          _guess.u.col(k),
+                                          _guess.mu.col(k),
+                                          tmpMat);
+            qp.stages[k].Qxu += tmpMat;
+
+            // Calculate R_k
+            _ocp.costs->hessian_uu(k,
+                                   _guess.x.col(k),
+                                   _guess.u.col(k),
+                                   qp.stages[k].Quu);
+
+            _ocp.dynamics->hessprod_uu(k,
+                                       _guess.x.col(k),
+                                       _guess.u.col(k),
+                                       _guess.lambda.col(k),
+                                       tmpMat);
+            qp.stages[k].Quu += tmpMat;
+
+            _ocp.constraints->hessprod_uu(k,
+                                          _guess.x.col(k),
+                                          _guess.u.col(k),
+                                          _guess.mu.col(k),
+                                          tmpMat);
+            qp.stages[k].Quu += tmpMat;
+
+            // Get q and r
+            _ocp.costs->gradient(k,
+                                 _guess.x.col(k),
+                                 _guess.u.col(k),
+                                 qp.stages[k].qx,
+                                 qp.stages[k].qu);
+
+            // Get D and E
+            _ocp.constraints->gradient(k,
+                                       _guess.x.col(k),
+                                       _guess.u.col(k),
+                                       qp.stages[k].D,
+                                       qp.stages[k].E);
+
+            // Get c
+            qp.stages[k].c =
+              _ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k));
+        }
+
+        // Terminal values for Q, q, D and c
+        _ocp.costs->hessian_xx(_horizon,
+                               _guess.x.col(_horizon),
+                               VecX::Zero(1),
+                               qp.Qxx_t);
+        _ocp.constraints->hessprod_xx(_horizon,
+                                      _guess.x.col(_horizon),
+                                      VecX::Zero(1),
+                                      _guess.mu.col(_horizon),
+                                      tmpMat);
+        qp.Qxx_t += tmpMat;
+
+        _ocp.costs->gradient(_horizon,
+                             _guess.x.col(_horizon),
+                             VecX::Zero(1),
+                             qp.qx_t,
+                             tmpVec);
+
+        _ocp.constraints->gradient(_horizon,
+                                   _guess.x.col(_horizon),
+                                   VecX::Zero(1),
+                                   qp.Dt,
+                                   tmpMat);
+
+        qp.ct = _ocp.constraints->evaluate(_horizon,
+                                           _guess.x.col(_horizon),
+                                           VecX::Zero(1));
+
+        return qp;
+    }
 
     bool _check_termination()
     {
