@@ -72,9 +72,10 @@ class csqp
             // Lagrange multiplier update
             for (uint k = 0; k < _horizon; ++k)
             {
+                // TODO: could be -P[k] * dX_hat + p[k] ?
                 _guess.lambda.col(k) = sol.P[k] * sol.dX_hat.col(k) + sol.p[k];
             }
-            _guess.mu = sol.y;
+            _guess.mu = -sol.y;
 
             // Termination
             if (_check_termination())
@@ -232,6 +233,16 @@ class csqp
 
     bool _check_termination()
     {
+        std::cout << "Guess " << _iter + 1 << std::endl;
+        std::cout << "=============" << std::endl;
+
+        std::cout << "x: " << std::endl << _guess.x << std::endl;
+        std::cout << "u: " << std::endl << _guess.u << std::endl;
+        std::cout << "lambda: " << std::endl << _guess.lambda << std::endl;
+        std::cout << "mu: " << std::endl << _guess.mu << std::endl;
+
+        std::cout << "=============" << std::endl;
+
         if (_iter == _params.max_iter)
         {
             std::cout << "CSQP: Max iteration reached" << std::endl;
@@ -271,11 +282,17 @@ class csqp
         VecX lx_val, lu_val = VecX::Zero(_nu);
 
         VecX dx, du;
+
+        // Add terminal terms for x
         _ocp.costs->gradient(_horizon,
                              _guess.x.col(_horizon),
                              VecX::Zero(1),
                              lx_val,
                              du);
+
+        // TODO: velocity element added by lambda isn't cancelled out by
+        // anything
+        lx_val -= _guess.lambda.col(_horizon - 1);
 
         MatX dX, dU;
         _ocp.constraints->gradient(_horizon,
@@ -286,7 +303,18 @@ class csqp
 
         lx_val += _guess.mu.col(_horizon).transpose() * dX;
 
-        for (uint k = 0; k < _horizon; ++k)
+        // Add 0 terms for u
+        _ocp.costs->gradient(0, _guess.x.col(0), _guess.u.col(0), dx, du);
+        lu_val += du;
+
+        _ocp.dynamics->gradient(0, _guess.x.col(0), _guess.u.col(0), dX, dU);
+        lu_val += _guess.lambda.col(0).transpose() * dU;
+
+        _ocp.constraints->gradient(0, _guess.x.col(0), _guess.u.col(0), dX, dU);
+        lu_val -= (_guess.mu.col(0).transpose() * dU).transpose();
+
+        // Ignore x0 terms since it is fixed
+        for (uint k = 1; k < _horizon; ++k)
         {
             // Compute values of jacobian of lagrangian
             _ocp.costs->gradient(k, _guess.x.col(k), _guess.u.col(k), dx, du);
@@ -299,12 +327,9 @@ class csqp
                                     dX,
                                     dU);
 
-            // No term for x_0 since it is fixed
-            if (k > 0)
-            {
-                lx_val += (_guess.lambda.col(k).transpose() * dX).transpose();
-                lx_val -= _guess.lambda.col(k - 1);
-            }
+            lx_val += (_guess.lambda.col(k).transpose() * dX).transpose();
+            lx_val -= _guess.lambda.col(k - 1);
+
             lu_val += _guess.lambda.col(k).transpose() * dU;
 
             _ocp.constraints->gradient(k,
@@ -315,6 +340,9 @@ class csqp
             lx_val -= (_guess.mu.col(k).transpose() * dX).transpose();
             lu_val -= (_guess.mu.col(k).transpose() * dU).transpose();
         }
+
+        std::cout << "lx_val: " << lx_val.transpose() << std::endl;
+        std::cout << "lu_val: " << lu_val.transpose() << std::endl;
 
         if (lx_val.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
             lu_val.lpNorm<Eigen::Infinity>() <= _params.tolerance)
