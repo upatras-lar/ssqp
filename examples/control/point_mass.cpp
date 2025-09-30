@@ -2,6 +2,8 @@
 
 #include "solvers/csqp.hpp"
 
+#define HORIZON 10
+
 /* 1D point mass
  * state x = [p v] (position, velocity)
  * control u = [a] (acceleration)
@@ -29,24 +31,32 @@ class Cost : public ssqp::cost::AbstractCost
     double evaluate(const uint k, const ssqp::VecX &x,
                     const ssqp::VecX &u) const override
     {
-        // a(k)^2 * dt
-        // TODO: u weight issue (larger -> blows up)
-        return u(0) * u(0) * 0.01 + 20 * (x(0) - 1) * (x(0) - 1);
+        return u(0) * u(0) * 0.0001 +
+               (k == HORIZON ? (x(0) - 1) * (x(0) - 1) : 0);
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                   ssqp::VecX &dx, ssqp::VecX &du) const override
     {
-        dx = (Eigen::Vector2d() << 40 * (x(0) - 1), 0).finished();
-        // TODO: If this is 0, convergence succeeds
-        du = (Eigen::VectorXd(1) << 0.02 * u(0)).finished();
+        if (k == HORIZON)
+        {
+            dx = (Eigen::Vector2d() << 2 * (x(0) - 1), 0).finished();
+        }
+        else
+        {
+            dx = Eigen::Vector2d::Zero();
+        }
+        du = (Eigen::VectorXd(1) << 0.0002 * u(0)).finished();
     }
 
     void hessian_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Hxx) const override
     {
-        Hxx       = Eigen::Matrix2d::Zero();
-        Hxx(0, 0) = 40;
+        Hxx = Eigen::Matrix2d::Zero();
+        if (k == HORIZON)
+        {
+            Hxx(0, 0) = 2;
+        }
     }
 
     void hessian_xu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
@@ -58,7 +68,7 @@ class Cost : public ssqp::cost::AbstractCost
     void hessian_uu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Huu) const override
     {
-        Huu = (Eigen::Matrix<double, 1, 1>() << 0.02).finished();
+        Huu = (Eigen::Matrix<double, 1, 1>() << 0.0002).finished();
     }
 };
 
@@ -73,8 +83,8 @@ class Constraints : public ssqp::constraint::AbstractConstraint
                         const ssqp::VecX &u) const override
     {
         Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
-        v(0)              = u(0) + 100;
-        v(1)              = 100 - u(0);
+        v(0)              = u(0) + 10;
+        v(1)              = 10 - u(0);
         return v;
     }
 
@@ -122,7 +132,8 @@ class Dynamics : public ssqp::dynamics::AbstractDynamics
     ssqp::VecX evaluate(const uint k, const ssqp::VecX &x,
                         const ssqp::VecX &u) const override
     {
-        return (Eigen::Vector2d() << x(0) + 0.1 * x(1), x(1) + 0.1 * u(0))
+        return (Eigen::Vector2d() << x(0) + 0.1 * x(1) + 0.05 * u(0),
+                x(1) + 0.1 * u(0))
           .finished();
     }
 
@@ -136,6 +147,7 @@ class Dynamics : public ssqp::dynamics::AbstractDynamics
         dX(0, 1) = 0.1;
         dX(1, 1) = 1;
 
+        dU(0, 0) = 0.05;
         dU(1, 0) = 0.1;
     }
 
@@ -164,6 +176,7 @@ int main()
     ocp.costs       = std::make_shared<Cost>();
     ocp.constraints = std::make_shared<Constraints>();
     ocp.dynamics    = std::make_shared<Dynamics>();
+    ocp.horizon     = HORIZON;
 
     ssqp::solvers::csqp  solver(ocp);
     ssqp::solvers::Guess solution = solver.solve();

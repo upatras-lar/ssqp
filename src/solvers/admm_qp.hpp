@@ -333,8 +333,6 @@ class admm_qp
     const double _sigma = 10e-6;
     double       _rho   = 0.1;
 
-    const int _lqr_repeat_iter = 25;
-
     MatX         _r_prim, _r_dual;
     const double _tolerance_abs = 10e-4;
     const double _tolerance_rel = 10e-3;

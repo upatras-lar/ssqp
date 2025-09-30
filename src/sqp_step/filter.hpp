@@ -31,7 +31,7 @@ bool costFilter(
 std::pair<MatX, MatX> filter(
   MatX &x, MatX &u, MatX &dX, MatX &dU,
   const std::vector<std::function<double(const MatX &, const MatX &)>> costs,
-  int inv_alpha_scale_factor = 2)
+  int inv_alpha_scale_factor = 2, double min_alpha = 1e-5)
 {
     double alpha = 1.0;
 
@@ -39,7 +39,7 @@ std::pair<MatX, MatX> filter(
     step::Point offset(dX, dU);
     step::Point b(a + alpha * offset);
 
-    while (!costFilter(costs, a, b))
+    while (!costFilter(costs, a, b) && alpha >= min_alpha)
     {
         alpha /= inv_alpha_scale_factor;
         b      = a + alpha * offset;

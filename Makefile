@@ -8,7 +8,7 @@ DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	CXXFLAGS += -DDEBUG -O0
 else
-	CXXFLAGS += -O2
+	CXXFLAGS += -O3
 endif
 
 build/main: main.cpp
