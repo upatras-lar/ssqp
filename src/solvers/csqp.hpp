@@ -18,12 +18,19 @@ namespace ssqp
 {
 namespace solvers
 {
+struct csqpParams
+{
+    uint   max_iter  = 100'000;
+    double tolerance = 1e-2;
+};
+
 class csqp
 {
   public:
-    csqp(const OCP &ocp)
-      : _ocp(ocp)
-      , _horizon(10)
+    csqp(const OCP &ocp, const csqpParams &params = {})
+      : _params(params)
+      , _ocp(ocp)
+      , _horizon(ocp.horizon)
       , _nx(ocp.dynamics->output_size())
       , _nu(ocp.dynamics->control_size())
       , _nc(ocp.constraints->output_size())
@@ -49,32 +56,23 @@ class csqp
 
     Guess solve()
     {
-        int i = 0;
-
-        while (true)
+        for (_iter = 0;; ++_iter)
         {
-            std::cout << "SQP iteration: " << i++ << std::endl;
+            /*
+            std::cout << "SQP iteration: " << _iter + 1 << std::endl;
             std::cout << "Guess: " << std::endl
                       << "x =" << std::endl
                       << _guess.x << std::endl
                       << "u =" << std::endl
-                      << _guess.u << std::endl;
+                      << _guess.u << std::endl;*/
             admm_qp qp_solver(_ocp, _guess);
 
             admm_qp::Solution sol = qp_solver.solve();
 
-            std::cout << "dX: " << sol.dX << std::endl;
-            std::cout << "dU: " << sol.dU << std::endl;
+            // std::cout << "dX: " << sol.dX << std::endl;
+            // std::cout << "dU: " << sol.dU << std::endl;
 
             // Guess (x, u) update
-            /*
-            std::tie(_guess.x, _guess.u) = step::gss(_guess.x,
-                                                     _guess.u,
-                                                     sol.dX,
-                                                     sol.dU,
-                                                     _filter_ls_costs,
-                                                     { 1, 0.1, 0.1 });
-            */
             std::tie(_guess.x, _guess.u) = step::filter(_guess.x,
                                                         _guess.u,
                                                         sol.dX,
@@ -93,8 +91,6 @@ class csqp
             {
                 break;
             }
-
-            if (i == 50) break;
         }
 
         return _guess;
@@ -102,28 +98,59 @@ class csqp
 
   protected:
     const int _horizon;
-    int       _nx, _nu, _nc;
+    const int _nx, _nu, _nc;
 
-    const double _tolerance = 10e-3;
     const std::vector<std::function<double(const MatX &, const MatX &)>>
       _filter_ls_costs;
 
-    OCP   _ocp;
-    Guess _guess;
+    csqpParams _params;
+    OCP        _ocp;
+    Guess      _guess;
+
+    uint _iter;
 
     // TODO: fix
     // check: criteria 4 & 5 incorrect
     // criteria 3 & 4 should be checked for each k, not sum
     bool _check_termination()
     {
+        if (_iter == _params.max_iter)
+        {
+            std::cout << "CSQP: Max iteration reached" << std::endl;
+            return true;
+        }
+
+        // Terminal constraint violation
+        if (std::max(
+              -_ocp.constraints
+                 ->evaluate(_horizon, _guess.x.col(_horizon), VecX::Zero(1))
+                 .lpNorm<Eigen::Infinity>(),
+              0.0) > _params.tolerance)
+        {
+            return false;
+        }
+
+        for (uint k = 0; k < _horizon; ++k)
+        {
+            // Stage gap violation
+            if ((_guess.x.col(k + 1) -
+                 _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)))
+                  .lpNorm<Eigen::Infinity>() > _params.tolerance)
+            {
+                return false;
+            }
+            // Stage constraint violation
+            if (std::max(-_ocp.constraints
+                            ->evaluate(k, _guess.x.col(k), _guess.u.col(k))
+                            .lpNorm<Eigen::Infinity>(),
+                         0.0) > _params.tolerance)
+            {
+                return false;
+            }
+        }
+
         // Jacobian over x and y of lagrangian at current guess
         VecX lx_val, lu_val = VecX::Zero(_nu);
-        // Gap violation
-        VecX dyn_val = VecX::Zero(_nx);
-        // Constraint violation
-        VecX con_val = VecX::Zero(_nc);
-        // Terminal constraint violation
-        VecX tcon_val = VecX::Zero(_nc);
 
         VecX dx, du;
         _ocp.costs->gradient(_horizon,
@@ -141,10 +168,6 @@ class csqp
 
         lx_val += _guess.mu.col(_horizon).transpose() * dX;
 
-        tcon_val = _ocp.constraints->evaluate(_horizon,
-                                              _guess.x.col(_horizon),
-                                              VecX::Zero(1));
-
         for (uint k = 0; k < _horizon; ++k)
         {
             // Compute values of jacobian of lagrangian
@@ -158,12 +181,11 @@ class csqp
                                     dX,
                                     dU);
 
-            // TODO: check validity
-            lx_val += -_guess.lambda.col(k).transpose() * dX;
+            // No term for x_0 since it is fixed
             if (k > 0)
             {
-                lx_val += _guess.lambda.col(
-                  k - 1); // TODO: lx_val is scalar, lambda_k is vector
+                lx_val += (_guess.lambda.col(k).transpose() * dX).transpose();
+                lx_val -= _guess.lambda.col(k - 1);
             }
             lu_val += _guess.lambda.col(k).transpose() * dU;
 
@@ -172,30 +194,19 @@ class csqp
                                        _guess.u.col(k),
                                        dX,
                                        dU);
-            lx_val -= _guess.mu.col(k).transpose() * dX;
-            lu_val -= _guess.mu.col(k).transpose() * dU;
-
-            // Stage gap violation
-            dyn_val +=
-              _guess.x.col(k + 1) -
-              _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k));
-
-            // Stage constraint violation
-            con_val +=
-              _ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k));
+            lx_val -= (_guess.mu.col(k).transpose() * dX).transpose();
+            lu_val -= (_guess.mu.col(k).transpose() * dU).transpose();
         }
 
-        // std::cout << lx_val.lpNorm<Eigen::Infinity>() << " "
-        //           << lu_val.lpNorm<Eigen::Infinity>() << " "
-        //           << dyn_val.lpNorm<Eigen::Infinity>() << " "
-        //           << con_val.lpNorm<Eigen::Infinity>() << " "
-        //           << tcon_val.lpNorm<Eigen::Infinity>() << std::endl;
+        if (lx_val.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
+            lu_val.lpNorm<Eigen::Infinity>() <= _params.tolerance)
+        {
+            std::cout << "CSQP: Convergence reached in " << _iter + 1
+                      << " iterations" << std::endl;
+            return true;
+        }
 
-        return lx_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
-               lu_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
-               dyn_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
-               con_val.lpNorm<Eigen::Infinity>() <= _tolerance &&
-               tcon_val.lpNorm<Eigen::Infinity>() <= _tolerance;
+        return false;
     }
 
     // Trajectory cost

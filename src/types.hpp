@@ -32,6 +32,7 @@ struct OCP
     std::shared_ptr<dynamics::AbstractDynamics>     dynamics;
     std::shared_ptr<cost::AbstractCost>             costs;
     std::shared_ptr<constraint::AbstractConstraint> constraints;
+    uint                                            horizon;
 };
 
 struct Guess
