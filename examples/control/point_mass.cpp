@@ -83,8 +83,8 @@ class Constraints : public ssqp::constraint::AbstractConstraint
                         const ssqp::VecX &u) const override
     {
         Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
-        v(0)              = u(0) + 1;
-        v(1)              = 1 - u(0);
+        v(0)              = u(0) + 1.;
+        v(1)              = 1. - u(0);
         return v;
     }
 
