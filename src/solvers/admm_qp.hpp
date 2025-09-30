@@ -16,6 +16,19 @@ namespace ssqp
 {
 namespace solvers
 {
+struct admmParams
+{
+    double       rho                  = 0.1;
+    const double alpha                = 1.6;
+    const double sigma                = 10e-6;
+    const uint   rho_scale_factor     = 2;
+    const uint   rho_incr_factor      = 5;
+    const uint   rho_decr_factor      = 5;
+    const uint   rho_update_iter_freq = 25;
+    const double tolerance_abs        = 10e-4;
+    const double tolerance_rel        = 10e-3;
+};
+
 class admm_qp
 {
   public:
@@ -28,9 +41,12 @@ class admm_qp
         MatX              z, y;
     };
 
-    admm_qp(const OCP &ocp, const Guess &guess)
+    // TODO: do not pass OCP here
+    admm_qp(const OCP &ocp, const Guess &guess,
+            const admmParams &params = admmParams {})
       : _ocp(ocp)
       , _guess(guess)
+      , _params(params)
       , _horizon(guess.u.cols())
       , _nx(guess.x.rows())
       , _nu(guess.u.rows())
@@ -210,11 +226,9 @@ class admm_qp
 #ifdef DEBUG
         std::cout << "Solving with ADMM" << std::endl;
         std::cout << "=============" << std::endl;
-
-        int i = 0;
 #endif
 
-        while (true)
+        for (_iter = 0;; ++_iter)
         {
             solvers::lqr::Output out = _lqr();
             _solution.dX_hat         = out.x;
@@ -222,7 +236,7 @@ class admm_qp
             _solution.p              = out.p;
 
 #ifdef DEBUG
-            std::cout << "LQR solution, iteration " << i++ << std::endl;
+            std::cout << "LQR solution, iteration " << _iter + 1 << std::endl;
             std::cout << "=============" << std::endl;
             std::cout << "x:" << std::endl;
             std::cout << out.x << std::endl;
@@ -261,15 +275,29 @@ class admm_qp
             std::cin.get();
 #endif
 
-            // TODO: rho update
+            if ((_iter + 1) % _params.rho_update_iter_freq)
+            {
+                double r_prim_eucn = _r_prim.norm();
+                double r_dual_eucn = _r_dual.norm();
+
+                if (r_prim_eucn > _params.rho_incr_factor * r_dual_eucn)
+                {
+                    _params.rho *= _params.rho_scale_factor;
+                }
+                else if (r_dual_eucn > _params.rho_decr_factor * r_prim_eucn)
+                {
+                    _params.rho /= _params.rho_scale_factor;
+                }
+            }
 
 #ifdef DEBUG
             std::cout << "rho: " << _rho << std::endl;
 #endif
             // Termination
             double tolerance_prim =
-              _tolerance_abs * std::sqrt(_nc) +
-              _tolerance_rel * std::max(z_hat.norm(), _solution.z.norm());
+              _params.tolerance_abs * std::sqrt(_nc) +
+              _params.tolerance_rel *
+                std::max(z_hat.norm(), _solution.z.norm());
 
             MatX PTy(_nx + _nu, _horizon + 1);
             for (uint k = 0; k < _horizon; ++k)
@@ -284,8 +312,9 @@ class admm_qp
               _stages[_horizon].D.transpose() * _solution.y.col(_horizon);
             PTy.col(_horizon).segment(_nx, _nu) = VecX::Zero(_nu);
 
-            double tolerance_dual = _tolerance_abs * std::sqrt(_nx + _nu) +
-                                    _tolerance_rel * (_rho * PTy).norm();
+            double tolerance_dual =
+              _params.tolerance_abs * std::sqrt(_nx + _nu) +
+              _params.tolerance_rel * (_params.rho * PTy).norm();
 
 #ifdef DEBUG
             std::cout << "Tolerances" << std::endl;
@@ -324,18 +353,15 @@ class admm_qp
     // Vector of stage data (including final stage, size H + 1)
     std::vector<StageData> _stages;
 
-    OCP   _ocp;
-    Guess _guess;
+    OCP        _ocp;
+    Guess      _guess;
+    admmParams _params;
 
     Solution _solution;
 
-    const double _alpha = 1.6;
-    const double _sigma = 10e-6;
-    double       _rho   = 0.1;
+    MatX _r_prim, _r_dual;
 
-    MatX         _r_prim, _r_dual;
-    const double _tolerance_abs = 10e-4;
-    const double _tolerance_rel = 10e-3;
+    uint _iter;
 
     solvers::lqr::Output _lqr()
     {
@@ -364,7 +390,7 @@ class admm_qp
         input.z = _solution.z;
         input.y = _solution.y;
 
-        return solvers::lqr::lqr(input, _rho, _sigma);
+        return solvers::lqr::lqr(input, _params.rho, _params.sigma);
     }
 
     void _step(const MatX &dX_hat, const MatX &dU_hat, MatX &dX, MatX &dU,
@@ -372,42 +398,45 @@ class admm_qp
     {
         for (uint k = 0; k < _horizon; ++k)
         {
-            z_hat.col(k) = _alpha * (_stages[k].D * dX_hat.col(k) +
-                                     _stages[k].E * dU_hat.col(k)) +
-                           (1 - _alpha) * z.col(k);
-            dX.col(k) = _alpha * dX_hat.col(k) + (1 - _alpha) * dX.col(k);
-            dU.col(k) = _alpha * dU_hat.col(k) + (1 - _alpha) * dU.col(k);
+            z_hat.col(k) = _params.alpha * (_stages[k].D * dX_hat.col(k) +
+                                            _stages[k].E * dU_hat.col(k)) +
+                           (1 - _params.alpha) * z.col(k);
+            dX.col(k) =
+              _params.alpha * dX_hat.col(k) + (1 - _params.alpha) * dX.col(k);
+            dU.col(k) =
+              _params.alpha * dU_hat.col(k) + (1 - _params.alpha) * dU.col(k);
 
             VecX z_prev = z.col(k);
-            z.col(k) =
-              (-_stages[k].c).cwiseMax(z_hat.col(k) + 1 / _rho * y.col(k));
-            y.col(k) += _rho * (z_hat.col(k) - z.col(k));
+            z.col(k)    = (-_stages[k].c)
+                         .cwiseMax(z_hat.col(k) + 1 / _params.rho * y.col(k));
+            y.col(k) += _params.rho * (z_hat.col(k) - z.col(k));
 
             _r_prim.col(k) = z_hat.col(k) - z.col(k);
 
             VecX z_diff = z.col(k) - z_prev;
             _r_dual.col(k).segment(0, _nx) =
-              _rho * _stages[k].D.transpose() * z_diff;
+              _params.rho * _stages[k].D.transpose() * z_diff;
             _r_dual.col(k).segment(_nx, _nu) =
-              _rho * _stages[k].E.transpose() * z_diff;
+              _params.rho * _stages[k].E.transpose() * z_diff;
         }
         z_hat.col(_horizon) =
-          _alpha * _stages[_horizon].D * dX_hat.col(_horizon) +
-          (1 - _alpha) * z.col(_horizon);
-        dX.col(_horizon) =
-          _alpha * dX_hat.col(_horizon) + (1 - _alpha) * dX.col(_horizon);
+          _params.alpha * _stages[_horizon].D * dX_hat.col(_horizon) +
+          (1 - _params.alpha) * z.col(_horizon);
+        dX.col(_horizon) = _params.alpha * dX_hat.col(_horizon) +
+                           (1 - _params.alpha) * dX.col(_horizon);
 
         VecX z_prev = z.col(_horizon);
         z.col(_horizon) =
           (-_stages[_horizon].c)
-            .cwiseMax(z_hat.col(_horizon) + 1 / _rho * y.col(_horizon));
-        y.col(_horizon) += _rho * (z_hat.col(_horizon) - z.col(_horizon));
+            .cwiseMax(z_hat.col(_horizon) + 1 / _params.rho * y.col(_horizon));
+        y.col(_horizon) +=
+          _params.rho * (z_hat.col(_horizon) - z.col(_horizon));
 
         _r_prim.col(_horizon) = z_hat.col(_horizon) - z.col(_horizon);
 
         VecX z_diff = z.col(_horizon) - z_prev;
         _r_dual.col(_horizon).segment(0, _nx) =
-          _rho * _stages[_horizon].D.transpose() * z_diff;
+          _params.rho * _stages[_horizon].D.transpose() * z_diff;
         _r_dual.col(_horizon).segment(_nx, _nu) = VecX::Zero(_nu);
     }
 };

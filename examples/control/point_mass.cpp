@@ -9,20 +9,20 @@
  * control u = [a] (acceleration)
  *
  * Start state: [0 0]
- * Target state: [1 0]
+ * Target state: [1 x]
+
  * Constraints:
- *  a) -1 <= a <= 1 (control bounds)
- *  b) T = 1 (fixed final time)
+ *  a) -10 <= a <= 10 (control bounds)
  *
- * Assuming horizon = 10, dt = 1 / 10
+ * Horizon = 10, dt = 0.1
  * Dynamics:
- *  1) p(k+1) = p(k) + dt*v(k)
+ *  1) p(k+1) = p(k) + dt*v(k) + 0.5*dt^2*a(k)
  *  2) v(k+1) = v(k) + dt*a(k)
  * Cost:
- *  sum_{k=0}{H-1} a(k)^2*dt + (p(H) - 1)^2
+ *  sum_{k=0}{H-1} 10e-5*a(k)^2 + (p(H) - 1)^2
  * Constraints:
- *  1) a(k) + 1 >= 0
- *  2) 1 - a(k) >= 0
+ *  1) a(k) + 10 >= 0
+ *  2) 10 - a(k) >= 0
  */
 
 class Cost : public ssqp::cost::AbstractCost
@@ -132,7 +132,7 @@ class Dynamics : public ssqp::dynamics::AbstractDynamics
     ssqp::VecX evaluate(const uint k, const ssqp::VecX &x,
                         const ssqp::VecX &u) const override
     {
-        return (Eigen::Vector2d() << x(0) + 0.1 * x(1) + 0.05 * u(0),
+        return (Eigen::Vector2d() << x(0) + 0.1 * x(1) + 0.005 * u(0),
                 x(1) + 0.1 * u(0))
           .finished();
     }
@@ -147,7 +147,7 @@ class Dynamics : public ssqp::dynamics::AbstractDynamics
         dX(0, 1) = 0.1;
         dX(1, 1) = 1;
 
-        dU(0, 0) = 0.05;
+        dU(0, 0) = 0.005;
         dU(1, 0) = 0.1;
     }
 
