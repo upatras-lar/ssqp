@@ -26,9 +26,6 @@ namespace constraint
 class AbstractConstraint;
 }
 
-namespace solvers
-{
-
 // Defines an optimal control problem over a horizon for the given costs,
 // dynamics and constraints
 struct OCP
@@ -39,22 +36,8 @@ struct OCP
     uint                                            horizon;
 };
 
-struct Guess
+namespace solvers
 {
-    // Vector sequences indexed over time horizon for state and control guesses
-    // n
-    // Matrix x is of dimensions nx x (H + 1) (starting at x_0 and ending at
-    // x_H)
-    // Matrix u is of dimensions nu x H (starting at u_0 and ending at
-    // u_(H-1))
-    MatX x, u;
-    // Equivalent vector sequences for lagrange multiplier guesses n
-    // Matrix lambda is of dimensions nx x H (starting at 1 and ending at H)
-    // Matrix mu is of dimensions nc x (H + 1) (starting at 0 and ending at H)
-    // (nc: number of constraints)
-    MatX lambda, mu;
-};
-
 // Holds data for non-terminal stages of the below QP
 struct QPStage
 {
@@ -97,17 +80,6 @@ struct QPData
     {
     }
 };
-
-// Solution to QP solved with ADMM
-struct admmQPSolution
-{
-    MatX              dX, dU;
-    MatX              dX_hat;
-    std::vector<MatX> P;
-    std::vector<VecX> p;
-    MatX              z, y;
-};
-
 }
 }
 
