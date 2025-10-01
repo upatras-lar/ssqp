@@ -200,7 +200,7 @@ QPData csqp::_setup_qp()
 
 bool csqp::_check_termination()
 {
-    // #ifdef DEBUG
+#ifdef DEBUG
     std::cout << "Guess " << _iter + 1 << std::endl;
     std::cout << "=============" << std::endl;
 
@@ -210,7 +210,7 @@ bool csqp::_check_termination()
     std::cout << "mu: " << std::endl << _guess.mu << std::endl;
 
     std::cout << "=============" << std::endl;
-    // #endif
+#endif
 
     if (_iter == _params.max_iter)
     {
@@ -272,7 +272,7 @@ bool csqp::_check_termination()
                                dX,
                                dU);
 
-    lx_val.tail(_nx) += dX.transpose() * _guess.mu.col(_horizon);
+    lx_val.tail(_nx) -= dX.transpose() * _guess.mu.col(_horizon);
 
     // Add k=0 terms for u
     _ocp.costs->gradient(0, _guess.x.col(0), _guess.u.col(0), dx, du);

@@ -77,6 +77,8 @@ admm_qp::Solution admm_qp::solve()
         std::cin.get();
 #endif
 
+        /*
+        // TODO: doesn't work
         if ((_iter + 1) % _params.rho_update_iter_freq)
         {
             double r_prim_eucn = _r_prim.norm();
@@ -90,7 +92,7 @@ admm_qp::Solution admm_qp::solve()
             {
                 _params.rho /= _params.rho_scale_factor;
             }
-        }
+        }*/
 
 #ifdef DEBUG
         std::cout << "rho: " << _params.rho << std::endl;
