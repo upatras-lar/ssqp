@@ -20,13 +20,13 @@ struct admmParams
 {
     double       rho                  = 0.1;
     const double alpha                = 1.6;
-    const double sigma                = 10e-6;
+    const double sigma                = 1e-6;
     const uint   rho_scale_factor     = 2;
     const uint   rho_incr_factor      = 5;
     const uint   rho_decr_factor      = 5;
     const uint   rho_update_iter_freq = 25;
-    const double tolerance_abs        = 10e-4;
-    const double tolerance_rel        = 10e-3;
+    const double tolerance_abs        = 1e-4;
+    const double tolerance_rel        = 1e-3;
 };
 
 class admm_qp

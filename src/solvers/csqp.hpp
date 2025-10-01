@@ -72,7 +72,7 @@ class csqp
             // Lagrange multiplier update
             for (uint k = 0; k < _horizon; ++k)
             {
-                _guess.lambda.col(k) = sol.P[k + 1] * sol.dX_hat.col(k + 1) + sol.p[k + 1];
+                _guess.lambda.col(k) = sol.P[k + 1] * sol.dX.col(k + 1) + sol.p[k + 1];
             }
             _guess.mu = -sol.y; // we need a minus because the QP (ADMM) assumes
                                 // the opposite sign in the Lagrangian
@@ -254,7 +254,7 @@ class csqp
         // Terminal constraint violation
         if (std::max(
               -_ocp.constraints
-                 ->evaluate(_horizon, _guess.x.col(_horizon), VecX::Zero(1))
+                 ->evaluate(_horizon, _guess.x.col(_horizon), VecX::Zero(_nu))
                  .lpNorm<Eigen::Infinity>(),
               0.0) > _params.tolerance)
         {
