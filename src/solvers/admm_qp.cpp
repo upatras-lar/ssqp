@@ -22,12 +22,14 @@ admm_qp::admm_qp(const QPData &qp, const csqp::Guess &guess,
     _solution.y  = MatX::Zero(qp.nc, qp.horizon + 1);
 }
 
-admm_qp::Solution admm_qp::solve()
+SolverState admm_qp::solve(admm_qp::Solution &sol)
 {
 #ifdef DEBUG
     std::cout << "Solving with ADMM" << std::endl;
     std::cout << "=============" << std::endl;
 #endif
+
+    SolverState admm_state;
 
     for (_iter = 0;; ++_iter)
     {
@@ -98,42 +100,94 @@ admm_qp::Solution admm_qp::solve()
         std::cout << "rho: " << _params.rho << std::endl;
 #endif
         // Termination
-        double tolerance_prim =
-          _params.tolerance_abs * std::sqrt(_qp.nc) +
-          _params.tolerance_rel * std::max(z_hat.norm(), _solution.z.norm());
-
-        MatX PTy(_qp.nx + _qp.nu, _qp.horizon + 1);
-        for (uint k = 0; k < _qp.horizon; ++k)
-        {
-            PTy.col(k).segment(0, _qp.nx) =
-              _qp.stages[k].D.transpose() * _solution.y.col(k);
-            PTy.col(k).segment(_qp.nx, _qp.nu) =
-              _qp.stages[k].E.transpose() * _solution.y.col(k);
-        }
-
-        PTy.col(_qp.horizon).segment(0, _qp.nx) =
-          _qp.Dt.transpose() * _solution.y.col(_qp.horizon);
-        PTy.col(_qp.horizon).segment(_qp.nx, _qp.nu) = VecX::Zero(_qp.nu);
-
-        double tolerance_dual =
-          _params.tolerance_abs * std::sqrt(_qp.nx + _qp.nu) +
-          _params.tolerance_rel * (_params.rho * PTy).norm();
-
-#ifdef DEBUG
-        std::cout << "Tolerances" << std::endl;
-        std::cout << "=============" << std::endl;
-        std::cout << "Primal: " << tolerance_prim << std::endl;
-        std::cout << "Dual: " << tolerance_dual << std::endl;
-        std::cout << "=============" << std::endl;
-#endif
-
-        if (_r_prim.norm() < tolerance_prim && _r_dual.norm() < tolerance_dual)
+        if ((admm_state = _check_termination(z_hat)) != ONGOING)
         {
             break;
         }
     }
 
-    return _solution;
+    sol = _solution;
+    return admm_state;
+}
+
+SolverState admm_qp::_check_termination(const MatX &z_hat) const
+{
+    if (_iter == _params.max_iter)
+    {
+        return MAX_ITER_REACHED;
+    }
+
+    double tolerance_prim =
+      _params.abs_tolerance * std::sqrt(_qp.nc) +
+      _params.rel_tolerance * std::max(z_hat.norm(), _solution.z.norm());
+
+#ifdef DEBUG
+    std::cout << "Tolerances" << std::endl;
+    std::cout << "=============" << std::endl;
+    std::cout << "Primal: " << tolerance_prim << std::endl;
+#endif
+
+    MatX Qx(_qp.nx + _qp.nu, _qp.horizon + 1);
+    MatX DTy(_qp.nx + _qp.nu, _qp.horizon + 1);
+    MatX q(_qp.nx + _qp.nu, _qp.horizon + 1);
+    for (uint k = 0; k < _qp.horizon; ++k)
+    {
+        Qx.col(k).head(_qp.nx) = _qp.stages[k].Qxx * _solution.dX.col(k) +
+                                 _qp.stages[k].Qxu * _solution.dU.col(k);
+        Qx.col(k).tail(_qp.nu) =
+          _qp.stages[k].Qxu.transpose() * _solution.dX.col(k) +
+          _qp.stages[k].Quu * _solution.dU.col(k);
+
+        DTy.col(k).head(_qp.nx) =
+          _qp.stages[k].D.transpose() * _solution.y.col(k);
+        DTy.col(k).tail(_qp.nu) =
+          _qp.stages[k].E.transpose() * _solution.y.col(k);
+
+        q.col(k).head(_qp.nx) = _qp.stages[k].qx;
+        q.col(k).tail(_qp.nu) = _qp.stages[k].qu;
+    }
+
+    Qx.col(_qp.horizon).head(_qp.nx) =
+      _qp.Qxx_t * _solution.dX.col(_qp.horizon);
+    Qx.col(_qp.horizon).tail(_qp.nu) = VecX::Zero(_qp.nu);
+
+    DTy.col(_qp.horizon).head(_qp.nx) =
+      _qp.Dt.transpose() * _solution.y.col(_qp.horizon);
+    DTy.col(_qp.horizon).tail(_qp.nu) = VecX::Zero(_qp.nu);
+
+    q.col(_qp.horizon).head(_qp.nx) = _qp.qx_t;
+    q.col(_qp.horizon).tail(_qp.nu) = VecX::Zero(_qp.nu);
+
+    double tolerance_dual =
+      _params.abs_tolerance * std::sqrt(_qp.nx + _qp.nu) +
+      _params.rel_tolerance * std::max(Qx.lpNorm<Eigen::Infinity>(),
+                                       std::max(DTy.lpNorm<Eigen::Infinity>(),
+                                                q.lpNorm<Eigen::Infinity>()));
+
+#ifdef DEBUG
+    std::cout << "Dual: " << tolerance_dual << std::endl;
+    std::cout << "=============" << std::endl;
+#endif
+
+    double r_prim_infnorm = _r_prim.lpNorm<Eigen::Infinity>();
+    double r_dual_infnorm = _r_dual.lpNorm<Eigen::Infinity>();
+
+    if (r_prim_infnorm >= tolerance_prim)
+    {
+        if (r_dual_infnorm < _params.primal_infeasibility_tolerance)
+        {
+            return PRIMAL_INFEASIBLE;
+        }
+
+        return ONGOING;
+    }
+
+    if (_r_dual.lpNorm<Eigen::Infinity>() >= tolerance_dual)
+    {
+        return ONGOING;
+    }
+
+    return SUCCESS;
 }
 
 void admm_qp::_step(const MatX &dX_hat, const MatX &dU_hat, MatX &dX, MatX &dU,

@@ -1,7 +1,7 @@
 # Compiler
 CXX := g++
 CXXFLAGS := -std=c++17
-INCLUDES := -I/usr/include/eigen3 -I./header/ -I.
+INCLUDES := -I/usr/include/eigen3 -I./include/ -I.
 
 DEBUG ?= 0
 

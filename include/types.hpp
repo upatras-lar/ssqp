@@ -38,6 +38,15 @@ struct OCP
 
 namespace solvers
 {
+enum SolverState
+{
+    MAX_ITER_REACHED  = 0,
+    SUCCESS           = 1,
+    PRIMAL_INFEASIBLE = 10,
+    DUAL_INFEASIBLE   = 11,
+    ONGOING           = 100,
+};
+
 // Holds data for non-terminal stages of the below QP
 struct QPStage
 {

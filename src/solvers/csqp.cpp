@@ -36,13 +36,28 @@ csqp::csqp(const OCP &ocp, const Params &params)
     */
 }
 
-csqp::Guess csqp::solve()
+SolverState csqp::solve(Guess &guess)
 {
+    SolverState csqp_state;
+
     for (_iter = 0;; ++_iter)
     {
         QPData            qp = _setup_qp();
         admm_qp           qp_solver(qp, _guess);
-        admm_qp::Solution sol = qp_solver.solve();
+        admm_qp::Solution sol;
+        SolverState       state = qp_solver.solve(sol);
+
+        switch (state)
+        {
+        case MAX_ITER_REACHED:
+            std::cout << "Warning: ADMM: Max iterations reached";
+            break;
+        case PRIMAL_INFEASIBLE:
+        case DUAL_INFEASIBLE:
+            return state;
+        default:
+            break;
+        }
 
         // Guess (x, u) update
         std::tie(_guess.x, _guess.u, std::ignore) =
@@ -58,13 +73,15 @@ csqp::Guess csqp::solve()
                             // the opposite sign in the Lagrangian
 
         // Termination
-        if (_check_termination())
+        if ((csqp_state = _check_termination()) != ONGOING)
         {
             break;
         }
     }
 
-    return _guess;
+    guess = _guess;
+
+    return csqp_state;
 }
 
 QPData csqp::_setup_qp()
@@ -198,7 +215,7 @@ QPData csqp::_setup_qp()
     return qp;
 }
 
-bool csqp::_check_termination()
+SolverState csqp::_check_termination() const
 {
 #ifdef DEBUG
     std::cout << "Guess " << _iter + 1 << std::endl;
@@ -214,8 +231,7 @@ bool csqp::_check_termination()
 
     if (_iter == _params.max_iter)
     {
-        std::cout << "CSQP: Max iteration reached" << std::endl;
-        return true;
+        return MAX_ITER_REACHED;
     }
 
     // Terminal constraint violation
@@ -225,7 +241,7 @@ bool csqp::_check_termination()
              .lpNorm<Eigen::Infinity>(),
           0.0) > _params.tolerance)
     {
-        return false;
+        return ONGOING;
     }
 
     for (uint k = 0; k < _horizon; ++k)
@@ -235,7 +251,7 @@ bool csqp::_check_termination()
              _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)))
               .lpNorm<Eigen::Infinity>() > _params.tolerance)
         {
-            return false;
+            return ONGOING;
         }
         // Stage constraint violation
         if (std::max(
@@ -243,7 +259,7 @@ bool csqp::_check_termination()
                  .lpNorm<Eigen::Infinity>(),
               0.0) > _params.tolerance)
         {
-            return false;
+            return ONGOING;
         }
     }
 
@@ -304,22 +320,22 @@ bool csqp::_check_termination()
         lu_val.segment(k * _nu, _nu) -= dU.transpose() * _guess.mu.col(k);
     }
 
-    // #ifdef DEBUG
+#ifdef DEBUG
     std::cout << "lx_val: " << lx_val.transpose() << std::endl;
     std::cout << lx_val.lpNorm<Eigen::Infinity>() << std::endl;
     std::cout << "lu_val: " << lu_val.transpose() << std::endl;
     std::cout << lu_val.lpNorm<Eigen::Infinity>() << std::endl;
-    // #endif
+#endif
 
     if (lx_val.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lu_val.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
         std::cout << "CSQP: Convergence reached in " << _iter + 1
                   << " iterations" << std::endl;
-        return true;
+        return SUCCESS;
     }
 
-    return false;
+    return ONGOING;
 }
 
 double csqp::_lf(const MatX &x, const MatX &u) const
