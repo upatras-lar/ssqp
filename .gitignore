@@ -1,5 +1,3 @@
 .vscode/
 
 /build/*
-
-/src/solvers/lqr.cpp
