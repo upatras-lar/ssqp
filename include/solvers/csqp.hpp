@@ -16,8 +16,8 @@ class csqp
   public:
     struct Params
     {
-        uint   max_iter  = 10'000;
-        double tolerance = 1e-4;
+        const uint   max_iter  = 10'000;
+        const double tolerance = 1e-4;
 
         static Params Default()
         {
@@ -44,7 +44,7 @@ class csqp
 
     csqp(const OCP &ocp, const Params &params = Params::Default());
 
-    Guess solve();
+    SolverState solve(Guess &guess);
 
   protected:
     const int _horizon;
@@ -61,7 +61,7 @@ class csqp
 
     QPData _setup_qp();
 
-    bool _check_termination();
+    SolverState _check_termination() const;
 
     // Trajectory cost
     double _lf(const MatX &x, const MatX &u) const;

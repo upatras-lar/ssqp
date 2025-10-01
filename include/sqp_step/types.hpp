@@ -2,7 +2,7 @@
 #include <functional>
 #include <cassert>
 
-#include "header/types.hpp"
+#include "include/types.hpp"
 
 #ifndef SSQP_STEP_TYPES_HPP
 #define SSQP_STEP_TYPES_HPP

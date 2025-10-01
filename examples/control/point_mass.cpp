@@ -93,8 +93,8 @@ class Constraints : public ssqp::constraint::AbstractConstraint
 
         if (k == HORIZON)
         {
-            v(2) = x(0) - 1.2;
-            v(3) = 1.2 - x(0);
+            v(2) = x(0) - 12;
+            v(3) = 12 - x(0);
         }
 
         return v;
@@ -197,10 +197,20 @@ int main()
     ocp.horizon     = HORIZON;
 
     ssqp::solvers::csqp        solver(ocp);
-    ssqp::solvers::csqp::Guess solution = solver.solve();
+    ssqp::solvers::csqp::Guess solution;
+    ssqp::solvers::SolverState state = solver.solve(solution);
 
-    std::cout << "x: " << solution.x << std::endl;
-    std::cout << "u: " << solution.u << std::endl;
+    std::cout << "Solver state: " << state << std::endl;
+
+    if (state == ssqp::solvers::SolverState::SUCCESS)
+    {
+        std::cout << "x: " << solution.x << std::endl;
+        std::cout << "u: " << solution.u << std::endl;
+    }
+    else if (state == ssqp::solvers::SolverState::PRIMAL_INFEASIBLE)
+    {
+        std::cout << "Primal infeasibility detected" << std::endl;
+    }
 
     return 0;
 }

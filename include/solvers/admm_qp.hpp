@@ -21,15 +21,23 @@ class admm_qp
   public:
     struct Params
     {
-        double       rho                  = 0.1;
-        const double alpha                = 1.6;
-        const double sigma                = 1e-6;
-        const uint   rho_scale_factor     = 2;
-        const uint   rho_incr_factor      = 5;
-        const uint   rho_decr_factor      = 5;
-        const uint   rho_update_iter_freq = 25;
-        const double tolerance_abs        = 1e-4;
-        const double tolerance_rel        = 1e-3;
+        // Parameters
+        double       rho   = 0.1;
+        const double alpha = 1.6;
+        const double sigma = 1e-6;
+
+        // Rho update
+        const uint rho_scale_factor     = 2;
+        const uint rho_incr_factor      = 5;
+        const uint rho_decr_factor      = 5;
+        const uint rho_update_iter_freq = 25;
+
+        // Termination parameters
+        const uint   max_iter      = 100'000;
+        const double abs_tolerance = 1e-4; // Absolute tolerance
+        const double rel_tolerance = 1e-3; // Relative tolerance
+        const double primal_infeasibility_tolerance =
+          1e-6; // Primal infeasibility tolerance
 
         static Params Default()
         {
@@ -49,7 +57,7 @@ class admm_qp
     admm_qp(const QPData &qp, const csqp::Guess &guess,
             const Params &params = Params::Default());
 
-    Solution solve();
+    SolverState solve(Solution &sol);
 
   protected:
     QPData      _qp;
@@ -61,6 +69,8 @@ class admm_qp
     uint _iter;
 
     Solution _solution;
+
+    SolverState _check_termination(const MatX &z_hat) const;
 
     void _step(const MatX &dX_hat, const MatX &dU_hat, MatX &dX, MatX &dU,
                MatX &y, MatX &z, MatX &z_hat);
