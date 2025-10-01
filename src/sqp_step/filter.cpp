@@ -1,14 +1,9 @@
-#include "types.hpp"
-#include "sqp_step/types.hpp"
-
-#ifndef SSQP_FILTER_HPP
-#define SSQP_FILTER_HPP
+#include "sqp_step/filter.hpp"
 
 namespace ssqp
 {
 namespace step
 {
-
 bool costFilter(
   const std::vector<std::function<double(const MatX &, const MatX &)>> &costs,
   const Point &smaller, const Point &greater)
@@ -31,7 +26,7 @@ bool costFilter(
 std::tuple<MatX, MatX, double> filter(
   MatX &x, MatX &u, MatX &dX, MatX &dU,
   const std::vector<std::function<double(const MatX &, const MatX &)>> costs,
-  int inv_alpha_scale_factor = 2, double min_alpha = 1e-5)
+  int inv_alpha_scale_factor, double min_alpha)
 {
     double alpha = 1.0;
 
@@ -45,9 +40,8 @@ std::tuple<MatX, MatX, double> filter(
         b      = a + alpha * offset;
     }
 
-    return { b.x, b.u , alpha};
-}
-}
+    return { b.x, b.u, alpha };
 }
 
-#endif
+}
+}

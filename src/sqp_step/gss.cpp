@@ -1,8 +1,4 @@
-#include "types.hpp"
-#include "sqp_step/types.hpp"
-
-#ifndef SSQP_GSS_HPP
-#define SSQP_GSS_HPP
+#include "sqp_step/gss.hpp"
 
 namespace ssqp
 {
@@ -27,11 +23,10 @@ bool costSum(
     return smaller_sum < greater_sum;
 }
 
-// Golden section search
 std::pair<MatX, MatX> gss(
   MatX &x, MatX &u, MatX &dX, MatX &dU,
   const std::vector<std::function<double(const MatX &, const MatX &)>> costs,
-  const std::vector<double> &weights, double tolerance = 1e-5)
+  const std::vector<double> &weights, double tolerance)
 {
     static const double invphi = (std::sqrt(5) - 1) / 2;
 
@@ -62,5 +57,3 @@ std::pair<MatX, MatX> gss(
 }
 }
 }
-
-#endif
