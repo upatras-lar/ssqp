@@ -80,16 +80,22 @@ class Constraints : public ssqp::constraint::AbstractConstraint
 {
     int output_size() const override
     {
-        return 2;
+        return 4;
     }
 
     ssqp::VecX evaluate(const uint k, const ssqp::VecX &x,
                         const ssqp::VecX &u) const override
     {
-        Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
+        Eigen::VectorXd v = Eigen::Vector<double, 4>::Zero();
 
-        v(0) = u(0) + 10.;
-        v(1) = 10. - u(0);
+        v(0) = u(0) + 10;
+        v(1) = 10 - u(0);
+
+        if (k == HORIZON)
+        {
+            v(2) = x(0) - 1.2;
+            v(3) = 1.2 - x(0);
+        }
 
         return v;
     }
@@ -97,11 +103,17 @@ class Constraints : public ssqp::constraint::AbstractConstraint
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                   ssqp::MatX &dX, ssqp::MatX &dU) const override
     {
-        dX = Eigen::Matrix<double, 2, 2>::Zero();
-        dU = Eigen::Matrix<double, 2, 1>::Zero();
+        dX = Eigen::Matrix<double, 4, 2>::Zero();
+        dU = Eigen::Matrix<double, 4, 1>::Zero();
 
         dU(0, 0) = 1;
         dU(1, 0) = -1;
+
+        if (k == HORIZON)
+        {
+            dX(2, 0) = 1;
+            dX(3, 0) = -1;
+        }
     }
 
     void hessprod_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,

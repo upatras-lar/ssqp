@@ -17,7 +17,7 @@ class csqp
     struct Params
     {
         uint   max_iter  = 10'000;
-        double tolerance = 1e-2;
+        double tolerance = 1e-4;
 
         static Params Default()
         {
