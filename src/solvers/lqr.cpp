@@ -7,7 +7,7 @@ namespace solvers
 namespace lqr
 {
 Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
-           const double rho, const double sigma)
+           const std::vector<DMatX> &rho, const double sigma)
 {
     // Initialization
     Output output {
@@ -30,29 +30,29 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
     for (int k = 0; k < qp.horizon; ++k)
     {
         Qxx[k] = qp.stages[k].Qxx +
-                 rho * qp.stages[k].D.transpose() * qp.stages[k].D +
+                 qp.stages[k].D.transpose() * rho[k] * qp.stages[k].D +
                  sigma * MatX::Identity(qp.nx, qp.nx);
-        Qxu[k] =
-          qp.stages[k].Qxu + rho * qp.stages[k].D.transpose() * qp.stages[k].E;
+        Qxu[k] = qp.stages[k].Qxu +
+                 qp.stages[k].D.transpose() * rho[k] * qp.stages[k].E;
         Quu[k] = qp.stages[k].Quu +
-                 rho * qp.stages[k].E.transpose() * qp.stages[k].E +
+                 qp.stages[k].E.transpose() * rho[k] * qp.stages[k].E +
                  sigma * MatX::Identity(qp.nu, qp.nu);
 
         qx[k] = qp.stages[k].qx +
                 qp.stages[k].D.transpose() * current_sol.y.col(k) -
-                rho * qp.stages[k].D.transpose() * current_sol.z.col(k) -
+                qp.stages[k].D.transpose() * rho[k] * current_sol.z.col(k) -
                 sigma * current_sol.dX.col(k);
 
         qu[k] = qp.stages[k].qu +
                 qp.stages[k].E.transpose() * current_sol.y.col(k) -
-                rho * qp.stages[k].E.transpose() * current_sol.z.col(k) -
+                qp.stages[k].E.transpose() * rho[k] * current_sol.z.col(k) -
                 sigma * current_sol.dU.col(k);
     }
 
-    Qt +=
-      rho * qp.Dt.transpose() * qp.Dt + sigma * MatX::Identity(qp.nx, qp.nx);
+    Qt += qp.Dt.transpose() * rho[qp.horizon] * qp.Dt +
+          sigma * MatX::Identity(qp.nx, qp.nx);
     qt += qp.Dt.transpose() * current_sol.y.col(qp.horizon) -
-          rho * qp.Dt.transpose() * current_sol.z.col(qp.horizon) +
+          qp.Dt.transpose() * rho[qp.horizon] * current_sol.z.col(qp.horizon) +
           sigma * current_sol.dX.col(qp.horizon);
 
     output.P[qp.horizon] = Qt;

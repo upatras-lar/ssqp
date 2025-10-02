@@ -50,7 +50,7 @@ SolverState csqp::solve(Guess &guess)
         switch (state)
         {
         case MAX_ITER_REACHED:
-            std::cout << "Warning: ADMM: Max iterations reached";
+            std::cout << "Warning: ADMM: Max iterations reached" << std::endl;
             break;
         case PRIMAL_INFEASIBLE:
         case DUAL_INFEASIBLE:

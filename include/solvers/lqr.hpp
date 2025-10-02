@@ -19,7 +19,7 @@ struct Output
 };
 
 Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
-           const double rho = 0.1, const double sigma = 10e-6);
+           const std::vector<DMatX> &rho, const double sigma = 10e-6);
 }
 }
 }

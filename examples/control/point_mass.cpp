@@ -35,8 +35,8 @@ class Cost : public ssqp::cost::AbstractCost
     double evaluate(const uint k, const ssqp::VecX &x,
                     const ssqp::VecX &u) const override
     {
-        return u(0) * u(0) * 0.0001 +
-               (k == HORIZON ? (x(0) - 1) * (x(0) - 1) : 0);
+        return u(0) * u(0) * 0.001 +
+               (k == HORIZON ? (x(0) - 0.4) * (x(0) - 0.4) : 0);
     }
 
     void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
@@ -44,13 +44,13 @@ class Cost : public ssqp::cost::AbstractCost
     {
         if (k == HORIZON)
         {
-            dx = (Eigen::Vector2d() << 2 * (x(0) - 1), 0).finished();
+            dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 0).finished();
         }
         else
         {
             dx = Eigen::Vector2d::Zero();
         }
-        du = (Eigen::VectorXd(1) << 0.0002 * u(0)).finished();
+        du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
     }
 
     void hessian_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
@@ -72,7 +72,7 @@ class Cost : public ssqp::cost::AbstractCost
     void hessian_uu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Huu) const override
     {
-        Huu = (Eigen::Matrix<double, 1, 1>() << 0.0002).finished();
+        Huu = (Eigen::Matrix<double, 1, 1>() << 0.002).finished();
     }
 };
 
@@ -88,8 +88,8 @@ class Constraints : public ssqp::constraint::AbstractConstraint
     {
         Eigen::VectorXd v = Eigen::Vector<double, 4>::Zero();
 
-        v(0) = u(0) + 10;
-        v(1) = 10 - u(0);
+        v(0) = u(0) + 100;
+        v(1) = 100 - u(0);
 
         if (k == HORIZON)
         {
