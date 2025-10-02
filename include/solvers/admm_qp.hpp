@@ -22,9 +22,9 @@ class admm_qp
     struct Params
     {
         // Parameters
-        double       rho   = 0.1;
-        const double alpha = 1.6;
-        const double sigma = 1e-6;
+        const double init_rho = 0.1;
+        const double alpha    = 1.6;
+        const double sigma    = 1e-6;
 
         // Rho update
         const uint rho_scale_factor     = 2;
@@ -48,7 +48,6 @@ class admm_qp
     struct Solution
     {
         MatX              dX, dU;
-        MatX              dX_hat;
         std::vector<MatX> P;
         std::vector<VecX> p;
         MatX              z, y;
@@ -64,16 +63,29 @@ class admm_qp
     csqp::Guess _guess;
     Params      _params;
 
+    std::vector<DMatX> _rho, _rho_inv;
+    const double       _rho_min = 1e-6;
+
+    // Relative parts of residuals
+    MatX _Dx, _rQTz, _rQTzp;
+    // Residuals
     MatX _r_prim, _r_dual;
 
     uint _iter;
 
     Solution _solution;
 
-    SolverState _check_termination(const MatX &z_hat) const;
+    // Calculates residuals and their relative parts
+    // r_prim = Dx - z
+    // r_dual = Q(z - z_prev)
+    // Relative parts include dX and dU variable segments
+    void _calculate_residuals(const MatX &z_prev);
 
-    void _step(const MatX &dX_hat, const MatX &dU_hat, MatX &dX, MatX &dU,
-               MatX &y, MatX &z, MatX &z_hat);
+    SolverState _check_termination() const;
+
+    void _update_rho();
+
+    void _step(const MatX &dX_hat, const MatX &dU_hat);
 };
 }
 }

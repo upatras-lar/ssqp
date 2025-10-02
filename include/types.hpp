@@ -8,8 +8,9 @@
 
 namespace ssqp
 {
-using VecX = Eigen::VectorXd;
-using MatX = Eigen::MatrixXd;
+using VecX  = Eigen::VectorXd;
+using MatX  = Eigen::MatrixXd;
+using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
 namespace dynamics
 {
