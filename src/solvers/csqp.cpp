@@ -264,10 +264,11 @@ SolverState csqp::_check_termination() const
     }
 
     // Jacobian over x and y of lagrangian at current guess
-    VecX lx_val = VecX::Zero(_nx * (_horizon + 1));
-    VecX lu_val = VecX::Zero(_nu * _horizon);
+    MatX lagrangian_dx = MatX::Zero(_nx, _horizon + 1);
+    MatX lagrangian_du = MatX::Zero(_nu, _horizon);
 
     VecX dx, du;
+    MatX dX, dU;
 
     // Add terminal terms for x
     _ocp.costs->gradient(_horizon,
@@ -276,11 +277,10 @@ SolverState csqp::_check_termination() const
                          dx,
                          du);
 
-    lx_val.tail(_nx) += dx;
+    lagrangian_dx.col(_horizon) += dx;
     // Add contribution from previous integration step (λ)
-    lx_val.tail(_nx) -= _guess.lambda.col(_horizon - 1);
+    lagrangian_dx.col(_horizon) -= _guess.lambda.col(_horizon - 1);
 
-    MatX dX, dU;
     // Add constraint terms for terminal x
     _ocp.constraints->gradient(_horizon,
                                _guess.x.col(_horizon),
@@ -288,47 +288,49 @@ SolverState csqp::_check_termination() const
                                dX,
                                dU);
 
-    lx_val.tail(_nx) -= dX.transpose() * _guess.mu.col(_horizon);
+    lagrangian_dx.col(_horizon) -= dX.transpose() * _guess.mu.col(_horizon);
 
     // Add k=0 terms for u
     _ocp.costs->gradient(0, _guess.x.col(0), _guess.u.col(0), dx, du);
-    lu_val.head(_nu) += du;
+    lagrangian_du.col(0) += du;
 
     _ocp.dynamics->gradient(0, _guess.x.col(0), _guess.u.col(0), dX, dU);
-    lu_val.head(_nu) += dU.transpose() * _guess.lambda.col(0);
+    lagrangian_du.col(0) += dU.transpose() * _guess.lambda.col(0);
 
     _ocp.constraints->gradient(0, _guess.x.col(0), _guess.u.col(0), dX, dU);
-    lu_val.head(_nu) -= dU.transpose() * _guess.mu.col(0);
+    lagrangian_du.col(0) -= dU.transpose() * _guess.mu.col(0);
 
     // Ignore x0 terms since it is not being optimized
     for (uint k = 1; k < _horizon; ++k)
     {
-        // Compute values of jacobian of lagrangian
+        // Compute cost jacobian
         _ocp.costs->gradient(k, _guess.x.col(k), _guess.u.col(k), dx, du);
-        lx_val.segment(k * _nx, _nx) += dx;
-        lu_val.segment(k * _nu, _nu) += du;
+        lagrangian_dx.col(k) += dx;
+        lagrangian_du.col(k) += du;
 
+        // Compute dynamics gap jacobian
         _ocp.dynamics->gradient(k, _guess.x.col(k), _guess.u.col(k), dX, dU);
+        lagrangian_dx.col(k) += dX.transpose() * _guess.lambda.col(k);
+        lagrangian_dx.col(k) -= _guess.lambda.col(k - 1);
+        lagrangian_du.col(k) += dU.transpose() * _guess.lambda.col(k);
 
-        lx_val.segment(k * _nx, _nx) += dX.transpose() * _guess.lambda.col(k);
-        lx_val.segment(k * _nx, _nx) -= _guess.lambda.col(k - 1);
-
-        lu_val.segment(k * _nu, _nu) += dU.transpose() * _guess.lambda.col(k);
-
+        // Compute constraint jacobian
         _ocp.constraints->gradient(k, _guess.x.col(k), _guess.u.col(k), dX, dU);
-        lx_val.segment(k * _nx, _nx) -= dX.transpose() * _guess.mu.col(k);
-        lu_val.segment(k * _nu, _nu) -= dU.transpose() * _guess.mu.col(k);
+        lagrangian_dx.col(k) -= dX.transpose() * _guess.mu.col(k);
+        lagrangian_du.col(k) -= dU.transpose() * _guess.mu.col(k);
     }
 
 #ifdef DEBUG
-    std::cout << "lx_val: " << lx_val.transpose() << std::endl;
-    std::cout << lx_val.lpNorm<Eigen::Infinity>() << std::endl;
-    std::cout << "lu_val: " << lu_val.transpose() << std::endl;
-    std::cout << lu_val.lpNorm<Eigen::Infinity>() << std::endl;
+    std::cout << "Lagrangian dx:  " << std::endl << lagrangian_dx << std::endl;
+    std::cout << "Norm: " << lagrangian_dx.lpNorm<Eigen::Infinity>()
+              << std::endl;
+    std::cout << "Lagrangian du: " << std::endl << lagrangian_du << std::endl;
+    std::cout << "Norm: " << lagrangian_du.lpNorm<Eigen::Infinity>()
+              << std::endl;
 #endif
 
-    if (lx_val.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
-        lu_val.lpNorm<Eigen::Infinity>() <= _params.tolerance)
+    if (lagrangian_dx.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
+        lagrangian_du.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
         std::cout << "CSQP: Convergence reached in " << _iter + 1
                   << " iterations" << std::endl;

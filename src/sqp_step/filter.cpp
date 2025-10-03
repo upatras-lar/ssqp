@@ -6,15 +6,15 @@ namespace step
 {
 bool costFilter(
   const std::vector<std::function<double(const MatX &, const MatX &)>> &costs,
-  const Point &smaller, const Point &greater)
+  const Point &previous, const Point &next)
 {
-
+    // TODO: check again
     for (const auto &f : costs)
     {
-        double fs = f(smaller.x, smaller.u);
-        double fg = f(greater.x, greater.u);
+        double fp = f(previous.x, previous.u);
+        double fn = f(next.x, next.u);
 
-        if (fs < fg)
+        if (fn < fp)
         {
             return true;
         }
