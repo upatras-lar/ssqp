@@ -1,5 +1,6 @@
 #include <memory>
 #include <vector>
+#include <string>
 
 #include <Eigen/Core>
 
@@ -47,6 +48,8 @@ enum SolverState
     DUAL_INFEASIBLE   = 11,
     ONGOING           = 100,
 };
+
+const std::string to_string(const SolverState &state);
 
 // Holds data for non-terminal stages of the below QP
 struct QPStage

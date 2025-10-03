@@ -19,7 +19,8 @@ struct Output
 };
 
 Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
-           const std::vector<VecX> &rho, const double sigma = 10e-6);
+           const std::vector<VecX> &rho, const double sigma = 10e-6,
+           bool constrained = true);
 }
 }
 }

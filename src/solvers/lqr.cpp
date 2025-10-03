@@ -7,7 +7,7 @@ namespace solvers
 namespace lqr
 {
 Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
-           const std::vector<VecX> &rho, const double sigma)
+           const std::vector<VecX> &rho, const double sigma, bool constrained)
 {
     // Initialization
     Output output {
@@ -27,38 +27,52 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
     MatX Qt = qp.Qxx_t;
     VecX qt = qp.qx_t;
 
-    for (int k = 0; k < qp.horizon; ++k)
+    if (constrained)
     {
-        Qxx[k] =
-          qp.stages[k].Qxx +
-          qp.stages[k].D.transpose() * rho[k].asDiagonal() * qp.stages[k].D +
-          sigma * MatX::Identity(qp.nx, qp.nx);
-        Qxu[k] = qp.stages[k].Qxu + qp.stages[k].D.transpose() *
-                                      rho[k].asDiagonal() * qp.stages[k].E;
-        Quu[k] =
-          qp.stages[k].Quu +
-          qp.stages[k].E.transpose() * rho[k].asDiagonal() * qp.stages[k].E +
-          sigma * MatX::Identity(qp.nu, qp.nu);
+        for (int k = 0; k < qp.horizon; ++k)
+        {
+            Qxx[k] = qp.stages[k].Qxx +
+                     qp.stages[k].D.transpose() * rho[k].asDiagonal() *
+                       qp.stages[k].D +
+                     sigma * MatX::Identity(qp.nx, qp.nx);
+            Qxu[k] = qp.stages[k].Qxu + qp.stages[k].D.transpose() *
+                                          rho[k].asDiagonal() * qp.stages[k].E;
+            Quu[k] = qp.stages[k].Quu +
+                     qp.stages[k].E.transpose() * rho[k].asDiagonal() *
+                       qp.stages[k].E +
+                     sigma * MatX::Identity(qp.nu, qp.nu);
 
-        qx[k] = qp.stages[k].qx +
-                qp.stages[k].D.transpose() * current_sol.y.col(k) -
-                qp.stages[k].D.transpose() * rho[k].asDiagonal() *
-                  current_sol.z.col(k) -
-                sigma * current_sol.dX.col(k);
+            qx[k] = qp.stages[k].qx +
+                    qp.stages[k].D.transpose() * current_sol.y.col(k) -
+                    qp.stages[k].D.transpose() * rho[k].asDiagonal() *
+                      current_sol.z.col(k) -
+                    sigma * current_sol.dX.col(k);
 
-        qu[k] = qp.stages[k].qu +
-                qp.stages[k].E.transpose() * current_sol.y.col(k) -
-                qp.stages[k].E.transpose() * rho[k].asDiagonal() *
-                  current_sol.z.col(k) -
-                sigma * current_sol.dU.col(k);
+            qu[k] = qp.stages[k].qu +
+                    qp.stages[k].E.transpose() * current_sol.y.col(k) -
+                    qp.stages[k].E.transpose() * rho[k].asDiagonal() *
+                      current_sol.z.col(k) -
+                    sigma * current_sol.dU.col(k);
+        }
+
+        Qt += qp.Dt.transpose() * rho[qp.horizon].asDiagonal() * qp.Dt +
+              sigma * MatX::Identity(qp.nx, qp.nx);
+        qt += qp.Dt.transpose() * current_sol.y.col(qp.horizon) -
+              qp.Dt.transpose() * rho[qp.horizon].asDiagonal() *
+                current_sol.z.col(qp.horizon) +
+              sigma * current_sol.dX.col(qp.horizon);
     }
-
-    Qt += qp.Dt.transpose() * rho[qp.horizon].asDiagonal() * qp.Dt +
-          sigma * MatX::Identity(qp.nx, qp.nx);
-    qt += qp.Dt.transpose() * current_sol.y.col(qp.horizon) -
-          qp.Dt.transpose() * rho[qp.horizon].asDiagonal() *
-            current_sol.z.col(qp.horizon) +
-          sigma * current_sol.dX.col(qp.horizon);
+    else
+    {
+        for (int k = 0; k < qp.horizon; ++k)
+        {
+            Qxx[k] = qp.stages[k].Qxx;
+            Qxu[k] = qp.stages[k].Qxu;
+            Quu[k] = qp.stages[k].Quu;
+            qx[k]  = qp.stages[k].qx;
+            qu[k]  = qp.stages[k].qu;
+        }
+    }
 
     output.P[qp.horizon] = Qt;
     output.p[qp.horizon] = qt;
