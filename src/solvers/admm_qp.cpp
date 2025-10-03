@@ -85,7 +85,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {
-            //_update_rho();
+            _update_rho();
         }
         // Termination
         if ((admm_state = _check_termination()) != ONGOING)

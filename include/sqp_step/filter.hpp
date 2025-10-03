@@ -11,7 +11,7 @@ namespace step
 
 bool costFilter(
   const std::vector<std::function<double(const MatX &, const MatX &)>> &costs,
-  const Point &smaller, const Point &greater);
+  const Point &previous, const Point &next);
 
 std::tuple<MatX, MatX, double> filter(
   MatX &x, MatX &u, MatX &dX, MatX &dU,
