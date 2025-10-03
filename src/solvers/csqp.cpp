@@ -235,11 +235,10 @@ SolverState csqp::_check_termination() const
     }
 
     // Terminal constraint violation
-    if (std::max(
-          -_ocp.constraints
-             ->evaluate(_horizon, _guess.x.col(_horizon), VecX::Zero(_nu))
-             .lpNorm<Eigen::Infinity>(),
-          0.0) > _params.tolerance)
+    if (_ocp.constraints
+          ->evaluate(_horizon, _guess.x.col(_horizon), VecX::Zero(1))
+          .cwiseMin(0)
+          .lpNorm<Eigen::Infinity>() > _params.tolerance)
     {
         return ONGOING;
     }
@@ -254,10 +253,9 @@ SolverState csqp::_check_termination() const
             return ONGOING;
         }
         // Stage constraint violation
-        if (std::max(
-              -_ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k))
-                 .lpNorm<Eigen::Infinity>(),
-              0.0) > _params.tolerance)
+        if (_ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k))
+              .cwiseMin(0)
+              .lpNorm<Eigen::Infinity>() > _params.tolerance)
         {
             return ONGOING;
         }
@@ -369,11 +367,13 @@ double csqp::_cf(const MatX &x, const MatX &u) const
     for (uint k = 0; k < _horizon; ++k)
     {
         sum += _ocp.constraints->evaluate(k, x.col(k), u.col(k))
+                 .cwiseMin(0)
                  .lpNorm<Eigen::Infinity>();
     }
 
     return sum +
            _ocp.constraints->evaluate(_horizon, x.col(_horizon), VecX::Zero(1))
+             .cwiseMin(0)
              .lpNorm<Eigen::Infinity>();
 }
 }

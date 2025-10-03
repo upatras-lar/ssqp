@@ -120,7 +120,7 @@ void admm_qp::_calculate_residuals(const MatX &z_prev)
 
     for (uint k = 0; k < _qp.horizon; ++k)
     {
-        std::cout << "ρ[" << k << "]: " << _rho[k].transpose() << std::endl;
+        // std::cout << "ρ[" << k << "]: " << _rho[k].transpose() << std::endl;
         VecX zdiff_scaled =
           _rho[k].cwiseProduct(_solution.z.col(k) - z_prev.col(k));
         _norm_dual = std::max(_norm_dual,
@@ -151,8 +151,9 @@ void admm_qp::_calculate_residuals(const MatX &z_prev)
                    (_qp.stages[k].E.transpose() * _solution.y.col(k))
                      .lpNorm<Eigen::Infinity>());
     }
-    std::cout << "ρ[" << _qp.horizon << "]: " << _rho[_qp.horizon].transpose()
-              << std::endl;
+    // std::cout << "ρ[" << _qp.horizon << "]: " <<
+    // _rho[_qp.horizon].transpose()
+    //   << std::endl;
 
     VecX zdiff_scaled = _rho[_qp.horizon].cwiseProduct(
       _solution.z.col(_qp.horizon) - z_prev.col(_qp.horizon));

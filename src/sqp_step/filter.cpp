@@ -8,7 +8,6 @@ bool costFilter(
   const std::vector<std::function<double(const MatX &, const MatX &)>> &costs,
   const Point &previous, const Point &next)
 {
-    // TODO: check again
     for (const auto &f : costs)
     {
         double fp = f(previous.x, previous.u);
