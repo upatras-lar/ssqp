@@ -35,7 +35,7 @@ class admm_qp
         // Termination parameters
         const uint   max_iter      = 100'000;
         const double abs_tolerance = 1e-4; // Absolute tolerance
-        const double rel_tolerance = 1e-3; // Relative tolerance
+        const double rel_tolerance = 1e-4; // Relative tolerance
         const double primal_infeasibility_tolerance =
           1e-6; // Primal infeasibility tolerance
 
@@ -63,13 +63,13 @@ class admm_qp
     csqp::Guess _guess;
     Params      _params;
 
-    std::vector<DMatX> _rho, _rho_inv;
-    const double       _rho_min = 1e-6;
+    std::vector<VecX> _rho, _rho_inv;
+    double            _rho_common;
+    const double      _rho_min = 1e-6;
 
-    // Relative parts of residuals
-    MatX _Dx, _rQTz, _rQTzp;
-    // Residuals
-    MatX _r_prim, _r_dual;
+    // Norms of residuals
+    double _norm_primal = 0., _norm_dual = 0.;
+    double _norm_primal_rel = 0., _norm_dual_rel = 0.;
 
     uint _iter;
 
