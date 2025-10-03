@@ -26,15 +26,6 @@ admm_qp::admm_qp(const QPData &qp, const csqp::Guess &guess,
     {
         _rho[k].setConstant(_params.init_rho);
         _rho_inv[k].setConstant(1. / _params.init_rho);
-
-        // for (uint c = 0; c < _qp.nc; ++c)
-        // {
-        //     if (k == _qp.horizon && c >= 2)
-        //     {
-        //         _rho[k][c]     = 1e2 * _params.init_rho;
-        //         _rho_inv[k][c] = 1. / (1e2 * _params.init_rho);
-        //     }
-        // }
     }
 }
 
@@ -46,6 +37,12 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 #endif
 
     SolverState admm_state;
+
+    // Warm start with unconstrained LQR
+    solvers::lqr::Output out =
+      solvers::lqr::lqr(_qp, _solution, _rho, _params.sigma, false);
+    _solution.dX = out.x;
+    _solution.dU = out.u;
 
     for (_iter = 0;; ++_iter)
     {
@@ -120,7 +117,6 @@ void admm_qp::_calculate_residuals(const MatX &z_prev)
 
     for (uint k = 0; k < _qp.horizon; ++k)
     {
-        // std::cout << "ρ[" << k << "]: " << _rho[k].transpose() << std::endl;
         VecX zdiff_scaled =
           _rho[k].cwiseProduct(_solution.z.col(k) - z_prev.col(k));
         _norm_dual = std::max(_norm_dual,
@@ -151,9 +147,6 @@ void admm_qp::_calculate_residuals(const MatX &z_prev)
                    (_qp.stages[k].E.transpose() * _solution.y.col(k))
                      .lpNorm<Eigen::Infinity>());
     }
-    // std::cout << "ρ[" << _qp.horizon << "]: " <<
-    // _rho[_qp.horizon].transpose()
-    //   << std::endl;
 
     VecX zdiff_scaled = _rho[_qp.horizon].cwiseProduct(
       _solution.z.col(_qp.horizon) - z_prev.col(_qp.horizon));
@@ -202,48 +195,37 @@ SolverState admm_qp::_check_termination() const
     std::cout << "=============" << std::endl;
 #endif
 
-    // double r_prim_infnorm = _norm_primal;
-    // double r_dual_infnorm = _norm_dual;
+    if (_norm_primal > tolerance_prim)
+    {
+        if (_norm_dual < _params.primal_infeasibility_tolerance)
+        {
+            return PRIMAL_INFEASIBLE;
+        }
 
-    // if (r_prim_infnorm > tolerance_prim)
-    // {
-    //     if (r_dual_infnorm < _params.primal_infeasibility_tolerance)
-    //     {
-    //         return PRIMAL_INFEASIBLE;
-    //     }
-
-    //     return ONGOING;
-    // }
-
-    // if (_norm_dual > tolerance_dual)
-    // {
-    //     return ONGOING;
-    // }
-    if (_norm_primal > tolerance_prim || _norm_dual > tolerance_dual)
         return ONGOING;
+    }
+
+    if (_norm_dual > tolerance_dual)
+    {
+        return ONGOING;
+    }
 
     return SUCCESS;
 }
 
-// TODO: this results in primal infeasibility
-// causes r_dual to become very small even as r_prim is still converging
 void admm_qp::_update_rho()
 {
-    const double rho_min_                = 1e-6;
-    const double rho_max_                = 1e3;
-    const double adaptive_rho_tolerance_ = 5;
-
     const double scale = std::sqrt((_norm_primal * _norm_dual_rel) /
                                    (_norm_dual * _norm_primal_rel));
 
     double rho_estimate_sparse_ =
-      std::min(std::max(scale * _rho_common, rho_min_), rho_max_);
+      std::min(std::max(scale * _rho_common, _params.rho_min_),
+               _params.rho_max_);
 
-    if (rho_estimate_sparse_ > _rho_common * adaptive_rho_tolerance_ ||
-        rho_estimate_sparse_ < _rho_common / adaptive_rho_tolerance_)
+    if (rho_estimate_sparse_ > _rho_common * _params.adaptive_rho_tolerance_ ||
+        rho_estimate_sparse_ < _rho_common / _params.adaptive_rho_tolerance_)
     {
         _rho_common = rho_estimate_sparse_;
-        // Let's apply it
         for (uint k = 0; k <= _qp.horizon; ++k)
         {
             VecX &rho     = _rho[k];

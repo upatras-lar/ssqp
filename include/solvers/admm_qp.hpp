@@ -27,15 +27,15 @@ class admm_qp
         const double sigma    = 1e-6;
 
         // Rho update
-        const uint rho_scale_factor     = 2;
-        const uint rho_incr_factor      = 5;
-        const uint rho_decr_factor      = 5;
-        const uint rho_update_iter_freq = 25;
+        const double rho_min_                = 1e-6;
+        const double rho_max_                = 1e2;
+        const double adaptive_rho_tolerance_ = 5;
+        const uint   rho_update_iter_freq    = 25;
 
         // Termination parameters
         const uint   max_iter      = 100'000;
-        const double abs_tolerance = 1e-4; // Absolute tolerance
-        const double rel_tolerance = 1e-4; // Relative tolerance
+        const double abs_tolerance = 1e-6; // Absolute tolerance
+        const double rel_tolerance = 1e-6; // Relative tolerance
         const double primal_infeasibility_tolerance =
           1e-6; // Primal infeasibility tolerance
 
@@ -68,8 +68,8 @@ class admm_qp
     const double      _rho_min = 1e-6;
 
     // Norms of residuals
-    double _norm_primal = 0., _norm_dual = 0.;
-    double _norm_primal_rel = 0., _norm_dual_rel = 0.;
+    double _norm_primal = 0, _norm_dual = 0;
+    double _norm_primal_rel = 0, _norm_dual_rel = 0;
 
     uint _iter;
 

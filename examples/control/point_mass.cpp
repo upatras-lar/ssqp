@@ -200,16 +200,13 @@ int main()
     ssqp::solvers::csqp::Guess solution;
     ssqp::solvers::SolverState state = solver.solve(solution);
 
-    std::cout << "Solver state: " << state << std::endl;
+    std::cout << "Solver state: " << ssqp::solvers::to_string(state)
+              << std::endl;
 
     if (state == ssqp::solvers::SolverState::SUCCESS)
     {
         std::cout << "x: " << solution.x << std::endl;
         std::cout << "u: " << solution.u << std::endl;
-    }
-    else if (state == ssqp::solvers::SolverState::PRIMAL_INFEASIBLE)
-    {
-        std::cout << "Primal infeasibility detected" << std::endl;
     }
 
     return 0;
