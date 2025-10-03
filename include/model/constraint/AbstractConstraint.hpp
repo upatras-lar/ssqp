@@ -11,7 +11,7 @@ class AbstractConstraint
 {
   public:
     // Get constraint function output size (if f: R^m -> R^n, this returns n)
-    virtual int output_size() const = 0;
+    virtual uint output_size() const = 0;
 
     // Evaluate constraint function c_k(x, u)
     // Returns: output vector, (nc) x 1

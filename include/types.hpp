@@ -42,10 +42,11 @@ namespace solvers
 {
 enum SolverState
 {
-    MAX_ITER_REACHED  = 0,
     SUCCESS           = 1,
+    LOOSE_SUCCESS     = 2,
     PRIMAL_INFEASIBLE = 10,
     DUAL_INFEASIBLE   = 11,
+    MAX_ITER_REACHED  = 13,
     ONGOING           = 100,
 };
 

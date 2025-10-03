@@ -28,7 +28,7 @@ class admm_qp
 
         // Rho update
         const double rho_min_                = 1e-6;
-        const double rho_max_                = 1e2;
+        const double rho_max_                = 1e3;
         const double adaptive_rho_tolerance_ = 5;
         const uint   rho_update_iter_freq    = 25;
 
@@ -38,6 +38,8 @@ class admm_qp
         const double rel_tolerance = 1e-6; // Relative tolerance
         const double primal_infeasibility_tolerance =
           1e-8; // Primal infeasibility tolerance
+
+        bool warm_start = true;
 
         static Params Default()
         {

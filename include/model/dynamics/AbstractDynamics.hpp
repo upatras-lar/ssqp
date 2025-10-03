@@ -11,10 +11,10 @@ class AbstractDynamics
 {
   public:
     // Get dynamics output size (if f: R^m -> R^n, this returns n)
-    virtual int output_size() const = 0;
+    virtual uint output_size() const = 0;
 
     // Get control size
-    virtual int control_size() const = 0;
+    virtual uint control_size() const = 0;
 
     // Evaluate dynamics function f_k(x, u)
     // Returns: output vector, (nx) x 1
