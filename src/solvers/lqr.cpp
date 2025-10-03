@@ -7,7 +7,7 @@ namespace solvers
 namespace lqr
 {
 Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
-           const std::vector<DMatX> &rho, const double sigma)
+           const std::vector<VecX> &rho, const double sigma)
 {
     // Initialization
     Output output {
@@ -29,30 +29,35 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
 
     for (int k = 0; k < qp.horizon; ++k)
     {
-        Qxx[k] = qp.stages[k].Qxx +
-                 qp.stages[k].D.transpose() * rho[k] * qp.stages[k].D +
-                 sigma * MatX::Identity(qp.nx, qp.nx);
-        Qxu[k] = qp.stages[k].Qxu +
-                 qp.stages[k].D.transpose() * rho[k] * qp.stages[k].E;
-        Quu[k] = qp.stages[k].Quu +
-                 qp.stages[k].E.transpose() * rho[k] * qp.stages[k].E +
-                 sigma * MatX::Identity(qp.nu, qp.nu);
+        Qxx[k] =
+          qp.stages[k].Qxx +
+          qp.stages[k].D.transpose() * rho[k].asDiagonal() * qp.stages[k].D +
+          sigma * MatX::Identity(qp.nx, qp.nx);
+        Qxu[k] = qp.stages[k].Qxu + qp.stages[k].D.transpose() *
+                                      rho[k].asDiagonal() * qp.stages[k].E;
+        Quu[k] =
+          qp.stages[k].Quu +
+          qp.stages[k].E.transpose() * rho[k].asDiagonal() * qp.stages[k].E +
+          sigma * MatX::Identity(qp.nu, qp.nu);
 
         qx[k] = qp.stages[k].qx +
                 qp.stages[k].D.transpose() * current_sol.y.col(k) -
-                qp.stages[k].D.transpose() * rho[k] * current_sol.z.col(k) -
+                qp.stages[k].D.transpose() * rho[k].asDiagonal() *
+                  current_sol.z.col(k) -
                 sigma * current_sol.dX.col(k);
 
         qu[k] = qp.stages[k].qu +
                 qp.stages[k].E.transpose() * current_sol.y.col(k) -
-                qp.stages[k].E.transpose() * rho[k] * current_sol.z.col(k) -
+                qp.stages[k].E.transpose() * rho[k].asDiagonal() *
+                  current_sol.z.col(k) -
                 sigma * current_sol.dU.col(k);
     }
 
-    Qt += qp.Dt.transpose() * rho[qp.horizon] * qp.Dt +
+    Qt += qp.Dt.transpose() * rho[qp.horizon].asDiagonal() * qp.Dt +
           sigma * MatX::Identity(qp.nx, qp.nx);
     qt += qp.Dt.transpose() * current_sol.y.col(qp.horizon) -
-          qp.Dt.transpose() * rho[qp.horizon] * current_sol.z.col(qp.horizon) +
+          qp.Dt.transpose() * rho[qp.horizon].asDiagonal() *
+            current_sol.z.col(qp.horizon) +
           sigma * current_sol.dX.col(qp.horizon);
 
     output.P[qp.horizon] = Qt;
@@ -81,7 +86,7 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
         }
         else
         {
-            double coeff = 1 / H(0, 0);
+            double coeff = 1. / H(0, 0);
             output.K[k]  = -coeff * G;
             output.k[k]  = -coeff * h;
         }
