@@ -16,8 +16,16 @@ class csqp
   public:
     struct Params
     {
-        const uint   max_iter  = 10'000;
+        const uint max_iter = 10'000;
+        // Tolerance for lagrangian jacobian norms
         const double tolerance = 1e-4;
+        // Tolerance for change in cost jacobian norms
+        const double loose_success_tolerance = 1e-5;
+        // Number of iterations for stale cost jacobian norms
+        const uint loose_success_stale_iters = 5;
+
+        // Whether to warm start ADMM with an unconstrained LQR solution
+        bool warm_start_admm = true;
 
         static Params Default()
         {
@@ -47,8 +55,8 @@ class csqp
     SolverState solve(Guess &guess);
 
   protected:
-    const int _horizon;
-    const int _nx, _nu, _nc;
+    const uint _horizon;
+    const uint _nx, _nu, _nc;
 
     const std::vector<std::function<double(const MatX &, const MatX &)>>
       _filter_ls_costs;
@@ -57,11 +65,15 @@ class csqp
     OCP    _ocp;
     Guess  _guess;
 
+    MatX _prev_cost_dx, _prev_cost_du;
+    MatX _cost_dx, _cost_du;
+
     uint _iter;
+    uint _stale_iters;
 
     QPData _setup_qp();
 
-    SolverState _check_termination() const;
+    SolverState _check_termination();
 
     // Trajectory cost
     double _lf(const MatX &x, const MatX &u) const;

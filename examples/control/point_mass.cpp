@@ -35,7 +35,7 @@ class Cost : public ssqp::cost::AbstractCost
     double evaluate(const uint k, const ssqp::VecX &x,
                     const ssqp::VecX &u) const override
     {
-        return u(0) * u(0) * 0.001 +
+        return u(0) * u(0) * 0.001 + 2 * x(1) * x(1) +
                (k == HORIZON ? (x(0) - 0.4) * (x(0) - 0.4) : 0);
     }
 
@@ -44,11 +44,11 @@ class Cost : public ssqp::cost::AbstractCost
     {
         if (k == HORIZON)
         {
-            dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 0).finished();
+            dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
         }
         else
         {
-            dx = Eigen::Vector2d::Zero();
+            dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
         }
         du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
     }
@@ -61,6 +61,7 @@ class Cost : public ssqp::cost::AbstractCost
         {
             Hxx(0, 0) = 2;
         }
+        Hxx(1, 1) = 4;
     }
 
     void hessian_xu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
@@ -78,7 +79,7 @@ class Cost : public ssqp::cost::AbstractCost
 
 class Constraints : public ssqp::constraint::AbstractConstraint
 {
-    int output_size() const override
+    uint output_size() const override
     {
         return 4;
     }
@@ -137,12 +138,12 @@ class Constraints : public ssqp::constraint::AbstractConstraint
 
 class Dynamics : public ssqp::dynamics::AbstractDynamics
 {
-    int output_size() const override
+    uint output_size() const override
     {
         return 2;
     }
 
-    int control_size() const override
+    uint control_size() const override
     {
         return 1;
     }
@@ -203,7 +204,8 @@ int main()
     std::cout << "Solver state: " << ssqp::solvers::to_string(state)
               << std::endl;
 
-    if (state == ssqp::solvers::SolverState::SUCCESS)
+    if (state == ssqp::solvers::SolverState::SUCCESS ||
+        state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
     {
         std::cout << "x: " << solution.x << std::endl;
         std::cout << "u: " << solution.u << std::endl;

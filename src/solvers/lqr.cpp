@@ -29,7 +29,7 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
 
     if (constrained)
     {
-        for (int k = 0; k < qp.horizon; ++k)
+        for (uint k = 0; k < qp.horizon; ++k)
         {
             Qxx[k] = qp.stages[k].Qxx +
                      qp.stages[k].D.transpose() * rho[k].asDiagonal() *
@@ -64,7 +64,7 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
     }
     else
     {
-        for (int k = 0; k < qp.horizon; ++k)
+        for (uint k = 0; k < qp.horizon; ++k)
         {
             Qxx[k] = qp.stages[k].Qxx;
             Qxu[k] = qp.stages[k].Qxu;

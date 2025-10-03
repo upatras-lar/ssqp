@@ -55,7 +55,7 @@ class Cost : public ssqp::cost::AbstractCost
 
 class Constraints : public ssqp::constraint::AbstractConstraint
 {
-    int output_size() const override
+    uint output_size() const override
     {
         return 5;
     }
@@ -116,12 +116,12 @@ class Constraints : public ssqp::constraint::AbstractConstraint
 
 class Dynamics : public ssqp::dynamics::AbstractDynamics
 {
-    int output_size() const override
+    uint output_size() const override
     {
         return 1;
     }
 
-    int control_size() const override
+    uint control_size() const override
     {
         return 2;
     }

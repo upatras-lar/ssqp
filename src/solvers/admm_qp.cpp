@@ -39,10 +39,13 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     SolverState admm_state;
 
     // Warm start with unconstrained LQR
-    solvers::lqr::Output out =
-      solvers::lqr::lqr(_qp, _solution, _rho, _params.sigma, false);
-    _solution.dX = out.x;
-    _solution.dU = out.u;
+    if (_params.warm_start)
+    {
+        solvers::lqr::Output out =
+          solvers::lqr::lqr(_qp, _solution, _rho, _params.sigma, false);
+        _solution.dX = out.x;
+        _solution.dU = out.u;
+    }
 
     for (_iter = 0;; ++_iter)
     {

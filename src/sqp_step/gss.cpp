@@ -14,7 +14,7 @@ bool costSum(
     double smaller_sum = 0.0;
     double greater_sum = 0.0;
 
-    for (int i = 0; i < costs.size(); ++i)
+    for (uint i = 0; i < costs.size(); ++i)
     {
         smaller_sum += weights[i] * costs[i](smaller.x, smaller.u);
         greater_sum += weights[i] * costs[i](greater.x, greater.u);

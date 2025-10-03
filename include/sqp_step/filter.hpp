@@ -16,7 +16,7 @@ bool costFilter(
 std::tuple<MatX, MatX, double> filter(
   MatX &x, MatX &u, MatX &dX, MatX &dU,
   const std::vector<std::function<double(const MatX &, const MatX &)>> costs,
-  int inv_alpha_scale_factor = 2, double min_alpha = 1e-5);
+  uint inv_alpha_scale_factor = 2, double min_alpha = 1e-5);
 }
 }
 

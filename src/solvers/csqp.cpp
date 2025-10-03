@@ -25,25 +25,26 @@ csqp::csqp(const OCP &ocp, const Params &params)
              MatX::Zero(_nu, _horizon),
              MatX::Zero(_nx, _horizon),
              MatX::Zero(_nc, _horizon + 1) })
+  , _prev_cost_dx(MatX::Zero(_nx, _horizon + 1))
+  , _cost_dx(MatX::Zero(_nx, _horizon + 1))
+  , _prev_cost_du(MatX::Zero(_nu, _horizon))
+  , _cost_du(MatX::Zero(_nu, _horizon))
 {
-    /*
-    for (int i = 0; i < _horizon; ++i)
-    {
-        _guess.x(0, i) = static_cast<double>(rand() % 100) / 100;
-        _guess.x(1, i) = static_cast<double>(rand() % 100) / 100;
-        _guess.u(0, i) = static_cast<double>(rand() % 100) / 100;
-    }
-    */
 }
 
 SolverState csqp::solve(Guess &guess)
 {
+    _stale_iters = 0;
+
     SolverState csqp_state;
 
-    for (_iter = 0;; ++_iter)
+    for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
-        QPData            qp = _setup_qp();
-        admm_qp           qp_solver(qp, _guess);
+        QPData          qp = _setup_qp();
+        admm_qp::Params admm_params {};
+        admm_params.warm_start = _params.warm_start_admm;
+
+        admm_qp           qp_solver(qp, _guess, admm_params);
         admm_qp::Solution sol;
         SolverState       state = qp_solver.solve(sol);
 
@@ -75,13 +76,16 @@ SolverState csqp::solve(Guess &guess)
         // Termination
         if ((csqp_state = _check_termination()) != ONGOING)
         {
-            break;
+            guess = _guess;
+            return csqp_state;
         }
+
+        _prev_cost_dx = _cost_dx;
+        _prev_cost_du = _cost_du;
     }
 
     guess = _guess;
-
-    return csqp_state;
+    return MAX_ITER_REACHED;
 }
 
 QPData csqp::_setup_qp()
@@ -215,7 +219,7 @@ QPData csqp::_setup_qp()
     return qp;
 }
 
-SolverState csqp::_check_termination() const
+SolverState csqp::_check_termination()
 {
 #ifdef DEBUG
     std::cout << "Guess " << _iter + 1 << std::endl;
@@ -229,42 +233,11 @@ SolverState csqp::_check_termination() const
     std::cout << "=============" << std::endl;
 #endif
 
-    if (_iter == _params.max_iter)
-    {
-        return MAX_ITER_REACHED;
-    }
-
-    // Terminal constraint violation
-    if (_ocp.constraints
-          ->evaluate(_horizon, _guess.x.col(_horizon), VecX::Zero(1))
-          .cwiseMin(0)
-          .lpNorm<Eigen::Infinity>() > _params.tolerance)
-    {
-        return ONGOING;
-    }
-
-    for (uint k = 0; k < _horizon; ++k)
-    {
-        // Stage gap violation
-        if ((_guess.x.col(k + 1) -
-             _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)))
-              .lpNorm<Eigen::Infinity>() > _params.tolerance)
-        {
-            return ONGOING;
-        }
-        // Stage constraint violation
-        if (_ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k))
-              .cwiseMin(0)
-              .lpNorm<Eigen::Infinity>() > _params.tolerance)
-        {
-            return ONGOING;
-        }
-    }
-
     // Jacobian over x and y of lagrangian at current guess
     MatX lagrangian_dx = MatX::Zero(_nx, _horizon + 1);
     MatX lagrangian_du = MatX::Zero(_nu, _horizon);
 
+    // Cost gradients for loose success
     VecX dx, du;
     MatX dX, dU;
 
@@ -279,6 +252,8 @@ SolverState csqp::_check_termination() const
     // Add contribution from previous integration step (λ)
     lagrangian_dx.col(_horizon) -= _guess.lambda.col(_horizon - 1);
 
+    _cost_dx.col(_horizon) = dx;
+
     // Add constraint terms for terminal x
     _ocp.constraints->gradient(_horizon,
                                _guess.x.col(_horizon),
@@ -291,6 +266,8 @@ SolverState csqp::_check_termination() const
     // Add k=0 terms for u
     _ocp.costs->gradient(0, _guess.x.col(0), _guess.u.col(0), dx, du);
     lagrangian_du.col(0) += du;
+
+    _cost_du.col(0) = du;
 
     _ocp.dynamics->gradient(0, _guess.x.col(0), _guess.u.col(0), dX, dU);
     lagrangian_du.col(0) += dU.transpose() * _guess.lambda.col(0);
@@ -305,6 +282,9 @@ SolverState csqp::_check_termination() const
         _ocp.costs->gradient(k, _guess.x.col(k), _guess.u.col(k), dx, du);
         lagrangian_dx.col(k) += dx;
         lagrangian_du.col(k) += du;
+
+        _cost_dx.col(k) = dx;
+        _cost_du.col(k) = du;
 
         // Compute dynamics gap jacobian
         _ocp.dynamics->gradient(k, _guess.x.col(k), _guess.u.col(k), dX, dU);
@@ -327,12 +307,58 @@ SolverState csqp::_check_termination() const
               << std::endl;
 #endif
 
+    // Terminal constraint violation
+    if (_ocp.constraints
+          ->evaluate(_horizon, _guess.x.col(_horizon), VecX::Zero(1))
+          .cwiseMin(0)
+          .lpNorm<Eigen::Infinity>() > _params.tolerance)
+    {
+        _stale_iters = 0;
+        return ONGOING;
+    }
+
+    for (uint k = 0; k < _horizon; ++k)
+    {
+        // Stage gap violation
+        if ((_guess.x.col(k + 1) -
+             _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)))
+              .lpNorm<Eigen::Infinity>() > _params.tolerance)
+        {
+            _stale_iters = 0;
+            return ONGOING;
+        }
+        // Stage constraint violation
+        if (_ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k))
+              .cwiseMin(0)
+              .lpNorm<Eigen::Infinity>() > _params.tolerance)
+        {
+            _stale_iters = 0;
+            return ONGOING;
+        }
+    }
+
     if (lagrangian_dx.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
         std::cout << "CSQP: Convergence reached in " << _iter + 1
                   << " iterations" << std::endl;
         return SUCCESS;
+    }
+
+    // TODO: test
+    if ((_cost_dx - _prev_cost_dx).cwiseAbs().maxCoeff() <
+          _params.loose_success_tolerance &&
+        (_cost_du - _prev_cost_du).cwiseAbs().maxCoeff() <
+          _params.loose_success_tolerance)
+    {
+        if (++_stale_iters == _params.loose_success_stale_iters)
+        {
+            return LOOSE_SUCCESS;
+        }
+    }
+    else
+    {
+        _stale_iters = 0;
     }
 
     return ONGOING;

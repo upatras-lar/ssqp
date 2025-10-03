@@ -8,15 +8,17 @@ const std::string to_string(const SolverState &state)
 {
     switch (state)
     {
-    case 0:
-        return "Max iterations reached";
-    case 1:
+    case SUCCESS:
         return "Success";
-    case 10:
+    case LOOSE_SUCCESS:
+        return "Loose success";
+    case PRIMAL_INFEASIBLE:
         return "Primal infeasibility detected";
-    case 11:
+    case DUAL_INFEASIBLE:
         return "Dual infeasibility detected";
-    case 100:
+    case MAX_ITER_REACHED:
+        return "Max iterations reached";
+    case ONGOING:
         return "Ongoing";
     }
 

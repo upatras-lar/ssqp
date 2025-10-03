@@ -12,7 +12,7 @@ class AbstractCost
   public:
     // Get cost function output size (always 1 since cost function returns
     // scalar)
-    int output_size()
+    uint output_size()
     {
         return 1;
     }
