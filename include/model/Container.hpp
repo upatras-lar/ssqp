@@ -1,0 +1,45 @@
+#ifndef SSQP_CONTAINER_HPP
+#define SSQP_CONTAINER_HPP
+
+#include <vector>
+#include <memory>
+
+#include "types.hpp"
+#include "model/stagewise/Function.hpp"
+#include "model/stagewise/StageCost.hpp"
+#include "model/stagewise/StageDynamics.hpp"
+#include "model/stagewise/StageConstraints.hpp"
+
+namespace ssqp
+{
+namespace model
+{
+// Container class for stagewise functions
+template<typename Derived>
+class Container
+{
+    static_assert(std::is_base_of<stagewise::Function, Derived>::value,
+                  "Container can only contain Function derived objects");
+
+  public:
+    // Initialize empty function container, considering all stage functions to
+    // be 0
+    Container(const uint horizon);
+    // Initialize function container with given functions
+    // Horizon is taken as functions.size()
+    Container(const std::vector<std::unique_ptr<const Derived>> &functions);
+
+    // Get reference to k-th function for setting
+    std::unique_ptr<const Derived> &operator[](const uint k);
+
+    // Get const reference to k-th function for reading
+    const std::unique_ptr<const Derived> &operator[](const uint k) const;
+
+  protected:
+    const uint                                  _horizon;
+    std::vector<std::unique_ptr<const Derived>> _functions;
+};
+}
+}
+
+#endif

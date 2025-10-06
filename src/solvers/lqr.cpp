@@ -7,64 +7,70 @@ namespace solvers
 namespace lqr
 {
 Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
-           const std::vector<VecX> &rho, const double sigma, bool constrained)
+           const FlatVec &rho, const double sigma, bool constrained)
 {
     // Initialization
-    Output output {
-        MatX(qp.nx, qp.horizon + 1),       MatX(qp.nu, qp.horizon),
-        std::vector<MatX>(qp.horizon + 1), std::vector<MatX>(qp.horizon),
-        std::vector<VecX>(qp.horizon + 1), std::vector<VecX>(qp.horizon)
-    };
+    Output output { FlatVec(current_sol.dx, false),
+                    FlatVec(current_sol.du, false),
+                    std::vector<MatX>(qp.dims.horizon + 1),
+                    std::vector<MatX>(qp.dims.horizon),
+                    std::vector<VecX>(qp.dims.horizon + 1),
+                    std::vector<VecX>(qp.dims.horizon) };
 
     // Add constraints to cost
-    std::vector<MatX> Qxx(qp.horizon);
-    std::vector<MatX> Qxu(qp.horizon);
-    std::vector<MatX> Quu(qp.horizon);
+    std::vector<MatX> Qxx(qp.dims.horizon);
+    std::vector<MatX> Qxu(qp.dims.horizon);
+    std::vector<MatX> Quu(qp.dims.horizon);
 
-    std::vector<VecX> qx(qp.horizon);
-    std::vector<VecX> qu(qp.horizon);
+    std::vector<VecX> qx(qp.dims.horizon);
+    std::vector<VecX> qu(qp.dims.horizon);
 
     MatX Qt = qp.Qxx_t;
     VecX qt = qp.qx_t;
 
     if (constrained)
     {
-        for (uint k = 0; k < qp.horizon; ++k)
+        for (uint k = 0; k < qp.dims.horizon; ++k)
         {
             Qxx[k] = qp.stages[k].Qxx +
-                     qp.stages[k].D.transpose() * rho[k].asDiagonal() *
+                     qp.stages[k].D.transpose() * rho.stage(k).asDiagonal() *
                        qp.stages[k].D +
-                     sigma * MatX::Identity(qp.nx, qp.nx);
+                     sigma * MatX::Identity(qp.dims.stage_state[k],
+                                            qp.dims.stage_state[k]);
             Qxu[k] = qp.stages[k].Qxu + qp.stages[k].D.transpose() *
-                                          rho[k].asDiagonal() * qp.stages[k].E;
+                                          rho.stage(k).asDiagonal() *
+                                          qp.stages[k].E;
             Quu[k] = qp.stages[k].Quu +
-                     qp.stages[k].E.transpose() * rho[k].asDiagonal() *
+                     qp.stages[k].E.transpose() * rho.stage(k).asDiagonal() *
                        qp.stages[k].E +
-                     sigma * MatX::Identity(qp.nu, qp.nu);
+                     sigma * MatX::Identity(qp.dims.stage_control[k],
+                                            qp.dims.stage_control[k]);
 
             qx[k] = qp.stages[k].qx +
-                    qp.stages[k].D.transpose() * current_sol.y.col(k) -
-                    qp.stages[k].D.transpose() * rho[k].asDiagonal() *
-                      current_sol.z.col(k) -
-                    sigma * current_sol.dX.col(k);
+                    qp.stages[k].D.transpose() * current_sol.y.stage(k) -
+                    qp.stages[k].D.transpose() * rho.stage(k).asDiagonal() *
+                      current_sol.z.stage(k) -
+                    sigma * current_sol.dx.stage(k);
 
             qu[k] = qp.stages[k].qu +
-                    qp.stages[k].E.transpose() * current_sol.y.col(k) -
-                    qp.stages[k].E.transpose() * rho[k].asDiagonal() *
-                      current_sol.z.col(k) -
-                    sigma * current_sol.dU.col(k);
+                    qp.stages[k].E.transpose() * current_sol.y.stage(k) -
+                    qp.stages[k].E.transpose() * rho.stage(k).asDiagonal() *
+                      current_sol.z.stage(k) -
+                    sigma * current_sol.du.stage(k);
         }
 
-        Qt += qp.Dt.transpose() * rho[qp.horizon].asDiagonal() * qp.Dt +
-              sigma * MatX::Identity(qp.nx, qp.nx);
-        qt += qp.Dt.transpose() * current_sol.y.col(qp.horizon) -
-              qp.Dt.transpose() * rho[qp.horizon].asDiagonal() *
-                current_sol.z.col(qp.horizon) +
-              sigma * current_sol.dX.col(qp.horizon);
+        Qt +=
+          qp.Dt.transpose() * rho.stage(qp.dims.horizon).asDiagonal() * qp.Dt +
+          sigma * MatX::Identity(qp.dims.stage_state[qp.dims.horizon],
+                                 qp.dims.stage_state[qp.dims.horizon]);
+        qt += qp.Dt.transpose() * current_sol.y.stage(qp.dims.horizon) -
+              qp.Dt.transpose() * rho.stage(qp.dims.horizon).asDiagonal() *
+                current_sol.z.stage(qp.dims.horizon) +
+              sigma * current_sol.dx.stage(qp.dims.horizon);
     }
     else
     {
-        for (uint k = 0; k < qp.horizon; ++k)
+        for (uint k = 0; k < qp.dims.horizon; ++k)
         {
             Qxx[k] = qp.stages[k].Qxx;
             Qxu[k] = qp.stages[k].Qxu;
@@ -74,11 +80,11 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
         }
     }
 
-    output.P[qp.horizon] = Qt;
-    output.p[qp.horizon] = qt;
+    output.P[qp.dims.horizon] = Qt;
+    output.p[qp.dims.horizon] = qt;
 
     // Backward pass
-    for (int k = qp.horizon - 1; k >= 0; --k)
+    for (int k = qp.dims.horizon - 1; k >= 0; --k)
     {
 
         VecX h =
@@ -92,7 +98,7 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
                  qp.stages[k].B.transpose() * output.P[k + 1] * qp.stages[k].B;
 
         // TODO: is LLT appropriate?
-        if (qp.nu > 1)
+        if (qp.dims.stage_control[k] > 1)
         {
             Eigen::LLT H_llt = H.llt();
             output.K[k]      = -H_llt.solve(G);
@@ -117,14 +123,14 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
     }
 
     // Forward pass
-    output.x.col(0) = VecX::Zero(qp.nx);
+    output.x.stage(0) = VecX::Zero(qp.dims.stage_state[0]);
 
-    for (uint k = 0; k < qp.horizon; ++k)
+    for (uint k = 0; k < qp.dims.horizon; ++k)
     {
-        output.x.col(k + 1) =
-          (qp.stages[k].A + qp.stages[k].B * output.K[k]) * output.x.col(k) +
+        output.x.stage(k + 1) =
+          (qp.stages[k].A + qp.stages[k].B * output.K[k]) * output.x.stage(k) +
           qp.stages[k].B * output.k[k] + qp.stages[k].gamma;
-        output.u.col(k) = output.K[k] * output.x.col(k) + output.k[k];
+        output.u.stage(k) = output.K[k] * output.x.stage(k) + output.k[k];
     }
 
     return output;

@@ -4,7 +4,9 @@ namespace ssqp
 {
 namespace step
 {
-Point::Point(const MatX &x, const MatX &u) : x(x), u(u) {}
+Point::Point(const solvers::FlatVec &x, const solvers::FlatVec &u) : x(x), u(u)
+{
+}
 
 Point &Point::operator=(const Point &p)
 {
@@ -38,8 +40,8 @@ Point &Point::operator+=(const Point &p)
 
 double Point::infNorm()
 {
-    double norm1 = x.lpNorm<Eigen::Infinity>();
-    double norm2 = u.lpNorm<Eigen::Infinity>();
+    double norm1 = x.vec.lpNorm<Eigen::Infinity>();
+    double norm2 = u.vec.lpNorm<Eigen::Infinity>();
 
     return std::max(norm1, norm2);
 }

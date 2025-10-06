@@ -1,6 +1,7 @@
 #ifndef SSQP_TYPES_HPP
 #define SSQP_TYPES_HPP
 
+#include <stdlib.h>
 #include <memory>
 #include <vector>
 #include <string>
@@ -13,33 +14,64 @@ using VecX  = Eigen::VectorXd;
 using MatX  = Eigen::MatrixXd;
 using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
-namespace dynamics
+namespace model
 {
-class AbstractDynamics;
-}
+struct Dimensions
+{
+    uint horizon;
 
-namespace cost
-{
-class AbstractCost;
-}
+    // Total values for states, controls and constraints
+    uint state;
+    uint control;
+    uint constraint;
 
-namespace constraint
-{
-class AbstractConstraint;
-}
-
-// Defines an optimal control problem over a horizon for the given costs,
-// dynamics and constraints
-struct OCP
-{
-    std::shared_ptr<dynamics::AbstractDynamics>     dynamics;
-    std::shared_ptr<cost::AbstractCost>             costs;
-    std::shared_ptr<constraint::AbstractConstraint> constraints;
-    uint                                            horizon;
+    // Total values per stage
+    std::vector<uint> stage_state;
+    std::vector<uint> stage_control;
+    std::vector<uint> stage_constraint;
 };
+}
 
 namespace solvers
 {
+
+// Flattened vector of all stage data
+struct FlatVec
+{
+  public:
+    FlatVec();
+    // Initialize a 0 vector, with stage sizes given in dims
+    FlatVec(const uint total_size, const std::vector<uint> &dims);
+    // Initialize a flat vector using the vectors given in vectors
+    FlatVec(const uint total_size, const std::vector<VecX> &vectors);
+    // FlatVec
+    FlatVec(const FlatVec &other, bool copy = true);
+
+    inline Eigen::VectorBlock<VecX> stage(const uint k);
+
+    inline const VecX stage(const uint k) const;
+
+    VecX vec;
+
+    FlatVec operator+(const FlatVec &p) const;
+
+    FlatVec operator-(const FlatVec &p) const;
+
+    FlatVec operator-() const;
+
+    friend FlatVec operator*(double val, const FlatVec &p);
+
+    FlatVec operator/(double val);
+
+    FlatVec &operator+=(const FlatVec &p);
+
+  protected:
+    // Stage size vector
+    std::vector<uint> _stage_sizes;
+    // Accumulated indexing vector
+    std::vector<uint> _acc_idx;
+};
+
 enum SolverState
 {
     SUCCESS           = 1,
@@ -76,8 +108,7 @@ struct QPStage
  */
 struct QPData
 {
-    uint                 horizon;
-    uint                 nx, nu, nc;
+    model::Dimensions    dims;
     std::vector<QPStage> stages;
 
     MatX Qxx_t;
@@ -85,14 +116,7 @@ struct QPData
     MatX Dt;
     VecX ct;
 
-    QPData(uint horizon, uint nx, uint nu, uint nc)
-      : horizon(horizon)
-      , nx(nx)
-      , nu(nu)
-      , nc(nc)
-      , stages(horizon)
-    {
-    }
+    QPData(const model::Dimensions &dims);
 };
 }
 }

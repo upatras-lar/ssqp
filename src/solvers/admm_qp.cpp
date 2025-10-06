@@ -10,23 +10,15 @@ admm_qp::admm_qp(const QPData &qp, const ssqp::Guess &guess,
   : _qp(qp)
   , _guess(guess)
   , _params(params)
-  , _rho(qp.horizon + 1, VecX(qp.nc))
-  , _rho_inv(qp.horizon + 1, VecX(qp.nc))
   , _rho_common(params.init_rho)
 {
-    assert(guess.x.cols() == guess.u.cols() + 1 &&
-           "Inconsistent time horizon"); // ensure consistent time horizon
+    _solution.dx = FlatVec(guess.x, false);
+    _solution.du = FlatVec(guess.u, false);
+    _solution.z  = FlatVec(qp.dims.constraint, qp.dims.stage_constraint);
+    _solution.y  = FlatVec(_solution.z, false);
 
-    _solution.dX = MatX::Zero(qp.nx, qp.horizon + 1);
-    _solution.dU = MatX::Zero(qp.nu, qp.horizon);
-    _solution.z  = MatX::Zero(qp.nc, qp.horizon + 1);
-    _solution.y  = MatX::Zero(qp.nc, qp.horizon + 1);
-
-    for (uint k = 0; k <= qp.horizon; ++k)
-    {
-        _rho[k].setConstant(_params.init_rho);
-        _rho_inv[k].setConstant(1. / _params.init_rho);
-    }
+    _rho     = FlatVec(_solution.z, false);
+    _rho_inv = FlatVec(_solution.z, false);
 }
 
 SolverState admm_qp::solve(admm_qp::Solution &sol)
@@ -43,8 +35,8 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     {
         solvers::lqr::Output out =
           solvers::lqr::lqr(_qp, _solution, _rho, _params.sigma, false);
-        _solution.dX = out.x;
-        _solution.dU = out.u;
+        _solution.dx = out.x;
+        _solution.du = out.u;
     }
 
     for (_iter = 0;; ++_iter)
@@ -64,7 +56,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         std::cout << "=============" << std::endl;
 #endif
 
-        MatX z_prev = _solution.z;
+        FlatVec z_prev = _solution.z;
         _step(out.x, out.u);
         _calculate_residuals(z_prev);
 
@@ -111,17 +103,17 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     return admm_state;
 }
 
-void admm_qp::_calculate_residuals(const MatX &z_prev)
+void admm_qp::_calculate_residuals(const FlatVec &z_prev)
 {
     _norm_primal     = -std::numeric_limits<double>::infinity();
     _norm_dual       = -std::numeric_limits<double>::infinity();
     _norm_primal_rel = -std::numeric_limits<double>::infinity();
     _norm_dual_rel   = -std::numeric_limits<double>::infinity();
 
-    for (uint k = 0; k < _qp.horizon; ++k)
+    for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
         VecX zdiff_scaled =
-          _rho[k].cwiseProduct(_solution.z.col(k) - z_prev.col(k));
+          _rho.stage(k).cwiseProduct(_solution.z.stage(k) - z_prev.stage(k));
         _norm_dual = std::max(_norm_dual,
                               (_qp.stages[k].D.transpose() * zdiff_scaled)
                                 .lpNorm<Eigen::Infinity>());
@@ -129,49 +121,50 @@ void admm_qp::_calculate_residuals(const MatX &z_prev)
                               (_qp.stages[k].E.transpose() * zdiff_scaled)
                                 .lpNorm<Eigen::Infinity>());
 
-        VecX CdxCdu = _qp.stages[k].D * _solution.dX.col(k) +
-                      _qp.stages[k].E * _solution.dU.col(k);
+        VecX CdxCdu = _qp.stages[k].D * _solution.dx.stage(k) +
+                      _qp.stages[k].E * _solution.du.stage(k);
         _norm_primal =
           std::max(_norm_primal,
-                   (CdxCdu - _solution.z.col(k)).lpNorm<Eigen::Infinity>());
+                   (CdxCdu - _solution.z.stage(k)).lpNorm<Eigen::Infinity>());
 
         _norm_primal_rel =
           std::max(_norm_primal_rel, CdxCdu.lpNorm<Eigen::Infinity>());
         _norm_primal_rel =
           std::max(_norm_primal_rel,
-                   _solution.z.col(k).lpNorm<Eigen::Infinity>());
+                   _solution.z.stage(k).lpNorm<Eigen::Infinity>());
 
         _norm_dual_rel =
           std::max(_norm_dual_rel,
-                   (_qp.stages[k].D.transpose() * _solution.y.col(k))
+                   (_qp.stages[k].D.transpose() * _solution.y.stage(k))
                      .lpNorm<Eigen::Infinity>());
         _norm_dual_rel =
           std::max(_norm_dual_rel,
-                   (_qp.stages[k].E.transpose() * _solution.y.col(k))
+                   (_qp.stages[k].E.transpose() * _solution.y.stage(k))
                      .lpNorm<Eigen::Infinity>());
     }
 
-    VecX zdiff_scaled = _rho[_qp.horizon].cwiseProduct(
-      _solution.z.col(_qp.horizon) - z_prev.col(_qp.horizon));
+    VecX zdiff_scaled = _rho.stage(_qp.dims.horizon)
+                          .cwiseProduct(_solution.z.stage(_qp.dims.horizon) -
+                                        z_prev.stage(_qp.dims.horizon));
 
     _norm_dual =
       std::max(_norm_dual,
                (_qp.Dt.transpose() * zdiff_scaled).lpNorm<Eigen::Infinity>());
 
-    VecX Cdx = _qp.Dt * _solution.dX.col(_qp.horizon);
-    _norm_primal =
-      std::max(_norm_primal,
-               (Cdx - _solution.z.col(_qp.horizon)).lpNorm<Eigen::Infinity>());
+    VecX Cdx     = _qp.Dt * _solution.dx.stage(_qp.dims.horizon);
+    _norm_primal = std::max(
+      _norm_primal,
+      (Cdx - _solution.z.stage(_qp.dims.horizon)).lpNorm<Eigen::Infinity>());
 
     _norm_primal_rel =
       std::max(_norm_primal_rel, Cdx.lpNorm<Eigen::Infinity>());
     _norm_primal_rel =
       std::max(_norm_primal_rel,
-               _solution.z.col(_qp.horizon).lpNorm<Eigen::Infinity>());
+               _solution.z.stage(_qp.dims.horizon).lpNorm<Eigen::Infinity>());
 
     _norm_dual_rel =
       std::max(_norm_dual_rel,
-               (_qp.Dt.transpose() * _solution.y.col(_qp.horizon))
+               (_qp.Dt.transpose() * _solution.y.stage(_qp.dims.horizon))
                  .lpNorm<Eigen::Infinity>());
 }
 
@@ -229,12 +222,9 @@ void admm_qp::_update_rho()
         rho_estimate_sparse_ < _rho_common / _params.adaptive_rho_tolerance_)
     {
         _rho_common = rho_estimate_sparse_;
-        for (uint k = 0; k <= _qp.horizon; ++k)
+        for (uint k = 0; k <= _qp.dims.horizon; ++k)
         {
-            VecX &rho     = _rho[k];
-            VecX &rho_inv = _rho_inv[k];
-
-            for (uint c = 0; c < _qp.nc; ++c)
+            for (uint c = 0; c < _qp.dims.stage_constraint[k]; ++c)
             {
                 // if (k == _qp.horizon && c >= 2)
                 // {
@@ -243,46 +233,50 @@ void admm_qp::_update_rho()
                 // }
                 // else
                 {
-                    rho(c)     = _rho_common;
-                    rho_inv(c) = 1. / _rho_common;
+                    _rho.stage(k)(c)     = _rho_common;
+                    _rho_inv.stage(k)(c) = 1. / _rho_common;
                 }
             }
         }
     }
 }
 
-void admm_qp::_step(const MatX &dX_hat, const MatX &dU_hat)
+void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
 {
-    MatX z_hat(_qp.nc, _qp.horizon + 1);
+    FlatVec z_hat(_solution.z, false);
 
-    for (uint k = 0; k < _qp.horizon; ++k)
+    for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        z_hat.col(k) = _params.alpha * (_qp.stages[k].D * dX_hat.col(k) +
-                                        _qp.stages[k].E * dU_hat.col(k)) +
-                       (1 - _params.alpha) * _solution.z.col(k);
-        _solution.dX.col(k) = _params.alpha * dX_hat.col(k) +
-                              (1 - _params.alpha) * _solution.dX.col(k);
-        _solution.dU.col(k) = _params.alpha * dU_hat.col(k) +
-                              (1 - _params.alpha) * _solution.dU.col(k);
+        z_hat.stage(k) = _params.alpha * (_qp.stages[k].D * dx_hat.stage(k) +
+                                          _qp.stages[k].E * du_hat.stage(k)) +
+                         (1 - _params.alpha) * _solution.z.stage(k);
+        _solution.dx.stage(k) = _params.alpha * dx_hat.stage(k) +
+                                (1 - _params.alpha) * _solution.dx.stage(k);
+        _solution.du.stage(k) = _params.alpha * du_hat.stage(k) +
+                                (1 - _params.alpha) * _solution.du.stage(k);
 
-        _solution.z.col(k) =
+        _solution.z.stage(k) =
           (-_qp.stages[k].c)
-            .cwiseMax(z_hat.col(k) +
-                      _rho_inv[k].cwiseProduct(_solution.y.col(k)));
-        _solution.y.col(k) +=
-          _rho[k].cwiseProduct(z_hat.col(k) - _solution.z.col(k));
+            .cwiseMax(z_hat.stage(k) +
+                      _rho_inv.stage(k).cwiseProduct(_solution.y.stage(k)));
+        _solution.y.stage(k) +=
+          _rho.stage(k).cwiseProduct(z_hat.stage(k) - _solution.z.stage(k));
     }
-    z_hat.col(_qp.horizon) = _params.alpha * _qp.Dt * dX_hat.col(_qp.horizon) +
-                             (1 - _params.alpha) * _solution.z.col(_qp.horizon);
-    _solution.dX.col(_qp.horizon) =
-      _params.alpha * dX_hat.col(_qp.horizon) +
-      (1 - _params.alpha) * _solution.dX.col(_qp.horizon);
+    z_hat.stage(_qp.dims.horizon) =
+      _params.alpha * _qp.Dt * dx_hat.stage(_qp.dims.horizon) +
+      (1 - _params.alpha) * _solution.z.stage(_qp.dims.horizon);
+    _solution.dx.stage(_qp.dims.horizon) =
+      _params.alpha * dx_hat.stage(_qp.dims.horizon) +
+      (1 - _params.alpha) * _solution.dx.stage(_qp.dims.horizon);
 
-    _solution.z.col(_qp.horizon) = (-_qp.ct).cwiseMax(
-      z_hat.col(_qp.horizon) +
-      _rho_inv[_qp.horizon].cwiseProduct(_solution.y.col(_qp.horizon)));
-    _solution.y.col(_qp.horizon) += _rho[_qp.horizon].cwiseProduct(
-      z_hat.col(_qp.horizon) - _solution.z.col(_qp.horizon));
+    _solution.z.stage(_qp.dims.horizon) =
+      (-_qp.ct).cwiseMax(z_hat.stage(_qp.dims.horizon) +
+                         _rho_inv.stage(_qp.dims.horizon)
+                           .cwiseProduct(_solution.y.stage(_qp.dims.horizon)));
+    _solution.y.stage(_qp.dims.horizon) +=
+      _rho.stage(_qp.dims.horizon)
+        .cwiseProduct(z_hat.stage(_qp.dims.horizon) -
+                      _solution.z.stage(_qp.dims.horizon));
 }
 }
 }

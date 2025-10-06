@@ -49,10 +49,10 @@ class admm_qp
 
     struct Solution
     {
-        MatX              dX, dU;
+        FlatVec           dx, du;
         std::vector<MatX> P;
         std::vector<VecX> p;
-        MatX              z, y;
+        FlatVec           z, y;
     };
 
     admm_qp(const QPData &qp, const ssqp::Guess &guess,
@@ -65,9 +65,9 @@ class admm_qp
     ssqp::Guess _guess;
     Params      _params;
 
-    std::vector<VecX> _rho, _rho_inv;
-    double            _rho_common;
-    const double      _rho_min = 1e-6;
+    FlatVec      _rho, _rho_inv;
+    double       _rho_common;
+    const double _rho_min = 1e-6;
 
     // Norms of residuals
     double _norm_primal = 0, _norm_dual = 0;
@@ -81,13 +81,13 @@ class admm_qp
     // r_prim = Dx - z
     // r_dual = Q(z - z_prev)
     // Relative parts include dX and dU variable segments
-    void _calculate_residuals(const MatX &z_prev);
+    void _calculate_residuals(const FlatVec &z_prev);
 
     SolverState _check_termination() const;
 
     void _update_rho();
 
-    void _step(const MatX &dX_hat, const MatX &dU_hat);
+    void _step(const FlatVec &dx_hat, const FlatVec &du_hat);
 };
 }
 }

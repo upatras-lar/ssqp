@@ -10,25 +10,23 @@ namespace ssqp
 {
 namespace solvers
 {
-ssqp::ssqp(const OCP &ocp, const Params &params)
+ssqp::ssqp(const model::Model &model, const Params &params)
   : _params(params)
-  , _ocp(ocp)
-  , _horizon(ocp.horizon)
-  , _nx(ocp.dynamics->output_size())
-  , _nu(ocp.dynamics->control_size())
-  , _nc(ocp.constraints->output_size())
-  , _filter_ls_costs(
-      { [this](const MatX &x, const MatX &u) { return this->_lf(x, u); },
-        [this](const MatX &x, const MatX &u) { return this->_gammaf(x, u); },
-        [this](const MatX &x, const MatX &u) { return this->_cf(x, u); } })
-  , _guess({ MatX::Zero(_nx, _horizon + 1),
-             MatX::Zero(_nu, _horizon),
-             MatX::Zero(_nx, _horizon),
-             MatX::Zero(_nc, _horizon + 1) })
-  , _prev_cost_dx(MatX::Zero(_nx, _horizon + 1))
-  , _cost_dx(MatX::Zero(_nx, _horizon + 1))
-  , _prev_cost_du(MatX::Zero(_nu, _horizon))
-  , _cost_du(MatX::Zero(_nu, _horizon))
+  , _model(model)
+  , _filter_ls_costs({ [this](const FlatVec &x, const FlatVec &u)
+                       { return this->_lf(x, u); },
+                       [this](const FlatVec &x, const FlatVec &u)
+                       { return this->_gammaf(x, u); },
+                       [this](const FlatVec &x, const FlatVec &u)
+                       { return this->_cf(x, u); } })
+  , _guess({ FlatVec(model.total_state_size(), model.state_dims()),
+             FlatVec(model.total_control_size(), model.control_dims()),
+             FlatVec(model.total_state_size(), model.state_dims()),
+             FlatVec(model.total_constraint_size(), model.constraint_dims()) })
+  , _prev_cost_dx(_guess.x, false)
+  , _cost_dx(_guess.x, false)
+  , _prev_cost_du(_guess.u, false)
+  , _cost_du(_guess.u, false)
 {
 }
 
@@ -62,13 +60,13 @@ SolverState ssqp::solve(Guess &guess)
 
         // Guess (x, u) update
         std::tie(_guess.x, _guess.u, std::ignore) =
-          step::filter(_guess.x, _guess.u, sol.dX, sol.dU, _filter_ls_costs);
+          step::filter(_guess.x, _guess.u, sol.dx, sol.du, _filter_ls_costs);
 
         // Lagrange multiplier update
-        for (uint k = 0; k < _horizon; ++k)
+        for (uint k = 0; k < _model.horizon(); ++k)
         {
-            _guess.lambda.col(k) =
-              sol.P[k + 1] * sol.dX.col(k + 1) + sol.p[k + 1];
+            _guess.lambda.stage(k) =
+              sol.P[k + 1] * sol.dx.stage(k + 1) + sol.p[k + 1];
         }
         _guess.mu = -sol.y; // we need a minus because the QP (ADMM) assumes
                             // the opposite sign in the Lagrangian
@@ -90,131 +88,126 @@ SolverState ssqp::solve(Guess &guess)
 
 QPData ssqp::_setup_qp()
 {
-    QPData qp(_horizon, _nx, _nu, _nc);
+    QPData qp(_model.dims());
 
     VecX tmpVec;
     MatX tmpMat;
 
-    for (uint k = 0; k < _horizon; ++k)
+    static const model::Container<const model::stagewise::StageCost> costs =
+      _model.costs();
+
+    static const model::Container<const model::stagewise::StageDynamics>
+      dynamics = _model.dynamics();
+
+    static const model::Container<const model::stagewise::StageConstraints>
+      constraints = _model.constraints();
+
+    for (uint k = 0; k < qp.dims.horizon; ++k)
     {
         // Get A_k and B_k matrices
-        _ocp.dynamics->gradient(k,
-                                _guess.x.col(k),
-                                _guess.u.col(k),
-                                qp.stages[k].A,
-                                qp.stages[k].B);
+        dynamics[k]->gradient(_guess.x.stage(k),
+                              _guess.u.stage(k),
+                              qp.stages[k].A,
+                              qp.stages[k].B);
 
         // Get gamma_k
         qp.stages[k].gamma =
-          _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)) -
-          _guess.x.col(k + 1);
+          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)) -
+          _guess.x.stage(k + 1);
 
         // Calculate Q_k
-        _ocp.costs->hessian_xx(k,
-                               _guess.x.col(k),
-                               _guess.u.col(k),
-                               qp.stages[k].Qxx);
+        costs[k]->hessian_xx(_guess.x.stage(k),
+                             _guess.u.stage(k),
+                             qp.stages[k].Qxx);
 
-        _ocp.dynamics->hessprod_xx(k,
-                                   _guess.x.col(k),
-                                   _guess.u.col(k),
-                                   _guess.lambda.col(k),
-                                   tmpMat);
+        dynamics[k]->hessprod_xx(_guess.x.stage(k),
+                                 _guess.u.stage(k),
+                                 _guess.lambda.stage(k),
+                                 tmpMat);
         qp.stages[k].Qxx += tmpMat;
 
-        _ocp.constraints->hessprod_xx(k,
-                                      _guess.x.col(k),
-                                      _guess.u.col(k),
-                                      _guess.mu.col(k),
-                                      tmpMat);
+        constraints[k]->hessprod_xx(_guess.x.stage(k),
+                                    _guess.u.stage(k),
+                                    _guess.mu.stage(k),
+                                    tmpMat);
         qp.stages[k].Qxx += tmpMat;
 
         // Calculate S_k
-        _ocp.costs->hessian_xu(k,
-                               _guess.x.col(k),
-                               _guess.u.col(k),
-                               qp.stages[k].Qxu);
+        costs[k]->hessian_xx(_guess.x.stage(k),
+                             _guess.u.stage(k),
+                             qp.stages[k].Qxu);
 
-        _ocp.dynamics->hessprod_xu(k,
-                                   _guess.x.col(k),
-                                   _guess.u.col(k),
-                                   _guess.lambda.col(k),
-                                   tmpMat);
+        dynamics[k]->hessprod_xu(_guess.x.stage(k),
+                                 _guess.u.stage(k),
+                                 _guess.lambda.stage(k),
+                                 tmpMat);
+
         qp.stages[k].Qxu += tmpMat;
 
-        _ocp.constraints->hessprod_xu(k,
-                                      _guess.x.col(k),
-                                      _guess.u.col(k),
-                                      _guess.mu.col(k),
-                                      tmpMat);
+        constraints[k]->hessprod_xu(_guess.x.stage(k),
+                                    _guess.u.stage(k),
+                                    _guess.mu.stage(k),
+                                    tmpMat);
         qp.stages[k].Qxu += tmpMat;
 
         // Calculate R_k
-        _ocp.costs->hessian_uu(k,
-                               _guess.x.col(k),
-                               _guess.u.col(k),
-                               qp.stages[k].Quu);
+        costs[k]->hessian_xx(_guess.x.stage(k),
+                             _guess.u.stage(k),
+                             qp.stages[k].Quu);
 
-        _ocp.dynamics->hessprod_uu(k,
-                                   _guess.x.col(k),
-                                   _guess.u.col(k),
-                                   _guess.lambda.col(k),
-                                   tmpMat);
+        dynamics[k]->hessprod_uu(_guess.x.stage(k),
+                                 _guess.u.stage(k),
+                                 _guess.lambda.stage(k),
+                                 tmpMat);
         qp.stages[k].Quu += tmpMat;
 
-        _ocp.constraints->hessprod_uu(k,
-                                      _guess.x.col(k),
-                                      _guess.u.col(k),
-                                      _guess.mu.col(k),
-                                      tmpMat);
+        constraints[k]->hessprod_uu(_guess.x.stage(k),
+                                    _guess.u.stage(k),
+                                    _guess.mu.stage(k),
+                                    tmpMat);
         qp.stages[k].Quu += tmpMat;
 
         // Get q and r
-        _ocp.costs->gradient(k,
-                             _guess.x.col(k),
-                             _guess.u.col(k),
-                             qp.stages[k].qx,
-                             qp.stages[k].qu);
+        costs[k]->gradient(_guess.x.stage(k),
+                           _guess.u.stage(k),
+                           qp.stages[k].qx,
+                           qp.stages[k].qu);
 
         // Get D and E
-        _ocp.constraints->gradient(k,
-                                   _guess.x.col(k),
-                                   _guess.u.col(k),
-                                   qp.stages[k].D,
-                                   qp.stages[k].E);
+        constraints[k]->gradient(_guess.x.stage(k),
+                                 _guess.u.stage(k),
+                                 qp.stages[k].D,
+                                 qp.stages[k].E);
 
         // Get c
         qp.stages[k].c =
-          _ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k));
+          constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
     }
 
     // Terminal values for Q, q, D and c
-    _ocp.costs->hessian_xx(_horizon,
-                           _guess.x.col(_horizon),
-                           VecX::Zero(1),
-                           qp.Qxx_t);
-    _ocp.constraints->hessprod_xx(_horizon,
-                                  _guess.x.col(_horizon),
-                                  VecX::Zero(1),
-                                  _guess.mu.col(_horizon),
-                                  tmpMat);
+    costs[qp.dims.horizon]->hessian_xx(_guess.x.stage(qp.dims.horizon),
+                                       VecX::Zero(1),
+                                       qp.Qxx_t);
+
+    constraints[qp.dims.horizon]->hessprod_xx(_guess.x.stage(qp.dims.horizon),
+                                              VecX::Zero(1),
+                                              _guess.mu.stage(qp.dims.horizon),
+                                              tmpMat);
     qp.Qxx_t += tmpMat;
 
-    _ocp.costs->gradient(_horizon,
-                         _guess.x.col(_horizon),
-                         VecX::Zero(1),
-                         qp.qx_t,
-                         tmpVec);
+    costs[qp.dims.horizon]->gradient(_guess.x.stage(qp.dims.horizon),
+                                     VecX::Zero(1),
+                                     qp.qx_t,
+                                     tmpVec);
 
-    _ocp.constraints->gradient(_horizon,
-                               _guess.x.col(_horizon),
-                               VecX::Zero(1),
-                               qp.Dt,
-                               tmpMat);
+    constraints[qp.dims.horizon]->gradient(_guess.x.stage(qp.dims.horizon),
+                                           VecX::Zero(1),
+                                           qp.Dt,
+                                           tmpMat);
 
-    qp.ct = _ocp.constraints->evaluate(_horizon,
-                                       _guess.x.col(_horizon),
-                                       VecX::Zero(1));
+    qp.ct =
+      constraints[qp.dims.horizon]->evaluate(_guess.x.stage(qp.dims.horizon),
+                                             VecX::Zero(1));
 
     return qp;
 }
@@ -233,69 +226,75 @@ SolverState ssqp::_check_termination()
     std::cout << "=============" << std::endl;
 #endif
 
+    static const uint horizon = _model.dims().horizon;
+
+    static const model::Container<const model::stagewise::StageCost> costs =
+      _model.costs();
+
+    static const model::Container<const model::stagewise::StageDynamics>
+      dynamics = _model.dynamics();
+
+    static const model::Container<const model::stagewise::StageConstraints>
+      constraints = _model.constraints();
+
     // Jacobian over x and y of lagrangian at current guess
-    MatX lagrangian_dx = MatX::Zero(_nx, _horizon + 1);
-    MatX lagrangian_du = MatX::Zero(_nu, _horizon);
+    FlatVec lagrangian_dx(_guess.x, false);
+    FlatVec lagrangian_du(_guess.u, false);
 
     // Cost gradients for loose success
     VecX dx, du;
     MatX dX, dU;
 
     // Add terminal terms for x
-    _ocp.costs->gradient(_horizon,
-                         _guess.x.col(_horizon),
-                         VecX::Zero(_nu),
-                         dx,
-                         du);
+    costs[horizon]->gradient(_guess.x.stage(horizon), VecX::Zero(1), dx, du);
 
-    lagrangian_dx.col(_horizon) += dx;
+    lagrangian_dx.stage(horizon) += dx;
     // Add contribution from previous integration step (λ)
-    lagrangian_dx.col(_horizon) -= _guess.lambda.col(_horizon - 1);
+    lagrangian_dx.stage(horizon) -= _guess.lambda.stage(horizon - 1);
 
-    _cost_dx.col(_horizon) = dx;
+    _cost_dx.stage(horizon) = dx;
 
     // Add constraint terms for terminal x
-    _ocp.constraints->gradient(_horizon,
-                               _guess.x.col(_horizon),
-                               VecX::Zero(_nu),
-                               dX,
-                               dU);
+    constraints[horizon]->gradient(_guess.x.stage(horizon),
+                                   VecX::Zero(1),
+                                   dX,
+                                   dU);
 
-    lagrangian_dx.col(_horizon) -= dX.transpose() * _guess.mu.col(_horizon);
+    lagrangian_dx.stage(horizon) -= dX.transpose() * _guess.mu.stage(horizon);
 
     // Add k=0 terms for u
-    _ocp.costs->gradient(0, _guess.x.col(0), _guess.u.col(0), dx, du);
-    lagrangian_du.col(0) += du;
+    costs[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dx, du);
+    lagrangian_du.stage(0) += du;
 
-    _cost_du.col(0) = du;
+    _cost_du.stage(0) = du;
 
-    _ocp.dynamics->gradient(0, _guess.x.col(0), _guess.u.col(0), dX, dU);
-    lagrangian_du.col(0) += dU.transpose() * _guess.lambda.col(0);
+    dynamics[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
+    lagrangian_du.stage(0) += dU.transpose() * _guess.lambda.stage(0);
 
-    _ocp.constraints->gradient(0, _guess.x.col(0), _guess.u.col(0), dX, dU);
-    lagrangian_du.col(0) -= dU.transpose() * _guess.mu.col(0);
+    constraints[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
+    lagrangian_du.stage(0) -= dU.transpose() * _guess.mu.stage(0);
 
     // Ignore x0 terms since it is not being optimized
-    for (uint k = 1; k < _horizon; ++k)
+    for (uint k = 1; k < horizon; ++k)
     {
         // Compute cost jacobian
-        _ocp.costs->gradient(k, _guess.x.col(k), _guess.u.col(k), dx, du);
-        lagrangian_dx.col(k) += dx;
-        lagrangian_du.col(k) += du;
+        costs[k]->gradient(_guess.x.stage(k), _guess.u.stage(k), dx, du);
+        lagrangian_dx.stage(k) += dx;
+        lagrangian_du.stage(k) += du;
 
-        _cost_dx.col(k) = dx;
-        _cost_du.col(k) = du;
+        _cost_dx.stage(k) = dx;
+        _cost_du.stage(k) = du;
 
         // Compute dynamics gap jacobian
-        _ocp.dynamics->gradient(k, _guess.x.col(k), _guess.u.col(k), dX, dU);
-        lagrangian_dx.col(k) += dX.transpose() * _guess.lambda.col(k);
-        lagrangian_dx.col(k) -= _guess.lambda.col(k - 1);
-        lagrangian_du.col(k) += dU.transpose() * _guess.lambda.col(k);
+        dynamics[k]->gradient(_guess.x.stage(k), _guess.u.stage(k), dX, dU);
+        lagrangian_dx.stage(k) += dX.transpose() * _guess.lambda.stage(k);
+        lagrangian_dx.stage(k) -= _guess.lambda.stage(k - 1);
+        lagrangian_du.stage(k) += dU.transpose() * _guess.lambda.stage(k);
 
         // Compute constraint jacobian
-        _ocp.constraints->gradient(k, _guess.x.col(k), _guess.u.col(k), dX, dU);
-        lagrangian_dx.col(k) -= dX.transpose() * _guess.mu.col(k);
-        lagrangian_du.col(k) -= dU.transpose() * _guess.mu.col(k);
+        constraints[k]->gradient(_guess.x.stage(k), _guess.u.stage(k), dX, dU);
+        lagrangian_dx.stage(k) -= dX.transpose() * _guess.mu.stage(k);
+        lagrangian_du.stage(k) -= dU.transpose() * _guess.mu.stage(k);
     }
 
 #ifdef DEBUG
@@ -308,8 +307,8 @@ SolverState ssqp::_check_termination()
 #endif
 
     // Terminal constraint violation
-    if (_ocp.constraints
-          ->evaluate(_horizon, _guess.x.col(_horizon), VecX::Zero(1))
+    if (constraints[horizon]
+          ->evaluate(_guess.x.stage(horizon), VecX::Zero(1))
           .cwiseMin(0)
           .lpNorm<Eigen::Infinity>() > _params.tolerance)
     {
@@ -317,18 +316,19 @@ SolverState ssqp::_check_termination()
         return ONGOING;
     }
 
-    for (uint k = 0; k < _horizon; ++k)
+    for (uint k = 0; k < horizon; ++k)
     {
         // Stage gap violation
-        if ((_guess.x.col(k + 1) -
-             _ocp.dynamics->evaluate(k, _guess.x.col(k), _guess.u.col(k)))
+        if ((_guess.x.stage(k + 1) -
+             dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)))
               .lpNorm<Eigen::Infinity>() > _params.tolerance)
         {
             _stale_iters = 0;
             return ONGOING;
         }
         // Stage constraint violation
-        if (_ocp.constraints->evaluate(k, _guess.x.col(k), _guess.u.col(k))
+        if (constraints[k]
+              ->evaluate(_guess.x.stage(k), _guess.u.stage(k))
               .cwiseMin(0)
               .lpNorm<Eigen::Infinity>() > _params.tolerance)
         {
@@ -337,8 +337,8 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    if (lagrangian_dx.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
-        lagrangian_du.lpNorm<Eigen::Infinity>() <= _params.tolerance)
+    if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
+        lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
         std::cout << "SSQP: Convergence reached in " << _iter + 1
                   << " iterations" << std::endl;
@@ -346,9 +346,9 @@ SolverState ssqp::_check_termination()
     }
 
     // TODO: test
-    if ((_cost_dx - _prev_cost_dx).cwiseAbs().maxCoeff() <
+    if ((_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance &&
-        (_cost_du - _prev_cost_du).cwiseAbs().maxCoeff() <
+        (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance)
     {
         if (++_stale_iters == _params.loose_success_stale_iters)
@@ -364,43 +364,56 @@ SolverState ssqp::_check_termination()
     return ONGOING;
 }
 
-double ssqp::_lf(const MatX &x, const MatX &u) const
+double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 {
-    double sum = 0.0;
-    for (uint k = 0; k < _horizon; ++k)
+    static const uint horizon = _model.horizon();
+    double            sum     = 0.0;
+    const model::Container<const model::stagewise::StageCost> costs =
+      _model.costs();
+
+    for (uint k = 0; k < horizon; ++k)
     {
-        sum += _ocp.costs->evaluate(k, x.col(k), u.col(k));
+        sum += costs[k]->evaluate(x.stage(k), u.stage(k))(0);
     }
 
-    return sum + _ocp.costs->evaluate(_horizon, x.col(_horizon), VecX::Zero(1));
+    return sum + costs[horizon]->evaluate(x.stage(horizon), VecX::Zero(1))(0);
 }
 
-double ssqp::_gammaf(const MatX &x, const MatX &u) const
+double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 {
+    static const uint horizon = _model.horizon();
+    const model::Container<const model::stagewise::StageDynamics> dynamics =
+      _model.dynamics();
     double sum = 0.0;
-    for (uint k = 0; k < _horizon; ++k)
+
+    for (uint k = 0; k < horizon; ++k)
     {
-        sum += (x.col(k + 1) - _ocp.dynamics->evaluate(k, x.col(k), u.col(k)))
+        sum += (x.stage(k + 1) - dynamics[k]->evaluate(x.stage(k), u.stage(k)))
                  .lpNorm<Eigen::Infinity>();
     }
 
     return sum;
 }
 
-double ssqp::_cf(const MatX &x, const MatX &u) const
+double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 {
-    double sum = 0.0;
-    for (uint k = 0; k < _horizon; ++k)
+    static const uint horizon = _model.horizon();
+    const model::Container<const model::stagewise::StageConstraints>
+           constraints = _model.constraints();
+    double sum         = 0.0;
+
+    for (uint k = 0; k < horizon; ++k)
     {
-        sum += _ocp.constraints->evaluate(k, x.col(k), u.col(k))
+        sum += constraints[k]
+                 ->evaluate(x.stage(k), u.stage(k))
                  .cwiseMin(0)
                  .lpNorm<Eigen::Infinity>();
     }
 
-    return sum +
-           _ocp.constraints->evaluate(_horizon, x.col(_horizon), VecX::Zero(1))
-             .cwiseMin(0)
-             .lpNorm<Eigen::Infinity>();
+    return sum + constraints[horizon]
+                   ->evaluate(x.stage(horizon), VecX::Zero(1))
+                   .cwiseMin(0)
+                   .lpNorm<Eigen::Infinity>();
 }
 }
 }
