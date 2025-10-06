@@ -1,16 +1,16 @@
+#ifndef SSQP_ADMM_QP_HPP
+#define SSQP_ADMM_QP_HPP
+
 #include <cassert>
 #include <vector>
 
 #include <Eigen/Dense>
 
 #include "types.hpp"
-#include "csqp.hpp"
+#include "ssqp.hpp"
 #include "model/constraint/AbstractConstraint.hpp"
 #include "model/cost/AbstractCost.hpp"
 #include "model/dynamics/AbstractDynamics.hpp"
-
-#ifndef SSQP_ADMM_QP_HPP
-#define SSQP_ADMM_QP_HPP
 
 namespace ssqp
 {
@@ -55,14 +55,14 @@ class admm_qp
         MatX              z, y;
     };
 
-    admm_qp(const QPData &qp, const csqp::Guess &guess,
+    admm_qp(const QPData &qp, const ssqp::Guess &guess,
             const Params &params = Params::Default());
 
     SolverState solve(Solution &sol);
 
   protected:
     QPData      _qp;
-    csqp::Guess _guess;
+    ssqp::Guess _guess;
     Params      _params;
 
     std::vector<VecX> _rho, _rho_inv;

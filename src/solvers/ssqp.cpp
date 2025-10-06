@@ -1,4 +1,4 @@
-#include "solvers/csqp.hpp"
+#include "solvers/ssqp.hpp"
 #include "model/constraint/AbstractConstraint.hpp"
 #include "model/cost/AbstractCost.hpp"
 #include "model/dynamics/AbstractDynamics.hpp"
@@ -10,7 +10,7 @@ namespace ssqp
 {
 namespace solvers
 {
-csqp::csqp(const OCP &ocp, const Params &params)
+ssqp::ssqp(const OCP &ocp, const Params &params)
   : _params(params)
   , _ocp(ocp)
   , _horizon(ocp.horizon)
@@ -32,11 +32,11 @@ csqp::csqp(const OCP &ocp, const Params &params)
 {
 }
 
-SolverState csqp::solve(Guess &guess)
+SolverState ssqp::solve(Guess &guess)
 {
     _stale_iters = 0;
 
-    SolverState csqp_state;
+    SolverState ssqp_state;
 
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
@@ -74,10 +74,10 @@ SolverState csqp::solve(Guess &guess)
                             // the opposite sign in the Lagrangian
 
         // Termination
-        if ((csqp_state = _check_termination()) != ONGOING)
+        if ((ssqp_state = _check_termination()) != ONGOING)
         {
             guess = _guess;
-            return csqp_state;
+            return ssqp_state;
         }
 
         _prev_cost_dx = _cost_dx;
@@ -88,7 +88,7 @@ SolverState csqp::solve(Guess &guess)
     return MAX_ITER_REACHED;
 }
 
-QPData csqp::_setup_qp()
+QPData ssqp::_setup_qp()
 {
     QPData qp(_horizon, _nx, _nu, _nc);
 
@@ -219,7 +219,7 @@ QPData csqp::_setup_qp()
     return qp;
 }
 
-SolverState csqp::_check_termination()
+SolverState ssqp::_check_termination()
 {
 #ifdef DEBUG
     std::cout << "Guess " << _iter + 1 << std::endl;
@@ -340,7 +340,7 @@ SolverState csqp::_check_termination()
     if (lagrangian_dx.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
-        std::cout << "CSQP: Convergence reached in " << _iter + 1
+        std::cout << "SSQP: Convergence reached in " << _iter + 1
                   << " iterations" << std::endl;
         return SUCCESS;
     }
@@ -364,7 +364,7 @@ SolverState csqp::_check_termination()
     return ONGOING;
 }
 
-double csqp::_lf(const MatX &x, const MatX &u) const
+double ssqp::_lf(const MatX &x, const MatX &u) const
 {
     double sum = 0.0;
     for (uint k = 0; k < _horizon; ++k)
@@ -375,7 +375,7 @@ double csqp::_lf(const MatX &x, const MatX &u) const
     return sum + _ocp.costs->evaluate(_horizon, x.col(_horizon), VecX::Zero(1));
 }
 
-double csqp::_gammaf(const MatX &x, const MatX &u) const
+double ssqp::_gammaf(const MatX &x, const MatX &u) const
 {
     double sum = 0.0;
     for (uint k = 0; k < _horizon; ++k)
@@ -387,7 +387,7 @@ double csqp::_gammaf(const MatX &x, const MatX &u) const
     return sum;
 }
 
-double csqp::_cf(const MatX &x, const MatX &u) const
+double ssqp::_cf(const MatX &x, const MatX &u) const
 {
     double sum = 0.0;
     for (uint k = 0; k < _horizon; ++k)

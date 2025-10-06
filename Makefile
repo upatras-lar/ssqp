@@ -11,11 +11,11 @@ else
 	CXXFLAGS += -O3
 endif
 
-point_mass: build/point_mass.o build/types.o build/lqr.o build/admm_qp.o build/csqp.o build/sqp_step_types.o build/filter.o
-	$(CXX) $(INCLUDES) -o build/point_mass build/point_mass.o build/types.o build/lqr.o build/admm_qp.o build/csqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
+point_mass: build/point_mass.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
+	$(CXX) $(INCLUDES) -o build/point_mass build/point_mass.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
 
-function1: build/function1.o build/types.o build/lqr.o build/admm_qp.o build/csqp.o build/sqp_step_types.o build/filter.o
-	$(CXX) $(INCLUDES) -o build/function1 build/function1.o build/types.o build/lqr.o build/admm_qp.o build/csqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
+function1: build/function1.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
+	$(CXX) $(INCLUDES) -o build/function1 build/function1.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
 
 clean:
 	rm -rf build/*
@@ -35,8 +35,8 @@ build/lqr.o: src/solvers/lqr.cpp
 build/admm_qp.o: src/solvers/admm_qp.cpp
 	$(CXX) $(INCLUDES) -c src/solvers/admm_qp.cpp -o build/admm_qp.o $(CXXFLAGS)
 
-build/csqp.o: src/solvers/csqp.cpp
-	$(CXX) $(INCLUDES) -c src/solvers/csqp.cpp -o build/csqp.o $(CXXFLAGS)
+build/ssqp.o: src/solvers/ssqp.cpp
+	$(CXX) $(INCLUDES) -c src/solvers/ssqp.cpp -o build/ssqp.o $(CXXFLAGS)
 
 build/sqp_step_types.o: src/sqp_step/types.cpp
 	$(CXX) $(INCLUDES) -c src/sqp_step/types.cpp -o build/sqp_step_types.o $(CXXFLAGS)

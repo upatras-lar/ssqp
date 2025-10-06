@@ -1,11 +1,11 @@
+#ifndef SSQP_TYPES_HPP
+#define SSQP_TYPES_HPP
+
 #include <memory>
 #include <vector>
 #include <string>
 
 #include <Eigen/Core>
-
-#ifndef SSQP_TYPES_HPP
-#define SSQP_TYPES_HPP
 
 namespace ssqp
 {
