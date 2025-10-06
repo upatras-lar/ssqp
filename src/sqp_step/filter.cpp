@@ -4,9 +4,9 @@ namespace ssqp
 {
 namespace step
 {
-bool costFilter(
-  const std::vector<std::function<double(const MatX &, const MatX &)>> &costs,
-  const Point &previous, const Point &next)
+bool costFilter(const std::vector<std::function<double(
+                  const solvers::FlatVec &, const solvers::FlatVec &)>> &costs,
+                const Point &previous, const Point &next)
 {
     for (const auto &f : costs)
     {
@@ -22,9 +22,12 @@ bool costFilter(
     return false;
 }
 
-std::tuple<MatX, MatX, double> filter(
-  MatX &x, MatX &u, MatX &dX, MatX &dU,
-  const std::vector<std::function<double(const MatX &, const MatX &)>> costs,
+std::tuple<solvers::FlatVec, solvers::FlatVec, double> filter(
+  solvers::FlatVec &x, solvers::FlatVec &u, solvers::FlatVec &dX,
+  solvers::FlatVec &dU,
+  const std::vector<
+    std::function<double(const solvers::FlatVec &, const solvers::FlatVec &)>>
+       costs,
   uint inv_alpha_scale_factor, double min_alpha)
 {
     double alpha = 1.0;

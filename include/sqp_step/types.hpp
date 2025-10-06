@@ -13,9 +13,9 @@ namespace step
 {
 struct Point
 {
-    MatX x, u;
+    solvers::FlatVec x, u;
 
-    Point(const MatX &x, const MatX &u);
+    Point(const solvers::FlatVec &x, const solvers::FlatVec &u);
 
     Point &operator=(const Point &p);
 

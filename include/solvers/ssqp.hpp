@@ -6,6 +6,7 @@
 #include <functional>
 
 #include "types.hpp"
+#include "model/Model.hpp"
 
 namespace ssqp
 {
@@ -38,35 +39,25 @@ class ssqp
         // Vector sequences indexed over time horizon for state and control
         // guesses
         // n
-        // Matrix x is of dimensions nx x (H + 1) (starting at x_0 and ending at
-        // x_H)
-        // Matrix u is of dimensions nu x H (starting at u_0 and ending at
-        // u_(H-1))
-        MatX x, u;
+        FlatVec x, u;
         // Equivalent vector sequences for lagrange multiplier guesses n
-        // Matrix lambda is of dimensions nx x H (starting at 1 and ending at H)
-        // Matrix mu is of dimensions nc x (H + 1) (starting at 0 and ending at
-        // H) (nc: number of constraints)
-        MatX lambda, mu;
+        FlatVec lambda, mu;
     };
 
-    ssqp(const OCP &ocp, const Params &params = Params::Default());
+    ssqp(const model::Model &model, const Params &params = Params::Default());
 
     SolverState solve(Guess &guess);
 
   protected:
-    const uint _horizon;
-    const uint _nx, _nu, _nc;
-
-    const std::vector<std::function<double(const MatX &, const MatX &)>>
+    const std::vector<std::function<double(const FlatVec &, const FlatVec &)>>
       _filter_ls_costs;
 
-    Params _params;
-    OCP    _ocp;
-    Guess  _guess;
+    Params       _params;
+    model::Model _model;
+    Guess        _guess;
 
-    MatX _prev_cost_dx, _prev_cost_du;
-    MatX _cost_dx, _cost_du;
+    FlatVec _prev_cost_dx, _prev_cost_du;
+    FlatVec _cost_dx, _cost_du;
 
     uint _iter;
     uint _stale_iters;
@@ -76,13 +67,13 @@ class ssqp
     SolverState _check_termination();
 
     // Trajectory cost
-    double _lf(const MatX &x, const MatX &u) const;
+    double _lf(const FlatVec &x, const FlatVec &u) const;
 
     // Gap violation
-    double _gammaf(const MatX &x, const MatX &u) const;
+    double _gammaf(const FlatVec &x, const FlatVec &u) const;
 
     // Constraint violation
-    double _cf(const MatX &x, const MatX &u) const;
+    double _cf(const FlatVec &x, const FlatVec &u) const;
 };
 }
 }
