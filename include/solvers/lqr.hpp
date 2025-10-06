@@ -1,3 +1,6 @@
+#ifndef SSQP_LQR_HPP
+#define SSQP_LQR_HPP
+
 #include <vector>
 
 #include <Eigen/Dense>
@@ -24,3 +27,5 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
 }
 }
 }
+
+#endif

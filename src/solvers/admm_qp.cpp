@@ -5,7 +5,7 @@ namespace ssqp
 {
 namespace solvers
 {
-admm_qp::admm_qp(const QPData &qp, const csqp::Guess &guess,
+admm_qp::admm_qp(const QPData &qp, const ssqp::Guess &guess,
                  const Params &params)
   : _qp(qp)
   , _guess(guess)

@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "solvers/csqp.hpp"
+#include "solvers/ssqp.hpp"
 
 #include "model/cost/AbstractCost.hpp"
 #include "model/constraint/AbstractConstraint.hpp"
@@ -197,8 +197,8 @@ int main()
     ocp.dynamics    = std::make_shared<Dynamics>();
     ocp.horizon     = HORIZON;
 
-    ssqp::solvers::csqp        solver(ocp);
-    ssqp::solvers::csqp::Guess solution;
+    ssqp::solvers::ssqp        solver(ocp);
+    ssqp::solvers::ssqp::Guess solution;
     ssqp::solvers::SolverState state = solver.solve(solution);
 
     std::cout << "Solver state: " << ssqp::solvers::to_string(state)

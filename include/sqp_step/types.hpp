@@ -1,11 +1,12 @@
+#ifndef SSQP_STEP_TYPES_HPP
+#define SSQP_STEP_TYPES_HPP
+
 #include <vector>
 #include <functional>
 #include <cassert>
 
 #include "include/types.hpp"
 
-#ifndef SSQP_STEP_TYPES_HPP
-#define SSQP_STEP_TYPES_HPP
 namespace ssqp
 {
 namespace step

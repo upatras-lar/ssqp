@@ -1,17 +1,17 @@
+#ifndef SSQP_SSQP_HPP
+#define SSQP_SSQP_HPP
+
 #include <iostream>
 #include <vector>
 #include <functional>
 
 #include "types.hpp"
 
-#ifndef SSQP_CSQP_HPP
-#define SSQP_CSQP_HPP
-
 namespace ssqp
 {
 namespace solvers
 {
-class csqp
+class ssqp
 {
   public:
     struct Params
@@ -50,7 +50,7 @@ class csqp
         MatX lambda, mu;
     };
 
-    csqp(const OCP &ocp, const Params &params = Params::Default());
+    ssqp(const OCP &ocp, const Params &params = Params::Default());
 
     SolverState solve(Guess &guess);
 

@@ -1,8 +1,8 @@
-#include "types.hpp"
-#include "sqp_step/types.hpp"
-
 #ifndef SSQP_GSS_HPP
 #define SSQP_GSS_HPP
+
+#include "types.hpp"
+#include "sqp_step/types.hpp"
 
 namespace ssqp
 {
