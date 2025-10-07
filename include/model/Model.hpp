@@ -18,7 +18,7 @@ class Model
           const std::vector<std::shared_ptr<const stagewise::StageDynamics>>
             &dynamics,
           const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
-            &constraints);
+            &constraints = { nullptr });
 
     const uint              horizon() const;
     const uint              total_state_size() const;

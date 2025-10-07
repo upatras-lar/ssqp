@@ -75,7 +75,7 @@ class TerminalCost : public ssqp::model::stagewise::StageCost
     void hessian_uu(const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Huu) const override
     {
-        Huu = (Eigen::Matrix<double, 1, 1>() << 0.002).finished();
+        Huu = Eigen::Matrix<double, 2, 1>::Zero();
     }
 };
 
@@ -314,9 +314,10 @@ int main()
 
     for (int k = 0; k < HORIZON; ++k)
     {
-        costs[k]       = std::make_shared<Cost>();
-        dynamics[k]    = std::make_shared<Dynamics>();
-        constraints[k] = std::make_shared<Constraints>();
+        costs[k]    = std::make_shared<Cost>();
+        dynamics[k] = std::make_shared<Dynamics>();
+        // constraints[k] = std::make_shared<Constraints>();
+        constraints[k] = nullptr;
     }
 
     costs[HORIZON]       = std::make_shared<TerminalCost>();

@@ -32,6 +32,8 @@ class Container
     // Get const reference to k-th function for reading
     const std::shared_ptr<const Derived> &operator[](const uint k) const;
 
+    const uint size() const;
+
   protected:
     const uint                                  _horizon;
     std::vector<std::shared_ptr<const Derived>> _functions;

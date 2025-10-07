@@ -31,5 +31,12 @@ const std::shared_ptr<const Derived> &Container<Derived>::operator[](
 {
     return _functions[k];
 }
+
+template<typename Derived>
+const uint Container<Derived>::size() const
+{
+    return _functions.size();
+}
+
 }
 }
