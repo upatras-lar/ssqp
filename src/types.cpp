@@ -113,25 +113,65 @@ FlatVec operator*(double val, const FlatVec &p)
     return p;
 }
 
+std::string format_double(double val, uint precision)
+{
+    std::ostringstream oss;
+    // No decimal if value is integer
+    if (std::abs(val - std::round(val)) <
+        std::numeric_limits<double>::epsilon())
+    {
+        oss << static_cast<long long>(std::round(val));
+    }
+    // Fixed if not too small to display with given precision, or too large
+    else if (std::abs(val) <= std::numeric_limits<double>::epsilon() ||
+             std::abs(val) >= std::pow(10, -static_cast<int>(precision)) &&
+               std::abs(val) < 1e5)
+    {
+        oss << std::fixed << std::setprecision(precision) << val;
+    }
+    // Scientific notation otherwise
+    else
+    {
+        oss << std::scientific << std::setprecision(precision) << val;
+    }
+
+    return oss.str();
+}
+
 std::ostream &operator<<(std::ostream &os, const FlatVec &v)
 {
     static uint width     = 10;
-    static uint precision = 8;
+    static uint precision = 4;
+
+    std::vector<uint>                     col_widths(v._stage_sizes.size(), 1);
+    std::vector<std::vector<std::string>> formatted_values(
+      v._max_dim,
+      std::vector<std::string>(v._stage_sizes.size()));
+    for (uint col = 0; col < v._stage_sizes.size(); ++col)
+    {
+        for (uint row = 0; row < v._max_dim; ++row)
+        {
+            if (row < v._stage_sizes[col])
+            {
+                formatted_values[row][col] =
+                  format_double(v.vec(v._acc_idx[col] + row), precision);
+                col_widths[col] = std::max(
+                  col_widths[col],
+                  static_cast<uint>(formatted_values[row][col].length()));
+                continue;
+            }
+            break;
+        }
+    }
 
     for (uint row = 0; row < v._max_dim; ++row)
     {
         for (uint col = 0; col < v._stage_sizes.size(); ++col)
         {
-            if (row >= v._stage_sizes[col])
-            {
-                std::cout << std::setw(width) << "-\t";
-                continue;
-            }
-            std::cout << std::setw(width) << std::fixed
-                      << std::setprecision(precision)
-                      << v.vec(v._acc_idx[col] + row) << "\t";
+            os << std::setw(col_widths[col]) << formatted_values[row][col];
+            os << "\t";
         }
-        std::cout << std::endl;
+        os << std::endl;
     }
 
     return os;
