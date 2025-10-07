@@ -6,9 +6,6 @@
 
 #include "types.hpp"
 #include "model/stagewise/Function.hpp"
-#include "model/stagewise/StageCost.hpp"
-#include "model/stagewise/StageDynamics.hpp"
-#include "model/stagewise/StageConstraints.hpp"
 
 namespace ssqp
 {
@@ -27,19 +24,21 @@ class Container
     Container(const uint horizon);
     // Initialize function container with given functions
     // Horizon is taken as functions.size()
-    Container(const std::vector<std::unique_ptr<const Derived>> &functions);
+    Container(const std::vector<std::shared_ptr<const Derived>> &functions);
 
     // Get reference to k-th function for setting
-    std::unique_ptr<const Derived> &operator[](const uint k);
+    std::shared_ptr<const Derived> &operator[](const uint k);
 
     // Get const reference to k-th function for reading
-    const std::unique_ptr<const Derived> &operator[](const uint k) const;
+    const std::shared_ptr<const Derived> &operator[](const uint k) const;
 
   protected:
     const uint                                  _horizon;
-    std::vector<std::unique_ptr<const Derived>> _functions;
+    std::vector<std::shared_ptr<const Derived>> _functions;
 };
 }
 }
+
+#include "src/model/Container.tpp"
 
 #endif

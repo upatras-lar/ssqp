@@ -17,8 +17,10 @@ admm_qp::admm_qp(const QPData &qp, const ssqp::Guess &guess,
     _solution.z  = FlatVec(qp.dims.constraint, qp.dims.stage_constraint);
     _solution.y  = FlatVec(_solution.z, false);
 
-    _rho     = FlatVec(_solution.z, false);
+    _rho = FlatVec(_solution.z, false);
+    _rho.vec.setConstant(_params.init_rho);
     _rho_inv = FlatVec(_solution.z, false);
+    _rho_inv.vec.setConstant(1 / _params.init_rho);
 }
 
 SolverState admm_qp::solve(admm_qp::Solution &sol)
@@ -70,9 +72,9 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         std::cout << "Update step, iteration " << _iter + 1 << std::endl;
         std::cout << "=============" << std::endl;
         std::cout << "x:" << std::endl;
-        std::cout << _solution.dX << std::endl;
+        std::cout << _solution.dx << std::endl;
         std::cout << "u:" << std::endl;
-        std::cout << _solution.dU << std::endl;
+        std::cout << _solution.du << std::endl;
         std::cout << "z:" << std::endl;
         std::cout << _solution.z << std::endl;
         std::cout << "y:" << std::endl;

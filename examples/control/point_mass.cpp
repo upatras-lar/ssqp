@@ -2,9 +2,9 @@
 
 #include "solvers/ssqp.hpp"
 
-#include "model/cost/AbstractCost.hpp"
-#include "model/constraint/AbstractConstraint.hpp"
-#include "model/dynamics/AbstractDynamics.hpp"
+#include "model/stagewise/StageCost.hpp"
+#include "model/stagewise/StageDynamics.hpp"
+#include "model/stagewise/StageConstraints.hpp"
 
 #define HORIZON 10
 
@@ -29,116 +29,10 @@
  *  2) 10 - a(k) >= 0
  */
 
-class Cost : public ssqp::cost::AbstractCost
+class TerminalCost : public ssqp::model::stagewise::StageCost
 {
   public:
-    double evaluate(const uint k, const ssqp::VecX &x,
-                    const ssqp::VecX &u) const override
-    {
-        return u(0) * u(0) * 0.001 + 2 * x(1) * x(1) +
-               (k == HORIZON ? (x(0) - 0.4) * (x(0) - 0.4) : 0);
-    }
-
-    void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                  ssqp::VecX &dx, ssqp::VecX &du) const override
-    {
-        if (k == HORIZON)
-        {
-            dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
-        }
-        else
-        {
-            dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
-        }
-        du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
-    }
-
-    void hessian_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                    ssqp::MatX &Hxx) const override
-    {
-        Hxx = Eigen::Matrix2d::Zero();
-        if (k == HORIZON)
-        {
-            Hxx(0, 0) = 2;
-        }
-        Hxx(1, 1) = 4;
-    }
-
-    void hessian_xu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                    ssqp::MatX &Hxu) const override
-    {
-        Hxu = Eigen::Matrix<double, 2, 1>::Zero();
-    }
-
-    void hessian_uu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                    ssqp::MatX &Huu) const override
-    {
-        Huu = (Eigen::Matrix<double, 1, 1>() << 0.002).finished();
-    }
-};
-
-class Constraints : public ssqp::constraint::AbstractConstraint
-{
-    uint output_size() const override
-    {
-        return 4;
-    }
-
-    ssqp::VecX evaluate(const uint k, const ssqp::VecX &x,
-                        const ssqp::VecX &u) const override
-    {
-        Eigen::VectorXd v = Eigen::Vector<double, 4>::Zero();
-
-        v(0) = u(0) + 100;
-        v(1) = 100 - u(0);
-
-        if (k == HORIZON)
-        {
-            v(2) = x(0) - 12;
-            v(3) = 12 - x(0);
-        }
-
-        return v;
-    }
-
-    void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                  ssqp::MatX &dX, ssqp::MatX &dU) const override
-    {
-        dX = Eigen::Matrix<double, 4, 2>::Zero();
-        dU = Eigen::Matrix<double, 4, 1>::Zero();
-
-        dU(0, 0) = 1;
-        dU(1, 0) = -1;
-
-        if (k == HORIZON)
-        {
-            dX(2, 0) = 1;
-            dX(3, 0) = -1;
-        }
-    }
-
-    void hessprod_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                     const ssqp::VecX &mu, ssqp::MatX &Pxx) const override
-    {
-        Pxx = Eigen::Matrix2d::Zero();
-    }
-
-    void hessprod_xu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                     const ssqp::VecX &mu, ssqp::MatX &Pxu) const override
-    {
-        Pxu = Eigen::Matrix<double, 2, 1>::Zero();
-    }
-
-    void hessprod_uu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                     const ssqp::VecX &mu, ssqp::MatX &Puu) const override
-    {
-        Puu = Eigen::Matrix<double, 1, 1>::Zero();
-    }
-};
-
-class Dynamics : public ssqp::dynamics::AbstractDynamics
-{
-    uint output_size() const override
+    uint state_size() const override
     {
         return 2;
     }
@@ -148,16 +42,236 @@ class Dynamics : public ssqp::dynamics::AbstractDynamics
         return 1;
     }
 
-    ssqp::VecX evaluate(const uint k, const ssqp::VecX &x,
-                        const ssqp::VecX &u) const override
+    Eigen::VectorXd evaluate(const ssqp::VecX &x,
+                             const ssqp::VecX &u) const override
+    {
+        return (Eigen::Vector<double, 1>() << u(0) * u(0) * 0.001 +
+                                                2 * x(1) * x(1) +
+                                                (x(0) - 0.4) * (x(0) - 0.4))
+          .finished();
+    }
+
+    void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::VecX &dx,
+                  ssqp::VecX &du) const override
+    {
+        dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
+        du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
+    }
+
+    void hessian_xx(const ssqp::VecX &x, const ssqp::VecX &u,
+                    ssqp::MatX &Hxx) const override
+    {
+        Hxx       = Eigen::Matrix2d::Zero();
+        Hxx(0, 0) = 2;
+        Hxx(1, 1) = 4;
+    }
+
+    void hessian_xu(const ssqp::VecX &x, const ssqp::VecX &u,
+                    ssqp::MatX &Hxu) const override
+    {
+        Hxu = Eigen::Matrix<double, 2, 1>::Zero();
+    }
+
+    void hessian_uu(const ssqp::VecX &x, const ssqp::VecX &u,
+                    ssqp::MatX &Huu) const override
+    {
+        Huu = (Eigen::Matrix<double, 1, 1>() << 0.002).finished();
+    }
+};
+
+class Cost : public ssqp::model::stagewise::StageCost
+{
+  public:
+    uint state_size() const override
+    {
+        return 2;
+    }
+
+    uint control_size() const override
+    {
+        return 1;
+    }
+
+    Eigen::VectorXd evaluate(const ssqp::VecX &x,
+                             const ssqp::VecX &u) const override
+    {
+        return (Eigen::Vector<double, 1>()
+                << u(0) * u(0) * 0.001 + 2 * x(1) * x(1))
+          .finished();
+    }
+
+    void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::VecX &dx,
+                  ssqp::VecX &du) const override
+    {
+
+        dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
+        du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
+    }
+
+    void hessian_xx(const ssqp::VecX &x, const ssqp::VecX &u,
+                    ssqp::MatX &Hxx) const override
+    {
+        Hxx       = Eigen::Matrix2d::Zero();
+        Hxx(1, 1) = 4;
+    }
+
+    void hessian_xu(const ssqp::VecX &x, const ssqp::VecX &u,
+                    ssqp::MatX &Hxu) const override
+    {
+        Hxu = Eigen::Matrix<double, 2, 1>::Zero();
+    }
+
+    void hessian_uu(const ssqp::VecX &x, const ssqp::VecX &u,
+                    ssqp::MatX &Huu) const override
+    {
+        Huu = (Eigen::Matrix<double, 1, 1>() << 0.002).finished();
+    }
+};
+
+class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
+{
+    uint output_size() const override
+    {
+        return 4;
+    }
+
+    uint state_size() const override
+    {
+        return 2;
+    }
+
+    uint control_size() const override
+    {
+        return 1;
+    }
+
+    ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
+    {
+        Eigen::VectorXd v = Eigen::Vector<double, 4>::Zero();
+
+        v(0) = u(0) + 100;
+        v(1) = 100 - u(0);
+
+        v(2) = x(0) - 12;
+        v(3) = 12 - x(0);
+
+        return v;
+    }
+
+    void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::MatX &dX,
+                  ssqp::MatX &dU) const override
+    {
+        dX = Eigen::Matrix<double, 4, 2>::Zero();
+        dU = Eigen::Matrix<double, 4, 1>::Zero();
+
+        dU(0, 0) = 1;
+        dU(1, 0) = -1;
+
+        dX(2, 0) = 1;
+        dX(3, 0) = -1;
+    }
+
+    void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Pxx) const override
+    {
+        Pxx = Eigen::Matrix2d::Zero();
+    }
+
+    void hessprod_xu(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Pxu) const override
+    {
+        Pxu = Eigen::Matrix<double, 2, 1>::Zero();
+    }
+
+    void hessprod_uu(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Puu) const override
+    {
+        Puu = Eigen::Matrix<double, 1, 1>::Zero();
+    }
+};
+
+class Constraints : public ssqp::model::stagewise::StageConstraints
+{
+    uint output_size() const override
+    {
+        return 2;
+    }
+
+    uint state_size() const override
+    {
+        return 2;
+    }
+
+    uint control_size() const override
+    {
+        return 1;
+    }
+
+    ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
+    {
+        Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
+
+        v(0) = u(0) + 100;
+        v(1) = 100 - u(0);
+
+        return v;
+    }
+
+    void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::MatX &dX,
+                  ssqp::MatX &dU) const override
+    {
+        dX = Eigen::Matrix<double, 2, 2>::Zero();
+        dU = Eigen::Matrix<double, 2, 1>::Zero();
+
+        dU(0, 0) = 1;
+        dU(1, 0) = -1;
+    }
+
+    void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Pxx) const override
+    {
+        Pxx = Eigen::Matrix2d::Zero();
+    }
+
+    void hessprod_xu(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Pxu) const override
+    {
+        Pxu = Eigen::Matrix<double, 2, 1>::Zero();
+    }
+
+    void hessprod_uu(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Puu) const override
+    {
+        Puu = Eigen::Matrix<double, 1, 1>::Zero();
+    }
+};
+
+class Dynamics : public ssqp::model::stagewise::StageDynamics
+{
+    uint output_size() const override
+    {
+        return 2;
+    }
+
+    uint state_size() const override
+    {
+        return 2;
+    }
+
+    uint control_size() const override
+    {
+        return 1;
+    }
+
+    ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
     {
         return (Eigen::Vector2d() << x(0) + 0.1 * x(1) + 0.005 * u(0),
                 x(1) + 0.1 * u(0))
           .finished();
     }
 
-    void gradient(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
-                  ssqp::MatX &dX, ssqp::MatX &dU) const override
+    void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::MatX &dX,
+                  ssqp::MatX &dU) const override
     {
         dX = Eigen::Matrix2d::Zero();
         dU = Eigen::Matrix<double, 2, 1>::Zero();
@@ -170,19 +284,19 @@ class Dynamics : public ssqp::dynamics::AbstractDynamics
         dU(1, 0) = 0.1;
     }
 
-    void hessprod_xx(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
+    void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,
                      const ssqp::VecX &lambda, ssqp::MatX &Pxx) const override
     {
         Pxx = Eigen::Matrix2d::Zero();
     }
 
-    void hessprod_xu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
+    void hessprod_xu(const ssqp::VecX &x, const ssqp::VecX &u,
                      const ssqp::VecX &lambda, ssqp::MatX &Pxu) const override
     {
         Pxu = Eigen::Matrix<double, 2, 1>::Zero();
     }
 
-    void hessprod_uu(const uint k, const ssqp::VecX &x, const ssqp::VecX &u,
+    void hessprod_uu(const ssqp::VecX &x, const ssqp::VecX &u,
                      const ssqp::VecX &lambda, ssqp::MatX &Puu) const override
     {
         Puu = Eigen::Matrix<double, 1, 1>::Zero();
@@ -191,13 +305,27 @@ class Dynamics : public ssqp::dynamics::AbstractDynamics
 
 int main()
 {
-    ssqp::OCP ocp;
-    ocp.costs       = std::make_shared<Cost>();
-    ocp.constraints = std::make_shared<Constraints>();
-    ocp.dynamics    = std::make_shared<Dynamics>();
-    ocp.horizon     = HORIZON;
+    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageCost>> costs(
+      HORIZON + 1);
+    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageDynamics>>
+      dynamics(HORIZON + 1);
+    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageConstraints>>
+      constraints(HORIZON + 1);
 
-    ssqp::solvers::ssqp        solver(ocp);
+    for (int k = 0; k < HORIZON; ++k)
+    {
+        costs[k]       = std::make_shared<Cost>();
+        dynamics[k]    = std::make_shared<Dynamics>();
+        constraints[k] = std::make_shared<Constraints>();
+    }
+
+    costs[HORIZON]       = std::make_shared<TerminalCost>();
+    dynamics[HORIZON]    = std::make_shared<Dynamics>();
+    constraints[HORIZON] = std::make_shared<TerminalConstraints>();
+
+    ssqp::model::Model model(costs, dynamics, constraints);
+
+    ssqp::solvers::ssqp        solver(model);
     ssqp::solvers::ssqp::Guess solution;
     ssqp::solvers::SolverState state = solver.solve(solution);
 

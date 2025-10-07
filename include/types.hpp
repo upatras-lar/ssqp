@@ -5,6 +5,8 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <iostream>
+#include <iomanip>
 
 #include <Eigen/Core>
 
@@ -47,9 +49,9 @@ struct FlatVec
     // FlatVec
     FlatVec(const FlatVec &other, bool copy = true);
 
-    inline Eigen::VectorBlock<VecX> stage(const uint k);
+    Eigen::VectorBlock<VecX> stage(const uint k);
 
-    inline const VecX stage(const uint k) const;
+    const VecX stage(const uint k) const;
 
     VecX vec;
 
@@ -65,7 +67,10 @@ struct FlatVec
 
     FlatVec &operator+=(const FlatVec &p);
 
+    friend std::ostream &operator<<(std::ostream &os, const FlatVec &v);
+
   protected:
+    uint _max_dim;
     // Stage size vector
     std::vector<uint> _stage_sizes;
     // Accumulated indexing vector

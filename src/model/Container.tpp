@@ -13,27 +13,23 @@ Container<Derived>::Container(const uint horizon)
 
 template<typename Derived>
 Container<Derived>::Container(
-  const std::vector<std::unique_ptr<const Derived>> &functions)
+  const std::vector<std::shared_ptr<const Derived>> &functions)
   : _horizon(functions.size())
-  , _functions(std::move(functions))
+  , _functions(functions)
 {
 }
 
 template<typename Derived>
-std::unique_ptr<const Derived> &Container<Derived>::operator[](const uint k)
+std::shared_ptr<const Derived> &Container<Derived>::operator[](const uint k)
 {
     return _functions[k];
 }
 
 template<typename Derived>
-const std::unique_ptr<const Derived> &Container<Derived>::operator[](
+const std::shared_ptr<const Derived> &Container<Derived>::operator[](
   const uint k) const
 {
     return _functions[k];
 }
-
-template class Container<stagewise::StageCost>;
-template class Container<stagewise::StageDynamics>;
-template class Container<stagewise::StageConstraints>;
 }
 }
