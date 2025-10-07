@@ -5,18 +5,18 @@ namespace ssqp
 namespace model
 {
 Model::Model(
-  const std::vector<std::unique_ptr<const stagewise::StageCost>>     &costs,
-  const std::vector<std::unique_ptr<const stagewise::StageDynamics>> &dynamics,
-  const std::vector<std::unique_ptr<const stagewise::StageConstraints>>
+  const std::vector<std::shared_ptr<const stagewise::StageCost>>     &costs,
+  const std::vector<std::shared_ptr<const stagewise::StageDynamics>> &dynamics,
+  const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
     &constraints)
   : _costs(costs)
   , _dynamics(dynamics)
   , _constraints(constraints)
 {
-    _dims.horizon = costs.size();
+    _dims.horizon = costs.size() - 1;
 
-    assert(_dims.horizon == dynamics.size() &&
-           _dims.horizon == constraints.size() &&
+    assert(_dims.horizon == dynamics.size() - 1 &&
+           _dims.horizon == constraints.size() - 1 &&
            "Horizons of stage functions must match");
 
     _dims.stage_state.resize(_dims.horizon + 1);
@@ -34,9 +34,12 @@ Model::Model(
         assert(_dynamics[k]->control_size() == _dims.stage_control[k] &&
                "Dynamics control dimension mismatch");
 
-        assert(_dynamics[k]->output_size() == _dims.stage_state[k + 1] &&
-               "Dynamics function stage k output and state k+1 dimension "
-               "mismatch");
+        if (k > 0)
+        {
+            assert(_dynamics[k - 1]->output_size() == _dims.stage_state[k] &&
+                   "Dynamics function stage k output and state k+1 dimension "
+                   "mismatch");
+        }
 
         if (_constraints[k] != nullptr)
         {

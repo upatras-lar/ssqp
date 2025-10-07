@@ -1,7 +1,4 @@
 #include "solvers/ssqp.hpp"
-#include "model/constraint/AbstractConstraint.hpp"
-#include "model/cost/AbstractCost.hpp"
-#include "model/dynamics/AbstractDynamics.hpp"
 #include "solvers/admm_qp.hpp"
 #include "sqp_step/gss.hpp"
 #include "sqp_step/filter.hpp"
@@ -133,7 +130,7 @@ QPData ssqp::_setup_qp()
         qp.stages[k].Qxx += tmpMat;
 
         // Calculate S_k
-        costs[k]->hessian_xx(_guess.x.stage(k),
+        costs[k]->hessian_xu(_guess.x.stage(k),
                              _guess.u.stage(k),
                              qp.stages[k].Qxu);
 
@@ -151,7 +148,7 @@ QPData ssqp::_setup_qp()
         qp.stages[k].Qxu += tmpMat;
 
         // Calculate R_k
-        costs[k]->hessian_xx(_guess.x.stage(k),
+        costs[k]->hessian_uu(_guess.x.stage(k),
                              _guess.u.stage(k),
                              qp.stages[k].Quu);
 
@@ -299,10 +296,10 @@ SolverState ssqp::_check_termination()
 
 #ifdef DEBUG
     std::cout << "Lagrangian dx:  " << std::endl << lagrangian_dx << std::endl;
-    std::cout << "Norm: " << lagrangian_dx.lpNorm<Eigen::Infinity>()
+    std::cout << "Norm: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>()
               << std::endl;
     std::cout << "Lagrangian du: " << std::endl << lagrangian_du << std::endl;
-    std::cout << "Norm: " << lagrangian_du.lpNorm<Eigen::Infinity>()
+    std::cout << "Norm: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>()
               << std::endl;
 #endif
 

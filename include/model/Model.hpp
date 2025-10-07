@@ -3,6 +3,9 @@
 
 #include "types.hpp"
 #include "model/Container.hpp"
+#include "model/stagewise/StageCost.hpp"
+#include "model/stagewise/StageDynamics.hpp"
+#include "model/stagewise/StageConstraints.hpp"
 
 namespace ssqp
 {
@@ -11,11 +14,11 @@ namespace model
 class Model
 {
   public:
-    Model(const std::vector<std::unique_ptr<const stagewise::StageCost>> &costs,
-          const std::vector<std::unique_ptr<const stagewise::StageDynamics>>
+    Model(const std::vector<std::shared_ptr<const stagewise::StageCost>> &costs,
+          const std::vector<std::shared_ptr<const stagewise::StageDynamics>>
             &dynamics,
-          const std::vector<std::unique_ptr<const stagewise::StageConstraints>>
-            &constraints = { nullptr });
+          const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
+            &constraints);
 
     const uint              horizon() const;
     const uint              total_state_size() const;

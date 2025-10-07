@@ -11,8 +11,8 @@ else
 	CXXFLAGS += -O3
 endif
 
-point_mass: build/point_mass.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
-	$(CXX) $(INCLUDES) -o build/point_mass build/point_mass.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
+point_mass: build/point_mass.o build/types.o build/Model.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
+	$(CXX) $(INCLUDES) -o build/point_mass build/point_mass.o build/types.o build/Model.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
 
 function1: build/function1.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
 	$(CXX) $(INCLUDES) -o build/function1 build/function1.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
@@ -45,5 +45,7 @@ build/filter.o: src/sqp_step/filter.cpp
 	$(CXX) $(INCLUDES) -c src/sqp_step/filter.cpp -o build/filter.o $(CXXFLAGS)
 
 build/gss.o: src/sqp_step/gss.cpp
-	$(CXX) $(INCLUDES) -c src/sqp_tep/gss.cpp -o build/gss.o $(CXXFLAGS)
+	$(CXX) $(INCLUDES) -c src/sqp_step/gss.cpp -o build/gss.o $(CXXFLAGS)
 
+build/Model.o: src/model/Model.cpp
+	$(CXX) $(INCLUDES) -c src/model/Model.cpp -o build/Model.o $(CXXFLAGS)

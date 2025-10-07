@@ -8,9 +8,6 @@
 
 #include "types.hpp"
 #include "ssqp.hpp"
-#include "model/constraint/AbstractConstraint.hpp"
-#include "model/cost/AbstractCost.hpp"
-#include "model/dynamics/AbstractDynamics.hpp"
 
 namespace ssqp
 {
