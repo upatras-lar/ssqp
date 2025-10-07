@@ -66,7 +66,7 @@ SolverState ssqp::solve(Guess &guess)
               sol.P[k + 1] * sol.dx.stage(k + 1) + sol.p[k + 1];
         }
         _guess.mu = -sol.y; // we need a minus because the QP (ADMM) assumes
-                            // the opposite sign in the Lagrangian
+        // the opposite sign in the Lagrangian
 
         // Termination
         if ((ssqp_state = _check_termination()) != ONGOING)
@@ -123,12 +123,6 @@ QPData ssqp::_setup_qp()
                                  tmpMat);
         qp.stages[k].Qxx += tmpMat;
 
-        constraints[k]->hessprod_xx(_guess.x.stage(k),
-                                    _guess.u.stage(k),
-                                    _guess.mu.stage(k),
-                                    tmpMat);
-        qp.stages[k].Qxx += tmpMat;
-
         // Calculate S_k
         costs[k]->hessian_xu(_guess.x.stage(k),
                              _guess.u.stage(k),
@@ -139,12 +133,6 @@ QPData ssqp::_setup_qp()
                                  _guess.lambda.stage(k),
                                  tmpMat);
 
-        qp.stages[k].Qxu += tmpMat;
-
-        constraints[k]->hessprod_xu(_guess.x.stage(k),
-                                    _guess.u.stage(k),
-                                    _guess.mu.stage(k),
-                                    tmpMat);
         qp.stages[k].Qxu += tmpMat;
 
         // Calculate R_k
@@ -158,12 +146,6 @@ QPData ssqp::_setup_qp()
                                  tmpMat);
         qp.stages[k].Quu += tmpMat;
 
-        constraints[k]->hessprod_uu(_guess.x.stage(k),
-                                    _guess.u.stage(k),
-                                    _guess.mu.stage(k),
-                                    tmpMat);
-        qp.stages[k].Quu += tmpMat;
-
         // Get q and r
         costs[k]->gradient(_guess.x.stage(k),
                            _guess.u.stage(k),
@@ -171,14 +153,41 @@ QPData ssqp::_setup_qp()
                            qp.stages[k].qu);
 
         // Get D and E
-        constraints[k]->gradient(_guess.x.stage(k),
-                                 _guess.u.stage(k),
-                                 qp.stages[k].D,
-                                 qp.stages[k].E);
+        if (constraints[k] != nullptr)
+        {
+            constraints[k]->hessprod_xx(_guess.x.stage(k),
+                                        _guess.u.stage(k),
+                                        _guess.mu.stage(k),
+                                        tmpMat);
+            qp.stages[k].Qxx += tmpMat;
 
-        // Get c
-        qp.stages[k].c =
-          constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
+            constraints[k]->hessprod_xu(_guess.x.stage(k),
+                                        _guess.u.stage(k),
+                                        _guess.mu.stage(k),
+                                        tmpMat);
+            qp.stages[k].Qxu += tmpMat;
+
+            constraints[k]->hessprod_uu(_guess.x.stage(k),
+                                        _guess.u.stage(k),
+                                        _guess.mu.stage(k),
+                                        tmpMat);
+            qp.stages[k].Quu += tmpMat;
+
+            constraints[k]->gradient(_guess.x.stage(k),
+                                     _guess.u.stage(k),
+                                     qp.stages[k].D,
+                                     qp.stages[k].E);
+
+            // Get c
+            qp.stages[k].c =
+              constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
+        }
+        else
+        {
+            qp.stages[k].D = MatX::Zero(0, qp.dims.stage_state[k]);
+            qp.stages[k].E = MatX::Zero(0, qp.dims.stage_control[k]);
+            qp.stages[k].c = VecX::Zero(0);
+        }
     }
 
     // Terminal values for Q, q, D and c
@@ -186,25 +195,34 @@ QPData ssqp::_setup_qp()
                                        VecX::Zero(1),
                                        qp.Qxx_t);
 
-    constraints[qp.dims.horizon]->hessprod_xx(_guess.x.stage(qp.dims.horizon),
-                                              VecX::Zero(1),
-                                              _guess.mu.stage(qp.dims.horizon),
-                                              tmpMat);
-    qp.Qxx_t += tmpMat;
-
     costs[qp.dims.horizon]->gradient(_guess.x.stage(qp.dims.horizon),
                                      VecX::Zero(1),
                                      qp.qx_t,
                                      tmpVec);
 
-    constraints[qp.dims.horizon]->gradient(_guess.x.stage(qp.dims.horizon),
-                                           VecX::Zero(1),
-                                           qp.Dt,
-                                           tmpMat);
+    if (constraints[qp.dims.horizon] != nullptr)
+    {
+        constraints[qp.dims.horizon]->hessprod_xx(
+          _guess.x.stage(qp.dims.horizon),
+          VecX::Zero(1),
+          _guess.mu.stage(qp.dims.horizon),
+          tmpMat);
+        qp.Qxx_t += tmpMat;
 
-    qp.ct =
-      constraints[qp.dims.horizon]->evaluate(_guess.x.stage(qp.dims.horizon),
-                                             VecX::Zero(1));
+        constraints[qp.dims.horizon]->gradient(_guess.x.stage(qp.dims.horizon),
+                                               VecX::Zero(1),
+                                               qp.Dt,
+                                               tmpMat);
+
+        qp.ct = constraints[qp.dims.horizon]->evaluate(
+          _guess.x.stage(qp.dims.horizon),
+          VecX::Zero(1));
+    }
+    else
+    {
+        qp.Dt = MatX::Zero(0, qp.dims.stage_state[qp.dims.horizon]);
+        qp.ct = VecX::Zero(0);
+    }
 
     return qp;
 }
@@ -252,12 +270,16 @@ SolverState ssqp::_check_termination()
     _cost_dx.stage(horizon) = dx;
 
     // Add constraint terms for terminal x
-    constraints[horizon]->gradient(_guess.x.stage(horizon),
-                                   VecX::Zero(1),
-                                   dX,
-                                   dU);
+    if (constraints[horizon] != nullptr)
+    {
+        constraints[horizon]->gradient(_guess.x.stage(horizon),
+                                       VecX::Zero(1),
+                                       dX,
+                                       dU);
 
-    lagrangian_dx.stage(horizon) -= dX.transpose() * _guess.mu.stage(horizon);
+        lagrangian_dx.stage(horizon) -=
+          dX.transpose() * _guess.mu.stage(horizon);
+    }
 
     // Add k=0 terms for u
     costs[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dx, du);
@@ -268,8 +290,11 @@ SolverState ssqp::_check_termination()
     dynamics[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
     lagrangian_du.stage(0) += dU.transpose() * _guess.lambda.stage(0);
 
-    constraints[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
-    lagrangian_du.stage(0) -= dU.transpose() * _guess.mu.stage(0);
+    if (constraints[0] != nullptr)
+    {
+        constraints[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
+        lagrangian_du.stage(0) -= dU.transpose() * _guess.mu.stage(0);
+    }
 
     // Ignore x0 terms since it is not being optimized
     for (uint k = 1; k < horizon; ++k)
@@ -289,9 +314,15 @@ SolverState ssqp::_check_termination()
         lagrangian_du.stage(k) += dU.transpose() * _guess.lambda.stage(k);
 
         // Compute constraint jacobian
-        constraints[k]->gradient(_guess.x.stage(k), _guess.u.stage(k), dX, dU);
-        lagrangian_dx.stage(k) -= dX.transpose() * _guess.mu.stage(k);
-        lagrangian_du.stage(k) -= dU.transpose() * _guess.mu.stage(k);
+        if (constraints[k] != nullptr)
+        {
+            constraints[k]->gradient(_guess.x.stage(k),
+                                     _guess.u.stage(k),
+                                     dX,
+                                     dU);
+            lagrangian_dx.stage(k) -= dX.transpose() * _guess.mu.stage(k);
+            lagrangian_du.stage(k) -= dU.transpose() * _guess.mu.stage(k);
+        }
     }
 
 #ifdef DEBUG
@@ -304,10 +335,11 @@ SolverState ssqp::_check_termination()
 #endif
 
     // Terminal constraint violation
-    if (constraints[horizon]
-          ->evaluate(_guess.x.stage(horizon), VecX::Zero(1))
-          .cwiseMin(0)
-          .lpNorm<Eigen::Infinity>() > _params.tolerance)
+    if (constraints[horizon] != nullptr &&
+        constraints[horizon]
+            ->evaluate(_guess.x.stage(horizon), VecX::Zero(1))
+            .cwiseMin(0)
+            .lpNorm<Eigen::Infinity>() > _params.tolerance)
     {
         _stale_iters = 0;
         return ONGOING;
@@ -324,10 +356,11 @@ SolverState ssqp::_check_termination()
             return ONGOING;
         }
         // Stage constraint violation
-        if (constraints[k]
-              ->evaluate(_guess.x.stage(k), _guess.u.stage(k))
-              .cwiseMin(0)
-              .lpNorm<Eigen::Infinity>() > _params.tolerance)
+        if (constraints[k] != nullptr &&
+            constraints[k]
+                ->evaluate(_guess.x.stage(k), _guess.u.stage(k))
+                .cwiseMin(0)
+                .lpNorm<Eigen::Infinity>() > _params.tolerance)
         {
             _stale_iters = 0;
             return ONGOING;
@@ -401,16 +434,24 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 
     for (uint k = 0; k < horizon; ++k)
     {
-        sum += constraints[k]
-                 ->evaluate(x.stage(k), u.stage(k))
+        if (constraints[k] != nullptr)
+        {
+            sum += constraints[k]
+                     ->evaluate(x.stage(k), u.stage(k))
+                     .cwiseMin(0)
+                     .lpNorm<Eigen::Infinity>();
+        }
+    }
+
+    if (constraints[horizon] != nullptr)
+    {
+        sum += constraints[horizon]
+                 ->evaluate(x.stage(horizon), VecX::Zero(1))
                  .cwiseMin(0)
                  .lpNorm<Eigen::Infinity>();
     }
 
-    return sum + constraints[horizon]
-                   ->evaluate(x.stage(horizon), VecX::Zero(1))
-                   .cwiseMin(0)
-                   .lpNorm<Eigen::Infinity>();
+    return sum;
 }
 }
 }

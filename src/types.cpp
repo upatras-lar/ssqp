@@ -160,7 +160,7 @@ std::ostream &operator<<(std::ostream &os, const FlatVec &v)
                   static_cast<uint>(formatted_values[row][col].length()));
                 continue;
             }
-            break;
+            formatted_values[row][col] = "-";
         }
     }
 

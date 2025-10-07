@@ -11,13 +11,21 @@ Model::Model(
     &constraints)
   : _costs(costs)
   , _dynamics(dynamics)
-  , _constraints(constraints)
+  , _constraints(
+      constraints.size() == 1 && constraints[0] == nullptr
+        ? std::vector<std::shared_ptr<const stagewise::StageConstraints>>(
+            costs.size(), nullptr)
+        : constraints)
 {
-    _dims.horizon = costs.size() - 1;
+    _dims.horizon = _costs.size() - 1;
 
-    assert(_dims.horizon == dynamics.size() - 1 &&
-           _dims.horizon == constraints.size() - 1 &&
+    assert(_dims.horizon == _dynamics.size() - 1 &&
+           (_dims.horizon == _constraints.size() - 1) &&
            "Horizons of stage functions must match");
+
+    _dims.state      = 0;
+    _dims.control    = 0;
+    _dims.constraint = 0;
 
     _dims.stage_state.resize(_dims.horizon + 1);
     _dims.stage_control.resize(_dims.horizon);
@@ -25,9 +33,10 @@ Model::Model(
 
     for (uint k = 0; k < _dims.horizon; ++k)
     {
-        _dims.stage_state[k]      = _costs[k]->state_size();
-        _dims.stage_control[k]    = _costs[k]->control_size();
-        _dims.stage_constraint[k] = _constraints[k]->output_size();
+        _dims.stage_state[k]   = _costs[k]->state_size();
+        _dims.stage_control[k] = _costs[k]->control_size();
+        _dims.stage_constraint[k] =
+          (_constraints[k] != nullptr) ? _constraints[k]->output_size() : 0;
 
         assert(_dynamics[k]->state_size() == _dims.stage_state[k] &&
                "Dynamics state dimension mismatch");
@@ -56,7 +65,9 @@ Model::Model(
 
     _dims.stage_state[_dims.horizon] = _costs[_dims.horizon]->state_size();
     _dims.stage_constraint[_dims.horizon] =
-      _constraints[_dims.horizon]->output_size();
+      (_constraints[_dims.horizon] != nullptr)
+        ? _constraints[_dims.horizon]->output_size()
+        : 0;
 
     assert(_dynamics[_dims.horizon]->state_size() ==
              _dims.stage_state[_dims.horizon] &&

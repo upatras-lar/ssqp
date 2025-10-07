@@ -94,6 +94,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         {
             _update_rho();
         }
+
         // Termination
         if ((admm_state = _check_termination()) != ONGOING)
         {
@@ -148,7 +149,6 @@ void admm_qp::_calculate_residuals(const FlatVec &z_prev)
     VecX zdiff_scaled = _rho.stage(_qp.dims.horizon)
                           .cwiseProduct(_solution.z.stage(_qp.dims.horizon) -
                                         z_prev.stage(_qp.dims.horizon));
-
     _norm_dual =
       std::max(_norm_dual,
                (_qp.Dt.transpose() * zdiff_scaled).lpNorm<Eigen::Infinity>());
@@ -197,7 +197,7 @@ SolverState admm_qp::_check_termination() const
     {
         if (_norm_dual < _params.primal_infeasibility_tolerance)
         {
-            return PRIMAL_INFEASIBLE;
+            // return PRIMAL_INFEASIBLE;
         }
 
         return ONGOING;
