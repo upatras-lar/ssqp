@@ -7,6 +7,8 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
+#include <string>
+#include <cmath>
 
 #include <Eigen/Core>
 
@@ -33,6 +35,8 @@ struct Dimensions
     std::vector<uint> stage_constraint;
 };
 }
+
+std::string format_double(double val, uint precision);
 
 namespace solvers
 {
