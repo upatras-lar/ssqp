@@ -75,7 +75,7 @@ class TerminalCost : public ssqp::model::stagewise::StageCost
     void hessian_uu(const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Huu) const override
     {
-        Huu = Eigen::Matrix<double, 2, 1>::Zero();
+        Huu = (Eigen::Matrix<double, 2, 1>() << 0.002).finished();
     }
 };
 
@@ -132,7 +132,7 @@ class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
 {
     uint output_size() const override
     {
-        return 4;
+        return 1;
     }
 
     uint state_size() const override
@@ -145,15 +145,21 @@ class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
         return 1;
     }
 
+    ssqp::VecX lower_bound() const override
+    {
+        return (Eigen::Vector<double, 1>() << 12).finished();
+    }
+
+    ssqp::VecX upper_bound() const override
+    {
+        return (Eigen::Vector<double, 1>() << 12).finished();
+    }
+
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
     {
-        Eigen::VectorXd v = Eigen::Vector<double, 4>::Zero();
+        Eigen::VectorXd v = Eigen::Vector<double, 1>::Zero();
 
-        v(0) = u(0) + 100;
-        v(1) = 100 - u(0);
-
-        v(2) = x(0) - 12;
-        v(3) = 12 - x(0);
+        v(0) = x(0);
 
         return v;
     }
@@ -161,14 +167,10 @@ class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
     void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::MatX &dX,
                   ssqp::MatX &dU) const override
     {
-        dX = Eigen::Matrix<double, 4, 2>::Zero();
-        dU = Eigen::Matrix<double, 4, 1>::Zero();
+        dX = Eigen::Matrix<double, 1, 2>::Zero();
+        dU = Eigen::Matrix<double, 1, 1>::Zero();
 
-        dU(0, 0) = 1;
-        dU(1, 0) = -1;
-
-        dX(2, 0) = 1;
-        dX(3, 0) = -1;
+        dX(0, 0) = 1;
     }
 
     void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,
@@ -194,7 +196,7 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
 {
     uint output_size() const override
     {
-        return 2;
+        return 1;
     }
 
     uint state_size() const override
@@ -207,12 +209,21 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
         return 1;
     }
 
+    ssqp::VecX lower_bound() const override
+    {
+        return (Eigen::Vector<double, 1>() << -24.7).finished();
+    }
+
+    ssqp::VecX upper_bound() const override
+    {
+        return (Eigen::Vector<double, 1>() << 24.7).finished();
+    }
+
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
     {
-        Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
+        Eigen::VectorXd v = Eigen::Vector<double, 1>::Zero();
 
-        v(0) = u(0) + 100;
-        v(1) = 100 - u(0);
+        v(0) = u(0);
 
         return v;
     }
@@ -220,11 +231,10 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
     void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::MatX &dX,
                   ssqp::MatX &dU) const override
     {
-        dX = Eigen::Matrix<double, 2, 2>::Zero();
-        dU = Eigen::Matrix<double, 2, 1>::Zero();
+        dX = Eigen::Matrix<double, 1, 2>::Zero();
+        dU = Eigen::Matrix<double, 1, 1>::Zero();
 
         dU(0, 0) = 1;
-        dU(1, 0) = -1;
     }
 
     void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,
@@ -312,12 +322,12 @@ int main()
     std::vector<std::shared_ptr<const ssqp::model::stagewise::StageConstraints>>
       constraints(HORIZON + 1);
 
-    for (int k = 0; k < HORIZON; ++k)
+    for (uint k = 0; k < HORIZON; ++k)
     {
-        costs[k]    = std::make_shared<Cost>();
-        dynamics[k] = std::make_shared<Dynamics>();
-        // constraints[k] = std::make_shared<Constraints>();
-        constraints[k] = nullptr;
+        costs[k]       = std::make_shared<Cost>();
+        dynamics[k]    = std::make_shared<Dynamics>();
+        constraints[k] = std::make_shared<Constraints>();
+        // constraints[k] = nullptr;
     }
 
     costs[HORIZON]       = std::make_shared<TerminalCost>();
