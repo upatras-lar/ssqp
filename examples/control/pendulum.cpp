@@ -233,23 +233,83 @@ class Cost : public ssqp::model::stagewise::StageCost
     }
 };
 
+class Constraints : public ssqp::model::stagewise::StageConstraints
+{
+    uint output_size() const override
+    {
+        return 2;
+    }
+
+    uint state_size() const override
+    {
+        return 2;
+    }
+
+    uint control_size() const override
+    {
+        return 1;
+    }
+
+    ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
+    {
+        Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
+
+        v(0) = u(0) + 7;
+        v(1) = 7 - u(0);
+
+        return v;
+    }
+
+    void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::MatX &dX,
+                  ssqp::MatX &dU) const override
+    {
+        dX = Eigen::Matrix<double, 2, 2>::Zero();
+        dU = Eigen::Matrix<double, 2, 1>::Zero();
+
+        dU(0, 0) = 1;
+        dU(1, 0) = -1;
+    }
+
+    void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Pxx) const override
+    {
+        Pxx = Eigen::Matrix2d::Zero();
+    }
+
+    void hessprod_xu(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Pxu) const override
+    {
+        Pxu = Eigen::Matrix<double, 2, 1>::Zero();
+    }
+
+    void hessprod_uu(const ssqp::VecX &x, const ssqp::VecX &u,
+                     const ssqp::VecX &mu, ssqp::MatX &Puu) const override
+    {
+        Puu = Eigen::Matrix<double, 1, 1>::Zero();
+    }
+};
+
 int main()
 {
     std::vector<std::shared_ptr<const ssqp::model::stagewise::StageCost>> costs(
       HORIZON + 1);
     std::vector<std::shared_ptr<const ssqp::model::stagewise::StageDynamics>>
       dynamics(HORIZON + 1);
+    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageConstraints>>
+      constraints(HORIZON + 1);
 
-    for (int k = 0; k < HORIZON; ++k)
+    for (uint k = 0; k < HORIZON; ++k)
     {
-        costs[k]    = std::make_shared<Cost>();
-        dynamics[k] = std::make_shared<Dynamics>();
+        costs[k]       = std::make_shared<Cost>();
+        dynamics[k]    = std::make_shared<Dynamics>();
+        constraints[k] = std::make_shared<Constraints>();
     }
 
-    costs[HORIZON]    = std::make_shared<TerminalCost>();
-    dynamics[HORIZON] = std::make_shared<Dynamics>();
+    costs[HORIZON]       = std::make_shared<TerminalCost>();
+    dynamics[HORIZON]    = std::make_shared<Dynamics>();
+    constraints[HORIZON] = std::make_shared<Constraints>();
 
-    ssqp::model::Model model(costs, dynamics);
+    ssqp::model::Model model(costs, dynamics, constraints);
 
     ssqp::solvers::ssqp        solver(model);
     ssqp::solvers::ssqp::Guess solution;

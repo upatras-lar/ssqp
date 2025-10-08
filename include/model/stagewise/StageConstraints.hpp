@@ -1,6 +1,8 @@
 #ifndef SSQP_STAGE_CONSTRAINTS_HPP
 #define SSQP_STAGE_CONSTRAINTS_HPP
 
+#include <limits>
+
 #include "model/stagewise/Function.hpp"
 
 namespace ssqp
@@ -13,6 +15,13 @@ namespace stagewise
 class StageConstraints : public Function
 {
   public:
+    bool is_satisfied(const VecX &x, const VecX &u,
+                      const double tolerance = 1e-3) const;
+
+    // Get constraint bounds
+    virtual VecX lower_bound() const;
+    virtual VecX upper_bound() const;
+
     // Get constraint k Jacobians with respect to x and u, evaluated at
     // given (x, u)
     // Returns:

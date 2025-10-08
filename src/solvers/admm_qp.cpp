@@ -197,7 +197,7 @@ SolverState admm_qp::_check_termination() const
     {
         if (_norm_dual < _params.primal_infeasibility_tolerance)
         {
-            // return PRIMAL_INFEASIBLE;
+            return PRIMAL_INFEASIBLE;
         }
 
         return ONGOING;
@@ -224,20 +224,36 @@ void admm_qp::_update_rho()
         rho_estimate_sparse_ < _rho_common / _params.adaptive_rho_tolerance_)
     {
         _rho_common = rho_estimate_sparse_;
-        for (uint k = 0; k <= _qp.dims.horizon; ++k)
+        for (uint k = 0; k < _qp.dims.horizon; ++k)
         {
             for (uint c = 0; c < _qp.dims.stage_constraint[k]; ++c)
             {
-                // if (k == _qp.horizon && c >= 2)
-                // {
-                //     rho(c)     = 1e3 * _rho_common;
-                //     rho_inv(c) = 1. / (1e3 * _rho_common);
-                // }
-                // else
+                if (std::abs(_qp.stages[k].cl(c) - _qp.stages[k].cu(c)) <
+                    std::numeric_limits<double>::epsilon())
+                {
+                    _rho.stage(k)(c)     = 1e3 * _rho_common;
+                    _rho_inv.stage(k)(c) = 1. / (1e3 * _rho_common);
+                }
+                else
                 {
                     _rho.stage(k)(c)     = _rho_common;
                     _rho_inv.stage(k)(c) = 1. / _rho_common;
                 }
+            }
+        }
+
+        for (uint c = 0; c < _qp.dims.stage_constraint[_qp.dims.horizon]; ++c)
+        {
+            if (std::abs(_qp.cl_t(c) - _qp.cu_t(c)) <
+                std::numeric_limits<double>::epsilon())
+            {
+                _rho.stage(_qp.dims.horizon)(c)     = 1e3 * _rho_common;
+                _rho_inv.stage(_qp.dims.horizon)(c) = 1. / (1e3 * _rho_common);
+            }
+            else
+            {
+                _rho.stage(_qp.dims.horizon)(c)     = _rho_common;
+                _rho_inv.stage(_qp.dims.horizon)(c) = 1. / _rho_common;
             }
         }
     }
@@ -258,9 +274,11 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
                                 (1 - _params.alpha) * _solution.du.stage(k);
 
         _solution.z.stage(k) =
-          (-_qp.stages[k].c)
-            .cwiseMax(z_hat.stage(k) +
-                      _rho_inv.stage(k).cwiseProduct(_solution.y.stage(k)));
+          (-_qp.stages[k].cu)
+            .cwiseMin(
+              (-_qp.stages[k].cl)
+                .cwiseMax(z_hat.stage(k) + _rho_inv.stage(k).cwiseProduct(
+                                             _solution.y.stage(k))));
         _solution.y.stage(k) +=
           _rho.stage(k).cwiseProduct(z_hat.stage(k) - _solution.z.stage(k));
     }
@@ -272,9 +290,10 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
       (1 - _params.alpha) * _solution.dx.stage(_qp.dims.horizon);
 
     _solution.z.stage(_qp.dims.horizon) =
-      (-_qp.ct).cwiseMax(z_hat.stage(_qp.dims.horizon) +
-                         _rho_inv.stage(_qp.dims.horizon)
-                           .cwiseProduct(_solution.y.stage(_qp.dims.horizon)));
+      (-_qp.cu_t).cwiseMin((-_qp.cl_t).cwiseMax(
+        z_hat.stage(_qp.dims.horizon) +
+        _rho_inv.stage(_qp.dims.horizon)
+          .cwiseProduct(_solution.y.stage(_qp.dims.horizon))));
     _solution.y.stage(_qp.dims.horizon) +=
       _rho.stage(_qp.dims.horizon)
         .cwiseProduct(z_hat.stage(_qp.dims.horizon) -

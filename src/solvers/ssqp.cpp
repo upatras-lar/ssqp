@@ -178,15 +178,19 @@ QPData ssqp::_setup_qp()
                                      qp.stages[k].D,
                                      qp.stages[k].E);
 
-            // Get c
-            qp.stages[k].c =
+            // Get cl, cu
+            VecX c =
               constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
+
+            qp.stages[k].cl = c - constraints[k]->lower_bound();
+            qp.stages[k].cu = c - constraints[k]->upper_bound();
         }
         else
         {
-            qp.stages[k].D = MatX::Zero(0, qp.dims.stage_state[k]);
-            qp.stages[k].E = MatX::Zero(0, qp.dims.stage_control[k]);
-            qp.stages[k].c = VecX::Zero(0);
+            qp.stages[k].D  = MatX::Zero(0, qp.dims.stage_state[k]);
+            qp.stages[k].E  = MatX::Zero(0, qp.dims.stage_control[k]);
+            qp.stages[k].cl = VecX::Zero(0);
+            qp.stages[k].cu = VecX::Zero(0);
         }
     }
 
@@ -214,14 +218,17 @@ QPData ssqp::_setup_qp()
                                                qp.Dt,
                                                tmpMat);
 
-        qp.ct = constraints[qp.dims.horizon]->evaluate(
+        VecX ct = constraints[qp.dims.horizon]->evaluate(
           _guess.x.stage(qp.dims.horizon),
           VecX::Zero(1));
+        qp.cl_t = ct - constraints[qp.dims.horizon]->lower_bound();
+        qp.cu_t = ct - constraints[qp.dims.horizon]->upper_bound();
     }
     else
     {
-        qp.Dt = MatX::Zero(0, qp.dims.stage_state[qp.dims.horizon]);
-        qp.ct = VecX::Zero(0);
+        qp.Dt   = MatX::Zero(0, qp.dims.stage_state[qp.dims.horizon]);
+        qp.cl_t = VecX::Zero(0);
+        qp.cu_t = VecX::Zero(0);
     }
 
     return qp;
@@ -336,10 +343,9 @@ SolverState ssqp::_check_termination()
 
     // Terminal constraint violation
     if (constraints[horizon] != nullptr &&
-        constraints[horizon]
-            ->evaluate(_guess.x.stage(horizon), VecX::Zero(1))
-            .cwiseMin(0)
-            .lpNorm<Eigen::Infinity>() > _params.tolerance)
+        !constraints[horizon]->is_satisfied(_guess.x.stage(horizon),
+                                            VecX::Zero(1),
+                                            _params.tolerance))
     {
         _stale_iters = 0;
         return ONGOING;
@@ -357,10 +363,9 @@ SolverState ssqp::_check_termination()
         }
         // Stage constraint violation
         if (constraints[k] != nullptr &&
-            constraints[k]
-                ->evaluate(_guess.x.stage(k), _guess.u.stage(k))
-                .cwiseMin(0)
-                .lpNorm<Eigen::Infinity>() > _params.tolerance)
+            !constraints[k]->is_satisfied(_guess.x.stage(k),
+                                          _guess.u.stage(k),
+                                          _params.tolerance))
         {
             _stale_iters = 0;
             return ONGOING;

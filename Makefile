@@ -11,14 +11,11 @@ else
 	CXXFLAGS += -O3
 endif
 
-point_mass: build/point_mass.o build/types.o build/Model.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
-	$(CXX) $(INCLUDES) -o build/point_mass build/point_mass.o build/types.o build/Model.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
+point_mass: build/point_mass.o build/types.o build/Model.o build/StageConstraints.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
+	$(CXX) $(INCLUDES) -o build/point_mass build/point_mass.o build/types.o build/Model.o build/StageConstraints.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
 
-pendulum: build/pendulum.o build/types.o build/Model.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
-	$(CXX) $(INCLUDES) -o build/pendulum build/pendulum.o build/types.o build/Model.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
-
-function1: build/function1.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
-	$(CXX) $(INCLUDES) -o build/function1 build/function1.o build/types.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
+pendulum: build/pendulum.o build/types.o build/Model.o build/StageConstraints.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o
+	$(CXX) $(INCLUDES) -o build/pendulum build/pendulum.o build/types.o build/Model.o build/StageConstraints.o build/lqr.o build/admm_qp.o build/ssqp.o build/sqp_step_types.o build/filter.o $(CXXFLAGS)
 
 clean:
 	rm -rf build/*
@@ -55,3 +52,6 @@ build/gss.o: src/sqp_step/gss.cpp
 
 build/Model.o: src/model/Model.cpp
 	$(CXX) $(INCLUDES) -c src/model/Model.cpp -o build/Model.o $(CXXFLAGS)
+
+build/StageConstraints.o: src/model/stagewise/StageConstraints.cpp
+	$(CXX) $(INCLUDES) -c src/model/stagewise/StageConstraints.cpp -o build/StageConstraints.o $(CXXFLAGS)
