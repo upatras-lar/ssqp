@@ -237,7 +237,7 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
 {
     uint output_size() const override
     {
-        return 2;
+        return 1;
     }
 
     uint state_size() const override
@@ -250,12 +250,21 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
         return 1;
     }
 
+    ssqp::VecX lower_bound() const
+    {
+        return (Eigen::Vector<double, 1>() << -7).finished();
+    }
+
+    ssqp::VecX upper_bound() const
+    {
+        return (Eigen::Vector<double, 1>() << 7).finished();
+    }
+
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
     {
-        Eigen::VectorXd v = Eigen::Vector<double, 2>::Zero();
+        Eigen::VectorXd v = Eigen::Vector<double, 1>::Zero();
 
-        v(0) = u(0) + 7;
-        v(1) = 7 - u(0);
+        v(0) = u(0);
 
         return v;
     }
@@ -263,11 +272,10 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
     void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::MatX &dX,
                   ssqp::MatX &dU) const override
     {
-        dX = Eigen::Matrix<double, 2, 2>::Zero();
-        dU = Eigen::Matrix<double, 2, 1>::Zero();
+        dX = Eigen::Matrix<double, 1, 2>::Zero();
+        dU = Eigen::Matrix<double, 1, 1>::Zero();
 
         dU(0, 0) = 1;
-        dU(1, 0) = -1;
     }
 
     void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,
@@ -307,7 +315,7 @@ int main()
 
     costs[HORIZON]       = std::make_shared<TerminalCost>();
     dynamics[HORIZON]    = std::make_shared<Dynamics>();
-    constraints[HORIZON] = std::make_shared<Constraints>();
+    constraints[HORIZON] = nullptr;
 
     ssqp::model::Model model(costs, dynamics, constraints);
 

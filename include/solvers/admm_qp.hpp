@@ -34,7 +34,7 @@ class admm_qp
         const double abs_tolerance = 1e-6; // Absolute tolerance
         const double rel_tolerance = 1e-6; // Relative tolerance
         const double primal_infeasibility_tolerance =
-          1e-8; // Primal infeasibility tolerance
+          1e-9; // Primal infeasibility tolerance
 
         bool warm_start = true;
 
