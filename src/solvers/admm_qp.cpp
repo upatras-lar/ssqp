@@ -5,15 +5,13 @@ namespace ssqp
 {
 namespace solvers
 {
-admm_qp::admm_qp(const QPData &qp, const ssqp::Guess &guess,
-                 const Params &params)
+admm_qp::admm_qp(const QPData &qp, const Params &params)
   : _qp(qp)
-  , _guess(guess)
   , _params(params)
   , _rho_common(params.init_rho)
 {
-    _solution.dx = FlatVec(guess.x, false);
-    _solution.du = FlatVec(guess.u, false);
+    _solution.dx = FlatVec(qp.dims.state, qp.dims.stage_state);
+    _solution.du = FlatVec(qp.dims.control, qp.dims.stage_control);
     _solution.z  = FlatVec(qp.dims.constraint, qp.dims.stage_constraint);
     _solution.y  = FlatVec(_solution.z, false);
 

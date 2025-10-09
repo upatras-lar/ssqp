@@ -32,6 +32,8 @@ std::tuple<solvers::FlatVec, solvers::FlatVec, double> filter(
 {
     double alpha = 1.0;
 
+    // TODO: use right plus operator to add a (manifold element) with b (tangent
+    // space element)
     step::Point a(x, u);
     step::Point offset(dX, dU);
     step::Point b(a + alpha * offset);
