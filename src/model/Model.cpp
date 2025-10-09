@@ -33,15 +33,10 @@ Model::Model(
 
     for (uint k = 0; k < _dims.horizon; ++k)
     {
-        _dims.stage_state[k]   = _costs[k]->state_size();
-        _dims.stage_control[k] = _costs[k]->control_size();
+        _dims.stage_state[k]   = _dynamics[k]->state_size();
+        _dims.stage_control[k] = _dynamics[k]->control_size();
         _dims.stage_constraint[k] =
           (_constraints[k] != nullptr) ? _constraints[k]->output_size() : 0;
-
-        assert(_dynamics[k]->state_size() == _dims.stage_state[k] &&
-               "Dynamics state dimension mismatch");
-        assert(_dynamics[k]->control_size() == _dims.stage_control[k] &&
-               "Dynamics control dimension mismatch");
 
         if (k > 0)
         {
@@ -50,35 +45,16 @@ Model::Model(
                    "mismatch");
         }
 
-        if (_constraints[k] != nullptr)
-        {
-            assert(_constraints[k]->state_size() == _dims.stage_state[k] &&
-                   "Constraints state dimension mismatch");
-            assert(_constraints[k]->control_size() == _dims.stage_control[k] &&
-                   "Constraints control dimension mismatch");
-        }
-
         _dims.state      += _dims.stage_state[k];
         _dims.control    += _dims.stage_control[k];
         _dims.constraint += _dims.stage_constraint[k];
     }
 
-    _dims.stage_state[_dims.horizon] = _costs[_dims.horizon]->state_size();
+    _dims.stage_state[_dims.horizon] = _dynamics[_dims.horizon]->state_size();
     _dims.stage_constraint[_dims.horizon] =
       (_constraints[_dims.horizon] != nullptr)
         ? _constraints[_dims.horizon]->output_size()
         : 0;
-
-    assert(_dynamics[_dims.horizon]->state_size() ==
-             _dims.stage_state[_dims.horizon] &&
-           "Dynamics state dimension mismatch");
-
-    if (_constraints[_dims.horizon] != nullptr)
-    {
-        assert(_constraints[_dims.horizon]->state_size() ==
-                 _dims.stage_state[_dims.horizon] &&
-               "Constraints state dimension mismatch");
-    }
 
     _dims.state      += _dims.stage_state[_dims.horizon];
     _dims.constraint += _dims.stage_constraint[_dims.horizon];

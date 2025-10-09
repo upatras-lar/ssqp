@@ -32,16 +32,6 @@
 class TerminalCost : public ssqp::model::stagewise::StageCost
 {
   public:
-    uint state_size() const override
-    {
-        return 2;
-    }
-
-    uint control_size() const override
-    {
-        return 1;
-    }
-
     Eigen::VectorXd evaluate(const ssqp::VecX &x,
                              const ssqp::VecX &u) const override
     {
@@ -82,16 +72,6 @@ class TerminalCost : public ssqp::model::stagewise::StageCost
 class Cost : public ssqp::model::stagewise::StageCost
 {
   public:
-    uint state_size() const override
-    {
-        return 2;
-    }
-
-    uint control_size() const override
-    {
-        return 1;
-    }
-
     Eigen::VectorXd evaluate(const ssqp::VecX &x,
                              const ssqp::VecX &u) const override
     {
@@ -131,16 +111,6 @@ class Cost : public ssqp::model::stagewise::StageCost
 class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
 {
     uint output_size() const override
-    {
-        return 1;
-    }
-
-    uint state_size() const override
-    {
-        return 2;
-    }
-
-    uint control_size() const override
     {
         return 1;
     }
@@ -195,16 +165,6 @@ class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
 class Constraints : public ssqp::model::stagewise::StageConstraints
 {
     uint output_size() const override
-    {
-        return 1;
-    }
-
-    uint state_size() const override
-    {
-        return 2;
-    }
-
-    uint control_size() const override
     {
         return 1;
     }
