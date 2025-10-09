@@ -13,6 +13,12 @@ namespace stagewise
 class StageDynamics : public Function
 {
   public:
+    // Size of state vector x
+    virtual uint state_size() const = 0;
+
+    // Size of control vector u
+    virtual uint control_size() const = 0;
+
     // Get dynamics k Jacobians with respect to x and u, evaluated at
     // given (x, u)
     // Returns:

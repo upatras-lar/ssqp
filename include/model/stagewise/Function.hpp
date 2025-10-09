@@ -16,12 +16,6 @@ class Function
     // Get function output size (if f: R^m -> R^n, this returns n)
     virtual uint output_size() const = 0;
 
-    // Size of state vector x
-    virtual uint state_size() const = 0;
-
-    // Size of control vector u
-    virtual uint control_size() const = 0;
-
     // Evaluate function f(x, u)
     // Returns: output vector, n x 1
     virtual VecX evaluate(const VecX &x, const VecX &u) const = 0;
