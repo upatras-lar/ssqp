@@ -39,7 +39,7 @@ SolverState ssqp::solve(Guess &guess)
         admm_qp::Params admm_params {};
         admm_params.warm_start = _params.warm_start_admm;
 
-        admm_qp           qp_solver(qp, _guess, admm_params);
+        admm_qp           qp_solver(qp, admm_params);
         admm_qp::Solution sol;
         SolverState       state = qp_solver.solve(sol);
 
@@ -85,7 +85,7 @@ SolverState ssqp::solve(Guess &guess)
 
 QPData ssqp::_setup_qp()
 {
-    QPData qp(_model.dims());
+    QPData qp(_model.linear_dims());
 
     VecX tmpVec;
     MatX tmpMat;
@@ -108,9 +108,9 @@ QPData ssqp::_setup_qp()
                               qp.stages[k].B);
 
         // Get gamma_k
-        qp.stages[k].gamma =
-          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)) -
-          _guess.x.stage(k + 1);
+        qp.stages[k].gamma = dynamics[k]->state_right_minus(
+          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
+          _guess.x.stage(k + 1));
 
         // Calculate Q_k
         costs[k]->hessian_xx(_guess.x.stage(k),
@@ -179,6 +179,7 @@ QPData ssqp::_setup_qp()
                                      qp.stages[k].E);
 
             // Get cl, cu
+            // TODO: manifold constraint elements
             VecX c =
               constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
 

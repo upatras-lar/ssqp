@@ -7,7 +7,6 @@
 #include <Eigen/Dense>
 
 #include "types.hpp"
-#include "ssqp.hpp"
 
 namespace ssqp
 {
@@ -52,15 +51,13 @@ class admm_qp
         FlatVec           z, y;
     };
 
-    admm_qp(const QPData &qp, const ssqp::Guess &guess,
-            const Params &params = Params::Default());
+    admm_qp(const QPData &qp, const Params &params = Params::Default());
 
     SolverState solve(Solution &sol);
 
   protected:
-    QPData      _qp;
-    ssqp::Guess _guess;
-    Params      _params;
+    QPData _qp;
+    Params _params;
 
     FlatVec      _rho, _rho_inv;
     double       _rho_common;

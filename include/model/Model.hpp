@@ -29,12 +29,14 @@ class Model
     const std::vector<uint> constraint_dims() const;
     const Dimensions        dims() const;
 
+    const Dimensions linear_dims() const;
+
     const Container<const stagewise::StageCost>        costs() const;
     const Container<const stagewise::StageDynamics>    dynamics() const;
     const Container<const stagewise::StageConstraints> constraints() const;
 
   protected:
-    Dimensions                                   _dims;
+    Dimensions                                   _dims, _lin_dims;
     Container<const stagewise::StageCost>        _costs;
     Container<const stagewise::StageDynamics>    _dynamics;
     Container<const stagewise::StageConstraints> _constraints;
