@@ -11,6 +11,10 @@ namespace ssqp
 {
 namespace step
 {
+
+using FilterFunction =
+  std::function<double(const solvers::FlatVec &, const solvers::FlatVec &)>;
+
 struct Point
 {
     solvers::FlatVec x, u;

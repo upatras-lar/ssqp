@@ -2,120 +2,6 @@
 
 namespace ssqp
 {
-namespace solvers
-{
-FlatVec::FlatVec(const uint total_size, const std::vector<uint> &dims)
-  : vec(total_size)
-  , _stage_sizes(dims.size())
-  , _acc_idx(dims.size())
-{
-    _max_dim                        = dims[0];
-    _stage_sizes[0]                 = dims[0];
-    _acc_idx[0]                     = 0;
-    vec.segment(0, _stage_sizes[0]) = VecX::Zero(dims[0]);
-
-    for (uint k = 1; k < dims.size(); ++k)
-    {
-        _max_dim        = std::max(_max_dim, dims[k]);
-        _stage_sizes[k] = dims[k];
-        _acc_idx[k]     = _acc_idx[k - 1] + _stage_sizes[k - 1];
-        vec.segment(_acc_idx[k], _stage_sizes[k]) = VecX::Zero(dims[k]);
-    }
-}
-
-FlatVec::FlatVec(const uint total_size, const std::vector<VecX> &vectors)
-  : vec(total_size)
-  , _stage_sizes(vectors.size())
-  , _acc_idx(vectors.size())
-{
-    _stage_sizes[0]                 = vectors[0].size();
-    _max_dim                        = _stage_sizes[0];
-    _acc_idx[0]                     = 0;
-    vec.segment(0, _stage_sizes[0]) = vectors[0];
-
-    for (uint k = 1; k < vectors.size(); ++k)
-    {
-        _stage_sizes[k] = vectors[k].size();
-        _max_dim        = std::max(_max_dim, _stage_sizes[k]);
-        _acc_idx[k]     = _acc_idx[k - 1] + _stage_sizes[k - 1];
-        vec.segment(_acc_idx[k], _stage_sizes[k]) = vectors[k];
-    }
-}
-
-FlatVec::FlatVec(const FlatVec &other, bool copy)
-  : vec(VecX::Zero(other.vec.size()))
-  , _max_dim(other._max_dim)
-  , _stage_sizes(other._stage_sizes)
-  , _acc_idx(other._acc_idx)
-{
-    if (copy)
-    {
-        vec = other.vec;
-    }
-}
-
-Eigen::VectorBlock<VecX> FlatVec::stage(const uint k)
-{
-    return vec.segment(_acc_idx[k], _stage_sizes[k]);
-}
-
-const VecX FlatVec::stage(const uint k) const
-{
-    return vec.segment(_acc_idx[k], _stage_sizes[k]);
-}
-
-const uint FlatVec::stages() const
-{
-    return _stage_sizes.size();
-}
-
-FlatVec FlatVec::operator+(const FlatVec &p) const
-{
-    FlatVec n  = FlatVec(*this);
-    n.vec     += p.vec;
-
-    return n;
-}
-
-FlatVec FlatVec::operator-(const FlatVec &p) const
-{
-    FlatVec n  = FlatVec(*this);
-    n.vec     -= p.vec;
-
-    return n;
-}
-
-FlatVec FlatVec::operator-() const
-{
-    FlatVec n(*this);
-    n.vec *= -1;
-
-    return n;
-}
-
-FlatVec FlatVec::operator/(double val)
-{
-    FlatVec n  = FlatVec(*this);
-    n.vec     /= val;
-
-    return n;
-}
-
-FlatVec &FlatVec::operator+=(const FlatVec &p)
-{
-    vec += p.vec;
-
-    return *this;
-}
-
-FlatVec operator*(double val, const FlatVec &p)
-{
-    FlatVec n  = FlatVec(p);
-    n.vec     *= val;
-
-    return p;
-}
-
 std::string format_double(double val, uint precision)
 {
     std::ostringstream oss;
@@ -139,6 +25,188 @@ std::string format_double(double val, uint precision)
     }
 
     return oss.str();
+}
+
+namespace solvers
+{
+FlatVec::FlatVec(const uint total_size, const std::vector<uint> &dims,
+                 const std::vector<ManifoldOperators> &ops)
+  : vec(total_size)
+  , _stage_sizes(dims.size())
+  , _acc_idx(dims.size())
+  , _ops(ops)
+  , _custom_ops(!ops.empty())
+  , _per_stage_ops(ops.size() > 1)
+{
+    if (_custom_ops)
+    {
+        assert((_ops.size() == 1 || _ops.size() == dims.size()) &&
+               "Manifold operator and dimension size mismatch");
+    }
+
+    _max_dim                        = dims[0];
+    _stage_sizes[0]                 = dims[0];
+    _acc_idx[0]                     = 0;
+    vec.segment(0, _stage_sizes[0]) = VecX::Zero(dims[0]);
+
+    for (uint k = 1; k < dims.size(); ++k)
+    {
+        _max_dim        = std::max(_max_dim, dims[k]);
+        _stage_sizes[k] = dims[k];
+        _acc_idx[k]     = _acc_idx[k - 1] + _stage_sizes[k - 1];
+        vec.segment(_acc_idx[k], _stage_sizes[k]) = VecX::Zero(dims[k]);
+    }
+}
+
+FlatVec::FlatVec(const uint total_size, const std::vector<VecX> &vectors,
+                 const std::vector<ManifoldOperators> &ops)
+  : vec(total_size)
+  , _stage_sizes(vectors.size())
+  , _acc_idx(vectors.size())
+  , _ops(ops)
+  , _custom_ops(!ops.empty())
+  , _per_stage_ops(ops.size() > 1)
+{
+    if (_custom_ops)
+    {
+        assert((_ops.size() == 1 || _ops.size() == vectors.size()) &&
+               "Manifold operator and dimension size mismatch");
+    }
+
+    _stage_sizes[0]                 = vectors[0].size();
+    _max_dim                        = _stage_sizes[0];
+    _acc_idx[0]                     = 0;
+    vec.segment(0, _stage_sizes[0]) = vectors[0];
+
+    for (uint k = 1; k < vectors.size(); ++k)
+    {
+        _stage_sizes[k] = vectors[k].size();
+        _max_dim        = std::max(_max_dim, _stage_sizes[k]);
+        _acc_idx[k]     = _acc_idx[k - 1] + _stage_sizes[k - 1];
+        vec.segment(_acc_idx[k], _stage_sizes[k]) = vectors[k];
+    }
+}
+
+FlatVec::FlatVec(const FlatVec &other, bool copy,
+                 const std::vector<ManifoldOperators> &ops)
+  : vec(copy ? other.vec : VecX::Zero(other.vec.size()))
+  , _max_dim(other._max_dim)
+  , _stage_sizes(other._stage_sizes)
+  , _acc_idx(other._acc_idx)
+  , _ops(copy ? other._ops : ops)
+  , _custom_ops(!_ops.empty())
+  , _per_stage_ops(_ops.size() > 1)
+{
+    if (_custom_ops)
+    {
+        assert((_ops.size() == 1 || _ops.size() == _stage_sizes.size()) &&
+               "Manifold operator and dimension size mismatch");
+    }
+}
+
+Eigen::VectorBlock<VecX> FlatVec::stage(const uint k)
+{
+    return vec.segment(_acc_idx[k], _stage_sizes[k]);
+}
+
+const VecX FlatVec::stage(const uint k) const
+{
+    return vec.segment(_acc_idx[k], _stage_sizes[k]);
+}
+
+const uint FlatVec::stages() const
+{
+    return _stage_sizes.size();
+}
+
+void FlatVec::set_ops(const std::vector<ManifoldOperators> &ops)
+{
+    assert((ops.size() == 1 || stages() == ops.size()) &&
+           "FlatVec set_ops: Manifold operator and dimension size mismatch");
+
+    _ops           = ops;
+    _custom_ops    = !_ops.empty();
+    _per_stage_ops = _ops.size() > 1;
+}
+
+FlatVec FlatVec::operator+(const FlatVec &p) const
+{
+    assert(stages() == p.stages() && "FlatVec x + y: stage mismatch");
+    FlatVec n = FlatVec(*this);
+    if (!_custom_ops)
+    {
+        n.vec += p.vec;
+        return n;
+    }
+
+    for (uint k = 0; k < stages(); ++k)
+    {
+        n.stage(k) =
+          _ops[_per_stage_ops ? k : 0].right_plus(stage(k), p.stage(k));
+    }
+
+    return n;
+}
+
+FlatVec FlatVec::operator-(const FlatVec &p) const
+{
+    assert(stages() == p.stages() && "FlatVec x - y: stage mismatch");
+    FlatVec n = FlatVec(*this);
+    if (!_custom_ops)
+    {
+        n.vec -= p.vec;
+        return n;
+    }
+
+    for (uint k = 0; k < stages(); ++k)
+    {
+        n.stage(k) =
+          _ops[_per_stage_ops ? k : 0].right_minus(stage(k), p.stage(k));
+    }
+
+    return n;
+}
+
+FlatVec FlatVec::operator-() const
+{
+    FlatVec n(*this);
+    n.vec *= -1;
+
+    return n;
+}
+
+FlatVec FlatVec::operator/(double val)
+{
+    FlatVec n  = FlatVec(*this);
+    n.vec     /= val;
+
+    return n;
+}
+
+FlatVec &FlatVec::operator+=(const FlatVec &p)
+{
+    assert(stages() == p.stages() && "FlatVec x += y: stage mismatch");
+    if (!_custom_ops)
+    {
+        vec += p.vec;
+        return *this;
+    }
+
+    for (uint k = 0; k < stages(); ++k)
+    {
+        stage(k) =
+          _ops[_per_stage_ops ? k : 0].right_plus(stage(k), p.stage(k));
+    }
+
+    return *this;
+}
+
+FlatVec operator*(double val, const FlatVec &p)
+{
+    FlatVec n  = FlatVec(p);
+    n.vec     *= val;
+
+    return p;
 }
 
 std::ostream &operator<<(std::ostream &os, const FlatVec &v)

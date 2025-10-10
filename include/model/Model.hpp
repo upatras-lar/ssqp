@@ -11,6 +11,11 @@ namespace ssqp
 {
 namespace model
 {
+
+using CostsContainer       = Container<const stagewise::StageCost>;
+using DynamicsContainer    = Container<const stagewise::StageDynamics>;
+using ConstraintsContainer = Container<const stagewise::StageConstraints>;
+
 class Model
 {
   public:
@@ -31,15 +36,15 @@ class Model
 
     const Dimensions linear_dims() const;
 
-    const Container<const stagewise::StageCost>        costs() const;
-    const Container<const stagewise::StageDynamics>    dynamics() const;
-    const Container<const stagewise::StageConstraints> constraints() const;
+    const CostsContainer       costs() const;
+    const DynamicsContainer    dynamics() const;
+    const ConstraintsContainer constraints() const;
 
   protected:
-    Dimensions                                   _dims, _lin_dims;
-    Container<const stagewise::StageCost>        _costs;
-    Container<const stagewise::StageDynamics>    _dynamics;
-    Container<const stagewise::StageConstraints> _constraints;
+    Dimensions           _dims, _lin_dims;
+    CostsContainer       _costs;
+    DynamicsContainer    _dynamics;
+    ConstraintsContainer _constraints;
 };
 }
 }

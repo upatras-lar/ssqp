@@ -42,20 +42,35 @@ std::string format_double(double val, uint precision);
 namespace solvers
 {
 
+using ManifoldOperator = std::function<VecX(const VecX &, const VecX &)>;
+
+// Operators for elements part of (composite) manifold states
+struct ManifoldOperators
+{
+    ManifoldOperator right_plus;
+    ManifoldOperator right_minus;
+};
+
 // Flattened vector of all stage data
 struct FlatVec
 {
   public:
     // Initialize a 0 vector, with stage sizes given in dims
-    FlatVec(const uint total_size, const std::vector<uint> &dims);
+    FlatVec(const uint total_size, const std::vector<uint> &dims,
+            const std::vector<ManifoldOperators> &ops = {});
     // Initialize a flat vector using the vectors given in vectors
-    FlatVec(const uint total_size, const std::vector<VecX> &vectors);
-    // FlatVec
-    FlatVec(const FlatVec &other, bool copy = true);
+    FlatVec(const uint total_size, const std::vector<VecX> &vectors,
+            const std::vector<ManifoldOperators> &ops = {});
+    // FlatVec copying
+    // If copy is true, operators are also copied (argument ignored)
+    FlatVec(const FlatVec &other, bool copy = true,
+            const std::vector<ManifoldOperators> &ops = {});
 
     Eigen::VectorBlock<VecX> stage(const uint k);
     const VecX               stage(const uint k) const;
     const uint               stages() const;
+
+    void set_ops(const std::vector<ManifoldOperators> &ops);
 
     VecX vec;
 
@@ -74,6 +89,12 @@ struct FlatVec
     std::vector<uint> _stage_sizes;
     // Accumulated indexing vector
     std::vector<uint> _acc_idx;
+    // Manifold operators per stage
+    std::vector<ManifoldOperators> _ops;
+    // Whether custom operators exist
+    bool _custom_ops;
+    // Whether stages have different ops
+    bool _per_stage_ops;
 };
 
 enum SolverState
