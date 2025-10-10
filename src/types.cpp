@@ -4,8 +4,6 @@ namespace ssqp
 {
 namespace solvers
 {
-FlatVec::FlatVec() {}
-
 FlatVec::FlatVec(const uint total_size, const std::vector<uint> &dims)
   : vec(total_size)
   , _stage_sizes(dims.size())
@@ -64,6 +62,11 @@ Eigen::VectorBlock<VecX> FlatVec::stage(const uint k)
 const VecX FlatVec::stage(const uint k) const
 {
     return vec.segment(_acc_idx[k], _stage_sizes[k]);
+}
+
+const uint FlatVec::stages() const
+{
+    return _stage_sizes.size();
 }
 
 FlatVec FlatVec::operator+(const FlatVec &p) const
@@ -143,11 +146,11 @@ std::ostream &operator<<(std::ostream &os, const FlatVec &v)
     static uint width     = 10;
     static uint precision = 4;
 
-    std::vector<uint>                     col_widths(v._stage_sizes.size(), 1);
+    std::vector<uint>                     col_widths(v.stages(), 1);
     std::vector<std::vector<std::string>> formatted_values(
       v._max_dim,
-      std::vector<std::string>(v._stage_sizes.size()));
-    for (uint col = 0; col < v._stage_sizes.size(); ++col)
+      std::vector<std::string>(v.stages()));
+    for (uint col = 0; col < v.stages(); ++col)
     {
         for (uint row = 0; row < v._max_dim; ++row)
         {
@@ -166,7 +169,7 @@ std::ostream &operator<<(std::ostream &os, const FlatVec &v)
 
     for (uint row = 0; row < v._max_dim; ++row)
     {
-        for (uint col = 0; col < v._stage_sizes.size(); ++col)
+        for (uint col = 0; col < v.stages(); ++col)
         {
             os << std::setw(col_widths[col]) << formatted_values[row][col];
             os << "\t";

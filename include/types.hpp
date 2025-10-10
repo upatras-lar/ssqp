@@ -46,7 +46,6 @@ namespace solvers
 struct FlatVec
 {
   public:
-    FlatVec();
     // Initialize a 0 vector, with stage sizes given in dims
     FlatVec(const uint total_size, const std::vector<uint> &dims);
     // Initialize a flat vector using the vectors given in vectors
@@ -55,23 +54,18 @@ struct FlatVec
     FlatVec(const FlatVec &other, bool copy = true);
 
     Eigen::VectorBlock<VecX> stage(const uint k);
-
-    const VecX stage(const uint k) const;
+    const VecX               stage(const uint k) const;
+    const uint               stages() const;
 
     VecX vec;
 
-    FlatVec operator+(const FlatVec &p) const;
-
-    FlatVec operator-(const FlatVec &p) const;
-
-    FlatVec operator-() const;
-
-    friend FlatVec operator*(double val, const FlatVec &p);
-
-    FlatVec operator/(double val);
-
+    FlatVec  operator+(const FlatVec &p) const;
+    FlatVec  operator-(const FlatVec &p) const;
+    FlatVec  operator-() const;
+    FlatVec  operator/(double val);
     FlatVec &operator+=(const FlatVec &p);
 
+    friend FlatVec       operator*(double val, const FlatVec &p);
     friend std::ostream &operator<<(std::ostream &os, const FlatVec &v);
 
   protected:

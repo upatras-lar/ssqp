@@ -1,12 +1,19 @@
 #include "solvers/ssqp.hpp"
 #include "solvers/admm_qp.hpp"
-#include "sqp_step/gss.hpp"
 #include "sqp_step/filter.hpp"
 
 namespace ssqp
 {
 namespace solvers
 {
+ssqp::Guess::Guess(const model::Dimensions &dims)
+  : x(dims.state, dims.stage_state)
+  , u(dims.control, dims.stage_control)
+  , lambda(x, false)
+  , mu(dims.constraint, dims.stage_constraint)
+{
+}
+
 ssqp::ssqp(const model::Model &model, const Params &params)
   : _params(params)
   , _model(model)
@@ -16,10 +23,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
                        { return this->_gammaf(x, u); },
                        [this](const FlatVec &x, const FlatVec &u)
                        { return this->_cf(x, u); } })
-  , _guess({ FlatVec(model.total_state_size(), model.state_dims()),
-             FlatVec(model.total_control_size(), model.control_dims()),
-             FlatVec(model.total_state_size(), model.state_dims()),
-             FlatVec(model.total_constraint_size(), model.constraint_dims()) })
+  , _guess(model.dims())
   , _prev_cost_dx(_guess.x, false)
   , _cost_dx(_guess.x, false)
   , _prev_cost_du(_guess.u, false)
@@ -40,7 +44,7 @@ SolverState ssqp::solve(Guess &guess)
         admm_params.warm_start = _params.warm_start_admm;
 
         admm_qp           qp_solver(qp, admm_params);
-        admm_qp::Solution sol;
+        admm_qp::Solution sol(qp.dims);
         SolverState       state = qp_solver.solve(sol);
 
         switch (state)
