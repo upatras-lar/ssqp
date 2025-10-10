@@ -5,19 +5,23 @@ namespace ssqp
 {
 namespace solvers
 {
+admm_qp::Solution::Solution(const model::Dimensions &dims)
+  : dx(dims.state, dims.stage_state)
+  , du(dims.control, dims.stage_control)
+  , z(dims.constraint, dims.stage_constraint)
+  , y(z, false)
+{
+}
+
 admm_qp::admm_qp(const QPData &qp, const Params &params)
   : _qp(qp)
   , _params(params)
+  , _solution(qp.dims)
   , _rho_common(params.init_rho)
+  , _rho(_solution.z, false)
+  , _rho_inv(_solution.z, false)
 {
-    _solution.dx = FlatVec(qp.dims.state, qp.dims.stage_state);
-    _solution.du = FlatVec(qp.dims.control, qp.dims.stage_control);
-    _solution.z  = FlatVec(qp.dims.constraint, qp.dims.stage_constraint);
-    _solution.y  = FlatVec(_solution.z, false);
-
-    _rho = FlatVec(_solution.z, false);
     _rho.vec.setConstant(_params.init_rho);
-    _rho_inv = FlatVec(_solution.z, false);
     _rho_inv.vec.setConstant(1 / _params.init_rho);
 }
 

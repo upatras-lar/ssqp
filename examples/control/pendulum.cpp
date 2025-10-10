@@ -290,7 +290,7 @@ int main()
     ssqp::model::Model model(costs, dynamics, constraints);
 
     ssqp::solvers::ssqp        solver(model);
-    ssqp::solvers::ssqp::Guess solution;
+    ssqp::solvers::ssqp::Guess solution(model.dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 
     std::cout << "Solver state: " << ssqp::solvers::to_string(state)

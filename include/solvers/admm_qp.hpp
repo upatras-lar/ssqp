@@ -49,6 +49,8 @@ class admm_qp
         std::vector<MatX> P;
         std::vector<VecX> p;
         FlatVec           z, y;
+
+        Solution(const model::Dimensions &dims);
     };
 
     admm_qp(const QPData &qp, const Params &params = Params::Default());
@@ -56,8 +58,9 @@ class admm_qp
     SolverState solve(Solution &sol);
 
   protected:
-    QPData _qp;
-    Params _params;
+    QPData   _qp;
+    Params   _params;
+    Solution _solution;
 
     FlatVec      _rho, _rho_inv;
     double       _rho_common;
@@ -68,8 +71,6 @@ class admm_qp
     double _norm_primal_rel = 0, _norm_dual_rel = 0;
 
     uint _iter;
-
-    Solution _solution;
 
     // Calculates residuals and their relative parts
     // r_prim = Dx - z

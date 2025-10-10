@@ -42,6 +42,8 @@ class ssqp
         FlatVec x, u;
         // Equivalent vector sequences for lagrange multiplier guesses n
         FlatVec lambda, mu;
+
+        Guess(const model::Dimensions &dims);
     };
 
     ssqp(const model::Model &model, const Params &params = Params::Default());
