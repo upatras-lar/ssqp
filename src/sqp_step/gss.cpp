@@ -4,8 +4,7 @@ namespace ssqp
 {
 namespace step
 {
-bool costSum(const std::vector<std::function<double(
-               const solvers::FlatVec &, const solvers::FlatVec &)>> &costs,
+bool costSum(const std::vector<FilterFunction> &costs,
              const std::vector<double> &weights, const Point &smaller,
              const Point &greater)
 {
@@ -25,9 +24,7 @@ bool costSum(const std::vector<std::function<double(
 
 std::pair<solvers::FlatVec, solvers::FlatVec> gss(
   solvers::FlatVec &x, solvers::FlatVec &u, solvers::FlatVec &dX,
-  solvers::FlatVec                                                   &dU,
-  const std::vector<std::function<double(const solvers::FlatVec &,
-                                         const solvers::FlatVec &)>> &costs,
+  solvers::FlatVec &dU, const std::vector<FilterFunction> &costs,
   const std::vector<double> &weights, double tolerance)
 {
     static const double invphi = (std::sqrt(5) - 1) / 2;

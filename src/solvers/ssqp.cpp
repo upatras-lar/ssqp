@@ -6,10 +6,11 @@ namespace ssqp
 {
 namespace solvers
 {
-ssqp::Guess::Guess(const model::Dimensions &dims)
+ssqp::Guess::Guess(const model::Dimensions &dims,
+                   const model::Dimensions &lin_dims)
   : x(dims.state, dims.stage_state)
   , u(dims.control, dims.stage_control)
-  , lambda(x, false)
+  , lambda(lin_dims.state, lin_dims.stage_state)
   , mu(dims.constraint, dims.stage_constraint)
 {
 }
@@ -23,12 +24,26 @@ ssqp::ssqp(const model::Model &model, const Params &params)
                        { return this->_gammaf(x, u); },
                        [this](const FlatVec &x, const FlatVec &u)
                        { return this->_cf(x, u); } })
-  , _guess(model.dims())
+  , _guess(model.dims(), model.linear_dims())
   , _prev_cost_dx(_guess.x, false)
   , _cost_dx(_guess.x, false)
   , _prev_cost_du(_guess.u, false)
   , _cost_du(_guess.u, false)
 {
+    model::Dimensions              dims = model.dims();
+    std::vector<ManifoldOperators> ops(dims.horizon + 1);
+
+    const model::DynamicsContainer dynamics = model.dynamics();
+
+    for (uint k = 0; k <= dims.horizon; ++k)
+    {
+        ops[k].right_plus = [dynamics, k](const VecX &x, const VecX &dx)
+        { return dynamics[k]->state_right_plus(x, dx); };
+        ops[k].right_minus = [dynamics, k](const VecX &x, const VecX &y)
+        { return dynamics[k]->state_right_minus(x, y); };
+    }
+
+    _guess.x.set_ops(ops);
 }
 
 SolverState ssqp::solve(Guess &guess)
@@ -94,14 +109,11 @@ QPData ssqp::_setup_qp()
     VecX tmpVec;
     MatX tmpMat;
 
-    static const model::Container<const model::stagewise::StageCost> costs =
-      _model.costs();
+    static const model::CostsContainer costs = _model.costs();
 
-    static const model::Container<const model::stagewise::StageDynamics>
-      dynamics = _model.dynamics();
+    static const model::DynamicsContainer dynamics = _model.dynamics();
 
-    static const model::Container<const model::stagewise::StageConstraints>
-      constraints = _model.constraints();
+    static const model::ConstraintsContainer constraints = _model.constraints();
 
     for (uint k = 0; k < qp.dims.horizon; ++k)
     {
@@ -255,14 +267,11 @@ SolverState ssqp::_check_termination()
 
     static const uint horizon = _model.dims().horizon;
 
-    static const model::Container<const model::stagewise::StageCost> costs =
-      _model.costs();
+    static const model::CostsContainer costs = _model.costs();
 
-    static const model::Container<const model::stagewise::StageDynamics>
-      dynamics = _model.dynamics();
+    static const model::DynamicsContainer dynamics = _model.dynamics();
 
-    static const model::Container<const model::stagewise::StageConstraints>
-      constraints = _model.constraints();
+    static const model::ConstraintsContainer constraints = _model.constraints();
 
     // Jacobian over x and y of lagrangian at current guess
     FlatVec lagrangian_dx(_guess.x, false);
@@ -385,7 +394,6 @@ SolverState ssqp::_check_termination()
         return SUCCESS;
     }
 
-    // TODO: test
     if ((_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance &&
         (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff() <
@@ -406,10 +414,9 @@ SolverState ssqp::_check_termination()
 
 double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 {
-    static const uint horizon = _model.horizon();
-    double            sum     = 0.0;
-    const model::Container<const model::stagewise::StageCost> costs =
-      _model.costs();
+    static const uint           horizon = _model.horizon();
+    double                      sum     = 0.0;
+    const model::CostsContainer costs   = _model.costs();
 
     for (uint k = 0; k < horizon; ++k)
     {
@@ -421,10 +428,9 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 
 double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 {
-    static const uint horizon = _model.horizon();
-    const model::Container<const model::stagewise::StageDynamics> dynamics =
-      _model.dynamics();
-    double sum = 0.0;
+    static const uint              horizon  = _model.horizon();
+    const model::DynamicsContainer dynamics = _model.dynamics();
+    double                         sum      = 0.0;
 
     for (uint k = 0; k < horizon; ++k)
     {
@@ -437,10 +443,9 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 
 double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 {
-    static const uint horizon = _model.horizon();
-    const model::Container<const model::stagewise::StageConstraints>
-           constraints = _model.constraints();
-    double sum         = 0.0;
+    static const uint                 horizon     = _model.horizon();
+    const model::ConstraintsContainer constraints = _model.constraints();
+    double                            sum         = 0.0;
 
     for (uint k = 0; k < horizon; ++k)
     {

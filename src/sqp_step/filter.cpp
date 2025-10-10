@@ -4,9 +4,8 @@ namespace ssqp
 {
 namespace step
 {
-bool costFilter(const std::vector<std::function<double(
-                  const solvers::FlatVec &, const solvers::FlatVec &)>> &costs,
-                const Point &previous, const Point &next)
+bool costFilter(const std::vector<FilterFunction> &costs, const Point &previous,
+                const Point &next)
 {
     for (const auto &f : costs)
     {
@@ -24,16 +23,11 @@ bool costFilter(const std::vector<std::function<double(
 
 std::tuple<solvers::FlatVec, solvers::FlatVec, double> filter(
   solvers::FlatVec &x, solvers::FlatVec &u, solvers::FlatVec &dX,
-  solvers::FlatVec &dU,
-  const std::vector<
-    std::function<double(const solvers::FlatVec &, const solvers::FlatVec &)>>
-       costs,
+  solvers::FlatVec &dU, const std::vector<FilterFunction> costs,
   uint inv_alpha_scale_factor, double min_alpha)
 {
     double alpha = 1.0;
 
-    // TODO: use right plus operator to add a (manifold element) with b (tangent
-    // space element)
     step::Point a(x, u);
     step::Point offset(dX, dU);
     step::Point b(a + alpha * offset);

@@ -6,6 +6,7 @@
 #include <functional>
 
 #include "types.hpp"
+#include "sqp_step/types.hpp"
 #include "model/Model.hpp"
 
 namespace ssqp
@@ -43,7 +44,7 @@ class ssqp
         // Equivalent vector sequences for lagrange multiplier guesses n
         FlatVec lambda, mu;
 
-        Guess(const model::Dimensions &dims);
+        Guess(const model::Dimensions &dims, const model::Dimensions &lin_dims);
     };
 
     ssqp(const model::Model &model, const Params &params = Params::Default());
@@ -51,8 +52,7 @@ class ssqp
     SolverState solve(Guess &guess);
 
   protected:
-    const std::vector<std::function<double(const FlatVec &, const FlatVec &)>>
-      _filter_ls_costs;
+    const std::vector<step::FilterFunction> _filter_ls_costs;
 
     Params       _params;
     model::Model _model;

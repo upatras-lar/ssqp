@@ -133,17 +133,17 @@ const Dimensions Model::linear_dims() const
     return _lin_dims;
 }
 
-const Container<const stagewise::StageCost> Model::costs() const
+const CostsContainer Model::costs() const
 {
     return _costs;
 }
 
-const Container<const stagewise::StageDynamics> Model::dynamics() const
+const DynamicsContainer Model::dynamics() const
 {
     return _dynamics;
 }
 
-const Container<const stagewise::StageConstraints> Model::constraints() const
+const ConstraintsContainer Model::constraints() const
 {
     return _constraints;
 }
