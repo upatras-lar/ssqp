@@ -7,7 +7,7 @@ namespace model
 template<typename Derived>
 Container<Derived>::Container(const uint horizon)
   : _horizon(horizon)
-  , _functions(horizon)
+  , _functions(horizon, nullptr)
 {
 }
 

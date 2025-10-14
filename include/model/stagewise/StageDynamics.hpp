@@ -22,9 +22,6 @@ class StageDynamics : public Function
     // Size of state difference dx (default: nx)
     virtual uint state_diff_size() const;
 
-    // Size of control difference du (default: nu)
-    virtual uint control_diff_size() const;
-
     // Operator definitions for states
     // Defines operators between states and state differences
     // If state is a euclidian vector, these operators reduce to simple
@@ -49,27 +46,27 @@ class StageDynamics : public Function
     // Get dynamics k Jacobians with respect to x and u, evaluated at
     // given (x, u)
     // Returns:
-    //  dX: gradient with respect to x, (nx) x (nx)
-    //  dU: gradient with respect to u, (nx) x (nu)
+    //  dX: gradient with respect to x, (ndx) x (ndx)
+    //  dU: gradient with respect to u, (ndx) x (nu)
     virtual void gradient(const VecX &x, const VecX &u, MatX &dX,
                           MatX &dU) const = 0;
 
-    // Get product d(mu_k^T*d f(x, u)/dx)/dx
+    // Get product d(lambda_k^T*d f(x, u)/dx)/dx
     // Returns:
-    //  Pxx: Product, (nx) x (nx)
-    virtual void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+    //  Pxx: Product, (ndx) x (ndx)
+    virtual void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
                              MatX &Pxx) const = 0;
 
-    // Get product d(mu_k^T*d f(x, u)/du)/dx
+    // Get product d(lambda_k^T*d f(x, u)/du)/dx
     // Returns:
-    //  Pxu: Product, (nx) x (nu)
-    virtual void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+    //  Pxu: Product, (ndx) x (nu)
+    virtual void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
                              MatX &Pxu) const = 0;
 
-    // Get product d(mu_k^T*d f(x, u)/du)/du
+    // Get product d(lambda_k^T*d f(x, u)/du)/du
     // Returns:
     //  Puu: Product, (nu) x (nu)
-    virtual void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+    virtual void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
                              MatX &Puu) const = 0;
 };
 }

@@ -2,6 +2,7 @@
 CXX := g++
 CXXFLAGS := -std=c++17 -MMD -MP
 INCLUDES := -I/usr/include/eigen3 -I./include -I.
+LDFLAGS :=
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
@@ -10,43 +11,60 @@ else
 	CXXFLAGS += -O3
 endif
 
+# Optional compilation of Pinocchio
+WITH_PINOCCHIO ?= 0
+ifeq ($(WITH_PINOCCHIO),1)
+	INCLUDES += -I/opt/openrobots/include
+	LDFLAGS += -L/opt/openrobots/lib -lpinocchio_parsers
+endif
+
 # Directories
 SRC_DIR := src
 EXAMPLES_DIR := examples/control
 BUILD_DIR := build
+OBJ_DIR := $(BUILD_DIR)/obj
+EX_OBJ_DIR := $(BUILD_DIR)/examples
 
-# Find all source files
-SRC_FILES := $(shell find $(SRC_DIR) -name '*.cpp')
-EXAMPLE_FILES := $(wildcard $(EXAMPLES_DIR)/*.cpp)
+# Library source files
+LIB_SRC := $(shell find $(SRC_DIR) -name '*.cpp')
+ifeq ($(WITH_PINOCCHIO),0)
+	LIB_SRC := $(filter-out $(SRC_DIR)/model/PinocchioModel.cpp,$(LIB_SRC))
+endif
 
-# Object files
-OBJ_FILES := $(SRC_FILES:%.cpp=$(BUILD_DIR)/%.o)
-EXAMPLE_OBJ := $(EXAMPLE_FILES:%.cpp=$(BUILD_DIR)/%.o)
+# Flattened object files
+LIB_OBJ := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(LIB_SRC))
 
-# Create a list of example targets (one binary per example .cpp)
-EXAMPLES := $(notdir $(EXAMPLE_FILES:.cpp=))
+# Example source files
+EXAMPLE_SRC := $(wildcard $(EXAMPLES_DIR)/*.cpp)
+EXAMPLE_OBJ := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(EX_OBJ_DIR)/%.o,$(EXAMPLE_SRC))
+
+# Example binaries
+EXAMPLES := $(notdir $(EXAMPLE_SRC:.cpp=))
 EXE_FILES := $(EXAMPLES:%=$(BUILD_DIR)/%)
 
-# Default target: build all examples
+# Default target
 all: $(EXE_FILES)
 
 # Rule for example executables
-$(BUILD_DIR)/%: $(BUILD_DIR)/examples/control/%.o $(OBJ_FILES)
+$(BUILD_DIR)/%: $(EX_OBJ_DIR)/%.o $(LIB_OBJ)
 	@mkdir -p $(dir $@)
-	$(CXX) $(INCLUDES) $^ -o $@ $(CXXFLAGS)
+	$(CXX) $^ -o $@ $(CXXFLAGS) $(LDFLAGS)
 	@echo "Built $@"
 
-# Generic rule for building object files
-$(BUILD_DIR)/%.o: %.cpp
+# Rule for library objects
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(INCLUDES) -c $< -o $@ $(CXXFLAGS)
 
-# Include dependency files for incremental rebuilds
--include $(OBJ_FILES:.o=.d)
+# Rule for example objects
+$(EX_OBJ_DIR)/%.o: $(EXAMPLES_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(INCLUDES) -c $< -o $@ $(CXXFLAGS)
+
+# Include dependency files
+-include $(LIB_OBJ:.o=.d)
 -include $(EXAMPLE_OBJ:.o=.d)
 
 # Clean
 clean:
 	rm -rf $(BUILD_DIR)
-
-.PHONY: all clean

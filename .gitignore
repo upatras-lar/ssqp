@@ -1,5 +1,4 @@
 .vscode/
-
 /build/*
-
 /examples/python/*
+VARIABLES.sh

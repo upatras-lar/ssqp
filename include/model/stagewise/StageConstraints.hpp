@@ -25,20 +25,20 @@ class StageConstraints : public Function
     // Get constraint k Jacobians with respect to x and u, evaluated at
     // given (x, u)
     // Returns:
-    //  dX: gradient with respect to x, (nc) x (nx)
+    //  dX: gradient with respect to x, (nc) x (ndx)
     //  dU: gradient with respect to u, (nc) x (nu)
     virtual void gradient(const VecX &x, const VecX &u, MatX &dX,
                           MatX &dU) const = 0;
 
     // Get product d(mu_k^T*d c(x, u)/dx)/dx
     // Returns:
-    //  Pxx: Product, (nx) x (nx)
+    //  Pxx: Product, (ndx) x (ndx)
     virtual void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
                              MatX &Pxx) const = 0;
 
     // Get product d(mu_k^T*d c(x, u)/du)/dx
     // Returns:
-    //  Pxu: Product, (nx) x (nu)
+    //  Pxu: Product, (ndx) x (nu)
     virtual void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
                              MatX &Pxu) const = 0;
 
