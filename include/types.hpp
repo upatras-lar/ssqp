@@ -21,6 +21,40 @@ using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
 namespace model
 {
+using DimensionFunction  = std::function<uint()>;
+using EvaluationFunction = std::function<VecX(const VecX &, const VecX &)>;
+using GradientFunction =
+  std::function<void(const VecX &, const VecX &, VecX &, VecX &)>;
+using multiGradientFunction =
+  std::function<void(const VecX &, const VecX &, MatX &, MatX &)>;
+using HessianFunction = std::function<void(const VecX &, const VecX &, MatX &)>;
+using HessprodFunction =
+  std::function<void(const VecX &, const VecX &, const VecX &, MatX &)>;
+
+inline std::function<void(const VecX &, const VecX &, MatX &)> ZeroHessian_xx =
+  [](const VecX &x, const VecX &u, MatX &Hxx)
+{ Hxx = MatX::Zero(x.rows(), x.rows()); };
+
+inline std::function<void(const VecX &, const VecX &, MatX &)> ZeroHessian_xu =
+  [](const VecX &x, const VecX &u, MatX &Hxu)
+{ Hxu = MatX::Zero(x.rows(), u.rows()); };
+
+inline std::function<void(const VecX &, const VecX &, MatX &)> ZeroHessian_uu =
+  [](const VecX &x, const VecX &u, MatX &Huu)
+{ Huu = MatX::Zero(u.rows(), u.rows()); };
+
+inline std::function<void(const VecX &, const VecX &, const VecX &, MatX &)>
+  ZeroHessprod_xx = [](const VecX &x, const VecX &u, const VecX &vec, MatX &Pxx)
+{ Pxx = MatX::Zero(x.rows(), x.rows()); };
+
+inline std::function<void(const VecX &, const VecX &, const VecX &, MatX &)>
+  ZeroHessprod_xu = [](const VecX &x, const VecX &u, const VecX &vec, MatX &Pxu)
+{ Pxu = MatX::Zero(x.rows(), u.rows()); };
+
+inline std::function<void(const VecX &, const VecX &, const VecX &, MatX &)>
+  ZeroHessprod_uu = [](const VecX &x, const VecX &u, const VecX &vec, MatX &Puu)
+{ Puu = MatX::Zero(u.rows(), u.rows()); };
+
 struct Dimensions
 {
     uint horizon;
@@ -39,9 +73,6 @@ struct Dimensions
 
 std::string format_double(double val, uint precision);
 
-namespace solvers
-{
-
 using ManifoldOperator = std::function<VecX(const VecX &, const VecX &)>;
 
 // Operators for elements part of (composite) manifold states
@@ -51,6 +82,8 @@ struct ManifoldOperators
     ManifoldOperator right_minus;
 };
 
+namespace solvers
+{
 // Flattened vector of all stage data
 struct FlatVec
 {

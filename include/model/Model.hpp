@@ -6,6 +6,7 @@
 #include "model/stagewise/StageCost.hpp"
 #include "model/stagewise/StageDynamics.hpp"
 #include "model/stagewise/StageConstraints.hpp"
+#include "model/stagewise/Factories.hpp"
 
 namespace ssqp
 {
@@ -25,15 +26,11 @@ class Model
           const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
             &constraints = { nullptr });
 
-    const uint              horizon() const;
-    const uint              total_state_size() const;
-    const uint              total_control_size() const;
-    const uint              total_constraint_size() const;
-    const std::vector<uint> state_dims() const;
-    const std::vector<uint> control_dims() const;
-    const std::vector<uint> constraint_dims() const;
-    const Dimensions        dims() const;
+    Model(const std::string &urdf_path, const uint horizon,
+          const double dt = 0.05);
 
+    const uint       horizon() const;
+    const Dimensions dims() const;
     const Dimensions linear_dims() const;
 
     const CostsContainer       costs() const;
@@ -45,6 +42,8 @@ class Model
     CostsContainer       _costs;
     DynamicsContainer    _dynamics;
     ConstraintsContainer _constraints;
+
+    void _setup();
 };
 }
 }

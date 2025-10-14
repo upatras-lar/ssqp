@@ -17,6 +17,11 @@ Model::Model(
             costs.size(), nullptr)
         : constraints)
 {
+    _setup();
+}
+
+void Model::_setup()
+{
     _dims.horizon     = _costs.size() - 1;
     _lin_dims.horizon = _dims.horizon;
 
@@ -91,36 +96,6 @@ Model::Model(
 const uint Model::horizon() const
 {
     return _dims.horizon;
-}
-
-const uint Model::total_state_size() const
-{
-    return _dims.state;
-}
-
-const uint Model::total_control_size() const
-{
-    return _dims.control;
-}
-
-const uint Model::total_constraint_size() const
-{
-    return _dims.constraint;
-}
-
-const std::vector<uint> Model::state_dims() const
-{
-    return _dims.stage_state;
-}
-
-const std::vector<uint> Model::control_dims() const
-{
-    return _dims.stage_control;
-}
-
-const std::vector<uint> Model::constraint_dims() const
-{
-    return _dims.stage_constraint;
 }
 
 const Dimensions Model::dims() const
