@@ -62,6 +62,12 @@ SolverState ssqp::solve(Guess &guess)
         admm_qp::Solution sol(qp.dims);
         SolverState       state = qp_solver.solve(sol);
 
+        std::cout << "Found x: " << std::endl;
+        std::cout << sol.dx << std::endl;
+
+        std::cout << "Found u: " << std::endl;
+        std::cout << sol.du << std::endl;
+
         switch (state)
         {
         case MAX_ITER_REACHED:

@@ -4,17 +4,25 @@ namespace ssqp
 {
 std::string format_double(double val, uint precision)
 {
+    static uint        SCIENTIFIC_CUTOFF = 1e5;
     std::ostringstream oss;
     // No decimal if value is integer
     if (std::abs(val - std::round(val)) <
         std::numeric_limits<double>::epsilon())
     {
-        oss << static_cast<long long>(std::round(val));
+        if (std::abs(val) < SCIENTIFIC_CUTOFF)
+        {
+            oss << static_cast<long long>(std::round(val));
+        }
+        else
+        {
+            oss << std::scientific << val;
+        }
     }
-    // Fixed if not too small to display with given precision, or too large
+    // Fixed if not too small to display with given precision
     else if (std::abs(val) <= std::numeric_limits<double>::epsilon() ||
              std::abs(val) >= std::pow(10, -static_cast<int>(precision)) &&
-               std::abs(val) < 1e5)
+               std::abs(val) < SCIENTIFIC_CUTOFF)
     {
         oss << std::fixed << std::setprecision(precision) << val;
     }
