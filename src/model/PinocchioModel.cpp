@@ -1,11 +1,12 @@
+#include "model/Model.hpp"
+
 #include <pinocchio/parsers/urdf.hpp>
 #include <pinocchio/multibody/model.hpp>
 #include <pinocchio/multibody/data.hpp>
 #include <pinocchio/algorithm/joint-configuration.hpp>
 #include <pinocchio/algorithm/aba.hpp>
+#include <pinocchio/algorithm/aba-derivatives.hpp>
 #include <pinocchio/algorithm/jacobian.hpp>
-
-#include "model/Model.hpp"
 
 namespace ssqp
 {
@@ -18,7 +19,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt)
 {
     pinocchio::Model model;
     pinocchio::urdf::buildModel(urdf_path, model);
-    pinocchio::Data data(model);
+    // model.gravity.linear().setZero();
 
     EvaluationFunction cost_eval = [](const VecX &x, const VecX &u)
     {
@@ -27,17 +28,11 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt)
     };
 
     GradientFunction cost_grad =
-      [](const VecX &x, const VecX &u, VecX &dx, VecX &du)
+      [model](const VecX &x, const VecX &u, VecX &dx, VecX &du)
     {
-        dx = VecX::Zero(u.rows());
+        dx = VecX::Zero(2 * model.nv);
         du = 0.2 * u;
     };
-
-    HessianFunction cost_hess_xx = [](const VecX &x, const VecX &u, MatX &Hxx)
-    { Hxx = MatX::Zero(u.rows(), u.rows()); };
-
-    HessianFunction cost_hess_xu = [](const VecX &x, const VecX &u, MatX &Hxu)
-    { Hxu = MatX::Zero(u.rows(), u.rows()); };
 
     HessianFunction cost_hess_uu = [](const VecX &x, const VecX &u, MatX &Huu)
     { Huu = 0.2 * MatX::Identity(u.rows(), u.rows()); };
@@ -45,8 +40,8 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt)
     std::shared_ptr<const stagewise::StageCost> cost =
       stagewise::factory::make_cost(cost_eval,
                                     cost_grad,
-                                    cost_hess_xx,
-                                    cost_hess_xu,
+                                    ZeroHessian_xx,
+                                    ZeroHessian_xu,
                                     cost_hess_uu);
 
     VecX target(3);
@@ -54,15 +49,16 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt)
     EvaluationFunction term_cost_eval = [target](const VecX &x, const VecX &u)
     {
         return (Eigen::Vector<double, 1>()
-                << 0.1 * u.transpose() * u + (x.head(3) - target).norm())
+                << 0.1 * u.transpose() * u +
+                     100 * (x.head(3) - target).squaredNorm())
           .finished();
     };
 
     GradientFunction term_cost_grad =
-      [](const VecX &x, const VecX &u, VecX &dx, VecX &du)
+      [model, target](const VecX &x, const VecX &u, VecX &dx, VecX &du)
     {
-        dx         = VecX::Zero(u.rows());
-        dx.head(3) = VecX::Ones(3);
+        dx         = VecX::Zero(2 * model.nv);
+        dx.head(3) = 200 * (x.head(3) - target);
 
         du = 0.2 * u;
     };
@@ -87,51 +83,68 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt)
         VecX out(2 * model.nv);
 
         out.head(model.nv) =
-          pinocchio::difference(model, x.head(model.nq), y.head(model.nq));
+          pinocchio::difference(model, y.head(model.nq), x.head(model.nq));
         out.tail(model.nv) = x.tail(model.nv) - y.tail(model.nv);
 
         return out;
     };
 
-    pinocchio::Data   *data_ptr = &data;
-    EvaluationFunction dyn_eval =
-      [model, data_ptr, dt](const VecX &x, const VecX &u)
+    EvaluationFunction dyn_eval = [model, dt](const VecX &x, const VecX &u)
     {
-        pinocchio::aba(model,
-                       *data_ptr,
-                       x.head(model.nq),
-                       x.tail(model.nv),
-                       u.head(model.nv));
+        pinocchio::Data data(model);
+
+        pinocchio::aba(model, data, x.head(model.nq), x.tail(model.nv), u);
 
         VecX out(model.nq + model.nv);
         out.head(model.nq) =
-          pinocchio::integrate(model, x.head(model.nq), data_ptr->ddq * dt);
-        out.tail(model.nv) = x.tail(model.nv) + u.tail(model.nv) * dt;
+          pinocchio::integrate(model, x.head(model.nq), x.tail(model.nv) * dt);
+        out.tail(model.nv) = x.tail(model.nv) + data.ddq * dt;
 
         return out;
     };
 
     multiGradientFunction dyn_grad =
-      [model, data, dt](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+      [model, dt](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
+        pinocchio::Data data(model);
+
+        VecX q   = x.head(model.nq);
+        VecX v   = x.tail(model.nv);
+        VecX tau = u;
+
+        pinocchio::computeABADerivatives(model, data, q, v, tau);
+
+        MatX Jint_q = MatX::Zero(model.nv, model.nv);
+        MatX Jint_v = MatX::Zero(model.nv, model.nv);
+
         pinocchio::dIntegrate(model,
-                              x.head(model.nq),
-                              x.tail(model.nv) * dt,
-                              dX,
+                              q,
+                              v * dt,
+                              Jint_q,
                               pinocchio::ArgumentPosition::ARG0);
 
         pinocchio::dIntegrate(model,
-                              x.head(model.nq),
-                              x.tail(model.nv) * dt,
-                              dU,
+                              q,
+                              v * dt,
+                              Jint_v,
                               pinocchio::ArgumentPosition::ARG1);
+
+        dX = MatX::Zero(2 * model.nv, 2 * model.nv);
+        dX.topLeftCorner(model.nv, model.nv)    = Jint_q;
+        dX.topRightCorner(model.nv, model.nv)   = Jint_v * dt;
+        dX.bottomLeftCorner(model.nv, model.nv) = data.ddq_dq * dt;
+        dX.bottomRightCorner(model.nv, model.nv) =
+          MatX::Identity(model.nv, model.nv) + data.ddq_dv * dt;
+
+        dU                      = MatX::Zero(2 * model.nv, model.nv);
+        dU.bottomRows(model.nv) = data.Minv * dt;
     };
 
     std::shared_ptr<const stagewise::StageDynamics> dynamics =
       stagewise::factory::make_dynamics(model.nq + model.nv,
                                         model.nv,
                                         model.nq + model.nv,
-                                        model.nv,
+                                        2 * model.nv,
                                         ops,
                                         dyn_eval,
                                         dyn_grad);
@@ -142,7 +155,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt)
         _dynamics[k] = dynamics;
     }
 
-    _costs[horizon] = term_cost;
+    //_costs[horizon] = term_cost;
 
     _setup();
 }

@@ -2,3 +2,4 @@
 /build/*
 /examples/python/*
 VARIABLES.sh
+out.txt

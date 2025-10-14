@@ -25,16 +25,10 @@ BUILD_DIR := build
 OBJ_DIR := $(BUILD_DIR)/obj
 EX_OBJ_DIR := $(BUILD_DIR)/examples
 
-# Library source files
+# Library and example sources
 LIB_SRC := $(shell find $(SRC_DIR) -name '*.cpp')
-ifeq ($(WITH_PINOCCHIO),0)
-	LIB_SRC := $(filter-out $(SRC_DIR)/model/PinocchioModel.cpp,$(LIB_SRC))
-endif
-
-# Flattened object files
 LIB_OBJ := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(LIB_SRC))
 
-# Example source files
 EXAMPLE_SRC := $(wildcard $(EXAMPLES_DIR)/*.cpp)
 EXAMPLE_OBJ := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(EX_OBJ_DIR)/%.o,$(EXAMPLE_SRC))
 
@@ -42,8 +36,19 @@ EXAMPLE_OBJ := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(EX_OBJ_DIR)/%.o,$(EXAMPLE_SRC)
 EXAMPLES := $(notdir $(EXAMPLE_SRC:.cpp=))
 EXE_FILES := $(EXAMPLES:%=$(BUILD_DIR)/%)
 
+# Build configuration tracking (to avoid full rebuilds)
+CONFIG_FILE := $(BUILD_DIR)/.config
+
 # Default target
-all: $(EXE_FILES)
+all: $(CONFIG_FILE) $(EXE_FILES)
+
+# Detect changes in WITH_PINOCCHIO between builds
+$(CONFIG_FILE):
+	@mkdir -p $(BUILD_DIR)
+	@echo "WITH_PINOCCHIO=$(WITH_PINOCCHIO)" > $(CONFIG_FILE)
+
+# Rebuild only if the config changes
+$(LIB_OBJ) $(EXAMPLE_OBJ): $(CONFIG_FILE)
 
 # Rule for example executables
 $(BUILD_DIR)/%: $(EX_OBJ_DIR)/%.o $(LIB_OBJ)

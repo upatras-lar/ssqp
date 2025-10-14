@@ -41,6 +41,12 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
           solvers::lqr::lqr(_qp, _solution, _rho, _params.sigma, false);
         _solution.dx = out.x;
         _solution.du = out.u;
+
+        std::cout << "ADMM: Found x: " << std::endl;
+        std::cout << out.x << std::endl;
+
+        std::cout << "ADMM: Found u: " << std::endl;
+        std::cout << out.u << std::endl;
     }
 
     for (_iter = 0;; ++_iter)

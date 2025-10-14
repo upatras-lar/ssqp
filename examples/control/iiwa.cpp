@@ -4,13 +4,12 @@
 #include "solvers/ssqp.hpp"
 #include "model/Model.hpp"
 
-#define HORIZON 100
-#define dt      0.05
+#define HORIZON 10
+#define dt      0.01
 
 int main()
 {
     ssqp::model::Model model("examples/urdf/iiwa.urdf", HORIZON, dt);
-    std::cout << 1 << std::endl;
 
     ssqp::solvers::ssqp        solver(model);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
