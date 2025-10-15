@@ -221,34 +221,48 @@ std::ostream &operator<<(std::ostream &os, const FlatVec &v)
 {
     static uint width     = 10;
     static uint precision = 4;
+    static uint max_cols  = 12;
 
-    std::vector<uint>                     col_widths(v.stages(), 1);
+    bool skip = v.stages() > max_cols;
+
+    std::vector<uint> col_widths(std::min(v.stages(), max_cols), 1);
     std::vector<std::vector<std::string>> formatted_values(
       v._max_dim,
-      std::vector<std::string>(v.stages()));
-    for (uint col = 0; col < v.stages(); ++col)
+      std::vector<std::string>(col_widths.size()));
+    uint i = 0;
+    for (uint col = 0; i < col_widths.size();
+         col      = (!skip || skip && col != max_cols / 2 - 1)
+                      ? col + 1
+                      : (v.stages() - max_cols / 2))
     {
         for (uint row = 0; row < v._max_dim; ++row)
         {
             if (row < v._stage_sizes[col])
             {
-                formatted_values[row][col] =
+                formatted_values[row][i] =
                   format_double(v.vec(v._acc_idx[col] + row), precision);
-                col_widths[col] = std::max(
-                  col_widths[col],
-                  static_cast<uint>(formatted_values[row][col].length()));
+                col_widths[i] = std::max(
+                  col_widths[i],
+                  static_cast<uint>(formatted_values[row][i].length()));
                 continue;
             }
-            formatted_values[row][col] = "-";
+            formatted_values[row][i] = "-";
         }
+        ++i;
     }
 
     for (uint row = 0; row < v._max_dim; ++row)
     {
-        for (uint col = 0; col < v.stages(); ++col)
+        for (uint col = 0; col < col_widths.size(); ++col)
         {
             os << std::setw(col_widths[col]) << formatted_values[row][col];
             os << "\t";
+
+            if (skip && col == max_cols / 2 - 1)
+            {
+                os << std::setw(3) << "...";
+                os << "\t";
+            }
         }
         os << std::endl;
     }

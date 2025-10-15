@@ -86,6 +86,12 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
     // Backward pass
     for (int k = qp.dims.horizon - 1; k >= 0; --k)
     {
+        // std::cout << "B:" << std::endl << qp.stages[k].B << std::endl;
+        // std::cout << "p:" << std::endl << output.p[k + 1] << std::endl;
+        // std::cout << "P:" << std::endl << output.P[k + 1] << std::endl;
+        // std::cout << "gamma:" << std::endl << qp.stages[k].gamma <<
+        // std::endl;
+
         VecX h =
           qu[k] + qp.stages[k].B.transpose() *
                     (output.p[k + 1] + output.P[k + 1] * qp.stages[k].gamma);
@@ -108,7 +114,6 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
 
             // std::cout << "K[" << k << "]: " << std::endl;
             // std::cout << output.K[k] << std::endl;
-
             // std::cout << "k[" << k << "]: " << std::endl;
             // std::cout << output.k[k] << std::endl;
         }
@@ -140,14 +145,6 @@ Output lqr(const QPData &qp, const admm_qp::Solution &current_sol,
           qp.stages[k].B * output.k[k] + qp.stages[k].gamma;
         // std::cout << "output.x.stage(" << k + 1
         //   << "): " << output.x.stage(k + 1).transpose() << std::endl;
-        // std::cout << "Because: " << std::endl;
-        // std::cout << "First term: "
-        //   << ((qp.stages[k].A) * output.x.stage(k)).transpose()
-        //   << std::endl;
-        // std::cout << "A: " << std::endl << qp.stages[k].A << std::endl;
-        // std::cout << "B: " << std::endl << qp.stages[k].B << std::endl;
-        // std::cout << "K: " << std::endl << output.K[k] << std::endl;
-        // std::cout << "Prev: " << output.x.stage(k).transpose() << std::endl;
         output.u.stage(k) = output.K[k] * output.x.stage(k) + output.k[k];
     }
 
