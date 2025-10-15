@@ -193,6 +193,16 @@ uint FunctionStageConstraints::output_size() const
     return _nout;
 }
 
+VecX FunctionStageConstraints::lower_bound() const
+{
+    return _lb;
+}
+
+VecX FunctionStageConstraints::upper_bound() const
+{
+    return _ub;
+}
+
 VecX FunctionStageConstraints::evaluate(const VecX &x, const VecX &u) const
 {
     return _eval(x, u);

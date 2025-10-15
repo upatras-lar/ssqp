@@ -114,6 +114,9 @@ class FunctionStageConstraints : public StageConstraints
 
     uint output_size() const override;
 
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,

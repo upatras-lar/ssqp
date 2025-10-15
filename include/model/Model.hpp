@@ -26,8 +26,9 @@ class Model
           const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
             &constraints = { nullptr });
 
-    Model(const std::string &urdf_path, const uint horizon,
-          const double dt = 0.05);
+    Model(const std::string &urdf_path, const uint horizon, const double dt,
+          const std::shared_ptr<const stagewise::StageCost> &cost,
+          const std::shared_ptr<const stagewise::StageCost> &terminal_cost);
 
     const uint       horizon() const;
     const Dimensions dims() const;

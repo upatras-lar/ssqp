@@ -26,7 +26,7 @@ class admm_qp
         const double rho_min_                = 1e-6;
         const double rho_max_                = 1e3;
         const double adaptive_rho_tolerance_ = 5;
-        const uint   rho_update_iter_freq    = 25;
+        const uint   rho_update_iter_freq    = 15;
 
         // Termination parameters
         const uint   max_iter      = 100'000;
