@@ -74,7 +74,7 @@
   <joint name="pendulum_joint_1" type="revolute">
     <parent link="base_link"/>
     <child link="pendulum_link_1"/>
-    <limit lower="-12." upper="12" effort="2.5" velocity="10.0"/>
+    <limit lower="-10000." upper="10000" effort="7" velocity="10000.0"/>
     <origin rpy="0 0 0" xyz="0 0.05225 0.05715"/>
     <axis xyz="0 1 0"/>
   </joint>
