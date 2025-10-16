@@ -28,7 +28,8 @@ class Model
 
     Model(const std::string &urdf_path, const uint horizon, const double dt,
           const std::shared_ptr<const stagewise::StageCost> &cost,
-          const std::shared_ptr<const stagewise::StageCost> &terminal_cost);
+          const std::shared_ptr<const stagewise::StageCost> &terminal_cost,
+          VecX init_state = VecX::Zero(0));
 
     const uint       horizon() const;
     const Dimensions dims() const;

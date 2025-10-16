@@ -14,7 +14,8 @@ namespace model
 {
 Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
              const std::shared_ptr<const stagewise::StageCost> &cost,
-             const std::shared_ptr<const stagewise::StageCost> &terminal_cost)
+             const std::shared_ptr<const stagewise::StageCost> &terminal_cost,
+             VecX                                               init_state)
   : _costs(horizon + 1)
   , _dynamics(horizon + 1)
   , _constraints(horizon + 1)
@@ -96,11 +97,17 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         dU.bottomRows(model.nv) = data.Minv * dt;
     };
 
+    if (init_state.size() == 0)
+    {
+        init_state = VecX::Zero(model.nq + model.nv);
+    }
+
     std::shared_ptr<const stagewise::StageDynamics> dynamics =
       stagewise::factory::make_dynamics(model.nq + model.nv,
                                         model.nv,
                                         model.nq + model.nv,
                                         2 * model.nv,
+                                        init_state,
                                         ops,
                                         dyn_eval,
                                         dyn_grad);

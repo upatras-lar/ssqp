@@ -22,6 +22,9 @@ class StageDynamics : public Function
     // Size of state difference dx (default: nx)
     virtual uint state_diff_size() const;
 
+    // Initial state (nize nx) (default all 0)
+    virtual VecX init_state() const;
+
     // Operator definitions for states
     // Defines operators between states and state differences
     // If state is a euclidian vector, these operators reduce to simple
