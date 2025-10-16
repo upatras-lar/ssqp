@@ -91,7 +91,7 @@ int main()
                                                  ssqp::model::ZeroHessian_xu,
                                                  cost_hess_uu);
 
-    ssqp::model::Model model("examples/urdf/pendulum.urdf",
+    ssqp::model::Model model("examples/urdf/pendulum_point_mass.urdf",
                              HORIZON,
                              dt,
                              cost,

@@ -78,10 +78,10 @@ SolverState ssqp::solve(Guess &guess)
         std::tie(_guess.x, _guess.u, std::ignore) =
           step::filter(_guess.x, _guess.u, sol.dx, sol.du, _filter_ls_costs);
 
-        std::cout << "Current x: " << std::endl;
-        std::cout << _guess.x << std::endl;
-        std::cout << "Current u: " << std::endl;
-        std::cout << _guess.u << std::endl;
+        // std::cout << "Current x: " << std::endl;
+        // std::cout << _guess.x << std::endl;
+        // std::cout << "Current u: " << std::endl;
+        // std::cout << _guess.u << std::endl;
 
         // Lagrange multiplier update
         for (uint k = 0; k < _model.horizon(); ++k)
@@ -355,14 +355,14 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    // #ifdef DEBUG
+#ifdef DEBUG
     std::cout << "Lagrangian dx:  " << std::endl << lagrangian_dx << std::endl;
     std::cout << "Norm: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>()
               << std::endl;
     std::cout << "Lagrangian du: " << std::endl << lagrangian_du << std::endl;
     std::cout << "Norm: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>()
               << std::endl;
-    // #endif
+#endif
 
     // Terminal constraint violation
     if (constraints[horizon] != nullptr &&
@@ -374,11 +374,11 @@ SolverState ssqp::_check_termination()
         return ONGOING;
     }
 
-    std::cout << "Passed terminal cost violation check" << std::endl;
+    // std::cout << "Passed terminal cost violation check" << std::endl;
 
     for (uint k = 0; k < horizon; ++k)
     {
-        std::cout << "Stage " << k << std::endl;
+        // std::cout << "Stage " << k << std::endl;
         // Stage gap violation
         if (dynamics[k]
               ->state_right_minus(
@@ -389,7 +389,7 @@ SolverState ssqp::_check_termination()
             _stale_iters = 0;
             return ONGOING;
         }
-        std::cout << "Passed stage gap violation check" << std::endl;
+        // std::cout << "Passed stage gap violation check" << std::endl;
         // Stage constraint violation
         if (constraints[k] != nullptr &&
             !constraints[k]->is_satisfied(_guess.x.stage(k),
@@ -399,10 +399,10 @@ SolverState ssqp::_check_termination()
             _stale_iters = 0;
             return ONGOING;
         }
-        std::cout << "Passed constraint violation check" << std::endl;
+        // std::cout << "Passed constraint violation check" << std::endl;
     }
 
-    std::cout << "Passed other violation checks" << std::endl;
+    // std::cout << "Passed other violation checks" << std::endl;
 
     if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
@@ -412,12 +412,12 @@ SolverState ssqp::_check_termination()
         return SUCCESS;
     }
 
-    std::cout << "DX COST: "
-              << (_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff()
-              << std::endl;
-    std::cout << "DU COST: "
-              << (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff()
-              << std::endl;
+    // std::cout << "DX COST: "
+    //   << (_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff()
+    //   << std::endl;
+    // std::cout << "DU COST: "
+    //   << (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff()
+    //   << std::endl;
 
     if ((_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance &&

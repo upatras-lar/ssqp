@@ -105,6 +105,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
                                         dyn_eval,
                                         dyn_grad);
 
+    // TODO: linearize bounds
     VecX lb(model.nq + 2 * model.nv), ub(model.nq + 2 * model.nv);
     lb << model.lowerPositionLimit, -model.velocityLimit, -model.effortLimit;
     ub << model.upperPositionLimit, model.velocityLimit, model.effortLimit;
