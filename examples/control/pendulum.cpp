@@ -76,16 +76,21 @@ class Dynamics : public ssqp::model::stagewise::StageDynamics
 
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
     {
+        /*
         Eigen::Vector2d k1 = dynamics(x, u);
         Eigen::Vector2d k2 = dynamics(x + 0.5 * dt * k1, u);
         Eigen::Vector2d k3 = dynamics(x + 0.5 * dt * k2, u);
         Eigen::Vector2d k4 = dynamics(x + dt * k3, u);
         return x + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
+        */
+
+        return x + dynamics(x, u) * dt;
     }
 
     void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::MatX &dX,
                   ssqp::MatX &dU) const override
     {
+        /*
         Eigen::Vector2d x2 = x + 0.5 * dt * dynamics(x, u);
         Eigen::Vector2d x3 = x + 0.5 * dt * dynamics(x2, u);
         Eigen::Vector2d x4 = x + dt * dynamics(x3, u);
@@ -120,6 +125,15 @@ class Dynamics : public ssqp::model::stagewise::StageDynamics
                            dfdx4 * dx4dx);
 
         dU = (dt / 6.0) * (dfdu + 2.0 * df2du + 2.0 * df3du + df4du);
+        */
+
+        dX       = Eigen::Matrix2d::Zero();
+        dX(0, 0) = 1;
+        dX(0, 1) = dt;
+        dX(1, 1) = 1;
+
+        dU       = Eigen::Matrix<double, 2, 1>::Zero();
+        dU(1, 0) = dt;
     }
 
     void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,

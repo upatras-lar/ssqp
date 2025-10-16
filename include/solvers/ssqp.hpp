@@ -20,9 +20,9 @@ class ssqp
     {
         const uint max_iter = 10'000;
         // Tolerance for lagrangian jacobian norms
-        const double tolerance = 1e-4;
+        const double tolerance = 1e-3;
         // Tolerance for change in cost jacobian norms
-        const double loose_success_tolerance = 1e-5;
+        const double loose_success_tolerance = tolerance / 10;
         // Number of iterations for stale cost jacobian norms
         const uint loose_success_stale_iters = 5;
 
