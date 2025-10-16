@@ -22,14 +22,16 @@ std::shared_ptr<StageCost> make_cost(const EvaluationFunction &eval,
 }
 std::shared_ptr<StageDynamics> make_dynamics(
   const uint nx, const uint nu, const uint nout, const uint ndx,
-  const ManifoldOperators &ops, const EvaluationFunction &eval,
-  const multiGradientFunction &grad, const HessprodFunction &hess_xx,
-  const HessprodFunction &hess_xu, const HessprodFunction &hess_uu)
+  const VecX &init_state, const ManifoldOperators &ops,
+  const EvaluationFunction &eval, const multiGradientFunction &grad,
+  const HessprodFunction &hess_xx, const HessprodFunction &hess_xu,
+  const HessprodFunction &hess_uu)
 {
     return std::make_shared<FunctionStageDynamics>(nx,
                                                    nu,
                                                    nout,
                                                    ndx,
+                                                   init_state,
                                                    ops,
                                                    eval,
                                                    grad,
@@ -95,13 +97,15 @@ void FunctionStageCost::hessian_uu(const VecX &x, const VecX &u,
 
 FunctionStageDynamics::FunctionStageDynamics(
   const uint nx, const uint nu, const uint nout, const uint ndx,
-  const ManifoldOperators &ops, const EvaluationFunction &eval,
-  const multiGradientFunction &grad, const HessprodFunction &hess_xx,
-  const HessprodFunction &hess_xu, const HessprodFunction &hess_uu)
+  const VecX &init_state, const ManifoldOperators &ops,
+  const EvaluationFunction &eval, const multiGradientFunction &grad,
+  const HessprodFunction &hess_xx, const HessprodFunction &hess_xu,
+  const HessprodFunction &hess_uu)
   : _nx(nx)
   , _nu(nu)
   , _nout(nout)
   , _ndx(ndx)
+  , _init_state(init_state)
   , _ops(ops)
   , _eval(eval)
   , _grad(grad)
@@ -129,6 +133,11 @@ uint FunctionStageDynamics::control_size() const
 uint FunctionStageDynamics::state_diff_size() const
 {
     return _ndx;
+}
+
+VecX FunctionStageDynamics::init_state() const
+{
+    return _init_state;
 }
 
 VecX FunctionStageDynamics::state_right_plus(const VecX &x,

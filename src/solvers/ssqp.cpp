@@ -41,6 +41,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         { return dynamics[k]->state_right_plus(x, dx); };
         ops[k].right_minus = [dynamics, k](const VecX &x, const VecX &y)
         { return dynamics[k]->state_right_minus(x, y); };
+        _guess.x.stage(k) = dynamics[k]->init_state();
     }
 
     _guess.x.set_ops(ops);
@@ -78,10 +79,10 @@ SolverState ssqp::solve(Guess &guess)
         std::tie(_guess.x, _guess.u, std::ignore) =
           step::filter(_guess.x, _guess.u, sol.dx, sol.du, _filter_ls_costs);
 
-        // std::cout << "Current x: " << std::endl;
-        // std::cout << _guess.x << std::endl;
-        // std::cout << "Current u: " << std::endl;
-        // std::cout << _guess.u << std::endl;
+        std::cout << "Current x: " << std::endl;
+        std::cout << _guess.x << std::endl;
+        std::cout << "Current u: " << std::endl;
+        std::cout << _guess.u << std::endl;
 
         // Lagrange multiplier update
         for (uint k = 0; k < _model.horizon(); ++k)

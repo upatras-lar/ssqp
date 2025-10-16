@@ -11,6 +11,11 @@ uint StageDynamics::state_diff_size() const
     return state_size();
 }
 
+VecX StageDynamics::init_state() const
+{
+    return VecX::Zero(state_size());
+}
+
 VecX StageDynamics::state_right_plus(const VecX &x, const VecX &dx) const
 {
     return x + dx;

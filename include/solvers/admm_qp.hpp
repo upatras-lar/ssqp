@@ -30,8 +30,8 @@ class admm_qp
 
         // Termination parameters
         const uint   max_iter      = 10'000;
-        const double abs_tolerance = 1e-6; // Absolute tolerance
-        const double rel_tolerance = 1e-6; // Relative tolerance
+        const double abs_tolerance = 1e-4; // Absolute tolerance
+        const double rel_tolerance = 1e-4; // Relative tolerance
         const double primal_infeasibility_tolerance =
           1e-9; // Primal infeasibility tolerance
 

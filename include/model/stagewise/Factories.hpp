@@ -24,11 +24,11 @@ std::shared_ptr<StageCost> make_cost(
 
 std::shared_ptr<StageDynamics> make_dynamics(
   const uint nx, const uint nu, const uint nout, const uint ndx,
-  const ManifoldOperators &ops, const EvaluationFunction &eval,
-  const multiGradientFunction &grad,
-  const HessprodFunction      &hess_xx = ZeroHessprod_xx,
-  const HessprodFunction &hess_xu      = ZeroHessprod_xu,
-  const HessprodFunction &hess_uu      = ZeroHessprod_uu);
+  const VecX &init_state, const ManifoldOperators &ops,
+  const EvaluationFunction &eval, const multiGradientFunction &grad,
+  const HessprodFunction &hess_xx = ZeroHessprod_xx,
+  const HessprodFunction &hess_xu = ZeroHessprod_xu,
+  const HessprodFunction &hess_uu = ZeroHessprod_uu);
 
 std::shared_ptr<StageConstraints> make_constraints(
   const int nout, const VecX &lb, const VecX &ub,
@@ -62,7 +62,8 @@ class FunctionStageDynamics : public StageDynamics
 {
   public:
     FunctionStageDynamics(const uint nx, const uint nu, const uint nout,
-                          const uint ndx, const ManifoldOperators &ops,
+                          const uint ndx, const VecX &init_state,
+                          const ManifoldOperators     &ops,
                           const EvaluationFunction    &eval,
                           const multiGradientFunction &grad,
                           const HessprodFunction      &hess_xx,
@@ -76,6 +77,8 @@ class FunctionStageDynamics : public StageDynamics
     uint control_size() const override;
 
     uint state_diff_size() const override;
+
+    VecX init_state() const override;
 
     VecX state_right_plus(const VecX &x, const VecX &dx) const override;
 
@@ -97,6 +100,7 @@ class FunctionStageDynamics : public StageDynamics
 
   protected:
     const uint                  _nx, _nu, _nout, _ndx;
+    const VecX                  _init_state;
     const ManifoldOperators     _ops;
     const EvaluationFunction    _eval;
     const multiGradientFunction _grad;
