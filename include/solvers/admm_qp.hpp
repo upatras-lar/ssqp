@@ -29,11 +29,11 @@ class admm_qp
         const uint   rho_update_iter_freq    = 15;
 
         // Termination parameters
-        const uint   max_iter      = 10'000;
+        const uint   max_iter      = 100'000;
         const double abs_tolerance = 1e-4; // Absolute tolerance
         const double rel_tolerance = 1e-4; // Relative tolerance
         const double primal_infeasibility_tolerance =
-          1e-9; // Primal infeasibility tolerance
+          1e-6; // Primal infeasibility tolerance
 
         bool warm_start = true;
 
@@ -65,18 +65,23 @@ class admm_qp
     FlatVec      _rho, _rho_inv;
     double       _rho_common;
     const double _rho_min = 1e-6;
+    bool         _rho_changed;
 
     // Norms of residuals
     double _norm_primal = 0, _norm_dual = 0;
     double _norm_primal_rel = 0, _norm_dual_rel = 0;
 
+    // Primal infeasibility criteria
+    FlatVec _ATy;
+    double  _uly;
+
     uint _iter;
 
-    // Calculates residuals and their relative parts
+    // Calculates residual norms
     // r_prim = Dx - z
     // r_dual = Q(z - z_prev)
-    // Relative parts include dX and dU variable segments
-    void _calculate_residuals(const FlatVec &z_prev);
+    void _calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
+                              const FlatVec &z_prev, const FlatVec &y_prev);
 
     SolverState _check_termination() const;
 

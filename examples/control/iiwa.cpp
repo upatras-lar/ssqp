@@ -4,20 +4,40 @@
 #include "solvers/ssqp.hpp"
 #include "model/Model.hpp"
 
-#define HORIZON  80
+#define HORIZON  300
 #define dt       0.01
-#define P_WGT    10
-#define V_WGT    0.001
-#define TERM_WGT 100
+#define P_WGT    1
+#define V_WGT    0.1
+#define TERM_WGT 200
+#define TARGET   2
 
 int main()
 {
     Eigen::VectorXd init(14);
-    // init << 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-    init << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-
     Eigen::VectorXd target(7);
-    target << 0.9, -0.6, 1.1, 0.2, 0.15, -0.1, 0.0;
+
+    switch (TARGET)
+    {
+    // Small move
+    case 0:
+        init << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+        target << 0.5, -0.3, 0.6, 0.0, 0.2, -0.2, 0.1;
+        break;
+    // Mid range move
+    case 1:
+        init << 0.0, -0.7, 0.0, 0.8, 0.0, -0.5, 0.0, 0, 0, 0, 0, 0, 0, 0;
+        target << 1.2, 0.6, -1.0, 0.2, 0.4, 0.0, 0.8;
+        break;
+    // Elbow-up pose
+    case 2:
+        init << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+        target << 0.9, -0.6, 1.1, 0.2, 0.15, -0.1, 0.0;
+        break;
+    // Elbow-down pose
+    case 3:
+        init << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+        target << -0.9, 0.6, -1.1, -0.2, -0.15, 0.1, 0.0;
+    }
 
     ssqp::model::EvaluationFunction cost_eval =
       [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)

@@ -40,10 +40,12 @@ void Model::_setup()
     _dims.stage_state.resize(_dims.horizon + 1);
     _dims.stage_control.resize(_dims.horizon);
     _dims.stage_constraint.resize(_dims.horizon + 1);
+    _dims.stage_sc.resize(_dims.horizon + 1);
 
     _lin_dims.stage_state.resize(_lin_dims.horizon + 1);
     _lin_dims.stage_control.resize(_lin_dims.horizon);
     _lin_dims.stage_constraint.resize(_lin_dims.horizon + 1);
+    _lin_dims.stage_sc.resize(_dims.horizon + 1);
 
     for (uint k = 0; k < _dims.horizon; ++k)
     {
@@ -51,11 +53,14 @@ void Model::_setup()
         _dims.stage_control[k] = _dynamics[k]->control_size();
         _dims.stage_constraint[k] =
           (_constraints[k] != nullptr) ? _constraints[k]->output_size() : 0;
+        _dims.stage_sc[k] = _dims.stage_state[k] + _dims.stage_control[k];
 
         _lin_dims.stage_state[k] = _dynamics[k]->state_diff_size();
         // TODO: control and constraint manifold?
         _lin_dims.stage_control[k]    = _dims.stage_control[k];
         _lin_dims.stage_constraint[k] = _dims.stage_constraint[k];
+        _lin_dims.stage_sc[k] =
+          _lin_dims.stage_state[k] + _lin_dims.stage_control[k];
 
         if (k > 0)
         {
@@ -78,6 +83,7 @@ void Model::_setup()
       (_constraints[_dims.horizon] != nullptr)
         ? _constraints[_dims.horizon]->output_size()
         : 0;
+    _dims.stage_sc[_dims.horizon] = _dims.stage_state[_dims.horizon];
 
     _lin_dims.stage_state[_lin_dims.horizon] =
       _dynamics[_dims.horizon]->state_diff_size();
@@ -85,6 +91,8 @@ void Model::_setup()
       (_constraints[_lin_dims.horizon] != nullptr)
         ? _constraints[_lin_dims.horizon]->output_size()
         : 0;
+    _lin_dims.stage_sc[_lin_dims.horizon] =
+      _lin_dims.stage_state[_lin_dims.horizon];
 
     _dims.state      += _dims.stage_state[_dims.horizon];
     _dims.constraint += _dims.stage_constraint[_dims.horizon];
