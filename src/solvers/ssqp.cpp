@@ -356,14 +356,16 @@ SolverState ssqp::_check_termination()
         }
     }
 
-#ifdef DEBUG
-    std::cout << "Lagrangian dx:  " << std::endl << lagrangian_dx << std::endl;
+    // #ifdef DEBUG
+    // std::cout << "Lagrangian dx:  " << std::endl << lagrangian_dx <<
+    // std::endl;
     std::cout << "Norm: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>()
               << std::endl;
-    std::cout << "Lagrangian du: " << std::endl << lagrangian_du << std::endl;
+    // std::cout << "Lagrangian du: " << std::endl << lagrangian_du <<
+    // std::endl;
     std::cout << "Norm: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>()
               << std::endl;
-#endif
+    // #endif
 
     // Terminal constraint violation
     if (constraints[horizon] != nullptr &&
@@ -427,6 +429,8 @@ SolverState ssqp::_check_termination()
     {
         if (++_stale_iters == _params.loose_success_stale_iters)
         {
+            std::cout << "SSQP: Loose criteria satisfied after " << _iter + 1
+                      << " iterations" << std::endl;
             return LOOSE_SUCCESS;
         }
     }

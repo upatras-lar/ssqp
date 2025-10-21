@@ -68,6 +68,9 @@ struct Dimensions
     std::vector<uint> stage_state;
     std::vector<uint> stage_control;
     std::vector<uint> stage_constraint;
+
+    // State + control
+    std::vector<uint> stage_sc;
 };
 }
 
