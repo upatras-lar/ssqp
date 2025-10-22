@@ -137,12 +137,6 @@ void lqr::_solve_cache_rho()
     // Backward pass
     for (int k = _qp.dims.horizon - 1; k >= 0; --k)
     {
-        // std::cout << "B:" << std::endl << qp.stages[k].B << std::endl;
-        // std::cout << "p:" << std::endl << output.p[k + 1] << std::endl;
-        // std::cout << "P:" << std::endl << output.P[k + 1] << std::endl;
-        // std::cout << "gamma:" << std::endl << qp.stages[k].gamma <<
-        // std::endl;
-
         VecX h = _qu[k] +
                  _qp.stages[k].B.transpose() *
                    (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
@@ -150,28 +144,13 @@ void lqr::_solve_cache_rho()
         // TODO: is LLT appropriate?
         if (_qp.dims.stage_control[k] > 1)
         {
-            // std::cout << "H[" << k << "]:\n" << H << std::endl;
-            // std::cout << "G[" << k << "]:\n" << G << std::endl;
-            // std::cout << "h[" << k << "]: " << h.transpose() <<
-            // std::endl;
             _output.k[k] = -_H_llt[k].solve(h);
-
-            // std::cout << "K[" << k << "]: " << std::endl;
-            // std::cout << output.K[k] << std::endl;
-            // std::cout << "k[" << k << "]: " << std::endl;
-            // std::cout << output.k[k] << std::endl;
         }
         else
         {
             double coeff = 1. / _H[k](0, 0);
-            _output.K[k] = -coeff * _G[k];
             _output.k[k] = -coeff * h;
         }
-
-        _output.P[k] =
-          _Qxx[k] +
-          _qp.stages[k].A.transpose() * _output.P[k + 1] * _qp.stages[k].A -
-          _output.K[k].transpose() * _H[k] * _output.K[k];
 
         _output.p[k] =
           _qx[k] + _output.K[k].transpose() * _qu[k] +
@@ -188,8 +167,6 @@ void lqr::_solve_cache_rho()
           (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
             _output.x.stage(k) +
           _qp.stages[k].B * _output.k[k] + _qp.stages[k].gamma;
-        // std::cout << "output.x.stage(" << k + 1
-        //   << "): " << output.x.stage(k + 1).transpose() << std::endl;
         _output.u.stage(k) = _output.K[k] * _output.x.stage(k) + _output.k[k];
     }
 }
@@ -202,12 +179,6 @@ void lqr::_solve()
     // Backward pass
     for (int k = _qp.dims.horizon - 1; k >= 0; --k)
     {
-        // std::cout << "B:" << std::endl << qp.stages[k].B << std::endl;
-        // std::cout << "p:" << std::endl << output.p[k + 1] << std::endl;
-        // std::cout << "P:" << std::endl << output.P[k + 1] << std::endl;
-        // std::cout << "gamma:" << std::endl << qp.stages[k].gamma <<
-        // std::endl;
-
         VecX h = _qu[k] +
                  _qp.stages[k].B.transpose() *
                    (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
@@ -221,18 +192,9 @@ void lqr::_solve()
         // TODO: is LLT appropriate?
         if (_qp.dims.stage_control[k] > 1)
         {
-            // std::cout << "H[" << k << "]:\n" << H << std::endl;
-            // std::cout << "G[" << k << "]:\n" << G << std::endl;
-            // std::cout << "h[" << k << "]: " << h.transpose() <<
-            // std::endl;
             _H_llt[k]    = _H[k].llt();
             _output.K[k] = -_H_llt[k].solve(_G[k]);
             _output.k[k] = -_H_llt[k].solve(h);
-
-            // std::cout << "K[" << k << "]: " << std::endl;
-            // std::cout << output.K[k] << std::endl;
-            // std::cout << "k[" << k << "]: " << std::endl;
-            // std::cout << output.k[k] << std::endl;
         }
         else
         {
@@ -261,8 +223,6 @@ void lqr::_solve()
           (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
             _output.x.stage(k) +
           _qp.stages[k].B * _output.k[k] + _qp.stages[k].gamma;
-        // std::cout << "output.x.stage(" << k + 1
-        //   << "): " << output.x.stage(k + 1).transpose() << std::endl;
         _output.u.stage(k) = _output.K[k] * _output.x.stage(k) + _output.k[k];
     }
 }

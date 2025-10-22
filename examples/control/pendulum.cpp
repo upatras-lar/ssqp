@@ -313,8 +313,8 @@ int main()
     if (state == ssqp::solvers::SolverState::SUCCESS ||
         state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
     {
-        std::cout << "x: " << solution.x << std::endl;
-        std::cout << "u: " << solution.u << std::endl;
+        std::cout << "x: " << std::endl << solution.x << std::endl;
+        std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
     return 0;

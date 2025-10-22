@@ -15,6 +15,20 @@
 
 namespace ssqp
 {
+#ifdef INFO
+#define LOG(...) (std::cout << __VA_ARGS__)
+#else
+#define LOG(...) ((void)0)
+#endif
+
+#ifdef DEBUG
+#define DEBUG_LOG(...) (std::cout << __VA_ARGS__)
+#define DEBUG_WAIT()   std::cin.get()
+#else
+#define DEBUG_LOG(...) ((void)0)
+#define DEBUG_WAIT()   ((void)0)
+#endif
+
 using VecX  = Eigen::VectorXd;
 using MatX  = Eigen::MatrixXd;
 using DMatX = Eigen::DiagonalMatrix<double, -1>;

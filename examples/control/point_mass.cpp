@@ -171,12 +171,12 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
 
     ssqp::VecX lower_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << -20).finished();
+        return (Eigen::Vector<double, 1>() << -24).finished();
     }
 
     ssqp::VecX upper_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << 20).finished();
+        return (Eigen::Vector<double, 1>() << 24).finished();
     }
 
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
@@ -306,8 +306,8 @@ int main()
     if (state == ssqp::solvers::SolverState::SUCCESS ||
         state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
     {
-        std::cout << "x: " << solution.x << std::endl;
-        std::cout << "u: " << solution.u << std::endl;
+        std::cout << "x: " << std::endl << solution.x << std::endl;
+        std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
     return 0;
