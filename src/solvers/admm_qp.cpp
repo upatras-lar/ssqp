@@ -29,10 +29,8 @@ admm_qp::admm_qp(const QPData &qp, const Params &params)
 
 SolverState admm_qp::solve(admm_qp::Solution &sol)
 {
-#ifdef DEBUG
-    std::cout << "Solving with ADMM" << std::endl;
-    std::cout << "=============" << std::endl;
-#endif
+    DEBUG_LOG("Solving with ADMM" << std::endl);
+    DEBUG_LOG("=============" << std::endl);
 
     SolverState admm_state;
 
@@ -48,6 +46,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         _solution.du = lqr_out.u;
     }
 
+    _rho_changed = true;
     for (_iter = 0;; ++_iter)
     {
         if (_rho_changed)
@@ -62,48 +61,31 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         _solution.P = lqr_out.P;
         _solution.p = lqr_out.p;
 
-#ifdef DEBUG
-        std::cout << "LQR solution, iteration " << _iter + 1 << std::endl;
-        std::cout << "=============" << std::endl;
-        std::cout << "x:" << std::endl;
-        std::cout << out.x << std::endl;
-        std::cout << "u:" << std::endl;
-        std::cout << out.u << std::endl;
-        std::cout << "=============" << std::endl;
-#endif
+        DEBUG_LOG("LQR solution, iteration " << _iter + 1 << std::endl);
+        DEBUG_LOG("=============" << std::endl);
+        DEBUG_LOG("x:" << std::endl);
+        DEBUG_LOG(lqr_out.x << std::endl);
+        DEBUG_LOG("u:" << std::endl);
+        DEBUG_LOG(lqr_out.u << std::endl);
+        DEBUG_LOG("=============" << std::endl);
 
         FlatVec x_prev = _solution.dx, u_prev = _solution.du,
                 z_prev = _solution.z, y_prev = _solution.y;
         _step(lqr_out.x, lqr_out.u);
         _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
 
-#ifdef DEBUG
-        double tolerance_prim =
-          _params.abs_tolerance + _params.rel_tolerance * _norm_primal_rel;
-
-        double tolerance_dual =
-          _params.abs_tolerance + _params.rel_tolerance * _norm_dual_rel;
-
-        std::cout << "Update step, iteration " << _iter + 1 << std::endl;
-        std::cout << "=============" << std::endl;
-        std::cout << "x:" << std::endl;
-        std::cout << _solution.dx << std::endl;
-        std::cout << "u:" << std::endl;
-        std::cout << _solution.du << std::endl;
-        std::cout << "z:" << std::endl;
-        std::cout << _solution.z << std::endl;
-        std::cout << "y:" << std::endl;
-        std::cout << _solution.y << std::endl;
-        std::cout << "=============" << std::endl;
-        std::cout << "Residuals" << std::endl;
-        std::cout << "=============" << std::endl;
-        std::cout << "Primal" << std::endl
-                  << tolerance_prim << ", " << _norm_primal << std::endl;
-        std::cout << "Dual" << std::endl
-                  << tolerance_dual << ", " << _norm_dual << std::endl;
-        std::cout << "=============" << std::endl;
-        std::cin.get();
-#endif
+        DEBUG_LOG("Update step, iteration " << _iter + 1 << std::endl);
+        DEBUG_LOG("=============" << std::endl);
+        DEBUG_LOG("x:" << std::endl);
+        DEBUG_LOG(_solution.dx << std::endl);
+        DEBUG_LOG("u:" << std::endl);
+        DEBUG_LOG(_solution.du << std::endl);
+        DEBUG_LOG("z:" << std::endl);
+        DEBUG_LOG(_solution.z << std::endl);
+        DEBUG_LOG("y:" << std::endl);
+        DEBUG_LOG(_solution.y << std::endl);
+        DEBUG_LOG("=============" << std::endl);
+        DEBUG_WAIT();
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {
@@ -231,15 +213,13 @@ SolverState admm_qp::_check_termination() const
     double tolerance_dual =
       _params.abs_tolerance + _params.rel_tolerance * _norm_dual_rel;
 
-#ifdef DEBUG
-    std::cout << "Tolerances" << std::endl;
-    std::cout << "=============" << std::endl;
-    std::cout << "Primal (tol vs norm): " << tolerance_prim << " vs "
-              << _norm_primal << std::endl;
-    std::cout << "Dual (tol vs norm): " << tolerance_dual << " vs "
-              << _norm_dual << std::endl;
-    std::cout << "=============" << std::endl;
-#endif
+    DEBUG_LOG("Tolerances" << std::endl);
+    DEBUG_LOG("=============" << std::endl);
+    DEBUG_LOG("Primal (tol vs norm): " << tolerance_prim << " vs "
+                                       << _norm_primal << std::endl);
+    DEBUG_LOG("Dual (tol vs norm): " << tolerance_dual << " vs " << _norm_dual
+                                     << std::endl);
+    DEBUG_LOG("=============" << std::endl);
 
     if (_norm_primal > tolerance_prim || _norm_dual > tolerance_dual)
     {
@@ -266,29 +246,43 @@ void admm_qp::_update_rho()
         {
             for (uint c = 0; c < _qp.dims.stage_constraint[k]; ++c)
             {
-                if (std::abs(_qp.stages[k].cl(c) - _qp.stages[k].cu(c)) <
-                    std::numeric_limits<double>::epsilon())
+                if (_qp.stages[k].cl(c) ==
+                      -std::numeric_limits<double>::infinity() &&
+                    _qp.stages[k].cu(c) ==
+                      std::numeric_limits<double>::infinity())
+                {
+                    _rho.stage(k)(c)     = _rho_min;
+                    _rho_inv.stage(k)(c) = 1.0 / _rho_min;
+                }
+                else if (std::abs(_qp.stages[k].cl(c) - _qp.stages[k].cu(c)) <
+                         std::numeric_limits<double>::epsilon())
                 {
                     _rho.stage(k)(c)     = 1e3 * _rho_common;
-                    _rho_inv.stage(k)(c) = 1. / (1e3 * _rho_common);
+                    _rho_inv.stage(k)(c) = 1.0 / (1e3 * _rho_common);
                 }
-                else
+                else if (_qp.stages[k].cl(c) < _qp.stages[k].cu(c))
                 {
                     _rho.stage(k)(c)     = _rho_common;
-                    _rho_inv.stage(k)(c) = 1. / _rho_common;
+                    _rho_inv.stage(k)(c) = 1.0 / _rho_common;
                 }
             }
         }
 
         for (uint c = 0; c < _qp.dims.stage_constraint[_qp.dims.horizon]; ++c)
         {
-            if (std::abs(_qp.cl_t(c) - _qp.cu_t(c)) <
-                std::numeric_limits<double>::epsilon())
+            if (_qp.cl_t(c) == -std::numeric_limits<double>::infinity() &&
+                _qp.cu_t(c) == std::numeric_limits<double>::infinity())
+            {
+                _rho.stage(_qp.dims.horizon)(c)     = _rho_min;
+                _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / _rho_min;
+            }
+            else if (std::abs(_qp.cl_t(c) - _qp.cu_t(c)) <
+                     std::numeric_limits<double>::epsilon())
             {
                 _rho.stage(_qp.dims.horizon)(c)     = 1e3 * _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1. / (1e3 * _rho_common);
             }
-            else
+            else if (_qp.cl_t(c) < _qp.cu_t(c))
             {
                 _rho.stage(_qp.dims.horizon)(c)     = _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1. / _rho_common;

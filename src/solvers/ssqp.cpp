@@ -66,7 +66,7 @@ SolverState ssqp::solve(Guess &guess)
         switch (state)
         {
         case MAX_ITER_REACHED:
-            std::cout << "Warning: ADMM: Max iterations reached" << std::endl;
+            LOG("Warning: ADMM: Max iterations reached" << std::endl);
             break;
         case PRIMAL_INFEASIBLE:
         case DUAL_INFEASIBLE:
@@ -79,10 +79,10 @@ SolverState ssqp::solve(Guess &guess)
         std::tie(_guess.x, _guess.u, std::ignore) =
           step::filter(_guess.x, _guess.u, sol.dx, sol.du, _filter_ls_costs);
 
-        std::cout << "Current x: " << std::endl;
-        std::cout << _guess.x << std::endl;
-        std::cout << "Current u: " << std::endl;
-        std::cout << _guess.u << std::endl;
+        LOG("Current x: " << std::endl);
+        LOG(_guess.x << std::endl);
+        LOG("Current u: " << std::endl);
+        LOG(_guess.u << std::endl);
 
         // Lagrange multiplier update
         for (uint k = 0; k < _model.horizon(); ++k)
@@ -134,9 +134,6 @@ QPData ssqp::_setup_qp()
         qp.stages[k].gamma = dynamics[k]->state_right_minus(
           dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
           _guess.x.stage(k + 1));
-
-        // std::cout << "Gamma[" << k << "]: " << qp.stages[k].gamma.transpose()
-        //   << std::endl;
 
         // Calculate Q_k
         costs[k]->hessian_xx(_guess.x.stage(k),
@@ -263,17 +260,13 @@ QPData ssqp::_setup_qp()
 
 SolverState ssqp::_check_termination()
 {
-#ifdef DEBUG
-    std::cout << "Guess " << _iter + 1 << std::endl;
-    std::cout << "=============" << std::endl;
-
-    std::cout << "x: " << std::endl << _guess.x << std::endl;
-    std::cout << "u: " << std::endl << _guess.u << std::endl;
-    std::cout << "lambda: " << std::endl << _guess.lambda << std::endl;
-    std::cout << "mu: " << std::endl << _guess.mu << std::endl;
-
-    std::cout << "=============" << std::endl;
-#endif
+    DEBUG_LOG("Guess " << _iter + 1 << std::endl);
+    DEBUG_LOG("=============" << std::endl);
+    DEBUG_LOG("x: " << std::endl << _guess.x << std::endl);
+    DEBUG_LOG("u: " << std::endl << _guess.u << std::endl);
+    DEBUG_LOG("lambda: " << std::endl << _guess.lambda << std::endl);
+    DEBUG_LOG("mu: " << std::endl << _guess.mu << std::endl);
+    DEBUG_LOG("=============" << std::endl);
 
     static const uint horizon = _model.dims().horizon;
 
@@ -356,16 +349,8 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    // #ifdef DEBUG
-    // std::cout << "Lagrangian dx:  " << std::endl << lagrangian_dx <<
-    // std::endl;
-    std::cout << "Norm: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>()
-              << std::endl;
-    // std::cout << "Lagrangian du: " << std::endl << lagrangian_du <<
-    // std::endl;
-    std::cout << "Norm: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>()
-              << std::endl;
-    // #endif
+    LOG("Norm: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>() << std::endl);
+    LOG("Norm: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>() << std::endl);
 
     // Terminal constraint violation
     if (constraints[horizon] != nullptr &&
@@ -377,11 +362,8 @@ SolverState ssqp::_check_termination()
         return ONGOING;
     }
 
-    // std::cout << "Passed terminal cost violation check" << std::endl;
-
     for (uint k = 0; k < horizon; ++k)
     {
-        // std::cout << "Stage " << k << std::endl;
         // Stage gap violation
         if (dynamics[k]
               ->state_right_minus(
@@ -392,7 +374,6 @@ SolverState ssqp::_check_termination()
             _stale_iters = 0;
             return ONGOING;
         }
-        // std::cout << "Passed stage gap violation check" << std::endl;
         // Stage constraint violation
         if (constraints[k] != nullptr &&
             !constraints[k]->is_satisfied(_guess.x.stage(k),
@@ -402,25 +383,15 @@ SolverState ssqp::_check_termination()
             _stale_iters = 0;
             return ONGOING;
         }
-        // std::cout << "Passed constraint violation check" << std::endl;
     }
-
-    // std::cout << "Passed other violation checks" << std::endl;
 
     if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
-        std::cout << "SSQP: Convergence reached in " << _iter + 1
-                  << " iterations" << std::endl;
+        LOG("SSQP: Convergence reached in " << _iter + 1 << " iterations"
+                                            << std::endl);
         return SUCCESS;
     }
-
-    // std::cout << "DX COST: "
-    //   << (_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff()
-    //   << std::endl;
-    // std::cout << "DU COST: "
-    //   << (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff()
-    //   << std::endl;
 
     if ((_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance &&
@@ -429,8 +400,8 @@ SolverState ssqp::_check_termination()
     {
         if (++_stale_iters == _params.loose_success_stale_iters)
         {
-            std::cout << "SSQP: Loose criteria satisfied after " << _iter + 1
-                      << " iterations" << std::endl;
+            LOG("SSQP: Loose criteria satisfied after "
+                << _iter + 1 << " iterations" << std::endl);
             return LOOSE_SUCCESS;
         }
     }

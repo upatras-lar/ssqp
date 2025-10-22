@@ -11,6 +11,11 @@ else
 	CXXFLAGS += -O3
 endif
 
+INFO ?= 1
+ifeq ($(INFO), 1)
+	CXXFLAGS += -DINFO
+endif
+
 # Optional compilation of Pinocchio
 WITH_PINOCCHIO ?= 0
 ifeq ($(WITH_PINOCCHIO),1)

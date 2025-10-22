@@ -4,11 +4,11 @@
 #include "solvers/ssqp.hpp"
 #include "model/Model.hpp"
 
-#define HORIZON  300
+#define HORIZON  100
 #define dt       0.01
 #define P_WGT    1
-#define V_WGT    0.1
-#define TERM_WGT 200
+#define V_WGT    0.001
+#define TERM_WGT 100
 #define TARGET   2
 
 int main()
@@ -133,8 +133,8 @@ int main()
     if (state == ssqp::solvers::SolverState::SUCCESS ||
         state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
     {
-        std::cout << "x: " << solution.x << std::endl;
-        std::cout << "u: " << solution.u << std::endl;
+        std::cout << "x: " << std::endl << solution.x << std::endl;
+        std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
     return 0;
