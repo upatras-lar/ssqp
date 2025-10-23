@@ -56,23 +56,25 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol)
     // Calculate constraint terms, assuming rho did not change
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        _qx[k] = _qp.stages[k].qx +
-                 _qp.stages[k].D.transpose() * current_sol.y.stage(k) -
-                 _qp.stages[k].D.transpose() * _rho.stage(k).asDiagonal() *
-                   current_sol.z.stage(k) -
-                 _sigma * current_sol.dx.stage(k);
+        _qx[k].noalias() =
+          _qp.stages[k].qx +
+          _qp.stages[k].D.transpose() * current_sol.y.stage(k) -
+          _qp.stages[k].D.transpose() * _rho.stage(k).asDiagonal() *
+            current_sol.z.stage(k) -
+          _sigma * current_sol.dx.stage(k);
 
-        _qu[k] = _qp.stages[k].qu +
-                 _qp.stages[k].E.transpose() * current_sol.y.stage(k) -
-                 _qp.stages[k].E.transpose() * _rho.stage(k).asDiagonal() *
-                   current_sol.z.stage(k) -
-                 _sigma * current_sol.du.stage(k);
+        _qu[k].noalias() =
+          _qp.stages[k].qu +
+          _qp.stages[k].E.transpose() * current_sol.y.stage(k) -
+          _qp.stages[k].E.transpose() * _rho.stage(k).asDiagonal() *
+            current_sol.z.stage(k) -
+          _sigma * current_sol.du.stage(k);
     }
-    _qt = _qp.qx_t +
-          _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
-          _qp.Dt.transpose() * _rho.stage(_qp.dims.horizon).asDiagonal() *
-            current_sol.z.stage(_qp.dims.horizon) +
-          _sigma * current_sol.dx.stage(_qp.dims.horizon);
+    _qt.noalias() =
+      _qp.qx_t + _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
+      _qp.Dt.transpose() * _rho.stage(_qp.dims.horizon).asDiagonal() *
+        current_sol.z.stage(_qp.dims.horizon) +
+      _sigma * current_sol.dx.stage(_qp.dims.horizon);
 
     _solve_cache_rho();
 
@@ -87,43 +89,45 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol,
     // Calculate constraint terms
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        _Qxx[k] = _qp.stages[k].Qxx +
-                  _qp.stages[k].D.transpose() * rho.stage(k).asDiagonal() *
-                    _qp.stages[k].D +
-                  _sigma * MatX::Identity(_qp.dims.stage_state[k],
-                                          _qp.dims.stage_state[k]);
-        _Qxu[k] = _qp.stages[k].Qxu + _qp.stages[k].D.transpose() *
-                                        rho.stage(k).asDiagonal() *
-                                        _qp.stages[k].E;
-        _Quu[k] = _qp.stages[k].Quu +
-                  _qp.stages[k].E.transpose() * rho.stage(k).asDiagonal() *
-                    _qp.stages[k].E +
-                  _sigma * MatX::Identity(_qp.dims.stage_control[k],
-                                          _qp.dims.stage_control[k]);
+        _Qxx[k].noalias() = _qp.stages[k].Qxx +
+                            _qp.stages[k].D.transpose() *
+                              rho.stage(k).asDiagonal() * _qp.stages[k].D +
+                            _sigma * MatX::Identity(_qp.dims.stage_state[k],
+                                                    _qp.dims.stage_state[k]);
+        _Qxu[k].noalias() = _qp.stages[k].Qxu + _qp.stages[k].D.transpose() *
+                                                  rho.stage(k).asDiagonal() *
+                                                  _qp.stages[k].E;
+        _Quu[k].noalias() = _qp.stages[k].Quu +
+                            _qp.stages[k].E.transpose() *
+                              rho.stage(k).asDiagonal() * _qp.stages[k].E +
+                            _sigma * MatX::Identity(_qp.dims.stage_control[k],
+                                                    _qp.dims.stage_control[k]);
 
-        _qx[k] = _qp.stages[k].qx +
-                 _qp.stages[k].D.transpose() * current_sol.y.stage(k) -
-                 _qp.stages[k].D.transpose() * rho.stage(k).asDiagonal() *
-                   current_sol.z.stage(k) -
-                 _sigma * current_sol.dx.stage(k);
+        _qx[k].noalias() =
+          _qp.stages[k].qx +
+          _qp.stages[k].D.transpose() * current_sol.y.stage(k) -
+          _qp.stages[k].D.transpose() * rho.stage(k).asDiagonal() *
+            current_sol.z.stage(k) -
+          _sigma * current_sol.dx.stage(k);
 
-        _qu[k] = _qp.stages[k].qu +
-                 _qp.stages[k].E.transpose() * current_sol.y.stage(k) -
-                 _qp.stages[k].E.transpose() * rho.stage(k).asDiagonal() *
-                   current_sol.z.stage(k) -
-                 _sigma * current_sol.du.stage(k);
+        _qu[k].noalias() =
+          _qp.stages[k].qu +
+          _qp.stages[k].E.transpose() * current_sol.y.stage(k) -
+          _qp.stages[k].E.transpose() * rho.stage(k).asDiagonal() *
+            current_sol.z.stage(k) -
+          _sigma * current_sol.du.stage(k);
     }
 
-    _Qt =
+    _Qt.noalias() =
       _qp.Qxx_t +
       _qp.Dt.transpose() * rho.stage(_qp.dims.horizon).asDiagonal() * _qp.Dt +
       _sigma * MatX::Identity(_qp.dims.stage_state[_qp.dims.horizon],
                               _qp.dims.stage_state[_qp.dims.horizon]);
-    _qt = _qp.qx_t +
-          _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
-          _qp.Dt.transpose() * rho.stage(_qp.dims.horizon).asDiagonal() *
-            current_sol.z.stage(_qp.dims.horizon) +
-          _sigma * current_sol.dx.stage(_qp.dims.horizon);
+    _qt.noalias() =
+      _qp.qx_t + _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
+      _qp.Dt.transpose() * rho.stage(_qp.dims.horizon).asDiagonal() *
+        current_sol.z.stage(_qp.dims.horizon) +
+      _sigma * current_sol.dx.stage(_qp.dims.horizon);
 
     _solve();
 
@@ -144,7 +148,7 @@ void lqr::_solve_cache_rho()
         // TODO: is LLT appropriate?
         if (_qp.dims.stage_control[k] > 1)
         {
-            _output.k[k] = -_H_llt[k].solve(h);
+            _output.k[k].noalias() = -_H_llt[k].solve(h);
         }
         else
         {
@@ -167,7 +171,8 @@ void lqr::_solve_cache_rho()
           (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
             _output.x.stage(k) +
           _qp.stages[k].B * _output.k[k] + _qp.stages[k].gamma;
-        _output.u.stage(k) = _output.K[k] * _output.x.stage(k) + _output.k[k];
+        _output.u.stage(k).noalias() =
+          _output.K[k] * _output.x.stage(k) + _output.k[k];
     }
 }
 
@@ -183,11 +188,12 @@ void lqr::_solve()
                  _qp.stages[k].B.transpose() *
                    (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
 
-        _G[k] = _Qxu[k].transpose() + _qp.stages[k].B.transpose() *
-                                        _output.P[k + 1] * _qp.stages[k].A;
+        _G[k].noalias() = _Qxu[k].transpose() + _qp.stages[k].B.transpose() *
+                                                  _output.P[k + 1] *
+                                                  _qp.stages[k].A;
 
-        _H[k] = _Quu[k] + _qp.stages[k].B.transpose() * _output.P[k + 1] *
-                            _qp.stages[k].B;
+        _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
+                                      _output.P[k + 1] * _qp.stages[k].B;
 
         // TODO: is LLT appropriate?
         if (_qp.dims.stage_control[k] > 1)
@@ -223,7 +229,8 @@ void lqr::_solve()
           (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
             _output.x.stage(k) +
           _qp.stages[k].B * _output.k[k] + _qp.stages[k].gamma;
-        _output.u.stage(k) = _output.K[k] * _output.x.stage(k) + _output.k[k];
+        _output.u.stage(k).noalias() =
+          _output.K[k] * _output.x.stage(k) + _output.k[k];
     }
 }
 }

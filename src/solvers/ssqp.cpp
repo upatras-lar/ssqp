@@ -2,6 +2,8 @@
 #include "solvers/admm_qp.hpp"
 #include "sqp_step/filter.hpp"
 
+// TODO: noalias
+
 namespace ssqp
 {
 namespace solvers
@@ -87,7 +89,7 @@ SolverState ssqp::solve(Guess &guess)
         // Lagrange multiplier update
         for (uint k = 0; k < _model.horizon(); ++k)
         {
-            _guess.lambda.stage(k) =
+            _guess.lambda.stage(k).noalias() =
               sol.P[k + 1] * sol.dx.stage(k + 1) + sol.p[k + 1];
         }
         // Need a minus because the QP (ADMM) assumes the opposite sign in the
@@ -301,7 +303,7 @@ SolverState ssqp::_check_termination()
                                        dX,
                                        dU);
 
-        lagrangian_dx.stage(horizon) -=
+        lagrangian_dx.stage(horizon).noalias() -=
           dX.transpose() * _guess.mu.stage(horizon);
     }
 
@@ -312,12 +314,12 @@ SolverState ssqp::_check_termination()
     _cost_du.stage(0) = du;
 
     dynamics[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
-    lagrangian_du.stage(0) += dU.transpose() * _guess.lambda.stage(0);
+    lagrangian_du.stage(0).noalias() += dU.transpose() * _guess.lambda.stage(0);
 
     if (constraints[0] != nullptr)
     {
         constraints[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
-        lagrangian_du.stage(0) -= dU.transpose() * _guess.mu.stage(0);
+        lagrangian_du.stage(0).noalias() -= dU.transpose() * _guess.mu.stage(0);
     }
 
     // Ignore x0 terms since it is not being optimized
@@ -333,9 +335,11 @@ SolverState ssqp::_check_termination()
 
         // Compute dynamics gap jacobian
         dynamics[k]->gradient(_guess.x.stage(k), _guess.u.stage(k), dX, dU);
-        lagrangian_dx.stage(k) += dX.transpose() * _guess.lambda.stage(k);
+        lagrangian_dx.stage(k).noalias() +=
+          dX.transpose() * _guess.lambda.stage(k);
         lagrangian_dx.stage(k) -= _guess.lambda.stage(k - 1);
-        lagrangian_du.stage(k) += dU.transpose() * _guess.lambda.stage(k);
+        lagrangian_du.stage(k).noalias() +=
+          dU.transpose() * _guess.lambda.stage(k);
 
         // Compute constraint jacobian
         if (constraints[k] != nullptr)
@@ -344,8 +348,10 @@ SolverState ssqp::_check_termination()
                                      _guess.u.stage(k),
                                      dX,
                                      dU);
-            lagrangian_dx.stage(k) -= dX.transpose() * _guess.mu.stage(k);
-            lagrangian_du.stage(k) -= dU.transpose() * _guess.mu.stage(k);
+            lagrangian_dx.stage(k).noalias() -=
+              dX.transpose() * _guess.mu.stage(k);
+            lagrangian_du.stage(k).noalias() -=
+              dU.transpose() * _guess.mu.stage(k);
         }
     }
 

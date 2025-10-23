@@ -20,8 +20,6 @@ admm_qp::admm_qp(const QPData &qp, const Params &params)
   , _rho_common(params.init_rho)
   , _rho(_solution.z, false)
   , _rho_inv(_solution.z, false)
-  , _ATy(qp.dims.state + qp.dims.control, qp.dims.stage_sc)
-  , _uly(qp.dims.horizon + 1)
 {
     _rho.vec.setConstant(_params.init_rho);
     _rho_inv.vec.setConstant(1 / _params.init_rho);
@@ -111,13 +109,23 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
     _norm_primal_rel = -std::numeric_limits<double>::infinity();
     _norm_dual_rel   = -std::numeric_limits<double>::infinity();
 
-    /* TODO: Infeasibility
-    FlatVec dy = _solution.y - y_prev;
-    _uly = 0;
+    /*
+    _primal_infs_norm       = -std::numeric_limits<double>::infinity();
+    _primal_infs_support    = 0;
+    _primal_infs_tol_scaled = _params.primal_infs_tolerance;
     */
+
+    // TODO: Infeasibility
+    FlatVec dy = _solution.y - y_prev;
+    // dy.vec     /= dy.vec.lpNorm<Eigen::Infinity>();
+
+    // DEBUG_LOG("dx: " << _solution.dx - x_prev);
+    // DEBUG_LOG("du: " << _solution.du - u_prev);
+    // DEBUG_LOG("dy: " << dy);
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
+        // DEBUG_LOG("Stage " << k << ": " << std::endl);
         VecX zdiff_scaled =
           _rho.stage(k).cwiseProduct(_solution.z.stage(k) - z_prev.stage(k));
         _norm_dual = std::max(_norm_dual,
@@ -149,13 +157,22 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
                      .lpNorm<Eigen::Infinity>());
 
         /*
-        _ATy.stage(k).head(_qp.dims.stage_state[k]) =
-          _qp.stages[k].D.transpose() * dy.stage(k);
-        _ATy.stage(k).tail(_qp.dims.stage_control[k]) =
-          _qp.stages[k].E.transpose() * dy.stage(k);
+        _primal_infs_norm = std::max(_primal_infs_norm,
+                                     (_qp.stages[k].D.transpose() * dy.stage(k))
+                                       .lpNorm<Eigen::Infinity>());
+        DEBUG_LOG("|| D*dy || = " << (_qp.stages[k].D.transpose() * dy.stage(k))
+                                       .lpNorm<Eigen::Infinity>()
+                                  << ", ");
+        _primal_infs_norm = std::max(_primal_infs_norm,
+                                     (_qp.stages[k].E.transpose() * dy.stage(k))
+                                       .lpNorm<Eigen::Infinity>());
+        DEBUG_LOG("|| E*dy || = " << (_qp.stages[k].E.transpose() * dy.stage(k))
+                                       .lpNorm<Eigen::Infinity>()
+                                  << std::endl);
 
-        _uly += (_qp.stages[k].cu.transpose() * dy.stage(k).cwiseMax(0) +
-                 _qp.stages[k].cl.transpose() * dy.stage(k).cwiseMin(0))(0);
+        _primal_infs_support +=
+          (_qp.stages[k].cu.transpose() * dy.stage(k).cwiseMax(0) +
+           _qp.stages[k].cl.transpose() * dy.stage(k).cwiseMin(0))(0);
         */
     }
 
@@ -183,11 +200,25 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
                  .lpNorm<Eigen::Infinity>());
 
     /*
-    _ATy.stage(_qp.dims.horizon) =
-      _qp.Dt.transpose() * dy.stage(_qp.dims.horizon);
+    _primal_infs_norm =
+      std::max(_primal_infs_norm,
+               (_qp.Dt.transpose() * dy.stage(_qp.dims.horizon))
+                 .lpNorm<Eigen::Infinity>());
 
-    _uly += (_qp.cu_t.transpose() * dy.stage(_qp.dims.horizon).cwiseMax(0) +
-             _qp.cl_t.transpose() * dy.stage(_qp.dims.horizon).cwiseMin(0))(0);
+
+    DEBUG_LOG("Horizon:" << std::endl);
+    DEBUG_LOG("D = " << std::endl << _qp.Dt << std::endl);
+    DEBUG_LOG("|| D*dy || = "
+              << (_qp.Dt.transpose() * dy.stage(_qp.dims.horizon))
+                   .lpNorm<Eigen::Infinity>()
+              << std::endl);
+
+    _primal_infs_support +=
+      (_qp.cu_t.transpose() * dy.stage(_qp.dims.horizon).cwiseMax(0) +
+       _qp.cl_t.transpose() * dy.stage(_qp.dims.horizon).cwiseMin(0))(0);
+
+    _primal_infs_tol_scaled *= dy.vec.lpNorm<Eigen::Infinity>();
+    DEBUG_LOG("dy norm: " << dy.vec.lpNorm<Eigen::Infinity>() << std::endl);
     */
 }
 
@@ -199,9 +230,14 @@ SolverState admm_qp::_check_termination() const
     }
 
     /*
-    if (_ATy.vec.lpNorm<Eigen::Infinity>() <
-          _params.primal_infeasibility_tolerance &&
-        _uly < 0)
+    DEBUG_LOG("Primal infeasiblity norm: " << _primal_infs_norm << std::endl);
+    DEBUG_LOG("Primal infeasiblity support: " << _primal_infs_support
+                                              << std::endl);
+    DEBUG_LOG("Primal infeasiblity tolerance: " << _primal_infs_tol_scaled
+                                                << std::endl);
+
+    if (_primal_infs_norm < _primal_infs_tol_scaled &&
+        _primal_infs_support < _primal_infs_tol_scaled)
     {
         return PRIMAL_INFEASIBLE;
     }
@@ -280,12 +316,12 @@ void admm_qp::_update_rho()
                      std::numeric_limits<double>::epsilon())
             {
                 _rho.stage(_qp.dims.horizon)(c)     = 1e3 * _rho_common;
-                _rho_inv.stage(_qp.dims.horizon)(c) = 1. / (1e3 * _rho_common);
+                _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / (1e3 * _rho_common);
             }
             else if (_qp.cl_t(c) < _qp.cu_t(c))
             {
                 _rho.stage(_qp.dims.horizon)(c)     = _rho_common;
-                _rho_inv.stage(_qp.dims.horizon)(c) = 1. / _rho_common;
+                _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / _rho_common;
             }
         }
 
@@ -299,9 +335,10 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        z_hat.stage(k) = _params.alpha * (_qp.stages[k].D * dx_hat.stage(k) +
-                                          _qp.stages[k].E * du_hat.stage(k)) +
-                         (1 - _params.alpha) * _solution.z.stage(k);
+        z_hat.stage(k).noalias() =
+          _params.alpha * (_qp.stages[k].D * dx_hat.stage(k) +
+                           _qp.stages[k].E * du_hat.stage(k)) +
+          (1 - _params.alpha) * _solution.z.stage(k);
         _solution.dx.stage(k) = _params.alpha * dx_hat.stage(k) +
                                 (1 - _params.alpha) * _solution.dx.stage(k);
         _solution.du.stage(k) = _params.alpha * du_hat.stage(k) +
@@ -316,7 +353,7 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
         _solution.y.stage(k) +=
           _rho.stage(k).cwiseProduct(z_hat.stage(k) - _solution.z.stage(k));
     }
-    z_hat.stage(_qp.dims.horizon) =
+    z_hat.stage(_qp.dims.horizon).noalias() =
       _params.alpha * _qp.Dt * dx_hat.stage(_qp.dims.horizon) +
       (1 - _params.alpha) * _solution.z.stage(_qp.dims.horizon);
     _solution.dx.stage(_qp.dims.horizon) =
@@ -332,6 +369,14 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
       _rho.stage(_qp.dims.horizon)
         .cwiseProduct(z_hat.stage(_qp.dims.horizon) -
                       _solution.z.stage(_qp.dims.horizon));
+    DEBUG_LOG("Terminal z diff: " << z_hat.stage(_qp.dims.horizon) -
+                                       _solution.z.stage(_qp.dims.horizon)
+                                  << std::endl);
+    DEBUG_LOG("Terminal y increase: "
+              << _rho.stage(_qp.dims.horizon)
+                   .cwiseProduct(z_hat.stage(_qp.dims.horizon) -
+                                 _solution.z.stage(_qp.dims.horizon))
+              << std::endl);
 }
 }
 }

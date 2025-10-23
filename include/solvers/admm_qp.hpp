@@ -32,7 +32,7 @@ class admm_qp
         const uint   max_iter      = 100'000;
         const double abs_tolerance = 1e-4; // Absolute tolerance
         const double rel_tolerance = 1e-4; // Relative tolerance
-        const double primal_infeasibility_tolerance =
+        const double primal_infs_tolerance =
           1e-6; // Primal infeasibility tolerance
 
         bool warm_start = true;
@@ -68,12 +68,12 @@ class admm_qp
     bool         _rho_changed;
 
     // Norms of residuals
-    double _norm_primal = 0, _norm_dual = 0;
-    double _norm_primal_rel = 0, _norm_dual_rel = 0;
+    double _norm_primal, _norm_dual;
+    double _norm_primal_rel, _norm_dual_rel;
 
     // Primal infeasibility criteria
-    FlatVec _ATy;
-    double  _uly;
+    double _primal_infs_norm, _primal_infs_support;
+    double _primal_infs_tol_scaled;
 
     uint _iter;
 
