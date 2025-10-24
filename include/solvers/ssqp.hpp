@@ -2,6 +2,7 @@
 #define SSQP_SSQP_HPP
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <functional>
 
@@ -20,7 +21,7 @@ class ssqp
     {
         const uint max_iter = 10'000;
         // Tolerance for lagrangian jacobian norms
-        const double tolerance = 1e-2;
+        const double tolerance = 1e-1;
         // Tolerance for change in cost jacobian norms
         const double loose_success_tolerance = tolerance / 10;
         // Number of iterations for stale cost jacobian norms
@@ -50,6 +51,8 @@ class ssqp
     ssqp(const model::Model &model, const Params &params = Params::Default());
 
     SolverState solve(Guess &guess);
+
+    bool write(const std::string &filename);
 
   protected:
     const std::vector<step::FilterFunction> _filter_ls_costs;

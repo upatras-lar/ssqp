@@ -4,3 +4,5 @@
 VARIABLES.sh
 out.txt
 out_pin.txt
+/visualizer/rtb-venv/*
+/visualizer/data/*

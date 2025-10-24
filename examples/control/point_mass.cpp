@@ -171,12 +171,12 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
 
     ssqp::VecX lower_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << -20).finished();
+        return (Eigen::Vector<double, 1>() << -27).finished();
     }
 
     ssqp::VecX upper_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << 20).finished();
+        return (Eigen::Vector<double, 1>() << 27).finished();
     }
 
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
@@ -309,6 +309,8 @@ int main()
         std::cout << "x: " << std::endl << solution.x << std::endl;
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
+
+    solver.write("visualizer/data/point_mass");
 
     return 0;
 }

@@ -137,6 +137,32 @@ void FlatVec::set_ops(const std::vector<ManifoldOperators> &ops)
     _per_stage_ops = _ops.size() > 1;
 }
 
+void FlatVec::write_data(std::ofstream &stream)
+{
+    for (uint stage = 0; stage < stages(); ++stage)
+    {
+        stream << _stage_sizes[stage] << " ";
+    }
+    stream << std::endl;
+
+    for (uint row = 0; row < _max_dim; ++row)
+    {
+        for (uint col = 0; col < stages(); ++col)
+        {
+            if (row < _stage_sizes[col])
+            {
+                stream << vec(_acc_idx[col] + row);
+            }
+            else
+            {
+                stream << "-";
+            }
+            stream << " ";
+        }
+        stream << std::endl;
+    }
+}
+
 FlatVec FlatVec::operator+(const FlatVec &p) const
 {
     assert(stages() == p.stages() && "FlatVec x + y: stage mismatch");
