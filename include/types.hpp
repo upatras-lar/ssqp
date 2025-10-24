@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <string>
 #include <cmath>
@@ -123,6 +124,8 @@ struct FlatVec
     void set_ops(const std::vector<ManifoldOperators> &ops);
 
     VecX vec;
+
+    void write_data(std::ofstream &stream);
 
     FlatVec  operator+(const FlatVec &p) const;
     FlatVec  operator-(const FlatVec &p) const;

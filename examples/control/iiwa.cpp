@@ -6,10 +6,10 @@
 
 #define HORIZON  100
 #define dt       0.01
-#define P_WGT    1
-#define V_WGT    0.001
-#define TERM_WGT 100
-#define TARGET   2
+#define P_WGT    10
+#define V_WGT    0.0001
+#define TERM_WGT 200
+#define TARGET   1
 
 int main()
 {
@@ -136,6 +136,8 @@ int main()
         std::cout << "x: " << std::endl << solution.x << std::endl;
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
+
+    solver.write("visualizer/data/iiwa");
 
     return 0;
 }

@@ -111,6 +111,21 @@ SolverState ssqp::solve(Guess &guess)
     return MAX_ITER_REACHED;
 }
 
+bool ssqp::write(const std::string &filename)
+{
+    std::ofstream out;
+    out.open(filename + ".trj");
+    if (!out)
+    {
+        return false;
+    }
+    _guess.x.write_data(out);
+    _guess.u.write_data(out);
+    out.close();
+
+    return true;
+}
+
 QPData ssqp::_setup_qp()
 {
     QPData qp(_model.linear_dims());

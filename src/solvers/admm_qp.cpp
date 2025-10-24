@@ -243,6 +243,8 @@ SolverState admm_qp::_check_termination() const
     }
     */
 
+    DEBUG_LOG("rho:" << std::endl << _rho << std::endl);
+
     double tolerance_prim =
       _params.abs_tolerance + _params.rel_tolerance * _norm_primal_rel;
 
