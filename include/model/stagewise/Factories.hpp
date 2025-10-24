@@ -37,6 +37,10 @@ std::shared_ptr<StageConstraints> make_constraints(
   const HessprodFunction &hess_xu = ZeroHessprod_xu,
   const HessprodFunction &hess_uu = ZeroHessprod_uu);
 
+std::shared_ptr<const StageConstraints> merge_constraints(
+  const std::shared_ptr<const StageConstraints> &c1,
+  const std::shared_ptr<const StageConstraints> &c2);
+
 class FunctionStageCost : public StageCost
 {
   public:

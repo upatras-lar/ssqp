@@ -19,6 +19,9 @@ int main()
 
     init.tail(STATE_SIZE).setZero();
 
+    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageConstraints>>
+      constraints(HORIZON + 1, nullptr);
+
     switch (TARGET)
     {
     // Simple reach
@@ -141,11 +144,43 @@ int main()
                                                  ssqp::model::ZeroHessian_xu,
                                                  terminal_cost_hess_uu);
 
+    /*
+    Eigen::VectorXd lb(1), ub(1);
+    lb(0) = 2.4;
+    ub(0) = 2.4;
+
+    ssqp::model::EvaluationFunction constraint_eval =
+      [](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    { return (Eigen::VectorXd(1) << x(0)).finished(); };
+
+    ssqp::model::multiGradientFunction constraint_grad =
+      [](const Eigen::VectorXd &x,
+         const Eigen::VectorXd &u,
+         Eigen::MatrixXd &dX,
+         Eigen::MatrixXd &dU)
+    {
+        dX = Eigen::MatrixXd::Zero(1, x.size());
+        dU = Eigen::MatrixXd::Zero(1, u.size());
+
+        dX(0, 0) = 1;
+    };
+
+    std::shared_ptr<const ssqp::model::stagewise::StageConstraints> constraint =
+      ssqp::model::stagewise::factory::make_constraints(1,
+                                                        lb,
+                                                        ub,
+                                                        constraint_eval,
+                                                        constraint_grad);
+
+    constraints[HORIZON / 2] = constraint;
+    */
+
     ssqp::model::Model model("examples/urdf/panda.urdf",
                              HORIZON,
                              dt,
                              cost,
                              terminal_cost,
+                             constraints,
                              init);
 
     ssqp::solvers::ssqp        solver(model);

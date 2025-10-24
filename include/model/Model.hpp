@@ -24,11 +24,13 @@ class Model
           const std::vector<std::shared_ptr<const stagewise::StageDynamics>>
             &dynamics,
           const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
-            &constraints = { nullptr });
+            &constraints = {});
 
     Model(const std::string &urdf_path, const uint horizon, const double dt,
           const std::shared_ptr<const stagewise::StageCost> &cost,
           const std::shared_ptr<const stagewise::StageCost> &terminal_cost,
+          const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
+            &constraints  = {},
           VecX init_state = VecX::Zero(0));
 
     const uint       horizon() const;
