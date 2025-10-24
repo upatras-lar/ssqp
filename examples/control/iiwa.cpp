@@ -121,6 +121,7 @@ int main()
                              dt,
                              cost,
                              terminal_cost,
+                             {},
                              init);
 
     ssqp::solvers::ssqp        solver(model);

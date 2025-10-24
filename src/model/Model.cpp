@@ -12,7 +12,7 @@ Model::Model(
   : _costs(costs)
   , _dynamics(dynamics)
   , _constraints(
-      constraints.size() == 1 && constraints[0] == nullptr
+      constraints.empty()
         ? std::vector<std::shared_ptr<const stagewise::StageConstraints>>(
             costs.size(), nullptr)
         : constraints)

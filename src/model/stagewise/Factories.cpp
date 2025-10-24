@@ -69,6 +69,87 @@ FunctionStageCost::FunctionStageCost(const EvaluationFunction &eval,
 {
 }
 
+std::shared_ptr<const StageConstraints> merge_constraints(
+  const std::shared_ptr<const StageConstraints> &c1,
+  const std::shared_ptr<const StageConstraints> &c2)
+{
+    uint nc = c1->output_size() + c2->output_size();
+
+    VecX lb(nc), ub(nc);
+    lb << c1->lower_bound(), c2->lower_bound();
+    ub << c1->upper_bound(), c2->upper_bound();
+
+    EvaluationFunction eval = [nc, c1, c2](const VecX &x, const VecX &u)
+    {
+        VecX c(nc);
+        c.head(c1->output_size()) = c1->evaluate(x, u);
+        c.tail(c2->output_size()) = c2->evaluate(x, u);
+
+        return c;
+    };
+
+    multiGradientFunction grad =
+      [nc, c1, c2](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+    {
+        dX = MatX::Zero(nc, x.size());
+        dU = MatX::Zero(nc, u.size());
+
+        MatX dX1(c1->output_size(), x.size());
+        MatX dU1(c1->output_size(), u.size());
+        c1->gradient(x, u, dX1, dU1);
+        dX.block(0, 0, c1->output_size(), x.size()) = dX1;
+        dU.block(0, 0, c1->output_size(), u.size()) = dU1;
+
+        MatX dX2(c2->output_size(), x.size());
+        MatX dU2(c2->output_size(), u.size());
+        c2->gradient(x, u, dX2, dU2);
+        dX.block(c1->output_size(), 0, c2->output_size(), x.size()) = dX2;
+        dU.block(c1->output_size(), 0, c2->output_size(), u.size()) = dU2;
+    };
+
+    HessprodFunction hessprod_xx =
+      [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Pxx)
+    {
+        Pxx = MatX::Zero(x.size(), x.size());
+        c1->hessprod_xx(x, u, mu.head(c1->output_size()), Pxx);
+
+        MatX tmp = MatX::Zero(x.size(), x.size());
+        c2->hessprod_xx(x, u, mu.tail(c2->output_size()), tmp);
+        Pxx += tmp;
+    };
+
+    HessprodFunction hessprod_xu =
+      [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Pxu)
+    {
+        Pxu = MatX::Zero(x.size(), u.size());
+        c1->hessprod_xu(x, u, mu.head(c1->output_size()), Pxu);
+
+        MatX tmp = MatX::Zero(x.size(), u.size());
+        c2->hessprod_xu(x, u, mu.tail(c2->output_size()), tmp);
+        Pxu += tmp;
+    };
+
+    HessprodFunction hessprod_uu =
+      [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Puu)
+    {
+        Puu = MatX::Zero(u.size(), u.size());
+        c1->hessprod_uu(x, u, mu.head(c1->output_size()), Puu);
+
+        MatX tmp = MatX::Zero(u.size(), u.size());
+        c2->hessprod_uu(x, u, mu.tail(c2->output_size()), tmp);
+        Puu += tmp;
+    };
+
+    return make_constraints(nc,
+                            lb,
+                            ub,
+                            eval,
+                            grad,
+                            hessprod_xx,
+                            hessprod_xu,
+                            hessprod_uu);
+}
+
 VecX FunctionStageCost::evaluate(const VecX &x, const VecX &u) const
 {
     return _eval(x, u);

@@ -12,10 +12,13 @@ namespace ssqp
 {
 namespace model
 {
-Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
-             const std::shared_ptr<const stagewise::StageCost> &cost,
-             const std::shared_ptr<const stagewise::StageCost> &terminal_cost,
-             VecX                                               init_state)
+Model::Model(
+  const std::string &urdf_path, const uint horizon, const double dt,
+  const std::shared_ptr<const stagewise::StageCost> &cost,
+  const std::shared_ptr<const stagewise::StageCost> &terminal_cost,
+  const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
+      &constraints,
+  VecX init_state)
   : _costs(horizon + 1)
   , _dynamics(horizon + 1)
   , _constraints(horizon + 1)
@@ -96,7 +99,6 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         dU                      = MatX::Zero(2 * model.nv, model.nv);
         dU.bottomRows(model.nv) = data.Minv * dt;
     };
-
     if (init_state.size() == 0)
     {
         init_state = VecX::Zero(model.nq + model.nv);
@@ -117,7 +119,8 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     lb << model.lowerPositionLimit, -model.velocityLimit, -model.effortLimit;
     ub << model.upperPositionLimit, model.velocityLimit, model.effortLimit;
 
-    EvaluationFunction constraint_eval = [model](const VecX &x, const VecX &u)
+    EvaluationFunction innate_constraint_eval =
+      [model](const VecX &x, const VecX &u)
     {
         VecX c(3 * model.nv);
         c.head(model.nv)              = x.head(model.nv);
@@ -127,7 +130,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         return c;
     };
 
-    multiGradientFunction constraint_grad =
+    multiGradientFunction innate_constraint_grad =
       [model](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         dX = MatX::Identity(3 * model.nv, 2 * model.nv);
@@ -138,14 +141,14 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
           MatX::Identity(model.nv, model.nv);
     };
 
-    std::shared_ptr<const stagewise::StageConstraints> constraints =
+    std::shared_ptr<const stagewise::StageConstraints> innate_constraints =
       stagewise::factory::make_constraints(3 * model.nv,
                                            lb,
                                            ub,
-                                           constraint_eval,
-                                           constraint_grad);
+                                           innate_constraint_eval,
+                                           innate_constraint_grad);
 
-    EvaluationFunction terminal_constraint_eval =
+    EvaluationFunction terminal_innate_constraint_eval =
       [model](const VecX &x, const VecX &u)
     {
         VecX c(2 * model.nv);
@@ -155,29 +158,45 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         return c;
     };
 
-    multiGradientFunction terminal_constraint_grad =
+    multiGradientFunction terminal_innate_constraint_grad =
       [model](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         dX = MatX::Identity(2 * model.nv, 2 * model.nv);
         dU = MatX::Zero(1, 1);
     };
 
-    std::shared_ptr<const stagewise::StageConstraints> terminal_constraints =
-      stagewise::factory::make_constraints(2 * model.nv,
-                                           lb.head(2 * model.nv),
-                                           ub.head(2 * model.nv),
-                                           terminal_constraint_eval,
-                                           terminal_constraint_grad);
+    std::shared_ptr<const stagewise::StageConstraints>
+      terminal_innate_constraints =
+        stagewise::factory::make_constraints(2 * model.nv,
+                                             lb.head(2 * model.nv),
+                                             ub.head(2 * model.nv),
+                                             terminal_innate_constraint_eval,
+                                             terminal_innate_constraint_grad);
+
+    bool extra_constraints = !constraints.empty();
+    if (extra_constraints)
+    {
+        assert(constraints.size() == horizon + 1 &&
+               "Constraints size mismatch");
+    }
 
     for (uint k = 0; k <= horizon; ++k)
     {
-        _costs[k]       = cost;
-        _dynamics[k]    = dynamics;
-        _constraints[k] = constraints;
+        _costs[k]    = cost;
+        _dynamics[k] = dynamics;
+        _constraints[k] =
+          extra_constraints && constraints[k] != nullptr
+            ? stagewise::factory::merge_constraints(innate_constraints,
+                                                    constraints[k])
+            : innate_constraints;
     }
 
-    _costs[horizon]       = terminal_cost;
-    _constraints[horizon] = terminal_constraints;
+    _costs[horizon] = terminal_cost;
+    _constraints[horizon] =
+      extra_constraints && constraints[horizon] != nullptr
+        ? stagewise::factory::merge_constraints(terminal_innate_constraints,
+                                                constraints[horizon])
+        : terminal_innate_constraints;
 
     _setup();
 }

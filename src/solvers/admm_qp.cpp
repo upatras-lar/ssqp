@@ -371,14 +371,6 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
       _rho.stage(_qp.dims.horizon)
         .cwiseProduct(z_hat.stage(_qp.dims.horizon) -
                       _solution.z.stage(_qp.dims.horizon));
-    DEBUG_LOG("Terminal z diff: " << z_hat.stage(_qp.dims.horizon) -
-                                       _solution.z.stage(_qp.dims.horizon)
-                                  << std::endl);
-    DEBUG_LOG("Terminal y increase: "
-              << _rho.stage(_qp.dims.horizon)
-                   .cwiseProduct(z_hat.stage(_qp.dims.horizon) -
-                                 _solution.z.stage(_qp.dims.horizon))
-              << std::endl);
 }
 }
 }
