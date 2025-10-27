@@ -25,6 +25,8 @@ class StageDynamics : public Function
     // Initial state (nize nx) (default all 0)
     virtual VecX init_state() const;
 
+    virtual void set_init_state(const VecX &init_state);
+
     // Operator definitions for states
     // Defines operators between states and state differences
     // If state is a euclidian vector, these operators reduce to simple

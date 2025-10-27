@@ -13,20 +13,20 @@ Container<Derived>::Container(const uint horizon)
 
 template<typename Derived>
 Container<Derived>::Container(
-  const std::vector<std::shared_ptr<const Derived>> &functions)
+  const std::vector<std::shared_ptr<Derived>> &functions)
   : _horizon(functions.size())
   , _functions(functions)
 {
 }
 
 template<typename Derived>
-std::shared_ptr<const Derived> &Container<Derived>::operator[](const uint k)
+std::shared_ptr<Derived> &Container<Derived>::operator[](const uint k)
 {
     return _functions[k];
 }
 
 template<typename Derived>
-const std::shared_ptr<const Derived> &Container<Derived>::operator[](
+const std::shared_ptr<Derived> &Container<Derived>::operator[](
   const uint k) const
 {
     return _functions[k];

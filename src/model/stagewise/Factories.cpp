@@ -69,9 +69,9 @@ FunctionStageCost::FunctionStageCost(const EvaluationFunction &eval,
 {
 }
 
-std::shared_ptr<const StageConstraints> merge_constraints(
-  const std::shared_ptr<const StageConstraints> &c1,
-  const std::shared_ptr<const StageConstraints> &c2)
+std::shared_ptr<StageConstraints> merge_constraints(
+  const std::shared_ptr<StageConstraints> &c1,
+  const std::shared_ptr<StageConstraints> &c2)
 {
     uint nc = c1->output_size() + c2->output_size();
 
@@ -219,6 +219,11 @@ uint FunctionStageDynamics::state_diff_size() const
 VecX FunctionStageDynamics::init_state() const
 {
     return _init_state;
+}
+
+void FunctionStageDynamics::set_init_state(const VecX &init_state)
+{
+    _init_state = init_state;
 }
 
 VecX FunctionStageDynamics::state_right_plus(const VecX &x,

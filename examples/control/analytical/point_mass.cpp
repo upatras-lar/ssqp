@@ -275,11 +275,11 @@ class Dynamics : public ssqp::model::stagewise::StageDynamics
 
 int main()
 {
-    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageCost>> costs(
+    std::vector<std::shared_ptr<ssqp::model::stagewise::StageCost>> costs(
       HORIZON + 1);
-    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageDynamics>>
+    std::vector<std::shared_ptr<ssqp::model::stagewise::StageDynamics>>
       dynamics(HORIZON + 1);
-    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageConstraints>>
+    std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
       constraints(HORIZON + 1);
 
     for (uint k = 0; k < HORIZON; ++k)

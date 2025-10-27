@@ -46,6 +46,13 @@ using HessianFunction = std::function<void(const VecX &, const VecX &, MatX &)>;
 using HessprodFunction =
   std::function<void(const VecX &, const VecX &, const VecX &, MatX &)>;
 
+using ForwardKinematicsFunction =
+  std::function<std::pair<VecX, MatX>(const VecX &, const std::string &frame)>;
+using InverseKinematicsFunction = std::function<const VecX(
+  const VecX &, const MatX &, const std::string &joint)>;
+using FrameJacobianFunction =
+  std::function<MatX(const VecX &, const std::string &frame)>;
+
 inline std::function<void(const VecX &, const VecX &, MatX &)> ZeroHessian_xx =
   [](const VecX &x, const VecX &u, MatX &Hxx)
 { Hxx = MatX::Zero(x.rows(), x.rows()); };

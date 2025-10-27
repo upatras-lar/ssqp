@@ -28,18 +28,17 @@ SRC_DIR := src
 EXAMPLES_DIR := examples/control
 BUILD_DIR := build
 OBJ_DIR := $(BUILD_DIR)/obj
-EX_OBJ_DIR := $(BUILD_DIR)/examples
 
-# Library and example sources
+# Library sources
 LIB_SRC := $(shell find $(SRC_DIR) -name '*.cpp')
 LIB_OBJ := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(LIB_SRC))
 
-EXAMPLE_SRC := $(wildcard $(EXAMPLES_DIR)/*.cpp)
-EXAMPLE_OBJ := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(EX_OBJ_DIR)/%.o,$(EXAMPLE_SRC))
+# Recursively find all example source files
+EXAMPLE_SRC := $(shell find $(EXAMPLES_DIR) -name '*.cpp')
 
-# Example binaries
-EXAMPLES := $(notdir $(EXAMPLE_SRC:.cpp=))
-EXE_FILES := $(EXAMPLES:%=$(BUILD_DIR)/%)
+# Convert to corresponding object files and executables
+EXAMPLE_OBJ := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(BUILD_DIR)/examples/%.o,$(EXAMPLE_SRC))
+EXE_FILES := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(BUILD_DIR)/bin/%,$(EXAMPLE_SRC))
 
 # Build configuration tracking (to avoid full rebuilds)
 CONFIG_FILE := $(BUILD_DIR)/.config
@@ -56,7 +55,7 @@ $(CONFIG_FILE):
 $(LIB_OBJ) $(EXAMPLE_OBJ): $(CONFIG_FILE)
 
 # Rule for example executables
-$(BUILD_DIR)/%: $(EX_OBJ_DIR)/%.o $(LIB_OBJ)
+$(BUILD_DIR)/bin/%: $(BUILD_DIR)/examples/%.o $(LIB_OBJ)
 	@mkdir -p $(dir $@)
 	$(CXX) $^ -o $@ $(CXXFLAGS) $(LDFLAGS)
 	@echo "Built $@"
@@ -67,7 +66,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	$(CXX) $(INCLUDES) -c $< -o $@ $(CXXFLAGS)
 
 # Rule for example objects
-$(EX_OBJ_DIR)/%.o: $(EXAMPLES_DIR)/%.cpp
+$(BUILD_DIR)/examples/%.o: $(EXAMPLES_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(INCLUDES) -c $< -o $@ $(CXXFLAGS)
 
@@ -78,3 +77,6 @@ $(EX_OBJ_DIR)/%.o: $(EXAMPLES_DIR)/%.cpp
 # Clean
 clean:
 	rm -rf $(BUILD_DIR)
+
+clean-examples:
+	rm -rf $(BUILD_DIR)/examples $(BUILD_DIR)/bin

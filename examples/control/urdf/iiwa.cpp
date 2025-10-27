@@ -68,7 +68,7 @@ int main()
                                                    Eigen::MatrixXd &Huu)
     { Huu = 2 * V_WGT * Eigen::MatrixXd::Identity(7, 7); };
 
-    std::shared_ptr<const ssqp::model::stagewise::StageCost> cost =
+    std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
       ssqp::model::stagewise::factory::make_cost(cost_eval,
                                                  cost_grad,
                                                  cost_hess_xx,
@@ -109,7 +109,7 @@ int main()
          Eigen::MatrixXd &Huu)
     { Huu = TERM_WGT * 2 * V_WGT * Eigen::MatrixXd::Identity(7, 7); };
 
-    std::shared_ptr<const ssqp::model::stagewise::StageCost> terminal_cost =
+    std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
       ssqp::model::stagewise::factory::make_cost(terminal_cost_eval,
                                                  terminal_cost_grad,
                                                  terminal_cost_hess_xx,

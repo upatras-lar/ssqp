@@ -37,9 +37,9 @@ std::shared_ptr<StageConstraints> make_constraints(
   const HessprodFunction &hess_xu = ZeroHessprod_xu,
   const HessprodFunction &hess_uu = ZeroHessprod_uu);
 
-std::shared_ptr<const StageConstraints> merge_constraints(
-  const std::shared_ptr<const StageConstraints> &c1,
-  const std::shared_ptr<const StageConstraints> &c2);
+std::shared_ptr<StageConstraints> merge_constraints(
+  const std::shared_ptr<StageConstraints> &c1,
+  const std::shared_ptr<StageConstraints> &c2);
 
 class FunctionStageCost : public StageCost
 {
@@ -84,6 +84,8 @@ class FunctionStageDynamics : public StageDynamics
 
     VecX init_state() const override;
 
+    void set_init_state(const VecX &init_state) override;
+
     VecX state_right_plus(const VecX &x, const VecX &dx) const override;
 
     VecX state_right_minus(const VecX &x, const VecX &y) const override;
@@ -104,7 +106,7 @@ class FunctionStageDynamics : public StageDynamics
 
   protected:
     const uint                  _nx, _nu, _nout, _ndx;
-    const VecX                  _init_state;
+    VecX                        _init_state;
     const ManifoldOperators     _ops;
     const EvaluationFunction    _eval;
     const multiGradientFunction _grad;
