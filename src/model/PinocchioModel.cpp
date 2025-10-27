@@ -7,6 +7,8 @@
 #include <pinocchio/algorithm/aba.hpp>
 #include <pinocchio/algorithm/aba-derivatives.hpp>
 #include <pinocchio/algorithm/jacobian.hpp>
+#include <pinocchio/algorithm/kinematics.hpp>
+#include <pinocchio/algorithm/frames.hpp>
 
 namespace ssqp
 {
@@ -14,11 +16,28 @@ namespace model
 {
 Model::Model(
   const std::string &urdf_path, const uint horizon, const double dt,
-  const std::shared_ptr<const stagewise::StageCost> &cost,
-  const std::shared_ptr<const stagewise::StageCost> &terminal_cost,
-  const std::vector<std::shared_ptr<const stagewise::StageConstraints>>
-      &constraints,
-  VecX init_state)
+  const std::shared_ptr<stagewise::StageCost> &cost,
+  const std::shared_ptr<stagewise::StageCost> &terminal_cost,
+  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
+  VecX                                                             init_state)
+  : Model(urdf_path, horizon, dt, init_state)
+{
+    finalize(cost, terminal_cost, constraints);
+}
+
+Model::Model(
+  const std::string &urdf_path, const uint horizon, const double dt,
+  const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
+  const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
+  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
+  VecX                                                             init_state)
+  : Model(urdf_path, horizon, dt, init_state)
+{
+    finalize(costs, terminal_cost, constraints);
+}
+
+Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
+             VecX init_state)
   : _costs(horizon + 1)
   , _dynamics(horizon + 1)
   , _constraints(horizon + 1)
@@ -104,7 +123,7 @@ Model::Model(
         init_state = VecX::Zero(model.nq + model.nv);
     }
 
-    std::shared_ptr<const stagewise::StageDynamics> dynamics =
+    std::shared_ptr<stagewise::StageDynamics> dynamics =
       stagewise::factory::make_dynamics(model.nq + model.nv,
                                         model.nv,
                                         model.nq + model.nv,
@@ -141,7 +160,7 @@ Model::Model(
           MatX::Identity(model.nv, model.nv);
     };
 
-    std::shared_ptr<const stagewise::StageConstraints> innate_constraints =
+    std::shared_ptr<stagewise::StageConstraints> innate_constraints =
       stagewise::factory::make_constraints(3 * model.nv,
                                            lb,
                                            ub,
@@ -165,13 +184,143 @@ Model::Model(
         dU = MatX::Zero(1, 1);
     };
 
-    std::shared_ptr<const stagewise::StageConstraints>
-      terminal_innate_constraints =
-        stagewise::factory::make_constraints(2 * model.nv,
-                                             lb.head(2 * model.nv),
-                                             ub.head(2 * model.nv),
-                                             terminal_innate_constraint_eval,
-                                             terminal_innate_constraint_grad);
+    std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints =
+      stagewise::factory::make_constraints(2 * model.nv,
+                                           lb.head(2 * model.nv),
+                                           ub.head(2 * model.nv),
+                                           terminal_innate_constraint_eval,
+                                           terminal_innate_constraint_grad);
+
+    for (uint k = 0; k <= horizon; ++k)
+    {
+        _dynamics[k]    = dynamics;
+        _constraints[k] = innate_constraints;
+    }
+
+    _constraints[horizon] = terminal_innate_constraints;
+
+    _forwardKinematics = [model](const VecX &x, const std::string &frame)
+    {
+        pinocchio::Data data(model);
+
+        pinocchio::forwardKinematics(model, data, x);
+
+        int frame_id = model.getFrameId(frame);
+        pinocchio::updateFramePlacement(model, data, frame_id);
+
+        return std::make_pair<VecX, MatX>(data.oMf[frame_id].translation(),
+                                          data.oMf[frame_id].rotation());
+    };
+
+    _inverseKinematics = [model](const VecX &desired_translation,
+                                 const MatX &desired_rotation,
+                                 const std::string &joint)
+    {
+        static double eps      = 1e-4;
+        static uint   MAX_ITER = 1000;
+        static double DT       = 1e-1;
+        static double damp     = 1e-12;
+
+        pinocchio::Data data(model);
+
+        int            joint_id = model.getJointId(joint);
+        pinocchio::SE3 oMdes =
+          pinocchio::SE3(static_cast<Eigen::Matrix3d>(desired_rotation),
+                         static_cast<Eigen::Vector3d>(desired_translation));
+
+        VecX q = pinocchio::neutral(model);
+
+        bool success = false;
+        for (uint i = 0; i < MAX_ITER; ++i)
+        {
+            pinocchio::forwardKinematics(model, data, q);
+            pinocchio::updateFramePlacements(model, data);
+
+            pinocchio::SE3 dMi = oMdes.actInv(data.oMi[joint_id]);
+
+            VecX err = pinocchio::log6(dMi).toVector();
+
+            if (err.norm() < eps)
+            {
+                success = true;
+                break;
+            }
+
+            MatX J(6, model.nv);
+            pinocchio::computeJointJacobian(model, data, q, joint_id, J);
+
+            MatX JJt = J * J.transpose();
+            VecX v   = -J.transpose() *
+                     (JJt + damp * MatX::Identity(6, 6)).ldlt().solve(err);
+
+            q = pinocchio::integrate(model, q, v * DT);
+
+            std::cout << q.transpose() << std::endl;
+        }
+
+        if (!success)
+        {
+            LOG("Warning: IK failed to converge");
+        }
+
+        return q;
+    };
+
+    _frameJacobian = [model](const VecX &x, const std::string &frame)
+    {
+        pinocchio::Data data(model);
+
+        int frame_id = model.getFrameId(frame);
+
+        pinocchio::forwardKinematics(model, data, x);
+        pinocchio::updateFramePlacements(model, data);
+
+        VecX p_ee = data.oMf[frame_id].translation();
+
+        pinocchio::computeJointJacobians(model, data, x);
+
+        MatX J6(6, model.nv);
+        getFrameJacobian(model,
+                         data,
+                         frame_id,
+                         pinocchio::ReferenceFrame::WORLD,
+                         J6);
+
+        return J6;
+    };
+}
+
+void Model::finalize(
+  const std::shared_ptr<stagewise::StageCost> &cost,
+  const std::shared_ptr<stagewise::StageCost> &terminal_cost,
+  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
+  VecX                                                             init_state)
+{
+    finalize(
+      std::vector<std::shared_ptr<stagewise::StageCost>>(_dynamics.size(),
+                                                         cost),
+      terminal_cost,
+      constraints,
+      init_state);
+}
+
+void Model::finalize(
+  const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
+  const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
+  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
+  VecX                                                             init_state)
+{
+    int horizon = _dynamics.size() - 1;
+
+    if (init_state.size() != 0)
+    {
+        for (uint k = 0; k < horizon; ++k)
+        {
+            _dynamics[k]->set_init_state(init_state);
+        }
+    }
+
+    assert(costs.size() == horizon + 1 && "Costs size mismatch");
 
     bool extra_constraints = !constraints.empty();
     if (extra_constraints)
@@ -180,23 +329,34 @@ Model::Model(
                "Constraints size mismatch");
     }
 
-    for (uint k = 0; k <= horizon; ++k)
+    if (extra_constraints)
     {
-        _costs[k]    = cost;
-        _dynamics[k] = dynamics;
-        _constraints[k] =
-          extra_constraints && constraints[k] != nullptr
-            ? stagewise::factory::merge_constraints(innate_constraints,
-                                                    constraints[k])
-            : innate_constraints;
+        for (uint k = 0; k <= horizon; ++k)
+        {
+            _costs[k] = costs[k];
+            if (constraints[k] != nullptr)
+            {
+                _constraints[k] =
+                  stagewise::factory::merge_constraints(_constraints[k],
+                                                        constraints[k]);
+            }
+        }
+        _costs[horizon] = terminal_cost;
+        if (constraints[horizon] != nullptr)
+        {
+            _constraints[horizon] =
+              stagewise::factory::merge_constraints(_constraints[horizon],
+                                                    constraints[horizon]);
+        }
     }
-
-    _costs[horizon] = terminal_cost;
-    _constraints[horizon] =
-      extra_constraints && constraints[horizon] != nullptr
-        ? stagewise::factory::merge_constraints(terminal_innate_constraints,
-                                                constraints[horizon])
-        : terminal_innate_constraints;
+    else
+    {
+        for (uint k = 0; k <= horizon; ++k)
+        {
+            _costs[k] = costs[k];
+        }
+        _costs[horizon] = terminal_cost;
+    }
 
     _setup();
 }

@@ -19,7 +19,7 @@ int main()
 
     init.tail(STATE_SIZE).setZero();
 
-    std::vector<std::shared_ptr<const ssqp::model::stagewise::StageConstraints>>
+    std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
       constraints(HORIZON + 1, nullptr);
 
     switch (TARGET)
@@ -88,7 +88,7 @@ int main()
                                                    Eigen::MatrixXd &Huu)
     { Huu = 2 * V_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE); };
 
-    std::shared_ptr<const ssqp::model::stagewise::StageCost> cost =
+    std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
       ssqp::model::stagewise::factory::make_cost(cost_eval,
                                                  cost_grad,
                                                  cost_hess_xx,
@@ -137,7 +137,7 @@ int main()
               Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
     };
 
-    std::shared_ptr<const ssqp::model::stagewise::StageCost> terminal_cost =
+    std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
       ssqp::model::stagewise::factory::make_cost(terminal_cost_eval,
                                                  terminal_cost_grad,
                                                  terminal_cost_hess_xx,
@@ -165,7 +165,7 @@ int main()
         dX(0, 0) = 1;
     };
 
-    std::shared_ptr<const ssqp::model::stagewise::StageConstraints> constraint =
+    std::shared_ptr<ssqp::model::stagewise::StageConstraints> constraint =
       ssqp::model::stagewise::factory::make_constraints(1,
                                                         lb,
                                                         ub,
@@ -197,7 +197,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("visualizer/data/panda");
+    solver.write("visualizer/data/panda_poses");
 
     return 0;
 }
