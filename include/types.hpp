@@ -17,17 +17,21 @@
 namespace ssqp
 {
 #ifdef INFO
-#define LOG(...) (std::cout << __VA_ARGS__)
+#define LOG(...)   (std::cout << __VA_ARGS__)
+#define LOGLN(...) (std::cout << __VA_ARGS__ << std::endl)
 #else
-#define LOG(...) ((void)0)
+#define LOG(...)   ((void)0)
+#define LOGLN(...) ((void)0)
 #endif
 
 #ifdef DEBUG
-#define DEBUG_LOG(...) (std::cout << __VA_ARGS__)
-#define DEBUG_WAIT()   std::cin.get()
+#define DEBUG_LOG(...)   (std::cout << __VA_ARGS__)
+#define DEBUG_LOGLN(...) (std::cout << __VA_ARGS__ << std::endl)
+#define DEBUG_WAIT()     std::cin.get()
 #else
-#define DEBUG_LOG(...) ((void)0)
-#define DEBUG_WAIT()   ((void)0)
+#define DEBUG_LOG(...)   ((void)0)
+#define DEBUG_LOGLN(...) ((void)0)
+#define DEBUG_WAIT()     ((void)0)
 #endif
 
 using VecX  = Eigen::VectorXd;

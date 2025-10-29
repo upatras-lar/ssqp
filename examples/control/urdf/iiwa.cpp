@@ -122,7 +122,7 @@ int main()
                              cost,
                              terminal_cost,
                              {},
-                             init);
+                             { init });
 
     ssqp::solvers::ssqp        solver(model);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

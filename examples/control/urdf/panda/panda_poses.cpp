@@ -79,8 +79,10 @@ int main()
                                                    const Eigen::VectorXd &u,
                                                    Eigen::MatrixXd &Hxx)
     {
-        Hxx =
-          2 * P_WGT * Eigen::MatrixXd::Identity(2 * STATE_SIZE, 2 * STATE_SIZE);
+        Hxx = Eigen::MatrixXd::Zero(2 * STATE_SIZE, 2 * STATE_SIZE);
+        Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE)
+          .diagonal()
+          .setConstant(2 * P_WGT);
     };
 
     ssqp::model::HessianFunction cost_hess_uu = [](const Eigen::VectorXd &x,
@@ -181,7 +183,7 @@ int main()
                              cost,
                              terminal_cost,
                              constraints,
-                             init);
+                             { init });
 
     ssqp::solvers::ssqp        solver(model);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
