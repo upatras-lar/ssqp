@@ -55,11 +55,15 @@ SolverState ssqp::solve(Guess &guess)
 
     SolverState ssqp_state;
 
+    DEBUG_LOGLN("Starting SSQP solver loop");
+
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
         QPData          qp = _setup_qp();
         admm_qp::Params admm_params {};
         admm_params.warm_start = _params.warm_start_admm;
+
+        DEBUG_LOGLN("QP setup complete");
 
         admm_qp           qp_solver(qp, admm_params);
         admm_qp::Solution sol(qp.dims);
@@ -68,7 +72,7 @@ SolverState ssqp::solve(Guess &guess)
         switch (state)
         {
         case MAX_ITER_REACHED:
-            LOG("Warning: ADMM: Max iterations reached" << std::endl);
+            LOGLN("Warning: ADMM: Max iterations reached");
             break;
         case PRIMAL_INFEASIBLE:
         case DUAL_INFEASIBLE:
@@ -79,12 +83,18 @@ SolverState ssqp::solve(Guess &guess)
 
         // Guess (x, u) update
         std::tie(_guess.x, _guess.u, std::ignore) =
-          step::filter(_guess.x, _guess.u, sol.dx, sol.du, _filter_ls_costs);
+          step::filter(_guess.x,
+                       _guess.u,
+                       sol.dx,
+                       sol.du,
+                       _filter_ls_costs,
+                       3,
+                       1e-2);
 
-        LOG("Current x: " << std::endl);
-        LOG(_guess.x << std::endl);
-        LOG("Current u: " << std::endl);
-        LOG(_guess.u << std::endl);
+        LOGLN("Current x: ");
+        LOGLN(_guess.x);
+        LOGLN("Current u: ");
+        LOGLN(_guess.u);
 
         // Lagrange multiplier update
         for (uint k = 0; k < _model.horizon(); ++k)
@@ -277,13 +287,13 @@ QPData ssqp::_setup_qp()
 
 SolverState ssqp::_check_termination()
 {
-    DEBUG_LOG("Guess " << _iter + 1 << std::endl);
-    DEBUG_LOG("=============" << std::endl);
-    DEBUG_LOG("x: " << std::endl << _guess.x << std::endl);
-    DEBUG_LOG("u: " << std::endl << _guess.u << std::endl);
-    DEBUG_LOG("lambda: " << std::endl << _guess.lambda << std::endl);
-    DEBUG_LOG("mu: " << std::endl << _guess.mu << std::endl);
-    DEBUG_LOG("=============" << std::endl);
+    DEBUG_LOGLN("Guess " << _iter + 1);
+    DEBUG_LOGLN("=============");
+    DEBUG_LOGLN("x: " << std::endl << _guess.x);
+    DEBUG_LOGLN("u: " << std::endl << _guess.u);
+    DEBUG_LOGLN("lambda: " << std::endl << _guess.lambda);
+    DEBUG_LOGLN("mu: " << std::endl << _guess.mu);
+    DEBUG_LOGLN("=============");
 
     static const uint horizon = _model.dims().horizon;
 
@@ -370,8 +380,8 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    LOG("Norm: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>() << std::endl);
-    LOG("Norm: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>() << std::endl);
+    LOGLN("Norm: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>());
+    LOGLN("Norm: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>());
 
     // Terminal constraint violation
     if (constraints[horizon] != nullptr &&
@@ -409,8 +419,7 @@ SolverState ssqp::_check_termination()
     if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
-        LOG("SSQP: Convergence reached in " << _iter + 1 << " iterations"
-                                            << std::endl);
+        LOGLN("SSQP: Convergence reached in " << _iter + 1 << " iterations");
         return SUCCESS;
     }
 
@@ -421,8 +430,8 @@ SolverState ssqp::_check_termination()
     {
         if (++_stale_iters == _params.loose_success_stale_iters)
         {
-            LOG("SSQP: Loose criteria satisfied after "
-                << _iter + 1 << " iterations" << std::endl);
+            LOGLN("SSQP: Loose criteria satisfied after " << _iter + 1
+                                                          << " iterations");
             return LOOSE_SUCCESS;
         }
     }

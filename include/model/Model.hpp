@@ -33,33 +33,33 @@ class Model
           const std::shared_ptr<stagewise::StageCost> &cost,
           const std::shared_ptr<stagewise::StageCost> &terminal_cost,
           const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-            &constraints  = {},
-          VecX init_state = VecX::Zero(0));
+            &constraints                       = {},
+          const std::vector<VecX> &init_states = {});
 
     Model(const std::string &urdf_path, const uint horizon, const double dt,
           const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
           const std::shared_ptr<stagewise::StageCost> &terminal_cost,
           const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-            &constraints  = {},
-          VecX init_state = VecX::Zero(0));
+            &constraints                       = {},
+          const std::vector<VecX> &init_states = {});
 
     // Using this constructor requires that Model::finalize is manually called
     Model(const std::string &urdf_path, const uint horizon, const double dt,
-          VecX init_state = VecX::Zero(0));
+          const std::vector<VecX> &init_states = {});
 
     void finalize(
       const std::shared_ptr<stagewise::StageCost> &cost,
       const std::shared_ptr<stagewise::StageCost> &terminal_cost,
       const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints  = {},
-      VecX init_state = VecX::Zero(0));
+        &constraints                       = {},
+      const std::vector<VecX> &init_states = {});
 
     void finalize(
       const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
       const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
       const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints  = {},
-      VecX init_state = VecX::Zero(0));
+        &constraints                       = {},
+      const std::vector<VecX> &init_states = {});
 
     const uint       horizon() const;
     const Dimensions dims() const;

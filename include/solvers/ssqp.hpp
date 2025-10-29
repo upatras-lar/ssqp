@@ -19,13 +19,13 @@ class ssqp
   public:
     struct Params
     {
-        const uint max_iter = 10'000;
+        uint max_iter = 10'000;
         // Tolerance for lagrangian jacobian norms
-        const double tolerance = 1e-1;
+        double tolerance = 1e-3;
         // Tolerance for change in cost jacobian norms
-        const double loose_success_tolerance = tolerance / 10;
+        double loose_success_tolerance = tolerance / 10;
         // Number of iterations for stale cost jacobian norms
-        const uint loose_success_stale_iters = 5;
+        uint loose_success_stale_iters = 5;
 
         // Whether to warm start ADMM with an unconstrained LQR solution
         bool warm_start_admm = true;

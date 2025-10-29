@@ -19,8 +19,8 @@ Model::Model(
   const std::shared_ptr<stagewise::StageCost> &cost,
   const std::shared_ptr<stagewise::StageCost> &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  VecX                                                             init_state)
-  : Model(urdf_path, horizon, dt, init_state)
+  const std::vector<VecX>                                         &init_states)
+  : Model(urdf_path, horizon, dt, init_states)
 {
     finalize(cost, terminal_cost, constraints);
 }
@@ -30,14 +30,14 @@ Model::Model(
   const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
   const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  VecX                                                             init_state)
-  : Model(urdf_path, horizon, dt, init_state)
+  const std::vector<VecX>                                         &init_states)
+  : Model(urdf_path, horizon, dt, init_states)
 {
     finalize(costs, terminal_cost, constraints);
 }
 
 Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
-             VecX init_state)
+             const std::vector<VecX> &init_states)
   : _costs(horizon + 1)
   , _dynamics(horizon + 1)
   , _constraints(horizon + 1)
@@ -118,20 +118,37 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         dU                      = MatX::Zero(2 * model.nv, model.nv);
         dU.bottomRows(model.nv) = data.Minv * dt;
     };
-    if (init_state.size() == 0)
-    {
-        init_state = VecX::Zero(model.nq + model.nv);
-    }
 
-    std::shared_ptr<stagewise::StageDynamics> dynamics =
-      stagewise::factory::make_dynamics(model.nq + model.nv,
-                                        model.nv,
-                                        model.nq + model.nv,
-                                        2 * model.nv,
-                                        init_state,
-                                        ops,
-                                        dyn_eval,
-                                        dyn_grad);
+    std::shared_ptr<stagewise::StageDynamics> dynamics = nullptr;
+
+    if (init_states.empty())
+    {
+        dynamics =
+          stagewise::factory::make_dynamics(model.nq + model.nv,
+                                            model.nv,
+                                            model.nq + model.nv,
+                                            2 * model.nv,
+                                            VecX::Zero(model.nq + model.nv),
+                                            ops,
+                                            dyn_eval,
+                                            dyn_grad);
+    }
+    else if (init_states.size() == 1)
+    {
+        dynamics = stagewise::factory::make_dynamics(model.nq + model.nv,
+                                                     model.nv,
+                                                     model.nq + model.nv,
+                                                     2 * model.nv,
+                                                     init_states[0],
+                                                     ops,
+                                                     dyn_eval,
+                                                     dyn_grad);
+    }
+    else
+    {
+        assert(init_states.size() == horizon &&
+               "init_states.size() must match horizon");
+    }
 
     // TODO: linearize bounds
     VecX lb(model.nq + 2 * model.nv), ub(model.nq + 2 * model.nv);
@@ -193,7 +210,17 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
 
     for (uint k = 0; k <= horizon; ++k)
     {
-        _dynamics[k]    = dynamics;
+        _dynamics[k] =
+          dynamics != nullptr
+            ? dynamics
+            : stagewise::factory::make_dynamics(model.nq + model.nv,
+                                                model.nv,
+                                                model.nq + model.nv,
+                                                2 * model.nv,
+                                                init_states[k],
+                                                ops,
+                                                dyn_eval,
+                                                dyn_grad);
         _constraints[k] = innate_constraints;
     }
 
@@ -255,12 +282,18 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
 
             q = pinocchio::integrate(model, q, v * DT);
 
-            std::cout << q.transpose() << std::endl;
+            for (int j = 0; j < model.nq; ++j)
+            {
+                q[j] = std::min(std::max(q[j], model.lowerPositionLimit[j]),
+                                model.upperPositionLimit[j]);
+            }
         }
 
         if (!success)
         {
-            LOG("Warning: IK failed to converge");
+            LOGLN("Warning: IK failed to converge");
+            LOGLN("Desired translation: " << desired_translation.transpose());
+            LOGLN("Actual: " << data.oMi[joint_id].translation().transpose());
         }
 
         return q;
@@ -294,29 +327,41 @@ void Model::finalize(
   const std::shared_ptr<stagewise::StageCost> &cost,
   const std::shared_ptr<stagewise::StageCost> &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  VecX                                                             init_state)
+  const std::vector<VecX>                                         &init_states)
 {
     finalize(
       std::vector<std::shared_ptr<stagewise::StageCost>>(_dynamics.size(),
                                                          cost),
       terminal_cost,
       constraints,
-      init_state);
+      init_states);
 }
 
 void Model::finalize(
   const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
   const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  VecX                                                             init_state)
+  const std::vector<VecX>                                         &init_states)
 {
     int horizon = _dynamics.size() - 1;
 
-    if (init_state.size() != 0)
+    if (!init_states.empty())
     {
-        for (uint k = 0; k < horizon; ++k)
+        if (init_states.size() == 1)
         {
-            _dynamics[k]->set_init_state(init_state);
+            for (uint k = 0; k < horizon; ++k)
+            {
+                _dynamics[k]->set_init_state(init_states[0]);
+            }
+        }
+        else
+        {
+            assert(init_states.size() == horizon &&
+                   "init_states.size() must match horizon");
+            for (uint k = 0; k < horizon; ++k)
+            {
+                _dynamics[k]->set_init_state(init_states[k]);
+            }
         }
     }
 

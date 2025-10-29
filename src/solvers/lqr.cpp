@@ -178,6 +178,7 @@ void lqr::_solve_cache_rho()
 
 void lqr::_solve()
 {
+    // DEBUG_LOGLN("Qt:" << std::endl << _Qt);
     _output.P[_qp.dims.horizon] = _Qt;
     _output.p[_qp.dims.horizon] = _qt;
 
@@ -192,12 +193,16 @@ void lqr::_solve()
                                                   _output.P[k + 1] *
                                                   _qp.stages[k].A;
 
+        // DEBUG_LOGLN("Quu[" << k << "]:" << std::endl << _Quu[k]);
+        // DEBUG_LOGLN("P[" << k + 1 << "]:" << std::endl << _output.P[k + 1]);
+
         _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
                                       _output.P[k + 1] * _qp.stages[k].B;
 
         // TODO: is LLT appropriate?
         if (_qp.dims.stage_control[k] > 1)
         {
+            // DEBUG_LOGLN("H[" << k << "]:" << std::endl << _H[k]);
             _H_llt[k]    = _H[k].llt();
             _output.K[k] = -_H_llt[k].solve(_G[k]);
             _output.k[k] = -_H_llt[k].solve(h);
@@ -225,6 +230,15 @@ void lqr::_solve()
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
+        // DEBUG_LOGLN("Setting x[" << k << "]:");
+        // DEBUG_LOGLN("A:" << std::endl << _qp.stages[k].A);
+        // DEBUG_LOGLN("B:" << std::endl << _qp.stages[k].B);
+        // DEBUG_LOGLN("K:" << std::endl << _output.K[k]);
+        // DEBUG_LOGLN("Previous x:" << std::endl
+        //                           << _output.x.stage(k).transpose());
+        // DEBUG_LOGLN("k:" << std::endl << _output.k[k].transpose());
+        // DEBUG_LOGLN("gamma:" << std::endl <<
+        // _qp.stages[k].gamma.transpose());
         _output.x.stage(k + 1) =
           (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
             _output.x.stage(k) +

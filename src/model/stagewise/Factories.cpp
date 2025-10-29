@@ -194,6 +194,8 @@ FunctionStageDynamics::FunctionStageDynamics(
   , _hess_xu(hess_xu)
   , _hess_uu(hess_uu)
 {
+    assert(init_state.size() == nx &&
+           "FunctionStageDynamics: nx must match init_state.size()");
 }
 
 uint FunctionStageDynamics::output_size() const
@@ -223,6 +225,8 @@ VecX FunctionStageDynamics::init_state() const
 
 void FunctionStageDynamics::set_init_state(const VecX &init_state)
 {
+    assert(init_state.size() == _nx &&
+           "FunctionStageDynamics: nx must match init_state.size()");
     _init_state = init_state;
 }
 
@@ -281,6 +285,8 @@ FunctionStageConstraints::FunctionStageConstraints(
   , _hess_xu(hess_xu)
   , _hess_uu(hess_uu)
 {
+    assert(lb.size() == ub.size() && ub.size() == nout &&
+           "FunctionStageConstraints: nout must match lb.size() and ub.size()");
 }
 
 uint FunctionStageConstraints::output_size() const

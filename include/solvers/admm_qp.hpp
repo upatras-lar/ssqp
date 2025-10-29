@@ -26,11 +26,11 @@ class admm_qp
         const double rho_min_                = 1e-6;
         const double rho_max_                = 1e3;
         const double adaptive_rho_tolerance_ = 5;
-        const uint   rho_update_iter_freq    = 15;
+        const uint   rho_update_iter_freq    = 25;
 
         // Termination parameters
-        const uint   max_iter      = 100'000;
-        const double abs_tolerance = 1e-4; // Absolute tolerance
+        const uint   max_iter      = 10'000;
+        const double abs_tolerance = 1e-3; // Absolute tolerance
         const double rel_tolerance = 1e-4; // Relative tolerance
         const double primal_infs_tolerance =
           1e-6; // Primal infeasibility tolerance

@@ -27,8 +27,8 @@ admm_qp::admm_qp(const QPData &qp, const Params &params)
 
 SolverState admm_qp::solve(admm_qp::Solution &sol)
 {
-    DEBUG_LOG("Solving with ADMM" << std::endl);
-    DEBUG_LOG("=============" << std::endl);
+    DEBUG_LOGLN("Solving with ADMM");
+    DEBUG_LOGLN("=============");
 
     SolverState admm_state;
 
@@ -42,6 +42,13 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         lqr_out      = lqr_solver.unconstrained();
         _solution.dx = lqr_out.x;
         _solution.du = lqr_out.u;
+        DEBUG_LOGLN("LQR unconstrained solution");
+        DEBUG_LOGLN("=============");
+        DEBUG_LOGLN("x:");
+        DEBUG_LOGLN(lqr_out.x);
+        DEBUG_LOGLN("u:");
+        DEBUG_LOGLN(lqr_out.u);
+        DEBUG_LOGLN("=============");
     }
 
     _rho_changed = true;
@@ -59,30 +66,30 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         _solution.P = lqr_out.P;
         _solution.p = lqr_out.p;
 
-        DEBUG_LOG("LQR solution, iteration " << _iter + 1 << std::endl);
-        DEBUG_LOG("=============" << std::endl);
-        DEBUG_LOG("x:" << std::endl);
-        DEBUG_LOG(lqr_out.x << std::endl);
-        DEBUG_LOG("u:" << std::endl);
-        DEBUG_LOG(lqr_out.u << std::endl);
-        DEBUG_LOG("=============" << std::endl);
+        DEBUG_LOGLN("LQR solution, iteration " << _iter + 1);
+        DEBUG_LOGLN("=============");
+        DEBUG_LOGLN("x:");
+        DEBUG_LOGLN(lqr_out.x);
+        DEBUG_LOGLN("u:");
+        DEBUG_LOGLN(lqr_out.u);
+        DEBUG_LOGLN("=============");
 
         FlatVec x_prev = _solution.dx, u_prev = _solution.du,
                 z_prev = _solution.z, y_prev = _solution.y;
         _step(lqr_out.x, lqr_out.u);
         _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
 
-        DEBUG_LOG("Update step, iteration " << _iter + 1 << std::endl);
-        DEBUG_LOG("=============" << std::endl);
-        DEBUG_LOG("x:" << std::endl);
-        DEBUG_LOG(_solution.dx << std::endl);
-        DEBUG_LOG("u:" << std::endl);
-        DEBUG_LOG(_solution.du << std::endl);
-        DEBUG_LOG("z:" << std::endl);
-        DEBUG_LOG(_solution.z << std::endl);
-        DEBUG_LOG("y:" << std::endl);
-        DEBUG_LOG(_solution.y << std::endl);
-        DEBUG_LOG("=============" << std::endl);
+        DEBUG_LOGLN("Update step, iteration " << _iter + 1);
+        DEBUG_LOGLN("=============");
+        DEBUG_LOGLN("x:");
+        DEBUG_LOGLN(_solution.dx);
+        DEBUG_LOGLN("u:");
+        DEBUG_LOGLN(_solution.du);
+        DEBUG_LOGLN("z:");
+        DEBUG_LOGLN(_solution.z);
+        DEBUG_LOGLN("y:");
+        DEBUG_LOGLN(_solution.y);
+        DEBUG_LOGLN("=============");
         DEBUG_WAIT();
 
         if (!((_iter) % _params.rho_update_iter_freq))
@@ -119,13 +126,13 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
     FlatVec dy = _solution.y - y_prev;
     // dy.vec     /= dy.vec.lpNorm<Eigen::Infinity>();
 
-    // DEBUG_LOG("dx: " << _solution.dx - x_prev);
-    // DEBUG_LOG("du: " << _solution.du - u_prev);
-    // DEBUG_LOG("dy: " << dy);
+    // DEBUG_LOGLN("dx: " << _solution.dx - x_prev);
+    // DEBUG_LOGLN("du: " << _solution.du - u_prev);
+    // DEBUG_LOGLN("dy: " << dy);
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        // DEBUG_LOG("Stage " << k << ": " << std::endl);
+        // DEBUG_LOGLN("Stage " << k << ": ");
         VecX zdiff_scaled =
           _rho.stage(k).cwiseProduct(_solution.z.stage(k) - z_prev.stage(k));
         _norm_dual = std::max(_norm_dual,
@@ -166,9 +173,8 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
         _primal_infs_norm = std::max(_primal_infs_norm,
                                      (_qp.stages[k].E.transpose() * dy.stage(k))
                                        .lpNorm<Eigen::Infinity>());
-        DEBUG_LOG("|| E*dy || = " << (_qp.stages[k].E.transpose() * dy.stage(k))
-                                       .lpNorm<Eigen::Infinity>()
-                                  << std::endl);
+        DEBUG_LOGLN("|| E*dy || = " << (_qp.stages[k].E.transpose() *
+        dy.stage(k)) .lpNorm<Eigen::Infinity>());
 
         _primal_infs_support +=
           (_qp.stages[k].cu.transpose() * dy.stage(k).cwiseMax(0) +
@@ -206,19 +212,18 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
                  .lpNorm<Eigen::Infinity>());
 
 
-    DEBUG_LOG("Horizon:" << std::endl);
-    DEBUG_LOG("D = " << std::endl << _qp.Dt << std::endl);
-    DEBUG_LOG("|| D*dy || = "
+    DEBUG_LOGLN("Horizon:");
+    DEBUG_LOGLN("D = " << std::endl << _qp.Dt);
+    DEBUG_LOGLN("|| D*dy || = "
               << (_qp.Dt.transpose() * dy.stage(_qp.dims.horizon))
-                   .lpNorm<Eigen::Infinity>()
-              << std::endl);
+                   .lpNorm<Eigen::Infinity>());
 
     _primal_infs_support +=
       (_qp.cu_t.transpose() * dy.stage(_qp.dims.horizon).cwiseMax(0) +
        _qp.cl_t.transpose() * dy.stage(_qp.dims.horizon).cwiseMin(0))(0);
 
     _primal_infs_tol_scaled *= dy.vec.lpNorm<Eigen::Infinity>();
-    DEBUG_LOG("dy norm: " << dy.vec.lpNorm<Eigen::Infinity>() << std::endl);
+    DEBUG_LOGLN("dy norm: " << dy.vec.lpNorm<Eigen::Infinity>());
     */
 }
 
@@ -230,11 +235,9 @@ SolverState admm_qp::_check_termination() const
     }
 
     /*
-    DEBUG_LOG("Primal infeasiblity norm: " << _primal_infs_norm << std::endl);
-    DEBUG_LOG("Primal infeasiblity support: " << _primal_infs_support
-                                              << std::endl);
-    DEBUG_LOG("Primal infeasiblity tolerance: " << _primal_infs_tol_scaled
-                                                << std::endl);
+    DEBUG_LOGLN("Primal infeasiblity norm: " << _primal_infs_norm);
+    DEBUG_LOGLN("Primal infeasiblity support: " << _primal_infs_support);
+    DEBUG_LOGLN("Primal infeasiblity tolerance: " << _primal_infs_tol_scaled);
 
     if (_primal_infs_norm < _primal_infs_tol_scaled &&
         _primal_infs_support < _primal_infs_tol_scaled)
@@ -243,7 +246,7 @@ SolverState admm_qp::_check_termination() const
     }
     */
 
-    DEBUG_LOG("rho:" << std::endl << _rho << std::endl);
+    DEBUG_LOGLN("rho:" << std::endl << _rho);
 
     double tolerance_prim =
       _params.abs_tolerance + _params.rel_tolerance * _norm_primal_rel;
@@ -251,13 +254,13 @@ SolverState admm_qp::_check_termination() const
     double tolerance_dual =
       _params.abs_tolerance + _params.rel_tolerance * _norm_dual_rel;
 
-    DEBUG_LOG("Tolerances" << std::endl);
-    DEBUG_LOG("=============" << std::endl);
-    DEBUG_LOG("Primal (tol vs norm): " << tolerance_prim << " vs "
-                                       << _norm_primal << std::endl);
-    DEBUG_LOG("Dual (tol vs norm): " << tolerance_dual << " vs " << _norm_dual
-                                     << std::endl);
-    DEBUG_LOG("=============" << std::endl);
+    DEBUG_LOGLN("Tolerances");
+    DEBUG_LOGLN("=============");
+    DEBUG_LOGLN("Primal (tol vs norm): " << tolerance_prim << " vs "
+                                         << _norm_primal);
+    DEBUG_LOGLN("Dual (tol vs norm): " << tolerance_dual << " vs "
+                                       << _norm_dual);
+    DEBUG_LOGLN("=============");
 
     if (_norm_primal > tolerance_prim || _norm_dual > tolerance_dual)
     {
