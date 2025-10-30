@@ -24,10 +24,7 @@ class Model
       const std::vector<std::shared_ptr<stagewise::StageCost>>     &costs,
       const std::vector<std::shared_ptr<stagewise::StageDynamics>> &dynamics,
       const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints                      = {},
-      const ForwardKinematicsFunction &fk = nullptr,
-      const InverseKinematicsFunction &ik = nullptr,
-      const FrameJacobianFunction &fj     = nullptr);
+        &constraints = {});
 
     Model(const std::string &urdf_path, const uint horizon, const double dt,
           const std::shared_ptr<stagewise::StageCost> &cost,
@@ -79,14 +76,13 @@ class Model
     const MatX frameJacobian(const VecX &x, const std::string &frame) const;
 
   protected:
+    class ModelImpl;
+    std::shared_ptr<ModelImpl> _impl;
+
     Dimensions           _dims, _lin_dims;
     CostsContainer       _costs;
     DynamicsContainer    _dynamics;
     ConstraintsContainer _constraints;
-
-    ForwardKinematicsFunction _forwardKinematics;
-    InverseKinematicsFunction _inverseKinematics;
-    FrameJacobianFunction     _frameJacobian;
 
     void _setup();
 };

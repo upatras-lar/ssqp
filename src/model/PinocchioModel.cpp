@@ -14,6 +14,12 @@ namespace ssqp
 {
 namespace model
 {
+struct Model::ModelImpl
+{
+    pinocchio::Model model;
+    pinocchio::Data  data;
+};
+
 Model::Model(
   const std::string &urdf_path, const uint horizon, const double dt,
   const std::shared_ptr<stagewise::StageCost> &cost,
@@ -38,111 +44,124 @@ Model::Model(
 
 Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
              const std::vector<VecX> &init_states)
-  : _costs(horizon + 1)
+  : _impl(std::make_shared<ModelImpl>())
+  , _costs(horizon + 1)
   , _dynamics(horizon + 1)
   , _constraints(horizon + 1)
 {
-    pinocchio::Model model;
-    pinocchio::urdf::buildModel(urdf_path, model);
+    pinocchio::urdf::buildModel(urdf_path, _impl->model);
+    _impl->data = pinocchio::Data(_impl->model);
+
+    auto *impl = _impl.get();
 
     ManifoldOperators ops;
-    ops.right_plus = [model](const VecX &x, const VecX &dx)
+    ops.right_plus = [impl](const VecX &x, const VecX &dx)
     {
-        VecX out(model.nq + model.nv);
+        VecX out(impl->model.nq + impl->model.nv);
 
-        out.head(model.nq) =
-          pinocchio::integrate(model, x.head(model.nq), dx.head(model.nv));
-        out.tail(model.nv) = x.tail(model.nv) + dx.tail(model.nv);
+        out.head(impl->model.nq) =
+          pinocchio::integrate(impl->model,
+                               x.head(impl->model.nq),
+                               dx.head(impl->model.nv));
+        out.tail(impl->model.nv) =
+          x.tail(impl->model.nv) + dx.tail(impl->model.nv);
 
         return out;
     };
 
-    ops.right_minus = [model](const VecX &x, const VecX &y)
+    ops.right_minus = [impl](const VecX &x, const VecX &y)
     {
-        VecX out(2 * model.nv);
+        VecX out(2 * impl->model.nv);
 
-        out.head(model.nv) =
-          pinocchio::difference(model, y.head(model.nq), x.head(model.nq));
-        out.tail(model.nv) = x.tail(model.nv) - y.tail(model.nv);
+        out.head(impl->model.nv) =
+          pinocchio::difference(impl->model,
+                                y.head(impl->model.nq),
+                                x.head(impl->model.nq));
+        out.tail(impl->model.nv) =
+          x.tail(impl->model.nv) - y.tail(impl->model.nv);
 
         return out;
     };
 
-    auto dyn_eval = [model, dt](const VecX &x, const VecX &u)
+    auto dyn_eval = [impl, dt](const VecX &x, const VecX &u)
     {
-        pinocchio::Data data(model);
+        pinocchio::aba(impl->model,
+                       impl->data,
+                       x.head(impl->model.nq),
+                       x.tail(impl->model.nv),
+                       u);
 
-        pinocchio::aba(model, data, x.head(model.nq), x.tail(model.nv), u);
-
-        VecX out(model.nq + model.nv);
-        out.head(model.nq) =
-          pinocchio::integrate(model, x.head(model.nq), x.tail(model.nv) * dt);
-        out.tail(model.nv) = x.tail(model.nv) + data.ddq * dt;
+        VecX out(impl->model.nq + impl->model.nv);
+        out.head(impl->model.nq) =
+          pinocchio::integrate(impl->model,
+                               x.head(impl->model.nq),
+                               x.tail(impl->model.nv) * dt);
+        out.tail(impl->model.nv) = x.tail(impl->model.nv) + impl->data.ddq * dt;
 
         return out;
     };
 
-    auto dyn_grad =
-      [model, dt](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+    auto dyn_grad = [impl, dt](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        pinocchio::Data data(model);
-
-        VecX q   = x.head(model.nq);
-        VecX v   = x.tail(model.nv);
+        VecX q   = x.head(impl->model.nq);
+        VecX v   = x.tail(impl->model.nv);
         VecX tau = u;
 
-        pinocchio::computeABADerivatives(model, data, q, v, tau);
+        pinocchio::computeABADerivatives(impl->model, impl->data, q, v, tau);
 
-        MatX Jint_q = MatX::Zero(model.nv, model.nv);
-        MatX Jint_v = MatX::Zero(model.nv, model.nv);
+        MatX Jint_q = MatX::Zero(impl->model.nv, impl->model.nv);
+        MatX Jint_v = MatX::Zero(impl->model.nv, impl->model.nv);
 
-        pinocchio::dIntegrate(model,
+        pinocchio::dIntegrate(impl->model,
                               q,
                               v * dt,
                               Jint_q,
                               pinocchio::ArgumentPosition::ARG0);
 
-        pinocchio::dIntegrate(model,
+        pinocchio::dIntegrate(impl->model,
                               q,
                               v * dt,
                               Jint_v,
                               pinocchio::ArgumentPosition::ARG1);
 
-        dX = MatX::Zero(2 * model.nv, 2 * model.nv);
-        dX.topLeftCorner(model.nv, model.nv)    = Jint_q;
-        dX.topRightCorner(model.nv, model.nv)   = Jint_v * dt;
-        dX.bottomLeftCorner(model.nv, model.nv) = data.ddq_dq * dt;
-        dX.bottomRightCorner(model.nv, model.nv) =
-          MatX::Identity(model.nv, model.nv) + data.ddq_dv * dt;
+        dX = MatX::Zero(2 * impl->model.nv, 2 * impl->model.nv);
+        dX.topLeftCorner(impl->model.nv, impl->model.nv)  = Jint_q;
+        dX.topRightCorner(impl->model.nv, impl->model.nv) = Jint_v * dt;
+        dX.bottomLeftCorner(impl->model.nv, impl->model.nv) =
+          impl->data.ddq_dq * dt;
+        dX.bottomRightCorner(impl->model.nv, impl->model.nv) =
+          MatX::Identity(impl->model.nv, impl->model.nv) +
+          impl->data.ddq_dv * dt;
 
-        dU                      = MatX::Zero(2 * model.nv, model.nv);
-        dU.bottomRows(model.nv) = data.Minv * dt;
+        dU = MatX::Zero(2 * impl->model.nv, impl->model.nv);
+        dU.bottomRows(impl->model.nv) = impl->data.Minv * dt;
     };
 
     std::shared_ptr<stagewise::StageDynamics> dynamics = nullptr;
 
     if (init_states.empty())
     {
-        dynamics =
-          stagewise::factory::make_dynamics(model.nq + model.nv,
-                                            model.nv,
-                                            model.nq + model.nv,
-                                            2 * model.nv,
-                                            VecX::Zero(model.nq + model.nv),
-                                            ops,
-                                            dyn_eval,
-                                            dyn_grad);
+        dynamics = stagewise::factory::make_dynamics(
+          impl->model.nq + impl->model.nv,
+          impl->model.nv,
+          impl->model.nq + impl->model.nv,
+          2 * impl->model.nv,
+          VecX::Zero(impl->model.nq + impl->model.nv),
+          ops,
+          dyn_eval,
+          dyn_grad);
     }
     else if (init_states.size() == 1)
     {
-        dynamics = stagewise::factory::make_dynamics(model.nq + model.nv,
-                                                     model.nv,
-                                                     model.nq + model.nv,
-                                                     2 * model.nv,
-                                                     init_states[0],
-                                                     ops,
-                                                     dyn_eval,
-                                                     dyn_grad);
+        dynamics =
+          stagewise::factory::make_dynamics(impl->model.nq + impl->model.nv,
+                                            impl->model.nv,
+                                            impl->model.nq + impl->model.nv,
+                                            2 * impl->model.nv,
+                                            init_states[0],
+                                            ops,
+                                            dyn_eval,
+                                            dyn_grad);
     }
     else
     {
@@ -151,58 +170,61 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     }
 
     // TODO: linearize bounds
-    VecX lb(model.nq + 2 * model.nv), ub(model.nq + 2 * model.nv);
-    lb << model.lowerPositionLimit, -model.velocityLimit, -model.effortLimit;
-    ub << model.upperPositionLimit, model.velocityLimit, model.effortLimit;
+    VecX lb(impl->model.nq + 2 * impl->model.nv),
+      ub(impl->model.nq + 2 * impl->model.nv);
+    lb << impl->model.lowerPositionLimit, -impl->model.velocityLimit,
+      -impl->model.effortLimit;
+    ub << impl->model.upperPositionLimit, impl->model.velocityLimit,
+      impl->model.effortLimit;
 
-    auto innate_constraint_eval = [model](const VecX &x, const VecX &u)
+    auto innate_constraint_eval = [impl](const VecX &x, const VecX &u)
     {
-        VecX c(3 * model.nv);
-        c.head(model.nv)              = x.head(model.nv);
-        c.segment(model.nv, model.nv) = x.tail(model.nv);
-        c.tail(model.nv)              = u;
+        VecX c(3 * impl->model.nv);
+        c.head(impl->model.nv)                    = x.head(impl->model.nv);
+        c.segment(impl->model.nv, impl->model.nv) = x.tail(impl->model.nv);
+        c.tail(impl->model.nv)                    = u;
 
         return c;
     };
 
     auto innate_constraint_grad =
-      [model](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+      [impl](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        dX = MatX::Identity(3 * model.nv, 2 * model.nv);
+        dX = MatX::Identity(3 * impl->model.nv, 2 * impl->model.nv);
 
-        dU = MatX(3 * model.nv, model.nv);
-        dU.block(0, 0, 2 * model.nv, model.nv).setZero();
-        dU.block(2 * model.nv, 0, model.nv, model.nv) =
-          MatX::Identity(model.nv, model.nv);
+        dU = MatX(3 * impl->model.nv, impl->model.nv);
+        dU.block(0, 0, 2 * impl->model.nv, impl->model.nv).setZero();
+        dU.block(2 * impl->model.nv, 0, impl->model.nv, impl->model.nv) =
+          MatX::Identity(impl->model.nv, impl->model.nv);
     };
 
     std::shared_ptr<stagewise::StageConstraints> innate_constraints =
-      stagewise::factory::make_constraints(3 * model.nv,
+      stagewise::factory::make_constraints(3 * impl->model.nv,
                                            lb,
                                            ub,
                                            innate_constraint_eval,
                                            innate_constraint_grad);
 
-    auto terminal_innate_constraint_eval = [model](const VecX &x, const VecX &u)
+    auto terminal_innate_constraint_eval = [impl](const VecX &x, const VecX &u)
     {
-        VecX c(2 * model.nv);
-        c.head(model.nv) = x.head(model.nv);
-        c.tail(model.nv) = x.tail(model.nv);
+        VecX c(2 * impl->model.nv);
+        c.head(impl->model.nv) = x.head(impl->model.nv);
+        c.tail(impl->model.nv) = x.tail(impl->model.nv);
 
         return c;
     };
 
     auto terminal_innate_constraint_grad =
-      [model](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+      [impl](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        dX = MatX::Identity(2 * model.nv, 2 * model.nv);
+        dX = MatX::Identity(2 * impl->model.nv, 2 * impl->model.nv);
         dU = MatX::Zero(1, 1);
     };
 
     std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints =
-      stagewise::factory::make_constraints(2 * model.nv,
-                                           lb.head(2 * model.nv),
-                                           ub.head(2 * model.nv),
+      stagewise::factory::make_constraints(2 * impl->model.nv,
+                                           lb.head(2 * impl->model.nv),
+                                           ub.head(2 * impl->model.nv),
                                            terminal_innate_constraint_eval,
                                            terminal_innate_constraint_grad);
 
@@ -211,10 +233,10 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         _dynamics[k] =
           dynamics != nullptr
             ? dynamics
-            : stagewise::factory::make_dynamics(model.nq + model.nv,
-                                                model.nv,
-                                                model.nq + model.nv,
-                                                2 * model.nv,
+            : stagewise::factory::make_dynamics(impl->model.nq + impl->model.nv,
+                                                impl->model.nv,
+                                                impl->model.nq + impl->model.nv,
+                                                2 * impl->model.nv,
                                                 init_states[k],
                                                 ops,
                                                 dyn_eval,
@@ -223,102 +245,101 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     }
 
     _constraints[horizon] = terminal_innate_constraints;
+}
 
-    _forwardKinematics = [model](const VecX &x, const std::string &frame)
+const std::pair<VecX, MatX> Model::forwardKinematics(
+  const VecX &x, const std::string &frame) const
+{
+    pinocchio::forwardKinematics(_impl->model, _impl->data, x);
+
+    int frame_id = _impl->model.getFrameId(frame);
+    pinocchio::updateFramePlacement(_impl->model, _impl->data, frame_id);
+
+    return std::make_pair<VecX, MatX>(_impl->data.oMf[frame_id].translation(),
+                                      _impl->data.oMf[frame_id].rotation());
+}
+
+/*
+const VecX Model::inverseKinematics(const VecX        &desired_translation,
+                                    const MatX        &desired_rotation,
+                                    const std::string &joint) const
+{
+    static double eps      = 1e-4;
+    static uint   MAX_ITER = 1000;
+    static double DT       = 1e-1;
+    static double damp     = 1e-12;
+
+    pinocchio::Data data(model);
+
+    int            joint_id = model.getJointId(joint);
+    pinocchio::SE3 oMdes =
+      pinocchio::SE3(static_cast<Eigen::Matrix3d>(desired_rotation),
+                     static_cast<Eigen::Vector3d>(desired_translation));
+
+    VecX q = pinocchio::neutral(model);
+
+    bool success = false;
+    for (uint i = 0; i < MAX_ITER; ++i)
     {
-        pinocchio::Data data(model);
-
-        pinocchio::forwardKinematics(model, data, x);
-
-        int frame_id = model.getFrameId(frame);
-        pinocchio::updateFramePlacement(model, data, frame_id);
-
-        return std::make_pair<VecX, MatX>(data.oMf[frame_id].translation(),
-                                          data.oMf[frame_id].rotation());
-    };
-
-    _inverseKinematics = [model](const VecX &desired_translation,
-                                 const MatX &desired_rotation,
-                                 const std::string &joint)
-    {
-        static double eps      = 1e-4;
-        static uint   MAX_ITER = 1000;
-        static double DT       = 1e-1;
-        static double damp     = 1e-12;
-
-        pinocchio::Data data(model);
-
-        int            joint_id = model.getJointId(joint);
-        pinocchio::SE3 oMdes =
-          pinocchio::SE3(static_cast<Eigen::Matrix3d>(desired_rotation),
-                         static_cast<Eigen::Vector3d>(desired_translation));
-
-        VecX q = pinocchio::neutral(model);
-
-        bool success = false;
-        for (uint i = 0; i < MAX_ITER; ++i)
-        {
-            pinocchio::forwardKinematics(model, data, q);
-            pinocchio::updateFramePlacements(model, data);
-
-            pinocchio::SE3 dMi = oMdes.actInv(data.oMi[joint_id]);
-
-            VecX err = pinocchio::log6(dMi).toVector();
-
-            if (err.norm() < eps)
-            {
-                success = true;
-                break;
-            }
-
-            MatX J(6, model.nv);
-            pinocchio::computeJointJacobian(model, data, q, joint_id, J);
-
-            MatX JJt = J * J.transpose();
-            VecX v   = -J.transpose() *
-                     (JJt + damp * MatX::Identity(6, 6)).ldlt().solve(err);
-
-            q = pinocchio::integrate(model, q, v * DT);
-
-            for (int j = 0; j < model.nq; ++j)
-            {
-                q[j] = std::min(std::max(q[j], model.lowerPositionLimit[j]),
-                                model.upperPositionLimit[j]);
-            }
-        }
-
-        if (!success)
-        {
-            LOGLN("Warning: IK failed to converge");
-            LOGLN("Desired translation: " << desired_translation.transpose());
-            LOGLN("Actual: " << data.oMi[joint_id].translation().transpose());
-        }
-
-        return q;
-    };
-
-    _frameJacobian = [model](const VecX &x, const std::string &frame)
-    {
-        pinocchio::Data data(model);
-
-        int frame_id = model.getFrameId(frame);
-
-        pinocchio::forwardKinematics(model, data, x);
+        pinocchio::forwardKinematics(model, data, q);
         pinocchio::updateFramePlacements(model, data);
 
-        VecX p_ee = data.oMf[frame_id].translation();
+        pinocchio::SE3 dMi = oMdes.actInv(data.oMi[joint_id]);
 
-        pinocchio::computeJointJacobians(model, data, x);
+        VecX err = pinocchio::log6(dMi).toVector();
 
-        MatX J6(6, model.nv);
-        getFrameJacobian(model,
-                         data,
-                         frame_id,
-                         pinocchio::ReferenceFrame::WORLD,
-                         J6);
+        if (err.norm() < eps)
+        {
+            success = true;
+            break;
+        }
 
-        return J6;
-    };
+        MatX J(6, model.nv);
+        pinocchio::computeJointJacobian(model, data, q, joint_id, J);
+
+        MatX JJt = J * J.transpose();
+        VecX v   = -J.transpose() *
+                 (JJt + damp * MatX::Identity(6, 6)).ldlt().solve(err);
+
+        q = pinocchio::integrate(model, q, v * DT);
+
+        for (int j = 0; j < model.nq; ++j)
+        {
+            q[j] = std::min(std::max(q[j], model.lowerPositionLimit[j]),
+                            model.upperPositionLimit[j]);
+        }
+    }
+
+    if (!success)
+    {
+        LOGLN("Warning: IK failed to converge");
+        LOGLN("Desired translation: " << desired_translation.transpose());
+        LOGLN("Actual: " << data.oMi[joint_id].translation().transpose());
+    }
+
+    return q;
+}
+*/
+
+const MatX Model::frameJacobian(const VecX &x, const std::string &frame) const
+{
+    int frame_id = _impl->model.getFrameId(frame);
+
+    pinocchio::forwardKinematics(_impl->model, _impl->data, x);
+    pinocchio::updateFramePlacements(_impl->model, _impl->data);
+
+    VecX p_ee = _impl->data.oMf[frame_id].translation();
+
+    pinocchio::computeJointJacobians(_impl->model, _impl->data, x);
+
+    MatX J6(6, _impl->model.nv);
+    pinocchio::getFrameJacobian(_impl->model,
+                                _impl->data,
+                                frame_id,
+                                pinocchio::ReferenceFrame::WORLD,
+                                J6);
+
+    return J6;
 }
 
 void Model::finalize(
