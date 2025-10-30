@@ -32,31 +32,28 @@ Eigen::Matrix<double, N, N> Qf =
 
 int main()
 {
-    ssqp::model::EvaluationFunction cost_eval =
-      [](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    auto cost_eval = [](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
         return 0.5 * (x - x_target).transpose() * Q * (x - x_target) +
                0.5 * u.transpose() * R * u;
     };
 
-    ssqp::model::GradientFunction cost_grad = [](const Eigen::VectorXd &x,
-                                                 const Eigen::VectorXd &u,
-                                                 Eigen::VectorXd &dx,
-                                                 Eigen::VectorXd &du)
+    auto cost_grad = [](const Eigen::VectorXd &x,
+                        const Eigen::VectorXd &u,
+                        Eigen::VectorXd &dx,
+                        Eigen::VectorXd &du)
     {
         dx = Q * (x - x_target);
         du = R * u;
     };
 
-    ssqp::model::HessianFunction cost_hess_xx = [](const Eigen::VectorXd &x,
-                                                   const Eigen::VectorXd &u,
-                                                   Eigen::MatrixXd &Hxx)
-    { Hxx = Q; };
+    auto cost_hess_xx = [](const Eigen::VectorXd &x,
+                           const Eigen::VectorXd &u,
+                           Eigen::MatrixXd &Hxx) { Hxx = Q; };
 
-    ssqp::model::HessianFunction cost_hess_uu = [](const Eigen::VectorXd &x,
-                                                   const Eigen::VectorXd &u,
-                                                   Eigen::MatrixXd &Huu)
-    { Huu = R; };
+    auto cost_hess_uu = [](const Eigen::VectorXd &x,
+                           const Eigen::VectorXd &u,
+                           Eigen::MatrixXd &Huu) { Huu = R; };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
       ssqp::model::stagewise::factory::make_cost(cost_eval,
@@ -65,20 +62,19 @@ int main()
                                                  ssqp::model::ZeroHessian_xu,
                                                  cost_hess_uu);
 
-    ssqp::model::EvaluationFunction terminal_cost_eval =
+    auto terminal_cost_eval =
       [](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     { return 0.5 * (x - x_target).transpose() * Qf * (x - x_target); };
 
-    ssqp::model::GradientFunction terminal_cost_grad =
-      [](const Eigen::VectorXd &x,
-         const Eigen::VectorXd &u,
-         Eigen::VectorXd &dx,
-         Eigen::VectorXd &du) { dx = Qf * (x - x_target); };
+    auto terminal_cost_grad = [](const Eigen::VectorXd &x,
+                                 const Eigen::VectorXd &u,
+                                 Eigen::VectorXd &dx,
+                                 Eigen::VectorXd &du)
+    { dx = Qf * (x - x_target); };
 
-    ssqp::model::HessianFunction terminal_cost_hess_xx =
-      [](const Eigen::VectorXd &x,
-         const Eigen::VectorXd &u,
-         Eigen::MatrixXd &Hxx) { Hxx = Qf; };
+    auto terminal_cost_hess_xx = [](const Eigen::VectorXd &x,
+                                    const Eigen::VectorXd &u,
+                                    Eigen::MatrixXd &Hxx) { Hxx = Qf; };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
       ssqp::model::stagewise::factory::make_cost(terminal_cost_eval,
