@@ -4,41 +4,23 @@ namespace ssqp
 {
 namespace model
 {
+struct Model::ModelImpl
+{
+};
+
 Model::Model(
   const std::vector<std::shared_ptr<stagewise::StageCost>>        &costs,
   const std::vector<std::shared_ptr<stagewise::StageDynamics>>    &dynamics,
-  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const ForwardKinematicsFunction &fk, const InverseKinematicsFunction &ik,
-  const FrameJacobianFunction &fj)
-  : _costs(costs)
+  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints)
+  : _impl(std::make_shared<ModelImpl>())
+  , _costs(costs)
   , _dynamics(dynamics)
   , _constraints(constraints.empty()
                    ? std::vector<std::shared_ptr<stagewise::StageConstraints>>(
                        costs.size(), nullptr)
                    : constraints)
-  , _forwardKinematics(fk)
-  , _inverseKinematics(ik)
-  , _frameJacobian(fj)
 {
     _setup();
-}
-
-const std::pair<VecX, MatX> Model::forwardKinematics(
-  const VecX &x, const std::string &frame) const
-{
-    return _forwardKinematics(x, frame);
-}
-
-const VecX Model::inverseKinematics(const VecX        &desired_translation,
-                                    const MatX        &desired_rotation,
-                                    const std::string &joint) const
-{
-    return _inverseKinematics(desired_translation, desired_rotation, joint);
-}
-
-const MatX Model::frameJacobian(const VecX &x, const std::string &frame) const
-{
-    return _frameJacobian(x, frame);
 }
 
 void Model::_setup()

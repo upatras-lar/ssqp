@@ -40,13 +40,6 @@ using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
 namespace model
 {
-using ForwardKinematicsFunction =
-  std::function<std::pair<VecX, MatX>(const VecX &, const std::string &frame)>;
-using InverseKinematicsFunction = std::function<const VecX(
-  const VecX &, const MatX &, const std::string &joint)>;
-using FrameJacobianFunction =
-  std::function<MatX(const VecX &, const std::string &frame)>;
-
 inline auto ZeroHessian_xx = [](const VecX &x, const VecX &u, MatX &Hxx)
 { Hxx = MatX::Zero(x.rows(), x.rows()); };
 
