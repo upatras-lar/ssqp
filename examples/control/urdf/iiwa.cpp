@@ -79,8 +79,7 @@ int main()
       [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
         return (Eigen::Vector<double, 1>()
-                << TERM_WGT * (V_WGT * u.transpose() * u +
-                               P_WGT * (x.head(7) - target).squaredNorm() +
+                << TERM_WGT * (P_WGT * (x.head(7) - target).squaredNorm() +
                                x.tail(7).squaredNorm()))
           .finished();
     };
@@ -94,7 +93,6 @@ int main()
         dx         = Eigen::VectorXd::Zero(14);
         dx.head(7) = TERM_WGT * 2 * P_WGT * (x.head(7) - target);
         dx.tail(7) = TERM_WGT * 2 * x.tail(7);
-        du         = TERM_WGT * 2 * V_WGT * u;
     };
 
     ssqp::model::HessianFunction terminal_cost_hess_xx =
@@ -103,18 +101,12 @@ int main()
          Eigen::MatrixXd &Hxx)
     { Hxx = TERM_WGT * 2 * P_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
 
-    ssqp::model::HessianFunction terminal_cost_hess_uu =
-      [](const Eigen::VectorXd &x,
-         const Eigen::VectorXd &u,
-         Eigen::MatrixXd &Huu)
-    { Huu = TERM_WGT * 2 * V_WGT * Eigen::MatrixXd::Identity(7, 7); };
-
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
       ssqp::model::stagewise::factory::make_cost(terminal_cost_eval,
                                                  terminal_cost_grad,
                                                  terminal_cost_hess_xx,
                                                  ssqp::model::ZeroHessian_xu,
-                                                 terminal_cost_hess_uu);
+                                                 ssqp::model::ZeroHessian_uu);
 
     ssqp::model::Model model("examples/urdf/iiwa.urdf",
                              HORIZON,

@@ -29,7 +29,7 @@ class admm_qp
         const uint   rho_update_iter_freq    = 25;
 
         // Termination parameters
-        const uint   max_iter      = 10'000;
+        const uint   max_iter      = 100;
         const double abs_tolerance = 1e-3; // Absolute tolerance
         const double rel_tolerance = 1e-4; // Relative tolerance
         const double primal_infs_tolerance =

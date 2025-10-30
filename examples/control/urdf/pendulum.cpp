@@ -73,11 +73,7 @@ int main()
       [](const Eigen::VectorXd &x,
          const Eigen::VectorXd &u,
          Eigen::VectorXd &dx,
-         Eigen::VectorXd &du)
-    {
-        dx = Qf * (x - x_target);
-        du = Eigen::Vector<double, 1>::Zero();
-    };
+         Eigen::VectorXd &du) { dx = Qf * (x - x_target); };
 
     ssqp::model::HessianFunction terminal_cost_hess_xx =
       [](const Eigen::VectorXd &x,

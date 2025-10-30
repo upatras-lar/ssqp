@@ -7,10 +7,10 @@
 #define STATE_SIZE 9
 #define HORIZON    300
 #define dt         0.01
-#define P_WGT      1
-#define V_WGT      0.001
+#define P_WGT      5
+#define V_WGT      1e-3
 #define TERM_WGT   100
-#define TARGET     3
+#define TARGET     4
 
 int main()
 {
@@ -102,8 +102,7 @@ int main()
     {
         return (Eigen::Vector<double, 1>()
                 << TERM_WGT *
-                     (V_WGT * u.transpose() * u +
-                      P_WGT * (x.head(STATE_SIZE) - target).squaredNorm() +
+                     (P_WGT * (x.head(STATE_SIZE) - target).squaredNorm() +
                       x.tail(STATE_SIZE).squaredNorm()))
           .finished();
     };
@@ -118,7 +117,6 @@ int main()
         dx.head(STATE_SIZE) =
           TERM_WGT * 2 * P_WGT * (x.head(STATE_SIZE) - target);
         dx.tail(STATE_SIZE) = TERM_WGT * 2 * x.tail(STATE_SIZE);
-        du                  = TERM_WGT * 2 * V_WGT * u;
     };
 
     ssqp::model::HessianFunction terminal_cost_hess_xx =
@@ -130,21 +128,12 @@ int main()
               Eigen::MatrixXd::Identity(2 * STATE_SIZE, 2 * STATE_SIZE);
     };
 
-    ssqp::model::HessianFunction terminal_cost_hess_uu =
-      [](const Eigen::VectorXd &x,
-         const Eigen::VectorXd &u,
-         Eigen::MatrixXd &Huu)
-    {
-        Huu = TERM_WGT * 2 * V_WGT *
-              Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
-    };
-
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
       ssqp::model::stagewise::factory::make_cost(terminal_cost_eval,
                                                  terminal_cost_grad,
                                                  terminal_cost_hess_xx,
                                                  ssqp::model::ZeroHessian_xu,
-                                                 terminal_cost_hess_uu);
+                                                 ssqp::model::ZeroHessian_uu);
 
     /*
     Eigen::VectorXd lb(1), ub(1);
