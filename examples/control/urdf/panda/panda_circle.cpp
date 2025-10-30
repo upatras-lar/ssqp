@@ -85,9 +85,8 @@ int main()
     {
         Eigen::Vector3d traj_k = traj[k];
 
-        ssqp::model::EvaluationFunction cost_eval =
-          [model, traj_k, Rd](const Eigen::VectorXd &x,
-                              const Eigen::VectorXd &u)
+        auto cost_eval = [model, traj_k, Rd](const Eigen::VectorXd &x,
+                                             const Eigen::VectorXd &u)
         {
             Eigen::VectorXd pos;
             Eigen::MatrixXd rot;
@@ -104,11 +103,10 @@ int main()
             return res;
         };
 
-        ssqp::model::GradientFunction cost_grad =
-          [model, traj_k, Rd](const Eigen::VectorXd &x,
-                              const Eigen::VectorXd &u,
-                              Eigen::VectorXd &dx,
-                              Eigen::VectorXd &du)
+        auto cost_grad = [model, traj_k, Rd](const Eigen::VectorXd &x,
+                                             const Eigen::VectorXd &u,
+                                             Eigen::VectorXd &dx,
+                                             Eigen::VectorXd &du)
         {
             Eigen::VectorXd pos;
             Eigen::MatrixXd rot;
@@ -127,10 +125,9 @@ int main()
             du = 2 * U_WGT * u;
         };
 
-        ssqp::model::HessianFunction cost_hess_xx =
-          [model](const Eigen::VectorXd &x,
-                  const Eigen::VectorXd &u,
-                  Eigen::MatrixXd &Hxx)
+        auto cost_hess_xx = [model](const Eigen::VectorXd &x,
+                                    const Eigen::VectorXd &u,
+                                    Eigen::MatrixXd &Hxx)
         {
             Eigen::MatrixXd Jfk =
               model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
@@ -143,10 +140,9 @@ int main()
               Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
         };
 
-        ssqp::model::HessianFunction cost_hess_uu =
-          [model](const Eigen::VectorXd &x,
-                  const Eigen::VectorXd &u,
-                  Eigen::MatrixXd &Huu)
+        auto cost_hess_uu = [model](const Eigen::VectorXd &x,
+                                    const Eigen::VectorXd &u,
+                                    Eigen::MatrixXd &Huu)
         {
             Huu = Eigen::MatrixXd::Zero(u.size(), u.size());
             Huu.diagonal().setConstant(2 * U_WGT);
@@ -162,7 +158,7 @@ int main()
 
     Eigen::Vector3d traj_k = traj[HORIZON];
 
-    ssqp::model::EvaluationFunction cost_eval =
+    auto cost_eval =
       [model, traj_k, Rd](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
         Eigen::VectorXd pos;
@@ -180,11 +176,10 @@ int main()
         return res;
     };
 
-    ssqp::model::GradientFunction cost_grad =
-      [model, traj_k, Rd](const Eigen::VectorXd &x,
-                          const Eigen::VectorXd &u,
-                          Eigen::VectorXd &dx,
-                          Eigen::VectorXd &du)
+    auto cost_grad = [model, traj_k, Rd](const Eigen::VectorXd &x,
+                                         const Eigen::VectorXd &u,
+                                         Eigen::VectorXd &dx,
+                                         Eigen::VectorXd &du)
     {
         Eigen::VectorXd pos;
         Eigen::MatrixXd rot;
@@ -202,10 +197,9 @@ int main()
         dx                  *= TERM_WGT;
     };
 
-    ssqp::model::HessianFunction cost_hess_xx =
-      [model](const Eigen::VectorXd &x,
-              const Eigen::VectorXd &u,
-              Eigen::MatrixXd &Hxx)
+    auto cost_hess_xx = [model](const Eigen::VectorXd &x,
+                                const Eigen::VectorXd &u,
+                                Eigen::MatrixXd &Hxx)
     {
         Eigen::MatrixXd Jfk =
           model.frameJacobian(x.head(STATE_SIZE), "panda_ee");

@@ -68,7 +68,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         return out;
     };
 
-    EvaluationFunction dyn_eval = [model, dt](const VecX &x, const VecX &u)
+    auto dyn_eval = [model, dt](const VecX &x, const VecX &u)
     {
         pinocchio::Data data(model);
 
@@ -82,7 +82,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         return out;
     };
 
-    multiGradientFunction dyn_grad =
+    auto dyn_grad =
       [model, dt](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         pinocchio::Data data(model);
@@ -155,8 +155,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     lb << model.lowerPositionLimit, -model.velocityLimit, -model.effortLimit;
     ub << model.upperPositionLimit, model.velocityLimit, model.effortLimit;
 
-    EvaluationFunction innate_constraint_eval =
-      [model](const VecX &x, const VecX &u)
+    auto innate_constraint_eval = [model](const VecX &x, const VecX &u)
     {
         VecX c(3 * model.nv);
         c.head(model.nv)              = x.head(model.nv);
@@ -166,7 +165,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         return c;
     };
 
-    multiGradientFunction innate_constraint_grad =
+    auto innate_constraint_grad =
       [model](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         dX = MatX::Identity(3 * model.nv, 2 * model.nv);
@@ -184,8 +183,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
                                            innate_constraint_eval,
                                            innate_constraint_grad);
 
-    EvaluationFunction terminal_innate_constraint_eval =
-      [model](const VecX &x, const VecX &u)
+    auto terminal_innate_constraint_eval = [model](const VecX &x, const VecX &u)
     {
         VecX c(2 * model.nv);
         c.head(model.nv) = x.head(model.nv);
@@ -194,7 +192,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         return c;
     };
 
-    multiGradientFunction terminal_innate_constraint_grad =
+    auto terminal_innate_constraint_grad =
       [model](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         dX = MatX::Identity(2 * model.nv, 2 * model.nv);
