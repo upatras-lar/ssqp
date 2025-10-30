@@ -20,12 +20,6 @@ ssqp::Guess::Guess(const model::Dimensions &dims,
 ssqp::ssqp(const model::Model &model, const Params &params)
   : _params(params)
   , _model(model)
-  , _filter_ls_costs({ [this](const FlatVec &x, const FlatVec &u)
-                       { return this->_lf(x, u); },
-                       [this](const FlatVec &x, const FlatVec &u)
-                       { return this->_gammaf(x, u); },
-                       [this](const FlatVec &x, const FlatVec &u)
-                       { return this->_cf(x, u); } })
   , _guess(model.dims(), model.linear_dims())
   , _prev_cost_dx(_guess.x, false)
   , _cost_dx(_guess.x, false)
@@ -82,14 +76,16 @@ SolverState ssqp::solve(Guess &guess)
         }
 
         // Guess (x, u) update
-        std::tie(_guess.x, _guess.u, std::ignore) =
-          step::filter(_guess.x,
-                       _guess.u,
-                       sol.dx,
-                       sol.du,
-                       _filter_ls_costs,
-                       2,
-                       1e-1);
+        std::tie(_guess.x, _guess.u, std::ignore) = step::filter(
+          _guess.x,
+          _guess.u,
+          sol.dx,
+          sol.du,
+          [this](const FlatVec &x, const FlatVec &u) { return _lf(x, u); },
+          [this](const FlatVec &x, const FlatVec &u) { return _gammaf(x, u); },
+          [this](const FlatVec &x, const FlatVec &u) { return _cf(x, u); },
+          2,
+          1e-1);
 
         LOGLN("Current x: ");
         LOGLN(_guess.x);

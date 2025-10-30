@@ -55,8 +55,6 @@ class ssqp
     bool write(const std::string &filename);
 
   protected:
-    const std::vector<step::FilterFunction> _filter_ls_costs;
-
     Params       _params;
     model::Model _model;
     Guess        _guess;
