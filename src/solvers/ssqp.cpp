@@ -88,8 +88,8 @@ SolverState ssqp::solve(Guess &guess)
                        sol.dx,
                        sol.du,
                        _filter_ls_costs,
-                       3,
-                       1e-2);
+                       2,
+                       1e-1);
 
         LOGLN("Current x: ");
         LOGLN(_guess.x);

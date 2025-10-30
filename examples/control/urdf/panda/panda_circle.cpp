@@ -9,9 +9,10 @@
 #define HORIZON    100
 #define dt         0.01
 #define P_WGT      1
-#define R_WGT      0
-#define V_WGT      0
-#define U_WGT      1e-5
+#define R_WGT      0.1
+#define V_WGT      1e-4
+#define U_WGT      1e-6
+#define TERM_WGT   100
 
 // Circle properties:
 // Center
@@ -21,7 +22,7 @@
 // Radius
 #define cr 0.3
 // Angular speed
-#define ω 2 * M_PI / (HORIZON * dt)
+#define ω M_PI / (HORIZON * dt)
 // Initial phase
 #define φ0 0
 
@@ -80,7 +81,7 @@ int main()
     std::vector<std::shared_ptr<ssqp::model::stagewise::StageCost>> costs(
       HORIZON + 1);
 
-    for (uint k = 0; k <= HORIZON; ++k)
+    for (uint k = 0; k < HORIZON; ++k)
     {
         Eigen::Vector3d traj_k = traj[k];
 
@@ -159,7 +160,73 @@ int main()
           cost_hess_uu);
     }
 
-    model.finalize(costs, costs[HORIZON], {}, { init_state });
+    Eigen::Vector3d traj_k = traj[HORIZON];
+
+    ssqp::model::EvaluationFunction cost_eval =
+      [model, traj_k, Rd](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    {
+        Eigen::VectorXd pos;
+        Eigen::MatrixXd rot;
+
+        std::tie(pos, rot) =
+          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
+
+        Eigen::Vector<double, 1> res;
+
+        res(0) =
+          TERM_WGT * (P_WGT * (pos - traj_k).squaredNorm() +
+                      R_WGT * logMapSO3(Rd.transpose() * rot).squaredNorm() +
+                      V_WGT * x.tail(STATE_SIZE).squaredNorm());
+        return res;
+    };
+
+    ssqp::model::GradientFunction cost_grad =
+      [model, traj_k, Rd](const Eigen::VectorXd &x,
+                          const Eigen::VectorXd &u,
+                          Eigen::VectorXd &dx,
+                          Eigen::VectorXd &du)
+    {
+        Eigen::VectorXd pos;
+        Eigen::MatrixXd rot;
+        std::tie(pos, rot) =
+          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
+        Eigen::MatrixXd Jfk =
+          model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
+
+        dx = Eigen::VectorXd::Zero(2 * STATE_SIZE);
+        dx.head(STATE_SIZE) =
+          2 * P_WGT * Jfk.topRows(3).transpose() * (pos - traj_k) +
+          2 * R_WGT * Jfk.bottomRows(3).transpose() *
+            logMapSO3(Rd.transpose() * rot);
+        dx.tail(STATE_SIZE)  = 2 * V_WGT * x.tail(STATE_SIZE);
+        dx                  *= TERM_WGT;
+    };
+
+    ssqp::model::HessianFunction cost_hess_xx =
+      [model](const Eigen::VectorXd &x,
+              const Eigen::VectorXd &u,
+              Eigen::MatrixXd &Hxx)
+    {
+        Eigen::MatrixXd Jfk =
+          model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
+
+        Hxx = Eigen::MatrixXd::Zero(2 * STATE_SIZE, 2 * STATE_SIZE);
+        Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE) =
+          2 * P_WGT * Jfk.topRows(3).transpose() * Jfk.topRows(3) +
+          2 * R_WGT * Jfk.bottomRows(3).transpose() * Jfk.bottomRows(3);
+        Hxx.bottomRightCorner(STATE_SIZE, STATE_SIZE) =
+          Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
+        Hxx *= TERM_WGT;
+    };
+
+    costs[HORIZON] =
+      ssqp::model::stagewise::factory::make_cost(cost_eval,
+                                                 cost_grad,
+                                                 cost_hess_xx,
+                                                 ssqp::model::ZeroHessian_xu,
+                                                 ssqp::model::ZeroHessian_uu);
+
+    model.finalize(costs[50], costs[50], {}, { init_state });
 
     ssqp::solvers::ssqp::Params params;
     params.tolerance = 0.1;
