@@ -8,11 +8,12 @@
 #define STATE_SIZE 9
 #define HORIZON    100
 #define dt         0.01
-#define P_WGT      1
-#define R_WGT      0.1
-#define V_WGT      1e-4
-#define U_WGT      1e-6
-#define TERM_WGT   100
+#define P_WGT      20
+#define R_WGT      15
+#define V_WGT      0.01
+#define U_WGT      1e-5
+#define J_WGT      0.1
+#define TERM_WGT   1
 
 // Circle properties:
 // Center
@@ -22,7 +23,7 @@
 // Radius
 #define cr 0.3
 // Angular speed
-#define ω M_PI / (HORIZON * dt)
+#define ω 2 * M_PI / (HORIZON * dt)
 // Initial phase
 #define φ0 0
 
@@ -54,6 +55,7 @@ int main()
     // Cost trajectory to track
     std::vector<Eigen::Vector3d> traj(HORIZON + 1);
 
+    LOGLN("Goal trajectory:");
     for (uint k = 0; k <= HORIZON; ++k)
     {
         double φk = φ0 + ω * k * dt;
@@ -68,25 +70,27 @@ int main()
     ssqp::model::Model model("examples/urdf/panda.urdf", HORIZON, dt);
 
     Eigen::VectorXd init_state = Eigen::VectorXd::Zero(2 * STATE_SIZE);
-    // init_state.head(STATE_SIZE) =
-    //   model.inverseKinematics(traj[0],
-    //                           Eigen::Matrix3d::Identity(),
-    //                           "panda_joint7");
+
     init_state.head(STATE_SIZE) << 0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785,
       0.0, 0.0;
 
-    DEBUG_LOGLN("Initial state: " << init_state.transpose());
+    LOGLN("Trajectory[0]: " << traj[0].transpose());
+    Eigen::VectorXd pos;
+    std::tie(pos, std::ignore) =
+      model.forwardKinematics(init_state.head(STATE_SIZE), "panda_ee");
+    LOGLN("Actual initial state: " << pos.transpose());
 
     // Define cost functions
     std::vector<std::shared_ptr<ssqp::model::stagewise::StageCost>> costs(
-      HORIZON + 1);
+      HORIZON);
 
     for (uint k = 0; k < HORIZON; ++k)
     {
         Eigen::Vector3d traj_k = traj[k];
 
-        auto cost_eval = [model, traj_k, Rd](const Eigen::VectorXd &x,
-                                             const Eigen::VectorXd &u)
+        auto cost_eval =
+          [model, traj_k, Rd, init_state](const Eigen::VectorXd &x,
+                                          const Eigen::VectorXd &u)
         {
             Eigen::VectorXd pos;
             Eigen::MatrixXd rot;
@@ -99,14 +103,18 @@ int main()
             res(0) = P_WGT * (pos - traj_k).squaredNorm() +
                      R_WGT * logMapSO3(Rd.transpose() * rot).squaredNorm() +
                      V_WGT * x.tail(STATE_SIZE).squaredNorm() +
-                     U_WGT * u.squaredNorm();
+                     U_WGT * u.squaredNorm() +
+                     J_WGT * (x.segment(1, STATE_SIZE - 1) -
+                              init_state.segment(1, STATE_SIZE - 1))
+                               .squaredNorm();
             return res;
         };
 
-        auto cost_grad = [model, traj_k, Rd](const Eigen::VectorXd &x,
-                                             const Eigen::VectorXd &u,
-                                             Eigen::VectorXd &dx,
-                                             Eigen::VectorXd &du)
+        auto cost_grad =
+          [model, traj_k, Rd, init_state](const Eigen::VectorXd &x,
+                                          const Eigen::VectorXd &u,
+                                          Eigen::VectorXd &dx,
+                                          Eigen::VectorXd &du)
         {
             Eigen::VectorXd pos;
             Eigen::MatrixXd rot;
@@ -118,8 +126,12 @@ int main()
             dx = Eigen::VectorXd::Zero(2 * STATE_SIZE);
             dx.head(STATE_SIZE) =
               2 * P_WGT * Jfk.topRows(3).transpose() * (pos - traj_k) +
-              2 * R_WGT * Jfk.bottomRows(3).transpose() *
+              2 * R_WGT * Jfk.bottomRows(3).transpose() * Rd *
                 logMapSO3(Rd.transpose() * rot);
+            dx.segment(1, STATE_SIZE - 1) +=
+              2 * J_WGT *
+              (x.segment(1, STATE_SIZE - 1) -
+               init_state.segment(1, STATE_SIZE - 1));
             dx.tail(STATE_SIZE) = 2 * V_WGT * x.tail(STATE_SIZE);
 
             du = 2 * U_WGT * u;
@@ -135,9 +147,10 @@ int main()
             Hxx = Eigen::MatrixXd::Zero(2 * STATE_SIZE, 2 * STATE_SIZE);
             Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE) =
               2 * P_WGT * Jfk.topRows(3).transpose() * Jfk.topRows(3) +
-              2 * R_WGT * Jfk.bottomRows(3).transpose() * Jfk.bottomRows(3);
+              2 * R_WGT * Jfk.bottomRows(3).transpose() * Jfk.bottomRows(3) +
+              2 * J_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
             Hxx.bottomRightCorner(STATE_SIZE, STATE_SIZE) =
-              Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
+              2 * V_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
         };
 
         auto cost_hess_uu = [model](const Eigen::VectorXd &x,
@@ -158,7 +171,7 @@ int main()
 
     Eigen::Vector3d traj_k = traj[HORIZON];
 
-    auto cost_eval =
+    auto term_cost_eval =
       [model, traj_k, Rd](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
         Eigen::VectorXd pos;
@@ -176,10 +189,10 @@ int main()
         return res;
     };
 
-    auto cost_grad = [model, traj_k, Rd](const Eigen::VectorXd &x,
-                                         const Eigen::VectorXd &u,
-                                         Eigen::VectorXd &dx,
-                                         Eigen::VectorXd &du)
+    auto term_cost_grad = [model, traj_k, Rd](const Eigen::VectorXd &x,
+                                              const Eigen::VectorXd &u,
+                                              Eigen::VectorXd &dx,
+                                              Eigen::VectorXd &du)
     {
         Eigen::VectorXd pos;
         Eigen::MatrixXd rot;
@@ -191,15 +204,15 @@ int main()
         dx = Eigen::VectorXd::Zero(2 * STATE_SIZE);
         dx.head(STATE_SIZE) =
           2 * P_WGT * Jfk.topRows(3).transpose() * (pos - traj_k) +
-          2 * R_WGT * Jfk.bottomRows(3).transpose() *
+          2 * R_WGT * Jfk.bottomRows(3).transpose() * Rd *
             logMapSO3(Rd.transpose() * rot);
         dx.tail(STATE_SIZE)  = 2 * V_WGT * x.tail(STATE_SIZE);
         dx                  *= TERM_WGT;
     };
 
-    auto cost_hess_xx = [model](const Eigen::VectorXd &x,
-                                const Eigen::VectorXd &u,
-                                Eigen::MatrixXd &Hxx)
+    auto term_cost_hess_xx = [model](const Eigen::VectorXd &x,
+                                     const Eigen::VectorXd &u,
+                                     Eigen::MatrixXd &Hxx)
     {
         Eigen::MatrixXd Jfk =
           model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
@@ -213,17 +226,17 @@ int main()
         Hxx *= TERM_WGT;
     };
 
-    costs[HORIZON] =
-      ssqp::model::stagewise::factory::make_cost(cost_eval,
-                                                 cost_grad,
-                                                 cost_hess_xx,
+    auto terminal_cost =
+      ssqp::model::stagewise::factory::make_cost(term_cost_eval,
+                                                 term_cost_grad,
+                                                 term_cost_hess_xx,
                                                  ssqp::model::ZeroHessian_xu,
                                                  ssqp::model::ZeroHessian_uu);
 
-    model.finalize(costs[50], costs[50], {}, { init_state });
+    model.finalize(costs, terminal_cost, {}, { init_state });
 
     ssqp::solvers::ssqp::Params params;
-    params.tolerance = 0.1;
+    // params.loose_success = false;
     ssqp::solvers::ssqp        solver(model, params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
@@ -236,6 +249,18 @@ int main()
     {
         std::cout << "x: " << std::endl << solution.x << std::endl;
         std::cout << "u: " << std::endl << solution.u << std::endl;
+    }
+
+    LOGLN("Trajectories: expected vs actual (per step)");
+
+    for (uint k = 0; k <= HORIZON; ++k)
+    {
+        LOGLN("Step " << k << ":");
+        LOGLN("Goal: " << traj[k].transpose());
+        std::tie(pos, std::ignore) =
+          model.forwardKinematics(solution.x.stage(HORIZON).head(STATE_SIZE),
+                                  "panda_ee");
+        LOGLN("Actual: " << pos.transpose());
     }
 
     solver.write("visualizer/data/panda_circle");
