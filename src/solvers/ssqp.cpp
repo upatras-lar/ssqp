@@ -1,5 +1,4 @@
 #include "solvers/ssqp.hpp"
-#include "solvers/admm_qp.hpp"
 #include "sqp_step/filter.hpp"
 
 // TODO: noalias
@@ -17,8 +16,10 @@ ssqp::Guess::Guess(const model::Dimensions &dims,
 {
 }
 
-ssqp::ssqp(const model::Model &model, const Params &params)
+ssqp::ssqp(const model::Model &model, const Params &params,
+           const admm_qp::Params &admm_params)
   : _params(params)
+  , _admm_params(admm_params)
   , _model(model)
   , _guess(model.dims(), model.linear_dims())
   , _prev_cost_dx(_guess.x, false)
@@ -53,13 +54,9 @@ SolverState ssqp::solve(Guess &guess)
 
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
-        QPData          qp = _setup_qp();
-        admm_qp::Params admm_params {};
-        admm_params.warm_start = _params.warm_start_admm;
+        QPData qp = _setup_qp();
 
-        DEBUG_LOGLN("QP setup complete");
-
-        admm_qp           qp_solver(qp, admm_params);
+        admm_qp           qp_solver(qp, _admm_params);
         admm_qp::Solution sol(qp.dims);
         SolverState       state = qp_solver.solve(sol);
 
@@ -84,7 +81,7 @@ SolverState ssqp::solve(Guess &guess)
           [this](const FlatVec &x, const FlatVec &u) { return _lf(x, u); },
           [this](const FlatVec &x, const FlatVec &u) { return _gammaf(x, u); },
           [this](const FlatVec &x, const FlatVec &u) { return _cf(x, u); },
-          2,
+          1.5,
           1e-1);
 
         LOGLN("Current x: ");
@@ -109,8 +106,11 @@ SolverState ssqp::solve(Guess &guess)
             return ssqp_state;
         }
 
-        _prev_cost_dx = _cost_dx;
-        _prev_cost_du = _cost_du;
+        if (_params.loose_success)
+        {
+            _prev_cost_dx = _cost_dx;
+            _prev_cost_du = _cost_du;
+        }
     }
 
     guess = _guess;
@@ -147,16 +147,23 @@ QPData ssqp::_setup_qp()
 
     for (uint k = 0; k < qp.dims.horizon; ++k)
     {
+        DEBUG_LOGLN("Stage " << k << ":");
+
         // Get A_k and B_k matrices
         dynamics[k]->gradient(_guess.x.stage(k),
                               _guess.u.stage(k),
                               qp.stages[k].A,
                               qp.stages[k].B);
 
+        DEBUG_LOGLN("A: " << std::endl << qp.stages[k].A);
+        DEBUG_LOGLN("B: " << std::endl << qp.stages[k].B);
+
         // Get gamma_k
         qp.stages[k].gamma = dynamics[k]->state_right_minus(
           dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
           _guess.x.stage(k + 1));
+
+        DEBUG_LOGLN("gamma: " << qp.stages[k].gamma.transpose());
 
         // Calculate Q_k
         costs[k]->hessian_xx(_guess.x.stage(k),
@@ -239,6 +246,16 @@ QPData ssqp::_setup_qp()
             qp.stages[k].cl = VecX::Zero(0);
             qp.stages[k].cu = VecX::Zero(0);
         }
+
+        DEBUG_LOGLN("Qxx: " << std::endl << qp.stages[k].Qxx);
+        DEBUG_LOGLN("Qxu: " << std::endl << qp.stages[k].Qxu);
+        DEBUG_LOGLN("Quu: " << std::endl << qp.stages[k].Quu);
+        DEBUG_LOGLN("qx: " << qp.stages[k].qx.transpose());
+        DEBUG_LOGLN("qu: " << qp.stages[k].qu.transpose());
+        DEBUG_LOGLN("D: " << std::endl << qp.stages[k].D);
+        DEBUG_LOGLN("E: " << std::endl << qp.stages[k].E);
+        DEBUG_LOGLN("cl: " << qp.stages[k].cl.transpose());
+        DEBUG_LOGLN("cu: " << qp.stages[k].cu.transpose());
     }
 
     // Terminal values for Q, q, D and c
@@ -376,8 +393,8 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    LOGLN("Norm: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>());
-    LOGLN("Norm: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>());
+    LOGLN("Norm dx: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>());
+    LOGLN("Norm du: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>());
 
     // Terminal constraint violation
     if (constraints[horizon] != nullptr &&
@@ -419,7 +436,8 @@ SolverState ssqp::_check_termination()
         return SUCCESS;
     }
 
-    if ((_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
+    if (_params.loose_success &&
+        (_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance &&
         (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance)

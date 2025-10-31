@@ -20,7 +20,7 @@ template<typename FilterFunction1, typename FilterFunction2,
 std::tuple<solvers::FlatVec, solvers::FlatVec, double> filter(
   solvers::FlatVec &x, solvers::FlatVec &u, solvers::FlatVec &dX,
   solvers::FlatVec &dU, const FilterFunction1 &ff1, const FilterFunction2 &ff2,
-  const FilterFunction3 &ff3, uint inv_alpha_scale_factor = 2,
+  const FilterFunction3 &ff3, double inv_alpha_scale_factor = 2,
   double min_alpha = 1e-5);
 }
 }

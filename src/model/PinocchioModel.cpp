@@ -349,7 +349,7 @@ void Model::finalize(
   const std::vector<VecX>                                         &init_states)
 {
     finalize(
-      std::vector<std::shared_ptr<stagewise::StageCost>>(_dynamics.size(),
+      std::vector<std::shared_ptr<stagewise::StageCost>>(_dynamics.size() - 1,
                                                          cost),
       terminal_cost,
       constraints,
@@ -384,7 +384,7 @@ void Model::finalize(
         }
     }
 
-    assert(costs.size() == horizon + 1 && "Costs size mismatch");
+    assert(costs.size() == horizon && "Costs size mismatch");
 
     bool extra_constraints = !constraints.empty();
     if (extra_constraints)
@@ -395,7 +395,7 @@ void Model::finalize(
 
     if (extra_constraints)
     {
-        for (uint k = 0; k <= horizon; ++k)
+        for (uint k = 0; k < horizon; ++k)
         {
             _costs[k] = costs[k];
             if (constraints[k] != nullptr)
@@ -415,7 +415,7 @@ void Model::finalize(
     }
     else
     {
-        for (uint k = 0; k <= horizon; ++k)
+        for (uint k = 0; k < horizon; ++k)
         {
             _costs[k] = costs[k];
         }
