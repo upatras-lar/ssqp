@@ -6,24 +6,27 @@
 #include "model/Model.hpp"
 
 #define STATE_SIZE 9
-#define HORIZON    100
+#define HORIZON    400
 #define dt         0.01
-#define P_WGT      20
-#define R_WGT      15
-#define V_WGT      0.01
+#define P_WGT      10
+#define R_WGT      5
+#define V_WGT      1e-4
 #define U_WGT      1e-5
-#define J_WGT      0.1
 #define TERM_WGT   1
 
 // Circle properties:
 // Center
-#define cx 0
+#define cx 0.3
 #define cy 0
-#define cz 0.48
+#define cz 0.26
 // Radius
-#define cr 0.3
+#define cr 0.22
+
+// Trajectory properties
+// Distance to cover
+#define DISTANCE 3 * M_PI
 // Angular speed
-#define ω 2 * M_PI / (HORIZON * dt)
+#define ω DISTANCE / (HORIZON * dt)
 // Initial phase
 #define φ0 0
 
@@ -59,7 +62,7 @@ int main()
     for (uint k = 0; k <= HORIZON; ++k)
     {
         double φk = φ0 + ω * k * dt;
-        traj[k] << cx + cr * std::cos(φk), cy + cr * sin(φk), cz;
+        traj[k] << cx, cy + cr * sin(φk), cz + cr * std::cos(φk);
     }
 
     Eigen::Matrix3d Rd = Eigen::Matrix3d::Identity();
@@ -103,10 +106,7 @@ int main()
             res(0) = P_WGT * (pos - traj_k).squaredNorm() +
                      R_WGT * logMapSO3(Rd.transpose() * rot).squaredNorm() +
                      V_WGT * x.tail(STATE_SIZE).squaredNorm() +
-                     U_WGT * u.squaredNorm() +
-                     J_WGT * (x.segment(1, STATE_SIZE - 1) -
-                              init_state.segment(1, STATE_SIZE - 1))
-                               .squaredNorm();
+                     U_WGT * u.squaredNorm();
             return res;
         };
 
@@ -128,10 +128,6 @@ int main()
               2 * P_WGT * Jfk.topRows(3).transpose() * (pos - traj_k) +
               2 * R_WGT * Jfk.bottomRows(3).transpose() * Rd *
                 logMapSO3(Rd.transpose() * rot);
-            dx.segment(1, STATE_SIZE - 1) +=
-              2 * J_WGT *
-              (x.segment(1, STATE_SIZE - 1) -
-               init_state.segment(1, STATE_SIZE - 1));
             dx.tail(STATE_SIZE) = 2 * V_WGT * x.tail(STATE_SIZE);
 
             du = 2 * U_WGT * u;
@@ -147,8 +143,7 @@ int main()
             Hxx = Eigen::MatrixXd::Zero(2 * STATE_SIZE, 2 * STATE_SIZE);
             Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE) =
               2 * P_WGT * Jfk.topRows(3).transpose() * Jfk.topRows(3) +
-              2 * R_WGT * Jfk.bottomRows(3).transpose() * Jfk.bottomRows(3) +
-              2 * J_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
+              2 * R_WGT * Jfk.bottomRows(3).transpose() * Jfk.bottomRows(3);
             Hxx.bottomRightCorner(STATE_SIZE, STATE_SIZE) =
               2 * V_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
         };
