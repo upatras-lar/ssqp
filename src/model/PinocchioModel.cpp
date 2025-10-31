@@ -218,7 +218,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
       [impl](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         dX = MatX::Identity(2 * impl->model.nv, 2 * impl->model.nv);
-        dU = MatX::Zero(1, 1);
+        dU = MatX::Zero(2 * impl->model.nv, 1);
     };
 
     std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints =
@@ -336,7 +336,7 @@ const MatX Model::frameJacobian(const VecX &x, const std::string &frame) const
     pinocchio::getFrameJacobian(_impl->model,
                                 _impl->data,
                                 frame_id,
-                                pinocchio::ReferenceFrame::WORLD,
+                                pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
                                 J6);
 
     return J6;

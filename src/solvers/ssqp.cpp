@@ -277,6 +277,7 @@ QPData ssqp::_setup_qp()
           tmpMat);
         qp.Qxx_t += tmpMat;
 
+        // TODO: Size 1 vector for u (merge_constraints issue)
         constraints[qp.dims.horizon]->gradient(_guess.x.stage(qp.dims.horizon),
                                                VecX::Zero(1),
                                                qp.Dt,
