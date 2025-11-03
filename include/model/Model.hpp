@@ -2,6 +2,7 @@
 #define SSQP_MODEL_HPP
 
 #include "types.hpp"
+#include "pinocchio_wrapper/PinocchioWrapper.hpp"
 #include "model/Container.hpp"
 #include "model/stagewise/StageCost.hpp"
 #include "model/stagewise/StageDynamics.hpp"
@@ -71,13 +72,12 @@ class Model
 
     const VecX inverseKinematics(const VecX        &desired_translation,
                                  const MatX        &desired_rotation,
-                                 const std::string &joint) const;
+                                 const std::string &joint);
 
     const MatX frameJacobian(const VecX &x, const std::string &frame) const;
 
   protected:
-    class ModelImpl;
-    std::shared_ptr<ModelImpl> _impl;
+    std::shared_ptr<pinocchio_wrapper::ModelImpl> _impl;
 
     Dimensions           _dims, _lin_dims;
     CostsContainer       _costs;

@@ -396,6 +396,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
+    /*
     LOGLN("Trajectories: expected vs actual (per step)");
 
     for (uint k = 0; k <= HORIZON; ++k)
@@ -407,6 +408,7 @@ int main()
                                   "panda_ee");
         LOGLN("Actual: " << pos.transpose());
     }
+    */
 
     solver.write("visualizer/data/panda_circle");
 
