@@ -1,5 +1,5 @@
-#ifndef SSQP_STEP_TYPES_HPP
-#define SSQP_STEP_TYPES_HPP
+#ifndef SSQP_SQP_STEP_TYPES_HPP
+#define SSQP_SQP_STEP_TYPES_HPP
 
 #include <vector>
 #include <functional>

@@ -20,6 +20,19 @@ struct ModelImpl
     pinocchio::Data  data;
 };
 
+Eigen::Vector3d logSO3(const Eigen::Matrix3d &mat)
+{
+    return pinocchio::log3(mat);
+}
+
+Eigen::Matrix3d JlogSO3(const Eigen::Matrix3d &mat)
+{
+    Eigen::Matrix3d Jlog;
+    pinocchio::Jlog3(mat, Jlog);
+
+    return Jlog;
+}
+
 std::shared_ptr<ModelImpl> makeImpl()
 {
     return std::make_shared<ModelImpl>();

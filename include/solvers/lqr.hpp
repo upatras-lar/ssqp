@@ -1,5 +1,5 @@
-#ifndef SSQP_LQR_HPP
-#define SSQP_LQR_HPP
+#ifndef SSQP_SOLVERS_LQR_HPP
+#define SSQP_SOLVERS_LQR_HPP
 
 #include <vector>
 

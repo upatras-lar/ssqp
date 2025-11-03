@@ -301,7 +301,11 @@ void admm_qp::_update_rho()
                     _rho.stage(k)(c)     = 1e3 * _rho_common;
                     _rho_inv.stage(k)(c) = 1.0 / (1e3 * _rho_common);
                 }
-                else if (_qp.stages[k].cl(c) < _qp.stages[k].cu(c))
+                // TODO: rho is not updated correctly
+                // Our values here are static per qp (theirs might not be)
+                // + we calculate cl and cu differently (c - l, c - u and use
+                // -cl and -cu)
+                else // if (_qp.stages[k].cl(c) < _qp.stages[k].cu(c))
                 {
                     _rho.stage(k)(c)     = _rho_common;
                     _rho_inv.stage(k)(c) = 1.0 / _rho_common;
@@ -323,7 +327,7 @@ void admm_qp::_update_rho()
                 _rho.stage(_qp.dims.horizon)(c)     = 1e3 * _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / (1e3 * _rho_common);
             }
-            else if (_qp.cl_t(c) < _qp.cu_t(c))
+            else // if (_qp.cl_t(c) < _qp.cu_t(c))
             {
                 _rho.stage(_qp.dims.horizon)(c)     = _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / _rho_common;
