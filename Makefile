@@ -16,12 +16,9 @@ ifeq ($(INFO), 1)
 	CXXFLAGS += -DINFO
 endif
 
-# Optional compilation of Pinocchio
-WITH_PINOCCHIO ?= 0
-ifeq ($(WITH_PINOCCHIO),1)
-	INCLUDES += -I/opt/openrobots/include
-	LDFLAGS += -L/opt/openrobots/lib -lpinocchio_parsers
-endif
+# Compilation of Pinocchio
+INCLUDES += -I/opt/openrobots/include
+LDFLAGS += -L/opt/openrobots/lib -lpinocchio_parsers
 
 # Directories
 SRC_DIR := src
@@ -40,16 +37,8 @@ EXAMPLE_SRC := $(shell find $(EXAMPLES_DIR) -name '*.cpp')
 EXAMPLE_OBJ := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(BUILD_DIR)/examples/%.o,$(EXAMPLE_SRC))
 EXE_FILES := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(BUILD_DIR)/bin/%,$(EXAMPLE_SRC))
 
-# Build configuration tracking (to avoid full rebuilds)
-CONFIG_FILE := $(BUILD_DIR)/.config
-
 # Default target
 all: $(CONFIG_FILE) $(EXE_FILES)
-
-# Detect changes in WITH_PINOCCHIO between builds
-$(CONFIG_FILE):
-	@mkdir -p $(BUILD_DIR)
-	@echo "WITH_PINOCCHIO=$(WITH_PINOCCHIO)" > $(CONFIG_FILE)
 
 # Rebuild only if the config changes
 $(LIB_OBJ) $(EXAMPLE_OBJ): $(CONFIG_FILE)
