@@ -48,6 +48,8 @@ void Model::_setup()
 
     for (uint k = 0; k < _dims.horizon; ++k)
     {
+        assert(_dynamics[k] != nullptr && _costs[k] != nullptr &&
+               "All stage dynamics and costs must be defined");
         _dims.stage_state[k]   = _dynamics[k]->state_size();
         _dims.stage_control[k] = _dynamics[k]->control_size();
         _dims.stage_constraint[k] =
@@ -77,6 +79,9 @@ void Model::_setup()
         _lin_dims.constraint += _lin_dims.stage_constraint[k];
     }
 
+    assert(_dynamics[_dims.horizon] != nullptr &&
+           _costs[_dims.horizon] != nullptr &&
+           "All stage dynamics and costs must be defined");
     _dims.stage_state[_dims.horizon] = _dynamics[_dims.horizon]->state_size();
     _dims.stage_constraint[_dims.horizon] =
       (_constraints[_dims.horizon] != nullptr)
@@ -98,6 +103,8 @@ void Model::_setup()
 
     _lin_dims.state      += _lin_dims.stage_state[_lin_dims.horizon];
     _lin_dims.constraint += _lin_dims.stage_constraint[_lin_dims.horizon];
+
+    _finalized = true;
 }
 
 const uint Model::horizon() const
@@ -128,6 +135,11 @@ const DynamicsContainer Model::dynamics() const
 const ConstraintsContainer Model::constraints() const
 {
     return _constraints;
+}
+
+std::shared_ptr<stagewise::StageCost> &Model::cost(const uint k)
+{
+    return _costs[k];
 }
 
 Model::Model(
@@ -434,6 +446,57 @@ void Model::finalize(
             _costs[k] = costs[k];
         }
         _costs[horizon] = terminal_cost;
+    }
+
+    _setup();
+}
+
+void Model::finalize(
+  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
+  const std::vector<VecX>                                         &init_states)
+{
+    int horizon = _dynamics.size() - 1;
+
+    if (!init_states.empty())
+    {
+        if (init_states.size() == 1)
+        {
+            for (uint k = 0; k < horizon; ++k)
+            {
+                _dynamics[k]->set_init_state(init_states[0]);
+            }
+        }
+        else
+        {
+            assert(init_states.size() == horizon &&
+                   "init_states.size() must match horizon");
+            for (uint k = 0; k < horizon; ++k)
+            {
+                _dynamics[k]->set_init_state(init_states[k]);
+            }
+        }
+    }
+
+    bool extra_constraints = !constraints.empty();
+    if (extra_constraints)
+    {
+        assert(constraints.size() == horizon + 1 &&
+               "Constraints size mismatch");
+        for (uint k = 0; k < horizon; ++k)
+        {
+            if (constraints[k] != nullptr)
+            {
+                _constraints[k] =
+                  stagewise::factory::merge_constraints(_constraints[k],
+                                                        constraints[k]);
+            }
+        }
+        if (constraints[horizon] != nullptr)
+        {
+            _constraints[horizon] =
+              stagewise::factory::merge_constraints(_constraints[horizon],
+                                                    constraints[horizon]);
+        }
     }
 
     _setup();

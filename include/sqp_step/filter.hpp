@@ -1,5 +1,5 @@
-#ifndef SSQP_FILTER_HPP
-#define SSQP_FILTER_HPP
+#ifndef SSQP_SQP_STEP_FILTER_HPP
+#define SSQP_SQP_STEP_FILTER_HPP
 
 #include "types.hpp"
 #include "sqp_step/types.hpp"

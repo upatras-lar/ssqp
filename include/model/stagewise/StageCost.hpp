@@ -1,5 +1,5 @@
-#ifndef SSQP_STAGE_COST_HPP
-#define SSQP_STAGE_COST_HPP
+#ifndef SSQP_MODEL_STAGEWISE_STAGE_COST_HPP
+#define SSQP_MODEL_STAGEWISE_STAGE_COST_HPP
 
 #include "model/stagewise/Function.hpp"
 

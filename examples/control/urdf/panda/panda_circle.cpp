@@ -3,14 +3,16 @@
 #include <vector>
 
 #include "solvers/ssqp.hpp"
+#include "solvers/admm_qp.hpp"
 #include "model/Model.hpp"
+#include "model/stagewise/predefined/Costs.hpp"
 
 #define STATE_SIZE 9
 #define HORIZON    400
 #define dt         0.01
 #define P_WGT      10
-#define R_WGT      0.5
-#define V_WGT      1e-4
+#define R_WGT      0.1
+#define V_WGT      1e-5
 #define U_WGT      1e-5
 #define TERM_WGT   1
 
@@ -30,7 +32,7 @@
 // Initial phase
 #define φ0 0
 
-#define USE_BOX false
+#define USE_BOX true
 
 inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
 {
@@ -45,29 +47,6 @@ inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
     res(2) = cz + t * s;
 
     return res;
-}
-
-inline Eigen::Vector3d logMapSO3(const Eigen::Matrix3d &R)
-{
-    const double cos_theta = (R.trace() - 1.0) * 0.5;
-    double       theta     = std::acos(std::clamp(cos_theta, -1.0, 1.0));
-
-    Eigen::Vector3d omega;
-    if (theta < 1e-8)
-    {
-        // Near zero rotation: first-order approximation
-        omega = 0.5 * Eigen::Vector3d(R(2, 1) - R(1, 2),
-                                      R(0, 2) - R(2, 0),
-                                      R(1, 0) - R(0, 1));
-    }
-    else
-    {
-        double sin_theta = std::sin(theta);
-        omega = (0.5 * theta / sin_theta) * Eigen::Vector3d(R(2, 1) - R(1, 2),
-                                                            R(0, 2) - R(2, 0),
-                                                            R(1, 0) - R(0, 1));
-    }
-    return omega;
 }
 
 int main()
@@ -101,90 +80,25 @@ int main()
       model.forwardKinematics(init_state.head(STATE_SIZE), "panda_ee");
     LOGLN("Actual initial state: " << pos.transpose());
 
-    // Define cost functions
-    std::vector<std::shared_ptr<ssqp::model::stagewise::StageCost>> costs(
-      HORIZON);
-
     std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
-      constraints(HORIZON + 1);
+      constraints(HORIZON + 1, nullptr);
 
-    // TODO: move these to PinocchioModel
     for (uint k = 0; k < HORIZON; ++k)
     {
-        Eigen::Vector3d traj_k = traj[k];
+        model.cost(k) = std::make_shared<
+          ssqp::model::stagewise::predefined::costs::SquaredDifferenceCost>(
+          model,
+          traj[k],
+          Rd,
+          "panda_ee",
+          STATE_SIZE,
+          STATE_SIZE,
+          P_WGT,
+          R_WGT,
+          V_WGT,
+          U_WGT);
 
-        auto cost_eval = [model, traj_k, Rd](const Eigen::VectorXd &x,
-                                             const Eigen::VectorXd &u)
-        {
-            Eigen::VectorXd pos;
-            Eigen::MatrixXd rot;
-
-            std::tie(pos, rot) =
-              model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-
-            Eigen::Vector<double, 1> res;
-
-            res(0) = P_WGT * (pos - traj_k).squaredNorm() +
-                     R_WGT * logMapSO3(Rd.transpose() * rot).squaredNorm() +
-                     V_WGT * x.tail(STATE_SIZE).squaredNorm() +
-                     U_WGT * u.squaredNorm();
-            return res;
-        };
-
-        // TODO: rotation gradient incorrect
-        auto cost_grad = [model, traj_k, Rd](const Eigen::VectorXd &x,
-                                             const Eigen::VectorXd &u,
-                                             Eigen::VectorXd &dx,
-                                             Eigen::VectorXd &du)
-        {
-            Eigen::VectorXd pos;
-            Eigen::MatrixXd rot;
-            std::tie(pos, rot) =
-              model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-            Eigen::MatrixXd Jfk =
-              model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
-
-            dx = Eigen::VectorXd::Zero(2 * STATE_SIZE);
-            dx.head(STATE_SIZE) =
-              2 * P_WGT * Jfk.topRows(3).transpose() * (pos - traj_k) +
-              2 * R_WGT * Jfk.bottomRows(3).transpose() * Rd *
-                logMapSO3(Rd.transpose() * rot);
-            dx.tail(STATE_SIZE) = 2 * V_WGT * x.tail(STATE_SIZE);
-
-            du = 2 * U_WGT * u;
-        };
-
-        auto cost_hess_xx = [model](const Eigen::VectorXd &x,
-                                    const Eigen::VectorXd &u,
-                                    Eigen::MatrixXd &Hxx)
-        {
-            Eigen::MatrixXd Jfk =
-              model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
-
-            Hxx = Eigen::MatrixXd::Zero(2 * STATE_SIZE, 2 * STATE_SIZE);
-            Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE) =
-              2 * P_WGT * Jfk.topRows(3).transpose() * Jfk.topRows(3) +
-              2 * R_WGT * Jfk.bottomRows(3).transpose() * Jfk.bottomRows(3);
-            Hxx.bottomRightCorner(STATE_SIZE, STATE_SIZE) =
-              2 * V_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
-        };
-
-        auto cost_hess_uu = [model](const Eigen::VectorXd &x,
-                                    const Eigen::VectorXd &u,
-                                    Eigen::MatrixXd &Huu)
-        {
-            Huu = Eigen::MatrixXd::Zero(u.size(), u.size());
-            Huu.diagonal().setConstant(2 * U_WGT);
-        };
-
-        costs[k] = ssqp::model::stagewise::factory::make_cost(
-          cost_eval,
-          cost_grad,
-          cost_hess_xx,
-          ssqp::model::ZeroHessian_xu,
-          cost_hess_uu);
-
-        Eigen::Vector3d box_k = circle_to_square_point(traj_k);
+        Eigen::Vector3d box_k = circle_to_square_point(traj[k]);
 
         Eigen::Vector2d lb, ub;
         if (box_k(1) > cy)
@@ -245,71 +159,20 @@ int main()
                                                             constraint_grad);
     }
 
-    Eigen::Vector3d traj_k = traj[HORIZON];
+    model.cost(HORIZON) = std::make_shared<
+      ssqp::model::stagewise::predefined::costs::SquaredDifferenceCost>(
+      model,
+      traj[HORIZON],
+      Rd,
+      "panda_ee",
+      STATE_SIZE,
+      STATE_SIZE,
+      TERM_WGT * P_WGT,
+      TERM_WGT * R_WGT,
+      TERM_WGT * V_WGT,
+      0);
 
-    auto term_cost_eval =
-      [model, traj_k, Rd](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
-    {
-        Eigen::VectorXd pos;
-        Eigen::MatrixXd rot;
-
-        std::tie(pos, rot) =
-          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-
-        Eigen::Vector<double, 1> res;
-
-        res(0) =
-          TERM_WGT * (P_WGT * (pos - traj_k).squaredNorm() +
-                      R_WGT * logMapSO3(Rd.transpose() * rot).squaredNorm() +
-                      V_WGT * x.tail(STATE_SIZE).squaredNorm());
-        return res;
-    };
-
-    auto term_cost_grad = [model, traj_k, Rd](const Eigen::VectorXd &x,
-                                              const Eigen::VectorXd &u,
-                                              Eigen::VectorXd &dx,
-                                              Eigen::VectorXd &du)
-    {
-        Eigen::VectorXd pos;
-        Eigen::MatrixXd rot;
-        std::tie(pos, rot) =
-          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-        Eigen::MatrixXd Jfk =
-          model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
-
-        dx = Eigen::VectorXd::Zero(2 * STATE_SIZE);
-        dx.head(STATE_SIZE) =
-          2 * P_WGT * Jfk.topRows(3).transpose() * (pos - traj_k) +
-          2 * R_WGT * Jfk.bottomRows(3).transpose() * Rd *
-            logMapSO3(Rd.transpose() * rot);
-        dx.tail(STATE_SIZE)  = 2 * V_WGT * x.tail(STATE_SIZE);
-        dx                  *= TERM_WGT;
-    };
-
-    auto term_cost_hess_xx = [model](const Eigen::VectorXd &x,
-                                     const Eigen::VectorXd &u,
-                                     Eigen::MatrixXd &Hxx)
-    {
-        Eigen::MatrixXd Jfk =
-          model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
-
-        Hxx = Eigen::MatrixXd::Zero(2 * STATE_SIZE, 2 * STATE_SIZE);
-        Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE) =
-          2 * P_WGT * Jfk.topRows(3).transpose() * Jfk.topRows(3) +
-          2 * R_WGT * Jfk.bottomRows(3).transpose() * Jfk.bottomRows(3);
-        Hxx.bottomRightCorner(STATE_SIZE, STATE_SIZE) =
-          Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE);
-        Hxx *= TERM_WGT;
-    };
-
-    auto terminal_cost =
-      ssqp::model::stagewise::factory::make_cost(term_cost_eval,
-                                                 term_cost_grad,
-                                                 term_cost_hess_xx,
-                                                 ssqp::model::ZeroHessian_xu,
-                                                 ssqp::model::ZeroHessian_uu);
-
-    Eigen::Vector3d box_k = circle_to_square_point(traj_k);
+    Eigen::Vector3d box_k = circle_to_square_point(traj[HORIZON]);
 
     Eigen::Vector2d lb, ub;
     if (box_k(1) > cy)
@@ -371,18 +234,21 @@ int main()
 
     if (USE_BOX)
     {
-        model.finalize(costs, terminal_cost, constraints, { init_state });
+        model.finalize(constraints, { init_state });
     }
     else
     {
-        model.finalize(costs, terminal_cost, {}, { init_state });
+        model.finalize({}, { init_state });
     }
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
-    params.tolerance = 1e-2;
+    params.tolerance = 1e-1;
+
+    ssqp::solvers::admm_qp::Params admm_params;
+
     // params.loose_success_tolerance = 1e-3;
-    ssqp::solvers::ssqp        solver(model, params);
+    ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 

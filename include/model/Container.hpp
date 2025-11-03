@@ -1,5 +1,5 @@
-#ifndef SSQP_CONTAINER_HPP
-#define SSQP_CONTAINER_HPP
+#ifndef SSQP_MODEL_CONTAINER_HPP
+#define SSQP_MODEL_CONTAINER_HPP
 
 #include <vector>
 #include <memory>

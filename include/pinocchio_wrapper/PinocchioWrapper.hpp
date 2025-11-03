@@ -1,5 +1,5 @@
-#ifndef SSQP_PINOCCHIO_WRAPPER_HPP
-#define SSQP_PINOCCHIO_WRAPPER_HPP
+#ifndef SSQP_PINOCCHIO_WRAPPER_PINOCCHIO_WRAPPER_HPP
+#define SSQP_PINOCCHIO_WRAPPER_PINOCCHIO_WRAPPER_HPP
 
 #include <string>
 #include <memory>
@@ -11,6 +11,10 @@ namespace ssqp
 namespace pinocchio_wrapper
 {
 class ModelImpl;
+
+Eigen::Vector3d logSO3(const Eigen::Matrix3d &mat);
+
+Eigen::Matrix3d JlogSO3(const Eigen::Matrix3d &mat);
 
 std::shared_ptr<ModelImpl> makeImpl();
 

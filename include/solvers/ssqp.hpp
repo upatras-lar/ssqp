@@ -1,5 +1,5 @@
-#ifndef SSQP_SSQP_HPP
-#define SSQP_SSQP_HPP
+#ifndef SSQP_SOLVERS_SSQP_HPP
+#define SSQP_SOLVERS_SSQP_HPP
 
 #include <iostream>
 #include <fstream>
