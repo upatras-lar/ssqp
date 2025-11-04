@@ -61,6 +61,9 @@ inline auto ZeroHessprod_uu =
   [](const VecX &x, const VecX &u, const VecX &vec, MatX &Puu)
 { Puu = MatX::Zero(u.rows(), u.rows()); };
 
+inline auto DefaultRightMinus = [](const VecX &x, const VecX &y)
+{ return x - y; };
+
 struct Dimensions
 {
     uint horizon;

@@ -11,7 +11,7 @@
 #define HORIZON    400
 #define dt         0.01
 #define P_WGT      10
-#define R_WGT      0.1
+#define R_WGT      1
 #define V_WGT      1e-5
 #define U_WGT      1e-5
 #define TERM_WGT   1
@@ -243,9 +243,11 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
-    params.tolerance = 1e-1;
+    params.tolerance = 3e-2;
 
     ssqp::solvers::admm_qp::Params admm_params;
+    admm_params.abs_tolerance = 6e-3;
+    admm_params.rel_tolerance = 1e-3;
 
     // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);

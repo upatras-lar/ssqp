@@ -223,12 +223,13 @@ QPData ssqp::_setup_qp()
                                      qp.stages[k].E);
 
             // Get cl, cu
-            // TODO: manifold constraint elements
             VecX c =
               constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
 
-            qp.stages[k].cl = constraints[k]->lower_bound() - c;
-            qp.stages[k].cu = constraints[k]->upper_bound() - c;
+            qp.stages[k].cl =
+              constraints[k]->right_minus(constraints[k]->lower_bound(), c);
+            qp.stages[k].cu =
+              constraints[k]->right_minus(constraints[k]->upper_bound(), c);
         }
         else
         {

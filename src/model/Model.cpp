@@ -278,58 +278,58 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
                "init_states.size() must match horizon");
     }
 
-    // TODO: linearize bounds
+    // TODO: nq+2nv or 3nv?
     VecX lb, ub;
     std::tie(lb, ub) = pinocchio_wrapper::modelBounds(_impl);
 
-    auto innate_constraint_eval = [this, nv](const VecX &x, const VecX &u)
+    auto innate_constraint_eval = [this, nq, nv](const VecX &x, const VecX &u)
     {
-        VecX c(3 * nv);
-        c.head(nv)        = x.head(nv);
-        c.segment(nv, nv) = x.tail(nv);
+        VecX c(nq + 2 * nv);
+        c.head(nq)        = x.head(nq);
+        c.segment(nq, nv) = x.tail(nv);
         c.tail(nv)        = u;
 
         return c;
     };
 
     auto innate_constraint_grad =
-      [this, nv](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+      [this, nq, nv](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        dX = MatX::Identity(3 * nv, 2 * nv);
+        dX = MatX::Identity(nq + 2 * nv, nq + nv);
 
-        dU = MatX(3 * nv, nv);
-        dU.block(0, 0, 2 * nv, nv).setZero();
-        dU.block(2 * nv, 0, nv, nv) = MatX::Identity(nv, nv);
+        dU = MatX(nq + 2 * nv, nv);
+        dU.block(0, 0, nq + nv, nv).setZero();
+        dU.block(nq + nv, 0, nv, nv) = MatX::Identity(nv, nv);
     };
 
     std::shared_ptr<stagewise::StageConstraints> innate_constraints =
-      stagewise::factory::make_constraints(3 * nv,
+      stagewise::factory::make_constraints(nq + 2 * nv,
                                            lb,
                                            ub,
                                            innate_constraint_eval,
                                            innate_constraint_grad);
 
     auto terminal_innate_constraint_eval =
-      [this, nv](const VecX &x, const VecX &u)
+      [this, nq, nv](const VecX &x, const VecX &u)
     {
-        VecX c(2 * nv);
-        c.head(nv) = x.head(nv);
+        VecX c(nq + nv);
+        c.head(nq) = x.head(nq);
         c.tail(nv) = x.tail(nv);
 
         return c;
     };
 
     auto terminal_innate_constraint_grad =
-      [this, nv](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+      [this, nq, nv](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        dX = MatX::Identity(2 * nv, 2 * nv);
-        dU = MatX::Zero(2 * nv, 1);
+        dX = MatX::Identity(nq + nv, nq + nv);
+        dU = MatX::Zero(nq + nv, 1);
     };
 
     std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints =
-      stagewise::factory::make_constraints(2 * nv,
-                                           lb.head(2 * nv),
-                                           ub.head(2 * nv),
+      stagewise::factory::make_constraints(nq + nv,
+                                           lb.head(nq + nv),
+                                           ub.head(nq + nv),
                                            terminal_innate_constraint_eval,
                                            terminal_innate_constraint_grad);
 

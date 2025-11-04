@@ -32,6 +32,11 @@ VecX StageConstraints::upper_bound() const
 
     return u;
 }
+
+VecX StageConstraints::right_minus(const VecX &x, const VecX &y) const
+{
+    return x - y;
+}
 }
 }
 }
