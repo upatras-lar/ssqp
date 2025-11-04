@@ -1,8 +1,6 @@
 #include "solvers/ssqp.hpp"
 #include "sqp_step/filter.hpp"
 
-// TODO: noalias
-
 namespace ssqp
 {
 namespace solvers
@@ -236,8 +234,8 @@ QPData ssqp::_setup_qp()
             VecX c =
               constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
 
-            qp.stages[k].cl = c - constraints[k]->lower_bound();
-            qp.stages[k].cu = c - constraints[k]->upper_bound();
+            qp.stages[k].cl = constraints[k]->lower_bound() - c;
+            qp.stages[k].cu = constraints[k]->upper_bound() - c;
         }
         else
         {
@@ -286,8 +284,8 @@ QPData ssqp::_setup_qp()
         VecX ct = constraints[qp.dims.horizon]->evaluate(
           _guess.x.stage(qp.dims.horizon),
           VecX::Zero(1));
-        qp.cl_t = ct - constraints[qp.dims.horizon]->lower_bound();
-        qp.cu_t = ct - constraints[qp.dims.horizon]->upper_bound();
+        qp.cl_t = constraints[qp.dims.horizon]->lower_bound() - ct;
+        qp.cu_t = constraints[qp.dims.horizon]->upper_bound() - ct;
     }
     else
     {
