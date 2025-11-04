@@ -15,27 +15,24 @@ Point &Point::operator=(const Point &p)
     return *this;
 }
 
-Point Point::operator+(const Point &p) const
+Point Point::dynamics_add(const Point                    &p,
+                          const model::DynamicsContainer &dynamics) const
 {
-    return Point(x + p.x, u + p.u);
-}
+    assert(x.stages() == p.x.stages() && u.stages() == p.u.stages() &&
+           "FlatVec x+y: stage mismatch");
+    solvers::FlatVec xn(x, false), un(u, false);
 
-Point Point::operator-(const Point &p) const
-{
-    return Point(x - p.x, u - p.u);
-}
+    for (uint k = 0; k < x.stages(); ++k)
+    {
+        xn.stage(k) = dynamics[k]->state_right_plus(x.stage(k), p.x.stage(k));
+    }
 
-Point Point::operator/(double val)
-{
-    return Point(x / val, u / val);
-}
+    for (uint k = 0; k < u.stages(); ++k)
+    {
+        un.stage(k) = u.stage(k) + p.u.stage(k);
+    }
 
-Point &Point::operator+=(const Point &p)
-{
-    x += p.x;
-    u += p.u;
-
-    return *this;
+    return Point(xn, un);
 }
 
 double Point::infNorm()

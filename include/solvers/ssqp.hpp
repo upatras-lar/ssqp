@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <functional>
+#include <variant>
 
 #include "types.hpp"
 #include "sqp_step/types.hpp"

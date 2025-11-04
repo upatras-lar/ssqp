@@ -176,8 +176,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     int nq, nv;
     std::tie(nq, nv) = pinocchio_wrapper::modelDimensions(_impl);
 
-    ManifoldOperators ops;
-    ops.right_plus = [this, nq, nv](const VecX &x, const VecX &dx)
+    auto right_plus = [this, nq, nv](const VecX &x, const VecX &dx)
     {
         VecX out(nq + nv);
 
@@ -188,7 +187,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         return out;
     };
 
-    ops.right_minus = [this, nq, nv](const VecX &x, const VecX &y)
+    auto right_minus = [this, nq, nv](const VecX &x, const VecX &y)
     {
         VecX out(2 * nv);
 
@@ -197,6 +196,11 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         out.tail(nv) = x.tail(nv) - y.tail(nv);
 
         return out;
+    };
+
+    ManifoldOperators<decltype(right_plus), decltype(right_minus)> ops = {
+        right_plus,
+        right_minus
     };
 
     auto dyn_eval = [this, nq, nv, dt](const VecX &x, const VecX &u)

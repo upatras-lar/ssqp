@@ -82,13 +82,11 @@ struct Dimensions
 
 std::string format_double(double val, uint precision);
 
-using ManifoldOperator = std::function<VecX(const VecX &, const VecX &)>;
-
-// Operators for elements part of (composite) manifold states
+template<typename ManifoldOperator1, typename ManifoldOperator2>
 struct ManifoldOperators
 {
-    ManifoldOperator right_plus;
-    ManifoldOperator right_minus;
+    ManifoldOperator1 right_plus;
+    ManifoldOperator2 right_minus;
 };
 
 namespace solvers
@@ -98,31 +96,25 @@ struct FlatVec
 {
   public:
     // Initialize a 0 vector, with stage sizes given in dims
-    FlatVec(const uint total_size, const std::vector<uint> &dims,
-            const std::vector<ManifoldOperators> &ops = {});
+    FlatVec(const uint total_size, const std::vector<uint> &dims);
     // Initialize a flat vector using the vectors given in vectors
-    FlatVec(const uint total_size, const std::vector<VecX> &vectors,
-            const std::vector<ManifoldOperators> &ops = {});
+    FlatVec(const uint total_size, const std::vector<VecX> &vectors);
     // FlatVec copying
     // If copy is true, operators are also copied (argument ignored)
-    FlatVec(const FlatVec &other, bool copy = true,
-            const std::vector<ManifoldOperators> &ops = {});
+    FlatVec(const FlatVec &other, bool copy = true);
 
     Eigen::VectorBlock<VecX> stage(const uint k);
     const VecX               stage(const uint k) const;
     const uint               stages() const;
 
-    void set_ops(const std::vector<ManifoldOperators> &ops);
+    FlatVec operator-() const;
+    FlatVec operator/(double val);
+
+    FlatVec operator-(const FlatVec &p) const;
 
     VecX vec;
 
     void write_data(std::ofstream &stream);
-
-    FlatVec  operator+(const FlatVec &p) const;
-    FlatVec  operator-(const FlatVec &p) const;
-    FlatVec  operator-() const;
-    FlatVec  operator/(double val);
-    FlatVec &operator+=(const FlatVec &p);
 
     friend FlatVec       operator*(double val, const FlatVec &p);
     friend std::ostream &operator<<(std::ostream &os, const FlatVec &v);
@@ -133,13 +125,10 @@ struct FlatVec
     std::vector<uint> _stage_sizes;
     // Accumulated indexing vector
     std::vector<uint> _acc_idx;
-    // Manifold operators per stage
-    std::vector<ManifoldOperators> _ops;
-    // Whether custom operators exist
-    bool _custom_ops;
-    // Whether stages have different ops
-    bool _per_stage_ops;
 };
+
+FlatVec       operator*(double val, const FlatVec &p);
+std::ostream &operator<<(std::ostream &os, const FlatVec &v);
 
 enum SolverState
 {

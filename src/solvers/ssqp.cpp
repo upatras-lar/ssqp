@@ -25,21 +25,13 @@ ssqp::ssqp(const model::Model &model, const Params &params,
   , _prev_cost_du(_guess.u, false)
   , _cost_du(_guess.u, false)
 {
-    model::Dimensions              dims = model.dims();
-    std::vector<ManifoldOperators> ops(dims.horizon + 1);
-
+    model::Dimensions              dims     = model.dims();
     const model::DynamicsContainer dynamics = model.dynamics();
 
     for (uint k = 0; k <= dims.horizon; ++k)
     {
-        ops[k].right_plus = [dynamics, k](const VecX &x, const VecX &dx)
-        { return dynamics[k]->state_right_plus(x, dx); };
-        ops[k].right_minus = [dynamics, k](const VecX &x, const VecX &y)
-        { return dynamics[k]->state_right_minus(x, y); };
         _guess.x.stage(k) = dynamics[k]->init_state();
     }
-
-    _guess.x.set_ops(ops);
 }
 
 SolverState ssqp::solve(Guess &guess)
@@ -79,6 +71,7 @@ SolverState ssqp::solve(Guess &guess)
           [this](const FlatVec &x, const FlatVec &u) { return _lf(x, u); },
           [this](const FlatVec &x, const FlatVec &u) { return _gammaf(x, u); },
           [this](const FlatVec &x, const FlatVec &u) { return _cf(x, u); },
+          _model.dynamics(),
           1.5,
           1e-1);
 
