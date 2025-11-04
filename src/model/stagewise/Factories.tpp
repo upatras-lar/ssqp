@@ -60,16 +60,17 @@ std::shared_ptr<StageDynamics> make_dynamics(
       hess_uu);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
+template<typename ManifoldOperator, typename EvaluationFunction,
+         typename multiGradientFunction, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
 std::shared_ptr<StageConstraints> make_constraints(
-  const int nout, const VecX &lb, const VecX &ub,
+  const int nout, const VecX &lb, const VecX &ub, const ManifoldOperator &op,
   const EvaluationFunction &eval, const multiGradientFunction &grad,
   const HessprodFunction1 &hess_xx, const HessprodFunction2 &hess_xu,
   const HessprodFunction3 &hess_uu)
 {
-    return std::make_shared<FunctionStageConstraints<EvaluationFunction,
+    return std::make_shared<FunctionStageConstraints<ManifoldOperator,
+                                                     EvaluationFunction,
                                                      multiGradientFunction,
                                                      HessprodFunction1,
                                                      HessprodFunction2,
@@ -77,11 +78,39 @@ std::shared_ptr<StageConstraints> make_constraints(
       nout,
       lb,
       ub,
+      op,
       eval,
       grad,
       hess_xx,
       hess_xu,
       hess_uu);
+}
+
+template<typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1 = decltype(ZeroHessprod_xx),
+         typename HessprodFunction2 = decltype(ZeroHessprod_xu),
+         typename HessprodFunction3 = decltype(ZeroHessprod_uu)>
+inline std::shared_ptr<StageConstraints> make_constraints(
+  const int nout, const VecX &lb, const VecX &ub,
+  const EvaluationFunction &eval, const multiGradientFunction &grad,
+  const HessprodFunction1 &hess_xx, const HessprodFunction2 &hess_xu,
+  const HessprodFunction3 &hess_uu)
+{
+    return std::make_shared<
+      FunctionStageConstraints<decltype(DefaultRightMinus),
+                               EvaluationFunction,
+                               multiGradientFunction,
+                               HessprodFunction1,
+                               HessprodFunction2,
+                               HessprodFunction3>>(nout,
+                                                   lb,
+                                                   ub,
+                                                   DefaultRightMinus,
+                                                   eval,
+                                                   grad,
+                                                   hess_xx,
+                                                   hess_xu,
+                                                   hess_uu);
 }
 
 std::shared_ptr<StageConstraints> merge_constraints(
@@ -93,6 +122,17 @@ std::shared_ptr<StageConstraints> merge_constraints(
     VecX lb(nc), ub(nc);
     lb << c1->lower_bound(), c2->lower_bound();
     ub << c1->upper_bound(), c2->upper_bound();
+
+    auto op = [nc, c1, c2](const VecX &x, const VecX &y)
+    {
+        VecX c(nc);
+        c.head(c1->output_size()) =
+          c1->right_minus(x.head(c1->output_size()), y.head(c1->output_size()));
+        c.tail(c2->output_size()) =
+          c2->right_minus(x.tail(c2->output_size()), y.tail(c2->output_size()));
+
+        return c;
+    };
 
     auto eval = [nc, c1, c2](const VecX &x, const VecX &u)
     {
@@ -157,6 +197,7 @@ std::shared_ptr<StageConstraints> merge_constraints(
     return make_constraints(nc,
                             lb,
                             ub,
+                            op,
                             eval,
                             grad,
                             hessprod_xx,
@@ -416,19 +457,21 @@ FunctionStageConstraintsBase::FunctionStageConstraintsBase(const int   nout,
 {
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::
+template<typename ManifoldOperator, typename EvaluationFunction,
+         typename multiGradientFunction, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+FunctionStageConstraints<ManifoldOperator, EvaluationFunction,
+                         multiGradientFunction, HessprodFunction1,
+                         HessprodFunction2, HessprodFunction3>::
   FunctionStageConstraints(const int nout, const VecX &lb, const VecX &ub,
+                           const ManifoldOperator      &op,
                            const EvaluationFunction    &eval,
                            const multiGradientFunction &grad,
                            const HessprodFunction1     &hess_xx,
                            const HessprodFunction2     &hess_xu,
                            const HessprodFunction3     &hess_uu)
   : FunctionStageConstraintsBase(nout, lb, ub)
+  , _op(op)
   , _eval(eval)
   , _grad(grad)
   , _hess_xx(hess_xx)
@@ -454,22 +497,35 @@ VecX FunctionStageConstraintsBase::upper_bound() const
     return _ub;
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
-VecX FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                              HessprodFunction1, HessprodFunction2,
+template<typename ManifoldOperator, typename EvaluationFunction,
+         typename multiGradientFunction, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+VecX FunctionStageConstraints<
+  ManifoldOperator, EvaluationFunction, multiGradientFunction,
+  HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::right_minus(const VecX &x, const VecX &y) const
+{
+    return _op(x, y);
+}
+
+template<typename ManifoldOperator, typename EvaluationFunction,
+         typename multiGradientFunction, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+VecX FunctionStageConstraints<ManifoldOperator, EvaluationFunction,
+                              multiGradientFunction, HessprodFunction1,
+                              HessprodFunction2,
                               HessprodFunction3>::evaluate(const VecX &x,
                                                            const VecX &u) const
 {
     return _eval(x, u);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
-void FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                              HessprodFunction1, HessprodFunction2,
+template<typename ManifoldOperator, typename EvaluationFunction,
+         typename multiGradientFunction, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+void FunctionStageConstraints<ManifoldOperator, EvaluationFunction,
+                              multiGradientFunction, HessprodFunction1,
+                              HessprodFunction2,
                               HessprodFunction3>::gradient(const VecX &x,
                                                            const VecX &u,
                                                            MatX       &dX,
@@ -478,41 +534,38 @@ void FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
     return _grad(x, u, dX, dU);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
+template<typename ManifoldOperator, typename EvaluationFunction,
+         typename multiGradientFunction, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
 void FunctionStageConstraints<
-  EvaluationFunction, multiGradientFunction, HessprodFunction1,
-  HessprodFunction2, HessprodFunction3>::hessprod_xx(const VecX &x,
-                                                     const VecX &u,
-                                                     const VecX &lambda,
-                                                     MatX       &Pxx) const
+  ManifoldOperator, EvaluationFunction, multiGradientFunction,
+  HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::hessprod_xx(const VecX &x, const VecX &u,
+                                  const VecX &lambda, MatX &Pxx) const
 {
     return _hess_xx(x, u, lambda, Pxx);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
+template<typename ManifoldOperator, typename EvaluationFunction,
+         typename multiGradientFunction, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
 void FunctionStageConstraints<
-  EvaluationFunction, multiGradientFunction, HessprodFunction1,
-  HessprodFunction2, HessprodFunction3>::hessprod_xu(const VecX &x,
-                                                     const VecX &u,
-                                                     const VecX &lambda,
-                                                     MatX       &Pxu) const
+  ManifoldOperator, EvaluationFunction, multiGradientFunction,
+  HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::hessprod_xu(const VecX &x, const VecX &u,
+                                  const VecX &lambda, MatX &Pxu) const
 {
     return _hess_xu(x, u, lambda, Pxu);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
+template<typename ManifoldOperator, typename EvaluationFunction,
+         typename multiGradientFunction, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
 void FunctionStageConstraints<
-  EvaluationFunction, multiGradientFunction, HessprodFunction1,
-  HessprodFunction2, HessprodFunction3>::hessprod_uu(const VecX &x,
-                                                     const VecX &u,
-                                                     const VecX &lambda,
-                                                     MatX       &Puu) const
+  ManifoldOperator, EvaluationFunction, multiGradientFunction,
+  HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::hessprod_uu(const VecX &x, const VecX &u,
+                                  const VecX &lambda, MatX &Puu) const
 {
     return _hess_uu(x, u, lambda, Puu);
 }

@@ -22,6 +22,8 @@ class StageConstraints : public Function
     virtual VecX lower_bound() const;
     virtual VecX upper_bound() const;
 
+    virtual VecX right_minus(const VecX &x, const VecX &y) const;
+
     // Get constraint k Jacobians with respect to x and u, evaluated at
     // given (x, u)
     // Returns:
