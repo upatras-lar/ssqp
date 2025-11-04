@@ -276,11 +276,10 @@ void admm_qp::_update_rho()
                                    (_norm_dual * _norm_primal_rel));
 
     double rho_estimate_sparse_ =
-      std::min(std::max(scale * _rho_common, _params.rho_min_),
-               _params.rho_max_);
+      std::min(std::max(scale * _rho_common, _params.rho_min), _params.rho_max);
 
-    if (rho_estimate_sparse_ > _rho_common * _params.adaptive_rho_tolerance_ ||
-        rho_estimate_sparse_ < _rho_common / _params.adaptive_rho_tolerance_)
+    if (rho_estimate_sparse_ > _rho_common * _params.adaptive_rho_tolerance ||
+        rho_estimate_sparse_ < _rho_common / _params.adaptive_rho_tolerance)
     {
         _rho_common = rho_estimate_sparse_;
         for (uint k = 0; k < _qp.dims.horizon; ++k)
@@ -301,11 +300,7 @@ void admm_qp::_update_rho()
                     _rho.stage(k)(c)     = 1e3 * _rho_common;
                     _rho_inv.stage(k)(c) = 1.0 / (1e3 * _rho_common);
                 }
-                // TODO: rho is not updated correctly
-                // Our values here are static per qp (theirs might not be)
-                // + we calculate cl and cu differently (c - l, c - u and use
-                // -cl and -cu)
-                else // if (_qp.stages[k].cl(c) < _qp.stages[k].cu(c))
+                else
                 {
                     _rho.stage(k)(c)     = _rho_common;
                     _rho_inv.stage(k)(c) = 1.0 / _rho_common;
@@ -327,7 +322,7 @@ void admm_qp::_update_rho()
                 _rho.stage(_qp.dims.horizon)(c)     = 1e3 * _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / (1e3 * _rho_common);
             }
-            else // if (_qp.cl_t(c) < _qp.cu_t(c))
+            else
             {
                 _rho.stage(_qp.dims.horizon)(c)     = _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / _rho_common;
@@ -354,11 +349,10 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
                                 (1 - _params.alpha) * _solution.du.stage(k);
 
         _solution.z.stage(k) =
-          (-_qp.stages[k].cu)
-            .cwiseMin(
-              (-_qp.stages[k].cl)
-                .cwiseMax(z_hat.stage(k) + _rho_inv.stage(k).cwiseProduct(
-                                             _solution.y.stage(k))));
+          _qp.stages[k].cu.cwiseMin(_qp.stages[k].cl.cwiseMax(
+            z_hat.stage(k) +
+            _rho_inv.stage(k).cwiseProduct(_solution.y.stage(k))));
+
         _solution.y.stage(k) +=
           _rho.stage(k).cwiseProduct(z_hat.stage(k) - _solution.z.stage(k));
     }
@@ -369,11 +363,10 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
       _params.alpha * dx_hat.stage(_qp.dims.horizon) +
       (1 - _params.alpha) * _solution.dx.stage(_qp.dims.horizon);
 
-    _solution.z.stage(_qp.dims.horizon) =
-      (-_qp.cu_t).cwiseMin((-_qp.cl_t).cwiseMax(
-        z_hat.stage(_qp.dims.horizon) +
-        _rho_inv.stage(_qp.dims.horizon)
-          .cwiseProduct(_solution.y.stage(_qp.dims.horizon))));
+    _solution.z.stage(_qp.dims.horizon) = _qp.cu_t.cwiseMin(
+      _qp.cl_t.cwiseMax(z_hat.stage(_qp.dims.horizon) +
+                        _rho_inv.stage(_qp.dims.horizon)
+                          .cwiseProduct(_solution.y.stage(_qp.dims.horizon))));
     _solution.y.stage(_qp.dims.horizon) +=
       _rho.stage(_qp.dims.horizon)
         .cwiseProduct(z_hat.stage(_qp.dims.horizon) -

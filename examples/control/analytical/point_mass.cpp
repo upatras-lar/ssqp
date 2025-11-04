@@ -171,12 +171,12 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
 
     ssqp::VecX lower_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << -27).finished();
+        return (Eigen::Vector<double, 1>() << -20).finished();
     }
 
     ssqp::VecX upper_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << 27).finished();
+        return (Eigen::Vector<double, 1>() << 20).finished();
     }
 
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
@@ -287,7 +287,6 @@ int main()
         costs[k]       = std::make_shared<Cost>();
         dynamics[k]    = std::make_shared<Dynamics>();
         constraints[k] = std::make_shared<Constraints>();
-        // constraints[k] = nullptr;
     }
 
     costs[HORIZON]       = std::make_shared<TerminalCost>();
