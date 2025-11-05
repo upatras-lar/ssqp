@@ -21,7 +21,7 @@ std::shared_ptr<ModelImpl> makeImpl();
 void buildModelFromUrdf(const std::string         &urdf,
                         std::shared_ptr<ModelImpl> impl);
 
-std::pair<int, int> modelDimensions(const std::shared_ptr<ModelImpl> &impl);
+std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl);
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
   const std::shared_ptr<ModelImpl> &impl);

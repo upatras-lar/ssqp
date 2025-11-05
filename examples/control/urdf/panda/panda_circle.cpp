@@ -6,6 +6,7 @@
 #include "solvers/admm_qp.hpp"
 #include "model/Model.hpp"
 #include "model/stagewise/predefined/Costs.hpp"
+#include "model/stagewise/predefined/Constraints.hpp"
 #include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #define STATE_SIZE 9
@@ -108,7 +109,7 @@ int main()
     for (uint k = 0; k < HORIZON; ++k)
     {
         model.cost(k) = std::make_shared<
-          ssqp::model::stagewise::predefined::costs::SquaredDifferenceCost>(
+          ssqp::model::stagewise::predefined::costs::FrameSquaredPoseErrorCost>(
           model,
           traj[k],
           Rd,
@@ -122,67 +123,44 @@ int main()
 
         Eigen::Vector3d box_k = circle_to_square_point(traj[k]);
 
-        Eigen::Vector2d lb, ub;
+        Eigen::Vector3d lb = Eigen::Vector3d::Zero(),
+                        ub = Eigen::Vector3d::Zero();
+
+        lb(0) = -std::numeric_limits<double>::infinity();
+        ub(0) = std::numeric_limits<double>::infinity();
+
         if (box_k(1) > cy)
         {
-            lb(0) = -std::numeric_limits<double>::infinity();
-            ub(0) = box_k(1);
+            lb(1) = -std::numeric_limits<double>::infinity();
+            ub(1) = box_k(1);
         }
         else
         {
-            lb(0) = box_k(1);
-            ub(0) = std::numeric_limits<double>::infinity();
+            lb(1) = box_k(1);
+            ub(1) = std::numeric_limits<double>::infinity();
         }
 
         if (box_k(2) > cz)
         {
-            lb(1) = -std::numeric_limits<double>::infinity();
-            ub(1) = box_k(2);
+            lb(2) = -std::numeric_limits<double>::infinity();
+            ub(2) = box_k(2);
         }
         else
         {
-            lb(1) = box_k(2);
-            ub(1) = std::numeric_limits<double>::infinity();
+            lb(2) = box_k(2);
+            ub(2) = std::numeric_limits<double>::infinity();
         }
 
-        auto constraint_eval =
-          [model](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
-        {
-            Eigen::VectorXd pos;
-            std::tie(pos, std::ignore) =
-              model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-
-            return (Eigen::Vector2d() << pos(1), pos(2)).finished();
-        };
-
-        auto constraint_grad = [model](const Eigen::VectorXd &x,
-                                       const Eigen::VectorXd &u,
-                                       Eigen::MatrixXd &dX,
-                                       Eigen::MatrixXd &dU)
-        {
-            Eigen::VectorXd pos;
-            Eigen::MatrixXd rot;
-            std::tie(pos, rot) =
-              model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-            Eigen::MatrixXd Jfk =
-              model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
-
-            dX = Eigen::MatrixXd::Zero(2, x.size());
-            // TODO: should we be taking the top rows?
-            dX.leftCols(STATE_SIZE) = Jfk.block(1, 0, 2, Jfk.cols());
-
-            dU = Eigen::MatrixXd::Zero(2, STATE_SIZE);
-        };
-
-        constraints[k] =
-          ssqp::model::stagewise::factory::make_constraints(2,
-                                                            2,
-                                                            lb,
-                                                            ub,
-                                                            constraint_eval,
-                                                            constraint_grad);
+        constraints[k] = std::make_shared<
+          ssqp::model::stagewise::predefined::constraints::FramePositionBound>(
+          model,
+          lb,
+          ub,
+          STATE_SIZE,
+          STATE_SIZE);
     }
 
+    /*
     Eigen::VectorXd lb_r(9), ub_r(9);
     lb_r = Eigen::Map<const Eigen::VectorXd>(Rc.data(), 9);
     ub_r = lb_r;
@@ -226,19 +204,20 @@ int main()
         dU = Eigen::MatrixXd::Zero(3, STATE_SIZE);
     };
 
-    // constraints[HORIZON / 2] =
-    //   ssqp::model::stagewise::factory::merge_constraints(
-    // constraints[HORIZON / 2],
-    // ssqp::model::stagewise::factory::make_constraints(9,
-    //   3,
-    //   lb_r,
-    //   ub_r,
-    //   rot_constraint_eval,
-    //   rot_constraint_grad,
-    //   op));
+    constraints[HORIZON / 2] =
+      ssqp::model::stagewise::factory::merge_constraints(
+    constraints[HORIZON / 2],
+    ssqp::model::stagewise::factory::make_constraints(9,
+      3,
+      lb_r,
+      ub_r,
+      rot_constraint_eval,
+      rot_constraint_grad,
+      op));
+    */
 
     model.cost(HORIZON) = std::make_shared<
-      ssqp::model::stagewise::predefined::costs::SquaredDifferenceCost>(
+      ssqp::model::stagewise::predefined::costs::FrameSquaredPoseErrorCost>(
       model,
       traj[HORIZON],
       Rd,
@@ -252,64 +231,39 @@ int main()
 
     Eigen::Vector3d box_k = circle_to_square_point(traj[HORIZON]);
 
-    Eigen::Vector2d lb, ub;
+    Eigen::Vector3d lb = Eigen::Vector3d::Zero(), ub = Eigen::Vector3d::Zero();
+    lb(0) = -std::numeric_limits<double>::infinity();
+    ub(0) = std::numeric_limits<double>::infinity();
+
     if (box_k(1) > cy)
     {
-        lb(0) = -std::numeric_limits<double>::infinity();
-        ub(0) = box_k(1);
+        lb(1) = -std::numeric_limits<double>::infinity();
+        ub(1) = box_k(1);
     }
     else
     {
-        lb(0) = box_k(1);
-        ub(0) = std::numeric_limits<double>::infinity();
+        lb(1) = box_k(1);
+        ub(1) = std::numeric_limits<double>::infinity();
     }
 
     if (box_k(2) > cz)
     {
-        lb(1) = -std::numeric_limits<double>::infinity();
-        ub(1) = box_k(2);
+        lb(2) = -std::numeric_limits<double>::infinity();
+        ub(2) = box_k(2);
     }
     else
     {
-        lb(1) = box_k(2);
-        ub(1) = std::numeric_limits<double>::infinity();
+        lb(2) = box_k(2);
+        ub(2) = std::numeric_limits<double>::infinity();
     }
 
-    auto constraint_eval =
-      [model](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
-    {
-        Eigen::VectorXd pos;
-        std::tie(pos, std::ignore) =
-          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-
-        return (Eigen::Vector2d() << pos(1), pos(2)).finished();
-    };
-
-    auto constraint_grad = [model](const Eigen::VectorXd &x,
-                                   const Eigen::VectorXd &u,
-                                   Eigen::MatrixXd &dX,
-                                   Eigen::MatrixXd &dU)
-    {
-        Eigen::VectorXd pos;
-        Eigen::MatrixXd rot;
-        std::tie(pos, rot) =
-          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-        Eigen::MatrixXd Jfk =
-          model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
-
-        dX                      = Eigen::MatrixXd::Zero(2, x.size());
-        dX.leftCols(STATE_SIZE) = Jfk.block(1, 0, 2, Jfk.cols());
-
-        dU = Eigen::MatrixXd::Zero(2, 1);
-    };
-
-    constraints[HORIZON] =
-      ssqp::model::stagewise::factory::make_constraints(2,
-                                                        2,
-                                                        lb,
-                                                        ub,
-                                                        constraint_eval,
-                                                        constraint_grad);
+    constraints[HORIZON] = std::make_shared<
+      ssqp::model::stagewise::predefined::constraints::FramePositionBound>(
+      model,
+      lb,
+      ub,
+      STATE_SIZE,
+      1);
 
     if (USE_BOX)
     {

@@ -45,7 +45,7 @@ void buildModelFromUrdf(const std::string         &urdf,
     impl->data = pinocchio::Data(impl->model);
 }
 
-std::pair<int, int> modelDimensions(const std::shared_ptr<ModelImpl> &impl)
+std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl)
 {
     return { impl->model.nq, impl->model.nv };
 }
