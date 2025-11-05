@@ -10,10 +10,11 @@ namespace predefined
 {
 namespace costs
 {
-SquaredDifferenceCost::SquaredDifferenceCost(
+// FrameSquaredPoseErrorCost
+FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   const Model &model, const VecX &desired_translation,
-  const MatX &desired_rotation, const std::string &frame, const int nq,
-  const int nv, const double position_weight, const double rotation_weight,
+  const MatX &desired_rotation, const std::string &frame, const uint nq,
+  const uint nv, const double position_weight, const double rotation_weight,
   const double velocity_weight, const double control_weight)
   : _model(std::make_shared<Model>(model))
   , _desired_translation(desired_translation)
@@ -28,7 +29,7 @@ SquaredDifferenceCost::SquaredDifferenceCost(
 {
 }
 
-VecX SquaredDifferenceCost::evaluate(const VecX &x, const VecX &u) const
+VecX FrameSquaredPoseErrorCost::evaluate(const VecX &x, const VecX &u) const
 {
     VecX pos;
     MatX rot;
@@ -45,9 +46,9 @@ VecX SquaredDifferenceCost::evaluate(const VecX &x, const VecX &u) const
     return res;
 }
 
-// TODO: Rotation incorrect
-void SquaredDifferenceCost::gradient(const VecX &x, const VecX &u, VecX &dx,
-                                     VecX &du) const
+// TODO: Rotation incorrect (??)
+void FrameSquaredPoseErrorCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+                                         VecX &du) const
 {
     VecX pos;
     MatX rot;
@@ -66,8 +67,8 @@ void SquaredDifferenceCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 
     du = 2 * _U_WGT * u;
 }
-void SquaredDifferenceCost::hessian_xx(const VecX &x, const VecX &u,
-                                       MatX &Hxx) const
+void FrameSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
+                                           MatX &Hxx) const
 {
     Eigen::MatrixXd Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
@@ -78,13 +79,13 @@ void SquaredDifferenceCost::hessian_xx(const VecX &x, const VecX &u,
     Hxx.bottomRightCorner(_nv, _nv) =
       2 * _V_WGT * Eigen::MatrixXd::Identity(_nv, _nv);
 }
-void SquaredDifferenceCost::hessian_xu(const VecX &x, const VecX &u,
-                                       MatX &Hxu) const
+void FrameSquaredPoseErrorCost::hessian_xu(const VecX &x, const VecX &u,
+                                           MatX &Hxu) const
 {
     Hxu = Eigen::MatrixXd::Zero(2 * _nv, _nv);
 }
-void SquaredDifferenceCost::hessian_uu(const VecX &x, const VecX &u,
-                                       MatX &Huu) const
+void FrameSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
+                                           MatX &Huu) const
 {
     Huu = Eigen::MatrixXd::Zero(_nv, _nv);
     Huu.diagonal().setConstant(2 * _U_WGT);

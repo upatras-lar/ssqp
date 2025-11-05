@@ -18,16 +18,14 @@ namespace predefined
 {
 namespace costs
 {
-class SquaredDifferenceCost : public StageCost
+class FrameSquaredPoseErrorCost : public StageCost
 {
   public:
-    SquaredDifferenceCost(const Model &model, const VecX &desired_translation,
-                          const MatX        &desired_rotation,
-                          const std::string &frame, const int nq, const int nv,
-                          const double position_weight,
-                          const double rotation_weight,
-                          const double velocity_weight,
-                          const double control_weight);
+    FrameSquaredPoseErrorCost(
+      const Model &model, const VecX &desired_translation,
+      const MatX &desired_rotation, const std::string &frame, const uint nq,
+      const uint nv, const double position_weight, const double rotation_weight,
+      const double velocity_weight, const double control_weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -42,7 +40,7 @@ class SquaredDifferenceCost : public StageCost
     const MatX                   _desired_rotation;
     const std::string            _frame;
 
-    const int    _nq, _nv;
+    const uint   _nq, _nv;
     const double _P_WGT, _R_WGT, _V_WGT, _U_WGT;
 };
 

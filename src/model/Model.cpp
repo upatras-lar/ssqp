@@ -174,7 +174,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
 {
     pinocchio_wrapper::buildModelFromUrdf(urdf_path, _impl);
 
-    int nq, nv;
+    uint nq, nv;
     std::tie(nq, nv) = pinocchio_wrapper::modelDimensions(_impl);
 
     auto right_plus = [this, nq, nv](const VecX &x, const VecX &dx)
@@ -389,7 +389,7 @@ const MatX Model::frameJacobian(const VecX &x, const std::string &frame) const
     std::tie(p_ee, std::ignore) =
       pinocchio_wrapper::forwardKinematics(_impl, x, frame);
 
-    int nv;
+    uint nv;
     std::tie(std::ignore, nv) = pinocchio_wrapper::modelDimensions(_impl);
 
     MatX J6(6, nv);
@@ -418,7 +418,7 @@ void Model::finalize(
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
   const std::vector<VecX>                                         &init_states)
 {
-    int horizon = _dynamics.size() - 1;
+    uint horizon = _dynamics.size() - 1;
 
     if (!init_states.empty())
     {
@@ -485,7 +485,7 @@ void Model::finalize(
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
   const std::vector<VecX>                                         &init_states)
 {
-    int horizon = _dynamics.size() - 1;
+    uint horizon = _dynamics.size() - 1;
 
     if (!init_states.empty())
     {
