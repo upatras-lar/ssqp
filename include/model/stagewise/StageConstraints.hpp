@@ -22,6 +22,10 @@ class StageConstraints : public Function
     virtual VecX lower_bound() const;
     virtual VecX upper_bound() const;
 
+    // Size of difference vector: c(x1, u1) (-) c(x2, u2)
+    // Where (-): the defined right_minus operator
+    virtual uint constraint_diff_size() const;
+
     virtual VecX right_minus(const VecX &x, const VecX &y) const;
 
     // Get constraint k Jacobians with respect to x and u, evaluated at

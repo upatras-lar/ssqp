@@ -153,7 +153,7 @@ struct QPStage
     MatX Qxx, Qxu, Quu; // Qxx: (nx) x (nx), Qxu: (nx) x (nu), Quu: (nu) x (nu)
     VecX qx, qu;        // qx: (nx) x 1, qu: (nu) x 1
     MatX D, E;          // D: (nc) x (nx), E: (nc) x (nu)
-    VecX cl, cu;        // cl: (nc) x 1, cu: (nc x 1)
+    VecX cl, cu;        // cl: (nc) x 1, cu: (nc) x 1
 };
 
 /* Defines a QP of the following form, to be solved using ADMM

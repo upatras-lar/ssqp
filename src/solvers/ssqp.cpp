@@ -221,11 +221,9 @@ QPData ssqp::_setup_qp()
                                      _guess.u.stage(k),
                                      qp.stages[k].D,
                                      qp.stages[k].E);
-
             // Get cl, cu
             VecX c =
               constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
-
             qp.stages[k].cl =
               constraints[k]->right_minus(constraints[k]->lower_bound(), c);
             qp.stages[k].cu =
@@ -274,12 +272,15 @@ QPData ssqp::_setup_qp()
                                                VecX::Zero(1),
                                                qp.Dt,
                                                tmpMat);
-
         VecX ct = constraints[qp.dims.horizon]->evaluate(
           _guess.x.stage(qp.dims.horizon),
           VecX::Zero(1));
-        qp.cl_t = constraints[qp.dims.horizon]->lower_bound() - ct;
-        qp.cu_t = constraints[qp.dims.horizon]->upper_bound() - ct;
+        qp.cl_t = constraints[qp.dims.horizon]->right_minus(
+          constraints[qp.dims.horizon]->lower_bound(),
+          ct);
+        qp.cu_t = constraints[qp.dims.horizon]->right_minus(
+          constraints[qp.dims.horizon]->upper_bound(),
+          ct);
     }
     else
     {

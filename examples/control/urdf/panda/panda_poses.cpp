@@ -5,12 +5,12 @@
 #include "model/Model.hpp"
 
 #define STATE_SIZE 9
-#define HORIZON    300
+#define HORIZON    200
 #define dt         0.01
-#define P_WGT      5
-#define V_WGT      1e-3
-#define TERM_WGT   100
-#define TARGET     4
+#define P_WGT      1
+#define V_WGT      1e-5
+#define TERM_WGT   10
+#define TARGET     0
 
 int main()
 {
@@ -133,20 +133,18 @@ int main()
                                                  ssqp::model::ZeroHessian_xu,
                                                  ssqp::model::ZeroHessian_uu);
 
-    /*
     Eigen::VectorXd lb(1), ub(1);
-    lb(0) = 2.4;
-    ub(0) = 2.4;
+    lb(0) = 1.6;
+    ub(0) = 1.6;
 
-    ssqp::model::EvaluationFunction constraint_eval =
+    auto constraint_eval =
       [](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     { return (Eigen::VectorXd(1) << x(0)).finished(); };
 
-    ssqp::model::multiGradientFunction constraint_grad =
-      [](const Eigen::VectorXd &x,
-         const Eigen::VectorXd &u,
-         Eigen::MatrixXd &dX,
-         Eigen::MatrixXd &dU)
+    auto constraint_grad = [](const Eigen::VectorXd &x,
+                              const Eigen::VectorXd &u,
+                              Eigen::MatrixXd &dX,
+                              Eigen::MatrixXd &dU)
     {
         dX = Eigen::MatrixXd::Zero(1, x.size());
         dU = Eigen::MatrixXd::Zero(1, u.size());
@@ -156,13 +154,13 @@ int main()
 
     std::shared_ptr<ssqp::model::stagewise::StageConstraints> constraint =
       ssqp::model::stagewise::factory::make_constraints(1,
+                                                        1,
                                                         lb,
                                                         ub,
                                                         constraint_eval,
                                                         constraint_grad);
 
     constraints[HORIZON / 2] = constraint;
-    */
 
     ssqp::model::Model model("examples/urdf/panda.urdf",
                              HORIZON,
@@ -172,7 +170,12 @@ int main()
                              constraints,
                              { init });
 
-    ssqp::solvers::ssqp        solver(model);
+    ssqp::solvers::ssqp::Params params;
+    params.tolerance = 5e-2;
+
+    ssqp::solvers::admm_qp::Params admm_params;
+
+    ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 

@@ -19,10 +19,11 @@ class StageDynamics : public Function
     // Size of control vector u
     virtual uint control_size() const = 0;
 
-    // Size of state difference dx (default: nx)
+    // Size of state difference f(x1, u1) (-) f(x2, u2) (default size: nx)
+    // Where (-): the defined state_right_minus operator
     virtual uint state_diff_size() const;
 
-    // Initial state (nize nx) (default all 0)
+    // Initial state (size nx) (default all 0)
     virtual VecX init_state() const;
 
     virtual void set_init_state(const VecX &init_state);
