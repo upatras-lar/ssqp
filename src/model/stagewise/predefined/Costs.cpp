@@ -54,10 +54,10 @@ void SquaredDifferenceCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     std::tie(pos, rot)  = _model->forwardKinematics(x.head(_nq), _frame);
     Eigen::MatrixXd Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
-    dx = Eigen::VectorXd::Zero(2 * _nq);
+    dx = Eigen::VectorXd::Zero(2 * _nv);
 
     MatX rp = _desired_rotation.transpose() * rot;
-    dx.head(_nq) =
+    dx.head(_nv) =
       2 * _P_WGT * Jfk.topRows(3).transpose() * (pos - _desired_translation) +
       2 * _R_WGT * Jfk.bottomRows(3).transpose() * _desired_rotation *
         pinocchio_wrapper::JlogSO3(rp) * pinocchio_wrapper::logSO3(rp);
@@ -81,12 +81,12 @@ void SquaredDifferenceCost::hessian_xx(const VecX &x, const VecX &u,
 void SquaredDifferenceCost::hessian_xu(const VecX &x, const VecX &u,
                                        MatX &Hxu) const
 {
-    Hxu = Eigen::MatrixXd::Zero(x.size(), u.size());
+    Hxu = Eigen::MatrixXd::Zero(2 * _nv, _nv);
 }
 void SquaredDifferenceCost::hessian_uu(const VecX &x, const VecX &u,
                                        MatX &Huu) const
 {
-    Huu = Eigen::MatrixXd::Zero(u.size(), u.size());
+    Huu = Eigen::MatrixXd::Zero(_nv, _nv);
     Huu.diagonal().setConstant(2 * _U_WGT);
 }
 }

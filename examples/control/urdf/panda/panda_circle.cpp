@@ -6,6 +6,7 @@
 #include "solvers/admm_qp.hpp"
 #include "model/Model.hpp"
 #include "model/stagewise/predefined/Costs.hpp"
+#include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #define STATE_SIZE 9
 #define HORIZON    400
@@ -49,6 +50,23 @@ inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
     return res;
 }
 
+Eigen::Matrix3d skew(Eigen::Vector3d v)
+{
+    Eigen::Matrix3d M;
+
+    M(0, 0) = 0;
+    M(0, 1) = -v[2];
+    M(0, 2) = v[1];
+    M(1, 0) = v[2];
+    M(1, 1) = 0;
+    M(1, 2) = -v[0];
+    M(2, 0) = -v[1];
+    M(2, 1) = v[0];
+    M(2, 2) = 0;
+
+    return M;
+}
+
 int main()
 {
     // Cost trajectory to track
@@ -65,6 +83,10 @@ int main()
     Eigen::Matrix3d Rd = Eigen::Matrix3d::Identity();
     Rd(1, 1)           = -1;
     Rd(2, 2)           = -1;
+
+    Eigen::Matrix3d Rc = Eigen::Matrix3d::Identity();
+    Rc(1, 1)           = -0.9;
+    Rc(2, 2)           = -0.9;
 
     // Define SSQP model
     ssqp::model::Model model("examples/urdf/panda.urdf", HORIZON, dt);
@@ -145,7 +167,8 @@ int main()
             Eigen::MatrixXd Jfk =
               model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
 
-            dX                      = Eigen::MatrixXd::Zero(2, x.size());
+            dX = Eigen::MatrixXd::Zero(2, x.size());
+            // TODO: should we be taking the top rows?
             dX.leftCols(STATE_SIZE) = Jfk.block(1, 0, 2, Jfk.cols());
 
             dU = Eigen::MatrixXd::Zero(2, STATE_SIZE);
@@ -153,11 +176,66 @@ int main()
 
         constraints[k] =
           ssqp::model::stagewise::factory::make_constraints(2,
+                                                            2,
                                                             lb,
                                                             ub,
                                                             constraint_eval,
                                                             constraint_grad);
     }
+
+    Eigen::VectorXd lb_r(9), ub_r(9);
+    lb_r = Eigen::Map<const Eigen::VectorXd>(Rc.data(), 9);
+    ub_r = lb_r;
+
+    auto op = [](const Eigen::VectorXd &x, const Eigen::VectorXd &y)
+    {
+        Eigen::Matrix3d X, Y;
+        X = x.reshaped(3, 3);
+        Y = y.reshaped(3, 3);
+
+        return ssqp::pinocchio_wrapper::logSO3(X.transpose() * Y);
+    };
+
+    auto rot_constraint_eval =
+      [model](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    {
+        Eigen::MatrixXd rot;
+        std::tie(std::ignore, rot) =
+          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
+
+        return rot.reshaped(9, 1);
+    };
+
+    auto rot_constraint_grad = [model, Rc](const Eigen::VectorXd &x,
+                                           const Eigen::VectorXd &u,
+                                           Eigen::MatrixXd &dX,
+                                           Eigen::MatrixXd &dU)
+    {
+        Eigen::VectorXd pos;
+        Eigen::MatrixXd rot;
+        std::tie(pos, rot) =
+          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
+        Eigen::MatrixXd Jfk =
+          model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
+
+        dX = Eigen::MatrixXd::Zero(3, 2 * STATE_SIZE);
+        dX.leftCols(STATE_SIZE) =
+          ssqp::pinocchio_wrapper::JlogSO3(Rc.transpose() * rot) *
+          Rc.transpose() * Jfk.bottomRows(3);
+
+        dU = Eigen::MatrixXd::Zero(3, STATE_SIZE);
+    };
+
+    // constraints[HORIZON / 2] =
+    //   ssqp::model::stagewise::factory::merge_constraints(
+    //     constraints[HORIZON / 2],
+    //     ssqp::model::stagewise::factory::make_constraints(9,
+    //                                                       3,
+    //                                                       lb_r,
+    //                                                       ub_r,
+    //                                                       rot_constraint_eval,
+    //                                                       rot_constraint_grad,
+    //                                                       op));
 
     model.cost(HORIZON) = std::make_shared<
       ssqp::model::stagewise::predefined::costs::SquaredDifferenceCost>(
@@ -227,6 +305,7 @@ int main()
 
     constraints[HORIZON] =
       ssqp::model::stagewise::factory::make_constraints(2,
+                                                        2,
                                                         lb,
                                                         ub,
                                                         constraint_eval,
