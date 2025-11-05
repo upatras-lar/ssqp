@@ -4,11 +4,11 @@
 #include "solvers/ssqp.hpp"
 #include "model/Model.hpp"
 
-#define HORIZON  100
+#define HORIZON  200
 #define dt       0.01
-#define P_WGT    10
-#define V_WGT    0.0001
-#define TERM_WGT 200
+#define P_WGT    2
+#define V_WGT    1e-3
+#define TERM_WGT 100
 #define TARGET   1
 
 int main()
@@ -114,7 +114,10 @@ int main()
                              {},
                              { init });
 
-    ssqp::solvers::ssqp        solver(model);
+    ssqp::solvers::ssqp::Params params;
+    params.tolerance = 1e-2;
+
+    ssqp::solvers::ssqp        solver(model, params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 

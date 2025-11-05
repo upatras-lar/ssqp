@@ -85,8 +85,8 @@ int main()
     Rd(2, 2)           = -1;
 
     Eigen::Matrix3d Rc = Eigen::Matrix3d::Identity();
-    Rc(1, 1)           = -0.9;
-    Rc(2, 2)           = -0.9;
+    Rc(1, 1)           = -1;
+    Rc(2, 2)           = -1;
 
     // Define SSQP model
     ssqp::model::Model model("examples/urdf/panda.urdf", HORIZON, dt);
@@ -228,14 +228,14 @@ int main()
 
     // constraints[HORIZON / 2] =
     //   ssqp::model::stagewise::factory::merge_constraints(
-    //     constraints[HORIZON / 2],
-    //     ssqp::model::stagewise::factory::make_constraints(9,
-    //                                                       3,
-    //                                                       lb_r,
-    //                                                       ub_r,
-    //                                                       rot_constraint_eval,
-    //                                                       rot_constraint_grad,
-    //                                                       op));
+    // constraints[HORIZON / 2],
+    // ssqp::model::stagewise::factory::make_constraints(9,
+    //   3,
+    //   lb_r,
+    //   ub_r,
+    //   rot_constraint_eval,
+    //   rot_constraint_grad,
+    //   op));
 
     model.cost(HORIZON) = std::make_shared<
       ssqp::model::stagewise::predefined::costs::SquaredDifferenceCost>(
