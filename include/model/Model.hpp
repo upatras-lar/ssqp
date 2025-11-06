@@ -188,11 +188,15 @@ class Model
     const DynamicsContainer    dynamics() const;
     const ConstraintsContainer constraints() const;
 
-    std::shared_ptr<stagewise::StageCost> &cost(const uint k);
+    void addCost(const std::shared_ptr<stagewise::StageCost> &cost,
+                 const uint                                   k);
 
     // Perform forward kinematics with the URDF model dynamics
     const std::pair<VecX, MatX> forwardKinematics(
       const VecX &x, const std::string &frame) const;
+
+    const MatX forwardKinematicsSE3(const VecX        &x,
+                                    const std::string &frame) const;
 
     const VecX inverseKinematics(const VecX        &desired_translation,
                                  const MatX        &desired_rotation,

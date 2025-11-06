@@ -87,6 +87,55 @@ std::shared_ptr<StageConstraints> make_constraints(
       hess_uu);
 }
 
+// TODO: instead of merging, possibly hold multiple?
+std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
+                                       const std::shared_ptr<StageCost> &l2)
+{
+    auto eval = [l1, l2](const VecX &x, const VecX &u)
+    {
+        return (Scalar() << l1->evaluate(x, u) + l2->evaluate(x, u)).finished();
+    };
+
+    auto grad = [l1, l2](const VecX &x, const VecX &u, VecX &dx, VecX &du)
+    {
+        VecX tmp_x, tmp_u;
+        l1->gradient(x, u, dx, du);
+        l2->gradient(x, u, tmp_x, tmp_u);
+
+        dx += tmp_x;
+        du += tmp_u;
+    };
+
+    auto hess_xx = [l1, l2](const VecX &x, const VecX &u, MatX &Hxx)
+    {
+        MatX tmp_Hxx;
+        l1->hessian_xx(x, u, Hxx);
+        l2->hessian_xx(x, u, tmp_Hxx);
+
+        Hxx += tmp_Hxx;
+    };
+
+    auto hess_xu = [l1, l2](const VecX &x, const VecX &u, MatX &Hxu)
+    {
+        MatX tmp_Hxu;
+        l1->hessian_xu(x, u, Hxu);
+        l2->hessian_xu(x, u, tmp_Hxu);
+
+        Hxu += tmp_Hxu;
+    };
+
+    auto hess_uu = [l1, l2](const VecX &x, const VecX &u, MatX &Huu)
+    {
+        MatX tmp_Huu;
+        l1->hessian_uu(x, u, Huu);
+        l2->hessian_uu(x, u, tmp_Huu);
+
+        Huu += tmp_Huu;
+    };
+
+    return make_cost(eval, grad, hess_xx, hess_xu, hess_uu);
+}
+
 std::shared_ptr<StageConstraints> merge_constraints(
   const std::shared_ptr<StageConstraints> &c1,
   const std::shared_ptr<StageConstraints> &c2)

@@ -84,23 +84,6 @@ inline std::pair<Eigen::Vector3d, Eigen::Vector3d> square_point_bounds(
     return { lb, ub };
 }
 
-Eigen::Matrix3d skew(Eigen::Vector3d v)
-{
-    Eigen::Matrix3d M;
-
-    M(0, 0) = 0;
-    M(0, 1) = -v[2];
-    M(0, 2) = v[1];
-    M(1, 0) = v[2];
-    M(1, 1) = 0;
-    M(1, 2) = -v[0];
-    M(2, 0) = -v[1];
-    M(2, 1) = v[0];
-    M(2, 2) = 0;
-
-    return M;
-}
-
 int main()
 {
     // Cost trajectory to track
@@ -117,10 +100,6 @@ int main()
     Eigen::Matrix3d Rd = Eigen::Matrix3d::Identity();
     Rd(1, 1)           = -1;
     Rd(2, 2)           = -1;
-
-    Eigen::Matrix3d Rc = Eigen::Matrix3d::Identity();
-    Rc(1, 1)           = -1;
-    Rc(2, 2)           = -1;
 
     // Define SSQP model
     ssqp::model::Model model("examples/urdf/panda.urdf", HORIZON, dt);
@@ -141,18 +120,39 @@ int main()
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        model.cost(k) = std::make_shared<
-          ssqp::model::stagewise::predefined::costs::FrameSquaredPoseErrorCost>(
-          model,
-          traj[k],
-          Rd,
-          "panda_ee",
-          STATE_SIZE,
-          STATE_SIZE,
-          P_WGT,
-          R_WGT,
-          V_WGT,
-          U_WGT);
+        model.addCost(
+          std::make_shared<ssqp::model::stagewise::predefined::costs::
+                             FrameSquaredPositionErrorCost>(model,
+                                                            traj[k],
+                                                            "panda_ee",
+                                                            STATE_SIZE,
+                                                            STATE_SIZE,
+                                                            P_WGT),
+          k);
+
+        model.addCost(
+          std::make_shared<ssqp::model::stagewise::predefined::costs::
+                             FrameSquaredRotationErrorCost>(model,
+                                                            Rd,
+                                                            "panda_ee",
+                                                            STATE_SIZE,
+                                                            STATE_SIZE,
+                                                            R_WGT),
+          k);
+
+        model.addCost(
+          std::make_shared<
+            ssqp::model::stagewise::predefined::costs::SquaredControlCost>(
+            STATE_SIZE,
+            U_WGT),
+          k);
+
+        model.addCost(
+          std::make_shared<
+            ssqp::model::stagewise::predefined::costs::SquaredVelocityCost>(
+            STATE_SIZE,
+            V_WGT),
+          k);
 
         Eigen::Vector3d lb, ub;
         std::tie(lb, ub) = square_point_bounds(
@@ -168,74 +168,32 @@ int main()
           STATE_SIZE);
     }
 
-    Eigen::VectorXd lb_r(9), ub_r(9);
-    lb_r = Eigen::Map<const Eigen::VectorXd>(Rc.data(), 9);
-    ub_r = lb_r;
+    model.addCost(
+      std::make_shared<ssqp::model::stagewise::predefined::costs::
+                         FrameSquaredPositionErrorCost>(model,
+                                                        traj[HORIZON],
+                                                        "panda_ee",
+                                                        STATE_SIZE,
+                                                        STATE_SIZE,
+                                                        TERM_WGT * P_WGT),
+      HORIZON);
 
-    auto op = [](const Eigen::VectorXd &x, const Eigen::VectorXd &y)
-    {
-        Eigen::Matrix3d X, Y;
-        X = x.reshaped(3, 3);
-        Y = y.reshaped(3, 3);
+    model.addCost(
+      std::make_shared<ssqp::model::stagewise::predefined::costs::
+                         FrameSquaredRotationErrorCost>(model,
+                                                        Rd,
+                                                        "panda_ee",
+                                                        STATE_SIZE,
+                                                        STATE_SIZE,
+                                                        TERM_WGT * R_WGT),
+      HORIZON);
 
-        return ssqp::pinocchio_wrapper::logSO3(X.transpose() * Y);
-    };
-
-    /*
-    auto rot_constraint_eval =
-      [model](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
-    {
-        Eigen::MatrixXd rot;
-        std::tie(std::ignore, rot) =
-          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-
-        return rot.reshaped(9, 1);
-    };
-
-    auto rot_constraint_grad = [model, Rc](const Eigen::VectorXd &x,
-                                           const Eigen::VectorXd &u,
-                                           Eigen::MatrixXd &dX,
-                                           Eigen::MatrixXd &dU)
-    {
-        Eigen::VectorXd pos;
-        Eigen::MatrixXd rot;
-        std::tie(pos, rot) =
-          model.forwardKinematics(x.head(STATE_SIZE), "panda_ee");
-        Eigen::MatrixXd Jfk =
-          model.frameJacobian(x.head(STATE_SIZE), "panda_ee");
-
-        dX = Eigen::MatrixXd::Zero(3, 2 * STATE_SIZE);
-        dX.leftCols(STATE_SIZE) =
-          ssqp::pinocchio_wrapper::JlogSO3(Rc.transpose() * rot) *
-          Rc.transpose() * Jfk.bottomRows(3);
-
-        dU = Eigen::MatrixXd::Zero(3, STATE_SIZE);
-    };
-
-    constraints[HORIZON / 2] =
-      ssqp::model::stagewise::factory::merge_constraints(
-        constraints[HORIZON / 2],
-        ssqp::model::stagewise::factory::make_constraints(9,
-                                                          3,
-                                                          lb_r,
-                                                          ub_r,
-                                                          rot_constraint_eval,
-                                                          rot_constraint_grad,
-                                                          op));
-    */
-
-    model.cost(HORIZON) = std::make_shared<
-      ssqp::model::stagewise::predefined::costs::FrameSquaredPoseErrorCost>(
-      model,
-      traj[HORIZON],
-      Rd,
-      "panda_ee",
-      STATE_SIZE,
-      STATE_SIZE,
-      TERM_WGT * P_WGT,
-      TERM_WGT * R_WGT,
-      TERM_WGT * V_WGT,
-      0);
+    model.addCost(
+      std::make_shared<
+        ssqp::model::stagewise::predefined::costs::SquaredVelocityCost>(
+        STATE_SIZE,
+        TERM_WGT * V_WGT),
+      HORIZON);
 
     Eigen::Vector3d lb, ub;
     std::tie(lb, ub) =
@@ -280,20 +238,6 @@ int main()
         std::cout << "x: " << std::endl << solution.x << std::endl;
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
-
-    /*
-    LOGLN("Trajectories: expected vs actual (per step)");
-
-    for (uint k = 0; k <= HORIZON; ++k)
-    {
-        LOGLN("Step " << k << ":");
-        LOGLN("Goal: " << traj[k].transpose());
-        std::tie(pos, std::ignore) =
-          model.forwardKinematics(solution.x.stage(HORIZON).head(STATE_SIZE),
-                                  "panda_ee");
-        LOGLN("Actual: " << pos.transpose());
-    }
-    */
 
     solver.write("visualizer/data/panda_circle");
 

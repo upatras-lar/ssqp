@@ -53,6 +53,9 @@ inline std::shared_ptr<StageConstraints> make_constraints(
   const HessprodFunction2 &hess_xu = ZeroHessprod_xu,
   const HessprodFunction3 &hess_uu = ZeroHessprod_uu);
 
+inline std::shared_ptr<StageCost> merge_costs(
+  const std::shared_ptr<StageCost> &l1, const std::shared_ptr<StageCost> &l2);
+
 inline std::shared_ptr<StageConstraints> merge_constraints(
   const std::shared_ptr<StageConstraints> &c1,
   const std::shared_ptr<StageConstraints> &c2);

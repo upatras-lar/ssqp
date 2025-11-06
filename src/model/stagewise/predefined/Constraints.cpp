@@ -51,23 +51,23 @@ VecX FramePositionBound::evaluate(const VecX &x, const VecX &u) const
     VecX pos;
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
 
-    return (Eigen::Vector3d() << pos(0), pos(1), pos(2)).finished();
+    return (Vec3() << pos(0), pos(1), pos(2)).finished();
 }
 
 void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                   MatX &dU) const
 {
-    Eigen::VectorXd pos;
-    Eigen::MatrixXd rot;
-    std::tie(pos, rot)  = _model->forwardKinematics(x.head(_nq), _frame);
-    Eigen::MatrixXd Jfk = _model->frameJacobian(x.head(_nq), _frame);
+    VecX pos;
+    MatX rot;
+    std::tie(pos, rot) = _model->forwardKinematics(x.head(_nq), _frame);
+    MatX Jfk           = _model->frameJacobian(x.head(_nq), _frame);
 
-    dX = Eigen::MatrixXd::Zero(3, x.size());
+    dX = MatX::Zero(3, x.size());
     // TODO: should we be taking the top rows?
     // nq or nv?
     dX.leftCols(_nq) = Jfk.topRows(3);
 
-    dU = Eigen::MatrixXd::Zero(3, _nv);
+    dU = MatX::Zero(3, _nv);
 }
 
 void FramePositionBound::hessprod_xx(const VecX &x, const VecX &u,

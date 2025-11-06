@@ -13,8 +13,10 @@ namespace pinocchio_wrapper
 class ModelImpl;
 
 Eigen::Vector3d logSO3(const Eigen::Matrix3d &mat);
-
 Eigen::Matrix3d JlogSO3(const Eigen::Matrix3d &mat);
+
+Eigen::Vector<double, 6>    logSE3(const Eigen::Matrix<double, 4, 4> &mat);
+Eigen::Matrix<double, 6, 6> JlogSE3(const Eigen::Matrix<double, 4, 4> &mat);
 
 std::shared_ptr<ModelImpl> makeImpl();
 
@@ -52,6 +54,11 @@ void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
 std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const std::string &frame);
+
+// FK including updateFramePlacement, returning SE3 matrix
+Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
+                                     const Eigen::VectorXd            &q,
+                                     const std::string                &frame);
 
 // Compute and get frame jacobian
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
