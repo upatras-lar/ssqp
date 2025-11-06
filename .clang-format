@@ -204,7 +204,7 @@ PenaltyReturnTypeOnItsOwnLine: 200
 PointerAlignment: Right
 QualifierAlignment: Leave
 ReferenceAlignment: Pointer
-ReflowComments: true
+ReflowComments: false
 RemoveBracesLLVM: false
 RemoveParentheses: Leave
 RemoveSemicolon: false

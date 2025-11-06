@@ -51,6 +51,39 @@ inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
     return res;
 }
 
+inline std::pair<Eigen::Vector3d, Eigen::Vector3d> square_point_bounds(
+  const Eigen::Vector3d &p)
+{
+    Eigen::Vector3d lb, ub;
+
+    lb(0) = -std::numeric_limits<double>::infinity();
+    ub(0) = std::numeric_limits<double>::infinity();
+
+    if (p(1) > cy)
+    {
+        lb(1) = -std::numeric_limits<double>::infinity();
+        ub(1) = p(1);
+    }
+    else
+    {
+        lb(1) = p(1);
+        ub(1) = std::numeric_limits<double>::infinity();
+    }
+
+    if (p(2) > cz)
+    {
+        lb(2) = -std::numeric_limits<double>::infinity();
+        ub(2) = p(2);
+    }
+    else
+    {
+        lb(2) = p(2);
+        ub(2) = std::numeric_limits<double>::infinity();
+    }
+
+    return { lb, ub };
+}
+
 Eigen::Matrix3d skew(Eigen::Vector3d v)
 {
     Eigen::Matrix3d M;
@@ -121,46 +154,20 @@ int main()
           V_WGT,
           U_WGT);
 
-        Eigen::Vector3d box_k = circle_to_square_point(traj[k]);
-
-        Eigen::Vector3d lb = Eigen::Vector3d::Zero(),
-                        ub = Eigen::Vector3d::Zero();
-
-        lb(0) = -std::numeric_limits<double>::infinity();
-        ub(0) = std::numeric_limits<double>::infinity();
-
-        if (box_k(1) > cy)
-        {
-            lb(1) = -std::numeric_limits<double>::infinity();
-            ub(1) = box_k(1);
-        }
-        else
-        {
-            lb(1) = box_k(1);
-            ub(1) = std::numeric_limits<double>::infinity();
-        }
-
-        if (box_k(2) > cz)
-        {
-            lb(2) = -std::numeric_limits<double>::infinity();
-            ub(2) = box_k(2);
-        }
-        else
-        {
-            lb(2) = box_k(2);
-            ub(2) = std::numeric_limits<double>::infinity();
-        }
+        Eigen::Vector3d lb, ub;
+        std::tie(lb, ub) = square_point_bounds(
+          circle_to_square_point(circle_to_square_point(traj[k])));
 
         constraints[k] = std::make_shared<
           ssqp::model::stagewise::predefined::constraints::FramePositionBound>(
           model,
+          "panda_ee",
           lb,
           ub,
           STATE_SIZE,
           STATE_SIZE);
     }
 
-    /*
     Eigen::VectorXd lb_r(9), ub_r(9);
     lb_r = Eigen::Map<const Eigen::VectorXd>(Rc.data(), 9);
     ub_r = lb_r;
@@ -174,6 +181,7 @@ int main()
         return ssqp::pinocchio_wrapper::logSO3(X.transpose() * Y);
     };
 
+    /*
     auto rot_constraint_eval =
       [model](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
@@ -206,14 +214,14 @@ int main()
 
     constraints[HORIZON / 2] =
       ssqp::model::stagewise::factory::merge_constraints(
-    constraints[HORIZON / 2],
-    ssqp::model::stagewise::factory::make_constraints(9,
-      3,
-      lb_r,
-      ub_r,
-      rot_constraint_eval,
-      rot_constraint_grad,
-      op));
+        constraints[HORIZON / 2],
+        ssqp::model::stagewise::factory::make_constraints(9,
+                                                          3,
+                                                          lb_r,
+                                                          ub_r,
+                                                          rot_constraint_eval,
+                                                          rot_constraint_grad,
+                                                          op));
     */
 
     model.cost(HORIZON) = std::make_shared<
@@ -229,41 +237,17 @@ int main()
       TERM_WGT * V_WGT,
       0);
 
-    Eigen::Vector3d box_k = circle_to_square_point(traj[HORIZON]);
-
-    Eigen::Vector3d lb = Eigen::Vector3d::Zero(), ub = Eigen::Vector3d::Zero();
-    lb(0) = -std::numeric_limits<double>::infinity();
-    ub(0) = std::numeric_limits<double>::infinity();
-
-    if (box_k(1) > cy)
-    {
-        lb(1) = -std::numeric_limits<double>::infinity();
-        ub(1) = box_k(1);
-    }
-    else
-    {
-        lb(1) = box_k(1);
-        ub(1) = std::numeric_limits<double>::infinity();
-    }
-
-    if (box_k(2) > cz)
-    {
-        lb(2) = -std::numeric_limits<double>::infinity();
-        ub(2) = box_k(2);
-    }
-    else
-    {
-        lb(2) = box_k(2);
-        ub(2) = std::numeric_limits<double>::infinity();
-    }
+    Eigen::Vector3d lb, ub;
+    std::tie(lb, ub) =
+      square_point_bounds(circle_to_square_point(traj[HORIZON]));
 
     constraints[HORIZON] = std::make_shared<
       ssqp::model::stagewise::predefined::constraints::FramePositionBound>(
       model,
+      "panda_ee",
       lb,
       ub,
-      STATE_SIZE,
-      1);
+      STATE_SIZE);
 
     if (USE_BOX)
     {

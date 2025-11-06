@@ -9,39 +9,46 @@ namespace model
 {
 namespace stagewise
 {
-// Cost function for stage k
+/* General abstract constraint function for an optimization stage $k$: $\ell_k(\boldsymbol{x}, \boldsymbol{u})$
+ * Defines the required functions for a stage cost, while providing 
+ * default implementations for some
+ */
 class StageCost : public Function
 {
   public:
+    // Cost function output size, always $1$
     uint output_size() const final
     {
         return 1;
     }
 
-    // Get cost k Jacobians with respect to x and u, evaluated at
-    // given (x, u)
+    // Get cost Jacobians with respect to $\boldsymbol{x}$ and $\boldsymbol{u}$, evaluated at
+    // given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_x \ell_k(\boldsymbol{x}, \boldsymbol{u})$ and $\nabla_u \ell_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
-    //  dX: gradient with respect to x, (ndx) x 1
-    //  dU: gradient with respect to u, (nu) x 1
+    //  dX: gradient with respect to $\boldsymbol{x}$, $n_{dx} \times 1$
+    //  dU: gradient with respect to $\boldsymbol{u}$, $n_u \times 1$
     virtual void gradient(const VecX &x, const VecX &u, VecX &dx,
                           VecX &du) const = 0;
 
-    // Get cost function k hessian matrix with respect to xx, evaluated at given
-    // (x, u)
+    // Get cost function hessian matrix with respect to $\boldsymbol{xx}$, evaluated at given
+    // $(\boldsymbol{x}, \boldsymbol{u})$:
+    // $\nabla_{xx}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
-    //  Hxx: Hessian matrix, (ndx) x (ndx)
+    //  Hxx: Hessian matrix, $n_{dx} \times n_{dx}$
     virtual void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const = 0;
 
-    // Get cost function k hessian matrix with respect to xu, evaluated at given
-    // (x, u)
+    // Get cost function hessian matrix with respect to $\boldsymbol{xu}$, evaluated at given
+    // $(\boldsymbol{x}, \boldsymbol{u})$:
+    // $\nabla_{xu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
-    //  Hxu: Hessian matrix, (ndx) x (nu)
+    //  Hxu: Hessian matrix, $n_{dx} \times n_u$
     virtual void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const = 0;
 
-    // Get cost function k hessian matrix with respect to uu, evaluated at given
-    // (x, u)
+    // Get cost function hessian matrix with respect to $\boldsymbol{uu}$, evaluated at given
+    // $(\boldsymbol{x}, \boldsymbol{u})$:
+    // $\nabla_{uu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
-    //  Huu: Hessian matrix, (nu) x (nu)
+    //  Huu: Hessian matrix, $n_u \times n_u$
     virtual void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const = 0;
 };
 }

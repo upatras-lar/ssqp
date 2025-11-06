@@ -15,11 +15,24 @@ namespace predefined
 {
 namespace constraints
 {
+/* Predefined 3D position bound for a given frame
+ * Creates a linear bound constraint on the position of a frame of the given
+ * model: $\boldsymbol{b}_l <= \boldsymbol{p}_f <= \boldsymbol{b}_u$
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
+ */
 class FramePositionBound : public StageConstraints
 {
   public:
-    FramePositionBound(const Model &model, const VecX &lb, const VecX &ub,
-                       const uint nq, const uint nv);
+    // Regular constructor
+    FramePositionBound(const Model &model, const std::string &frame,
+                       const VecX &lb, const VecX &ub, const uint nq,
+                       const uint nv);
+
+    // Terminal constraint constructor (no controls)
+    FramePositionBound(const Model &model, const std::string &frame,
+                       const VecX &lb, const VecX &ub, const uint nq);
 
     uint output_size() const override;
 
@@ -40,6 +53,7 @@ class FramePositionBound : public StageConstraints
 
   protected:
     const std::shared_ptr<Model> _model;
+    const std::string            _frame;
     const VecX                   _lb, _ub;
     const uint                   _nq, _nv;
 };
