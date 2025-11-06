@@ -138,9 +138,16 @@ const ConstraintsContainer Model::constraints() const
     return _constraints;
 }
 
-std::shared_ptr<stagewise::StageCost> &Model::cost(const uint k)
+void Model::addCost(const std::shared_ptr<stagewise::StageCost> &cost,
+                    const uint                                   k)
 {
-    return _costs[k];
+    if (_costs[k] == nullptr)
+    {
+        _costs[k] = cost;
+        return;
+    }
+
+    _costs[k] = stagewise::factory::merge_costs(_costs[k], cost);
 }
 
 Model::Model(
@@ -223,7 +230,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         VecX v   = x.tail(nv);
         VecX tau = u;
 
-        Eigen::MatrixXd ddq_dq, ddq_dv, Minv;
+        MatX ddq_dq, ddq_dv, Minv;
 
         pinocchio_wrapper::computeABADerivatives(_impl,
                                                  q,
@@ -381,6 +388,12 @@ const std::pair<VecX, MatX> Model::forwardKinematics(
   const VecX &x, const std::string &frame) const
 {
     return pinocchio_wrapper::forwardKinematics(_impl, x, frame);
+}
+
+const MatX Model::forwardKinematicsSE3(const VecX        &x,
+                                       const std::string &frame) const
+{
+    return pinocchio_wrapper::forwardKinematicsSE3(_impl, x, frame);
 }
 
 const MatX Model::frameJacobian(const VecX &x, const std::string &frame) const

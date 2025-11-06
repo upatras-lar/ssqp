@@ -38,6 +38,9 @@ using VecX  = Eigen::VectorXd;
 using MatX  = Eigen::MatrixXd;
 using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
+using Scalar = Eigen::Vector<double, 1>;
+using Vec3   = Eigen::Vector3d;
+
 namespace model
 {
 inline auto ZeroHessian_xx = [](const VecX &x, const VecX &u, MatX &Hxx)

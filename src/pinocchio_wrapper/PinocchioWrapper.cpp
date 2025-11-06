@@ -29,7 +29,18 @@ Eigen::Matrix3d JlogSO3(const Eigen::Matrix3d &mat)
 {
     Eigen::Matrix3d Jlog;
     pinocchio::Jlog3(mat, Jlog);
+    return Jlog;
+}
 
+Eigen::Vector<double, 6> logSE3(const Eigen::Matrix<double, 4, 4> &mat)
+{
+    return pinocchio::log6(mat);
+}
+
+Eigen::Matrix<double, 6, 6> JlogSE3(const Eigen::Matrix<double, 4, 4> &mat)
+{
+    Eigen::Matrix<double, 6, 6> Jlog;
+    pinocchio::Jlog6(pinocchio::SE3(mat));
     return Jlog;
 }
 
@@ -107,7 +118,6 @@ void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
                           static_cast<pinocchio::ArgumentPosition>(arg_pos));
 }
 
-// FK including updateFramePlacement
 std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const std::string &frame)
@@ -118,6 +128,17 @@ std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
 
     return { impl->data.oMf[frame_id].translation(),
              impl->data.oMf[frame_id].rotation() };
+}
+
+Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
+                                     const Eigen::VectorXd            &q,
+                                     const std::string                &frame)
+{
+    pinocchio::forwardKinematics(impl->model, impl->data, q);
+    int frame_id = impl->model.getFrameId(frame);
+    pinocchio::updateFramePlacement(impl->model, impl->data, frame_id);
+
+    return impl->data.oMf[frame_id].toHomogeneousMatrix();
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
