@@ -34,7 +34,7 @@
 // Initial phase
 #define φ0 0
 
-#define USE_BOX true
+#define CONSTRAIN true
 
 inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
 {
@@ -115,8 +115,8 @@ int main()
       model.forwardKinematics(init_state.head(STATE_SIZE), "panda_ee");
     LOGLN("Actual initial state: " << pos.transpose());
 
-    std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
-      constraints(HORIZON + 1, nullptr);
+    // std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
+    //   constraints(HORIZON + 1, nullptr);
 
     for (uint k = 0; k < HORIZON; ++k)
     {
@@ -154,18 +154,22 @@ int main()
             V_WGT),
           k);
 
-        Eigen::Vector3d lb, ub;
-        std::tie(lb, ub) = square_point_bounds(
-          circle_to_square_point(circle_to_square_point(traj[k])));
+        if (CONSTRAIN)
+        {
+            Eigen::Vector3d lb, ub;
+            std::tie(lb, ub) = square_point_bounds(
+              circle_to_square_point(circle_to_square_point(traj[k])));
 
-        constraints[k] = std::make_shared<
-          ssqp::model::stagewise::predefined::constraints::FramePositionBound>(
-          model,
-          "panda_ee",
-          lb,
-          ub,
-          STATE_SIZE,
-          STATE_SIZE);
+            model.addConstraints(
+              std::make_shared<ssqp::model::stagewise::predefined::constraints::
+                                 FramePositionBound>(model,
+                                                     "panda_ee",
+                                                     lb,
+                                                     ub,
+                                                     STATE_SIZE,
+                                                     STATE_SIZE),
+              k);
+        }
     }
 
     model.addCost(
@@ -195,26 +199,23 @@ int main()
         TERM_WGT * V_WGT),
       HORIZON);
 
-    Eigen::Vector3d lb, ub;
-    std::tie(lb, ub) =
-      square_point_bounds(circle_to_square_point(traj[HORIZON]));
-
-    constraints[HORIZON] = std::make_shared<
-      ssqp::model::stagewise::predefined::constraints::FramePositionBound>(
-      model,
-      "panda_ee",
-      lb,
-      ub,
-      STATE_SIZE);
-
-    if (USE_BOX)
+    if (CONSTRAIN)
     {
-        model.finalize(constraints, { init_state });
+        Eigen::Vector3d lb, ub;
+        std::tie(lb, ub) =
+          square_point_bounds(circle_to_square_point(traj[HORIZON]));
+
+        model.addConstraints(
+          std::make_shared<ssqp::model::stagewise::predefined::constraints::
+                             FramePositionBound>(model,
+                                                 "panda_ee",
+                                                 lb,
+                                                 ub,
+                                                 STATE_SIZE),
+          HORIZON);
     }
-    else
-    {
-        model.finalize({}, { init_state });
-    }
+
+    model.finalize({}, { init_state });
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
