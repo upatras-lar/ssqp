@@ -54,9 +54,9 @@ class Model
      * Initializes model from custom dynamics, costs and constraints
      *
      * Input:
-     *  - `costs`: (size `HORIZON+1`) vector of stage costs (non-null)
-     *  - `dynamics`: (size `HORIZON+1`) vector of stage dynamics (non-null)
-     *  - `constraints`: (size `HORIZON+1`) vector of stage constraints
+     *  - `costs`: (size $H + 1$) vector of stage costs (non-null)
+     *  - `dynamics`: (size $H + 1$) vector of stage dynamics (non-null)
+     *  - `constraints`: (size $H + 1$) vector of stage constraints
      *     (nullable)
      *
      * Finalizes model: true
@@ -79,10 +79,10 @@ class Model
      *  - `dt`: Solver time step
      *  - `cost`: Cost for each non-terminal stage (non-null)
      *  - `terminal_cost`: Cost for terminal stage (non-null)
-     *  - `constraints`: (size `HORIZON+1`) vector of stage constraints (default
+     *  - `constraints`: (size $H + 1$) vector of stage constraints (default
      *     null -> empty vector)
-     *  - `init_states`: (size `HORIZON+1`) vector of initial states for each
-     *     stage (default Zero vector -> empty vector)
+     *  - `init_states`: (size $H + 1$) vector of initial states for each
+     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
      *
      * Finalizes model: true
      */
@@ -103,12 +103,12 @@ class Model
      *  - `urdf_path`: Path to urdf file
      *  - `horizon`: Solver horizon
      *  - `dt`: Solver time step
-     *  - `costs`: (size `HORIZON+1`) vector of stage costs (non-null)
+     *  - `costs`: (size $H + 1$) vector of stage costs (non-null)
      *  - `terminal_cost`: Cost for terminal stage (non-null)
-     *  - `constraints`: (size `HORIZON+1`) vector of stage constraints (default
+     *  - `constraints`: (size $H + 1$) vector of stage constraints (default
      *     null -> empty vector)
-     *  - `init_states`: (size `HORIZON+1`) vector of initial states for each
-     *     stage (default Zero vector -> empty vector)
+     *  - `init_states`: (size $H + 1$) vector of initial states for each
+     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
      *
      * Finalizes model: true
      */
@@ -128,8 +128,8 @@ class Model
      *  - `urdf_path`: Path to urdf file
      *  - `horizon`: Solver horizon
      *  - `dt`: Solver time step
-     *  - `init_states`: (size `HORIZON+1`) vector of initial states for each
-     *     stage (default Zero vector -> empty vector)
+     *  - `init_states`: (size $H + 1$) vector of initial states for each
+     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
      *
      * Finalizes model: false
      *
@@ -188,12 +188,11 @@ class Model
     const DynamicsContainer    dynamics() const;
     const ConstraintsContainer constraints() const;
 
-    void addCost(const std::shared_ptr<stagewise::StageCost> &cost,
-                 const uint                                   k);
+    template<typename L, typename... Args>
+    void addCost(const uint k, Args... args);
 
-    void addConstraints(
-      const std::shared_ptr<stagewise::StageConstraints> &constraints,
-      const uint                                          k);
+    template<typename C, typename... Args>
+    void addConstraints(const uint k, Args... args);
 
     // Perform forward kinematics with the URDF model dynamics
     const std::pair<VecX, MatX> forwardKinematics(
@@ -223,5 +222,7 @@ class Model
 };
 }
 }
+
+#include "src/model/Model.tpp"
 
 #endif

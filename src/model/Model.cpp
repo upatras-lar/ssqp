@@ -138,31 +138,6 @@ const ConstraintsContainer Model::constraints() const
     return _constraints;
 }
 
-void Model::addCost(const std::shared_ptr<stagewise::StageCost> &cost,
-                    const uint                                   k)
-{
-    if (_costs[k] == nullptr)
-    {
-        _costs[k] = cost;
-        return;
-    }
-
-    _costs[k] = stagewise::factory::merge_costs(_costs[k], cost);
-}
-
-void Model::addConstraints(
-  const std::shared_ptr<stagewise::StageConstraints> &constraints, const uint k)
-{
-    if (_constraints[k] == nullptr)
-    {
-        _constraints[k] = constraints;
-        return;
-    }
-
-    _constraints[k] =
-      stagewise::factory::merge_constraints(_constraints[k], constraints);
-}
-
 Model::Model(
   const std::string &urdf_path, const uint horizon, const double dt,
   const std::shared_ptr<stagewise::StageCost> &cost,
