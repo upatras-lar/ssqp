@@ -84,6 +84,8 @@ inline std::pair<Eigen::Vector3d, Eigen::Vector3d> square_point_bounds(
     return { lb, ub };
 }
 
+using namespace ssqp::model::stagewise::predefined;
+
 int main()
 {
     // Cost trajectory to track
@@ -120,39 +122,25 @@ int main()
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        model.addCost(
-          std::make_shared<ssqp::model::stagewise::predefined::costs::
-                             FrameSquaredPositionErrorCost>(model,
+        model.addCost<costs::FrameSquaredPositionErrorCost>(k,
+                                                            model,
                                                             traj[k],
                                                             "panda_ee",
                                                             STATE_SIZE,
                                                             STATE_SIZE,
-                                                            P_WGT),
-          k);
+                                                            P_WGT);
 
-        model.addCost(
-          std::make_shared<ssqp::model::stagewise::predefined::costs::
-                             FrameSquaredRotationErrorCost>(model,
+        model.addCost<costs::FrameSquaredRotationErrorCost>(k,
+                                                            model,
                                                             Rd,
                                                             "panda_ee",
                                                             STATE_SIZE,
                                                             STATE_SIZE,
-                                                            R_WGT),
-          k);
+                                                            R_WGT);
 
-        model.addCost(
-          std::make_shared<
-            ssqp::model::stagewise::predefined::costs::SquaredControlCost>(
-            STATE_SIZE,
-            U_WGT),
-          k);
+        model.addCost<costs::SquaredControlCost>(k, STATE_SIZE, U_WGT);
 
-        model.addCost(
-          std::make_shared<
-            ssqp::model::stagewise::predefined::costs::SquaredVelocityCost>(
-            STATE_SIZE,
-            V_WGT),
-          k);
+        model.addCost<costs::SquaredVelocityCost>(k, STATE_SIZE, V_WGT);
 
         if (CONSTRAIN)
         {
@@ -160,44 +148,33 @@ int main()
             std::tie(lb, ub) = square_point_bounds(
               circle_to_square_point(circle_to_square_point(traj[k])));
 
-            model.addConstraints(
-              std::make_shared<ssqp::model::stagewise::predefined::constraints::
-                                 FramePositionBound>(model,
-                                                     "panda_ee",
-                                                     lb,
-                                                     ub,
-                                                     STATE_SIZE,
-                                                     STATE_SIZE),
-              k);
+            model.addConstraints<constraints::FramePositionBound>(k,
+                                                                  model,
+                                                                  "panda_ee",
+                                                                  lb,
+                                                                  ub,
+                                                                  STATE_SIZE,
+                                                                  STATE_SIZE);
         }
     }
 
-    model.addCost(
-      std::make_shared<ssqp::model::stagewise::predefined::costs::
-                         FrameSquaredPositionErrorCost>(model,
+    model.addCost<costs::FrameSquaredPositionErrorCost>(HORIZON,
+                                                        model,
                                                         traj[HORIZON],
                                                         "panda_ee",
                                                         STATE_SIZE,
                                                         STATE_SIZE,
-                                                        TERM_WGT * P_WGT),
-      HORIZON);
+                                                        TERM_WGT * P_WGT);
 
-    model.addCost(
-      std::make_shared<ssqp::model::stagewise::predefined::costs::
-                         FrameSquaredRotationErrorCost>(model,
+    model.addCost<costs::FrameSquaredRotationErrorCost>(HORIZON,
+                                                        model,
                                                         Rd,
                                                         "panda_ee",
                                                         STATE_SIZE,
                                                         STATE_SIZE,
-                                                        TERM_WGT * R_WGT),
-      HORIZON);
+                                                        TERM_WGT * R_WGT);
 
-    model.addCost(
-      std::make_shared<
-        ssqp::model::stagewise::predefined::costs::SquaredVelocityCost>(
-        STATE_SIZE,
-        TERM_WGT * V_WGT),
-      HORIZON);
+    model.addCost<costs::SquaredVelocityCost>(HORIZON, STATE_SIZE, V_WGT);
 
     if (CONSTRAIN)
     {
@@ -205,14 +182,12 @@ int main()
         std::tie(lb, ub) =
           square_point_bounds(circle_to_square_point(traj[HORIZON]));
 
-        model.addConstraints(
-          std::make_shared<ssqp::model::stagewise::predefined::constraints::
-                             FramePositionBound>(model,
-                                                 "panda_ee",
-                                                 lb,
-                                                 ub,
-                                                 STATE_SIZE),
-          HORIZON);
+        model.addConstraints<constraints::FramePositionBound>(HORIZON,
+                                                              model,
+                                                              "panda_ee",
+                                                              lb,
+                                                              ub,
+                                                              STATE_SIZE);
     }
 
     model.finalize({}, { init_state });
