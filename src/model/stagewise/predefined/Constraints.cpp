@@ -11,16 +11,25 @@ namespace predefined
 namespace constraints
 {
 // FramePositionBound
-FramePositionBound::FramePositionBound(const Model &model, const VecX &lb,
+FramePositionBound::FramePositionBound(const Model       &model,
+                                       const std::string &frame, const VecX &lb,
                                        const VecX &ub, const uint nq,
                                        const uint nv)
   : _model(std::make_shared<Model>(model))
+  , _frame(frame)
   , _lb(lb)
   , _ub(ub)
   , _nq(nq)
   , _nv(nv)
 {
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
+}
+
+FramePositionBound::FramePositionBound(const Model       &model,
+                                       const std::string &frame, const VecX &lb,
+                                       const VecX &ub, const uint nq)
+  : FramePositionBound(model, frame, lb, ub, nq, 1)
+{
 }
 
 uint FramePositionBound::output_size() const
@@ -40,8 +49,7 @@ VecX FramePositionBound::upper_bound() const
 VecX FramePositionBound::evaluate(const VecX &x, const VecX &u) const
 {
     VecX pos;
-    std::tie(pos, std::ignore) =
-      _model->forwardKinematics(x.head(_nq), "panda_ee");
+    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
 
     return (Eigen::Vector3d() << pos(0), pos(1), pos(2)).finished();
 }
@@ -51,8 +59,8 @@ void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 {
     Eigen::VectorXd pos;
     Eigen::MatrixXd rot;
-    std::tie(pos, rot)  = _model->forwardKinematics(x.head(_nq), "panda_ee");
-    Eigen::MatrixXd Jfk = _model->frameJacobian(x.head(_nq), "panda_ee");
+    std::tie(pos, rot)  = _model->forwardKinematics(x.head(_nq), _frame);
+    Eigen::MatrixXd Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
     dX = Eigen::MatrixXd::Zero(3, x.size());
     // TODO: should we be taking the top rows?

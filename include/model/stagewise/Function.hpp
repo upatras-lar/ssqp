@@ -13,20 +13,20 @@ namespace stagewise
 class Function
 {
   public:
-    // Get function output size (if f: R^m -> R^n, this returns n)
+    // Get function output size (if $f: R^m \to R^n$, this returns $n$)
     virtual uint output_size() const = 0;
 
-    // Evaluate function f(x, u)
-    // Returns: output vector, n x 1
+    // Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
+    // Returns: output vector, $n \times 1$
     virtual VecX evaluate(const VecX &x, const VecX &u) const = 0;
 
     // Gradients
-    // Derived classes should implement gradients as vectors (if n == 1) or
-    // matrices (if n > 1)
+    // Derived classes should implement gradients as vectors (if $n = 1$) or
+    // matrices (if $n > 1$)
 
     // Hessians
-    // Derived classes should either implement hessians (if n == 1) or hessprods
-    // (if n > 1)
+    // Derived classes should either implement hessians (if $n = 1$) or
+    // hessprods (if $n > 1$)
 };
 }
 }

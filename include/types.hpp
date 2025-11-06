@@ -145,15 +145,18 @@ enum SolverState
 
 const std::string to_string(const SolverState &state);
 
-// Holds data for non-terminal stages of the below QP
+/* Holds data for non-terminal stages of the below QP
+ * Note that all matrix or vector sizes refer to tangent space
+ */
 struct QPStage
 {
-    MatX A, B;          // A: (nx) x (nx), B: (nx) * (nu)
-    VecX gamma;         // (nx) x 1
-    MatX Qxx, Qxu, Quu; // Qxx: (nx) x (nx), Qxu: (nx) x (nu), Quu: (nu) x (nu)
-    VecX qx, qu;        // qx: (nx) x 1, qu: (nu) x 1
-    MatX D, E;          // D: (nc) x (nx), E: (nc) x (nu)
-    VecX cl, cu;        // cl: (nc) x 1, cu: (nc) x 1
+    MatX A, B;  // A: $n_x \times n_x$, B: $n_x \times n_u$
+    VecX gamma; // $n_x \times 1$
+    MatX Qxx, Qxu,
+      Quu; // Qxx: $n_x \times n_x$, Qxu: $n_x \times n_u$, Quu: $n_u \times n_u$
+    VecX qx, qu; // qx: $n_x \times 1$, qu: $n_u \times 1$
+    MatX D, E;   // D: $n_c \times n_x$, E: $n_c \times n_u$
+    VecX cl, cu; // cl: $n_c \times 1$, cu: $n_c \times 1$
 };
 
 /* Defines a QP of the following form, to be solved using ADMM

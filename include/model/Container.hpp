@@ -11,7 +11,9 @@ namespace ssqp
 {
 namespace model
 {
-// Container class for stagewise functions
+/* Defines a container class for stagewise functions of any type
+ * Equivalent to a vector for stage stagewise::Function objects
+ */
 template<typename Derived>
 class Container
 {

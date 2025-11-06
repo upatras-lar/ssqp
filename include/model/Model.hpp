@@ -18,6 +18,34 @@ using CostsContainer       = Container<stagewise::StageCost>;
 using DynamicsContainer    = Container<stagewise::StageDynamics>;
 using ConstraintsContainer = Container<stagewise::StageConstraints>;
 
+// TODO: check dynamics size (H or H+1)
+/* Defines an SSQP model
+ * An SSQP model object is a prerequisite to performing optimization using SSQP
+ * The model contains the following:
+ *  - An optimization horizon, $H$
+ *  - A cost function for each stage of the horizon, $\ell_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}$, $0 \leq k \leq H$
+ *  - Dynamics functions for each stage of the horizon, $\boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^n$, $0 \leq k \leq H$
+ *  - Constraint functions for each stage of the horizon, $\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^c$, $0 \leq k \leq H$
+ * 
+ * Of the above, all stage cost and dynamics functions must be defined, but
+ * constraints may be left empty.
+ * 
+ * Note that models optimize for $H$ total steps while considering the initial
+ * state to be constant, whereas the initial controls can be altered. This means
+ * that there are $H$ total controls ($\boldsymbol{u}_0$ to $\boldsymbol{u}_{H-1}$) and $H + 1$ total states ($\boldsymbol{x}_0$ to 
+ * $\boldsymbol{x}_H$), with $\boldsymbol{x}_0$ being constant. At the terminal stage (stage $H$), there are no
+ * controls and, as such, stagewise functions must be appropriately defined to
+ * ignore them. Predefined functions all have constructors to account for this.
+ * 
+ * Models may be defined either by passing custom function implementations, or
+ * by using URDF files. Some constructors allow for defining a model using a
+ * URDF file, but without passing the required cost functions. This is done to
+ * allow access to robot-related algorithms such as forward dynamics, which may
+ * be used to define model costs. Note that, if such constructors are used, the
+ * `finalize` method must be called before attempting to use the model for
+ * optimization. The user is responsible for either manually assigning all
+ * required costs, or passing them to the `finalize` method.
+ */
 class Model
 {
   public:
