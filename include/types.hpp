@@ -34,12 +34,16 @@ namespace ssqp
 #define DEBUG_WAIT()     ((void)0)
 #endif
 
-using VecX  = Eigen::VectorXd;
-using MatX  = Eigen::MatrixXd;
-using DMatX = Eigen::DiagonalMatrix<double, -1>;
-
 using Scalar = Eigen::Vector<double, 1>;
 using Vec3   = Eigen::Vector3d;
+using Vec6   = Eigen::Vector<double, 6>;
+using VecX   = Eigen::VectorXd;
+
+using Mat3  = Eigen::Matrix3d;
+using Mat4  = Eigen::Matrix<double, 4, 4>;
+using Mat6  = Eigen::Matrix<double, 6, 6>;
+using MatX  = Eigen::MatrixXd;
+using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
 namespace model
 {
@@ -163,15 +167,37 @@ struct QPStage
 };
 
 /* Defines a QP of the following form, to be solved using ADMM
- *  min_{x, u} sum_{k = 0}^{H-1} ( [x_k u_k] [Qxx Qxu; Qux Quu] [x_k u_k]^T +
- *  [qx_k qu_k] [x_k u_k] ) + 0.5 x_H^T Qxx_H x_H + x_H^T qx_H + 0.5*rho || D_H
- *  x_H - z_{H}^j + rho^{-1} y_{H}^j ||_{2}^2  + sum_{k=0}^{H-1} ( 0.5*rho ||
- *  D_k x_k + E_k u_k - z_{k}^j + rho^{-1} y_{k}^j ||_{2}^2 ) + sum_{k=0}^{H} (
- *  0.5*sigma || x_k - x_{k}^j ||_{2}^2 ) + sum_{k=0}^{H} ( 0.5*sigma || u_k -
- *  u_{k}^j ||_{2}^2 )
- *  such that: x_{k+1} = A_k x_k + B_k u_k + gamma_k
- * Terms with (^j) are parts of the current ADMM guess
- * )
+$$\Large
+\begin{equation}
+\begin{split}
+&\min_{\boldsymbol{x}, \boldsymbol{u}} \sum_{k=0}^{H-1} (
+\frac{1}{2} \Bigl[\begin{smallmatrix}\boldsymbol{x}_k \\ \boldsymbol{u}_k\end{smallmatrix}\Bigr]^\top
+\Bigl[\begin{smallmatrix}Q_{xx} \ Q_{xu} \\ Q_{ux} \ Q_{uu}\end{smallmatrix}\Bigr]
+\Bigl[\begin{smallmatrix}\boldsymbol{x}_k \\ \boldsymbol{u}_k\end{smallmatrix}\Bigr] 
++
+\Bigl[\begin{smallmatrix}\boldsymbol{q}_k \\ \boldsymbol{r}_k\end{smallmatrix}\Bigr]^\top
+\Bigl[\begin{smallmatrix}\boldsymbol{x}_k \\ \boldsymbol{u}_k\end{smallmatrix}\Bigr] )
++
+\frac{1}{2}\boldsymbol{x}_H^\top Q_H \boldsymbol{x}_H
++
+\boldsymbol{x}_H^\top q_H
+\\
+&+
+\sum_{k=0}^{H-1} (
+\frac{\rho}{2} \norm{D_k \boldsymbol{x}_k + E_k \boldsymbol{u}_k - \boldsymbol{z}_k^j + \rho^{-1} \boldsymbol{y}_k^j}_2^2 )
++
+\frac{\rho}{2} \norm{D_H \boldsymbol{x}_H - \boldsymbol{z}_H^j + \rho^{-1} \boldsymbol{y}_H^j}_2^2
+\\
+&+
+\sum_{k=0}^{H} ( \frac{\sigma}{2} \norm{\boldsymbol{x}_k - \boldsymbol{x}_k^j}_2^2 )
++
+\sum_{k=0}^{H-1} ( \frac{\sigma}{2} \norm{\boldsymbol{u}_k - \boldsymbol{u}_k^j}_2^2 )
+\\
+&\text{s.t.} \boldsymbol{x}_{k+1} = A_k \boldsymbol{x}_k + B_k \boldsymbol{u}_k + \gamma_k 
+\end{split}
+\end{equation}
+$$
+ * Terms with (^j) are constant parts of the current ADMM guess
  */
 struct QPData
 {

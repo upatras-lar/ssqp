@@ -169,6 +169,8 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
 {
     pinocchio_wrapper::buildModelFromUrdf(urdf_path, _impl);
 
+    pinocchio_wrapper::printFramesAndJoints(_impl);
+
     uint nq, nv;
     std::tie(nq, nv) = pinocchio_wrapper::modelDimensions(_impl);
 

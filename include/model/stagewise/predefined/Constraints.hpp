@@ -58,6 +58,10 @@ class FramePositionBound : public StageConstraints
     const uint                   _nq, _nv;
 };
 
+class ContactConstraint : public StageConstraints
+{
+};
+
 }
 }
 }

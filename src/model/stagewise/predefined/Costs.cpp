@@ -215,28 +215,30 @@ void FrameSquaredRotationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   const Model &model, const VecX &desired_translation,
   const MatX &desired_rotation, const std::string &frame, const uint nq,
-  const uint nv, const double position_weight)
+  const uint nv, const double position_weight, const double rotation_weight)
   : _model(std::make_shared<Model>(model))
-  , _desired_pose(MatX::Zero(4, 4))
+  , _desired_pose_inv(Mat4::Zero())
   , _frame(frame)
   , _nq(nq)
   , _nv(nv)
-  , _weight(position_weight)
+  , _weight(Mat6::Zero())
 {
-    _desired_pose.topLeftCorner(3, 3) = desired_rotation;
-    _desired_pose.block<3, 1>(0, 3)   = desired_translation;
-    _desired_pose(3, 3)               = 1.0;
+    _desired_pose_inv.topLeftCorner<3, 3>() = desired_rotation.transpose();
+    _desired_pose_inv.topRightCorner<3, 1>() =
+      -desired_rotation.transpose() * desired_translation;
+    _desired_pose_inv(3, 3) = 1.0;
 
-    // _desired_pose_inv = _desired_pose.inverse();
+    _weight.topLeftCorner<3, 3>()     = position_weight * Mat3::Identity();
+    _weight.bottomRightCorner<3, 3>() = rotation_weight * Mat3::Identity();
 }
 
 VecX FrameSquaredPoseErrorCost::evaluate(const VecX &x, const VecX &u) const
 {
-    MatX pose = _model->forwardKinematicsSE3(x.head(_nq), _frame);
+    Mat4 pose = _model->forwardKinematicsSE3(x.head(_nq), _frame);
 
-    return (Scalar() << _weight *
-                          pinocchio_wrapper::logSE3(_desired_pose_inv * pose)
-                            .squaredNorm())
+    return (Scalar() << (_weight *
+                         pinocchio_wrapper::logSE3(_desired_pose_inv * pose))
+                          .squaredNorm())
       .finished();
 }
 
@@ -244,38 +246,42 @@ VecX FrameSquaredPoseErrorCost::evaluate(const VecX &x, const VecX &u) const
 void FrameSquaredPoseErrorCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                          VecX &du) const
 {
-    MatX pose = _model->forwardKinematicsSE3(x.head(_nq), _frame);
+    Mat4 pose = _model->forwardKinematicsSE3(x.head(_nq), _frame);
     MatX Jfk  = _model->frameJacobian(x.head(_nq), _frame);
 
-    dx = VecX::Zero(2 * _nv);
+    Mat4 pd    = _desired_pose_inv * pose;
+    Vec6 log6  = pinocchio_wrapper::logSE3(pd);
+    Mat6 Jlog6 = pinocchio_wrapper::JlogSE3(pd);
 
-    MatX pd      = _desired_pose_inv * pose;
-    dx.head(_nv) = 2 * _weight * Jfk.transpose() *
-                   pinocchio_wrapper::JlogSE3(pd) *
-                   pinocchio_wrapper::logSE3(pd);
-
-    dx.tail(_nv).setZero();
+    dx           = VecX::Zero(2 * _nv);
+    dx.head(_nv) = 2 * Jfk.transpose() *
+                   pinocchio_wrapper::SE3ToActionMatrixInverse(pd).transpose() *
+                   Jlog6.transpose() * _weight * log6;
 
     du = VecX::Zero(_nv);
 }
+
 void FrameSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
                                            MatX &Hxx) const
 {
     MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
     Hxx                         = MatX::Zero(2 * _nv, 2 * _nv);
-    Hxx.topLeftCorner(_nv, _nv) = 2 * _weight * Jfk.transpose() * Jfk;
+    Hxx.topLeftCorner(_nv, _nv) = 2 * Jfk.transpose() * _weight * Jfk;
 }
+
 void FrameSquaredPoseErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                            MatX &Hxu) const
 {
     ZeroHessian_xu(x, u, Hxu);
 }
+
 void FrameSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                            MatX &Huu) const
 {
     ZeroHessian_uu(x, u, Huu);
 }
+
 }
 }
 }

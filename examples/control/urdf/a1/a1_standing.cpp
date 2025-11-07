@@ -17,7 +17,21 @@
 #define U_WGT      1e-5
 #define TERM_WGT   1
 
+using namespace ssqp::model::stagewise::predefined;
+
 int main()
 {
+    Eigen::Vector3d base_pos;
+    base_pos << 0, 0, 0.4;
+
+    ssqp::model::Model model("examples/urdf/a1.urdf", HORIZON, dt);
+
+    for (uint k = 0; k < HORIZON; ++k)
+    {
+        // model.addCost<costs::FrameSquaredPositionErrorCost>(k,
+        // model,
+        // base_pos, );
+    }
+
     return 0;
 }
