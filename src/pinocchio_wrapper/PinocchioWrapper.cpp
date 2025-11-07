@@ -40,8 +40,15 @@ Eigen::Vector<double, 6> logSE3(const Eigen::Matrix<double, 4, 4> &mat)
 Eigen::Matrix<double, 6, 6> JlogSE3(const Eigen::Matrix<double, 4, 4> &mat)
 {
     Eigen::Matrix<double, 6, 6> Jlog;
-    pinocchio::Jlog6(pinocchio::SE3(mat));
+    Jlog.setZero();
+    pinocchio::Jlog6(pinocchio::SE3(mat), Jlog);
     return Jlog;
+}
+
+Eigen::Matrix<double, 6, 6> SE3ToActionMatrixInverse(
+  const Eigen::Matrix<double, 4, 4> &mat)
+{
+    return pinocchio::SE3(mat).toActionMatrixInverse();
 }
 
 std::shared_ptr<ModelImpl> makeImpl()
@@ -105,6 +112,23 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
     aba_partial_dq = impl->data.ddq_dq;
     aba_partial_dv = impl->data.ddq_dv;
     Minv           = impl->data.Minv;
+}
+
+void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl)
+{
+    std::cout << "Number of joints: " << impl->model.njoints << std::endl;
+    for (pinocchio::JointIndex i = 0; i < impl->model.njoints; ++i)
+    {
+        std::cout << "[" << i << "] " << impl->model.names[i] << std::endl;
+    }
+
+    std::cout << "\nNumber of frames: " << impl->model.nframes << std::endl;
+    for (pinocchio::FrameIndex i = 0; i < impl->model.nframes; ++i)
+    {
+        const pinocchio::Frame &frame = impl->model.frames[i];
+        std::cout << "[" << i << "] " << frame.name << "  type: " << frame.type
+                  << std::endl;
+    }
 }
 
 void dIntegrate(const std::shared_ptr<ModelImpl> &impl,

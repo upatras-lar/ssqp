@@ -34,7 +34,7 @@
 // Initial phase
 #define φ0 0
 
-#define CONSTRAIN true
+#define CONSTRAIN false
 
 inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
 {
@@ -96,7 +96,6 @@ int main()
     {
         double φk = φ0 + ω * k * dt;
         traj[k] << cx, cy + cr * sin(φk), cz + cr * std::cos(φk);
-        LOGLN(circle_to_square_point(traj[k]).transpose());
     }
 
     Eigen::Matrix3d Rd = Eigen::Matrix3d::Identity();
@@ -138,6 +137,18 @@ int main()
                                                             STATE_SIZE,
                                                             R_WGT);
 
+        /*
+        model.addCost<costs::FrameSquaredPoseErrorCost>(k,
+                                                        model,
+                                                        traj[k],
+                                                        Rd,
+                                                        "panda_ee",
+                                                        STATE_SIZE,
+                                                        STATE_SIZE,
+                                                        P_WGT,
+                                                        R_WGT);
+        */
+
         model.addCost<costs::SquaredControlCost>(k, STATE_SIZE, U_WGT);
 
         model.addCost<costs::SquaredVelocityCost>(k, STATE_SIZE, V_WGT);
@@ -173,6 +184,18 @@ int main()
                                                         STATE_SIZE,
                                                         STATE_SIZE,
                                                         TERM_WGT * R_WGT);
+
+    /*
+    model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
+                                                    model,
+                                                    traj[HORIZON],
+                                                    Rd,
+                                                    "panda_ee",
+                                                    STATE_SIZE,
+                                                    STATE_SIZE,
+                                                    TERM_WGT * P_WGT,
+                                                    TERM_WGT * R_WGT);
+    */
 
     model.addCost<costs::SquaredVelocityCost>(HORIZON, STATE_SIZE, V_WGT);
 

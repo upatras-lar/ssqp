@@ -18,10 +18,15 @@ Eigen::Matrix3d JlogSO3(const Eigen::Matrix3d &mat);
 Eigen::Vector<double, 6>    logSE3(const Eigen::Matrix<double, 4, 4> &mat);
 Eigen::Matrix<double, 6, 6> JlogSE3(const Eigen::Matrix<double, 4, 4> &mat);
 
+Eigen::Matrix<double, 6, 6> SE3ToActionMatrixInverse(
+  const Eigen::Matrix<double, 4, 4> &mat);
+
 std::shared_ptr<ModelImpl> makeImpl();
 
 void buildModelFromUrdf(const std::string         &urdf,
                         std::shared_ptr<ModelImpl> impl);
+
+void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
 
 std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl);
 
