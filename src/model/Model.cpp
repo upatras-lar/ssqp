@@ -143,8 +143,8 @@ Model::Model(
   const std::shared_ptr<stagewise::StageCost> &cost,
   const std::shared_ptr<stagewise::StageCost> &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX>                                         &init_states)
-  : Model(urdf_path, horizon, dt, init_states)
+  const std::vector<VecX> &init_states, const bool free_flyer)
+  : Model(urdf_path, horizon, dt, init_states, free_flyer)
 {
     finalize(cost, terminal_cost, constraints);
 }
@@ -154,20 +154,20 @@ Model::Model(
   const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
   const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX>                                         &init_states)
-  : Model(urdf_path, horizon, dt, init_states)
+  const std::vector<VecX> &init_states, const bool free_flyer)
+  : Model(urdf_path, horizon, dt, init_states, free_flyer)
 {
     finalize(costs, terminal_cost, constraints);
 }
 
 Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
-             const std::vector<VecX> &init_states)
+             const std::vector<VecX> &init_states, const bool free_flyer)
   : _impl(pinocchio_wrapper::makeImpl())
   , _costs(horizon + 1)
   , _dynamics(horizon + 1)
   , _constraints(horizon + 1)
 {
-    pinocchio_wrapper::buildModelFromUrdf(urdf_path, _impl);
+    pinocchio_wrapper::buildModelFromUrdf(urdf_path, _impl, free_flyer);
 
     pinocchio_wrapper::printFramesAndJoints(_impl);
 
@@ -246,6 +246,18 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         dU.bottomRows(nv) = Minv * dt;
     };
 
+    auto dyn_hessprod_xx =
+      [nv](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
+    { Pxx = MatX::Zero(2 * nv, 2 * nv); };
+
+    auto dyn_hessprod_xu =
+      [nv](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
+    { Pxu = MatX::Zero(2 * nv, nv); };
+
+    auto dyn_hessprod_uu =
+      [nv](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
+    { Puu = MatX::Zero(nv, nv); };
+
     std::shared_ptr<stagewise::StageDynamics> dynamics = nullptr;
 
     if (init_states.empty())
@@ -257,7 +269,10 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
                                                      VecX::Zero(nq + nv),
                                                      ops,
                                                      dyn_eval,
-                                                     dyn_grad);
+                                                     dyn_grad,
+                                                     dyn_hessprod_xx,
+                                                     dyn_hessprod_xu,
+                                                     dyn_hessprod_uu);
     }
     else if (init_states.size() == 1)
     {
@@ -268,7 +283,10 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
                                                      init_states[0],
                                                      ops,
                                                      dyn_eval,
-                                                     dyn_grad);
+                                                     dyn_grad,
+                                                     dyn_hessprod_xx,
+                                                     dyn_hessprod_xu,
+                                                     dyn_hessprod_uu);
     }
     else
     {
@@ -276,85 +294,151 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
                "init_states.size() must match horizon");
     }
 
+    std::shared_ptr<stagewise::StageConstraints> innate_constraints;
+    std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints;
+
     VecX lb, ub;
-    std::tie(lb, ub) = pinocchio_wrapper::modelBounds(_impl);
+    std::tie(lb, ub) = pinocchio_wrapper::modelBounds(_impl, free_flyer);
+    uint njoints     = lb.size() / 3;
 
-    auto op = [this, nq, nv](const VecX &x, const VecX &y) // TODO: validate
+    if (free_flyer)
     {
-        VecX d(3 * nv);
-        d.head(nv) =
-          pinocchio_wrapper::difference(_impl, y.head(nq), x.head(nq));
-        d.segment(nv, nv) = x.segment(nq, nv) - y.segment(nq, nv);
-        d.tail(nv)        = x.tail(nv) - y.tail(nv);
+        auto innate_constraint_eval =
+          [this, njoints](const VecX &x, const VecX &u)
+        {
+            VecX c(3 * njoints);
+            c.head(njoints)             = x.segment(7, njoints);
+            c.segment(njoints, njoints) = x.tail(njoints);
+            c.tail(njoints)             = u.tail(njoints);
 
-        return d;
-    };
+            return c;
+        };
 
-    auto innate_constraint_eval = [this, nq, nv](const VecX &x, const VecX &u)
+        auto innate_constraint_grad =
+          [this, nv, njoints](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+        {
+            dX                               = MatX::Zero(3 * njoints, 2 * nv);
+            dX.block(0, 6, njoints, njoints) = MatX::Identity(njoints, njoints);
+            dX.block(njoints, nv + 6, njoints, njoints) =
+              MatX::Identity(njoints, njoints);
+
+            dU = MatX::Zero(3 * njoints, nv);
+            dU.block(2 * njoints, 6, njoints, njoints) =
+              MatX::Identity(njoints, njoints);
+        };
+
+        innate_constraints =
+          stagewise::factory::make_constraints(3 * njoints,
+                                               3 * njoints,
+                                               lb,
+                                               ub,
+                                               innate_constraint_eval,
+                                               innate_constraint_grad,
+                                               DefaultRightMinus,
+                                               dyn_hessprod_xx,
+                                               dyn_hessprod_xu,
+                                               dyn_hessprod_uu);
+
+        auto terminal_innate_constraint_eval =
+          [this, njoints](const VecX &x, const VecX &u)
+        {
+            VecX c(2 * njoints);
+            c.head(njoints)             = x.segment(7, njoints);
+            c.segment(njoints, njoints) = x.tail(njoints);
+
+            return c;
+        };
+
+        auto terminal_innate_constraint_grad =
+          [this, nv, njoints](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+        {
+            dX                               = MatX::Zero(2 * njoints, 2 * nv);
+            dX.block(0, 6, njoints, njoints) = MatX::Identity(njoints, njoints);
+            dX.block(njoints, nv + 6, njoints, njoints) =
+              MatX::Identity(njoints, njoints);
+
+            dU = MatX::Zero(2 * njoints, 1);
+        };
+
+        terminal_innate_constraints =
+          stagewise::factory::make_constraints(2 * njoints,
+                                               2 * njoints,
+                                               lb.head(2 * njoints),
+                                               ub.head(2 * njoints),
+                                               terminal_innate_constraint_eval,
+                                               terminal_innate_constraint_grad,
+                                               DefaultRightMinus,
+                                               dyn_hessprod_xx,
+                                               dyn_hessprod_xu,
+                                               dyn_hessprod_uu);
+    }
+    else
     {
-        VecX c(nq + 2 * nv);
-        c.head(nq)        = x.head(nq);
-        c.segment(nq, nv) = x.tail(nv);
-        c.tail(nv)        = u;
+        auto innate_constraint_eval =
+          [this, njoints](const VecX &x, const VecX &u)
+        {
+            VecX c(3 * njoints);
+            c.head(2 * njoints) = x;
+            c.tail(njoints)     = u;
 
-        return c;
-    };
+            return c;
+        };
 
-    auto innate_constraint_grad =
-      [this, nv](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
-    {
-        dX = MatX::Identity(3 * nv, 2 * nv);
+        auto innate_constraint_grad =
+          [this, nv, njoints](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+        {
+            dX = MatX::Zero(3 * njoints, 2 * nv);
+            dX.block(0, 0, 2 * njoints, 2 * njoints) =
+              MatX::Identity(2 * njoints, 2 * njoints);
 
-        dU = MatX(3 * nv, nv);
-        dU.block(0, 0, 2 * nv, nv).setZero();
-        dU.block(2 * nv, 0, nv, nv) = MatX::Identity(nv, nv);
-    };
+            dU = MatX::Zero(3 * njoints, nv);
+            dU.block(2 * njoints, 0, njoints, njoints) =
+              MatX::Identity(njoints, njoints);
+        };
 
-    std::shared_ptr<stagewise::StageConstraints> innate_constraints =
-      stagewise::factory::make_constraints(nq + 2 * nv,
-                                           3 * nv, // TODO: validate
-                                           lb,
-                                           ub,
-                                           innate_constraint_eval,
-                                           innate_constraint_grad,
-                                           op);
+        innate_constraints =
+          stagewise::factory::make_constraints(3 * njoints,
+                                               3 * njoints,
+                                               lb,
+                                               ub,
+                                               innate_constraint_eval,
+                                               innate_constraint_grad,
+                                               DefaultRightMinus,
+                                               dyn_hessprod_xx,
+                                               dyn_hessprod_xu,
+                                               dyn_hessprod_uu);
 
-    auto terminal_op =
-      [this, nq, nv](const VecX &x, const VecX &y) // TODO: validate
-    {
-        VecX d(2 * nv);
-        d.head(nv) =
-          pinocchio_wrapper::difference(_impl, y.head(nq), x.head(nq));
-        d.tail(nv) = x.tail(nv) - y.tail(nv);
+        auto terminal_innate_constraint_eval =
+          [this, njoints](const VecX &x, const VecX &u)
+        {
+            VecX c(2 * njoints);
+            c.head(2 * njoints) = x;
 
-        return d;
-    };
+            return c;
+        };
 
-    auto terminal_innate_constraint_eval =
-      [this, nq, nv](const VecX &x, const VecX &u)
-    {
-        VecX c(nq + nv);
-        c.head(nq) = x.head(nq);
-        c.tail(nv) = x.tail(nv);
+        auto terminal_innate_constraint_grad =
+          [this, nv, njoints](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+        {
+            dX = MatX::Zero(2 * njoints, 2 * nv);
+            dX.block(0, 0, 2 * njoints, 2 * njoints) =
+              MatX::Identity(2 * njoints, 2 * njoints);
 
-        return c;
-    };
+            dU = MatX::Zero(2 * njoints, 1);
+        };
 
-    auto terminal_innate_constraint_grad =
-      [this, nv](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
-    {
-        dX = MatX::Identity(2 * nv, 2 * nv);
-        dU = MatX::Zero(2 * nv, 1);
-    };
-
-    std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints =
-      stagewise::factory::make_constraints(nq + nv,
-                                           2 * nv, // TODO: validate
-                                           lb.head(nq + nv),
-                                           ub.head(nq + nv),
-                                           terminal_innate_constraint_eval,
-                                           terminal_innate_constraint_grad,
-                                           terminal_op);
+        terminal_innate_constraints =
+          stagewise::factory::make_constraints(2 * njoints,
+                                               2 * njoints,
+                                               lb.head(2 * njoints),
+                                               ub.head(2 * njoints),
+                                               terminal_innate_constraint_eval,
+                                               terminal_innate_constraint_grad,
+                                               DefaultRightMinus,
+                                               dyn_hessprod_xx,
+                                               dyn_hessprod_xu,
+                                               dyn_hessprod_uu);
+    }
 
     for (uint k = 0; k <= horizon; ++k)
     {

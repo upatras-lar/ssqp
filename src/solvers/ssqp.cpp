@@ -20,8 +20,8 @@ ssqp::ssqp(const model::Model &model, const Params &params,
   , _admm_params(admm_params)
   , _model(model)
   , _guess(model.dims(), model.linear_dims())
-  , _prev_cost_dx(_guess.x, false)
-  , _cost_dx(_guess.x, false)
+  , _prev_cost_dx(model.linear_dims().state, model.linear_dims().stage_state)
+  , _cost_dx(_prev_cost_dx, false)
   , _prev_cost_du(_guess.u, false)
   , _cost_du(_guess.u, false)
 {
@@ -165,13 +165,13 @@ QPData ssqp::_setup_qp()
                                  _guess.u.stage(k),
                                  _guess.lambda.stage(k),
                                  tmpMat);
+
         qp.stages[k].Qxx += tmpMat;
 
         // Calculate S_k
         costs[k]->hessian_xu(_guess.x.stage(k),
                              _guess.u.stage(k),
                              qp.stages[k].Qxu);
-
         dynamics[k]->hessprod_xu(_guess.x.stage(k),
                                  _guess.u.stage(k),
                                  _guess.lambda.stage(k),
@@ -221,6 +221,7 @@ QPData ssqp::_setup_qp()
                                      _guess.u.stage(k),
                                      qp.stages[k].D,
                                      qp.stages[k].E);
+
             // Get cl, cu
             VecX c =
               constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
@@ -311,8 +312,8 @@ SolverState ssqp::_check_termination()
     static const model::ConstraintsContainer constraints = _model.constraints();
 
     // Jacobian over x and y of lagrangian at current guess
-    FlatVec lagrangian_dx(_guess.x, false);
-    FlatVec lagrangian_du(_guess.u, false);
+    FlatVec lagrangian_dx(_cost_dx, false);
+    FlatVec lagrangian_du(_cost_du, false);
 
     // Cost gradients for loose success
     VecX dx, du;

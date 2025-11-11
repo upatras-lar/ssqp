@@ -24,14 +24,17 @@ Eigen::Matrix<double, 6, 6> SE3ToActionMatrixInverse(
 std::shared_ptr<ModelImpl> makeImpl();
 
 void buildModelFromUrdf(const std::string         &urdf,
-                        std::shared_ptr<ModelImpl> impl);
+                        std::shared_ptr<ModelImpl> impl,
+                        bool                       free_flyer = false);
 
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
+
+Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl);
 
 std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl);
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
-  const std::shared_ptr<ModelImpl> &impl);
+  const std::shared_ptr<ModelImpl> &impl, const bool free_flyer = false);
 
 Eigen::VectorXd integrate(const std::shared_ptr<ModelImpl> &impl,
                           const Eigen::VectorXd &q, const Eigen::VectorXd &v);

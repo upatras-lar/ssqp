@@ -91,7 +91,8 @@ class Model
           const std::shared_ptr<stagewise::StageCost> &terminal_cost,
           const std::vector<std::shared_ptr<stagewise::StageConstraints>>
             &constraints                       = {},
-          const std::vector<VecX> &init_states = {});
+          const std::vector<VecX> &init_states = {},
+          const bool free_flyer                = false);
 
     /* URDF SSQP Model constructor (different costs per stage & terminal cost)
      * ---
@@ -117,7 +118,8 @@ class Model
           const std::shared_ptr<stagewise::StageCost> &terminal_cost,
           const std::vector<std::shared_ptr<stagewise::StageConstraints>>
             &constraints                       = {},
-          const std::vector<VecX> &init_states = {});
+          const std::vector<VecX> &init_states = {},
+          const bool free_flyer                = false);
 
     /* URDF SSQP Model constructor (Partial initialization - no costs)
      * ---
@@ -138,7 +140,8 @@ class Model
      * optimization
      */
     Model(const std::string &urdf_path, const uint horizon, const double dt,
-          const std::vector<VecX> &init_states = {});
+          const std::vector<VecX> &init_states = {},
+          const bool free_flyer                = false);
 
     /* `finalize` method (same cost per stage & terminal cost)
      * ---

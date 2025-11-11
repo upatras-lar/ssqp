@@ -45,6 +45,8 @@ using Mat6  = Eigen::Matrix<double, 6, 6>;
 using MatX  = Eigen::MatrixXd;
 using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
+void print_matrix_dimensions(const MatX &mat);
+
 namespace model
 {
 inline auto ZeroHessian_xx = [](const VecX &x, const VecX &u, MatX &Hxx)

@@ -32,13 +32,13 @@ void SquaredControlCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 void SquaredControlCost::hessian_xx(const VecX &x, const VecX &u,
                                     MatX &Hxx) const
 {
-    ZeroHessian_xx(x, u, Hxx);
+    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
 }
 
 void SquaredControlCost::hessian_xu(const VecX &x, const VecX &u,
                                     MatX &Hxu) const
 {
-    ZeroHessian_xu(x, u, Hxu);
+    Hxu = MatX::Zero(2 * _nv, _nv);
 }
 
 void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
@@ -79,13 +79,13 @@ void SquaredVelocityCost::hessian_xx(const VecX &x, const VecX &u,
 void SquaredVelocityCost::hessian_xu(const VecX &x, const VecX &u,
                                      MatX &Hxu) const
 {
-    ZeroHessian_xu(x, u, Hxu);
+    Hxu = MatX::Zero(2 * _nv, _nv);
 }
 
 void SquaredVelocityCost::hessian_uu(const VecX &x, const VecX &u,
                                      MatX &Huu) const
 {
-    ZeroHessian_uu(x, u, Huu);
+    Huu = MatX::Zero(_nv, _nv);
 }
 
 // FrameSquaredPositionErrorCost
@@ -139,13 +139,13 @@ void FrameSquaredPositionErrorCost::hessian_xx(const VecX &x, const VecX &u,
 void FrameSquaredPositionErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                MatX &Hxu) const
 {
-    ZeroHessian_xu(x, u, Hxu);
+    Hxu = MatX::Zero(2 * _nv, _nv);
 }
 
 void FrameSquaredPositionErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                                MatX &Huu) const
 {
-    ZeroHessian_uu(x, u, Huu);
+    Huu = MatX::Zero(_nv, _nv);
 }
 
 // FrameSquaredRotationErrorCost
@@ -202,13 +202,13 @@ void FrameSquaredRotationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 void FrameSquaredRotationErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                MatX &Hxu) const
 {
-    ZeroHessian_xu(x, u, Hxu);
+    Hxu = MatX::Zero(2 * _nv, _nv);
 }
 
 void FrameSquaredRotationErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                                MatX &Huu) const
 {
-    ZeroHessian_uu(x, u, Huu);
+    Huu = MatX::Zero(_nv, _nv);
 }
 
 // FrameSquaredPoseErrorCost

@@ -2,6 +2,11 @@
 
 namespace ssqp
 {
+void print_matrix_dimensions(const MatX &mat)
+{
+    std::cout << mat.rows() << 'x' << mat.cols() << std::endl;
+}
+
 std::string format_double(double val, uint precision)
 {
     static uint        SCIENTIFIC_CUTOFF = 1e5;
