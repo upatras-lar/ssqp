@@ -67,5 +67,8 @@ $(BUILD_DIR)/examples/%.o: $(EXAMPLES_DIR)/%.cpp
 clean:
 	rm -rf $(BUILD_DIR)
 
+clean-nopin:
+	find $(BUILD_DIR) -type f \! '(' -name PinocchioWrapper.d ')' \! '(' -name PinocchioWrapper.o ')' -delete
+
 clean-examples:
 	rm -rf $(BUILD_DIR)/examples $(BUILD_DIR)/bin

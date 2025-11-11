@@ -76,7 +76,9 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
         FlatVec x_prev = _solution.dx, u_prev = _solution.du,
                 z_prev = _solution.z, y_prev = _solution.y;
+
         _step(lqr_out.x, lqr_out.u);
+
         _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
 
         DEBUG_LOGLN("Update step, iteration " << _iter + 1);

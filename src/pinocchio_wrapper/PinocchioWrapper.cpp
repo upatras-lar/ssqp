@@ -57,9 +57,18 @@ std::shared_ptr<ModelImpl> makeImpl()
 }
 
 void buildModelFromUrdf(const std::string         &urdf,
-                        std::shared_ptr<ModelImpl> impl)
+                        std::shared_ptr<ModelImpl> impl, bool free_flyer)
 {
-    pinocchio::urdf::buildModel(urdf, impl->model);
+    if (free_flyer)
+    {
+        pinocchio::urdf::buildModel(urdf,
+                                    pinocchio::JointModelFreeFlyer(),
+                                    impl->model);
+    }
+    else
+    {
+        pinocchio::urdf::buildModel(urdf, impl->model);
+    }
     impl->data = pinocchio::Data(impl->model);
 }
 
@@ -69,14 +78,36 @@ std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl)
 }
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
-  const std::shared_ptr<ModelImpl> &impl)
+  const std::shared_ptr<ModelImpl> &impl, const bool free_flyer)
 {
-    Eigen::VectorXd lb(impl->model.nq + 2 * impl->model.nv),
-      ub(impl->model.nq + 2 * impl->model.nv);
-    lb << impl->model.lowerPositionLimit, -impl->model.velocityLimit,
-      -impl->model.effortLimit;
-    ub << impl->model.upperPositionLimit, impl->model.velocityLimit,
-      impl->model.effortLimit;
+    uint            nbounds = impl->model.nq + 2 * impl->model.nv;
+    Eigen::VectorXd lb, ub;
+
+    if (free_flyer)
+    {
+        uint nq = impl->model.nq - 7;
+        uint nv = impl->model.nv - 6;
+
+        lb.resize(nbounds - 19);
+        ub.resize(nbounds - 19);
+
+        lb.head(nq)        = impl->model.lowerPositionLimit.tail(nq);
+        lb.segment(nq, nv) = -impl->model.velocityLimit.tail(nv);
+        lb.tail(nv)        = -impl->model.effortLimit.tail(nv);
+
+        ub.head(nq)        = impl->model.upperPositionLimit.tail(nq);
+        ub.segment(nq, nv) = impl->model.velocityLimit.tail(nv);
+        ub.tail(nv)        = impl->model.effortLimit.tail(nv);
+    }
+    else
+    {
+        lb.resize(nbounds);
+        ub.resize(nbounds);
+        lb << impl->model.lowerPositionLimit, -impl->model.velocityLimit,
+          -impl->model.effortLimit;
+        ub << impl->model.upperPositionLimit, impl->model.velocityLimit,
+          impl->model.effortLimit;
+    }
 
     return { lb, ub };
 }
@@ -129,6 +160,11 @@ void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl)
         std::cout << "[" << i << "] " << frame.name << "  type: " << frame.type
                   << std::endl;
     }
+}
+
+Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl)
+{
+    return pinocchio::neutral(impl->model);
 }
 
 void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
