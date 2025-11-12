@@ -270,7 +270,7 @@ void FrameSquaredPoseErrorCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     Mat4 d       = pose_inv * _desired_pose;
     Vec6 log6    = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6   = pinocchio_wrapper::JlogSE3(d);
-    Mat6 adj_inv = pinocchio_wrapper::SE3ToActionMatrixInverse(pose_inv);
+    Mat6 adj_inv = pinocchio_wrapper::SE3ToActionMatrixInverse(d);
 
     dx           = VecX::Zero(2 * _nv);
     dx.head(_nv) = (-Jlog6 * adj_inv * Jfk).transpose() * _weight * log6;
@@ -293,7 +293,7 @@ void FrameSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
     Mat4 d       = pose_inv * _desired_pose;
     Vec6 log6    = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6   = pinocchio_wrapper::JlogSE3(d);
-    Mat6 adj_inv = pinocchio_wrapper::SE3ToActionMatrixInverse(pose_inv);
+    Mat6 adj_inv = pinocchio_wrapper::SE3ToActionMatrixInverse(d);
 
     MatX J = -Jlog6 * adj_inv * Jfk;
 
