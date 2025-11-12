@@ -470,7 +470,7 @@ const MatX Model::forwardKinematicsSE3(const VecX        &x,
     return pinocchio_wrapper::forwardKinematicsSE3(_impl, x, frame);
 }
 
-const MatX Model::frameJacobian(const VecX &x, const std::string &frame) const
+const MatX Model::frameJacobian(const VecX &x, const std::string &frame, bool local) const
 {
     VecX p_ee;
     std::tie(p_ee, std::ignore) =
@@ -480,7 +480,7 @@ const MatX Model::frameJacobian(const VecX &x, const std::string &frame) const
     std::tie(std::ignore, nv) = pinocchio_wrapper::modelDimensions(_impl);
 
     MatX J6(6, nv);
-    pinocchio_wrapper::frameJacobian(_impl, x, frame, J6);
+    pinocchio_wrapper::frameJacobian(_impl, x, frame, J6, local);
 
     return J6;
 }

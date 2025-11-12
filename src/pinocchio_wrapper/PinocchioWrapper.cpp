@@ -203,15 +203,17 @@ Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const Eigen::VectorXd &q, const std::string &frame,
-                   Eigen::MatrixXd &J)
+                   Eigen::MatrixXd &J, bool local)
 {
     pinocchio::computeJointJacobians(impl->model, impl->data, q);
     int frame_id = impl->model.getFrameId(frame);
-    pinocchio::getFrameJacobian(impl->model,
-                                impl->data,
-                                frame_id,
-                                pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
-                                J);
+    pinocchio::getFrameJacobian(
+      impl->model,
+      impl->data,
+      frame_id,
+      local ? pinocchio::ReferenceFrame::LOCAL
+            : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
+      J);
 }
 }
 }

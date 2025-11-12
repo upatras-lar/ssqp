@@ -121,23 +121,22 @@ int main()
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        model.addCost<costs::FrameSquaredPositionErrorCost>(k,
-                                                            model,
-                                                            traj[k],
-                                                            "panda_ee",
-                                                            STATE_SIZE,
-                                                            STATE_SIZE,
-                                                            P_WGT);
+        // model.addCost<costs::FrameSquaredPositionErrorCost>(k,
+        //                                                     model,
+        //                                                     traj[k],
+        //                                                     "panda_ee",
+        //                                                     STATE_SIZE,
+        //                                                     STATE_SIZE,
+        //                                                     P_WGT);
 
-        model.addCost<costs::FrameSquaredRotationErrorCost>(k,
-                                                            model,
-                                                            Rd,
-                                                            "panda_ee",
-                                                            STATE_SIZE,
-                                                            STATE_SIZE,
-                                                            R_WGT);
+        // model.addCost<costs::FrameSquaredRotationErrorCost>(k,
+        //                                                     model,
+        //                                                     Rd,
+        //                                                     "panda_ee",
+        //                                                     STATE_SIZE,
+        //                                                     STATE_SIZE,
+        //                                                     R_WGT);
 
-        /*
         model.addCost<costs::FrameSquaredPoseErrorCost>(k,
                                                         model,
                                                         traj[k],
@@ -147,7 +146,6 @@ int main()
                                                         STATE_SIZE,
                                                         P_WGT,
                                                         R_WGT);
-        */
 
         model.addCost<costs::SquaredControlCost>(k, STATE_SIZE, U_WGT);
 
@@ -169,23 +167,22 @@ int main()
         }
     }
 
-    model.addCost<costs::FrameSquaredPositionErrorCost>(HORIZON,
-                                                        model,
-                                                        traj[HORIZON],
-                                                        "panda_ee",
-                                                        STATE_SIZE,
-                                                        STATE_SIZE,
-                                                        TERM_WGT * P_WGT);
+    // model.addCost<costs::FrameSquaredPositionErrorCost>(HORIZON,
+    //                                                     model,
+    //                                                     traj[HORIZON],
+    //                                                     "panda_ee",
+    //                                                     STATE_SIZE,
+    //                                                     STATE_SIZE,
+    //                                                     TERM_WGT * P_WGT);
 
-    model.addCost<costs::FrameSquaredRotationErrorCost>(HORIZON,
-                                                        model,
-                                                        Rd,
-                                                        "panda_ee",
-                                                        STATE_SIZE,
-                                                        STATE_SIZE,
-                                                        TERM_WGT * R_WGT);
+    // model.addCost<costs::FrameSquaredRotationErrorCost>(HORIZON,
+    //                                                     model,
+    //                                                     Rd,
+    //                                                     "panda_ee",
+    //                                                     STATE_SIZE,
+    //                                                     STATE_SIZE,
+    //                                                     TERM_WGT * R_WGT);
 
-    /*
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
                                                     traj[HORIZON],
@@ -195,7 +192,6 @@ int main()
                                                     STATE_SIZE,
                                                     TERM_WGT * P_WGT,
                                                     TERM_WGT * R_WGT);
-    */
 
     model.addCost<costs::SquaredVelocityCost>(HORIZON, STATE_SIZE, V_WGT);
 

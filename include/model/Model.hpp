@@ -209,7 +209,7 @@ class Model
                                  const std::string &joint);
 
     // Get a frame jacobian based on the URDF model dynamics
-    const MatX frameJacobian(const VecX &x, const std::string &frame) const;
+    const MatX frameJacobian(const VecX &x, const std::string &frame, bool local = false) const;
 
   protected:
     std::shared_ptr<pinocchio_wrapper::ModelImpl> _impl;
