@@ -169,8 +169,6 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
 {
     pinocchio_wrapper::buildModelFromUrdf(urdf_path, _impl, free_flyer);
 
-    pinocchio_wrapper::printFramesAndJoints(_impl);
-
     uint nq, nv;
     std::tie(nq, nv) = pinocchio_wrapper::modelDimensions(_impl);
 
@@ -456,6 +454,11 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     }
 
     _constraints[horizon] = terminal_innate_constraints;
+}
+
+void Model::printFramesAndJoints()
+{
+    pinocchio_wrapper::printFramesAndJoints(_impl);
 }
 
 const std::pair<VecX, MatX> Model::forwardKinematics(

@@ -32,14 +32,14 @@ int main()
       -1.6;
 
     ssqp::model::Model model("examples/urdf/a1.urdf", HORIZON, dt, {}, true);
+    // model.printFramesAndJoints();
 
-    /*
     Eigen::VectorXd pos;
     Eigen::MatrixXd rot;
     std::tie(pos, rot) =
-      model.forwardKinematics(Eigen::VectorXd::Zero(STATE_SIZE), "trunk");
+      model.forwardKinematics(init.head(STATE_SIZE), "trunk");
     LOGLN(pos.transpose());
-    */
+    LOGLN(rot);
 
     for (uint k = 0; k < HORIZON; ++k)
     {
@@ -86,6 +86,8 @@ int main()
         std::cout << "x: " << std::endl << solution.x << std::endl;
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
+
+    solver.write("visualizer/data/a1");
 
     return 0;
 }
