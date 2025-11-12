@@ -251,13 +251,10 @@ VecX FrameSquaredPoseErrorCost::evaluate(const VecX &x, const VecX &u) const
       -pose.topLeftCorner<3, 3>().transpose() * pose.topRightCorner<3, 1>();
     pose_inv(3, 3) = 1.0;
 
-    return (Scalar() << 0.5 * _weight *
-                          pinocchio_wrapper::logSE3(pose_inv * _desired_pose)
-                            .squaredNorm())
-      .finished();
+    Vec6 diff = pinocchio_wrapper::logSE3(pose_inv * _desired_pose);
+    return (Scalar() << 0.5 * diff.transpose() * _weight * diff).finished();
 }
 
-// TODO: Write this correctly
 void FrameSquaredPoseErrorCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                          VecX &du) const
 {

@@ -19,6 +19,7 @@ using DynamicsContainer    = Container<stagewise::StageDynamics>;
 using ConstraintsContainer = Container<stagewise::StageConstraints>;
 
 // TODO: check dynamics size (H or H+1)
+// TODO: optimize calls to pinocchio algorithms (avoid recomputations)
 /* Defines an SSQP model
  * An SSQP model object is a prerequisite to performing optimization using SSQP
  * The model contains the following:
@@ -196,6 +197,8 @@ class Model
 
     template<typename C, typename... Args>
     void addConstraints(const uint k, Args... args);
+
+    void printFramesAndJoints();
 
     // Perform forward kinematics with the URDF model dynamics
     const std::pair<VecX, MatX> forwardKinematics(

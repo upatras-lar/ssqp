@@ -63,8 +63,7 @@ void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     MatX Jfk           = _model->frameJacobian(x.head(_nq), _frame);
 
     dX = MatX::Zero(3, x.size());
-    // TODO: should we be taking the top rows?
-    // nq or nv?
+    // TODO: nq or nv?
     dX.leftCols(_nq) = Jfk.topRows(3);
 
     dU = MatX::Zero(3, _nv);
