@@ -71,7 +71,7 @@ Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
 // Compute and get frame jacobian
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const Eigen::VectorXd &q, const std::string &frame,
-                   Eigen::MatrixXd &J);
+                   Eigen::MatrixXd &J, bool local = false);
 }
 }
 

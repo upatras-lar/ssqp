@@ -153,7 +153,7 @@ class FrameSquaredPoseErrorCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
-    MatX                         _desired_pose_inv;
+    MatX                         _desired_pose;
     const std::string            _frame;
 
     const uint _nq, _nv;
