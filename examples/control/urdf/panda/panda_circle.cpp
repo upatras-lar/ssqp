@@ -219,6 +219,8 @@ int main()
 
     model.finalize({}, { init_state });
 
+    LOGLN("TEST");
+
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
     params.tolerance = 3e-2;

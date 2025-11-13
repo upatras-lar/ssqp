@@ -72,6 +72,15 @@ Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const Eigen::VectorXd &q, const std::string &frame,
                    Eigen::MatrixXd &J, bool local = false);
+
+void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
+                           const Eigen::VectorXd            &q);
+
+// Get frame jacobian (assumes computeJointJacobians has been called)
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
+                   const std::string &frame, Eigen::MatrixXd &J,
+                   bool local = false);
+
 }
 }
 
