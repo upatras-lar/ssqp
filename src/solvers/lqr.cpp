@@ -126,7 +126,7 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol,
     _qt.noalias() =
       _qp.qx_t + _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
       _qp.Dt.transpose() * rho.stage(_qp.dims.horizon).asDiagonal() *
-        current_sol.z.stage(_qp.dims.horizon) +
+        current_sol.z.stage(_qp.dims.horizon) -
       _sigma * current_sol.dx.stage(_qp.dims.horizon);
 
     _solve();

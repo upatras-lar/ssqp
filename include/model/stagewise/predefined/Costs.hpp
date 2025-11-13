@@ -74,7 +74,7 @@ class FrameSquaredPositionErrorCost : public StageCost
 {
   public:
     FrameSquaredPositionErrorCost(const Model       &model,
-                                  const VecX        &desired_translation,
+                                  const Vec3        &desired_translation,
                                   const std::string &frame, const uint nq,
                                   const uint nv, const double weight);
 
@@ -87,7 +87,7 @@ class FrameSquaredPositionErrorCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
-    const VecX                   _desired_translation;
+    const Vec3                   _desired_translation;
     const std::string            _frame;
 
     const uint   _nq, _nv;
@@ -105,20 +105,21 @@ class FrameSquaredRotationErrorCost : public StageCost
 {
   public:
     FrameSquaredRotationErrorCost(const Model       &model,
-                                  const MatX        &desired_rotation,
+                                  const Mat3        &desired_rotation,
                                   const std::string &frame, const uint nq,
                                   const uint nv, const double weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
                   VecX &du) const override;
+    // Hessians use GN approximation
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
     const std::shared_ptr<Model> _model;
-    const MatX                   _desired_rotation;
+    const Mat3                   _desired_rotation;
     const std::string            _frame;
 
     const uint   _nq, _nv;
@@ -132,14 +133,11 @@ class FrameSquaredRotationErrorCost : public StageCost
  *  - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)
  *  - $W_t$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
  *    for rotation
- *  TODO: doesn't work
  */
 class FrameSquaredPoseErrorCost : public StageCost
 {
   public:
-    FrameSquaredPoseErrorCost(const Model       &model,
-                              const VecX        &desired_translation,
-                              const MatX        &desired_rotation,
+    FrameSquaredPoseErrorCost(const Model &model, const Mat4 &desired_pose,
                               const std::string &frame, const uint nq,
                               const uint nv, const double position_weight,
                               const double rotation_weight);
@@ -147,13 +145,14 @@ class FrameSquaredPoseErrorCost : public StageCost
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
                   VecX &du) const override;
+    // Hessians use GN approximation
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
     const std::shared_ptr<Model> _model;
-    MatX                         _desired_pose;
+    Mat4                         _desired_pose;
     const std::string            _frame;
 
     const uint _nq, _nv;

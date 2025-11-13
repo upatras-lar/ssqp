@@ -34,7 +34,7 @@
 // Initial phase
 #define φ0 0
 
-#define CONSTRAIN false
+#define CONSTRAIN true
 
 inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
 {
@@ -137,10 +137,14 @@ int main()
         //                                                     STATE_SIZE,
         //                                                     R_WGT);
 
+        Eigen::Matrix4d desired_pose        = Eigen::Matrix4d::Zero();
+        desired_pose.topLeftCorner<3, 3>()  = Rd;
+        desired_pose.topRightCorner<3, 1>() = traj[k];
+        desired_pose(3, 3)                  = 1.0;
+
         model.addCost<costs::FrameSquaredPoseErrorCost>(k,
                                                         model,
-                                                        traj[k],
-                                                        Rd,
+                                                        desired_pose,
                                                         "panda_ee",
                                                         STATE_SIZE,
                                                         STATE_SIZE,
@@ -183,10 +187,14 @@ int main()
     //                                                     STATE_SIZE,
     //                                                     TERM_WGT * R_WGT);
 
+    Eigen::Matrix4d desired_pose        = Eigen::Matrix4d::Zero();
+    desired_pose.topLeftCorner<3, 3>()  = Rd;
+    desired_pose.topRightCorner<3, 1>() = traj[HORIZON];
+    desired_pose(3, 3)                  = 1.0;
+
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
-                                                    traj[HORIZON],
-                                                    Rd,
+                                                    desired_pose,
                                                     "panda_ee",
                                                     STATE_SIZE,
                                                     STATE_SIZE,
