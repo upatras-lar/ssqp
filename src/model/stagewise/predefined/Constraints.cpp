@@ -66,7 +66,7 @@ void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     // TODO: nq or nv?
     dX.leftCols(_nq) = Jfk.topRows(3);
 
-    dU = MatX::Zero(3, _nv);
+    dU = MatX::Zero(3, u.size());
 }
 
 void FramePositionBound::hessprod_xx(const VecX &x, const VecX &u,

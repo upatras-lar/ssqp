@@ -119,6 +119,9 @@ int main()
     // std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
     //   constraints(HORIZON + 1, nullptr);
 
+    model.addForce(0, "panda_ee");
+    model.addForce(2, "panda_ee");
+
     for (uint k = 0; k < HORIZON; ++k)
     {
         // model.addCost<costs::FrameSquaredPositionErrorCost>(k,
@@ -218,8 +221,6 @@ int main()
     }
 
     model.finalize({}, { init_state });
-
-    LOGLN("TEST");
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
