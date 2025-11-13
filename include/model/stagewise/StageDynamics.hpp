@@ -1,6 +1,9 @@
 #ifndef SSQP_MODEL_STAGEWISE_STAGE_DYNAMICS_HPP
 #define SSQP_MODEL_STAGEWISE_STAGE_DYNAMICS_HPP
 
+#include <vector>
+#include <unordered_map>
+
 #include "model/stagewise/Function.hpp"
 
 namespace ssqp

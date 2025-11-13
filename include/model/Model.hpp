@@ -18,8 +18,17 @@ using CostsContainer       = Container<stagewise::StageCost>;
 using DynamicsContainer    = Container<stagewise::StageDynamics>;
 using ConstraintsContainer = Container<stagewise::StageConstraints>;
 
+// An external force on some frame
+struct Force
+{
+    std::string frame;
+
+    Force(const std::string &frame);
+};
+
 // TODO: check dynamics size (H or H+1)
 // TODO: optimize calls to pinocchio algorithms (avoid recomputations)
+// TODO: allow finalize to not be called by the user whenever possible
 /* Defines an SSQP model
  * An SSQP model object is a prerequisite to performing optimization using SSQP
  * The model contains the following:
@@ -192,11 +201,17 @@ class Model
     const DynamicsContainer    dynamics() const;
     const ConstraintsContainer constraints() const;
 
+    // Add a new cost for stage k of StageCost type L
     template<typename L, typename... Args>
     void addCost(const uint k, Args... args);
 
+    // Add a new constraint for stage k of StageConstraint type L
     template<typename C, typename... Args>
     void addConstraints(const uint k, Args... args);
+
+    // Add a new external force as an additional decision variable for stage k
+    // on the given frame
+    void addForce(const uint k, const std::string &frame);
 
     void printFramesAndJoints();
 
@@ -212,18 +227,28 @@ class Model
                                  const std::string &joint);
 
     // Get a frame jacobian based on the URDF model dynamics
-    const MatX frameJacobian(const VecX &x, const std::string &frame, bool local = false) const;
+    const MatX frameJacobian(const VecX &x, const std::string &frame,
+                             bool local = false) const;
+
+    // Get frame jacobian (assuming computeJointJacobians has been called)
+    const MatX frameJacobian(const std::string &frame,
+                             bool               local = false) const;
 
   protected:
     std::shared_ptr<pinocchio_wrapper::ModelImpl> _impl;
+    uint                                          _nq, _nv;
+    const double                                  _dt;
 
     Dimensions           _dims, _lin_dims;
     CostsContainer       _costs;
     DynamicsContainer    _dynamics;
     ConstraintsContainer _constraints;
 
+    std::vector<std::vector<Force>> _forces;
+
     bool _finalized = false;
 
+    void _constructDynamics(const std::vector<VecX> &init_states = {});
     void _setup();
 };
 }

@@ -49,6 +49,8 @@ void print_matrix_dimensions(const MatX &mat);
 
 namespace model
 {
+// TODO: These use x.rows() and x.cols()
+// But if n_x != n_{dx}, they will fail
 inline auto ZeroHessian_xx = [](const VecX &x, const VecX &u, MatX &Hxx)
 { Hxx = MatX::Zero(x.rows(), x.rows()); };
 
