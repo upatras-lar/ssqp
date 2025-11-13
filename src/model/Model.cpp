@@ -65,6 +65,51 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
         right_minus
     };
 
+    auto dyn_eval = [this](const VecX &x, const VecX &u)
+    {
+        VecX ddq = pinocchio_wrapper::aba(_impl, x.head(_nq), x.tail(_nv), u);
+
+        VecX out(_nq + _nv);
+        out.head(_nq) =
+          pinocchio_wrapper::integrate(_impl, x.head(_nq), x.tail(_nv) * _dt);
+        out.tail(_nv) = x.tail(_nv) + ddq * _dt;
+
+        return out;
+    };
+
+    auto dyn_grad = [this](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+    {
+        VecX q   = x.head(_nq);
+        VecX v   = x.tail(_nv);
+        VecX tau = u;
+
+        MatX ddq_dq, ddq_dv, Minv;
+
+        pinocchio_wrapper::computeABADerivatives(_impl,
+                                                 q,
+                                                 v,
+                                                 tau,
+                                                 ddq_dq,
+                                                 ddq_dv,
+                                                 Minv);
+
+        MatX Jint_q = MatX::Zero(_nv, _nv);
+        MatX Jint_v = MatX::Zero(_nv, _nv);
+
+        pinocchio_wrapper::dIntegrate(_impl, q, v * _dt, Jint_q, 0);
+        pinocchio_wrapper::dIntegrate(_impl, q, v * _dt, Jint_v, 1);
+
+        dX                            = MatX::Zero(2 * _nv, 2 * _nv);
+        dX.topLeftCorner(_nv, _nv)    = Jint_q;
+        dX.topRightCorner(_nv, _nv)   = Jint_v * _dt;
+        dX.bottomLeftCorner(_nv, _nv) = ddq_dq * _dt;
+        dX.bottomRightCorner(_nv, _nv) =
+          MatX::Identity(_nv, _nv) + ddq_dv * _dt;
+
+        dU                 = MatX::Zero(2 * _nv, _nv);
+        dU.bottomRows(_nv) = Minv * _dt;
+    };
+
     auto zero_hessprod_xx =
       [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
     { Pxx = MatX::Zero(2 * _nv, 2 * _nv); };
@@ -84,54 +129,6 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
         // TODO: Other integration schemes?
         if (nf == 0)
         {
-            auto dyn_eval = [this](const VecX &x, const VecX &u)
-            {
-                VecX ddq =
-                  pinocchio_wrapper::aba(_impl, x.head(_nq), x.tail(_nv), u);
-
-                VecX out(_nq + _nv);
-                out.head(_nq) = pinocchio_wrapper::integrate(_impl,
-                                                             x.head(_nq),
-                                                             x.tail(_nv) * _dt);
-                out.tail(_nv) = x.tail(_nv) + ddq * _dt;
-
-                return out;
-            };
-
-            auto dyn_grad =
-              [this](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
-            {
-                VecX q   = x.head(_nq);
-                VecX v   = x.tail(_nv);
-                VecX tau = u;
-
-                MatX ddq_dq, ddq_dv, Minv;
-
-                pinocchio_wrapper::computeABADerivatives(_impl,
-                                                         q,
-                                                         v,
-                                                         tau,
-                                                         ddq_dq,
-                                                         ddq_dv,
-                                                         Minv);
-
-                MatX Jint_q = MatX::Zero(_nv, _nv);
-                MatX Jint_v = MatX::Zero(_nv, _nv);
-
-                pinocchio_wrapper::dIntegrate(_impl, q, v * _dt, Jint_q, 0);
-                pinocchio_wrapper::dIntegrate(_impl, q, v * _dt, Jint_v, 1);
-
-                dX                            = MatX::Zero(2 * _nv, 2 * _nv);
-                dX.topLeftCorner(_nv, _nv)    = Jint_q;
-                dX.topRightCorner(_nv, _nv)   = Jint_v * _dt;
-                dX.bottomLeftCorner(_nv, _nv) = ddq_dq * _dt;
-                dX.bottomRightCorner(_nv, _nv) =
-                  MatX::Identity(_nv, _nv) + ddq_dv * _dt;
-
-                dU                 = MatX::Zero(2 * _nv, _nv);
-                dU.bottomRows(_nv) = Minv * _dt;
-            };
-
             _dynamics[k] = stagewise::factory::make_dynamics(
               _nq + _nv,
               _nv,
@@ -149,7 +146,8 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
         {
             std::vector<Force> &forces = _forces[k];
 
-            auto dyn_eval = [this, nf, forces](const VecX &x, const VecX &u)
+            auto dyn_eval_fext =
+              [this, nf, forces](const VecX &x, const VecX &u)
             {
                 VecX tau = u.head(_nv);
 
@@ -174,10 +172,10 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 return out;
             };
 
-            auto dyn_grad = [this, nf, forces](const VecX &x,
-                                               const VecX &u,
-                                               MatX &dX,
-                                               MatX &dU)
+            auto dyn_grad_fext = [this, nf, forces](const VecX &x,
+                                                    const VecX &u,
+                                                    MatX &dX,
+                                                    MatX &dU)
             {
                 VecX q   = x.head(_nq);
                 VecX v   = x.tail(_nv);
@@ -225,6 +223,16 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                   Minv * Jf_full.transpose() * _dt;
             };
 
+            auto zero_hessprod_xu_fext =
+              [this,
+               nf](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
+            { Pxu = MatX::Zero(2 * _nv, _nv + 3 * nf); };
+
+            auto zero_hessprod_uu_fext =
+              [this,
+               nf](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
+            { Puu = MatX::Zero(_nv + 3 * nf, _nv + 3 * nf); };
+
             _dynamics[k] = stagewise::factory::make_dynamics(
               _nq + _nv,
               _nv + 3 * nf,
@@ -232,11 +240,11 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
               2 * _nv,
               init_state.size() != 0 ? init_state : init_states[k],
               ops,
-              dyn_eval,
-              dyn_grad,
+              dyn_eval_fext,
+              dyn_grad_fext,
               zero_hessprod_xx,
-              zero_hessprod_xu,
-              zero_hessprod_uu);
+              zero_hessprod_xu_fext,
+              zero_hessprod_uu_fext);
         }
     }
 }
@@ -410,11 +418,11 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
 
     auto zero_hessprod_xu =
       [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
-    { Pxu = MatX::Zero(2 * _nv, _nv); };
+    { Pxu = MatX::Zero(2 * _nv, u.size()); };
 
     auto zero_hessprod_uu =
       [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu = MatX::Zero(_nv, _nv); };
+    { Puu = MatX::Zero(u.size(), u.size()); };
 
     // TODO: Free flyer: deal with control decision variables for floating base
     // Either by (sorted by best solution, efficiency-wise):
@@ -442,7 +450,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
             dX.block(njoints, _nv + 6, njoints, njoints) =
               MatX::Identity(njoints, njoints);
 
-            dU = MatX::Zero(3 * njoints, _nv);
+            dU = MatX::Zero(3 * njoints, u.size());
             dU.block(2 * njoints, 6, njoints, njoints) =
               MatX::Identity(njoints, njoints);
         };
@@ -499,7 +507,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
         {
             VecX c(3 * njoints);
             c.head(2 * njoints) = x;
-            c.tail(njoints)     = u;
+            c.tail(njoints)     = u.head(njoints);
 
             return c;
         };
@@ -511,7 +519,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
             dX.block(0, 0, 2 * njoints, 2 * njoints) =
               MatX::Identity(2 * njoints, 2 * njoints);
 
-            dU = MatX::Zero(3 * njoints, _nv);
+            dU = MatX::Zero(3 * njoints, u.size());
             dU.block(2 * njoints, 0, njoints, njoints) =
               MatX::Identity(njoints, njoints);
         };
