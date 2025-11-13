@@ -90,7 +90,7 @@ void SquaredVelocityCost::hessian_uu(const VecX &x, const VecX &u,
 
 // FrameSquaredPositionErrorCost
 FrameSquaredPositionErrorCost::FrameSquaredPositionErrorCost(
-  const Model &model, const VecX &desired_translation, const std::string &frame,
+  const Model &model, const Vec3 &desired_translation, const std::string &frame,
   const uint nq, const uint nv, const double weight)
   : _model(std::make_shared<Model>(model))
   , _desired_translation(desired_translation)
@@ -151,7 +151,7 @@ void FrameSquaredPositionErrorCost::hessian_uu(const VecX &x, const VecX &u,
 
 // FrameSquaredRotationErrorCost
 FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
-  const Model &model, const MatX &desired_rotation, const std::string &frame,
+  const Model &model, const Mat3 &desired_rotation, const std::string &frame,
   const uint nq, const uint nv, const double weight)
   : _model(std::make_shared<Model>(model))
   , _desired_rotation(desired_rotation)
@@ -223,20 +223,16 @@ void FrameSquaredRotationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 
 // FrameSquaredPoseErrorCost
 FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
-  const Model &model, const VecX &desired_translation,
-  const MatX &desired_rotation, const std::string &frame, const uint nq,
-  const uint nv, const double position_weight, const double rotation_weight)
+  const Model &model, const Mat4 &desired_pose, const std::string &frame,
+  const uint nq, const uint nv, const double position_weight,
+  const double rotation_weight)
   : _model(std::make_shared<Model>(model))
-  , _desired_pose(Mat4::Zero())
+  , _desired_pose(desired_pose)
   , _frame(frame)
   , _nq(nq)
   , _nv(nv)
   , _weight(Mat6::Zero())
 {
-    _desired_pose.topLeftCorner<3, 3>()  = desired_rotation;
-    _desired_pose.topRightCorner<3, 1>() = desired_translation;
-    _desired_pose(3, 3)                  = 1.0;
-
     _weight.topLeftCorner<3, 3>()     = position_weight * Mat3::Identity();
     _weight.bottomRightCorner<3, 3>() = rotation_weight * Mat3::Identity();
 }
