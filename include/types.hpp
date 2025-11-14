@@ -35,7 +35,9 @@ namespace ssqp
 #endif
 
 using Scalar = Eigen::Vector<double, 1>;
+using Vec2   = Eigen::Vector2d;
 using Vec3   = Eigen::Vector3d;
+using Vec4   = Eigen::Vector4d;
 using Vec6   = Eigen::Vector<double, 6>;
 using VecX   = Eigen::VectorXd;
 
@@ -91,6 +93,16 @@ struct Dimensions
 
     // State + control
     std::vector<uint> stage_sc;
+};
+
+// An external force on some frame
+struct Force
+{
+    std::string frame;
+    uint        force_index;
+
+    Force() = default;
+    Force(const std::string &frame, const uint force_index);
 };
 }
 

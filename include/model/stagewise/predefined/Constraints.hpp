@@ -61,9 +61,16 @@ class FramePositionBound : public StageConstraints
 class ContactConstraint : public StageConstraints
 {
   public:
-    ContactConstraint(const Model &model, const std::string &frame);
+    ContactConstraint(const Model &model, const std::string &frame,
+                      const uint nq, const uint nv, const double mu = 0.6);
 
     uint output_size() const override;
+
+    uint required_forces() const override;
+
+    std::string force_frame(const uint i) const override;
+
+    void set_forces(const std::vector<Force> &forces) override;
 
     VecX lower_bound() const override;
     VecX upper_bound() const override;
@@ -79,6 +86,13 @@ class ContactConstraint : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const std::string            _frame;
+    std::vector<Force>           _forces;
+    const uint                   _nq, _nv;
+    const double                 _mu;
 };
 
 }
