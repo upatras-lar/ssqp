@@ -18,6 +18,15 @@ namespace stagewise
 class StageConstraints : public Function
 {
   public:
+    // Number of external forces involved in the constraint (default 0)
+    virtual uint required_forces() const;
+
+    // Frame for i-th external force
+    virtual std::string force_frame(const uint i) const;
+
+    // Set the model Forces associated with this constraint
+    virtual void set_forces(const std::vector<Force> &forces);
+
     // Check constraint satisfaction at $(\boldsymbol{x}, \boldsymbol{u})$
     // Default implementation: Checks violation within some given tolerance
     bool is_satisfied(const VecX &x, const VecX &u,

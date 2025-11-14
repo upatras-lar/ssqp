@@ -31,7 +31,7 @@ int main()
     init.segment(7, 12) << 0.0, 0.8, -1.6, 0, 0.8, -1.6, 0, 0.8, -1.6, 0, 0.8,
       -1.6;
 
-    ssqp::model::Model model("examples/urdf/a1.urdf", HORIZON, dt, {}, true);
+    ssqp::model::Model model("examples/urdf/a1.urdf", HORIZON, dt, true);
     // model.printFramesAndJoints();
 
     Eigen::VectorXd pos;

@@ -6,6 +6,18 @@ namespace model
 {
 namespace stagewise
 {
+uint StageConstraints::required_forces() const
+{
+    return 0;
+}
+
+std::string StageConstraints::force_frame(const uint i) const
+{
+    return "";
+}
+
+void StageConstraints::set_forces(const std::vector<Force> &forces) {}
+
 bool StageConstraints::is_satisfied(const VecX &x, const VecX &u,
                                     const double tolerance) const
 {

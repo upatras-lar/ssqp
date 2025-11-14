@@ -4,12 +4,17 @@ namespace ssqp
 {
 namespace model
 {
-Force::Force(const std::string &frame) : frame(frame) {}
+Force::Force(const std::string &frame, const uint force_index)
+  : frame(frame)
+  , force_index(force_index)
+{
+}
 
 Model::Model(
   const std::vector<std::shared_ptr<stagewise::StageCost>>        &costs,
   const std::vector<std::shared_ptr<stagewise::StageDynamics>>    &dynamics,
-  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints)
+  const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
+  const std::shared_ptr<terrain::Terrain>                         &terrain)
   : _impl(pinocchio_wrapper::makeImpl())
   , _dt(-1.0)
   , _costs(costs)
@@ -18,6 +23,7 @@ Model::Model(
                    ? std::vector<std::shared_ptr<stagewise::StageConstraints>>(
                        costs.size(), nullptr)
                    : constraints)
+  , _terrain(terrain)
 {
     _setup();
 }
@@ -368,15 +374,21 @@ const ConstraintsContainer Model::constraints() const
     return _constraints;
 }
 
+const std::shared_ptr<terrain::Terrain> Model::terrain() const
+{
+    return _terrain;
+}
+
 Model::Model(
   const std::string &urdf_path, const uint horizon, const double dt,
   const std::shared_ptr<stagewise::StageCost> &cost,
   const std::shared_ptr<stagewise::StageCost> &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX> &init_states, const bool free_flyer)
-  : Model(urdf_path, horizon, dt, init_states, free_flyer)
+  const std::vector<VecX> &init_states, const bool free_flyer,
+  const std::shared_ptr<terrain::Terrain> &terrain)
+  : Model(urdf_path, horizon, dt, free_flyer, terrain)
 {
-    finalize(cost, terminal_cost, constraints);
+    finalize(cost, terminal_cost, constraints, init_states);
 }
 
 Model::Model(
@@ -384,19 +396,22 @@ Model::Model(
   const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
   const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX> &init_states, const bool free_flyer)
-  : Model(urdf_path, horizon, dt, init_states, free_flyer)
+  const std::vector<VecX> &init_states, const bool free_flyer,
+  const std::shared_ptr<terrain::Terrain> &terrain)
+  : Model(urdf_path, horizon, dt, free_flyer, terrain)
 {
-    finalize(costs, terminal_cost, constraints);
+    finalize(costs, terminal_cost, constraints, init_states);
 }
 
 Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
-             const std::vector<VecX> &init_states, const bool free_flyer)
+             const bool                               free_flyer,
+             const std::shared_ptr<terrain::Terrain> &terrain)
   : _impl(pinocchio_wrapper::makeImpl())
   , _dt(dt)
   , _costs(horizon + 1)
   , _dynamics(horizon + 1)
   , _constraints(horizon + 1)
+  , _terrain(terrain)
   , _forces(std::vector<std::vector<Force>>(
       horizon +
       1)) // TODO: forces at terminal stage (where we have no controls)?
@@ -576,9 +591,10 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     _constraints[horizon] = terminal_innate_constraints;
 }
 
-void Model::addForce(const uint k, const std::string &frame)
+Force Model::addForce(const uint k, const std::string &frame)
 {
-    _forces[k].push_back(Force(frame));
+    _forces[k].push_back(Force(frame, _forces.size()));
+    return _forces[k].back();
 }
 
 void Model::printFramesAndJoints()
@@ -628,7 +644,7 @@ void Model::finalize(
   const std::vector<VecX>                                         &init_states)
 {
     finalize(
-      std::vector<std::shared_ptr<stagewise::StageCost>>(_dynamics.size() - 1,
+      std::vector<std::shared_ptr<stagewise::StageCost>>(_dynamics.size(),
                                                          cost),
       terminal_cost,
       constraints,

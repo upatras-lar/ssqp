@@ -4,6 +4,8 @@
 #include "types.hpp"
 #include "pinocchio_wrapper/PinocchioWrapper.hpp"
 #include "model/Container.hpp"
+#include "model/terrain/Terrain.hpp"
+#include "model/terrain/predefined/FlatTerrain.hpp"
 #include "model/stagewise/StageCost.hpp"
 #include "model/stagewise/StageDynamics.hpp"
 #include "model/stagewise/StageConstraints.hpp"
@@ -17,14 +19,6 @@ namespace model
 using CostsContainer       = Container<stagewise::StageCost>;
 using DynamicsContainer    = Container<stagewise::StageDynamics>;
 using ConstraintsContainer = Container<stagewise::StageConstraints>;
-
-// An external force on some frame
-struct Force
-{
-    std::string frame;
-
-    Force(const std::string &frame);
-};
 
 // TODO: check dynamics size (H or H+1)
 // TODO: optimize calls to pinocchio algorithms (avoid recomputations)
@@ -75,7 +69,9 @@ class Model
       const std::vector<std::shared_ptr<stagewise::StageCost>>     &costs,
       const std::vector<std::shared_ptr<stagewise::StageDynamics>> &dynamics,
       const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints = {});
+        &constraints = {},
+      const std::shared_ptr<terrain::Terrain> &terrain =
+        terrain::make_terrain<terrain::predefined::FlatTerrain>());
 
     /* URDF SSQP Model constructor (same cost per stage & terminal cost)
      * ---
@@ -102,7 +98,9 @@ class Model
           const std::vector<std::shared_ptr<stagewise::StageConstraints>>
             &constraints                       = {},
           const std::vector<VecX> &init_states = {},
-          const bool free_flyer                = false);
+          const bool free_flyer                = false,
+          const std::shared_ptr<terrain::Terrain> &terrain =
+            terrain::make_terrain<terrain::predefined::FlatTerrain>());
 
     /* URDF SSQP Model constructor (different costs per stage & terminal cost)
      * ---
@@ -129,7 +127,9 @@ class Model
           const std::vector<std::shared_ptr<stagewise::StageConstraints>>
             &constraints                       = {},
           const std::vector<VecX> &init_states = {},
-          const bool free_flyer                = false);
+          const bool free_flyer                = false,
+          const std::shared_ptr<terrain::Terrain> &terrain =
+            terrain::make_terrain<terrain::predefined::FlatTerrain>());
 
     /* URDF SSQP Model constructor (Partial initialization - no costs)
      * ---
@@ -150,8 +150,9 @@ class Model
      * optimization
      */
     Model(const std::string &urdf_path, const uint horizon, const double dt,
-          const std::vector<VecX> &init_states = {},
-          const bool free_flyer                = false);
+          const bool free_flyer = false,
+          const std::shared_ptr<terrain::Terrain> &terrain =
+            terrain::make_terrain<terrain::predefined::FlatTerrain>());
 
     /* `finalize` method (same cost per stage & terminal cost)
      * ---
@@ -201,6 +202,8 @@ class Model
     const DynamicsContainer    dynamics() const;
     const ConstraintsContainer constraints() const;
 
+    const std::shared_ptr<terrain::Terrain> terrain() const;
+
     // Add a new cost for stage k of StageCost type L
     template<typename L, typename... Args>
     void addCost(const uint k, Args... args);
@@ -211,7 +214,8 @@ class Model
 
     // Add a new external force as an additional decision variable for stage k
     // on the given frame
-    void addForce(const uint k, const std::string &frame);
+    // Returns the newly created force
+    Force addForce(const uint k, const std::string &frame);
 
     void printFramesAndJoints();
 
@@ -239,10 +243,11 @@ class Model
     uint                                          _nq, _nv;
     const double                                  _dt;
 
-    Dimensions           _dims, _lin_dims;
-    CostsContainer       _costs;
-    DynamicsContainer    _dynamics;
-    ConstraintsContainer _constraints;
+    Dimensions                        _dims, _lin_dims;
+    CostsContainer                    _costs;
+    DynamicsContainer                 _dynamics;
+    ConstraintsContainer              _constraints;
+    std::shared_ptr<terrain::Terrain> _terrain;
 
     std::vector<std::vector<Force>> _forces;
 
