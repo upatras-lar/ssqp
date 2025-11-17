@@ -77,6 +77,11 @@ std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl)
     return { impl->model.nq, impl->model.nv };
 }
 
+uint modelJoints(const std::shared_ptr<ModelImpl> &impl)
+{
+    return impl->model.njoints;
+}
+
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
   const std::shared_ptr<ModelImpl> &impl, const bool free_flyer)
 {
@@ -124,6 +129,36 @@ Eigen::VectorXd difference(const std::shared_ptr<ModelImpl> &impl,
     return pinocchio::difference(impl->model, q0, q1);
 }
 
+void getFramejMfMatrix(const std::shared_ptr<ModelImpl> &impl,
+                       const std::string &frame, uint &joint_id,
+                       Eigen::Matrix3d &rotation, Eigen::Vector3d &translation)
+{
+    pinocchio::FrameIndex frame_id = impl->model.getFrameId(frame);
+    pinocchio::SE3        jMf      = impl->model.frames[frame_id].placement;
+    joint_id                       = impl->model.frames[frame_id].parentJoint;
+    rotation                       = jMf.rotation();
+    translation                    = jMf.translation();
+}
+
+Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
+                    const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                    const Eigen::VectorXd                       &tau,
+                    const std::vector<Eigen::Vector<double, 6>> &fext)
+{
+    pinocchio::container::aligned_vector<pinocchio::Force> forces(
+      fext.size(),
+      pinocchio::Force::Zero());
+
+    for (uint i = 0; i < fext.size(); ++i)
+    {
+        forces[i].linear()  = fext[i].head(3);
+        forces[i].angular() = fext[i].tail(3);
+    }
+
+    pinocchio::aba(impl->model, impl->data, q, v, tau, forces);
+    return impl->data.ddq;
+}
+
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
                     const Eigen::VectorXd &tau)
@@ -140,6 +175,35 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
                            Eigen::MatrixXd       &Minv)
 {
     pinocchio::computeABADerivatives(impl->model, impl->data, q, v, tau);
+    aba_partial_dq = impl->data.ddq_dq;
+    aba_partial_dv = impl->data.ddq_dv;
+    Minv           = impl->data.Minv;
+}
+
+void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
+                           const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                           const Eigen::VectorXd                       &tau,
+                           const std::vector<Eigen::Vector<double, 6>> &fext,
+                           Eigen::MatrixXd &aba_partial_dq,
+                           Eigen::MatrixXd &aba_partial_dv,
+                           Eigen::MatrixXd &Minv)
+{
+    pinocchio::container::aligned_vector<pinocchio::Force> forces(
+      fext.size(),
+      pinocchio::Force::Zero());
+
+    for (uint i = 0; i < fext.size(); ++i)
+    {
+        forces[i].linear()  = fext[i].head(3);
+        forces[i].angular() = fext[i].tail(3);
+    }
+
+    pinocchio::computeABADerivatives(impl->model,
+                                     impl->data,
+                                     q,
+                                     v,
+                                     tau,
+                                     forces);
     aba_partial_dq = impl->data.ddq_dq;
     aba_partial_dv = impl->data.ddq_dv;
     Minv           = impl->data.Minv;

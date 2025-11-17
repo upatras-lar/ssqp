@@ -13,6 +13,7 @@
 #include <limits>
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
 
 namespace ssqp
 {

@@ -40,6 +40,28 @@ class SquaredControlCost : public StageCost
     const double _weight;
 };
 
+/* Predefined squared force cost
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u})=w_f \boldsymbol{u}_f$
+ * where $\boldsymbol{u}_f$ is the force part of the controls
+ * and $w_f$ is the weight on the term
+ */
+class SquaredForceCost : public StageCost
+{
+  public:
+    SquaredForceCost(const uint nv, const double weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const uint   _nv;
+    const double _weight;
+};
+
 /* Predefined squared velocity cost
  * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = w_v \boldsymbol{x}_{vel}^2$
  * where:

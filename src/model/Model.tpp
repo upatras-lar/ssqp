@@ -34,6 +34,8 @@ void Model::addConstraints(const uint k, Args... args)
         forces[i] = addForce(k, constraints->force_frame(i));
     }
 
+    constraints->set_forces(forces);
+
     if (_constraints[k] == nullptr)
     {
         _constraints[k] = constraints;

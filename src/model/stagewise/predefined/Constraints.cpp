@@ -25,13 +25,6 @@ FramePositionBound::FramePositionBound(const Model       &model,
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
 }
 
-FramePositionBound::FramePositionBound(const Model       &model,
-                                       const std::string &frame, const VecX &lb,
-                                       const VecX &ub, const uint nq)
-  : FramePositionBound(model, frame, lb, ub, nq, 1)
-{
-}
-
 uint FramePositionBound::output_size() const
 {
     return 3;
@@ -62,9 +55,8 @@ void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     std::tie(pos, rot) = _model->forwardKinematics(x.head(_nq), _frame);
     MatX Jfk           = _model->frameJacobian(x.head(_nq), _frame);
 
-    dX = MatX::Zero(3, x.size());
-    // TODO: nq or nv?
-    dX.leftCols(_nq) = Jfk.topRows(3);
+    dX               = MatX::Zero(3, 2 * _nv);
+    dX.leftCols(_nv) = Jfk.topRows(3);
 
     dU = MatX::Zero(3, u.size());
 }
@@ -144,18 +136,14 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
     static std::shared_ptr<terrain::Terrain> terrain = _model->terrain();
 
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
+    Mat3 R;
+    std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame);
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
-    Vec3 f_world = u.segment(_nv + 3 * _forces[0].force_index, 3);
+    Vec3 f_local = u.segment(_nv + 3 * _forces[0].force_index, 3);
 
-    Mat3 R;
-    R.col(0) = tp.normal;
-    R.col(1) = tp.t1;
-    R.col(2) = tp.t2;
-
-    Vec3   f_local = R.transpose() * f_world;
+    Vec3   f_world = R * f_local;
     double fn      = f_local[0];
     double ft1     = f_local[1];
     double ft2     = f_local[2];
@@ -187,7 +175,7 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     Vec3 dhdp = (Vec3() << -tp.dhdx, -tp.dhdy, 1).finished();
 
-    dX.row(5) = (Jfk.transpose() * (dhdp)).transpose();
+    dX.row(5).head(_nv) = dhdp.transpose() * Jfk;
 
     uint total_force_index = _nv + 3 * _forces[0].force_index;
 

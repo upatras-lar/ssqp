@@ -169,22 +169,22 @@ std::shared_ptr<StageConstraints> merge_constraints(
 
     auto grad = [ndc, c1, c2](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        dX = MatX::Zero(ndc, x.size());
-        dU = MatX::Zero(ndc, u.size());
-
-        MatX dX1(c1->constraint_diff_size(), x.size());
-        MatX dU1(c1->constraint_diff_size(), u.size());
+        MatX dX1, dU1;
         c1->gradient(x, u, dX1, dU1);
-        dX.block(0, 0, c1->constraint_diff_size(), x.size()) = dX1;
+
+        uint ndx = dX1.cols();
+        dX       = MatX::Zero(ndc, ndx);
+        dU       = MatX::Zero(ndc, u.size());
+
+        dX.block(0, 0, c1->constraint_diff_size(), ndx)      = dX1;
         dU.block(0, 0, c1->constraint_diff_size(), u.size()) = dU1;
 
-        MatX dX2(c2->constraint_diff_size(), x.size());
-        MatX dU2(c2->constraint_diff_size(), u.size());
+        MatX dX2, dU2;
         c2->gradient(x, u, dX2, dU2);
         dX.block(c1->constraint_diff_size(),
                  0,
                  c2->constraint_diff_size(),
-                 x.size()) = dX2;
+                 ndx)      = dX2;
         dU.block(c1->constraint_diff_size(),
                  0,
                  c2->constraint_diff_size(),
@@ -194,33 +194,30 @@ std::shared_ptr<StageConstraints> merge_constraints(
     auto hessprod_xx =
       [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Pxx)
     {
-        Pxx = MatX::Zero(x.size(), x.size());
+        MatX tmp;
         c1->hessprod_xx(x, u, mu.head(c1->constraint_diff_size()), Pxx);
-
-        MatX tmp = MatX::Zero(x.size(), x.size());
         c2->hessprod_xx(x, u, mu.tail(c2->constraint_diff_size()), tmp);
+
         Pxx += tmp;
     };
 
     auto hessprod_xu =
       [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Pxu)
     {
-        Pxu = MatX::Zero(x.size(), u.size());
+        MatX tmp;
         c1->hessprod_xu(x, u, mu.head(c1->constraint_diff_size()), Pxu);
-
-        MatX tmp = MatX::Zero(x.size(), u.size());
         c2->hessprod_xu(x, u, mu.tail(c2->constraint_diff_size()), tmp);
+
         Pxu += tmp;
     };
 
     auto hessprod_uu =
       [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Puu)
     {
-        Puu = MatX::Zero(u.size(), u.size());
+        MatX tmp;
         c1->hessprod_uu(x, u, mu.head(c1->constraint_diff_size()), Puu);
-
-        MatX tmp = MatX::Zero(u.size(), u.size());
         c2->hessprod_uu(x, u, mu.tail(c2->constraint_diff_size()), tmp);
+
         Puu += tmp;
     };
 

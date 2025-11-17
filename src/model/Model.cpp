@@ -34,6 +34,8 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
             init_states.size() == _dynamics.size()) &&
            "Invalid init_states size");
 
+    const uint njoints = pinocchio_wrapper::modelJoints(_impl);
+
     VecX init_state = VecX::Zero(0);
     if (init_states.empty())
     {
@@ -153,21 +155,37 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
             std::vector<Force> &forces = _forces[k];
 
             auto dyn_eval_fext =
-              [this, nf, forces](const VecX &x, const VecX &u)
+              [this, njoints, nf, forces](const VecX &x, const VecX &u)
             {
                 VecX tau = u.head(_nv);
 
                 pinocchio_wrapper::computeJointJacobians(_impl, x.head(_nq));
+                std::vector<Vec6> joint_forces(njoints, Vec6::Zero());
 
                 for (uint i = 0; i < nf; ++i)
                 {
-                    MatX Jf  = frameJacobian(forces[i].frame).topRows<3>();
-                    Vec3 f   = u.segment(_nv + 3 * i, 3);
-                    tau     += Jf.transpose() * f;
+                    //MatX Jf  = frameJacobian(forces[i].frame).topRows<3>();
+                    //tau     += Jf.transpose() * f;
+                    Vec3 f = u.segment(_nv + 3 * i, 3);
+                    uint joint_id;
+                    Vec3 translation;
+                    Mat3 rotation;
+                    pinocchio_wrapper::getFramejMfMatrix(_impl,
+                                                         forces[i].frame,
+                                                         joint_id,
+                                                         rotation,
+                                                         translation);
+
+                    joint_forces[joint_id].head(3) += rotation * f;
+                    joint_forces[joint_id].tail(3) +=
+                      translation.cross(rotation * f);
                 }
 
-                VecX ddq =
-                  pinocchio_wrapper::aba(_impl, x.head(_nq), x.tail(_nv), tau);
+                VecX ddq = pinocchio_wrapper::aba(_impl,
+                                                  x.head(_nq),
+                                                  x.tail(_nv),
+                                                  tau,
+                                                  joint_forces);
 
                 VecX out(_nq + _nv);
                 out.head(_nq) = pinocchio_wrapper::integrate(_impl,
@@ -178,10 +196,11 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 return out;
             };
 
-            auto dyn_grad_fext = [this, nf, forces](const VecX &x,
-                                                    const VecX &u,
-                                                    MatX &dX,
-                                                    MatX &dU)
+            // TODO: forces incorrect
+            auto dyn_grad_fext = [this, njoints, nf, forces](const VecX &x,
+                                                             const VecX &u,
+                                                             MatX &dX,
+                                                             MatX &dU)
             {
                 VecX q   = x.head(_nq);
                 VecX v   = x.tail(_nv);
@@ -189,23 +208,37 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
 
                 pinocchio_wrapper::computeJointJacobians(_impl, x.head(_nq));
 
-                MatX Jf_full = MatX(3 * nf, _nv);
+                MatX              Jf_full = MatX(3 * nf, _nv);
+                std::vector<Vec6> joint_forces(njoints, Vec6::Zero());
 
                 for (uint i = 0; i < nf; ++i)
                 {
-                    MatX Jf  = frameJacobian(forces[i].frame).topRows<3>();
-                    Vec3 f   = u.segment(_nv + 3 * i, 3);
-                    tau     += Jf.transpose() * f;
+                    MatX Jf = frameJacobian(forces[i].frame, true).topRows<3>();
+                    // tau                             += Jf.transpose() * f;
                     Jf_full.block(3 * i, 0, 3, _nv) = Jf;
+
+                    Vec3 f = u.segment(_nv + 3 * i, 3);
+                    uint joint_id;
+                    Vec3 translation;
+                    Mat3 rotation;
+                    pinocchio_wrapper::getFramejMfMatrix(_impl,
+                                                         forces[i].frame,
+                                                         joint_id,
+                                                         rotation,
+                                                         translation);
+
+                    joint_forces[joint_id].head(3) += rotation * f;
+                    joint_forces[joint_id].tail(3) +=
+                      translation.cross(rotation * f);
                 }
 
                 MatX ddq_dq, ddq_dv, Minv;
 
-                // Ignoring contact force term for ddq_dq
                 pinocchio_wrapper::computeABADerivatives(_impl,
                                                          q,
                                                          v,
                                                          tau,
+                                                         joint_forces,
                                                          ddq_dq,
                                                          ddq_dv,
                                                          Minv);
@@ -593,7 +626,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
 
 Force Model::addForce(const uint k, const std::string &frame)
 {
-    _forces[k].push_back(Force(frame, _forces.size()));
+    _forces[k].push_back(Force(frame, _forces[k].size()));
     return _forces[k].back();
 }
 
