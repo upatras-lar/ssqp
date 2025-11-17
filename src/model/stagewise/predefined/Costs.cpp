@@ -49,6 +49,45 @@ void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
     Huu.topLeftCorner(_nv, _nv).diagonal().setConstant(_weight);
 }
 
+// SquaredForceCost
+SquaredForceCost::SquaredForceCost(const uint nv, const double weight)
+  : _nv(nv)
+  , _weight(weight)
+{
+}
+
+VecX SquaredForceCost::evaluate(const VecX &x, const VecX &u) const
+{
+    return (Scalar() << 0.5 * _weight * u.tail(u.size() - _nv).squaredNorm())
+      .finished();
+}
+
+void SquaredForceCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+                                VecX &du) const
+{
+    dx                      = VecX::Zero(2 * _nv);
+    du                      = VecX::Zero(u.size());
+    du.tail(u.size() - _nv) = _weight * u.tail(u.size() - _nv);
+}
+
+void SquaredForceCost::hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const
+{
+    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
+}
+
+void SquaredForceCost::hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const
+{
+    Hxu = MatX::Zero(2 * _nv, u.size());
+}
+
+void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+    Huu.bottomRightCorner(u.size() - _nv, u.size() - _nv)
+      .diagonal()
+      .setConstant(_weight);
+}
+
 // SquaredVelocityCost
 SquaredVelocityCost::SquaredVelocityCost(const uint nv, const double weight)
   : _nv(nv)

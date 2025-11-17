@@ -30,10 +30,6 @@ class FramePositionBound : public StageConstraints
                        const VecX &lb, const VecX &ub, const uint nq,
                        const uint nv);
 
-    // Terminal constraint constructor (no controls)
-    FramePositionBound(const Model &model, const std::string &frame,
-                       const VecX &lb, const VecX &ub, const uint nq);
-
     uint output_size() const override;
 
     VecX lower_bound() const override;

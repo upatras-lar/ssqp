@@ -119,7 +119,7 @@ int main()
     // std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
     //   constraints(HORIZON + 1, nullptr);
 
-    //model.printFramesAndJoints();
+    // model.printFramesAndJoints();
     // model.addForce(0, "panda_ee");
     //model.addForce(2, "panda_ee");
 
@@ -218,6 +218,7 @@ int main()
                                                               "panda_ee",
                                                               lb,
                                                               ub,
+                                                              STATE_SIZE,
                                                               STATE_SIZE);
     }
 

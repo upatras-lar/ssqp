@@ -6,16 +6,18 @@
 #include "solvers/admm_qp.hpp"
 #include "model/Model.hpp"
 #include "model/stagewise/predefined/Costs.hpp"
+#include "model/stagewise/predefined/Constraints.hpp"
 #include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #define STATE_SIZE 19
 #define VEL_SIZE   18
-#define HORIZON    400
+#define HORIZON    100
 #define dt         0.01
 #define P_WGT      10
 #define R_WGT      1
 #define V_WGT      1e-5
 #define U_WGT      1e-5
+#define F_WGT      1e-4
 #define TERM_WGT   1
 
 using namespace ssqp::model::stagewise::predefined;
@@ -34,12 +36,16 @@ int main()
     ssqp::model::Model model("examples/urdf/a1.urdf", HORIZON, dt, true);
     // model.printFramesAndJoints();
 
+    /*
     Eigen::VectorXd pos;
     Eigen::MatrixXd rot;
     std::tie(pos, rot) =
       model.forwardKinematics(init.head(STATE_SIZE), "trunk");
     LOGLN(pos.transpose());
     LOGLN(rot);
+    */
+
+    model.printFramesAndJoints();
 
     for (uint k = 0; k < HORIZON; ++k)
     {
@@ -52,6 +58,35 @@ int main()
                                                             P_WGT);
 
         model.addCost<costs::SquaredControlCost>(k, VEL_SIZE, U_WGT);
+        model.addCost<costs::SquaredForceCost>(k, VEL_SIZE, F_WGT);
+
+        model.addConstraints<constraints::ContactConstraint>(k,
+                                                             model,
+                                                             "FL_foot",
+                                                             STATE_SIZE,
+                                                             VEL_SIZE,
+                                                             0.6);
+
+        model.addConstraints<constraints::ContactConstraint>(k,
+                                                             model,
+                                                             "FR_foot",
+                                                             STATE_SIZE,
+                                                             VEL_SIZE,
+                                                             0.6);
+
+        model.addConstraints<constraints::ContactConstraint>(k,
+                                                             model,
+                                                             "RL_foot",
+                                                             STATE_SIZE,
+                                                             VEL_SIZE,
+                                                             0.6);
+
+        model.addConstraints<constraints::ContactConstraint>(k,
+                                                             model,
+                                                             "RR_foot",
+                                                             STATE_SIZE,
+                                                             VEL_SIZE,
+                                                             0.6);
     }
 
     model.addCost<costs::FrameSquaredPositionErrorCost>(HORIZON,
