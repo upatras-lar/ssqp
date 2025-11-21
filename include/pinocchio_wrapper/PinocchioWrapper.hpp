@@ -49,14 +49,18 @@ void getFramejMfMatrix(const std::shared_ptr<ModelImpl> &impl,
                        const std::string &frame, uint &joint_id,
                        Eigen::Matrix3d &rotation, Eigen::Vector3d &translation);
 
+Eigen::Vector3d framejMfAct(const std::shared_ptr<ModelImpl> &impl,
+                            const std::string                &frame,
+                            const Eigen::Vector3d &force, uint &joint_id);
+
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
                     const Eigen::VectorXd &tau);
 
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                    const Eigen::VectorXd                       &tau,
-                    const std::vector<Eigen::Vector<double, 6>> &fext);
+                    const Eigen::VectorXd              &tau,
+                    const std::vector<Eigen::Vector3d> &fext);
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
@@ -67,11 +71,11 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                           const Eigen::VectorXd                       &tau,
-                           const std::vector<Eigen::Vector<double, 6>> &fext,
-                           Eigen::MatrixXd &aba_partial_dq,
-                           Eigen::MatrixXd &aba_partial_dv,
-                           Eigen::MatrixXd &Minv);
+                           const Eigen::VectorXd              &tau,
+                           const std::vector<Eigen::Vector3d> &fext,
+                           Eigen::MatrixXd                    &aba_partial_dq,
+                           Eigen::MatrixXd                    &aba_partial_dv,
+                           Eigen::MatrixXd                    &Minv);
 
 void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
                 const Eigen::VectorXd &q, const Eigen::VectorXd &v,

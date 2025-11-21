@@ -72,8 +72,8 @@ SolverState ssqp::solve(Guess &guess)
           [this](const FlatVec &x, const FlatVec &u) { return _gammaf(x, u); },
           [this](const FlatVec &x, const FlatVec &u) { return _cf(x, u); },
           _model.dynamics(),
-          1.5,
-          1e-1);
+          1.4,
+          1e-6);
 
         LOGLN("Current x: ");
         LOGLN(_guess.x);

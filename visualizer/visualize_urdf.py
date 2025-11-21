@@ -5,6 +5,9 @@ import numpy as np
 from sys import argv
 from os import getcwd
 
+#STATE_SLICE = None
+STATE_SLICE = (7, 19)
+
 if len(argv) == 2:
     # Assume data file name is same as robot name
     data_file = argv[1]
@@ -18,10 +21,10 @@ robot = rtb.Robot.URDF(getcwd() + f"/../examples/urdf/{robot_name}.urdf")
 with open(data_file, "r") as f:
     data = f.readlines()
 
-file_state_size = int(data[0].split()[0]) // 2
+#file_state_size = int(data[0].split()[0]) // 2
 
-state_data = [[float(pos) for pos in line.split()] for line in data[1 : 1 + file_state_size]]
+state_data = [[float(pos) for pos in line.split()] for line in data[1 + STATE_SLICE[0] : 1 + STATE_SLICE[1]]]
 
 trajectory = np.array(state_data).transpose()
 
-robot.plot(trajectory, backend='pyplot', block=True, dt=0.01)
+robot.plot(trajectory, backend='pyplot', block=True, dt=0.2)

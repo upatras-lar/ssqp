@@ -160,12 +160,10 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 VecX tau = u.head(_nv);
 
                 pinocchio_wrapper::computeJointJacobians(_impl, x.head(_nq));
-                std::vector<Vec6> joint_forces(njoints, Vec6::Zero());
+                std::vector<Vec3> joint_forces(njoints, Vec3::Zero());
 
                 for (uint i = 0; i < nf; ++i)
                 {
-                    //MatX Jf  = frameJacobian(forces[i].frame).topRows<3>();
-                    //tau     += Jf.transpose() * f;
                     Vec3 f = u.segment(_nv + 3 * i, 3);
                     uint joint_id;
                     Vec3 translation;
@@ -176,9 +174,7 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                                                          rotation,
                                                          translation);
 
-                    joint_forces[joint_id].head(3) += rotation * f;
-                    joint_forces[joint_id].tail(3) +=
-                      translation.cross(rotation * f);
+                    joint_forces[joint_id] += rotation * f;
                 }
 
                 VecX ddq = pinocchio_wrapper::aba(_impl,
@@ -196,7 +192,6 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 return out;
             };
 
-            // TODO: forces incorrect
             auto dyn_grad_fext = [this, njoints, nf, forces](const VecX &x,
                                                              const VecX &u,
                                                              MatX &dX,
@@ -209,27 +204,22 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 pinocchio_wrapper::computeJointJacobians(_impl, x.head(_nq));
 
                 MatX              Jf_full = MatX(3 * nf, _nv);
-                std::vector<Vec6> joint_forces(njoints, Vec6::Zero());
+                std::vector<Vec3> joint_forces(njoints, Vec3::Zero());
 
                 for (uint i = 0; i < nf; ++i)
                 {
                     MatX Jf = frameJacobian(forces[i].frame, true).topRows<3>();
-                    // tau                             += Jf.transpose() * f;
                     Jf_full.block(3 * i, 0, 3, _nv) = Jf;
 
                     Vec3 f = u.segment(_nv + 3 * i, 3);
-                    uint joint_id;
-                    Vec3 translation;
-                    Mat3 rotation;
-                    pinocchio_wrapper::getFramejMfMatrix(_impl,
-                                                         forces[i].frame,
-                                                         joint_id,
-                                                         rotation,
-                                                         translation);
 
-                    joint_forces[joint_id].head(3) += rotation * f;
-                    joint_forces[joint_id].tail(3) +=
-                      translation.cross(rotation * f);
+                    uint joint_id;
+                    Vec3 f_res = pinocchio_wrapper::framejMfAct(_impl,
+                                                                forces[i].frame,
+                                                                f,
+                                                                joint_id);
+
+                    joint_forces[joint_id] += f_res;
                 }
 
                 MatX ddq_dq, ddq_dv, Minv;
