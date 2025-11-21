@@ -167,9 +167,12 @@ std::shared_ptr<StageConstraints> merge_constraints(
         return c;
     };
 
+    // TODO: Segfault bug
+    LOGLN(c1.get());
     auto grad = [ndc, c1, c2](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         MatX dX1, dU1;
+        LOGLN(c1.get());
         c1->gradient(x, u, dX1, dU1);
 
         uint ndx = dX1.cols();

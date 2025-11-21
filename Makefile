@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX := g++
-CXXFLAGS := -std=c++17 -MMD -MP
+CXXFLAGS := -std=c++17 -MMD -MP -g
 INCLUDES := -I/usr/include/eigen3 -I./include -I.
 LDFLAGS :=
 

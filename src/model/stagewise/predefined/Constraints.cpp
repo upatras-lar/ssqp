@@ -143,10 +143,9 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 
     Vec3 f_local = u.segment(_nv + 3 * _forces[0].force_index, 3);
 
-    Vec3   f_world = R * f_local;
-    double fn      = f_local[0];
-    double ft1     = f_local[1];
-    double ft2     = f_local[2];
+    double fn  = f_local[2];
+    double ft1 = f_local[0];
+    double ft2 = f_local[1];
 
     Vec6 res;
     res[0] = fn;
@@ -179,17 +178,10 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     uint total_force_index = _nv + 3 * _forces[0].force_index;
 
-    Vec3 f_world = u.segment(total_force_index, 3);
-
-    Mat3 R;
-    R.col(0) = tp.normal;
-    R.col(1) = tp.t1;
-    R.col(2) = tp.t2;
-
-    Vec3   f_local = R.transpose() * f_world;
-    double fn      = f_local[0];
-    double ft1     = f_local[1];
-    double ft2     = f_local[2];
+    Vec3   f_local = u.segment(total_force_index, 3);
+    double fn      = f_local[2];
+    double ft1     = f_local[0];
+    double ft2     = f_local[1];
 
     dU                                   = MatX::Zero(6, u.size());
     dU.block<1, 3>(0, total_force_index) = tp.normal.transpose();
