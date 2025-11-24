@@ -222,11 +222,7 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                     joint_forces[joint_id] += f_res;
                 }
 
-                LOGLN("TEST3.7");
-
                 MatX ddq_dq, ddq_dv, Minv;
-
-                LOGLN("B4 ABA");
 
                 pinocchio_wrapper::computeABADerivatives(_impl,
                                                          q,
@@ -236,8 +232,6 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                                                          ddq_dq,
                                                          ddq_dv,
                                                          Minv);
-
-                LOGLN("DYNAMICS GRAD");
 
                 MatX Jint_q = MatX::Zero(_nv, _nv);
                 MatX Jint_v = MatX::Zero(_nv, _nv);
@@ -256,7 +250,6 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 dU.bottomLeftCorner(_nv, _nv) = Minv * _dt;
                 dU.bottomRightCorner(_nv, 3 * nf) =
                   Minv * Jf_full.transpose() * _dt;
-                LOGLN("DYNAMICS GRAD END");
             };
 
             auto zero_hessprod_xu_fext =
@@ -650,7 +643,7 @@ const MatX Model::frameJacobian(const VecX &x, const std::string &frame,
     uint nv;
     std::tie(std::ignore, nv) = pinocchio_wrapper::modelDimensions(_impl);
 
-    MatX J6(6, nv);
+    MatX J6 = MatX::Zero(6, nv);
     pinocchio_wrapper::frameJacobian(_impl, x, frame, J6, local);
 
     return J6;
@@ -661,7 +654,7 @@ const MatX Model::frameJacobian(const std::string &frame, bool local) const
     uint nv;
     std::tie(std::ignore, nv) = pinocchio_wrapper::modelDimensions(_impl);
 
-    MatX J6(6, nv);
+    MatX J6 = MatX::Zero(6, nv);
     pinocchio_wrapper::frameJacobian(_impl, frame, J6, local);
 
     return J6;
