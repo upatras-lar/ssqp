@@ -178,10 +178,7 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     uint total_force_index = _nv + 3 * _forces[0].force_index;
 
-    Vec3   f_local = u.segment(total_force_index, 3);
-    double fn      = f_local[2];
-    double ft1     = f_local[0];
-    double ft2     = f_local[1];
+    Vec3 f_local = u.segment(total_force_index, 3);
 
     dU                                   = MatX::Zero(6, u.size());
     dU.block<1, 3>(0, total_force_index) = tp.normal.transpose();
