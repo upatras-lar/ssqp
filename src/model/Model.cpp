@@ -201,7 +201,7 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 VecX v   = x.tail(_nv);
                 VecX tau = u.head(_nv);
 
-                pinocchio_wrapper::computeJointJacobians(_impl, x.head(_nq));
+                pinocchio_wrapper::computeJointJacobians(_impl, q);
 
                 MatX              Jf_full = MatX(3 * nf, _nv);
                 std::vector<Vec3> joint_forces(njoints, Vec3::Zero());
@@ -222,7 +222,11 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                     joint_forces[joint_id] += f_res;
                 }
 
+                LOGLN("TEST3.7");
+
                 MatX ddq_dq, ddq_dv, Minv;
+
+                LOGLN("B4 ABA");
 
                 pinocchio_wrapper::computeABADerivatives(_impl,
                                                          q,
@@ -232,6 +236,8 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                                                          ddq_dq,
                                                          ddq_dv,
                                                          Minv);
+
+                LOGLN("DYNAMICS GRAD");
 
                 MatX Jint_q = MatX::Zero(_nv, _nv);
                 MatX Jint_v = MatX::Zero(_nv, _nv);
@@ -250,6 +256,7 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 dU.bottomLeftCorner(_nv, _nv) = Minv * _dt;
                 dU.bottomRightCorner(_nv, 3 * nf) =
                   Minv * Jf_full.transpose() * _dt;
+                LOGLN("DYNAMICS GRAD END");
             };
 
             auto zero_hessprod_xu_fext =

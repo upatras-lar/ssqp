@@ -11,10 +11,10 @@
 
 #define STATE_SIZE 19
 #define VEL_SIZE   18
-#define HORIZON    50
+#define HORIZON    20
 #define dt         0.01
-#define P_WGT      10
-#define FP_WGT     2
+#define P_WGT      1
+#define FP_WGT     1
 #define R_WGT      1
 #define V_WGT      1e-5
 #define U_WGT      1e-4
@@ -44,12 +44,14 @@ int main()
     ssqp::model::Model model("examples/urdf/a1.urdf", HORIZON, dt, true);
     //model.printFramesAndJoints();
 
+    /*
     Eigen::VectorXd pos;
     Eigen::MatrixXd rot;
     std::tie(pos, rot) =
       model.forwardKinematics(init.head(STATE_SIZE), "FL_foot");
     LOGLN(pos.transpose());
     LOGLN(rot);
+    */
 
     for (uint k = 0; k < HORIZON; ++k)
     {
@@ -61,14 +63,14 @@ int main()
                                                             VEL_SIZE,
                                                             P_WGT);
 
-        model.addCost<costs::FrameSquaredRotationErrorCost>(
-          k,
-          model,
-          Eigen::Matrix3d::Identity(),
-          "trunk",
-          STATE_SIZE,
-          VEL_SIZE,
-          R_WGT);
+        // model.addCost<costs::FrameSquaredRotationErrorCost>(
+        //   k,
+        //   model,
+        //   Eigen::Matrix3d::Identity(),
+        //   "trunk",
+        //   STATE_SIZE,
+        //   VEL_SIZE,
+        //   R_WGT);
 
         model.addCost<costs::SquaredControlCost>(k, VEL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, VEL_SIZE, F_WGT);

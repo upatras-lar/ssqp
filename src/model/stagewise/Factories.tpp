@@ -11,21 +11,22 @@ namespace factory
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3>
-std::shared_ptr<StageCost> make_cost(const EvaluationFunction &eval,
-                                     const GradientFunction   &grad,
-                                     const HessianFunction1   &hess_xx,
-                                     const HessianFunction2   &hess_xu,
-                                     const HessianFunction3   &hess_uu)
+std::shared_ptr<StageCost> make_cost(EvaluationFunction eval,
+                                     GradientFunction   grad,
+                                     HessianFunction1   hess_xx,
+                                     HessianFunction2   hess_xu,
+                                     HessianFunction3   hess_uu)
 {
     return std::make_shared<FunctionStageCost<EvaluationFunction,
                                               GradientFunction,
                                               HessianFunction1,
                                               HessianFunction2,
-                                              HessianFunction3>>(eval,
-                                                                 grad,
-                                                                 hess_xx,
-                                                                 hess_xu,
-                                                                 hess_uu);
+                                              HessianFunction3>>(
+      std::move(eval),
+      std::move(grad),
+      std::move(hess_xx),
+      std::move(hess_xu),
+      std::move(hess_uu));
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
@@ -34,11 +35,11 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
          typename HessprodFunction3>
 std::shared_ptr<StageDynamics> make_dynamics(
   const uint nx, const uint nu, const uint nout, const uint ndx,
-  const VecX                                                    &init_state,
-  const ManifoldOperators<ManifoldOperator1, ManifoldOperator2> &ops,
-  const EvaluationFunction &eval, const multiGradientFunction &grad,
-  const HessprodFunction1 &hess_xx, const HessprodFunction2 &hess_xu,
-  const HessprodFunction3 &hess_uu)
+  const VecX                                             &init_state,
+  ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
+  EvaluationFunction eval, multiGradientFunction grad,
+  HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
+  HessprodFunction3 hess_uu)
 {
     return std::make_shared<FunctionStageDynamics<ManifoldOperator1,
                                                   ManifoldOperator2,
@@ -52,12 +53,12 @@ std::shared_ptr<StageDynamics> make_dynamics(
       nout,
       ndx,
       init_state,
-      ops,
-      eval,
-      grad,
-      hess_xx,
-      hess_xu,
-      hess_uu);
+      std::move(ops),
+      std::move(eval),
+      std::move(grad),
+      std::move(hess_xx),
+      std::move(hess_xu),
+      std::move(hess_uu));
 }
 
 template<typename EvaluationFunction, typename multiGradientFunction,
@@ -65,9 +66,9 @@ template<typename EvaluationFunction, typename multiGradientFunction,
          typename HessprodFunction2, typename HessprodFunction3>
 std::shared_ptr<StageConstraints> make_constraints(
   const uint nout, const uint ndc, const VecX &lb, const VecX &ub,
-  const EvaluationFunction &eval, const multiGradientFunction &grad,
-  const ManifoldOperator &op, const HessprodFunction1 &hess_xx,
-  const HessprodFunction2 &hess_xu, const HessprodFunction3 &hess_uu)
+  EvaluationFunction eval, multiGradientFunction grad, ManifoldOperator op,
+  HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
+  HessprodFunction3 hess_uu)
 {
     return std::make_shared<FunctionStageConstraints<EvaluationFunction,
                                                      multiGradientFunction,
@@ -79,12 +80,12 @@ std::shared_ptr<StageConstraints> make_constraints(
       ndc,
       lb,
       ub,
-      eval,
-      grad,
-      op,
-      hess_xx,
-      hess_xu,
-      hess_uu);
+      std::move(eval),
+      std::move(grad),
+      std::move(op),
+      std::move(hess_xx),
+      std::move(hess_xu),
+      std::move(hess_uu));
 }
 
 // TODO: instead of merging, possibly hold multiple?
@@ -168,11 +169,11 @@ std::shared_ptr<StageConstraints> merge_constraints(
     };
 
     // TODO: Segfault bug
-    LOGLN(c1.get());
+    LOGLN("Outside: " << c1.get());
     auto grad = [ndc, c1, c2](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         MatX dX1, dU1;
-        LOGLN(c1.get());
+        LOGLN("Inside: " << c1.get());
         c1->gradient(x, u, dX1, dU1);
 
         uint ndx = dX1.cols();
@@ -239,18 +240,18 @@ std::shared_ptr<StageConstraints> merge_constraints(
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3>
-FunctionStageCost<
-  EvaluationFunction, GradientFunction, HessianFunction1, HessianFunction2,
-  HessianFunction3>::FunctionStageCost(const EvaluationFunction &eval,
-                                       const GradientFunction   &grad,
-                                       const HessianFunction1   &hess_xx,
-                                       const HessianFunction2   &hess_xu,
-                                       const HessianFunction3   &hess_uu)
-  : _eval(eval)
-  , _grad(grad)
-  , _hess_xx(hess_xx)
-  , _hess_xu(hess_xu)
-  , _hess_uu(hess_uu)
+FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
+                  HessianFunction2,
+                  HessianFunction3>::FunctionStageCost(EvaluationFunction eval,
+                                                       GradientFunction   grad,
+                                                       HessianFunction1 hess_xx,
+                                                       HessianFunction2 hess_xu,
+                                                       HessianFunction3 hess_uu)
+  : _eval(std::move(eval))
+  , _grad(std::move(grad))
+  , _hess_xx(std::move(hess_xx))
+  , _hess_xu(std::move(hess_xu))
+  , _hess_uu(std::move(hess_uu))
 {
 }
 
@@ -334,18 +335,18 @@ FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
                       HessprodFunction2, HessprodFunction3>::
   FunctionStageDynamics(
     const uint nx, const uint nu, const uint nout, const uint ndx,
-    const VecX                                                    &init_state,
-    const ManifoldOperators<ManifoldOperator1, ManifoldOperator2> &ops,
-    const EvaluationFunction &eval, const multiGradientFunction &grad,
-    const HessprodFunction1 &hess_xx, const HessprodFunction2 &hess_xu,
-    const HessprodFunction3 &hess_uu)
+    const VecX                                             &init_state,
+    ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
+    EvaluationFunction eval, multiGradientFunction grad,
+    HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
+    HessprodFunction3 hess_uu)
   : FunctionStageDynamicsBase(nx, nu, nout, ndx, init_state)
-  , _ops(ops)
-  , _eval(eval)
-  , _grad(grad)
-  , _hess_xx(hess_xx)
-  , _hess_xu(hess_xu)
-  , _hess_uu(hess_uu)
+  , _ops(std::move(ops))
+  , _eval(std::move(eval))
+  , _grad(std::move(grad))
+  , _hess_xx(std::move(hess_xx))
+  , _hess_xu(std::move(hess_xu))
+  , _hess_uu(std::move(hess_uu))
 {
     assert(init_state.size() == nx &&
            "FunctionStageDynamics: nx must match init_state.size()");
@@ -493,23 +494,24 @@ FunctionStageConstraintsBase::FunctionStageConstraintsBase(const uint  nout,
 template<typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         ManifoldOperator, HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::
-  FunctionStageConstraints(const uint nout, const uint ndc, const VecX &lb,
-                           const VecX &ub, const EvaluationFunction &eval,
-                           const multiGradientFunction &grad,
-                           const ManifoldOperator      &op,
-                           const HessprodFunction1     &hess_xx,
-                           const HessprodFunction2     &hess_xu,
-                           const HessprodFunction3     &hess_uu)
+FunctionStageConstraints<
+  EvaluationFunction, multiGradientFunction, ManifoldOperator,
+  HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::FunctionStageConstraints(const uint nout, const uint ndc,
+                                               const VecX &lb, const VecX &ub,
+                                               const EvaluationFunction    eval,
+                                               const multiGradientFunction grad,
+                                               const ManifoldOperator      op,
+                                               const HessprodFunction1 hess_xx,
+                                               const HessprodFunction2 hess_xu,
+                                               const HessprodFunction3 hess_uu)
   : FunctionStageConstraintsBase(nout, ndc, lb, ub)
-  , _eval(eval)
-  , _grad(grad)
-  , _op(op)
-  , _hess_xx(hess_xx)
-  , _hess_xu(hess_xu)
-  , _hess_uu(hess_uu)
+  , _eval(std::move(eval))
+  , _grad(std::move(grad))
+  , _op(std::move(op))
+  , _hess_xx(std::move(hess_xx))
+  , _hess_xu(std::move(hess_xu))
+  , _hess_uu(std::move(hess_uu))
 {
     assert(lb.size() == ub.size() && ub.size() == nout &&
            "FunctionStageConstraints: nout must match lb.size() and ub.size()");
