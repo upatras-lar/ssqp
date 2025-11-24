@@ -27,4 +27,4 @@ state_data = [[float(pos) for pos in line.split()] for line in data[1 + STATE_SL
 
 trajectory = np.array(state_data).transpose()
 
-robot.plot(trajectory, backend='pyplot', block=True, dt=0.2)
+robot.plot(trajectory, backend='pyplot', block=True, dt=0.01)

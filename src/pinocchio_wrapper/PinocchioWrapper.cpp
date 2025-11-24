@@ -144,11 +144,12 @@ Eigen::Vector3d framejMfAct(const std::shared_ptr<ModelImpl> &impl,
                             const std::string                &frame,
                             const Eigen::Vector3d &force, uint &joint_id)
 {
-    joint_id           = impl->model.getFrameId(frame);
-    pinocchio::Force f = pinocchio::Force::Zero();
-    f.linear()         = force;
+    uint             frame_id = impl->model.getFrameId(frame);
+    pinocchio::Force f        = pinocchio::Force::Zero();
+    f.linear()                = force;
 
-    pinocchio::Force res = impl->model.frames[joint_id].placement.act(f);
+    pinocchio::Force res = impl->model.frames[frame_id].placement.act(f);
+    joint_id             = impl->model.frames[frame_id].parentJoint;
 
     return res.linear();
 }

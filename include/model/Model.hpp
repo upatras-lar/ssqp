@@ -240,8 +240,12 @@ class Model
 
   protected:
     std::shared_ptr<pinocchio_wrapper::ModelImpl> _impl;
-    uint                                          _nq, _nv;
+    uint                                          _nq, _nv, _njoints;
     const double                                  _dt;
+    const bool                                    _free_flyer;
+
+    // Selection matrix (for controls)
+    MatX _S;
 
     Dimensions                        _dims, _lin_dims;
     CostsContainer                    _costs;

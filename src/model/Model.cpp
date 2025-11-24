@@ -16,6 +16,8 @@ Model::Model(
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
   const std::shared_ptr<terrain::Terrain>                         &terrain)
   : _impl(pinocchio_wrapper::makeImpl())
+  , _njoints(0)
+  , _free_flyer(false)
   , _dt(-1.0)
   , _costs(costs)
   , _dynamics(dynamics)
@@ -34,7 +36,19 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
             init_states.size() == _dynamics.size()) &&
            "Invalid init_states size");
 
-    const uint njoints = pinocchio_wrapper::modelJoints(_impl);
+    // total joints (including universe, root)
+    const uint total_joints = pinocchio_wrapper::modelJoints(_impl);
+
+    if (_free_flyer)
+    {
+        _S = MatX::Zero(_nv, _nv);
+        _S.bottomRightCorner(_nv - 6, _nv - 6) =
+          MatX::Identity(_nv - 6, _nv - 6);
+    }
+    else
+    {
+        _S = MatX::Identity(_nv, _nv);
+    }
 
     VecX init_state = VecX::Zero(0);
     if (init_states.empty())
@@ -75,7 +89,8 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
 
     auto dyn_eval = [this](const VecX &x, const VecX &u)
     {
-        VecX ddq = pinocchio_wrapper::aba(_impl, x.head(_nq), x.tail(_nv), u);
+        VecX ddq =
+          pinocchio_wrapper::aba(_impl, x.head(_nq), x.tail(_nv), _S * u);
 
         VecX out(_nq + _nv);
         out.head(_nq) =
@@ -89,7 +104,7 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
     {
         VecX q   = x.head(_nq);
         VecX v   = x.tail(_nv);
-        VecX tau = u;
+        VecX tau = _S * u;
 
         MatX ddq_dq, ddq_dv, Minv;
 
@@ -115,7 +130,7 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
           MatX::Identity(_nv, _nv) + ddq_dv * _dt;
 
         dU                 = MatX::Zero(2 * _nv, _nv);
-        dU.bottomRows(_nv) = Minv * _dt;
+        dU.bottomRows(_nv) = Minv * _S * _dt;
     };
 
     auto zero_hessprod_xx =
@@ -155,12 +170,12 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
             std::vector<Force> &forces = _forces[k];
 
             auto dyn_eval_fext =
-              [this, njoints, nf, forces](const VecX &x, const VecX &u)
+              [this, total_joints, nf, forces](const VecX &x, const VecX &u)
             {
-                VecX tau = u.head(_nv);
+                VecX tau = _S * u.head(_nv);
 
                 pinocchio_wrapper::computeJointJacobians(_impl, x.head(_nq));
-                std::vector<Vec3> joint_forces(njoints, Vec3::Zero());
+                std::vector<Vec3> joint_forces(total_joints, Vec3::Zero());
 
                 for (uint i = 0; i < nf; ++i)
                 {
@@ -192,19 +207,19 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                 return out;
             };
 
-            auto dyn_grad_fext = [this, njoints, nf, forces](const VecX &x,
-                                                             const VecX &u,
-                                                             MatX &dX,
-                                                             MatX &dU)
+            auto dyn_grad_fext = [this, total_joints, nf, forces](const VecX &x,
+                                                                  const VecX &u,
+                                                                  MatX &dX,
+                                                                  MatX &dU)
             {
                 VecX q   = x.head(_nq);
                 VecX v   = x.tail(_nv);
-                VecX tau = u.head(_nv);
+                VecX tau = _S * u.head(_nv);
 
                 pinocchio_wrapper::computeJointJacobians(_impl, q);
 
-                MatX              Jf_full = MatX(3 * nf, _nv);
-                std::vector<Vec3> joint_forces(njoints, Vec3::Zero());
+                MatX              Jf_full = MatX::Zero(3 * nf, _nv);
+                std::vector<Vec3> joint_forces(total_joints, Vec3::Zero());
 
                 for (uint i = 0; i < nf; ++i)
                 {
@@ -247,7 +262,7 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
                   MatX::Identity(_nv, _nv) + ddq_dv * _dt;
 
                 dU = MatX::Zero(2 * _nv, _nv + 3 * nf);
-                dU.bottomLeftCorner(_nv, _nv) = Minv * _dt;
+                dU.bottomLeftCorner(_nv, _nv) = Minv * _S * _dt;
                 dU.bottomRightCorner(_nv, 3 * nf) =
                   Minv * Jf_full.transpose() * _dt;
             };
@@ -430,6 +445,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
              const bool                               free_flyer,
              const std::shared_ptr<terrain::Terrain> &terrain)
   : _impl(pinocchio_wrapper::makeImpl())
+  , _free_flyer(free_flyer)
   , _dt(dt)
   , _costs(horizon + 1)
   , _dynamics(horizon + 1)
@@ -440,6 +456,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
       1)) // TODO: forces at terminal stage (where we have no controls)?
 {
     pinocchio_wrapper::buildModelFromUrdf(urdf_path, _impl, free_flyer);
+    printFramesAndJoints();
 
     std::tie(_nq, _nv) = pinocchio_wrapper::modelDimensions(_impl);
 
@@ -448,7 +465,7 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
 
     VecX lb, ub;
     std::tie(lb, ub) = pinocchio_wrapper::modelBounds(_impl, free_flyer);
-    uint njoints     = lb.size() / 3;
+    _njoints         = lb.size() / 3;
 
     auto zero_hessprod_xx =
       [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
@@ -469,33 +486,33 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     // 3) adding the appropriate constraints to keep them at 0
     if (free_flyer)
     {
-        auto innate_constraint_eval =
-          [this, njoints](const VecX &x, const VecX &u)
+        auto innate_constraint_eval = [this](const VecX &x, const VecX &u)
         {
-            VecX c(3 * njoints);
-            c.head(njoints)             = x.segment(7, njoints);
-            c.segment(njoints, njoints) = x.tail(njoints);
-            c.tail(njoints)             = u.segment(6, njoints);
+            VecX c(3 * _njoints);
+            c.head(_njoints)              = x.segment(7, _njoints);
+            c.segment(_njoints, _njoints) = x.tail(_njoints);
+            c.tail(_njoints)              = u.segment(6, _njoints);
 
             return c;
         };
 
         auto innate_constraint_grad =
-          [this, njoints](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+          [this](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
         {
-            dX                               = MatX::Zero(3 * njoints, 2 * _nv);
-            dX.block(0, 6, njoints, njoints) = MatX::Identity(njoints, njoints);
-            dX.block(njoints, _nv + 6, njoints, njoints) =
-              MatX::Identity(njoints, njoints);
+            dX = MatX::Zero(3 * _njoints, 2 * _nv);
+            dX.block(0, 6, _njoints, _njoints) =
+              MatX::Identity(_njoints, _njoints);
+            dX.block(_njoints, _nv + 6, _njoints, _njoints) =
+              MatX::Identity(_njoints, _njoints);
 
-            dU = MatX::Zero(3 * njoints, u.size());
-            dU.block(2 * njoints, 6, njoints, njoints) =
-              MatX::Identity(njoints, njoints);
+            dU = MatX::Zero(3 * _njoints, u.size());
+            dU.block(2 * _njoints, 6, _njoints, _njoints) =
+              MatX::Identity(_njoints, _njoints);
         };
 
         innate_constraints =
-          stagewise::factory::make_constraints(3 * njoints,
-                                               3 * njoints,
+          stagewise::factory::make_constraints(3 * _njoints,
+                                               3 * _njoints,
                                                lb,
                                                ub,
                                                innate_constraint_eval,
@@ -506,31 +523,32 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
                                                zero_hessprod_uu);
 
         auto terminal_innate_constraint_eval =
-          [this, njoints](const VecX &x, const VecX &u)
+          [this](const VecX &x, const VecX &u)
         {
-            VecX c(2 * njoints);
-            c.head(njoints)             = x.segment(7, njoints);
-            c.segment(njoints, njoints) = x.tail(njoints);
+            VecX c(2 * _njoints);
+            c.head(_njoints)              = x.segment(7, _njoints);
+            c.segment(_njoints, _njoints) = x.tail(_njoints);
 
             return c;
         };
 
         auto terminal_innate_constraint_grad =
-          [this, njoints](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+          [this](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
         {
-            dX                               = MatX::Zero(2 * njoints, 2 * _nv);
-            dX.block(0, 6, njoints, njoints) = MatX::Identity(njoints, njoints);
-            dX.block(njoints, _nv + 6, njoints, njoints) =
-              MatX::Identity(njoints, njoints);
+            dX = MatX::Zero(2 * _njoints, 2 * _nv);
+            dX.block(0, 6, _njoints, _njoints) =
+              MatX::Identity(_njoints, _njoints);
+            dX.block(_njoints, _nv + 6, _njoints, _njoints) =
+              MatX::Identity(_njoints, _njoints);
 
-            dU = MatX::Zero(2 * njoints, 1);
+            dU = MatX::Zero(2 * _njoints, 1);
         };
 
         terminal_innate_constraints =
-          stagewise::factory::make_constraints(2 * njoints,
-                                               2 * njoints,
-                                               lb.head(2 * njoints),
-                                               ub.head(2 * njoints),
+          stagewise::factory::make_constraints(2 * _njoints,
+                                               2 * _njoints,
+                                               lb.head(2 * _njoints),
+                                               ub.head(2 * _njoints),
                                                terminal_innate_constraint_eval,
                                                terminal_innate_constraint_grad,
                                                DefaultRightMinus,
@@ -540,31 +558,30 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
     }
     else
     {
-        auto innate_constraint_eval =
-          [this, njoints](const VecX &x, const VecX &u)
+        auto innate_constraint_eval = [this](const VecX &x, const VecX &u)
         {
-            VecX c(3 * njoints);
-            c.head(2 * njoints) = x;
-            c.tail(njoints)     = u.head(njoints);
+            VecX c(3 * _njoints);
+            c.head(2 * _njoints) = x;
+            c.tail(_njoints)     = u.head(_njoints);
 
             return c;
         };
 
         auto innate_constraint_grad =
-          [this, njoints](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+          [this](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
         {
-            dX = MatX::Zero(3 * njoints, 2 * _nv);
-            dX.block(0, 0, 2 * njoints, 2 * njoints) =
-              MatX::Identity(2 * njoints, 2 * njoints);
+            dX = MatX::Zero(3 * _njoints, 2 * _nv);
+            dX.block(0, 0, 2 * _njoints, 2 * _njoints) =
+              MatX::Identity(2 * _njoints, 2 * _njoints);
 
-            dU = MatX::Zero(3 * njoints, u.size());
-            dU.block(2 * njoints, 0, njoints, njoints) =
-              MatX::Identity(njoints, njoints);
+            dU = MatX::Zero(3 * _njoints, u.size());
+            dU.block(2 * _njoints, 0, _njoints, _njoints) =
+              MatX::Identity(_njoints, _njoints);
         };
 
         innate_constraints =
-          stagewise::factory::make_constraints(3 * njoints,
-                                               3 * njoints,
+          stagewise::factory::make_constraints(3 * _njoints,
+                                               3 * _njoints,
                                                lb,
                                                ub,
                                                innate_constraint_eval,
@@ -575,29 +592,29 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
                                                zero_hessprod_uu);
 
         auto terminal_innate_constraint_eval =
-          [this, njoints](const VecX &x, const VecX &u)
+          [this](const VecX &x, const VecX &u)
         {
-            VecX c(2 * njoints);
-            c.head(2 * njoints) = x;
+            VecX c(2 * _njoints);
+            c.head(2 * _njoints) = x;
 
             return c;
         };
 
         auto terminal_innate_constraint_grad =
-          [this, njoints](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+          [this](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
         {
-            dX = MatX::Zero(2 * njoints, 2 * _nv);
-            dX.block(0, 0, 2 * njoints, 2 * njoints) =
-              MatX::Identity(2 * njoints, 2 * njoints);
+            dX = MatX::Zero(2 * _njoints, 2 * _nv);
+            dX.block(0, 0, 2 * _njoints, 2 * _njoints) =
+              MatX::Identity(2 * _njoints, 2 * _njoints);
 
-            dU = MatX::Zero(2 * njoints, 1);
+            dU = MatX::Zero(2 * _njoints, 1);
         };
 
         terminal_innate_constraints =
-          stagewise::factory::make_constraints(2 * njoints,
-                                               2 * njoints,
-                                               lb.head(2 * njoints),
-                                               ub.head(2 * njoints),
+          stagewise::factory::make_constraints(2 * _njoints,
+                                               2 * _njoints,
+                                               lb.head(2 * _njoints),
+                                               ub.head(2 * _njoints),
                                                terminal_innate_constraint_eval,
                                                terminal_innate_constraint_grad,
                                                DefaultRightMinus,
