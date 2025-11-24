@@ -281,7 +281,7 @@ VecX FrameSquaredPoseErrorCost::evaluate(const VecX &x, const VecX &u) const
 {
     Mat4 pose = _model->forwardKinematicsSE3(x.head(_nq), _frame);
 
-    Mat4 pose_inv;
+    Mat4 pose_inv                  = Mat4::Zero();
     pose_inv.topLeftCorner<3, 3>() = pose.topLeftCorner<3, 3>().transpose();
     pose_inv.topRightCorner<3, 1>() =
       -pose.topLeftCorner<3, 3>().transpose() * pose.topRightCorner<3, 1>();
@@ -297,7 +297,7 @@ void FrameSquaredPoseErrorCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     Mat4 pose = _model->forwardKinematicsSE3(x.head(_nq), _frame);
     MatX Jfk  = _model->frameJacobian(x.head(_nq), _frame, true);
 
-    Mat4 pose_inv;
+    Mat4 pose_inv                  = Mat4::Zero();
     pose_inv.topLeftCorner<3, 3>() = pose.topLeftCorner<3, 3>().transpose();
     pose_inv.topRightCorner<3, 1>() =
       -pose.topLeftCorner<3, 3>().transpose() * pose.topRightCorner<3, 1>();
@@ -320,7 +320,7 @@ void FrameSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
     Mat4 pose = _model->forwardKinematicsSE3(x.head(_nq), _frame);
     MatX Jfk  = _model->frameJacobian(x.head(_nq), _frame, true);
 
-    Mat4 pose_inv;
+    Mat4 pose_inv                  = Mat4::Zero();
     pose_inv.topLeftCorner<3, 3>() = pose.topLeftCorner<3, 3>().transpose();
     pose_inv.topRightCorner<3, 1>() =
       -pose.topLeftCorner<3, 3>().transpose() * pose.topRightCorner<3, 1>();
