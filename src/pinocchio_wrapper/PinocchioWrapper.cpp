@@ -209,15 +209,24 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
         forces[i].linear() = fext[i];
     }
 
+    std::cout << "b4 cabaderivatives" << std::endl;
+
     pinocchio::computeABADerivatives(impl->model,
                                      impl->data,
                                      q,
                                      v,
                                      tau,
                                      forces);
+
+    std::cout << "after cabaderivatives" << std::endl;
+    std::cout << impl->data.ddq_dq << std::endl;
     aba_partial_dq = impl->data.ddq_dq;
+    std::cout << "1" << std::endl;
     aba_partial_dv = impl->data.ddq_dv;
-    Minv           = impl->data.Minv;
+    std::cout << "2" << std::endl;
+    Minv = impl->data.Minv;
+    std::cout << "3" << std::endl;
+    std::cout << "function end" << std::endl;
 }
 
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl)

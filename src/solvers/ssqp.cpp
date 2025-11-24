@@ -90,12 +90,16 @@ SolverState ssqp::solve(Guess &guess)
         // Lagrangian
         _guess.mu = -sol.y;
 
+        LOGLN("HERE");
+
         // Termination
         if ((ssqp_state = _check_termination()) != ONGOING)
         {
             guess = _guess;
             return ssqp_state;
         }
+
+        LOGLN("HERE2");
 
         if (_params.loose_success)
         {
@@ -320,6 +324,7 @@ SolverState ssqp::_check_termination()
     MatX dX, dU;
 
     // Add terminal terms for x
+    LOGLN("TST");
     costs[horizon]->gradient(_guess.x.stage(horizon), VecX::Zero(1), dx, du);
 
     lagrangian_dx.stage(horizon) += dx;
@@ -331,6 +336,7 @@ SolverState ssqp::_check_termination()
     // Add constraint terms for terminal x
     if (constraints[horizon] != nullptr)
     {
+        LOGLN("TST2");
         constraints[horizon]->gradient(_guess.x.stage(horizon),
                                        VecX::Zero(1),
                                        dX,
@@ -340,19 +346,28 @@ SolverState ssqp::_check_termination()
           dX.transpose() * _guess.mu.stage(horizon);
     }
 
+    LOGLN("TST3");
+
     // Add k=0 terms for u
     costs[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dx, du);
     lagrangian_du.stage(0) += du;
 
     _cost_du.stage(0) = du;
 
+    LOGLN("TST3.5");
     dynamics[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
+    LOGLN("TST3.9");
     lagrangian_du.stage(0).noalias() += dU.transpose() * _guess.lambda.stage(0);
+
+    LOGLN("TST4");
 
     if (constraints[0] != nullptr)
     {
+        LOGLN("HERE 3");
         constraints[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
+        LOGLN("HERE 3.1");
         lagrangian_du.stage(0).noalias() -= dU.transpose() * _guess.mu.stage(0);
+        LOGLN("HERE 3.2");
     }
 
     // Ignore x0 terms since it is not being optimized
