@@ -309,7 +309,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("visualizer/data/point_mass");
+    solver.write("examples/data/point_mass");
 
     return 0;
 }

@@ -47,7 +47,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/trunk.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/trunk.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -100,7 +100,7 @@
     <visual>
       <origin rpy="3.14159265359 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/hip.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/hip.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -147,7 +147,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/thigh_mirror.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/thigh_mirror.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -175,7 +175,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/calf.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/calf.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -228,7 +228,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/hip.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/hip.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -275,7 +275,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/thigh.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/thigh.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -303,7 +303,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/calf.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/calf.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -356,7 +356,7 @@
     <visual>
       <origin rpy="3.14159265359 3.14159265359 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/hip.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/hip.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -403,7 +403,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/thigh_mirror.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/thigh_mirror.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -431,7 +431,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/calf.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/calf.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -484,7 +484,7 @@
     <visual>
       <origin rpy="0 3.14159265359 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/hip.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/hip.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -531,7 +531,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/thigh.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/thigh.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>
@@ -559,7 +559,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://a1_description/meshes/calf.glb" scale="1 1 1"/>
+        <mesh filename="./a1_description/meshes/calf.glb" scale="1 1 1"/>
       </geometry>
       <material name="orange"/>
     </visual>

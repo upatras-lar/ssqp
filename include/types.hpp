@@ -93,6 +93,7 @@ struct Dimensions
     std::vector<uint> stage_constraint;
 
     // State + control
+    // TODO: remove
     std::vector<uint> stage_sc;
 };
 
@@ -140,8 +141,6 @@ struct FlatVec
     FlatVec operator-(const FlatVec &p) const;
 
     VecX vec;
-
-    void write_data(std::ofstream &stream);
 
     friend FlatVec       operator*(double val, const FlatVec &p);
     friend std::ostream &operator<<(std::ostream &os, const FlatVec &v);

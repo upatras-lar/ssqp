@@ -13,13 +13,12 @@
 #define VEL_SIZE   18
 #define HORIZON    100
 #define dt         0.01
-#define P_WGT      80
-#define FP_WGT     40
-#define R_WGT      1
+#define P_WGT      1000
+#define FP_WGT     50
+#define R_WGT      80
 #define V_WGT      1e-2
 #define U_WGT      1e-5
 #define F_WGT      1e-5
-#define TERM_WGT   1
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -41,7 +40,7 @@ int main()
     init.segment(7, 12) << 0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3,
       0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3;
 
-    ssqp::model::Model model("examples/urdf/a1.urdf", HORIZON, dt, true);
+    ssqp::model::Model model("examples/urdf/a1/a1.urdf", HORIZON, dt, true);
     //model.printFramesAndJoints();
 
     /*
@@ -169,7 +168,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("visualizer/data/a1");
+    solver.write("examples/data/a1");
 
     return 0;
 }

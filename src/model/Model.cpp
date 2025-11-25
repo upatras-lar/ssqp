@@ -10,12 +10,16 @@ Force::Force(const std::string &frame, const uint force_index)
 {
 }
 
+// TODO: Add optional parameters for dt, free_flyer
+// TODO: nq, nv, njoints per stage
 Model::Model(
   const std::vector<std::shared_ptr<stagewise::StageCost>>        &costs,
   const std::vector<std::shared_ptr<stagewise::StageDynamics>>    &dynamics,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
   const std::shared_ptr<terrain::Terrain>                         &terrain)
   : _impl(pinocchio_wrapper::makeImpl())
+  , _nq(0)
+  , _nv(0)
   , _njoints(0)
   , _free_flyer(false)
   , _dt(-1.0)
@@ -637,9 +641,39 @@ Force Model::addForce(const uint k, const std::string &frame)
     return _forces[k].back();
 }
 
+uint Model::nforces(const uint k) const
+{
+    return _forces[k].size();
+}
+
 void Model::printFramesAndJoints()
 {
     pinocchio_wrapper::printFramesAndJoints(_impl);
+}
+
+bool Model::floating_base() const
+{
+    return _free_flyer;
+}
+
+uint Model::nq() const
+{
+    return _nq;
+}
+
+uint Model::nv() const
+{
+    return _nv;
+}
+
+uint Model::njoints() const
+{
+    return _njoints;
+}
+
+double Model::dt() const
+{
+    return _dt;
 }
 
 const std::pair<VecX, MatX> Model::forwardKinematics(

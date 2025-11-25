@@ -110,14 +110,74 @@ SolverState ssqp::solve(Guess &guess)
 
 bool ssqp::write(const std::string &filename)
 {
+    using namespace nlohmann;
+    static const model::Dimensions &dims = _model.dims();
+    static const double            &dt   = _model.dt();
+
     std::ofstream out;
-    out.open(filename + ".trj");
+    out.open(filename + ".json");
     if (!out)
     {
         return false;
     }
-    _guess.x.write_data(out);
-    _guess.u.write_data(out);
+
+    ordered_json j;
+    j["properties"]            = ordered_json({});
+    j["properties"]["horizon"] = dims.horizon;
+    j["properties"]["dt"]      = dt;
+    j["properties"]["stages"]  = ordered_json::array();
+    j["stage_data"]            = ordered_json::array();
+
+    // TODO: Assuming nq, nv, njoints and floating_base are the same every stage
+    for (uint k = 0; k < dims.horizon; ++k)
+    {
+        uint nq            = _model.nq();
+        uint nv            = _model.nv();
+        uint njoints       = _model.njoints();
+        uint nforces       = _model.nforces(k);
+        bool floating_base = _model.floating_base();
+
+        j["properties"]["stages"].push_back(ordered_json({
+          {          "size",   dims.stage_state[k] },
+          {       "control", dims.stage_control[k] },
+          {            "nq",                    nq },
+          {            "nv",                    nv },
+          {       "njoints",               njoints },
+          {       "nforces",               nforces },
+          { "floating_base",         floating_base }
+        }));
+
+        ordered_json stage_data;
+
+        VecX u;
+
+        if (floating_base)
+        {
+            VecX x = _guess.x.stage(k);
+            u      = _guess.u.stage(k);
+
+            stage_data["position"]    = x.head(3);
+            stage_data["orientation"] = x.segment(3, 4);
+            stage_data["state"]       = x.segment(7, njoints);
+            stage_data["control"]     = u.segment(6, njoints);
+        }
+        else
+        {
+            u = _guess.u.stage(k);
+
+            stage_data["state"]   = _guess.x.stage(k);
+            stage_data["control"] = u.head(nv);
+        }
+
+        if (nforces > 0)
+        {
+            stage_data["forces"] = u.tail(3 * nforces);
+        }
+
+        j["stage_data"].push_back(stage_data);
+    }
+
+    out << std::setw(4) << j;
     out.close();
 
     return true;
