@@ -8,7 +8,9 @@
 #include <pinocchio/algorithm/aba-derivatives.hpp>
 #include <pinocchio/algorithm/jacobian.hpp>
 #include <pinocchio/algorithm/kinematics.hpp>
+#include <pinocchio/algorithm/kinematics-derivatives.hpp>
 #include <pinocchio/algorithm/frames.hpp>
+#include <pinocchio/algorithm/frames-derivatives.hpp>
 
 namespace ssqp
 {
@@ -255,11 +257,28 @@ void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
                           static_cast<pinocchio::ArgumentPosition>(arg_pos));
 }
 
+void updateFramePlacements(const std::shared_ptr<ModelImpl> &impl)
+{
+    pinocchio::updateFramePlacements(impl->model, impl->data);
+}
+
 std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const std::string &frame)
 {
     pinocchio::forwardKinematics(impl->model, impl->data, q);
+    int frame_id = impl->model.getFrameId(frame);
+    pinocchio::updateFramePlacement(impl->model, impl->data, frame_id);
+
+    return { impl->data.oMf[frame_id].translation(),
+             impl->data.oMf[frame_id].rotation() };
+}
+
+std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
+  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
+  const Eigen::VectorXd &v, const std::string &frame)
+{
+    pinocchio::forwardKinematics(impl->model, impl->data, q, v);
     int frame_id = impl->model.getFrameId(frame);
     pinocchio::updateFramePlacement(impl->model, impl->data, frame_id);
 
@@ -276,6 +295,48 @@ Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
     pinocchio::updateFramePlacement(impl->model, impl->data, frame_id);
 
     return impl->data.oMf[frame_id].toHomogeneousMatrix();
+}
+
+Eigen::Vector3d frameVelocity(const std::shared_ptr<ModelImpl> &impl,
+                              const std::string &frame, bool local)
+{
+    return pinocchio::getFrameVelocity(
+             impl->model,
+             impl->data,
+             impl->model.getFrameId(frame),
+             local ? pinocchio::ReferenceFrame::LOCAL
+                   : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED)
+      .linear();
+}
+
+void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
+                              Eigen::VectorXd &q, Eigen::VectorXd &v,
+                              Eigen::VectorXd &a, const std::string frame,
+                              Eigen::MatrixXd &dVdq, Eigen::MatrixXd &dVdv,
+                              bool local)
+{
+    pinocchio::computeForwardKinematicsDerivatives(impl->model,
+                                                   impl->data,
+                                                   q,
+                                                   v,
+                                                   a);
+
+    Eigen::MatrixXd tmp1(6, v.size()), tmp2(6, v.size()), tmp3(6, v.size());
+
+    dVdq.setZero();
+    dVdv.setZero();
+
+    pinocchio::getFrameAccelerationDerivatives(
+      impl->model,
+      impl->data,
+      impl->model.getFrameId(frame),
+      local ? pinocchio::ReferenceFrame::LOCAL
+            : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
+      dVdq,
+      dVdv,
+      tmp1,
+      tmp2,
+      tmp3);
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,

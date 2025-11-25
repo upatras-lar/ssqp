@@ -237,10 +237,19 @@ class Model
 
     // Perform forward kinematics with the URDF model dynamics
     const std::pair<VecX, MatX> forwardKinematics(
-      const VecX &x, const std::string &frame) const;
+      const VecX &q, const std::string &frame) const;
 
-    const MatX forwardKinematicsSE3(const VecX        &x,
+    const MatX forwardKinematicsSE3(const VecX        &q,
                                     const std::string &frame) const;
+
+    // Get the velocity for a given frame
+    const Vec3 frameVelocity(const VecX &q, const VecX &v,
+                             const std::string &frame,
+                             bool               local = false) const;
+
+    std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &x, const VecX &u,
+                                                   const std::string &frame,
+                                                   bool local = false) const;
 
     const VecX inverseKinematics(const VecX        &desired_translation,
                                  const MatX        &desired_rotation,

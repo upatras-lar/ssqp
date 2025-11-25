@@ -198,7 +198,6 @@ std::shared_ptr<StageConstraints> merge_constraints(
         MatX tmp;
         c1->hessprod_xx(x, u, mu.head(c1->constraint_diff_size()), Pxx);
         c2->hessprod_xx(x, u, mu.tail(c2->constraint_diff_size()), tmp);
-
         Pxx += tmp;
     };
 

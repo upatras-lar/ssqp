@@ -41,17 +41,16 @@ VecX FramePositionBound::upper_bound() const
 
 VecX FramePositionBound::evaluate(const VecX &x, const VecX &u) const
 {
-    VecX pos;
+    Vec3 pos;
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
-
-    return (Vec3() << pos(0), pos(1), pos(2)).finished();
+    return pos;
 }
 
 void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                   MatX &dU) const
 {
-    VecX pos;
-    MatX rot;
+    Vec3 pos;
+    Mat3 rot;
     std::tie(pos, rot) = _model->forwardKinematics(x.head(_nq), _frame);
     MatX Jfk           = _model->frameJacobian(x.head(_nq), _frame);
 
@@ -64,17 +63,80 @@ void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 void FramePositionBound::hessprod_xx(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Pxx) const
 {
-    ZeroHessprod_xx(x, u, mu, Pxx);
+    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
 }
 void FramePositionBound::hessprod_xu(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Pxu) const
 {
-    ZeroHessprod_xu(x, u, mu, Pxu);
+    Pxu = MatX::Zero(2 * _nv, u.size());
 }
 void FramePositionBound::hessprod_uu(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Puu) const
 {
-    ZeroHessprod_uu(x, u, mu, Puu);
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// FrameVelocityBound
+FrameVelocityBound::FrameVelocityBound(const Model       &model,
+                                       const std::string &frame, const VecX &lb,
+                                       const VecX &ub, const uint nq,
+                                       const uint nv)
+  : _model(std::make_shared<Model>(model))
+  , _frame(frame)
+  , _lb(lb)
+  , _ub(ub)
+  , _nq(nq)
+  , _nv(nv)
+{
+    assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
+}
+
+uint FrameVelocityBound::output_size() const
+{
+    return 3;
+}
+
+VecX FrameVelocityBound::lower_bound() const
+{
+    return _lb;
+}
+VecX FrameVelocityBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FrameVelocityBound::evaluate(const VecX &x, const VecX &u) const
+{
+    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true);
+}
+
+void FrameVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                  MatX &dU) const
+{
+    MatX dVdq, dVdv;
+    std::tie(dVdq, dVdv) = _model->frameVelocityDerivatives(x, u, _frame, true);
+
+    dX                = MatX::Zero(3, 2 * _nv);
+    dX.leftCols(_nv)  = dVdq.topRows<3>();
+    dX.rightCols(_nv) = dVdv.topRows<3>();
+
+    dU = MatX::Zero(3, u.size());
+}
+
+void FrameVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+}
+void FrameVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(2 * _nv, u.size());
+}
+void FrameVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
 }
 
 // ContactConstraint

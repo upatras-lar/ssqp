@@ -81,6 +81,8 @@ void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
                 const Eigen::VectorXd &q, const Eigen::VectorXd &v,
                 Eigen::MatrixXd &J, uint arg_pos);
 
+void updateFramePlacements(const std::shared_ptr<ModelImpl> &impl);
+
 // FK including updateFramePlacement
 std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
@@ -90,6 +92,19 @@ std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
 Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
                                      const Eigen::VectorXd            &q,
                                      const std::string                &frame);
+
+std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
+  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
+  const Eigen::VectorXd &v, const std::string &frame);
+
+Eigen::Vector3d frameVelocity(const std::shared_ptr<ModelImpl> &impl,
+                              const std::string &frame, bool local = false);
+
+void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
+                              Eigen::VectorXd &q, Eigen::VectorXd &v,
+                              Eigen::VectorXd &a, const std::string frame,
+                              Eigen::MatrixXd &dVdq, Eigen::MatrixXd &dVdv,
+                              bool local = false);
 
 // Compute and get frame jacobian
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,

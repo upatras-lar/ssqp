@@ -460,7 +460,6 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
       1)) // TODO: forces at terminal stage (where we have no controls)?
 {
     pinocchio_wrapper::buildModelFromUrdf(urdf_path, _impl, free_flyer);
-    printFramesAndJoints();
 
     std::tie(_nq, _nv) = pinocchio_wrapper::modelDimensions(_impl);
 
@@ -677,15 +676,46 @@ double Model::dt() const
 }
 
 const std::pair<VecX, MatX> Model::forwardKinematics(
-  const VecX &x, const std::string &frame) const
+  const VecX &q, const std::string &frame) const
 {
-    return pinocchio_wrapper::forwardKinematics(_impl, x, frame);
+    return pinocchio_wrapper::forwardKinematics(_impl, q, frame);
 }
 
-const MatX Model::forwardKinematicsSE3(const VecX        &x,
+const MatX Model::forwardKinematicsSE3(const VecX        &q,
                                        const std::string &frame) const
 {
-    return pinocchio_wrapper::forwardKinematicsSE3(_impl, x, frame);
+    return pinocchio_wrapper::forwardKinematicsSE3(_impl, q, frame);
+}
+
+const Vec3 Model::frameVelocity(const VecX &q, const VecX &v,
+                                const std::string &frame, bool local) const
+{
+    pinocchio_wrapper::forwardKinematics(_impl, q, v, frame);
+    pinocchio_wrapper::updateFramePlacements(_impl);
+    return pinocchio_wrapper::frameVelocity(_impl, frame, local);
+}
+
+std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &x,
+                                                      const VecX        &u,
+                                                      const std::string &frame,
+                                                      bool local) const
+{
+    VecX q = x.head(_nq);
+    VecX v = x.tail(_nv);
+    VecX a = u.head(_nv);
+
+    MatX dVdq(6, _nv), dVdv(6, _nv);
+
+    pinocchio_wrapper::frameVelocityDerivatives(_impl,
+                                                q,
+                                                v,
+                                                a,
+                                                frame,
+                                                dVdq,
+                                                dVdv,
+                                                local);
+
+    return { dVdq, dVdv };
 }
 
 const MatX Model::frameJacobian(const VecX &x, const std::string &frame,
