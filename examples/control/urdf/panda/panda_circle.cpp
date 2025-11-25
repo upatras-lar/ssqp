@@ -103,7 +103,7 @@ int main()
     Rd(2, 2)           = -1;
 
     // Define SSQP model
-    ssqp::model::Model model("examples/urdf/panda.urdf", HORIZON, dt);
+    ssqp::model::Model model("examples/urdf/panda/panda.urdf", HORIZON, dt);
 
     Eigen::VectorXd init_state = Eigen::VectorXd::Zero(2 * STATE_SIZE);
 
@@ -247,7 +247,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("visualizer/data/panda_circle");
+    solver.write("examples/data/panda_circle");
 
     return 0;
 }

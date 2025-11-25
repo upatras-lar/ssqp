@@ -162,7 +162,7 @@ int main()
 
     constraints[HORIZON / 2] = constraint;
 
-    ssqp::model::Model model("examples/urdf/panda.urdf",
+    ssqp::model::Model model("examples/urdf/panda/panda.urdf",
                              HORIZON,
                              dt,
                              cost,
@@ -189,7 +189,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("visualizer/data/panda_poses");
+    solver.write("examples/data/panda_poses");
 
     return 0;
 }

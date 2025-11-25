@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX := g++
-CXXFLAGS := -std=c++17 -MMD -MP -g
+CXXFLAGS := -std=c++17 -MMD -MP
 INCLUDES := -I/usr/include/eigen3 -I./include -I.
 LDFLAGS :=
 
@@ -8,7 +8,7 @@ DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	CXXFLAGS += -DDEBUG -O0
 else
-	CXXFLAGS += -O0
+	CXXFLAGS += -O3
 endif
 
 INFO ?= 1

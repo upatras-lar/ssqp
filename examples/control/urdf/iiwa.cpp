@@ -131,7 +131,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("visualizer/data/iiwa");
+    solver.write("examples/data/iiwa");
 
     return 0;
 }

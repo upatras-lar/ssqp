@@ -1,8 +1,5 @@
 .vscode/
 /build/*
-/examples/python/*
+/examples/data/*
 VARIABLES.sh
-out.txt
-out_pin.txt
-/visualizer/rtb-venv/*
-/visualizer/data/*
+/visualizer/viser-venv/*

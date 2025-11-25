@@ -11,6 +11,8 @@
 #include "model/Model.hpp"
 #include "solvers/admm_qp.hpp"
 
+#include "external/nlohmann/json.hpp"
+
 namespace ssqp
 {
 namespace solvers

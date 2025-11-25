@@ -217,7 +217,23 @@ class Model
     // Returns the newly created force
     Force addForce(const uint k, const std::string &frame);
 
+    // Returns the number of external forces added for a given stage
+    uint nforces(const uint k) const;
+
     void printFramesAndJoints();
+
+    // Below functions are undefined if no URDF was used for initialization
+    bool floating_base() const;
+    // Robot state size
+    uint nq() const;
+    // Robot control size
+    uint nv() const;
+    // Number of actual joints in robot (ignores universe, root)
+    uint njoints() const;
+    // Optimization time step
+    // If the user passed custom dynamics that integrate this value internally,
+    // this might be undefined
+    double dt() const;
 
     // Perform forward kinematics with the URDF model dynamics
     const std::pair<VecX, MatX> forwardKinematics(

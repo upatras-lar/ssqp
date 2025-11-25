@@ -103,7 +103,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("visualizer/data/pendulum");
+    solver.write("examples/data/pendulum");
 
     return 0;
 }
