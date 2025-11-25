@@ -277,6 +277,30 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
     _weight.bottomRightCorner<3, 3>() = rotation_weight * Mat3::Identity();
 }
 
+FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
+  const Model &model, const Vec3 &desired_position,
+  const Mat3 &desired_rotation, const std::string &frame, const uint nq,
+  const uint nv, const double position_weight, const double rotation_weight)
+  : FrameSquaredPoseErrorCost(model,
+                              Mat4 {
+                                { desired_rotation(0, 0),
+                                 desired_rotation(0, 1),
+                                 desired_rotation(0, 2),
+                                 desired_position(0) },
+                                { desired_rotation(1, 0),
+                                 desired_rotation(1, 1),
+                                 desired_rotation(1, 2),
+                                 desired_position(1) },
+                                { desired_rotation(2, 0),
+                                 desired_rotation(2, 1),
+                                 desired_rotation(2, 2),
+                                 desired_position(2) },
+                                { 0.0, 0.0, 0.0, 1.0 }
+},
+                              frame, nq, nv, position_weight, rotation_weight)
+{
+}
+
 VecX FrameSquaredPoseErrorCost::evaluate(const VecX &x, const VecX &u) const
 {
     Mat4 pose = _model->forwardKinematicsSE3(x.head(_nq), _frame);
