@@ -3,6 +3,7 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 
 #include <Eigen/Core>
 
@@ -28,6 +29,9 @@ void buildModelFromUrdf(const std::string         &urdf,
                         bool                       free_flyer = false);
 
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
+
+std::vector<std::string> getOrderedActuatedJoints(
+  const std::shared_ptr<ModelImpl> &impl);
 
 Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl);
 

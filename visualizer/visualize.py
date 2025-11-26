@@ -62,12 +62,11 @@ with open(args.input, "r") as f:
 # Create the server object
 server = viser.ViserServer(port=8080)
 
-# Add grid to represent the ground
-grid = server.scene.add_grid(
+# Add box to represent the ground
+server.scene.add_box(
     "/ground",
-    position=(0, 0, 0),
-    cell_color=(0.7, 0.7, 0.7),
-    cell_size=0.5,
+    color=(225, 225, 205),
+    dimensions=(10, 10, 0.001),
 )
 
 # Create a parent frame for the robot
@@ -79,6 +78,8 @@ urdf = viser.extras.ViserUrdf(
     urdf_or_path=Path(args.urdf_path),
     root_node_name="/robot",
 )
+
+urdf.show_frames = True
 
 
 # Move client camera to initial position
@@ -92,12 +93,33 @@ def _(client):
 while True:
     # Animate each stage
     for k in range(data["properties"]["horizon"]):
-        joint_positions = np.array(data["stage_data"][k]["state"])
+        state = np.array(data["stage_data"][k]["state"])
+        data_joints = data["properties"]["stages"][k]["state_joints"]
 
         # Slice stage if custom size was given
         if args.state_size > 0:
-            joint_positions = joint_positions[: args.state_size]
+            state = state[: args.state_size]
+            data_joints = data_joints[: args.state_size]
 
+        joints = urdf.get_actuated_joint_names()
+        if len(state) != len(joints):
+            print(f"Invalid state length for given URDF (stage {k})")
+            exit(10)
+        if len(data_joints) != len(state):
+            print(f"Invalid state for listed joints (stage {k})")
+            exit(11)
+
+        indices = []
+        for joint in joints:
+            if joint not in data_joints:
+                print(
+                    f"Joint {joint} expected, but not found in stage {k} data"
+                )
+                exit(12)
+
+            indices.append(data_joints.index(joint))
+
+        joint_positions = [state[i] for i in indices]
         urdf.update_cfg(joint_positions)
 
         # Move floating base if free flyer

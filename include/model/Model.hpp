@@ -222,6 +222,8 @@ class Model
 
     void printFramesAndJoints();
 
+    std::vector<std::string> orderedActuatedJoints() const;
+
     // Below functions are undefined if no URDF was used for initialization
     bool floating_base() const;
     // Robot state size

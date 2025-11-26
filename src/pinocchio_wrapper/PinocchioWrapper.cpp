@@ -241,6 +241,32 @@ void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl)
     }
 }
 
+std::vector<std::string> getOrderedActuatedJoints(
+  const std::shared_ptr<ModelImpl> &impl)
+{
+    std::vector<std::string> names;
+    names.reserve(impl->model.joints.size());
+
+    for (pinocchio::JointIndex jid = 1; jid < impl->model.joints.size(); ++jid)
+    {
+        const auto &j = impl->model.joints[jid];
+
+        if (j.nv() == 0) continue;
+
+        // Skip floating-base joints
+        if (j.shortname() == "JointModelFreeFlyer" ||
+            j.shortname() == "JointModelPlanar" ||
+            j.shortname() == "JointModelTranslation")
+        {
+            continue;
+        }
+
+        names.push_back(impl->model.names[jid]);
+    }
+
+    return names;
+}
+
 Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl)
 {
     return pinocchio::neutral(impl->model);
@@ -321,7 +347,9 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                                                    v,
                                                    a);
 
-    Eigen::MatrixXd tmp1(6, v.size()), tmp2(6, v.size()), tmp3(6, v.size());
+    Eigen::MatrixXd tmp1 = Eigen::MatrixXd::Zero(6, v.size());
+    Eigen::MatrixXd tmp2 = Eigen::MatrixXd::Zero(6, v.size());
+    Eigen::MatrixXd tmp3 = Eigen::MatrixXd::Zero(6, v.size());
 
     dVdq.setZero();
     dVdv.setZero();
