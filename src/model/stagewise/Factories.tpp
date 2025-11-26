@@ -35,7 +35,7 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
          typename HessprodFunction3>
 std::shared_ptr<StageDynamics> make_dynamics(
   const uint nx, const uint nu, const uint nout, const uint ndx,
-  const VecX                                             &init_state,
+  const VecX &init_state, const VecX &init_control,
   ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
   EvaluationFunction eval, multiGradientFunction grad,
   HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
@@ -53,6 +53,7 @@ std::shared_ptr<StageDynamics> make_dynamics(
       nout,
       ndx,
       init_state,
+      init_control,
       std::move(ops),
       std::move(eval),
       std::move(grad),
@@ -309,16 +310,15 @@ void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
     return _hess_uu(x, u, Huu);
 }
 
-FunctionStageDynamicsBase::FunctionStageDynamicsBase(const uint  nx,
-                                                     const uint  nu,
-                                                     const uint  nout,
-                                                     const uint  ndx,
-                                                     const VecX &init_state)
+FunctionStageDynamicsBase::FunctionStageDynamicsBase(
+  const uint nx, const uint nu, const uint nout, const uint ndx,
+  const VecX &init_state, const VecX &init_control)
   : _nx(nx)
   , _nu(nu)
   , _nout(nout)
   , _ndx(ndx)
   , _init_state(init_state)
+  , _init_control(init_control)
 {
 }
 
@@ -331,12 +331,12 @@ FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
                       HessprodFunction2, HessprodFunction3>::
   FunctionStageDynamics(
     const uint nx, const uint nu, const uint nout, const uint ndx,
-    const VecX                                             &init_state,
+    const VecX &init_state, const VecX &init_control,
     ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
     EvaluationFunction eval, multiGradientFunction grad,
     HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
     HessprodFunction3 hess_uu)
-  : FunctionStageDynamicsBase(nx, nu, nout, ndx, init_state)
+  : FunctionStageDynamicsBase(nx, nu, nout, ndx, init_state, init_control)
   , _ops(std::move(ops))
   , _eval(std::move(eval))
   , _grad(std::move(grad))
@@ -378,6 +378,18 @@ void FunctionStageDynamicsBase::set_init_state(const VecX &init_state)
     assert(init_state.size() == _nx &&
            "FunctionStageDynamics: nx must match init_state.size()");
     _init_state = init_state;
+}
+
+VecX FunctionStageDynamicsBase::init_control() const
+{
+    return _init_control;
+}
+
+void FunctionStageDynamicsBase::set_init_control(const VecX &init_control)
+{
+    assert(init_control.size() == _nu &&
+           "FunctionStageDynamics: nu must match init_control.size()");
+    _init_control = init_control;
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,

@@ -33,7 +33,7 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
          typename HessprodFunction3 = decltype(ZeroHessprod_uu)>
 inline std::shared_ptr<StageDynamics> make_dynamics(
   const uint nx, const uint nu, const uint nout, const uint ndx,
-  const VecX &init_state,
+  const VecX &init_state, const VecX &init_control,
   ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
   EvaluationFunction eval, multiGradientFunction grad,
   HessprodFunction1 hess_xx = ZeroHessprod_xx,
@@ -93,7 +93,8 @@ class FunctionStageDynamicsBase : public StageDynamics
   public:
     inline FunctionStageDynamicsBase(const uint nx, const uint nu,
                                      const uint nout, const uint ndx,
-                                     const VecX &init_state);
+                                     const VecX &init_state,
+                                     const VecX &init_control);
 
     inline uint output_size() const override;
     inline uint state_size() const override;
@@ -101,10 +102,12 @@ class FunctionStageDynamicsBase : public StageDynamics
     inline uint state_diff_size() const override;
     inline VecX init_state() const override;
     inline void set_init_state(const VecX &init_state) override;
+    inline VecX init_control() const override;
+    inline void set_init_control(const VecX &init_state) override;
 
   protected:
     const uint _nx, _nu, _nout, _ndx;
-    VecX       _init_state;
+    VecX       _init_state, _init_control;
 };
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
@@ -116,7 +119,7 @@ class FunctionStageDynamics : public FunctionStageDynamicsBase
   public:
     inline FunctionStageDynamics(
       const uint nx, const uint nu, const uint nout, const uint ndx,
-      const VecX                                             &init_state,
+      const VecX &init_state, const VecX &init_control,
       ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
       EvaluationFunction eval, const multiGradientFunction grad,
       HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,

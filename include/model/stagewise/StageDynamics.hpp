@@ -35,6 +35,12 @@ class StageDynamics : public Function
     // Set the initial state vector
     virtual void set_init_state(const VecX &init_state);
 
+    // Initial control vector (size $n_u$) (default $\boldsymbol{0}$)
+    virtual VecX init_control() const;
+
+    // Set the initial control vector
+    virtual void set_init_control(const VecX &init_control);
+
     // Operator definitions for states
     // Defines operators between states and state differences
     // If state is a euclidian vector, these operators reduce to simple

@@ -32,6 +32,11 @@ ssqp::ssqp(const model::Model &model, const Params &params,
     {
         _guess.x.stage(k) = dynamics[k]->init_state();
     }
+
+    for (uint k = 0; k < dims.horizon; ++k)
+    {
+        _guess.u.stage(k) = dynamics[k]->init_control();
+    }
 }
 
 SolverState ssqp::solve(Guess &guess)

@@ -76,8 +76,8 @@ class Model
     /* URDF SSQP Model constructor (same cost per stage & terminal cost)
      * ---
      * Initializes model from dynamics as defined in URDF, stage costs `cost`,
-     * terminal cost `terminal_cost`, stage constraints `constraints` and
-     * initial states `init_states`
+     * terminal cost `terminal_cost`, stage constraints `constraints`, initial 
+     * states `init_states` and initial controls `init_controls`
      *
      * Input:
      *  - `urdf_path`: Path to urdf file
@@ -89,6 +89,10 @@ class Model
      *     null -> empty vector)
      *  - `init_states`: (size $H + 1$) vector of initial states for each
      *     stage (default $\boldsymbol{0}$ vector -> empty vector)
+     *  - `init_controls`: (size $H$) vector of initial controls for each
+     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
+     *  - `free_flyer`: Whether the model has a floating base (default `false`)
+     *  - `terrain`: The ground terrain (default flat at z=0)
      *
      * Finalizes model: true
      */
@@ -96,17 +100,18 @@ class Model
           const std::shared_ptr<stagewise::StageCost> &cost,
           const std::shared_ptr<stagewise::StageCost> &terminal_cost,
           const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-            &constraints                       = {},
-          const std::vector<VecX> &init_states = {},
-          const bool free_flyer                = false,
+            &constraints                         = {},
+          const std::vector<VecX> &init_states   = {},
+          const std::vector<VecX> &init_controls = {},
+          const bool free_flyer                  = false,
           const std::shared_ptr<terrain::Terrain> &terrain =
             terrain::make_terrain<terrain::predefined::FlatTerrain>());
 
     /* URDF SSQP Model constructor (different costs per stage & terminal cost)
      * ---
      * Initializes model from dynamics as defined in URDF, stage costs `costs`,
-     * terminal cost `terminal_cost`, stage constraints `constraints` and
-     * initial states `init_states`
+     * terminal cost `terminal_cost`, stage constraints `constraints`, initial
+     * states `init_states` and initial controls `init_controls`
      *
      * Input:
      *  - `urdf_path`: Path to urdf file
@@ -118,6 +123,10 @@ class Model
      *     null -> empty vector)
      *  - `init_states`: (size $H + 1$) vector of initial states for each
      *     stage (default $\boldsymbol{0}$ vector -> empty vector)
+     *  - `init_controls`: (size $H$) vector of initial controls for each
+     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
+     *  - `free_flyer`: Whether the model has a floating base (default `false`)
+     *  - `terrain`: The ground terrain (default flat at z=0)
      *
      * Finalizes model: true
      */
@@ -125,9 +134,10 @@ class Model
           const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
           const std::shared_ptr<stagewise::StageCost> &terminal_cost,
           const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-            &constraints                       = {},
-          const std::vector<VecX> &init_states = {},
-          const bool free_flyer                = false,
+            &constraints                         = {},
+          const std::vector<VecX> &init_states   = {},
+          const std::vector<VecX> &init_controls = {},
+          const bool free_flyer                  = false,
           const std::shared_ptr<terrain::Terrain> &terrain =
             terrain::make_terrain<terrain::predefined::FlatTerrain>());
 
@@ -140,8 +150,8 @@ class Model
      *  - `urdf_path`: Path to urdf file
      *  - `horizon`: Solver horizon
      *  - `dt`: Solver time step
-     *  - `init_states`: (size $H + 1$) vector of initial states for each
-     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
+     *  - `free_flyer`: Whether the model has a floating base (default `false`)
+     *  - `terrain`: The ground terrain (default flat at z=0)
      *
      * Finalizes model: false
      *
@@ -157,33 +167,35 @@ class Model
     /* `finalize` method (same cost per stage & terminal cost)
      * ---
      * Finalizes the model with stage costs `cost`, terminal cost
-     * `terminal_cost`, stage constraints `constraints` and initial states
-     * `init_states`
+     * `terminal_cost`, stage constraints `constraints`, initial states
+     * `init_states` and initial controls `init_controls`
      */
     void finalize(
       const std::shared_ptr<stagewise::StageCost> &cost,
       const std::shared_ptr<stagewise::StageCost> &terminal_cost,
       const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints                       = {},
-      const std::vector<VecX> &init_states = {});
+        &constraints                         = {},
+      const std::vector<VecX> &init_states   = {},
+      const std::vector<VecX> &init_controls = {});
 
     /* `finalize` method (different costs per stage & terminal cost)
      * ---
      * Finalizes the model with stage costs `costs`, terminal cost
-     * `terminal_cost`, stage constraints `constraints` and initial states
-     * `init_states`
+     * `terminal_cost`, stage constraints `constraints`, initial states
+     * `init_states` and initial controls `init_controls`
      */
     void finalize(
       const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
       const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
       const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints                       = {},
-      const std::vector<VecX> &init_states = {});
+        &constraints                         = {},
+      const std::vector<VecX> &init_states   = {},
+      const std::vector<VecX> &init_controls = {});
 
     /* `finalize` method (no costs)
      * ---
-     * Finalizes the model with stage constraints `constraints` and initial
-     * states `init_states`
+     * Finalizes the model with stage constraints `constraints`, initial
+     * states `init_states` and initial controls `init_controls`
      * Assumes all required stage costs have already been set
      *
      * ### Note
@@ -191,8 +203,9 @@ class Model
      */
     void finalize(
       const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints                       = {},
-      const std::vector<VecX> &init_states = {});
+        &constraints                         = {},
+      const std::vector<VecX> &init_states   = {},
+      const std::vector<VecX> &init_controls = {});
 
     const uint       horizon() const;
     const Dimensions dims() const;
@@ -284,7 +297,8 @@ class Model
 
     bool _finalized = false;
 
-    void _constructDynamics(const std::vector<VecX> &init_states = {});
+    void _constructDynamics(const std::vector<VecX> &init_states   = {},
+                            const std::vector<VecX> &init_controls = {});
     void _setup();
 };
 }
