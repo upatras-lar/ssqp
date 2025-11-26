@@ -482,11 +482,6 @@ Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
       [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
     { Puu = MatX::Zero(u.size(), u.size()); };
 
-    // TODO: Free flyer: deal with control decision variables for floating base
-    // Either by (sorted by best solution, efficiency-wise):
-    // 1) Removing them entirely from u, or
-    // 2) using a selection matrix in the dynamics to multiply them with 0, or
-    // 3) adding the appropriate constraints to keep them at 0
     if (free_flyer)
     {
         auto innate_constraint_eval = [this](const VecX &x, const VecX &u)
@@ -648,6 +643,11 @@ uint Model::nforces(const uint k) const
 void Model::printFramesAndJoints()
 {
     pinocchio_wrapper::printFramesAndJoints(_impl);
+}
+
+std::vector<std::string> Model::orderedActuatedJoints() const
+{
+    return pinocchio_wrapper::getOrderedActuatedJoints(_impl);
 }
 
 bool Model::floating_base() const

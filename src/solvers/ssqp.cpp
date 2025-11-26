@@ -131,11 +131,13 @@ bool ssqp::write(const std::string &filename)
     // TODO: Assuming nq, nv, njoints and floating_base are the same every stage
     for (uint k = 0; k < dims.horizon; ++k)
     {
-        uint nq            = _model.nq();
-        uint nv            = _model.nv();
-        uint njoints       = _model.njoints();
-        uint nforces       = _model.nforces(k);
-        bool floating_base = _model.floating_base();
+        uint                     nq            = _model.nq();
+        uint                     nv            = _model.nv();
+        uint                     njoints       = _model.njoints();
+        uint                     nforces       = _model.nforces(k);
+        bool                     floating_base = _model.floating_base();
+        std::vector<std::string> actuated_joints =
+          _model.orderedActuatedJoints();
 
         j["properties"]["stages"].push_back(ordered_json({
           {          "size",   dims.stage_state[k] },
@@ -144,7 +146,8 @@ bool ssqp::write(const std::string &filename)
           {            "nv",                    nv },
           {       "njoints",               njoints },
           {       "nforces",               nforces },
-          { "floating_base",         floating_base }
+          { "floating_base",         floating_base },
+          {  "state_joints",       actuated_joints }
         }));
 
         ordered_json stage_data;
