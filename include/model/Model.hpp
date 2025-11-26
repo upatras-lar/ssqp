@@ -270,6 +270,10 @@ class Model
                                  const MatX        &desired_rotation,
                                  const std::string &joint);
 
+    const VecX inverseDynamics(
+      const VecX &q, const VecX &v, const VecX &a,
+      const std::unordered_map<std::string, std::vector<Vec3>> &forces) const;
+
     // Get a frame jacobian based on the URDF model dynamics
     const MatX frameJacobian(const VecX &x, const std::string &frame,
                              bool local = false) const;

@@ -11,18 +11,18 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      50
+#define HORIZON      60
 #define dt           0.01
 // Trunk position weight
-#define P_WGT 1000
+#define P_WGT 100
 // Orientation weight
-#define R_WGT 100
+#define R_WGT 80
 // Velocity regularization weight
-#define V_WGT 5e-4
+#define V_WGT 1e-3
 // Control regularization weight
-#define U_WGT 1e-5
+#define U_WGT 1e-6
 // Force regularization weight
-#define F_WGT 1e-5
+#define F_WGT 1e-6
 // Whether we only use two feet to stand on
 #define TWO_FEET true
 
@@ -30,6 +30,9 @@ using namespace ssqp::model::stagewise::predefined;
 
 int main()
 {
+    // Initialize model
+    ssqp::model::Model model("examples/urdf/a1/a1.urdf", HORIZON, dt, true);
+
     // Trunk position
     Eigen::Vector3d base_pos;
     base_pos << 0, 0, 0.3464;
@@ -43,10 +46,30 @@ int main()
       0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3;
 
     // Initial controls
-    Eigen::VectorXd init_control = Eigen::VectorXd::Zero(24);
+    Eigen::VectorXd init_control;
 
-    // Initialize model
-    ssqp::model::Model model("examples/urdf/a1/a1.urdf", HORIZON, dt, true);
+    if (TWO_FEET)
+    {
+        init_control     = Eigen::VectorXd::Zero(24);
+        init_control[20] = 6.8705;
+        init_control[23] = 6.8705;
+
+        std::unordered_map<std::string, std::vector<Eigen::Vector3d>> forces;
+        forces["FL_foot"].push_back(init_control.segment(18, 3));
+        forces["RR_foot"].push_back(init_control.segment(21, 3));
+
+        init_control.segment(6, 12) =
+          model
+            .inverseDynamics(init.head(STATE_SIZE),
+                             init.tail(CONTROL_SIZE),
+                             Eigen::VectorXd::Zero(CONTROL_SIZE),
+                             forces)
+            .tail(12);
+    }
+    else
+    {
+        init_control = Eigen::VectorXd::Zero(30);
+    }
 
     for (uint k = 0; k < HORIZON; ++k)
     {

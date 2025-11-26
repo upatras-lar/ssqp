@@ -725,6 +725,36 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &x,
     return { dVdq, dVdv };
 }
 
+const VecX Model::inverseDynamics(
+  const VecX &q, const VecX &v, const VecX &a,
+  const std::unordered_map<std::string, std::vector<Vec3>> &forces) const
+{
+    const uint total_joints = pinocchio_wrapper::modelJoints(_impl);
+
+    pinocchio_wrapper::computeJointJacobians(_impl, q);
+    std::vector<Vec3> joint_forces(total_joints, Vec3::Zero());
+
+    for (const std::pair<std::string, std::vector<Vec3>> &pair : forces)
+    {
+        for (uint i = 0; i < pair.second.size(); ++i)
+        {
+            Vec3 f = pair.second[i];
+            uint joint_id;
+            Vec3 translation;
+            Mat3 rotation;
+            pinocchio_wrapper::getFramejMfMatrix(_impl,
+                                                 pair.first,
+                                                 joint_id,
+                                                 rotation,
+                                                 translation);
+
+            joint_forces[joint_id] += rotation * f;
+        }
+    }
+
+    return pinocchio_wrapper::rnea(_impl, q, v, a, joint_forces);
+}
+
 const MatX Model::frameJacobian(const VecX &x, const std::string &frame,
                                 bool local) const
 {

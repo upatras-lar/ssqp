@@ -14,17 +14,62 @@
 #define HORIZON      100
 #define dt           0.01
 // Trunk position weight
-#define P_WGT 20
+#define P_WGT 100
 // Orientation weight
-#define R_WGT 10
+#define R_WGT 100
 // Velocity regularization weight
-#define V_WGT 1e-3
+#define V_WGT 1e-5
 // Control regularization weight
 #define U_WGT 1e-5
 // Force regularization weight
 #define F_WGT 1e-5
 
 using namespace ssqp::model::stagewise::predefined;
+
+std::vector<Eigen::Vector3d> make_trajectory(int H)
+{
+    const double z = 0.3464;
+    const double r = 0.05;
+
+    const Eigen::Vector3d start(0.0, 0.0, z);
+    const Eigen::Vector3d entry(0.0, -r, z);
+
+    // --- Lengths ---
+    double L_seg   = r;
+    double L_circ  = 2.0 * M_PI * r;
+    double L_total = L_seg + L_circ;
+
+    int N_seg  = std::max(1, int(std::floor((L_seg / L_total) * H)));
+    int N_circ = H - N_seg;
+    if (N_circ < 1) N_circ = 1;
+
+    std::vector<Eigen::Vector3d> traj;
+    traj.reserve(H);
+
+    // --- Straight segment ---
+    for (int k = 0; k < N_seg; ++k)
+    {
+        double s = double(k) / double(N_seg);
+        traj.emplace_back(start + s * (entry - start));
+    }
+
+    // Make sure the straight portion ends exactly at entry
+    traj.push_back(entry);
+
+    // --- Circular portion ---
+    for (int k = 0; k < N_circ; ++k)
+    {
+        double theta = 2.0 * M_PI * (double(k) / double(N_circ));
+        double x     = r * std::sin(theta);
+        double y     = -r * std::cos(theta);
+        traj.emplace_back(x, y, z);
+    }
+
+    // Trim if one extra due to push_back(entry)
+    if (int(traj.size()) > H) traj.resize(H);
+
+    return traj;
+}
 
 int main()
 {
@@ -40,8 +85,7 @@ int main()
     init.segment(7, 12) << 0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3,
       0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3;
 
-    Eigen::Vector3d target_pos;
-    target_pos << 0, -0.1, 0.3464;
+    std::vector<Eigen::Vector3d> traj = make_trajectory(HORIZON);
 
     // Initialize model
     ssqp::model::Model model("examples/urdf/a1/a1.urdf", HORIZON, dt, true);
@@ -53,7 +97,7 @@ int main()
         model.addCost<costs::FrameSquaredPoseErrorCost>(
           k,
           model,
-          target_pos,
+          traj[k],
           Eigen::Matrix3d::Identity(),
           "trunk",
           STATE_SIZE,
@@ -133,7 +177,7 @@ int main()
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
-                                                    target_pos,
+                                                    traj[HORIZON],
                                                     Eigen::Matrix3d::Identity(),
                                                     "trunk",
                                                     STATE_SIZE,

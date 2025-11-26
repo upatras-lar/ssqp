@@ -11,6 +11,7 @@
 #include <pinocchio/algorithm/kinematics-derivatives.hpp>
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/frames-derivatives.hpp>
+#include <pinocchio/algorithm/rnea.hpp>
 
 namespace ssqp
 {
@@ -224,6 +225,23 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
     Minv           = impl->data.Minv;
 }
 
+Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
+                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                     const Eigen::VectorXd              &a,
+                     const std::vector<Eigen::Vector3d> &fext)
+{
+    pinocchio::container::aligned_vector<pinocchio::Force> forces(
+      fext.size(),
+      pinocchio::Force::Zero());
+
+    for (uint i = 0; i < fext.size(); ++i)
+    {
+        forces[i].linear() = fext[i];
+    }
+
+    return pinocchio::rnea(impl->model, impl->data, q, v, a, forces);
+}
+
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl)
 {
     std::cout << "Number of joints: " << impl->model.njoints << std::endl;
@@ -402,6 +420,5 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
       J);
 }
-
 }
 }

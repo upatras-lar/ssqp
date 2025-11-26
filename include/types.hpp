@@ -11,6 +11,7 @@
 #include <string>
 #include <cmath>
 #include <limits>
+#include <unordered_map>
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
