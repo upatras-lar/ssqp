@@ -42,6 +42,9 @@ int main()
     init.segment(7, 12) << 0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3,
       0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3;
 
+    // Initial controls
+    Eigen::VectorXd init_control = Eigen::VectorXd::Zero(24);
+
     // Initialize model
     ssqp::model::Model model("examples/urdf/a1/a1.urdf", HORIZON, dt, true);
 
@@ -150,7 +153,7 @@ int main()
     //                                                       STATE_SIZE,
     //                                                       CONTROL_SIZE);
 
-    model.finalize({}, { init });
+    model.finalize({}, { init }, { init_control });
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;

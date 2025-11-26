@@ -34,11 +34,16 @@ Model::Model(
     _setup();
 }
 
-void Model::_constructDynamics(const std::vector<VecX> &init_states)
+void Model::_constructDynamics(const std::vector<VecX> &init_states,
+                               const std::vector<VecX> &init_controls)
 {
     assert((init_states.empty() || init_states.size() == 1 ||
             init_states.size() == _dynamics.size()) &&
            "Invalid init_states size");
+
+    assert((init_states.empty() || init_states.size() == 1 ||
+            init_states.size() == _dynamics.size() - 1) &&
+           "Invalid init_controls size");
 
     // total joints (including universe, root)
     const uint total_joints = pinocchio_wrapper::modelJoints(_impl);
@@ -52,16 +57,6 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
     else
     {
         _S = MatX::Identity(_nv, _nv);
-    }
-
-    VecX init_state = VecX::Zero(0);
-    if (init_states.empty())
-    {
-        init_state = VecX::Zero(_nq + _nv);
-    }
-    else if (init_states.size() == 1)
-    {
-        init_state = init_states[0];
     }
 
     auto right_plus = [this](const VecX &x, const VecX &dx)
@@ -161,7 +156,13 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
               _nv,
               _nq + _nv,
               2 * _nv,
-              init_state.size() != 0 ? init_state : init_states[k],
+              init_states.size() == 0
+                ? VecX::Zero(_nq + _nv)
+                : (init_states.size() == 1 ? init_states[0] : init_states[k]),
+              init_controls.size() == 0
+                ? VecX::Zero(_nv)
+                : (init_controls.size() == 1 ? init_controls[0]
+                                             : init_controls[k]),
               ops,
               dyn_eval,
               dyn_grad,
@@ -286,7 +287,13 @@ void Model::_constructDynamics(const std::vector<VecX> &init_states)
               _nv + 3 * nf,
               _nq + _nv,
               2 * _nv,
-              init_state.size() != 0 ? init_state : init_states[k],
+              init_states.size() == 0
+                ? VecX::Zero(_nq + _nv)
+                : (init_states.size() == 1 ? init_states[0] : init_states[k]),
+              init_controls.size() == 0
+                ? VecX::Zero(_nv + 3 * nf)
+                : (init_controls.size() == 1 ? init_controls[0]
+                                             : init_controls[k]),
               ops,
               dyn_eval_fext,
               dyn_grad_fext,
@@ -426,11 +433,11 @@ Model::Model(
   const std::shared_ptr<stagewise::StageCost> &cost,
   const std::shared_ptr<stagewise::StageCost> &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX> &init_states, const bool free_flyer,
-  const std::shared_ptr<terrain::Terrain> &terrain)
+  const std::vector<VecX> &init_states, const std::vector<VecX> &init_controls,
+  const bool free_flyer, const std::shared_ptr<terrain::Terrain> &terrain)
   : Model(urdf_path, horizon, dt, free_flyer, terrain)
 {
-    finalize(cost, terminal_cost, constraints, init_states);
+    finalize(cost, terminal_cost, constraints, init_states, init_controls);
 }
 
 Model::Model(
@@ -438,11 +445,11 @@ Model::Model(
   const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
   const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX> &init_states, const bool free_flyer,
-  const std::shared_ptr<terrain::Terrain> &terrain)
+  const std::vector<VecX> &init_states, const std::vector<VecX> &init_controls,
+  const bool free_flyer, const std::shared_ptr<terrain::Terrain> &terrain)
   : Model(urdf_path, horizon, dt, free_flyer, terrain)
 {
-    finalize(costs, terminal_cost, constraints, init_states);
+    finalize(costs, terminal_cost, constraints, init_states, init_controls);
 }
 
 Model::Model(const std::string &urdf_path, const uint horizon, const double dt,
@@ -745,23 +752,24 @@ void Model::finalize(
   const std::shared_ptr<stagewise::StageCost> &cost,
   const std::shared_ptr<stagewise::StageCost> &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX>                                         &init_states)
+  const std::vector<VecX> &init_states, const std::vector<VecX> &init_controls)
 {
     finalize(
       std::vector<std::shared_ptr<stagewise::StageCost>>(_dynamics.size(),
                                                          cost),
       terminal_cost,
       constraints,
-      init_states);
+      init_states,
+      init_controls);
 }
 
 void Model::finalize(
   const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
   const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX>                                         &init_states)
+  const std::vector<VecX> &init_states, const std::vector<VecX> &init_controls)
 {
-    _constructDynamics(init_states);
+    _constructDynamics(init_states, init_controls);
 
     uint horizon = _dynamics.size() - 1;
 
@@ -808,9 +816,9 @@ void Model::finalize(
 
 void Model::finalize(
   const std::vector<std::shared_ptr<stagewise::StageConstraints>> &constraints,
-  const std::vector<VecX>                                         &init_states)
+  const std::vector<VecX> &init_states, const std::vector<VecX> &init_controls)
 {
-    _constructDynamics(init_states);
+    _constructDynamics(init_states, init_controls);
 
     uint horizon = _dynamics.size() - 1;
 
