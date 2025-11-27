@@ -14,7 +14,7 @@ ssqp::Guess::Guess(const model::Dimensions &dims,
 {
 }
 
-ssqp::ssqp(const model::Model &model, const Params &params,
+ssqp::ssqp(model::Model &model, const Params &params,
            const admm_qp::Params &admm_params)
   : _params(params)
   , _admm_params(admm_params)
@@ -25,6 +25,11 @@ ssqp::ssqp(const model::Model &model, const Params &params,
   , _prev_cost_du(_guess.u, false)
   , _cost_du(_guess.u, false)
 {
+    if (!model.finalized())
+    {
+        model.finalize();
+    }
+
     model::Dimensions              dims     = model.dims();
     const model::DynamicsContainer dynamics = model.dynamics();
 
@@ -37,6 +42,12 @@ ssqp::ssqp(const model::Model &model, const Params &params,
     {
         _guess.u.stage(k) = dynamics[k]->init_control();
     }
+
+    DEBUG_LOGLN("SSQP initial guess:");
+    DEBUG_LOGLN("x:");
+    DEBUG_LOGLN(_guess.x);
+    DEBUG_LOGLN("u:");
+    DEBUG_LOGLN(_guess.u);
 }
 
 SolverState ssqp::solve(Guess &guess)
@@ -133,12 +144,12 @@ bool ssqp::write(const std::string &filename)
     j["properties"]["stages"]  = ordered_json::array();
     j["stage_data"]            = ordered_json::array();
 
-    // TODO: Assuming nq, nv, njoints and floating_base are the same every stage
+    // TODO: Assuming floating_base is the same every stage
     for (uint k = 0; k < dims.horizon; ++k)
     {
-        uint                     nq            = _model.nq();
-        uint                     nv            = _model.nv();
-        uint                     njoints       = _model.njoints();
+        uint                     nq            = _model.nq(k);
+        uint                     nv            = _model.nv(k);
+        uint                     njoints       = _model.njoints(k);
         uint                     nforces       = _model.nforces(k);
         bool                     floating_base = _model.floating_base();
         std::vector<std::string> actuated_joints =

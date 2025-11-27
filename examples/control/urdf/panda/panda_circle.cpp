@@ -91,7 +91,6 @@ int main()
     // Cost trajectory to track
     std::vector<Eigen::Vector3d> traj(HORIZON + 1);
 
-    LOGLN("Goal trajectory:");
     for (uint k = 0; k <= HORIZON; ++k)
     {
         double φk = φ0 + ω * k * dt;
@@ -103,7 +102,9 @@ int main()
     Rd(2, 2)           = -1;
 
     // Define SSQP model
-    ssqp::model::Model model("examples/urdf/panda/panda.urdf", HORIZON, dt);
+    ssqp::model::Model::Structure model_structure;
+    model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
+    ssqp::model::Model model(HORIZON, dt, model_structure);
 
     Eigen::VectorXd init_state = Eigen::VectorXd::Zero(2 * STATE_SIZE);
 
@@ -222,7 +223,9 @@ int main()
                                                               STATE_SIZE);
     }
 
-    model.finalize({}, { init_state });
+    ssqp::model::Model::Config model_config;
+    model_config.init_states = { init_state };
+    model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;

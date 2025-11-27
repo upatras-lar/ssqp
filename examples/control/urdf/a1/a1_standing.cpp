@@ -31,7 +31,11 @@ using namespace ssqp::model::stagewise::predefined;
 int main()
 {
     // Initialize model
-    ssqp::model::Model model("examples/urdf/a1/a1.urdf", HORIZON, dt, true);
+    ssqp::model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+
+    ssqp::model::Model model(HORIZON, dt, model_structure);
 
     // Trunk position
     Eigen::Vector3d base_pos;
@@ -51,8 +55,8 @@ int main()
     if (TWO_FEET)
     {
         init_control     = Eigen::VectorXd::Zero(24);
-        init_control[20] = 6.8705;
-        init_control[23] = 6.8705;
+        init_control[20] = 6.8705 * 9.81;
+        init_control[23] = 6.8705 * 9.81;
 
         std::unordered_map<std::string, std::vector<Eigen::Vector3d>> forces;
         forces["FL_foot"].push_back(init_control.segment(18, 3));
@@ -176,7 +180,11 @@ int main()
     //                                                       STATE_SIZE,
     //                                                       CONTROL_SIZE);
 
-    model.finalize({}, { init }, { init_control });
+    ssqp::model::Model::Config model_config;
+    model_config.init_states   = { init };
+    model_config.init_controls = { init_control };
+
+    model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;

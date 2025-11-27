@@ -15,197 +15,143 @@ namespace ssqp
 {
 namespace model
 {
-
 using CostsContainer       = Container<stagewise::StageCost>;
 using DynamicsContainer    = Container<stagewise::StageDynamics>;
 using ConstraintsContainer = Container<stagewise::StageConstraints>;
 
-// TODO: check dynamics size (H or H+1)
-// TODO: optimize calls to pinocchio algorithms (avoid recomputations)
-// TODO: allow finalize to not be called by the user whenever possible
-/* Defines an SSQP model
- * An SSQP model object is a prerequisite to performing optimization using SSQP
- * The model contains the following:
- *  - An optimization horizon, $H$
- *  - A cost function for each stage of the horizon, $\ell_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}$, $0 \leq k \leq H$
- *  - Dynamics functions for each stage of the horizon, $\boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^n$, $0 \leq k \leq H$
- *  - Constraint functions for each stage of the horizon, $\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^c$, $0 \leq k \leq H$
- * 
- * Of the above, all stage cost and dynamics functions must be defined, but
- * constraints may be left empty.
- * 
- * Note that models optimize for $H$ total steps while considering the initial
- * state to be constant, whereas the initial controls can be altered. This means
- * that there are $H$ total controls ($\boldsymbol{u}_0$ to $\boldsymbol{u}_{H-1}$) and $H + 1$ total states ($\boldsymbol{x}_0$ to 
- * $\boldsymbol{x}_H$), with $\boldsymbol{x}_0$ being constant. At the terminal stage (stage $H$), there are no
- * controls and, as such, stagewise functions must be appropriately defined to
- * ignore them. Predefined functions all have constructors to account for this.
- * 
- * Models may be defined either by passing custom function implementations, or
- * by using URDF files. Some constructors allow for defining a model using a
- * URDF file, but without passing the required cost functions. This is done to
- * allow access to robot-related algorithms such as forward dynamics, which may
- * be used to define model costs. Note that, if such constructors are used, the
- * `finalize` method must be called before attempting to use the model for
- * optimization. The user is responsible for either manually assigning all
- * required costs, or passing them to the `finalize` method.
- */
 class Model
 {
   public:
-    /* Non-URDF SSQP Model constructor
+    /* Model Structure struct
      * ---
-     * Initializes model from custom dynamics, costs and constraints
-     *
-     * Input:
-     *  - `costs`: (size $H + 1$) vector of stage costs (non-null)
-     *  - `dynamics`: (size $H + 1$) vector of stage dynamics (non-null)
-     *  - `constraints`: (size $H + 1$) vector of stage constraints
-     *     (nullable)
-     *
-     * Finalizes model: true
-     */
-    Model(
-      const std::vector<std::shared_ptr<stagewise::StageCost>>     &costs,
-      const std::vector<std::shared_ptr<stagewise::StageDynamics>> &dynamics,
-      const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints = {},
-      const std::shared_ptr<terrain::Terrain> &terrain =
-        terrain::make_terrain<terrain::predefined::FlatTerrain>());
-
-    /* URDF SSQP Model constructor (same cost per stage & terminal cost)
-     * ---
-     * Initializes model from dynamics as defined in URDF, stage costs `cost`,
-     * terminal cost `terminal_cost`, stage constraints `constraints`, initial 
-     * states `init_states` and initial controls `init_controls`
-     *
-     * Input:
-     *  - `urdf_path`: Path to urdf file
-     *  - `horizon`: Solver horizon
-     *  - `dt`: Solver time step
-     *  - `cost`: Cost for each non-terminal stage (non-null)
-     *  - `terminal_cost`: Cost for terminal stage (non-null)
-     *  - `constraints`: (size $H + 1$) vector of stage constraints (default
-     *     null -> empty vector)
-     *  - `init_states`: (size $H + 1$) vector of initial states for each
-     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
-     *  - `init_controls`: (size $H$) vector of initial controls for each
-     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
-     *  - `free_flyer`: Whether the model has a floating base (default `false`)
+     * Defines the structure of the SSQP model
+     * 
+     * A Structure object can be passed to the Model constructor to initialize
+     * a model with a structure only, without necessarily finalizing the model
+     * 
+     * Parameters:
+     *  - `urdf_path`: Path to URDF describing robot (may be left empty if
+     *     custom dynamics is to be used)
+     *  - `free_flyer`: Whether the model has a floating base (only relevant
+     *     if initialized through URDF)
      *  - `terrain`: The ground terrain (default flat at z=0)
-     *
-     * Finalizes model: true
      */
-    Model(const std::string &urdf_path, const uint horizon, const double dt,
-          const std::shared_ptr<stagewise::StageCost> &cost,
-          const std::shared_ptr<stagewise::StageCost> &terminal_cost,
-          const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-            &constraints                         = {},
-          const std::vector<VecX> &init_states   = {},
-          const std::vector<VecX> &init_controls = {},
-          const bool free_flyer                  = false,
-          const std::shared_ptr<terrain::Terrain> &terrain =
-            terrain::make_terrain<terrain::predefined::FlatTerrain>());
+    struct Structure
+    {
+        std::string                       urdf_path;
+        bool                              free_flyer = false;
+        std::shared_ptr<terrain::Terrain> terrain    = nullptr;
 
-    /* URDF SSQP Model constructor (different costs per stage & terminal cost)
+        static Structure Default()
+        {
+            return {};
+        }
+    };
+
+    /* Model Config struct
      * ---
-     * Initializes model from dynamics as defined in URDF, stage costs `costs`,
-     * terminal cost `terminal_cost`, stage constraints `constraints`, initial
-     * states `init_states` and initial controls `init_controls`
-     *
+     * Defines the configuration of the SSQP model
+     * 
+     * A Config object needs to be passed when finalizing the model
+     * This can either be done by directly finalizing via the constructor, or
+     * by using the finalize method later on
+     * 
+     * Parameters:
+     *  - `costs`: (size $H$) Vector of stage costs (added to existing costs)
+     *  - `stage_cost`: Stage cost for all non-terminal stages (added to
+     *     existing costs)
+     *  - `terminal_cost`: Stage cost for terminal stage
+     *  - `constraints`: (empty / size $H + 1$) Vector of stage constraints
+     *  - `init_states`: (empty / size $1$ / size $H + 1$) Vector of initial states
+     *     (empty -> $\boldsymbol{0}$ initial states / size $1$ -> same initial state for 
+     *     every stage / size $H + 1$ -> given sizes per stage)
+     *  - `init_controls`: (empty / size $1$ / size $H$) Vector of initial controls
+     *     (empty -> $\boldsymbol{0}$ initial controls / size $1$ -> same initial controls for 
+     *     every stage / size $H$ -> given controls per stage)
+     */
+    struct Config
+    {
+        std::vector<std::shared_ptr<stagewise::StageCost>>        costs;
+        std::shared_ptr<stagewise::StageCost>                     stage_cost;
+        std::shared_ptr<stagewise::StageCost>                     terminal_cost;
+        std::vector<std::shared_ptr<stagewise::StageConstraints>> constraints;
+        std::vector<std::shared_ptr<stagewise::StageDynamics>>    dynamics;
+
+        std::vector<VecX> init_states;
+        std::vector<VecX> init_controls;
+
+        static Config Default()
+        {
+            return {};
+        }
+    };
+
+    /* Model Structure Constructor
+     * ---
+     * Initializes a model with the given structure
+     * 
      * Input:
-     *  - `urdf_path`: Path to urdf file
-     *  - `horizon`: Solver horizon
-     *  - `dt`: Solver time step
-     *  - `costs`: (size $H + 1$) vector of stage costs (non-null)
-     *  - `terminal_cost`: Cost for terminal stage (non-null)
-     *  - `constraints`: (size $H + 1$) vector of stage constraints (default
-     *     null -> empty vector)
-     *  - `init_states`: (size $H + 1$) vector of initial states for each
-     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
-     *  - `init_controls`: (size $H$) vector of initial controls for each
-     *     stage (default $\boldsymbol{0}$ vector -> empty vector)
-     *  - `free_flyer`: Whether the model has a floating base (default `false`)
-     *  - `terrain`: The ground terrain (default flat at z=0)
-     *
-     * Finalizes model: true
+     *  - `horizon`: The time horizon to optimize over
+     *  - `dt`: Time step per solver stage
+     *  - `structure`: The structure of the problem
+     * 
+     * #### Note:
+     * This constructor does not finalize the model. The `finalize` method 
+     * must be explicitly called before passing the model to a solver. If an
+     * unfinalized model is passed to a solver, the solver will attempt to
+     * finalize it with the default parameters.
      */
-    Model(const std::string &urdf_path, const uint horizon, const double dt,
-          const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
-          const std::shared_ptr<stagewise::StageCost> &terminal_cost,
-          const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-            &constraints                         = {},
-          const std::vector<VecX> &init_states   = {},
-          const std::vector<VecX> &init_controls = {},
-          const bool free_flyer                  = false,
-          const std::shared_ptr<terrain::Terrain> &terrain =
-            terrain::make_terrain<terrain::predefined::FlatTerrain>());
+    Model(uint horizon, double dt,
+          const Structure &structure = Structure::Default());
 
-    /* URDF SSQP Model constructor (Partial initialization - no costs)
+    /* Model Config Constructor
      * ---
-     * Initializes model from dynamics as defined in URDF, but without any stage
-     * costs
-     *
+     * Initializes model with default structure and the given config
+     * 
      * Input:
-     *  - `urdf_path`: Path to urdf file
-     *  - `horizon`: Solver horizon
-     *  - `dt`: Solver time step
-     *  - `free_flyer`: Whether the model has a floating base (default `false`)
-     *  - `terrain`: The ground terrain (default flat at z=0)
-     *
-     * Finalizes model: false
-     *
-     * ### Note
-     * One of the `finalize` methods must be called before model is used for
-     * optimization
+     *  - `horizon`: The time horizon to optimize over
+     *  - `dt`: Time step per solver stage
+     *  - `config`: The system configuration
+     * 
+     * #### Note:
+     * This constructor finalizes the model.
      */
-    Model(const std::string &urdf_path, const uint horizon, const double dt,
-          const bool free_flyer = false,
-          const std::shared_ptr<terrain::Terrain> &terrain =
-            terrain::make_terrain<terrain::predefined::FlatTerrain>());
+    Model(uint horizon, double dt, const Config &config);
 
-    /* `finalize` method (same cost per stage & terminal cost)
+    /* Full Model Constructor
      * ---
-     * Finalizes the model with stage costs `cost`, terminal cost
-     * `terminal_cost`, stage constraints `constraints`, initial states
-     * `init_states` and initial controls `init_controls`
+     * Initializes a model with the given structure and finalizes the model with
+     * the given configuration
+     * 
+     * Input:
+     *  - `horizon`: The time horizon to optimize over
+     *  - `dt`: Time step per solver stage
+     *  - `structure`: The structure of the problem
+     *  - `config`: The system configuration
+     * 
+     * #### Note:
+     * When using this constructor to finalize the model, the `finalize` method
+     * must not be called afterwards.
      */
-    void finalize(
-      const std::shared_ptr<stagewise::StageCost> &cost,
-      const std::shared_ptr<stagewise::StageCost> &terminal_cost,
-      const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints                         = {},
-      const std::vector<VecX> &init_states   = {},
-      const std::vector<VecX> &init_controls = {});
+    Model(uint horizon, double dt, const Structure &structure,
+          const Config &config);
 
-    /* `finalize` method (different costs per stage & terminal cost)
+    /* `finalize` method
      * ---
-     * Finalizes the model with stage costs `costs`, terminal cost
-     * `terminal_cost`, stage constraints `constraints`, initial states
-     * `init_states` and initial controls `init_controls`
+     * Finalizes the model with the given configuration
+     * 
+     * Input:
+     *  - `config`: The system configuration
+     * 
+     * #### Note:
+     * This method must only be called once, in the case that the model is not
+     * finalized, before passing the model to a solver. If it is not called,
+     * the default parameters will be used.
      */
-    void finalize(
-      const std::vector<std::shared_ptr<stagewise::StageCost>> &costs,
-      const std::shared_ptr<stagewise::StageCost>              &terminal_cost,
-      const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints                         = {},
-      const std::vector<VecX> &init_states   = {},
-      const std::vector<VecX> &init_controls = {});
+    void finalize(const Config &config = Config::Default());
 
-    /* `finalize` method (no costs)
-     * ---
-     * Finalizes the model with stage constraints `constraints`, initial
-     * states `init_states` and initial controls `init_controls`
-     * Assumes all required stage costs have already been set
-     *
-     * ### Note
-     * If there are unset stage costs, finalization will fail
-     */
-    void finalize(
-      const std::vector<std::shared_ptr<stagewise::StageConstraints>>
-        &constraints                         = {},
-      const std::vector<VecX> &init_states   = {},
-      const std::vector<VecX> &init_controls = {});
+    // Whether the model is finalized
+    bool finalized() const;
 
     const uint       horizon() const;
     const Dimensions dims() const;
@@ -221,9 +167,18 @@ class Model
     template<typename L, typename... Args>
     void addCost(const uint k, Args... args);
 
-    // Add a new constraint for stage k of StageConstraint type L
+    // Add new constraints for stage k of StageConstraint type L
     template<typename C, typename... Args>
     void addConstraints(const uint k, Args... args);
+
+    // Add a new cost for stage k from existing object
+    void addCost(const uint                                   k,
+                 const std::shared_ptr<stagewise::StageCost> &cost);
+
+    // Add new constraints for stage k from existing object
+    void addConstraints(
+      const uint                                          k,
+      const std::shared_ptr<stagewise::StageConstraints> &constraints);
 
     // Add a new external force as an additional decision variable for stage k
     // on the given frame
@@ -240,11 +195,11 @@ class Model
     // Below functions are undefined if no URDF was used for initialization
     bool floating_base() const;
     // Robot state size
-    uint nq() const;
+    uint nq(const uint k) const;
     // Robot control size
-    uint nv() const;
+    uint nv(const uint k) const;
     // Number of actual joints in robot (ignores universe, root)
-    uint njoints() const;
+    uint njoints(const uint k) const;
     // Optimization time step
     // If the user passed custom dynamics that integrate this value internally,
     // this might be undefined
@@ -262,7 +217,8 @@ class Model
                              const std::string &frame,
                              bool               local = false) const;
 
-    std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &x, const VecX &u,
+    std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &q, const VecX &v,
+                                                   const VecX        &a,
                                                    const std::string &frame,
                                                    bool local = false) const;
 
@@ -283,27 +239,19 @@ class Model
                              bool               local = false) const;
 
   protected:
+    // Structure properties
     std::shared_ptr<pinocchio_wrapper::ModelImpl> _impl;
-    uint                                          _nq, _nv, _njoints;
+    Dimensions                                    _dims, _lin_dims;
     const double                                  _dt;
-    const bool                                    _free_flyer;
+    std::shared_ptr<terrain::Terrain>             _terrain;
+    bool                                          _free_flyer;
 
-    // Selection matrix (for controls)
-    MatX _S;
-
-    Dimensions                        _dims, _lin_dims;
-    CostsContainer                    _costs;
-    DynamicsContainer                 _dynamics;
-    ConstraintsContainer              _constraints;
-    std::shared_ptr<terrain::Terrain> _terrain;
-
+    // Configuration properties
+    bool                            _finalized = false;
+    CostsContainer                  _costs;
+    DynamicsContainer               _dynamics;
+    ConstraintsContainer            _constraints;
     std::vector<std::vector<Force>> _forces;
-
-    bool _finalized = false;
-
-    void _constructDynamics(const std::vector<VecX> &init_states   = {},
-                            const std::vector<VecX> &init_controls = {});
-    void _setup();
 };
 }
 }

@@ -114,7 +114,11 @@ void FrameVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                   MatX &dU) const
 {
     MatX dVdq, dVdv;
-    std::tie(dVdq, dVdv) = _model->frameVelocityDerivatives(x, u, _frame, true);
+    std::tie(dVdq, dVdv) = _model->frameVelocityDerivatives(x.head(_nq),
+                                                            x.tail(_nv),
+                                                            u.head(_nv),
+                                                            _frame,
+                                                            true);
 
     dX                = MatX::Zero(3, 2 * _nv);
     dX.leftCols(_nv)  = dVdq.topRows<3>();

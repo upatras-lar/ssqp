@@ -83,11 +83,14 @@ int main()
                                                  ssqp::model::ZeroHessian_xu,
                                                  cost_hess_uu);
 
-    ssqp::model::Model model("examples/urdf/pendulum_point_mass.urdf",
-                             HORIZON,
-                             dt,
-                             cost,
-                             terminal_cost);
+    ssqp::model::Model::Structure model_structure;
+    model_structure.urdf_path = "examples/urdf/pendulum_point_mass.urdf";
+
+    ssqp::model::Model::Config model_config;
+    model_config.stage_cost    = cost;
+    model_config.terminal_cost = terminal_cost;
+
+    ssqp::model::Model model(HORIZON, dt, model_structure, model_config);
 
     ssqp::solvers::ssqp        solver(model);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

@@ -20,6 +20,16 @@ Container<Derived>::Container(
 }
 
 template<typename Derived>
+Container<Derived> &Container<Derived>::operator=(
+  const std::vector<std::shared_ptr<Derived>> &functions)
+{
+    _horizon   = functions.size();
+    _functions = functions;
+
+    return *this;
+}
+
+template<typename Derived>
 std::shared_ptr<Derived> &Container<Derived>::operator[](const uint k)
 {
     return _functions[k];
