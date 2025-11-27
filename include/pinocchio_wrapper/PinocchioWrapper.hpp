@@ -33,6 +33,8 @@ void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
 std::vector<std::string> getOrderedActuatedJoints(
   const std::shared_ptr<ModelImpl> &impl);
 
+uint getTotalActuatedJoints(const std::shared_ptr<ModelImpl> &impl);
+
 Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl);
 
 std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl);
@@ -110,8 +112,9 @@ Eigen::Vector3d frameVelocity(const std::shared_ptr<ModelImpl> &impl,
                               const std::string &frame, bool local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              Eigen::VectorXd &q, Eigen::VectorXd &v,
-                              Eigen::VectorXd &a, const std::string frame,
+                              const Eigen::VectorXd            &q,
+                              const Eigen::VectorXd            &v,
+                              const Eigen::VectorXd &a, const std::string frame,
                               Eigen::MatrixXd &dVdq, Eigen::MatrixXd &dVdv,
                               bool local = false);
 

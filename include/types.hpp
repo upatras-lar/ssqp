@@ -92,10 +92,7 @@ struct Dimensions
     std::vector<uint> stage_state;
     std::vector<uint> stage_control;
     std::vector<uint> stage_constraint;
-
-    // State + control
-    // TODO: remove
-    std::vector<uint> stage_sc;
+    std::vector<uint> nq, nv, njoints;
 };
 
 // An external force on some frame

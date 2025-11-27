@@ -285,6 +285,30 @@ std::vector<std::string> getOrderedActuatedJoints(
     return names;
 }
 
+uint getTotalActuatedJoints(const std::shared_ptr<ModelImpl> &impl)
+{
+    uint total = 0;
+
+    for (pinocchio::JointIndex jid = 1; jid < impl->model.joints.size(); ++jid)
+    {
+        const auto &j = impl->model.joints[jid];
+
+        if (j.nv() == 0) continue;
+
+        // Skip floating-base joints
+        if (j.shortname() == "JointModelFreeFlyer" ||
+            j.shortname() == "JointModelPlanar" ||
+            j.shortname() == "JointModelTranslation")
+        {
+            continue;
+        }
+
+        ++total;
+    }
+
+    return total;
+}
+
 Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl)
 {
     return pinocchio::neutral(impl->model);
@@ -354,8 +378,9 @@ Eigen::Vector3d frameVelocity(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              Eigen::VectorXd &q, Eigen::VectorXd &v,
-                              Eigen::VectorXd &a, const std::string frame,
+                              const Eigen::VectorXd            &q,
+                              const Eigen::VectorXd            &v,
+                              const Eigen::VectorXd &a, const std::string frame,
                               Eigen::MatrixXd &dVdq, Eigen::MatrixXd &dVdv,
                               bool local)
 {

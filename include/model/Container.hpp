@@ -28,6 +28,9 @@ class Container
     // Horizon is taken as functions.size()
     Container(const std::vector<std::shared_ptr<Derived>> &functions);
 
+    Container &operator=(
+      const std::vector<std::shared_ptr<Derived>> &functions);
+
     // Get reference to k-th function for setting
     std::shared_ptr<Derived> &operator[](const uint k);
 
@@ -37,7 +40,7 @@ class Container
     const uint size() const;
 
   protected:
-    const uint                            _horizon;
+    uint                                  _horizon;
     std::vector<std::shared_ptr<Derived>> _functions;
 };
 }

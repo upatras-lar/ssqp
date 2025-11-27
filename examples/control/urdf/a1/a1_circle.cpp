@@ -88,7 +88,10 @@ int main()
     std::vector<Eigen::Vector3d> traj = make_trajectory(HORIZON);
 
     // Initialize model
-    ssqp::model::Model model("examples/urdf/a1/a1.urdf", HORIZON, dt, true);
+    ssqp::model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    ssqp::model::Model model(HORIZON, dt, model_structure);
     model.printFramesAndJoints();
 
     for (uint k = 0; k < HORIZON; ++k)
@@ -185,7 +188,9 @@ int main()
                                                     P_WGT,
                                                     R_WGT);
 
-    model.finalize({}, { init });
+    ssqp::model::Model::Config model_config;
+    model_config.init_states = { init };
+    model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;

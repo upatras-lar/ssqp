@@ -106,13 +106,15 @@ int main()
                                                  ssqp::model::ZeroHessian_xu,
                                                  ssqp::model::ZeroHessian_uu);
 
-    ssqp::model::Model model("examples/urdf/iiwa.urdf",
-                             HORIZON,
-                             dt,
-                             cost,
-                             terminal_cost,
-                             {},
-                             { init });
+    ssqp::model::Model::Structure model_structure;
+    model_structure.urdf_path = "examples/urdf/iiwa.urdf";
+
+    ssqp::model::Model::Config model_config;
+    model_config.stage_cost    = cost;
+    model_config.terminal_cost = terminal_cost;
+    model_config.init_states   = { init };
+
+    ssqp::model::Model model(HORIZON, dt, model_structure, model_config);
 
     ssqp::solvers::ssqp::Params params;
     params.tolerance = 1e-2;

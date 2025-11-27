@@ -2,6 +2,15 @@
 
 namespace ssqp
 {
+namespace model
+{
+Force::Force(const std::string &frame, const uint force_index)
+  : frame(frame)
+  , force_index(force_index)
+{
+}
+}
+
 void print_matrix_dimensions(const MatX &mat)
 {
     std::cout << mat.rows() << 'x' << mat.cols() << std::endl;

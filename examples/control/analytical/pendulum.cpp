@@ -301,7 +301,12 @@ int main()
     dynamics[HORIZON]    = std::make_shared<Dynamics>();
     constraints[HORIZON] = nullptr;
 
-    ssqp::model::Model model(costs, dynamics, constraints);
+    ssqp::model::Model::Config model_config;
+    model_config.costs       = costs;
+    model_config.dynamics    = dynamics;
+    model_config.constraints = constraints;
+
+    ssqp::model::Model model(HORIZON, dt, model_config);
 
     ssqp::solvers::ssqp        solver(model);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

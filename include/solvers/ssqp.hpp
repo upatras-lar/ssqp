@@ -51,7 +51,7 @@ class ssqp
         Guess(const model::Dimensions &dims, const model::Dimensions &lin_dims);
     };
 
-    ssqp(const model::Model &model, const Params &params = Params::Default(),
+    ssqp(model::Model &model, const Params &params = Params::Default(),
          const admm_qp::Params &admm_params = admm_qp::Params::Default());
 
     SolverState solve(Guess &guess);

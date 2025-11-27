@@ -162,13 +162,16 @@ int main()
 
     constraints[HORIZON / 2] = constraint;
 
-    ssqp::model::Model model("examples/urdf/panda/panda.urdf",
-                             HORIZON,
-                             dt,
-                             cost,
-                             terminal_cost,
-                             constraints,
-                             { init });
+    ssqp::model::Model::Structure model_structure;
+    model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
+
+    ssqp::model::Model::Config model_config;
+    model_config.stage_cost    = cost;
+    model_config.terminal_cost = terminal_cost;
+    model_config.constraints   = constraints;
+    model_config.init_states   = { init };
+
+    ssqp::model::Model model(HORIZON, dt, model_structure, model_config);
 
     ssqp::solvers::ssqp::Params params;
     params.tolerance = 5e-2;
