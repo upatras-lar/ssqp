@@ -373,6 +373,61 @@ void FrameSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
     Huu = MatX::Zero(u.size(), u.size());
 }
 
+// FrameSquaredVelocityCost
+FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
+                                                   const std::string &frame,
+                                                   const uint nq, const uint nv,
+                                                   const double weight)
+  : _model(std::make_shared<Model>(model))
+  , _frame(frame)
+  , _nq(nq)
+  , _nv(nv)
+  , _weight(weight)
+{
+}
+
+VecX FrameSquaredVelocityCost::evaluate(const VecX &x, const VecX &u) const
+{
+    return (Scalar()
+            << 0.5 *
+                 _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true)
+                   .squaredNorm())
+      .finished();
+}
+
+void FrameSquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+                                        VecX &du) const
+{
+    VecX vel = _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true);
+    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
+
+    dx = VecX::Zero(2 * _nv);
+
+    dx.tail(_nv) = _weight * Jfk.topRows(3).transpose() * vel;
+
+    du = VecX::Zero(u.size());
+}
+void FrameSquaredVelocityCost::hessian_xx(const VecX &x, const VecX &u,
+                                          MatX &Hxx) const
+{
+    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
+
+    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Hxx.bottomRightCorner(_nv, _nv) =
+      _weight * Jfk.topRows(3).transpose() * Jfk.topRows(3);
+}
+void FrameSquaredVelocityCost::hessian_xu(const VecX &x, const VecX &u,
+                                          MatX &Hxu) const
+{
+    Hxu = MatX::Zero(2 * _nv, u.size());
+}
+void FrameSquaredVelocityCost::hessian_uu(const VecX &x, const VecX &u,
+                                          MatX &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+    ;
+}
+
 }
 }
 }

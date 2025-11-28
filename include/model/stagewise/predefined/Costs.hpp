@@ -186,6 +186,27 @@ class FrameSquaredPoseErrorCost : public StageCost
     const uint _nq, _nv;
     Mat6       _weight;
 };
+
+class FrameSquaredVelocityCost : public StageCost
+{
+  public:
+    FrameSquaredVelocityCost(const Model &model, const std::string &frame,
+                             const uint nq, const uint nv, const double weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const std::string            _frame;
+
+    const uint _nq, _nv;
+    double     _weight;
+};
 }
 }
 }

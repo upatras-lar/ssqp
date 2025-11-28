@@ -104,6 +104,12 @@ struct Force
     Force() = default;
     Force(const std::string &frame, const uint force_index);
 };
+
+enum IntegrationScheme
+{
+    ExplicitEuler     = 0,
+    SemiImplicitEuler = 1
+};
 }
 
 std::string format_double(double val, uint precision);
