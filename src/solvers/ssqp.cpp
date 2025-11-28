@@ -477,19 +477,23 @@ SolverState ssqp::_check_termination()
                                             _params.tolerance))
     {
         _stale_iters = 0;
+        LOGLN("Terminal constraints violated");
         return ONGOING;
     }
 
     for (uint k = 0; k < horizon; ++k)
     {
         // Stage gap violation
-        if (dynamics[k]
-              ->state_right_minus(
-                dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
-                _guess.x.stage(k + 1))
-              .lpNorm<Eigen::Infinity>() > _params.tolerance)
+        double gap_norm =
+          dynamics[k]
+            ->state_right_minus(
+              dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
+              _guess.x.stage(k + 1))
+            .lpNorm<Eigen::Infinity>();
+        if (gap_norm > _params.tolerance)
         {
             _stale_iters = 0;
+            LOGLN("Stage gap " << k << " violated at " << gap_norm);
             return ONGOING;
         }
         // Stage constraint violation
@@ -499,6 +503,7 @@ SolverState ssqp::_check_termination()
                                           _params.tolerance))
         {
             _stale_iters = 0;
+            LOGLN("Stage " << k << " constraints violated");
             return ONGOING;
         }
     }
