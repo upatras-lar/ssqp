@@ -34,6 +34,7 @@ int main()
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
+    //model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
 
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
@@ -78,16 +79,16 @@ int main()
     for (uint k = 0; k < HORIZON; ++k)
     {
         // Add cost for trunk to stay in base position
-        model.addCost<costs::FrameSquaredPoseErrorCost>(
-          k,
-          model,
-          base_pos,
-          Eigen::Matrix3d::Identity(),
-          "trunk",
-          STATE_SIZE,
-          CONTROL_SIZE,
-          P_WGT,
-          R_WGT);
+        // model.addCost<costs::FrameSquaredPoseErrorCost>(
+        //   k,
+        //   model,
+        //   base_pos,
+        //   Eigen::Matrix3d::Identity(),
+        //   "trunk",
+        //   STATE_SIZE,
+        //   CONTROL_SIZE,
+        //   P_WGT,
+        //   R_WGT);
 
         // Add regularization cost for velocity, controls and forces
         model.addCost<costs::SquaredVelocityCost>(k, CONTROL_SIZE, V_WGT);
@@ -169,16 +170,16 @@ int main()
                                                     "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    P_WGT,
-                                                    R_WGT);
+                                                    0 * P_WGT,
+                                                    0 * R_WGT);
 
-    // model.addConstraints<constraints::FramePositionBound>(HORIZON,
-    //                                                       model,
-    //                                                       "trunk",
-    //                                                       base_pos,
-    //                                                       base_pos,
-    //                                                       STATE_SIZE,
-    //                                                       CONTROL_SIZE);
+    model.addConstraints<constraints::FramePositionBound>(HORIZON,
+                                                          model,
+                                                          "trunk",
+                                                          base_pos,
+                                                          base_pos,
+                                                          STATE_SIZE,
+                                                          CONTROL_SIZE);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states   = { init };

@@ -864,8 +864,9 @@ void Model::_buildURDFDynamics(const Config &config)
                         joint_forces[joint_id] += f_res;
                     }
 
-                    VecX ddq = pinocchio_wrapper::aba(_impl, q, v, tau);
-                    VecX vn  = v + ddq * _dt;
+                    VecX ddq =
+                      pinocchio_wrapper::aba(_impl, q, v, tau, joint_forces);
+                    VecX vn = v + ddq * _dt;
 
                     MatX ddq_dq, ddq_dv, Minv;
                     pinocchio_wrapper::computeABADerivatives(_impl,

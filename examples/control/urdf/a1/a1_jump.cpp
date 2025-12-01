@@ -13,22 +13,16 @@
 #define CONTROL_SIZE 18
 #define HORIZON      100
 #define dt           0.01
-// Trunk position weight
-#define P_WGT 100
-// Orientation weight
-#define R_WGT 80
 // Velocity regularization weight
-#define V_WGT 1e-3
+#define V_WGT 1e-4
 // Control regularization weight
-#define U_WGT 1e-7
+#define U_WGT 1e-5
 // Force regularization weight
-#define F_WGT 1e-9
-// Terminal pose weight
-#define TERM_WGT 1e-5
+#define F_WGT 1e-7
 
 // Jump
-#define HEIGHT       0.8
-#define STEPS_BEFORE 15
+#define STEPS_BEFORE 25
+#define STEPS_AFTER  40
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -46,57 +40,22 @@ int main()
     init.segment(7, 12) << 0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3,
       0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3;
 
-    std::vector<Eigen::Vector3d> traj(HORIZON + 1, base_pos);
-
-    uint   air_steps = (HORIZON - 2 * STEPS_BEFORE);
-    double offset    = HEIGHT / air_steps;
-    for (uint k = STEPS_BEFORE; k < (HORIZON - STEPS_BEFORE) / 2; ++k)
-    {
-        traj[k][2] += offset * (k - STEPS_BEFORE);
-    }
-
-    for (uint k = (HORIZON - STEPS_BEFORE) / 2; k < HORIZON - STEPS_BEFORE; ++k)
-    {
-        traj[k][2] += offset * (HORIZON - STEPS_BEFORE - k);
-    }
-
-    for (uint k = HORIZON - STEPS_BEFORE; k <= HORIZON; ++k)
-    {
-        traj[k][2] -= offset * (k - HORIZON + STEPS_BEFORE);
-    }
-
-    for (uint k = 0; k <= HORIZON; ++k)
-    {
-        LOGLN(traj[k].transpose());
-    }
-
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path   = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer  = true;
+    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    // TODO: Semi-Implicit check
     model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        // Add cost for trunk to follow trajectory
-        model.addCost<costs::FrameSquaredPoseErrorCost>(
-          k,
-          model,
-          traj[k],
-          Eigen::Matrix3d::Identity(),
-          "trunk",
-          STATE_SIZE,
-          CONTROL_SIZE,
-          P_WGT,
-          R_WGT);
-
         // Add regularization cost for velocity, controls and forces
         model.addCost<costs::SquaredVelocityCost>(k, CONTROL_SIZE, V_WGT);
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
-        if (k < STEPS_BEFORE || k > HORIZON - STEPS_BEFORE)
+        if (k < STEPS_BEFORE || k > HORIZON - STEPS_AFTER)
         {
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
@@ -164,15 +123,16 @@ int main()
         }
     }
 
-    model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
-                                                    model,
-                                                    traj[HORIZON],
-                                                    Eigen::Matrix3d::Identity(),
-                                                    "trunk",
-                                                    STATE_SIZE,
-                                                    CONTROL_SIZE,
-                                                    TERM_WGT * P_WGT,
-                                                    TERM_WGT * R_WGT);
+    model.addCost<costs::SquaredVelocityCost>(HORIZON, CONTROL_SIZE, V_WGT);
+
+    // TODO: fix terminal frame velocity bound
+    model.addConstraints<constraints::FramePositionBound>(HORIZON,
+                                                          model,
+                                                          "trunk",
+                                                          base_pos,
+                                                          base_pos,
+                                                          STATE_SIZE,
+                                                          CONTROL_SIZE);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states = { init };
@@ -183,8 +143,8 @@ int main()
     params.tolerance = 1e-1;
 
     ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance = 2e-3;
-    admm_params.rel_tolerance = 5e-4;
+    admm_params.abs_tolerance = 5e-3;
+    admm_params.rel_tolerance = 5e-3;
     admm_params.max_iter      = 100'000;
 
     // params.loose_success_tolerance = 1e-3;
