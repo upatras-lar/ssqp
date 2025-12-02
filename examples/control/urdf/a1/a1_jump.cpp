@@ -40,13 +40,35 @@ int main()
     init.segment(7, 12) << 0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3,
       0.0, M_PI / 6, -M_PI / 3, 0.0, M_PI / 6, -M_PI / 3;
 
+    Eigen::VectorXd init_control = Eigen::VectorXd::Zero(30);
+    init_control[20]             = 3.43525 * 9.81;
+    init_control[23]             = 3.43525 * 9.81;
+    init_control[26]             = 3.43525 * 9.81;
+    init_control[29]             = 3.43525 * 9.81;
+
+    std::unordered_map<std::string, std::vector<Eigen::Vector3d>> forces;
+    forces["FL_foot"].push_back(init_control.segment(18, 3));
+    forces["FR_foot"].push_back(init_control.segment(21, 3));
+    forces["RL_foot"].push_back(init_control.segment(24, 3));
+    forces["RR_foot"].push_back(init_control.segment(27, 3));
+
     // Initialize model
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     // TODO: Semi-Implicit check
-    model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
+    // model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
     ssqp::model::Model model(HORIZON, dt, model_structure);
+
+    init_control.segment(6, 12) =
+      model
+        .inverseDynamics(init.head(STATE_SIZE),
+                         init.tail(CONTROL_SIZE),
+                         Eigen::VectorXd::Zero(CONTROL_SIZE),
+                         forces)
+        .tail(12);
+
+    std::vector<Eigen::VectorXd> init_controls;
 
     for (uint k = 0; k < HORIZON; ++k)
     {
@@ -57,6 +79,8 @@ int main()
 
         if (k < STEPS_BEFORE || k > HORIZON - STEPS_AFTER)
         {
+            init_controls.push_back(init_control);
+
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "FL_foot",
@@ -121,6 +145,10 @@ int main()
               STATE_SIZE,
               CONTROL_SIZE);
         }
+        else
+        {
+            init_controls.push_back(Eigen::VectorXd::Zero(18));
+        }
     }
 
     model.addCost<costs::SquaredVelocityCost>(HORIZON, CONTROL_SIZE, V_WGT);
@@ -135,19 +163,19 @@ int main()
                                                           CONTROL_SIZE);
 
     ssqp::model::Model::Config model_config;
-    model_config.init_states = { init };
+    model_config.init_states   = { init };
+    model_config.init_controls = init_controls;
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    // params.loose_success = false;
-    params.tolerance = 1e-1;
+    params.loose_success = false;
+    params.tolerance     = 1e-2;
 
     ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance = 5e-3;
-    admm_params.rel_tolerance = 5e-3;
+    admm_params.abs_tolerance = 1e-3;
+    admm_params.rel_tolerance = 1e-4;
     admm_params.max_iter      = 100'000;
 
-    // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);

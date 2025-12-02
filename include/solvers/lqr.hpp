@@ -47,8 +47,8 @@ class lqr
     FlatVec _rho;
     double  _sigma;
 
-    std::vector<MatX>             _G, _H;
-    std::vector<Eigen::LLT<MatX>> _H_llt;
+    std::vector<MatX>              _G, _H;
+    std::vector<Eigen::LDLT<MatX>> _H_ldlt;
 
     Output _output;
 

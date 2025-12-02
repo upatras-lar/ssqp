@@ -35,11 +35,15 @@ ssqp::ssqp(model::Model &model, const Params &params,
 
     for (uint k = 0; k <= dims.horizon; ++k)
     {
+        assert(_guess.x.stage(k).size() == dynamics[k]->init_state().size() &&
+               "Initial state of incorrect size passed");
         _guess.x.stage(k) = dynamics[k]->init_state();
     }
 
     for (uint k = 0; k < dims.horizon; ++k)
     {
+        assert(_guess.u.stage(k).size() == dynamics[k]->init_control().size() &&
+               "Initial controls of incorrect size passed");
         _guess.u.stage(k) = dynamics[k]->init_control();
     }
 
