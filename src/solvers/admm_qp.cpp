@@ -92,7 +92,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         DEBUG_LOGLN("y:");
         DEBUG_LOGLN(_solution.y);
         DEBUG_LOGLN("=============");
-        DEBUG_WAIT();
+        //DEBUG_WAIT();
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {
@@ -277,13 +277,13 @@ void admm_qp::_update_rho()
     const double scale = std::sqrt((_norm_primal * _norm_dual_rel) /
                                    (_norm_dual * _norm_primal_rel));
 
-    double rho_estimate_sparse_ =
+    double rho_estimate_sparse =
       std::min(std::max(scale * _rho_common, _params.rho_min), _params.rho_max);
 
-    if (rho_estimate_sparse_ > _rho_common * _params.adaptive_rho_tolerance ||
-        rho_estimate_sparse_ < _rho_common / _params.adaptive_rho_tolerance)
+    if (rho_estimate_sparse > _rho_common * _params.adaptive_rho_tolerance ||
+        rho_estimate_sparse < _rho_common / _params.adaptive_rho_tolerance)
     {
-        _rho_common = rho_estimate_sparse_;
+        _rho_common = rho_estimate_sparse;
         for (uint k = 0; k < _qp.dims.horizon; ++k)
         {
             for (uint c = 0; c < _qp.dims.stage_constraint[k]; ++c)

@@ -25,7 +25,7 @@ class admm_qp
         // Rho update
         double rho_min                = 1e-6;
         double rho_max                = 1e3;
-        double adaptive_rho_tolerance = 10;
+        double adaptive_rho_tolerance = 12;
         uint   rho_update_iter_freq   = 15;
 
         // Termination parameters
