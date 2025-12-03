@@ -650,14 +650,14 @@ void Model::_buildURDFDynamics(const Config &config)
                     pinocchio_wrapper::computeJointJacobians(
                       _impl,
                       x.head(_dims.nq[0]));
-                    std::vector<Vec3> joint_forces(total_joints, Vec3::Zero());
+                    std::vector<Vec6> joint_forces(total_joints, Vec6::Zero());
 
                     for (uint i = 0; i < nf; ++i)
                     {
                         Vec3 f = u.segment(_dims.nv[0] + 3 * i, 3);
 
                         uint joint_id;
-                        Vec3 f_res =
+                        Vec6 f_res =
                           pinocchio_wrapper::framejMfAct(_impl,
                                                          forces[i].frame,
                                                          f,
@@ -696,7 +696,7 @@ void Model::_buildURDFDynamics(const Config &config)
                     pinocchio_wrapper::computeJointJacobians(_impl, q);
 
                     MatX              Jf_full = MatX::Zero(3 * nf, _dims.nv[0]);
-                    std::vector<Vec3> joint_forces(total_joints, Vec3::Zero());
+                    std::vector<Vec6> joint_forces(total_joints, Vec6::Zero());
 
                     for (uint i = 0; i < nf; ++i)
                     {
@@ -707,7 +707,7 @@ void Model::_buildURDFDynamics(const Config &config)
                         Vec3 f = u.segment(_dims.nv[0] + 3 * i, 3);
 
                         uint joint_id;
-                        Vec3 f_res =
+                        Vec6 f_res =
                           pinocchio_wrapper::framejMfAct(_impl,
                                                          forces[i].frame,
                                                          f,
@@ -795,14 +795,14 @@ void Model::_buildURDFDynamics(const Config &config)
                     pinocchio_wrapper::computeJointJacobians(
                       _impl,
                       x.head(_dims.nq[0]));
-                    std::vector<Vec3> joint_forces(total_joints, Vec3::Zero());
+                    std::vector<Vec6> joint_forces(total_joints, Vec6::Zero());
 
                     for (uint i = 0; i < nf; ++i)
                     {
                         Vec3 f = u.segment(_dims.nv[0] + 3 * i, 3);
 
                         uint joint_id;
-                        Vec3 f_res =
+                        Vec6 f_res =
                           pinocchio_wrapper::framejMfAct(_impl,
                                                          forces[i].frame,
                                                          f,
@@ -842,8 +842,7 @@ void Model::_buildURDFDynamics(const Config &config)
                     pinocchio_wrapper::computeJointJacobians(_impl, q);
 
                     MatX              Jf_full = MatX::Zero(3 * nf, _dims.nv[0]);
-                    std::vector<Vec3> joint_forces(total_joints, Vec3::Zero());
-
+                    std::vector<Vec6> joint_forces(total_joints, Vec6::Zero());
                     for (uint i = 0; i < nf; ++i)
                     {
                         MatX Jf =
@@ -853,7 +852,7 @@ void Model::_buildURDFDynamics(const Config &config)
                         Vec3 f = u.segment(_dims.nv[0] + 3 * i, 3);
 
                         uint joint_id;
-                        Vec3 f_res =
+                        Vec6 f_res =
                           pinocchio_wrapper::framejMfAct(_impl,
                                                          forces[i].frame,
                                                          f,

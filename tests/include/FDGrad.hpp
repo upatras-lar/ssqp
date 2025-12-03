@@ -21,7 +21,7 @@ class FDGradCost : public Test
   public:
     FDGradCost(const std::string                  &name,
                const std::shared_ptr<model::Model> model, const uint stage,
-               const uint ninputs = 100, const double h = 1e-8);
+               const uint ninputs = 100, const double h = 1e-6);
 
     bool run() override;
 
@@ -45,7 +45,7 @@ class FDGradDynamics : public Test
   public:
     FDGradDynamics(const std::string                   &name,
                    const std::shared_ptr<model::Model> &model, const uint stage,
-                   const uint ninputs = 100, const double h = 1e-8);
+                   const uint ninputs = 100, const double h = 1e-6);
 
     bool run() override;
 
