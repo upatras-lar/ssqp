@@ -3,6 +3,7 @@ CXX := g++
 CXXFLAGS := -std=c++17 -MMD -MP
 INCLUDES := -I/usr/include/eigen3 -I./include -I.
 LDFLAGS :=
+TEST_INCLUDES := -Itests/include
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
@@ -37,8 +38,31 @@ EXAMPLE_SRC := $(shell find $(EXAMPLES_DIR) -name '*.cpp')
 EXAMPLE_OBJ := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(BUILD_DIR)/examples/%.o,$(EXAMPLE_SRC))
 EXE_FILES := $(patsubst $(EXAMPLES_DIR)/%.cpp,$(BUILD_DIR)/bin/%,$(EXAMPLE_SRC))
 
+TESTS_DIR := tests
+TESTS_SRC := $(shell find $(TESTS_DIR)/src -name '*.cpp')
+TESTS_OBJ := $(patsubst $(TESTS_DIR)/src/%.cpp,$(BUILD_DIR)/tests/obj/%.o,$(TESTS_SRC))
+
+TEST_RUNNER := $(BUILD_DIR)/tests/run_tests
+TEST_RUNNER_SRC := $(TESTS_DIR)/run_tests.cpp
+TEST_RUNNER_OBJ := $(BUILD_DIR)/tests/run_tests.o
+
 # Default target
 all: $(CONFIG_FILE) $(EXE_FILES)
+
+tests: $(TEST_RUNNER)
+	@echo "Built tests"
+
+$(TEST_RUNNER): $(TEST_RUNNER_OBJ) $(TESTS_OBJ) $(LIB_OBJ)
+	@mkdir -p $(dir $@)
+	$(CXX) $^ -o $@ $(CXXFLAGS) $(LDFLAGS)
+
+$(BUILD_DIR)/tests/obj/%.o: $(TESTS_DIR)/src/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(INCLUDES) $(TEST_INCLUDES) -c $< -o $@ $(CXXFLAGS)
+
+$(BUILD_DIR)/tests/run_tests.o: $(TEST_RUNNER_SRC)
+	@mkdir -p $(dir $@)
+	$(CXX) $(INCLUDES) $(TEST_INCLUDES) -c $< -o $@ $(CXXFLAGS)
 
 # Rebuild only if the config changes
 $(LIB_OBJ) $(EXAMPLE_OBJ): $(CONFIG_FILE)
@@ -62,6 +86,8 @@ $(BUILD_DIR)/examples/%.o: $(EXAMPLES_DIR)/%.cpp
 # Include dependency files
 -include $(LIB_OBJ:.o=.d)
 -include $(EXAMPLE_OBJ:.o=.d)
+-include $(TESTS_OBJ:.o=.d)
+-include $(TEST_RUNNER_OBJ:.o=.d)
 
 # Clean
 clean:

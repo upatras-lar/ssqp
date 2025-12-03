@@ -131,6 +131,8 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const std::string &frame, Eigen::MatrixXd &J,
                    bool local = false);
 
+Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl);
+
 }
 }
 

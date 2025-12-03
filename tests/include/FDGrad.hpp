@@ -1,8 +1,9 @@
 #ifndef SSQP_TESTS_FDGRAD_HPP
 #define SSQP_TESTS_FDGRAD_HPP
 
-#include "tests/Test.hpp"
+#include "Test.hpp"
 
+#include "model/Model.hpp"
 #include "model/stagewise/StageCost.hpp"
 #include "model/stagewise/StageDynamics.hpp"
 #include "model/stagewise/StageConstraints.hpp"
@@ -18,14 +19,16 @@ namespace tests
 class FDGradCost : public Test
 {
   public:
-    FDGradCost(const std::shared_ptr<model::stagewise::StageCost> &cost,
-               const uint ndx, const uint nu, const uint ninputs = 100,
-               const double h = 1e-7);
+    FDGradCost(const std::string                  &name,
+               const std::shared_ptr<model::Model> model, const uint stage,
+               const uint ninputs = 100, const double h = 1e-8);
 
     bool run() override;
 
   protected:
+    const std::shared_ptr<model::Model>                _model;
     const std::shared_ptr<model::stagewise::StageCost> _cost;
+    const uint                                         _stage;
     const uint                                         _ndx, _nu;
     const uint                                         _ninputs;
     const double                                       _h;
@@ -33,20 +36,52 @@ class FDGradCost : public Test
     void _fd_grad(const VecX &x, const VecX &u, VecX &dx, VecX &du) const;
 };
 
+/* Finite-differences gradient test for Dynamics functions
+ * Tests whether a dynamics function's gradient is valid by comparing its output
+ * with that of the finite-differences gradient on random inputs
+ */
 class FDGradDynamics : public Test
 {
   public:
-    FDGradDynamics(
-      const std::shared_ptr<model::stagewise::StageDynamics> &dynamics,
-      const uint ninputs = 100, const double h = 1e-7);
+    FDGradDynamics(const std::string                   &name,
+                   const std::shared_ptr<model::Model> &model, const uint stage,
+                   const uint ninputs = 100, const double h = 1e-8);
 
     bool run() override;
 
   protected:
-    const std::shared_ptr<model::stagewise::StageDynamics> _dynamics;
-    const uint                                             _ndx, _nu;
-    const uint                                             _ninputs;
-    const double                                           _h;
+    const std::shared_ptr<model::Model>                    _model;
+    const std::shared_ptr<model::stagewise::StageDynamics> _dynamics,
+      _next_dynamics;
+    const uint   _stage;
+    const uint   _ninputs;
+    const double _h;
+
+    void _fd_grad(const VecX &x, const VecX &u, MatX &dX, MatX &dU) const;
+};
+
+/* Finite-differences gradient test for Constraints functions
+ * Tests whether a constraints function's gradient is valid by comparing its 
+ * output with that of the finite-differences gradient on random inputs
+ */
+class FDGradConstraints : public Test
+{
+  public:
+    FDGradConstraints(const std::string                   &name,
+                      const std::shared_ptr<model::Model> &model,
+                      const uint stage, const uint ninputs = 100,
+                      const double h = 1e-6);
+
+    bool run() override;
+
+  protected:
+    const std::shared_ptr<model::Model>                       _model;
+    const std::shared_ptr<model::stagewise::StageConstraints> _constraints;
+    const std::shared_ptr<model::stagewise::StageDynamics>    _dynamics;
+    const uint                                                _stage;
+    const uint                                                _ndc, _ndx, _nu;
+    const uint                                                _ninputs;
+    const double                                              _h;
 
     void _fd_grad(const VecX &x, const VecX &u, MatX &dX, MatX &dU) const;
 };

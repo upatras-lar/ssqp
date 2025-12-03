@@ -3,3 +3,4 @@
 /examples/data/*
 VARIABLES.sh
 /visualizer/viser-venv/*
+tests/logs/*

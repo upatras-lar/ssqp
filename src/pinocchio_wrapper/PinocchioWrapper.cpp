@@ -436,7 +436,7 @@ void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const std::string &frame, Eigen::MatrixXd &J, bool local)
 {
-    int frame_id = impl->model.getFrameId(frame);
+    int frame_id = impl->model.getJointId(frame);
     pinocchio::getFrameJacobian(
       impl->model,
       impl->data,
@@ -444,6 +444,17 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
       J);
+}
+
+Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl)
+{
+    Eigen::VectorXd rc(impl->model.nq);
+    pinocchio::randomConfiguration(impl->model,
+                                   impl->model.lowerPositionLimit,
+                                   impl->model.upperPositionLimit,
+                                   rc);
+
+    return rc;
 }
 }
 }

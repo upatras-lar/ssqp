@@ -267,6 +267,9 @@ class Model
     const MatX frameJacobian(const std::string &frame,
                              bool               local = false) const;
 
+    VecX randomState(const uint stage) const;
+    VecX randomControls(const uint stage) const;
+
   protected:
     // Structure properties
     std::shared_ptr<pinocchio_wrapper::ModelImpl> _impl;
@@ -286,6 +289,9 @@ class Model
     // Functionality functions
     void _addURDFInnateConstraints();
     void _buildURDFDynamics(const Config &config);
+
+    VecX _randomVector(const uint size, const double start = -5,
+                       const double end = 5) const;
 };
 }
 }
