@@ -655,16 +655,15 @@ void Model::_buildURDFDynamics(const Config &config)
                     for (uint i = 0; i < nf; ++i)
                     {
                         Vec3 f = u.segment(_dims.nv[0] + 3 * i, 3);
-                        uint joint_id;
-                        Vec3 translation;
-                        Mat3 rotation;
-                        pinocchio_wrapper::getFramejMfMatrix(_impl,
-                                                             forces[i].frame,
-                                                             joint_id,
-                                                             rotation,
-                                                             translation);
 
-                        joint_forces[joint_id] += rotation * f;
+                        uint joint_id;
+                        Vec3 f_res =
+                          pinocchio_wrapper::framejMfAct(_impl,
+                                                         forces[i].frame,
+                                                         f,
+                                                         joint_id);
+
+                        joint_forces[joint_id] += f_res;
                     }
 
                     VecX ddq = pinocchio_wrapper::aba(_impl,
@@ -801,16 +800,15 @@ void Model::_buildURDFDynamics(const Config &config)
                     for (uint i = 0; i < nf; ++i)
                     {
                         Vec3 f = u.segment(_dims.nv[0] + 3 * i, 3);
-                        uint joint_id;
-                        Vec3 translation;
-                        Mat3 rotation;
-                        pinocchio_wrapper::getFramejMfMatrix(_impl,
-                                                             forces[i].frame,
-                                                             joint_id,
-                                                             rotation,
-                                                             translation);
 
-                        joint_forces[joint_id] += rotation * f;
+                        uint joint_id;
+                        Vec3 f_res =
+                          pinocchio_wrapper::framejMfAct(_impl,
+                                                         forces[i].frame,
+                                                         f,
+                                                         joint_id);
+
+                        joint_forces[joint_id] += f_res;
                     }
 
                     VecX ddq = pinocchio_wrapper::aba(_impl,
@@ -1161,6 +1159,35 @@ const MatX Model::frameJacobian(const std::string &frame, bool local) const
     pinocchio_wrapper::frameJacobian(_impl, frame, J6, local);
 
     return J6;
+}
+
+VecX Model::randomState(const uint stage) const
+{
+    // TODO: Velocity limit
+    VecX rx(_dynamics[stage]->state_size());
+
+    rx.head(_dims.nq[stage]) = pinocchio_wrapper::randomConfiguration(_impl);
+    rx.tail(_dims.nv[stage]) = _randomVector(_dims.nv[stage]);
+
+    if (_free_flyer)
+    {
+        rx.head(3) = _randomVector(3);
+    }
+
+    return rx;
+}
+
+VecX Model::randomControls(const uint stage) const
+{
+    // TODO: Effort limit
+    VecX ru = _randomVector(_dims.nv[stage] + 3 * _forces[stage].size());
+    return ru;
+}
+
+VecX Model::_randomVector(const uint size, const double start,
+                          const double end) const
+{
+    return start + (end - start) * 0.5 * (VecX::Random(size).array() + 1.0);
 }
 
 }

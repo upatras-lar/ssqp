@@ -12,6 +12,7 @@
 #include <cmath>
 #include <limits>
 #include <unordered_map>
+#include <random>
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
