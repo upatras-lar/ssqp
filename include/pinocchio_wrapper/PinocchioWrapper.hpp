@@ -87,7 +87,7 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
 Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
                      const Eigen::VectorXd &q, const Eigen::VectorXd &v,
                      const Eigen::VectorXd              &a,
-                     const std::vector<Eigen::Vector3d> &fext);
+                     const std::vector<Eigen::Vector<double, 6>> &fext);
 
 void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
                 const Eigen::VectorXd &q, const Eigen::VectorXd &v,

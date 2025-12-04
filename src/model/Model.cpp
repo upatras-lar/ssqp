@@ -1114,7 +1114,7 @@ const VecX Model::inverseDynamics(
     const uint total_joints = pinocchio_wrapper::modelJoints(_impl);
 
     pinocchio_wrapper::computeJointJacobians(_impl, q);
-    std::vector<Vec3> joint_forces(total_joints, Vec3::Zero());
+    std::vector<Eigen::Vector<double, 6>> joint_forces(total_joints, Eigen::Vector<double, 6>::Zero());
 
     for (const std::pair<std::string, std::vector<Vec3>> &pair : forces)
     {
@@ -1122,15 +1122,9 @@ const VecX Model::inverseDynamics(
         {
             Vec3 f = pair.second[i];
             uint joint_id;
-            Vec3 translation;
-            Mat3 rotation;
-            pinocchio_wrapper::getFramejMfMatrix(_impl,
-                                                 pair.first,
-                                                 joint_id,
-                                                 rotation,
-                                                 translation);
 
-            joint_forces[joint_id] += rotation * f;
+            Eigen::Vector<double, 6> F = framejMfAct(_impl, pair.first, f, joint_id);
+            joint_forces[joint_id] += F;
         }
     }
 

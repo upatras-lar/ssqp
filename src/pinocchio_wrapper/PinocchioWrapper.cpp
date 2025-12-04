@@ -227,7 +227,7 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
 Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
                      const Eigen::VectorXd &q, const Eigen::VectorXd &v,
                      const Eigen::VectorXd              &a,
-                     const std::vector<Eigen::Vector3d> &fext)
+                     const std::vector<Eigen::Vector<double, 6>> &fext)
 {
     pinocchio::container::aligned_vector<pinocchio::Force> forces(
       fext.size(),
@@ -235,7 +235,8 @@ Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
 
     for (uint i = 0; i < fext.size(); ++i)
     {
-        forces[i].linear() = fext[i];
+        forces[i].linear() = fext[i].head<3>();
+        forces[i].angular() = fext[i].tail<3>();
     }
 
     return pinocchio::rnea(impl->model, impl->data, q, v, a, forces);
@@ -435,7 +436,7 @@ void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const std::string &frame, Eigen::MatrixXd &J, bool local)
 {
-    int frame_id = impl->model.getJointId(frame);
+    int frame_id = impl->model.getFrameId(frame);
     pinocchio::getFrameJacobian(
       impl->model,
       impl->data,
