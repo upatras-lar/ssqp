@@ -13,8 +13,10 @@
 #define CONTROL_SIZE 18
 #define HORIZON      100
 #define dt           0.01
+// Angle regularization weight
+#define A_WGT 1e-4
 // Velocity regularization weight
-#define V_WGT 1e-4
+#define V_WGT 1e-3
 // Control regularization weight
 #define U_WGT 1e-5
 // Force regularization weight
@@ -70,8 +72,16 @@ int main()
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k, CONTROL_SIZE, V_WGT);
+        // Add regularization cost for state, controls and forces
+        model.addCost<costs::SquaredJointAngleCost>(k,
+                                                    STATE_SIZE,
+                                                    CONTROL_SIZE,
+                                                    A_WGT,
+                                                    true);
+        model.addCost<costs::SquaredJointVelocityCost>(k,
+                                                       CONTROL_SIZE,
+                                                       V_WGT,
+                                                       true);
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
@@ -151,7 +161,8 @@ int main()
 
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
                                                    CONTROL_SIZE,
-                                                   V_WGT);
+                                                   V_WGT,
+                                                   true);
 
     // TODO: fix terminal frame velocity bound
     model.addConstraints<constraints::FramePositionBound>(HORIZON,
@@ -174,6 +185,7 @@ int main()
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
     admm_params.rel_tolerance = 1e-4;
+    //admm_params.max_iter      = 1000;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

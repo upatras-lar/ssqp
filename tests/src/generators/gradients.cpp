@@ -11,9 +11,11 @@ void setup_model(std::shared_ptr<model::Model> &model)
     for (uint k = 0; k <= model->dims().horizon; ++k)
     {
         model->addCost<
-          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
-                                                                         1,
-                                                                         1);
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+          k,
+          1,
+          1,
+          model->floatingBase());
     }
 }
 
@@ -210,7 +212,86 @@ std::shared_ptr<Test> get_contact_constraint_grad_test()
     return constraints_test;
 }
 
+std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model
+          ->addCost<model::stagewise::predefined::costs::SquaredJointAngleCost>(
+            k,
+            9,
+            9,
+            1);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("SquaredJointAngleCostGradTest", model, 0);
+
+    return cost_test;
+}
+
+std::shared_ptr<Test> get_squared_joint_angle_cost_floating_base_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model
+          ->addCost<model::stagewise::predefined::costs::SquaredJointAngleCost>(
+            k,
+            19,
+            18,
+            1,
+            true);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("SquaredJointAngleCostFloatingBaseGradTest",
+                                   model,
+                                   0);
+
+    return cost_test;
+}
+
 std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
+                                                                         9,
+                                                                         1);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("SquaredJointVelocityCostGradTest",
+                                   model,
+                                   0);
+
+    return cost_test;
+}
+
+std::shared_ptr<Test> get_squared_joint_velocity_cost_floating_base_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
@@ -223,15 +304,16 @@ std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
                                                                          18,
-                                                                         1);
+                                                                         1,
+                                                                         true);
     }
 
     model->finalize();
 
-    std::shared_ptr<FDGradCost> cost_test =
-      std::make_shared<FDGradCost>("SquaredJointVelocityCostGradTest",
-                                   model,
-                                   0);
+    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
+      "SquaredJointVelocityCostFloatingBaseGradTest",
+      model,
+      0);
 
     return cost_test;
 }

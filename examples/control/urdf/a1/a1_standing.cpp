@@ -11,7 +11,7 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      100
+#define HORIZON      80
 #define dt           0.01
 // Trunk position weight
 #define P_WGT 1e5
@@ -24,7 +24,7 @@
 // Force regularization weight
 #define F_WGT 1e-9
 // Whether we only use two feet to stand on
-#define TWO_FEET false
+#define TWO_FEET true
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -90,7 +90,10 @@ int main()
         //   R_WGT);
 
         // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k, CONTROL_SIZE, V_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k,
+                                                       CONTROL_SIZE,
+                                                       V_WGT,
+                                                       true);
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 

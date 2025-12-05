@@ -1043,7 +1043,7 @@ std::vector<std::string> Model::orderedActuatedJoints() const
     return pinocchio_wrapper::getOrderedActuatedJoints(_impl);
 }
 
-bool Model::floating_base() const
+bool Model::floatingBase() const
 {
     return _free_flyer;
 }

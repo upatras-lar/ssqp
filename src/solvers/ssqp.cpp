@@ -148,14 +148,14 @@ bool ssqp::write(const std::string &filename)
     j["properties"]["stages"]  = ordered_json::array();
     j["stage_data"]            = ordered_json::array();
 
-    // TODO: Assuming floating_base is the same every stage
+    // TODO: Assuming floatingBase is the same every stage
     for (uint k = 0; k < dims.horizon; ++k)
     {
         uint                     nq            = _model.nq(k);
         uint                     nv            = _model.nv(k);
         uint                     njoints       = _model.njoints(k);
         uint                     nforces       = _model.nforces(k);
-        bool                     floating_base = _model.floating_base();
+        bool                     floating_base = _model.floatingBase();
         std::vector<std::string> actuated_joints =
           _model.orderedActuatedJoints();
 

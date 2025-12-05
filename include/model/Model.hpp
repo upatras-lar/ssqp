@@ -227,7 +227,7 @@ class Model
     std::vector<std::string> orderedActuatedJoints() const;
 
     // Below functions are undefined if no URDF was used for initialization
-    bool floating_base() const;
+    bool floatingBase() const;
     // Robot state size
     uint nq(const uint k) const;
     // Robot control size
