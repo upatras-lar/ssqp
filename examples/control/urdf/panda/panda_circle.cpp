@@ -34,7 +34,7 @@
 // Initial phase
 #define φ0 0
 
-#define CONSTRAIN true
+#define CONSTRAIN false
 
 inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
 {
@@ -159,7 +159,7 @@ int main()
 
         model.addCost<costs::SquaredControlCost>(k, STATE_SIZE, U_WGT);
 
-        model.addCost<costs::SquaredVelocityCost>(k, STATE_SIZE, V_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k, STATE_SIZE, V_WGT);
 
         if (CONSTRAIN)
         {
@@ -207,7 +207,7 @@ int main()
                                                     TERM_WGT * P_WGT,
                                                     TERM_WGT * R_WGT);
 
-    model.addCost<costs::SquaredVelocityCost>(HORIZON, STATE_SIZE, V_WGT);
+    model.addCost<costs::SquaredJointVelocityCost>(HORIZON, STATE_SIZE, V_WGT);
 
     if (CONSTRAIN)
     {
@@ -230,11 +230,13 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
-    params.tolerance = 3e-2;
+    params.tolerance = 1e-4;
 
     ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance = 6e-3;
-    admm_params.rel_tolerance = 1e-3;
+    admm_params.abs_tolerance          = 1e-4;
+    admm_params.rel_tolerance          = 1e-4;
+    admm_params.adaptive_rho_tolerance = 5;
+    admm_params.rho_update_iter_freq   = 25;
 
     // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);

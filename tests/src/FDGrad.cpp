@@ -28,11 +28,12 @@ void FDGradCost::_fd_grad(const VecX &x, const VecX &u, VecX &dx,
     {
         Eigen::VectorXd e(_ndx);
         e.setUnit(i);
+
         dx[i] = (_cost->evaluate(
                    _model->dynamics()[_stage]->state_right_plus(x, _h * e),
                    u)[0] -
                  _cost->evaluate(
-                   _model->dynamics()[_stage]->state_right_plus(x, _h * e),
+                   _model->dynamics()[_stage]->state_right_plus(x, -_h * e),
                    u)[0]) /
                 (2 * _h);
     }
@@ -64,8 +65,12 @@ bool FDGradCost::run()
             (du - dufd).lpNorm<Eigen::Infinity>() > _h)
         {
             std::stringstream ss;
-            ss << "Test " << i << " failed" << std::endl
-               << "Test input:" << std::endl
+            ss << "Run " << i << " failed" << std::endl
+               << "Run input:" << std::endl
+               << "Norm dX: " << (dx - dxfd).lpNorm<Eigen::Infinity>()
+               << std::endl
+               << "Norm dU: " << (du - dufd).lpNorm<Eigen::Infinity>()
+               << std::endl
                << "x: " << x.transpose() << std::endl
                << "u: " << u.transpose() << std::endl
                << "Gradient dx: " << dx.transpose() << std::endl
@@ -98,8 +103,8 @@ FDGradDynamics::FDGradDynamics(const std::string                   &name,
 void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
                               MatX &dU) const
 {
-    static uint ndx = _dynamics->state_diff_size();
-    static uint nu  = _dynamics->control_size();
+    uint ndx = _dynamics->state_diff_size();
+    uint nu  = _dynamics->control_size();
 
     dX.resize(ndx, ndx);
     dU.resize(ndx, nu);
@@ -231,8 +236,12 @@ bool FDGradConstraints::run()
             (dU - dUfd).lpNorm<Eigen::Infinity>() > _h)
         {
             std::stringstream ss;
-            ss << "Test " << i << " failed" << std::endl
-               << "Test input:" << std::endl
+            ss << "Run " << i << " failed" << std::endl
+               << "Run input:" << std::endl
+               << "Norm dX: " << (dX - dXfd).lpNorm<Eigen::Infinity>()
+               << std::endl
+               << "Norm dU: " << (dU - dUfd).lpNorm<Eigen::Infinity>()
+               << std::endl
                << "x: " << x.transpose() << std::endl
                << "u: " << u.transpose() << std::endl
                << "Gradient dX: " << std::endl

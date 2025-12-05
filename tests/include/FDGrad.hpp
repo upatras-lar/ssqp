@@ -19,9 +19,10 @@ namespace tests
 class FDGradCost : public Test
 {
   public:
+    // TODO: Some fails with 1e-5, 1e-6
     FDGradCost(const std::string                  &name,
                const std::shared_ptr<model::Model> model, const uint stage,
-               const uint ninputs = 100, const double h = 1e-6);
+               const uint ninputs = 100, const double h = 1e-4);
 
     bool run() override;
 

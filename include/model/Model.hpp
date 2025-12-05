@@ -63,6 +63,10 @@ class Model
      *  - `free_flyer`: Whether the model has a floating base (only relevant
      *     if initialized through URDF)
      *  - `terrain`: The ground terrain (default flat at z=0)
+     *  - `integration`: The integration scheme to use (default Semi-Implicit
+     *     Euler)
+     *  - `ignore_innate_constraints`: Whether to ignore innate constraints from
+     *     the URDF (i.e joint position, velocity and torque limits)
      */
     struct Structure
     {
@@ -70,6 +74,7 @@ class Model
         bool                              free_flyer  = false;
         std::shared_ptr<terrain::Terrain> terrain     = nullptr;
         IntegrationScheme                 integration = SemiImplicitEuler;
+        bool                              ignore_innate_constraints = false;
 
         static Structure Default()
         {
@@ -278,6 +283,7 @@ class Model
     std::shared_ptr<terrain::Terrain>             _terrain;
     bool                                          _free_flyer;
     IntegrationScheme                             _integration;
+    bool                                          _ignore_innate;
 
     // Configuration properties
     bool                            _finalized = false;

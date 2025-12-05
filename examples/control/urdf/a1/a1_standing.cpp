@@ -11,20 +11,20 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      60
+#define HORIZON      100
 #define dt           0.01
 // Trunk position weight
-#define P_WGT 100
+#define P_WGT 1e5
 // Orientation weight
 #define R_WGT 80
 // Velocity regularization weight
-#define V_WGT 1e-3
+#define V_WGT 1e-1
 // Control regularization weight
-#define U_WGT 1e-6
+#define U_WGT 1e-3
 // Force regularization weight
-#define F_WGT 1e-6
+#define F_WGT 1e-9
 // Whether we only use two feet to stand on
-#define TWO_FEET true
+#define TWO_FEET false
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -34,8 +34,7 @@ int main()
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
-    //model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
-
+    // model_structure.ignore_innate_constraints = true;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     // Trunk position
@@ -91,7 +90,7 @@ int main()
         //   R_WGT);
 
         // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredVelocityCost>(k, CONTROL_SIZE, V_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k, CONTROL_SIZE, V_WGT);
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
@@ -173,13 +172,13 @@ int main()
                                                     0 * P_WGT,
                                                     0 * R_WGT);
 
-    model.addConstraints<constraints::FramePositionBound>(HORIZON,
-                                                          model,
-                                                          "trunk",
-                                                          base_pos,
-                                                          base_pos,
-                                                          STATE_SIZE,
-                                                          CONTROL_SIZE);
+    // model.addConstraints<constraints::FramePositionBound>(HORIZON,
+    //   model,
+    //   "trunk",
+    //   base_pos,
+    //   base_pos,
+    //   STATE_SIZE,
+    //   CONTROL_SIZE);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states   = { init };
@@ -189,11 +188,13 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
-    params.tolerance = 1e-1;
+    params.tolerance = 1e-3;
+    params.max_iter  = 500;
 
     ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance = 6e-3;
-    admm_params.rel_tolerance = 1e-3;
+    admm_params.abs_tolerance = 1e-4;
+    admm_params.rel_tolerance = 1e-4;
+    admm_params.max_iter      = 1000;
 
     // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);

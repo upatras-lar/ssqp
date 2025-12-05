@@ -18,6 +18,28 @@ namespace predefined
 {
 namespace costs
 {
+/* Predefined squared joint velocity cost
+ * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = w_v \boldsymbol{x}_{vel}^2$
+ * where:
+ *  - $\boldsymbol{x}_{vel}$ is the velocity part of the state
+ *  - $w_v$ is the weight on the velocity term
+ */
+class SquaredJointVelocityCost : public StageCost
+{
+  public:
+    SquaredJointVelocityCost(const uint nv, const double weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const uint   _nv;
+    const double _weight;
+};
 
 /* Predefined squared control cost
  * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = w_u \boldsymbol{u}^2$
@@ -49,29 +71,6 @@ class SquaredForceCost : public StageCost
 {
   public:
     SquaredForceCost(const uint nv, const double weight);
-
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-    void gradient(const VecX &x, const VecX &u, VecX &dx,
-                  VecX &du) const override;
-    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
-    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
-    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
-
-  protected:
-    const uint   _nv;
-    const double _weight;
-};
-
-/* Predefined squared velocity cost
- * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = w_v \boldsymbol{x}_{vel}^2$
- * where:
- *  - $\boldsymbol{x}_{vel}$ is the velocity part of the state
- *  - $w_v$ is the weight on the velocity term
- */
-class SquaredVelocityCost : public StageCost
-{
-  public:
-    SquaredVelocityCost(const uint nv, const double weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,

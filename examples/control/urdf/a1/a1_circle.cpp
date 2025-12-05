@@ -109,7 +109,7 @@ int main()
           R_WGT);
 
         // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredVelocityCost>(k, CONTROL_SIZE, V_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k, CONTROL_SIZE, V_WGT);
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
