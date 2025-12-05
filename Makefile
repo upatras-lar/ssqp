@@ -98,3 +98,6 @@ clean-nopin:
 
 clean-examples:
 	rm -rf $(BUILD_DIR)/examples $(BUILD_DIR)/bin
+
+clean-tests:
+	rm -rf $(BUILD_DIR)/tests

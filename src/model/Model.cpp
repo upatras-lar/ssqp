@@ -13,6 +13,7 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
   , _dynamics(horizon + 1) //H+1 to keep init_states for final stage
   , _forces(horizon + 1)
   , _integration(structure.integration)
+  , _ignore_innate(structure.ignore_innate_constraints)
 {
     _dims.horizon     = horizon;
     _lin_dims.horizon = horizon;
@@ -77,7 +78,7 @@ void Model::finalize(const Config &config)
     }
 
     // Add innate constraints if model comes from URDF
-    if (_impl != nullptr)
+    if (_impl != nullptr && !_ignore_innate)
     {
         _addURDFInnateConstraints();
     }
@@ -1114,7 +1115,9 @@ const VecX Model::inverseDynamics(
     const uint total_joints = pinocchio_wrapper::modelJoints(_impl);
 
     pinocchio_wrapper::computeJointJacobians(_impl, q);
-    std::vector<Eigen::Vector<double, 6>> joint_forces(total_joints, Eigen::Vector<double, 6>::Zero());
+    std::vector<Eigen::Vector<double, 6>> joint_forces(
+      total_joints,
+      Eigen::Vector<double, 6>::Zero());
 
     for (const std::pair<std::string, std::vector<Vec3>> &pair : forces)
     {
@@ -1123,7 +1126,8 @@ const VecX Model::inverseDynamics(
             Vec3 f = pair.second[i];
             uint joint_id;
 
-            Eigen::Vector<double, 6> F = framejMfAct(_impl, pair.first, f, joint_id);
+            Eigen::Vector<double, 6> F =
+              framejMfAct(_impl, pair.first, f, joint_id);
             joint_forces[joint_id] += F;
         }
     }

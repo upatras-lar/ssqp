@@ -56,8 +56,6 @@ int main()
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
-    // TODO: Semi-Implicit check
-    // model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     init_control.segment(6, 12) =
@@ -73,7 +71,7 @@ int main()
     for (uint k = 0; k < HORIZON; ++k)
     {
         // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredVelocityCost>(k, CONTROL_SIZE, V_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k, CONTROL_SIZE, V_WGT);
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
@@ -151,7 +149,9 @@ int main()
         }
     }
 
-    model.addCost<costs::SquaredVelocityCost>(HORIZON, CONTROL_SIZE, V_WGT);
+    model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
+                                                   CONTROL_SIZE,
+                                                   V_WGT);
 
     // TODO: fix terminal frame velocity bound
     model.addConstraints<constraints::FramePositionBound>(HORIZON,
@@ -174,7 +174,6 @@ int main()
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
     admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 100'000;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

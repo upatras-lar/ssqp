@@ -106,6 +106,8 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         }
     }
 
+    LOGLN("ADMM: Converged in " << _iter << " iterations");
+
     sol = _solution;
     return admm_state;
 }
@@ -302,7 +304,7 @@ void admm_qp::_update_rho()
                     _rho.stage(k)(c)     = 1e3 * _rho_common;
                     _rho_inv.stage(k)(c) = 1.0 / (1e3 * _rho_common);
                 }
-                else
+                else if (_qp.stages[k].cl(c) < _qp.stages[k].cu(c))
                 {
                     _rho.stage(k)(c)     = _rho_common;
                     _rho_inv.stage(k)(c) = 1.0 / _rho_common;

@@ -38,6 +38,11 @@ void TestContainer::runAll()
 
     std::cout << "Passed: " << npassed << "/" << _tests.size() << std::endl;
 
+    for (const auto &entry : std::filesystem::directory_iterator("tests/logs"))
+    {
+        std::filesystem::remove_all(entry.path());
+    }
+
     if (npassed != _tests.size())
     {
         for (uint i = 0; i < _tests.size(); ++i)

@@ -3,6 +3,7 @@
 
 #include <random>
 #include <sstream>
+#include <filesystem>
 
 #include "types.hpp"
 

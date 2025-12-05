@@ -88,20 +88,21 @@ void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
       .setConstant(_weight);
 }
 
-// SquaredVelocityCost
-SquaredVelocityCost::SquaredVelocityCost(const uint nv, const double weight)
+// SquaredJointVelocityCost
+SquaredJointVelocityCost::SquaredJointVelocityCost(const uint   nv,
+                                                   const double weight)
   : _nv(nv)
   , _weight(weight)
 {
 }
 
-VecX SquaredVelocityCost::evaluate(const VecX &x, const VecX &u) const
+VecX SquaredJointVelocityCost::evaluate(const VecX &x, const VecX &u) const
 {
     return (Scalar() << 0.5 * _weight * x.tail(_nv).squaredNorm()).finished();
 }
 
-void SquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
-                                   VecX &du) const
+void SquaredJointVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+                                        VecX &du) const
 {
     dx           = VecX::Zero(2 * _nv);
     dx.tail(_nv) = _weight * x.tail(_nv);
@@ -109,21 +110,21 @@ void SquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     du = VecX::Zero(u.size());
 }
 
-void SquaredVelocityCost::hessian_xx(const VecX &x, const VecX &u,
-                                     MatX &Hxx) const
+void SquaredJointVelocityCost::hessian_xx(const VecX &x, const VecX &u,
+                                          MatX &Hxx) const
 {
     Hxx = MatX::Zero(2 * _nv, 2 * _nv);
     Hxx.bottomRightCorner(_nv, _nv).diagonal().setConstant(_weight);
 }
 
-void SquaredVelocityCost::hessian_xu(const VecX &x, const VecX &u,
-                                     MatX &Hxu) const
+void SquaredJointVelocityCost::hessian_xu(const VecX &x, const VecX &u,
+                                          MatX &Hxu) const
 {
     Hxu = MatX::Zero(2 * _nv, u.size());
 }
 
-void SquaredVelocityCost::hessian_uu(const VecX &x, const VecX &u,
-                                     MatX &Huu) const
+void SquaredJointVelocityCost::hessian_uu(const VecX &x, const VecX &u,
+                                          MatX &Huu) const
 {
     Huu = MatX::Zero(u.size(), u.size());
 }
@@ -399,11 +400,18 @@ void FrameSquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                         VecX &du) const
 {
     VecX vel = _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true);
-    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
+
+    MatX dVdq, dVdv;
+    std::tie(dVdq, dVdv) = _model->frameVelocityDerivatives(x.head(_nq),
+                                                            x.tail(_nv),
+                                                            u.head(_nv),
+                                                            _frame,
+                                                            true);
 
     dx = VecX::Zero(2 * _nv);
 
-    dx.tail(_nv) = _weight * Jfk.topRows(3).transpose() * vel;
+    dx.head(_nv) = _weight * dVdq.topRows<3>().transpose() * vel;
+    dx.tail(_nv) = _weight * dVdv.topRows<3>().transpose() * vel;
 
     du = VecX::Zero(u.size());
 }
