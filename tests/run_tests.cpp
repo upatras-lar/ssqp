@@ -28,7 +28,16 @@ int main()
     tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test());
 
     tests.addTest(
+      ssqp::tests::generators::get_squared_joint_angle_cost_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_squared_joint_angle_cost_floating_base_grad_test());
+
+    tests.addTest(
       ssqp::tests::generators::get_squared_joint_velocity_cost_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_squared_joint_velocity_cost_floating_base_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_squared_control_cost_grad_test());

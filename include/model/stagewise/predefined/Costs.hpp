@@ -18,16 +18,17 @@ namespace predefined
 {
 namespace costs
 {
-/* Predefined squared joint velocity cost
- * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = w_v \boldsymbol{x}_{vel}^2$
+/* Predefined squared joint angle cost
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_a \boldsymbol{x}_{ang}^2$
  * where:
- *  - $\boldsymbol{x}_{vel}$ is the velocity part of the state
- *  - $w_v$ is the weight on the velocity term
+ *  - $\boldsymbol{x}_{ang}$ is the angular (position) part of the state
+ *  - $w_a$ is the weight on the angular term
  */
-class SquaredJointVelocityCost : public StageCost
+class SquaredJointAngleCost : public StageCost
 {
   public:
-    SquaredJointVelocityCost(const uint nv, const double weight);
+    SquaredJointAngleCost(const uint nq, const uint nv, const double weight,
+                          bool free_flyer = false);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -37,12 +38,37 @@ class SquaredJointVelocityCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const uint   _nv;
+    const uint   _nq, _nv;
+    const double _weight;
+    const bool   _free_flyer;
+};
+
+/* Predefined squared joint velocity cost
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_v \boldsymbol{x}_{vel}^2$
+ * where:
+ *  - $\boldsymbol{x}_{vel}$ is the velocity part of the state
+ *  - $w_v$ is the weight on the velocity term
+ */
+class SquaredJointVelocityCost : public StageCost
+{
+  public:
+    SquaredJointVelocityCost(const uint nv, const double weight,
+                             bool free_flyer = false);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const uint   _nv, _njoints;
     const double _weight;
 };
 
 /* Predefined squared control cost
- * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = w_u \boldsymbol{u}^2$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_u \boldsymbol{u}^2$
  * where $w_u$ is the weight on the control term
  */
 class SquaredControlCost : public StageCost
@@ -85,7 +111,7 @@ class SquaredForceCost : public StageCost
 };
 
 /* Predefined squared frame position error cost
- * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = w_p (\boldsymbol{p}_f - \boldsymbol{p}_d)^2$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_p (\boldsymbol{p}_f - \boldsymbol{p}_d)^2$
  * where:
  *  - $\boldsymbol{p}_f$ is the frame position for a given frame of the model (in $\mathcal{R}^3$)
  *  - $\boldsymbol{p}_d$ is the desired position for that frame (in $\mathcal{R}^3$)
@@ -116,7 +142,7 @@ class FrameSquaredPositionErrorCost : public StageCost
 };
 
 /* Predefined squared frame rotation error cost
- * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = w_r \log^2_{\mathit{SO3}}R_dR$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_r \log^2_{\mathit{SO3}}R_dR$
  * where:
  *  - $R$ is the frame rotation for a given frame of the model (in $\mathit{SO3}$)
  *  - $R_d$ is the desired rotation for that frame (in $\mathit{SO3}$)
@@ -148,7 +174,7 @@ class FrameSquaredRotationErrorCost : public StageCost
 };
 
 /* Predefined squared frame pose error cost
- * Defines the cost term $l(\boldsymbol{x}, \boldsymbol{u}) = W_t \log^2_{\mathit{SE3}}T_dT$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = W_t \log^2_{\mathit{SE3}}T_dT$
  * where:
  *  - $T$ is the frame pose for a given frame of the model (in $\mathit{SE3}$)
  *  - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)

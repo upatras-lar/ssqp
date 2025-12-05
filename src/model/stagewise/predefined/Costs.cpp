@@ -10,6 +10,109 @@ namespace predefined
 {
 namespace costs
 {
+// SquaredJointAngleCost
+SquaredJointAngleCost::SquaredJointAngleCost(const uint nq, const uint nv,
+                                             const double weight,
+                                             bool         free_flyer)
+  : _nq(nq)
+  , _nv(nv)
+  , _weight(weight)
+  , _free_flyer(free_flyer)
+{
+}
+
+VecX SquaredJointAngleCost::evaluate(const VecX &x, const VecX &u) const
+{
+    VecX q = _free_flyer ? x.segment(7, _nq - 7) : x.head(_nq);
+    return (Scalar() << 0.5 * _weight * q.squaredNorm()).finished();
+}
+
+void SquaredJointAngleCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+                                     VecX &du) const
+{
+    dx = VecX::Zero(2 * _nv);
+    if (_free_flyer)
+    {
+        dx.segment(6, _nv - 6) = _weight * x.segment(7, _nq - 7);
+    }
+    else
+    {
+        dx.head(_nq) = _weight * x.head(_nq);
+    }
+
+    du = VecX::Zero(u.size());
+}
+void SquaredJointAngleCost::hessian_xx(const VecX &x, const VecX &u,
+                                       MatX &Hxx) const
+{
+    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
+
+    if (_free_flyer)
+    {
+        Hxx.block(7, 7, _nq - 7, _nq - 7).diagonal().setConstant(_weight);
+    }
+    else
+    {
+        Hxx.topLeftCorner(_nq, _nq).diagonal().setConstant(_weight);
+    }
+}
+
+void SquaredJointAngleCost::hessian_xu(const VecX &x, const VecX &u,
+                                       MatX &Hxu) const
+{
+    Hxu = MatX::Zero(2 * _nv, u.size());
+}
+
+void SquaredJointAngleCost::hessian_uu(const VecX &x, const VecX &u,
+                                       MatX &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+}
+
+// SquaredJointVelocityCost
+SquaredJointVelocityCost::SquaredJointVelocityCost(const uint   nv,
+                                                   const double weight,
+                                                   bool         free_flyer)
+  : _nv(nv)
+  , _weight(weight)
+  , _njoints(free_flyer ? nv - 6 : nv)
+{
+}
+
+VecX SquaredJointVelocityCost::evaluate(const VecX &x, const VecX &u) const
+{
+    return (Scalar() << 0.5 * _weight * x.tail(_njoints).squaredNorm())
+      .finished();
+}
+
+void SquaredJointVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+                                        VecX &du) const
+{
+    dx                = VecX::Zero(2 * _nv);
+    dx.tail(_njoints) = _weight * x.tail(_njoints);
+
+    du = VecX::Zero(u.size());
+}
+
+void SquaredJointVelocityCost::hessian_xx(const VecX &x, const VecX &u,
+                                          MatX &Hxx) const
+{
+    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Hxx.bottomRightCorner(_njoints, _njoints).diagonal().setConstant(_weight);
+}
+
+void SquaredJointVelocityCost::hessian_xu(const VecX &x, const VecX &u,
+                                          MatX &Hxu) const
+{
+    Hxu = MatX::Zero(2 * _nv, u.size());
+}
+
+void SquaredJointVelocityCost::hessian_uu(const VecX &x, const VecX &u,
+                                          MatX &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+}
+
 // SquaredControlCost
 SquaredControlCost::SquaredControlCost(const uint nv, const double weight)
   : _nv(nv)
@@ -86,47 +189,6 @@ void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
     Huu.bottomRightCorner(u.size() - _nv, u.size() - _nv)
       .diagonal()
       .setConstant(_weight);
-}
-
-// SquaredJointVelocityCost
-SquaredJointVelocityCost::SquaredJointVelocityCost(const uint   nv,
-                                                   const double weight)
-  : _nv(nv)
-  , _weight(weight)
-{
-}
-
-VecX SquaredJointVelocityCost::evaluate(const VecX &x, const VecX &u) const
-{
-    return (Scalar() << 0.5 * _weight * x.tail(_nv).squaredNorm()).finished();
-}
-
-void SquaredJointVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
-                                        VecX &du) const
-{
-    dx           = VecX::Zero(2 * _nv);
-    dx.tail(_nv) = _weight * x.tail(_nv);
-
-    du = VecX::Zero(u.size());
-}
-
-void SquaredJointVelocityCost::hessian_xx(const VecX &x, const VecX &u,
-                                          MatX &Hxx) const
-{
-    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
-    Hxx.bottomRightCorner(_nv, _nv).diagonal().setConstant(_weight);
-}
-
-void SquaredJointVelocityCost::hessian_xu(const VecX &x, const VecX &u,
-                                          MatX &Hxu) const
-{
-    Hxu = MatX::Zero(2 * _nv, u.size());
-}
-
-void SquaredJointVelocityCost::hessian_uu(const VecX &x, const VecX &u,
-                                          MatX &Huu) const
-{
-    Huu = MatX::Zero(u.size(), u.size());
 }
 
 // FrameSquaredPositionErrorCost

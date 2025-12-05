@@ -29,7 +29,7 @@ using namespace ssqp::model::stagewise::predefined;
 std::vector<Eigen::Vector3d> make_trajectory(int H)
 {
     const double z = 0.3464;
-    const double r = 0.05;
+    const double r = 0.1;
 
     const Eigen::Vector3d start(0.0, 0.0, z);
     const Eigen::Vector3d entry(0.0, -r, z);
@@ -109,7 +109,10 @@ int main()
           R_WGT);
 
         // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k, CONTROL_SIZE, V_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k,
+                                                       CONTROL_SIZE,
+                                                       V_WGT,
+                                                       true);
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
@@ -199,7 +202,7 @@ int main()
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
     admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 100'000;
+    admm_params.max_iter      = 1000;
 
     // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);

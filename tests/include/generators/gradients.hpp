@@ -26,7 +26,10 @@ std::shared_ptr<Test> get_frame_velocity_bound_grad_test();
 std::shared_ptr<Test> get_contact_constraint_grad_test();
 
 // Cost gradients
+std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test();
+std::shared_ptr<Test> get_squared_joint_angle_cost_floating_base_grad_test();
 std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test();
+std::shared_ptr<Test> get_squared_joint_velocity_cost_floating_base_grad_test();
 std::shared_ptr<Test> get_squared_control_cost_grad_test();
 std::shared_ptr<Test> get_squared_force_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test();
