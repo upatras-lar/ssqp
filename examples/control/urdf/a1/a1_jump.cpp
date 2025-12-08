@@ -14,11 +14,11 @@
 #define HORIZON      100
 #define dt           0.01
 // Angle regularization weight
-#define A_WGT 1e-4
+#define A_WGT 0
 // Velocity regularization weight
-#define V_WGT 1e-3
+#define V_WGT 1e-4
 // Control regularization weight
-#define U_WGT 1e-5
+#define U_WGT 1e-6
 // Force regularization weight
 #define F_WGT 1e-7
 
@@ -72,12 +72,7 @@ int main()
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        // Add regularization cost for state, controls and forces
-        model.addCost<costs::SquaredJointAngleCost>(k,
-                                                    STATE_SIZE,
-                                                    CONTROL_SIZE,
-                                                    A_WGT,
-                                                    true);
+        // Add regularization cost for velocity, controls and forces
         model.addCost<costs::SquaredJointVelocityCost>(k,
                                                        CONTROL_SIZE,
                                                        V_WGT,
@@ -179,13 +174,16 @@ int main()
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    params.loose_success = false;
-    params.tolerance     = 1e-2;
+    params.loose_success  = false;
+    params.tolerance      = 1e-2;
+    params.use_filter     = false;
+    params.merit_mu_gamma = 0.8;
+    params.merit_mu_c     = 2.0;
 
     ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance = 1e-3;
+    admm_params.abs_tolerance = 1e-4;
     admm_params.rel_tolerance = 1e-4;
-    //admm_params.max_iter      = 1000;
+    admm_params.max_iter      = 1000;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

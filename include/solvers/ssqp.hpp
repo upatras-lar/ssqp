@@ -7,7 +7,9 @@
 #include <variant>
 
 #include "types.hpp"
-#include "sqp_step/types.hpp"
+#include "sqp_step/step.hpp"
+#include "sqp_step/filter.hpp"
+#include "sqp_step/merit.hpp"
 #include "model/Model.hpp"
 #include "solvers/admm_qp.hpp"
 
@@ -32,6 +34,16 @@ class ssqp
         double loose_success_tolerance = tolerance / 10;
         // Number of iterations for stale cost jacobian norms
         uint loose_success_stale_iters = 5;
+
+        // Line-search parameters
+        bool use_filter = true;
+        // TODO: filter size
+
+        double merit_mu_gamma = 1.0;
+        double merit_mu_c     = 1.0;
+
+        double inv_alpha_scale_factor = 2.0;
+        double min_alpha              = 1e-4;
 
         static Params Default()
         {

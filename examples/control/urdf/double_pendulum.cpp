@@ -12,7 +12,7 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
       [weight](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
         Eigen::VectorXd q(6);
-        q << std::sin(x[0]), std::sin(x[1]), 1 + std::cos(x[0]),
+        q << std::sin(x[0]), std::sin(x[1]), 1 - std::cos(x[0]),
           1 - std::cos(x[1]), 0.1 * x[2], 0.1 * x[3];
 
         Eigen::Vector<double, 1> res;
@@ -30,7 +30,7 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
         double s2 = std::sin(x[1]);
 
         dx    = Eigen::Vector4d();
-        dx[0] = -weight * s1;
+        dx[0] = weight * s1;
         dx[1] = weight * s2;
         dx[2] = weight * 0.01 * x[2];
         dx[3] = weight * 0.01 * x[3];
@@ -47,7 +47,7 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
         double c2 = std::cos(x[1]);
 
         Hxx       = Eigen::Matrix4d::Zero();
-        Hxx(0, 0) = -weight * c1;
+        Hxx(0, 0) = weight * c1;
         Hxx(1, 1) = weight * c2;
         Hxx(2, 2) = weight * 0.01;
         Hxx(3, 3) = weight * 0.01;
@@ -58,7 +58,7 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
                                                       cost_hess_xx);
 }
 
-#define HORIZON 150
+#define HORIZON 100
 #define dt      1e-2
 
 using namespace ssqp::model::stagewise::predefined;
@@ -74,17 +74,15 @@ int main()
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        //model.addCost(k, getCost());
-        model.addCost<costs::SquaredControlCost>(k, 2, 10.);
-        model.addCost<costs::SquaredJointVelocityCost>(k, 2, 10.);
+        model.addCost(k, getCost());
+        model.addCost<costs::SquaredControlCost>(k, 2, 1e-5);
     }
 
-    model.addCost<costs::SquaredJointVelocityCost>(HORIZON, 2, 10.);
-    //model.addCost(HORIZON, getCost(10.0));
+    model.addCost(HORIZON, getCost(100.0));
 
     ssqp::model::Model::Config config;
     config.init_states = {
-        (Eigen::Vector4d() << 0.1, 0.0, 0.0, 0.0).finished()
+        (Eigen::Vector4d() << 3.14, 0.0, 0.0, 0.0).finished()
     };
     model.finalize(config);
 
