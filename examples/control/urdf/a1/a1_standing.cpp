@@ -24,7 +24,7 @@
 // Force regularization weight
 #define F_WGT 1e-9
 // Whether we only use two feet to stand on
-#define TWO_FEET true
+#define TWO_FEET false
 
 using namespace ssqp::model::stagewise::predefined;
 

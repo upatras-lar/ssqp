@@ -14,6 +14,7 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
   , _forces(horizon + 1)
   , _integration(structure.integration)
   , _ignore_innate(structure.ignore_innate_constraints)
+  , _actuated_joints(structure.actuated_joints)
 {
     _dims.horizon     = horizon;
     _lin_dims.horizon = horizon;
@@ -407,16 +408,30 @@ void Model::_buildURDFDynamics(const Config &config)
     // total joints (including universe, root)
     const uint total_joints = pinocchio_wrapper::modelJoints(_impl);
 
-    MatX S;
+    uint nv_act = _dims.nv[0];
+    MatX S      = MatX::Zero(nv_act, nv_act);
+
     if (_free_flyer)
     {
-        S = MatX::Zero(_dims.nv[0], _dims.nv[0]);
-        S.bottomRightCorner(_dims.nv[0] - 6, _dims.nv[0] - 6) =
-          MatX::Identity(_dims.nv[0] - 6, _dims.nv[0] - 6);
+        nv_act -= 6;
+    }
+
+    if (_actuated_joints.empty())
+    {
+        S.bottomRightCorner(nv_act, nv_act) = MatX::Identity(nv_act, nv_act);
     }
     else
     {
-        S = MatX::Identity(_dims.nv[0], _dims.nv[0]);
+        assert(_actuated_joints.size() <= nv_act &&
+               "Invalid actuated joints size");
+
+        for (uint j = 0; j < _actuated_joints.size(); ++j)
+        {
+            assert(_actuated_joints[j] < nv_act &&
+                   "Invalid actuated joint index");
+            S.bottomRightCorner(nv_act, nv_act)(_actuated_joints[j],
+                                                _actuated_joints[j]) = 1.0;
+        }
     }
 
     auto right_plus = [this](const VecX &x, const VecX &dx)

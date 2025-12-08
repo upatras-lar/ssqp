@@ -43,6 +43,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        "-g",
+        "--no-ground",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to skip drawing the ground",
+    )
+
+    parser.add_argument(
         "-s",
         "--state_size",
         type=int,
@@ -63,11 +70,12 @@ with open(args.input, "r") as f:
 server = viser.ViserServer(port=8080)
 
 # Add box to represent the ground
-server.scene.add_box(
-    "/ground",
-    color=(225, 225, 205),
-    dimensions=(10, 10, 0.001),
-)
+if not args.no_ground:
+    server.scene.add_box(
+        "/ground",
+        color=(225, 225, 205),
+        dimensions=(10, 10, 0.001),
+    )
 
 # Create a parent frame for the robot
 robot_base = server.scene.add_frame("/robot", show_axes=False)
