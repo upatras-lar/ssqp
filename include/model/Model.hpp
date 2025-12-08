@@ -67,6 +67,8 @@ class Model
      *     Euler)
      *  - `ignore_innate_constraints`: Whether to ignore innate constraints from
      *     the URDF (i.e joint position, velocity and torque limits)
+     *  - `actuated_joints`: Indices of the actuated joints (default empty ->
+     *     all joints actuated)
      */
     struct Structure
     {
@@ -75,6 +77,7 @@ class Model
         std::shared_ptr<terrain::Terrain> terrain     = nullptr;
         IntegrationScheme                 integration = SemiImplicitEuler;
         bool                              ignore_innate_constraints = false;
+        std::vector<uint>                 actuated_joints;
 
         static Structure Default()
         {
@@ -284,6 +287,7 @@ class Model
     bool                                          _free_flyer;
     IntegrationScheme                             _integration;
     bool                                          _ignore_innate;
+    std::vector<uint>                             _actuated_joints;
 
     // Configuration properties
     bool                            _finalized = false;

@@ -106,7 +106,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         }
     }
 
-    LOGLN("ADMM: Converged in " << _iter << " iterations");
+    LOGLN("ADMM: Converged in " << _iter + 1 << " iterations");
 
     sol = _solution;
     return admm_state;
@@ -343,14 +343,20 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        z_hat.stage(k).noalias() =
-          _params.alpha * (_qp.stages[k].D * dx_hat.stage(k) +
-                           _qp.stages[k].E * du_hat.stage(k)) +
-          (1 - _params.alpha) * _solution.z.stage(k);
         _solution.dx.stage(k) = _params.alpha * dx_hat.stage(k) +
                                 (1 - _params.alpha) * _solution.dx.stage(k);
         _solution.du.stage(k) = _params.alpha * du_hat.stage(k) +
                                 (1 - _params.alpha) * _solution.du.stage(k);
+
+        if (_qp.stages[k].cl.size() == 0)
+        {
+            continue;
+        }
+
+        z_hat.stage(k).noalias() =
+          _params.alpha * (_qp.stages[k].D * dx_hat.stage(k) +
+                           _qp.stages[k].E * du_hat.stage(k)) +
+          (1 - _params.alpha) * _solution.z.stage(k);
 
         _solution.z.stage(k) =
           _qp.stages[k].cu.cwiseMin(_qp.stages[k].cl.cwiseMax(
@@ -360,12 +366,18 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
         _solution.y.stage(k) +=
           _rho.stage(k).cwiseProduct(z_hat.stage(k) - _solution.z.stage(k));
     }
-    z_hat.stage(_qp.dims.horizon).noalias() =
-      _params.alpha * _qp.Dt * dx_hat.stage(_qp.dims.horizon) +
-      (1 - _params.alpha) * _solution.z.stage(_qp.dims.horizon);
     _solution.dx.stage(_qp.dims.horizon) =
       _params.alpha * dx_hat.stage(_qp.dims.horizon) +
       (1 - _params.alpha) * _solution.dx.stage(_qp.dims.horizon);
+
+    if (_qp.cl_t.size() == 0)
+    {
+        return;
+    }
+
+    z_hat.stage(_qp.dims.horizon).noalias() =
+      _params.alpha * _qp.Dt * dx_hat.stage(_qp.dims.horizon) +
+      (1 - _params.alpha) * _solution.z.stage(_qp.dims.horizon);
 
     _solution.z.stage(_qp.dims.horizon) = _qp.cu_t.cwiseMin(
       _qp.cl_t.cwiseMax(z_hat.stage(_qp.dims.horizon) +
