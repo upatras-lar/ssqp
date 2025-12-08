@@ -191,8 +191,9 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
-    params.tolerance = 1e-3;
-    params.max_iter  = 500;
+    params.tolerance  = 1e-3;
+    params.max_iter   = 500;
+    params.use_filter = false;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-4;

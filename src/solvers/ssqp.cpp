@@ -83,17 +83,52 @@ SolverState ssqp::solve(Guess &guess)
         }
 
         // Guess (x, u) update
-        std::tie(_guess.x, _guess.u, std::ignore) = step::filter(
-          _guess.x,
-          _guess.u,
-          sol.dx,
-          sol.du,
-          [this](const FlatVec &x, const FlatVec &u) { return _lf(x, u); },
-          [this](const FlatVec &x, const FlatVec &u) { return _gammaf(x, u); },
-          [this](const FlatVec &x, const FlatVec &u) { return _cf(x, u); },
-          _model.dynamics(),
-          1.4,
-          1e-6);
+        if (_params.use_filter)
+        {
+            std::tie(_guess.x, _guess.u, std::ignore) = step::step(
+              [this](const step::Point &a, const step::Point &b)
+              {
+                  return step::filter(
+                    a,
+                    b,
+                    [this](const FlatVec &x, const FlatVec &u)
+                    { return _lf(x, u); },
+                    [this](const FlatVec &x, const FlatVec &u)
+                    { return _gammaf(x, u); },
+                    [this](const FlatVec &x, const FlatVec &u)
+                    { return _cf(x, u); });
+              },
+              _guess.x,
+              _guess.u,
+              sol.dx,
+              sol.du,
+              _model.dynamics(),
+              _params.inv_alpha_scale_factor,
+              _params.min_alpha);
+        }
+        else
+        {
+            std::tie(_guess.x, _guess.u, std::ignore) = step::step(
+              [this](const step::Point &a, const step::Point &b)
+              {
+                  return step::merit(a,
+                                     b,
+                                     [this](const FlatVec &x, const FlatVec &u)
+                                     {
+                                         return _lf(x, u) +
+                                                _params.merit_mu_gamma *
+                                                  _gammaf(x, u) +
+                                                _params.merit_mu_c * _cf(x, u);
+                                     });
+              },
+              _guess.x,
+              _guess.u,
+              sol.dx,
+              sol.du,
+              _model.dynamics(),
+              _params.inv_alpha_scale_factor,
+              _params.min_alpha);
+        }
 
         LOGLN("Current x: ");
         LOGLN(_guess.x);
