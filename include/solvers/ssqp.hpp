@@ -5,6 +5,7 @@
 #include <fstream>
 #include <vector>
 #include <variant>
+#include <deque>
 
 #include "types.hpp"
 #include "sqp_step/step.hpp"
@@ -36,8 +37,8 @@ class ssqp
         uint loose_success_stale_iters = 5;
 
         // Line-search parameters
-        bool use_filter = true;
-        // TODO: filter size
+        bool use_filter  = true;
+        uint filter_size = 10;
 
         double merit_mu_gamma = 1.0;
         double merit_mu_c     = 1.0;
@@ -94,6 +95,8 @@ class ssqp
 
     // Constraint violation
     double _cf(const FlatVec &x, const FlatVec &u) const;
+
+    std::deque<std::tuple<double, double, double>> _filter_memory;
 };
 }
 }

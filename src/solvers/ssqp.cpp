@@ -47,6 +47,13 @@ ssqp::ssqp(model::Model &model, const Params &params,
         _guess.u.stage(k) = dynamics[k]->init_control();
     }
 
+    if (_params.use_filter)
+    {
+        _filter_memory.push_front({ _lf(_guess.x, _guess.u),
+                                    _gammaf(_guess.x, _guess.u),
+                                    _cf(_guess.x, _guess.u) });
+    }
+
     DEBUG_LOGLN("SSQP initial guess:");
     DEBUG_LOGLN("x:");
     DEBUG_LOGLN(_guess.x);
@@ -91,6 +98,7 @@ SolverState ssqp::solve(Guess &guess)
                   return step::filter(
                     a,
                     b,
+                    _filter_memory,
                     [this](const FlatVec &x, const FlatVec &u)
                     { return _lf(x, u); },
                     [this](const FlatVec &x, const FlatVec &u)
@@ -105,6 +113,15 @@ SolverState ssqp::solve(Guess &guess)
               _model.dynamics(),
               _params.inv_alpha_scale_factor,
               _params.min_alpha);
+
+            _filter_memory.push_front({ _lf(_guess.x, _guess.u),
+                                        _gammaf(_guess.x, _guess.u),
+                                        _cf(_guess.x, _guess.u) });
+
+            if (_filter_memory.size() > _params.filter_size)
+            {
+                _filter_memory.pop_back();
+            }
         }
         else
         {
