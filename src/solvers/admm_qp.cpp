@@ -106,7 +106,10 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         }
     }
 
-    LOGLN("ADMM: Converged in " << _iter + 1 << " iterations");
+    if (admm_state == SUCCESS)
+    {
+        LOGLN("ADMM: Converged in " << _iter + 1 << " iterations");
+    }
 
     sol = _solution;
     return admm_state;

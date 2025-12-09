@@ -199,9 +199,9 @@ void lqr::_solve()
         _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
                                       _output.P[k + 1] * _qp.stages[k].B;
 
-        // TODO: is LLT appropriate?
         if (_qp.dims.stage_control[k] > 1)
         {
+            DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
             DEBUG_LOGLN("H[" << k << "]:" << std::endl << _H[k]);
             _H_ldlt[k]   = _H[k].ldlt();
             _output.K[k] = -_H_ldlt[k].solve(_G[k]);
