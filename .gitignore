@@ -4,3 +4,4 @@
 VARIABLES.sh
 /visualizer/viser-venv/*
 tests/logs/*
+out.txt
