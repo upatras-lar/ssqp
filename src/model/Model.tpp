@@ -310,5 +310,145 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                                              dyn_hessprod_xu,
                                              dyn_hessprod_uu);
 }
+
+template<bool FloatingBase>
+std::pair<std::shared_ptr<stagewise::StageConstraints>,
+          std::shared_ptr<stagewise::StageConstraints>>
+Model::_makeInnateConstraints() const
+{
+    VecX lb, ub;
+    std::tie(lb, ub) = pinocchio_wrapper::modelBounds(_impl, _free_flyer);
+
+    auto innate_constraint_eval = [this](const VecX &x, const VecX &u)
+    {
+        VecX c(3 * _dims.njoints[0]);
+
+        if constexpr (FloatingBase)
+        {
+            c.head(_dims.njoints[0]) = x.segment(7, _dims.njoints[0]);
+            c.segment(_dims.njoints[0], _dims.njoints[0]) =
+              x.tail(_dims.njoints[0]);
+            c.tail(_dims.njoints[0]) = u.segment(6, _dims.njoints[0]);
+        }
+        else
+        {
+            c.head(2 * _dims.njoints[0]) = x;
+            c.tail(_dims.njoints[0])     = u.head(_dims.njoints[0]);
+        }
+
+        return c;
+    };
+
+    auto terminal_innate_constraint_eval = [this](const VecX &x, const VecX &u)
+    {
+        VecX c(2 * _dims.njoints[0]);
+
+        if constexpr (FloatingBase)
+        {
+            c.head(_dims.njoints[0]) = x.segment(7, _dims.njoints[0]);
+            c.segment(_dims.njoints[0], _dims.njoints[0]) =
+              x.tail(_dims.njoints[0]);
+        }
+        else
+        {
+            c.head(2 * _dims.njoints[0]) = x;
+        }
+
+        return c;
+    };
+
+    auto innate_constraint_grad =
+      [this](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+    {
+        dX = MatX::Zero(3 * _dims.njoints[0], 2 * _dims.nv[0]);
+        dU = MatX::Zero(3 * _dims.njoints[0], u.size());
+
+        if constexpr (FloatingBase)
+        {
+            dX.block(0, 6, _dims.njoints[0], _dims.njoints[0]) =
+              MatX::Identity(_dims.njoints[0], _dims.njoints[0]);
+            dX.block(_dims.njoints[0],
+                     _dims.nv[0] + 6,
+                     _dims.njoints[0],
+                     _dims.njoints[0]) =
+              MatX::Identity(_dims.njoints[0], _dims.njoints[0]);
+
+            dU.block(2 * _dims.njoints[0],
+                     6,
+                     _dims.njoints[0],
+                     _dims.njoints[0]) =
+              MatX::Identity(_dims.njoints[0], _dims.njoints[0]);
+        }
+        else
+        {
+            dX.block(0, 0, 2 * _dims.njoints[0], 2 * _dims.njoints[0]) =
+              MatX::Identity(2 * _dims.njoints[0], 2 * _dims.njoints[0]);
+
+            dU.block(2 * _dims.njoints[0],
+                     0,
+                     _dims.njoints[0],
+                     _dims.njoints[0]) =
+              MatX::Identity(_dims.njoints[0], _dims.njoints[0]);
+        }
+    };
+
+    auto terminal_innate_constraint_grad =
+      [this](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+    {
+        dX = MatX::Zero(2 * _dims.njoints[0], 2 * _dims.nv[0]);
+        dU = MatX::Zero(2 * _dims.njoints[0], 1);
+
+        if constexpr (FloatingBase)
+        {
+            dX.block(0, 6, _dims.njoints[0], _dims.njoints[0]) =
+              MatX::Identity(_dims.njoints[0], _dims.njoints[0]);
+            dX.block(_dims.njoints[0],
+                     _dims.nv[0] + 6,
+                     _dims.njoints[0],
+                     _dims.njoints[0]) =
+              MatX::Identity(_dims.njoints[0], _dims.njoints[0]);
+        }
+        else
+        {
+            dX.block(0, 0, 2 * _dims.njoints[0], 2 * _dims.njoints[0]) =
+              MatX::Identity(2 * _dims.njoints[0], 2 * _dims.njoints[0]);
+        }
+    };
+
+    auto innate_constraint_hessprod_xx =
+      [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
+    { Pxx = MatX::Zero(2 * _dims.nv[0], 2 * _dims.nv[0]); };
+
+    auto innate_constraint_hessprod_xu =
+      [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
+    { Pxu = MatX::Zero(2 * _dims.nv[0], u.size()); };
+
+    auto innate_constraint_hessprod_uu =
+      [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
+    { Puu = MatX::Zero(u.size(), u.size()); };
+
+    return {
+        stagewise::factory::make_constraints(3 * _dims.njoints[0],
+                                             3 * _dims.njoints[0],
+                                             lb,
+                                             ub,
+                                             innate_constraint_eval,
+                                             innate_constraint_grad,
+                                             DefaultRightMinus,
+                                             innate_constraint_hessprod_xx,
+                                             innate_constraint_hessprod_xu,
+                                             innate_constraint_hessprod_uu),
+        stagewise::factory::make_constraints(2 * _dims.njoints[0],
+                                             2 * _dims.njoints[0],
+                                             lb.head(2 * _dims.njoints[0]),
+                                             ub.head(2 * _dims.njoints[0]),
+                                             terminal_innate_constraint_eval,
+                                             terminal_innate_constraint_grad,
+                                             DefaultRightMinus,
+                                             innate_constraint_hessprod_xx,
+                                             innate_constraint_hessprod_xu,
+                                             innate_constraint_hessprod_uu)
+    };
+}
 }
 }

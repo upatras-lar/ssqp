@@ -319,6 +319,11 @@ class Model
     template<bool WithForces, IntegrationScheme IS>
     std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
       const _StageDynamicsContext &ctx) const;
+
+    template<bool FloatingBase>
+    std::pair<std::shared_ptr<stagewise::StageConstraints>,
+              std::shared_ptr<stagewise::StageConstraints>>
+    _makeInnateConstraints() const;
 };
 }
 }
