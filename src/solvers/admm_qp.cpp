@@ -92,17 +92,17 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         DEBUG_LOGLN("y:");
         DEBUG_LOGLN(_solution.y);
         DEBUG_LOGLN("=============");
-        //DEBUG_WAIT();
+        DEBUG_WAIT();
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {
             _update_rho();
-        }
 
-        // Termination
-        if ((admm_state = _check_termination()) != ONGOING)
-        {
-            break;
+            // Termination
+            if ((admm_state = _check_termination()) != ONGOING)
+            {
+                break;
+            }
         }
     }
 
@@ -130,7 +130,7 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
     */
 
     // TODO: Infeasibility
-    FlatVec dy = _solution.y - y_prev;
+    // FlatVec dy = _solution.y - y_prev;
     // dy.vec     /= dy.vec.lpNorm<Eigen::Infinity>();
 
     // DEBUG_LOGLN("dx: " << _solution.dx - x_prev);
@@ -236,7 +236,7 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
 
 SolverState admm_qp::_check_termination() const
 {
-    if (_iter == _params.max_iter)
+    if (_iter >= _params.max_iter)
     {
         return MAX_ITER_REACHED;
     }

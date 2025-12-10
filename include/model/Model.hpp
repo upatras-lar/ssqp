@@ -76,7 +76,7 @@ class Model
         std::string                       urdf_path;
         bool                              free_flyer    = false;
         std::shared_ptr<terrain::Terrain> terrain       = nullptr;
-        DynamicsMode                      dynamics_mode = Inverse;
+        DynamicsMode                      dynamics_mode = Forward;
         IntegrationScheme                 integration   = SemiImplicitEuler;
         bool                              ignore_innate_constraints = false;
         std::vector<uint>                 actuated_joints;
@@ -300,6 +300,7 @@ class Model
     std::vector<std::vector<Force>> _forces;
 
     // Functionality functions
+
     void _addURDFInnateConstraints();
     void _buildURDFDynamics(const Config &config);
 
@@ -316,7 +317,7 @@ class Model
         VecX               init_control;
     };
 
-    template<bool WithForces, IntegrationScheme IS>
+    template<bool WithForces, DynamicsMode DM, IntegrationScheme IS>
     std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
       const _StageDynamicsContext &ctx) const;
 
