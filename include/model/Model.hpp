@@ -63,6 +63,7 @@ class Model
      *  - `free_flyer`: Whether the model has a floating base (only relevant
      *     if initialized through URDF)
      *  - `terrain`: The ground terrain (default flat at z=0)
+     *  - `dynamics_mode`: The dynamics mode to use (default Inverse Dynamics)
      *  - `integration`: The integration scheme to use (default Semi-Implicit
      *     Euler)
      *  - `ignore_innate_constraints`: Whether to ignore innate constraints from
@@ -73,9 +74,10 @@ class Model
     struct Structure
     {
         std::string                       urdf_path;
-        bool                              free_flyer  = false;
-        std::shared_ptr<terrain::Terrain> terrain     = nullptr;
-        IntegrationScheme                 integration = SemiImplicitEuler;
+        bool                              free_flyer    = false;
+        std::shared_ptr<terrain::Terrain> terrain       = nullptr;
+        DynamicsMode                      dynamics_mode = Inverse;
+        IntegrationScheme                 integration   = SemiImplicitEuler;
         bool                              ignore_innate_constraints = false;
         std::vector<uint>                 actuated_joints;
 
@@ -283,11 +285,12 @@ class Model
     std::shared_ptr<pinocchio_wrapper::ModelImpl> _impl;
     Dimensions                                    _dims, _lin_dims;
     const double                                  _dt;
-    std::shared_ptr<terrain::Terrain>             _terrain;
-    bool                                          _free_flyer;
-    IntegrationScheme                             _integration;
-    bool                                          _ignore_innate;
-    std::vector<uint>                             _actuated_joints;
+    const std::shared_ptr<terrain::Terrain>       _terrain;
+    const bool                                    _free_flyer;
+    const DynamicsMode                            _dynamics_mode;
+    const IntegrationScheme                       _integration;
+    const bool                                    _ignore_innate;
+    const std::vector<uint>                       _actuated_joints;
 
     // Configuration properties
     bool                            _finalized = false;
@@ -302,6 +305,20 @@ class Model
 
     VecX _randomVector(const uint size, const double start = -5,
                        const double end = 5) const;
+
+    struct _StageDynamicsContext
+    {
+        const MatX         S;
+        const uint         total_joints;
+        uint               nf;
+        std::vector<Force> forces;
+        VecX               init_state;
+        VecX               init_control;
+    };
+
+    template<bool WithForces, IntegrationScheme IS>
+    std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
+      const _StageDynamicsContext &ctx) const;
 };
 }
 }
