@@ -293,38 +293,87 @@ void Model::_buildURDFDynamics(const Config &config)
             : (config.init_controls.size() == 1 ? config.init_controls[0]
                                                 : config.init_controls[k]);
 
+        // TODO: Replace ifs
         if (nf == 0)
         {
             ctx.forces.clear();
 
-            if (_integration == ExplicitEuler)
+            if (_dynamics_mode == DynamicsMode::Forward)
             {
-                _dynamics[k] =
-                  _makeStageDynamics<false, IntegrationScheme::ExplicitEuler>(
-                    ctx);
+                if (_integration == ExplicitEuler)
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<false,
+                                         DynamicsMode::Forward,
+                                         IntegrationScheme::ExplicitEuler>(ctx);
+                }
+                else
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<false,
+                                         DynamicsMode::Forward,
+                                         IntegrationScheme::SemiImplicitEuler>(
+                        ctx);
+                }
             }
             else
             {
-                _dynamics[k] =
-                  _makeStageDynamics<false,
-                                     IntegrationScheme::SemiImplicitEuler>(ctx);
+                if (_integration == ExplicitEuler)
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<false,
+                                         DynamicsMode::Inverse,
+                                         IntegrationScheme::ExplicitEuler>(ctx);
+                }
+                else
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<false,
+                                         DynamicsMode::Inverse,
+                                         IntegrationScheme::SemiImplicitEuler>(
+                        ctx);
+                }
             }
         }
         else
         {
             ctx.forces = _forces[k];
 
-            if (_integration == ExplicitEuler)
+            if (_dynamics_mode == DynamicsMode::Forward)
             {
-                _dynamics[k] =
-                  _makeStageDynamics<true, IntegrationScheme::ExplicitEuler>(
-                    ctx);
+                if (_integration == ExplicitEuler)
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<true,
+                                         DynamicsMode::Forward,
+                                         IntegrationScheme::ExplicitEuler>(ctx);
+                }
+                else
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<true,
+                                         DynamicsMode::Forward,
+                                         IntegrationScheme::SemiImplicitEuler>(
+                        ctx);
+                }
             }
             else
             {
-                _dynamics[k] =
-                  _makeStageDynamics<true,
-                                     IntegrationScheme::SemiImplicitEuler>(ctx);
+                if (_integration == ExplicitEuler)
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<true,
+                                         DynamicsMode::Inverse,
+                                         IntegrationScheme::ExplicitEuler>(ctx);
+                }
+                else
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<true,
+                                         DynamicsMode::Inverse,
+                                         IntegrationScheme::SemiImplicitEuler>(
+                        ctx);
+                }
             }
         }
     }
