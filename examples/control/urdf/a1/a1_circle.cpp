@@ -29,7 +29,7 @@ using namespace ssqp::model::stagewise::predefined;
 std::vector<Eigen::Vector3d> make_trajectory(int H)
 {
     const double z = 0.3464;
-    const double r = 0.1;
+    const double r = 0.05;
 
     const Eigen::Vector3d start(0.0, 0.0, z);
     const Eigen::Vector3d entry(0.0, -r, z);

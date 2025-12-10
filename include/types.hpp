@@ -106,11 +106,40 @@ struct Force
     Force(const std::string &frame, const uint force_index);
 };
 
+/* Integration Scheme
+ * The type of integration used for the system dynamics
+ * Options:
+ *  - ExplicitEuler:
+ *      $\boldsymbol{x}_{n+1}=\boldsymbol{x}_n+\boldsymbol{v}_ndt$
+ *      $\boldsymbol{v}_{n+1}=\boldsymbol{v}_n+\boldsymbol{a}_ndt$
+ *  - SemiImplicitEuler:
+ *      $\boldsymbol{x}_{n+1}=\boldsymbol{x}_n+\boldsymbol{v}_{n+1}dt$
+ *      $\boldsymbol{v}_{n+1}=\boldsymbol{v}_n+\boldsymbol{a}_ndt$
+ */
 enum IntegrationScheme
 {
     ExplicitEuler     = 0,
     SemiImplicitEuler = 1
 };
+
+/* Dynamics Mode
+ * The mode the solver uses for the system dynamics formulation
+ * Options:
+ *  - Forward: The solver optimizes with a forward dynamics approach. As such,
+ *    the generated controls correspond to torques which, when applied over time
+ *    to the system, generate the output trajectory.
+ *  - Inverse: The solver optimizes with an inverse dynamics approach. As such,
+ *    the generated controls correspond to accelerations. This simplifies the
+ *    LQR formulation, generally leading to more robust solutions. Inverse
+ *    dynamics is used as a constraint, ensuring the torques producing the
+ *    generated acceleration controls are within the required effort limits.
+ */
+enum DynamicsMode
+{
+    Forward = 0,
+    Inverse = 1
+};
+
 }
 
 std::string format_double(double val, uint precision);

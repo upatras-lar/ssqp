@@ -80,7 +80,8 @@ SolverState ssqp::solve(Guess &guess)
         switch (state)
         {
         case MAX_ITER_REACHED:
-            LOGLN("ADMM: Max iterations reached");
+            LOGLN("ADMM: Max iterations reached (" << _admm_params.max_iter
+                                                   << ")");
             break;
         case PRIMAL_INFEASIBLE:
         case DUAL_INFEASIBLE:
