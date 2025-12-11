@@ -66,13 +66,13 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         _solution.P = lqr_out.P;
         _solution.p = lqr_out.p;
 
-        DEBUG_LOGLN("LQR solution, iteration " << _iter + 1);
-        DEBUG_LOGLN("=============");
-        DEBUG_LOGLN("x:");
-        DEBUG_LOGLN(lqr_out.x);
-        DEBUG_LOGLN("u:");
-        DEBUG_LOGLN(lqr_out.u);
-        DEBUG_LOGLN("=============");
+        // DEBUG_LOGLN("LQR solution, iteration " << _iter + 1);
+        // DEBUG_LOGLN("=============");
+        // DEBUG_LOGLN("x:");
+        // DEBUG_LOGLN(lqr_out.x);
+        // DEBUG_LOGLN("u:");
+        // DEBUG_LOGLN(lqr_out.u);
+        // DEBUG_LOGLN("=============");
 
         FlatVec x_prev = _solution.dx, u_prev = _solution.du,
                 z_prev = _solution.z, y_prev = _solution.y;
@@ -81,28 +81,28 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
         _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
 
-        DEBUG_LOGLN("Update step, iteration " << _iter + 1);
-        DEBUG_LOGLN("=============");
-        DEBUG_LOGLN("x:");
-        DEBUG_LOGLN(_solution.dx);
-        DEBUG_LOGLN("u:");
-        DEBUG_LOGLN(_solution.du);
-        DEBUG_LOGLN("z:");
-        DEBUG_LOGLN(_solution.z);
-        DEBUG_LOGLN("y:");
-        DEBUG_LOGLN(_solution.y);
-        DEBUG_LOGLN("=============");
-        DEBUG_WAIT();
+        // DEBUG_LOGLN("Update step, iteration " << _iter + 1);
+        // DEBUG_LOGLN("=============");
+        // DEBUG_LOGLN("x:");
+        // DEBUG_LOGLN(_solution.dx);
+        // DEBUG_LOGLN("u:");
+        // DEBUG_LOGLN(_solution.du);
+        // DEBUG_LOGLN("z:");
+        // DEBUG_LOGLN(_solution.z);
+        // DEBUG_LOGLN("y:");
+        // DEBUG_LOGLN(_solution.y);
+        // DEBUG_LOGLN("=============");
+        // DEBUG_WAIT();
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {
             _update_rho();
+        }
 
-            // Termination
-            if ((admm_state = _check_termination()) != ONGOING)
-            {
-                break;
-            }
+        // Termination
+        if ((admm_state = _check_termination()) != ONGOING)
+        {
+            break;
         }
     }
 
@@ -390,6 +390,10 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
       _rho.stage(_qp.dims.horizon)
         .cwiseProduct(z_hat.stage(_qp.dims.horizon) -
                       _solution.z.stage(_qp.dims.horizon));
+
+    // LOGLN(_qp.stages[0].cl.segment(24 + 12 + 12 * 2, 6).transpose());
+    // LOGLN(_qp.stages[0].cu.segment(24 + 12 + 12 * 2, 6).transpose());
+    // LOGLN(_rho);
 }
 }
 }

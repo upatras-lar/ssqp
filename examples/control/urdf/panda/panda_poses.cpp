@@ -163,7 +163,8 @@ int main()
     constraints[HORIZON / 2] = constraint;
 
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path     = "examples/urdf/panda/panda.urdf";
+    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
 
     ssqp::model::Model::Config model_config;
     model_config.stage_cost    = cost;

@@ -49,6 +49,7 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
                                               _free_flyer);
         uint nq, nv, njoints;
         std::tie(nq, nv) = pinocchio_wrapper::modelDimensions(_impl);
+        _total_joints    = pinocchio_wrapper::modelJoints(_impl);
         njoints          = pinocchio_wrapper::getTotalActuatedJoints(_impl);
 
         std::fill(_dims.nq.begin(), _dims.nq.end(), nq);
@@ -206,27 +207,87 @@ void Model::finalize(const Config &config)
 
 void Model::_addURDFInnateConstraints()
 {
-    std::shared_ptr<stagewise::StageConstraints> innate_constraints;
-    std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints;
-
-    if (_free_flyer)
-    {
-        std::tie(innate_constraints, terminal_innate_constraints) =
-          _makeInnateConstraints<true>();
-    }
-    else
-    {
-        std::tie(innate_constraints, terminal_innate_constraints) =
-          _makeInnateConstraints<false>();
-    }
+    _StageInnateConstraintsContext ctx;
 
     for (uint k = 0; k < _dims.horizon; ++k)
     {
+        std::shared_ptr<stagewise::StageConstraints> innate_constraints;
+        if (_dynamics_mode == DynamicsMode::Forward)
+        {
+            if (_free_flyer)
+            {
+                innate_constraints =
+                  _makeStageInnateConstraints<true, false>(ctx);
+            }
+            else
+            {
+                innate_constraints =
+                  _makeStageInnateConstraints<false, false>(ctx);
+            }
+        }
+        else
+        {
+            uint nf        = _forces[k].size();
+            ctx.force_data = _forces[k];
+
+            if (nf == 0)
+            {
+                if (_free_flyer)
+                {
+                    innate_constraints =
+                      _makeStageInnateConstraints<true,
+                                                  false,
+                                                  DynamicsMode::Inverse,
+                                                  false>(ctx);
+                }
+                else
+                {
+                    innate_constraints =
+                      _makeStageInnateConstraints<false,
+                                                  false,
+                                                  DynamicsMode::Inverse,
+                                                  false>(ctx);
+                }
+            }
+            else
+            {
+                if (_free_flyer)
+                {
+                    innate_constraints =
+                      _makeStageInnateConstraints<true,
+                                                  false,
+                                                  DynamicsMode::Inverse,
+                                                  true>(ctx);
+                }
+                else
+                {
+                    innate_constraints =
+                      _makeStageInnateConstraints<false,
+                                                  false,
+                                                  DynamicsMode::Inverse,
+                                                  true>(ctx);
+                }
+            }
+        }
+
         _constraints[k] =
           _constraints[k] == nullptr
             ? innate_constraints
             : stagewise::factory::merge_constraints(_constraints[k],
                                                     innate_constraints);
+    }
+
+    std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints;
+
+    if (_free_flyer)
+    {
+        terminal_innate_constraints =
+          _makeStageInnateConstraints<true, true>(ctx);
+    }
+    else
+    {
+        terminal_innate_constraints =
+          _makeStageInnateConstraints<false, true>(ctx);
     }
 
     _constraints[_dims.horizon] =
@@ -245,9 +306,6 @@ void Model::_buildURDFDynamics(const Config &config)
     assert((config.init_controls.empty() || config.init_controls.size() == 1 ||
             config.init_controls.size() == _dims.horizon) &&
            "Invalid init_controls size");
-
-    // total joints (including universe, root)
-    const uint total_joints = pinocchio_wrapper::modelJoints(_impl);
 
     uint nv_act = _dims.nv[0];
     MatX S      = MatX::Zero(nv_act, nv_act);
@@ -275,13 +333,13 @@ void Model::_buildURDFDynamics(const Config &config)
         }
     }
 
-    _StageDynamicsContext ctx { S, total_joints, 0 };
+    _StageDynamicsContext ctx { S };
 
     for (uint k = 0; k < _dynamics.size(); ++k)
     {
-        uint nf = _forces[k].size();
+        uint nf        = _forces[k].size();
+        ctx.force_data = _forces[k];
 
-        ctx.nf = nf;
         ctx.init_state =
           config.init_states.size() == 0
             ? VecX::Zero(_dims.nq[0] + _dims.nv[0])
@@ -296,8 +354,6 @@ void Model::_buildURDFDynamics(const Config &config)
         // TODO: Replace ifs
         if (nf == 0)
         {
-            ctx.forces.clear();
-
             if (_dynamics_mode == DynamicsMode::Forward)
             {
                 if (_integration == ExplicitEuler)
@@ -337,8 +393,6 @@ void Model::_buildURDFDynamics(const Config &config)
         }
         else
         {
-            ctx.forces = _forces[k];
-
             if (_dynamics_mode == DynamicsMode::Forward)
             {
                 if (_integration == ExplicitEuler)
@@ -535,16 +589,18 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
     return { dVdq, dVdv };
 }
 
+const VecX Model::inverseDynamics(const VecX &q, const VecX &v,
+                                  const VecX &a) const
+{
+    return pinocchio_wrapper::rnea(_impl, q, v, a);
+}
+
 const VecX Model::inverseDynamics(
   const VecX &q, const VecX &v, const VecX &a,
   const std::unordered_map<std::string, std::vector<Vec3>> &forces) const
 {
-    const uint total_joints = pinocchio_wrapper::modelJoints(_impl);
-
     pinocchio_wrapper::computeJointJacobians(_impl, q);
-    std::vector<Eigen::Vector<double, 6>> joint_forces(
-      total_joints,
-      Eigen::Vector<double, 6>::Zero());
+    std::vector<Vec6> joint_forces(_total_joints, Vec6::Zero());
 
     for (const std::pair<std::string, std::vector<Vec3>> &pair : forces)
     {
@@ -553,12 +609,17 @@ const VecX Model::inverseDynamics(
             Vec3 f = pair.second[i];
             uint joint_id;
 
-            Eigen::Vector<double, 6> F =
-              framejMfAct(_impl, pair.first, f, joint_id);
+            Vec6 F = framejMfAct(_impl, pair.first, f, joint_id);
             joint_forces[joint_id] += F;
         }
     }
 
+    return pinocchio_wrapper::rnea(_impl, q, v, a, joint_forces);
+}
+
+const VecX Model::inverseDynamics(const VecX &q, const VecX &v, const VecX &a,
+                                  const std::vector<Vec6> &joint_forces) const
+{
     return pinocchio_wrapper::rnea(_impl, q, v, a, joint_forces);
 }
 
@@ -612,6 +673,55 @@ VecX Model::_randomVector(const uint size, const double start,
                           const double end) const
 {
     return start + (end - start) * 0.5 * (VecX::Random(size).array() + 1.0);
+}
+
+std::vector<Vec6> Model::_calculateJointForces(
+  const VecX &q, const VecX &f, const std::vector<Force> &force_data) const
+{
+    pinocchio_wrapper::computeJointJacobians(_impl, q);
+    std::vector<Vec6> joint_forces(_total_joints, Vec6::Zero());
+
+    for (uint i = 0; i < force_data.size(); ++i)
+    {
+        Vec3 fi = f.segment(3 * i, 3);
+
+        uint joint_id;
+        Vec6 f_res = pinocchio_wrapper::framejMfAct(_impl,
+                                                    force_data[i].frame,
+                                                    fi,
+                                                    joint_id);
+
+        joint_forces[joint_id] += f_res;
+    }
+
+    return joint_forces;
+}
+
+std::pair<std::vector<Vec6>, MatX> Model::_calculateJointForcesAndJacobian(
+  const VecX &q, const VecX &f, const std::vector<Force> &force_data) const
+{
+    pinocchio_wrapper::computeJointJacobians(_impl, q);
+
+    MatX              Jf_full = MatX::Zero(3 * force_data.size(), _dims.nv[0]);
+    std::vector<Vec6> joint_forces(_total_joints, Vec6::Zero());
+
+    for (uint i = 0; i < force_data.size(); ++i)
+    {
+        MatX Jf = frameJacobian(force_data[i].frame, true).topRows<3>();
+        Jf_full.block(3 * i, 0, 3, _dims.nv[0]) = Jf;
+
+        Vec3 fi = f.segment(3 * i, 3);
+
+        uint joint_id;
+        Vec6 f_res = pinocchio_wrapper::framejMfAct(_impl,
+                                                    force_data[i].frame,
+                                                    fi,
+                                                    joint_id);
+
+        joint_forces[joint_id] += f_res;
+    }
+
+    return { joint_forces, Jf_full };
 }
 
 }

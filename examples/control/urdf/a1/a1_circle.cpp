@@ -16,20 +16,20 @@
 // Trunk position weight
 #define P_WGT 100
 // Orientation weight
-#define R_WGT 100
+#define R_WGT 10
 // Velocity regularization weight
-#define V_WGT 1e-5
+#define V_WGT 1e-3
 // Control regularization weight
-#define U_WGT 1e-5
+#define U_WGT 1e-3
 // Force regularization weight
-#define F_WGT 1e-5
+#define F_WGT 1e-4
 
 using namespace ssqp::model::stagewise::predefined;
 
 std::vector<Eigen::Vector3d> make_trajectory(int H)
 {
     const double z = 0.3464;
-    const double r = 0.05;
+    const double r = 0.1;
 
     const Eigen::Vector3d start(0.0, 0.0, z);
     const Eigen::Vector3d entry(0.0, -r, z);
@@ -89,8 +89,9 @@ int main()
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer = true;
+    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
     model.printFramesAndJoints();
 

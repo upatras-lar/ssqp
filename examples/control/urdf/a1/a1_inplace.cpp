@@ -13,21 +13,21 @@
 #define CONTROL_SIZE 18
 #define dt           0.01
 // Position weight
-#define P_WGT 10
+#define P_WGT 1
 // Orientation weight
 #define O_WGT 1
 // State regularization weight
-#define A_WGT 1e-5
+#define A_WGT 1e-6
 // Velocity regularization weight
 #define V_WGT 1e-3
 // Control regularization weight
-#define U_WGT 1e-5
+#define U_WGT 1e-4
 // Force regularization weight
 #define F_WGT 1e-5
 
-#define STANDING_STEPS 10
-#define INPLACE_STEPS  12
-#define REPEATS        2
+#define STANDING_STEPS 20
+#define INPLACE_STEPS  25
+#define REPEATS        4
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -118,6 +118,7 @@ int main()
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     //model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
+    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     // Initial configuration
@@ -322,20 +323,20 @@ int main()
     }
 
     ssqp::model::Model::Config model_config;
-    model_config.init_states   = { init };
-    model_config.init_controls = init_controls;
+    model_config.init_states = { init };
+    //model_config.init_controls = init_controls;
 
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
     params.tolerance  = 1e-2;
     params.max_iter   = 500;
-    params.use_filter = true;
+    params.use_filter = false;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
-    admm_params.rel_tolerance = 1e-3;
-    admm_params.max_iter      = 2500;
+    admm_params.rel_tolerance = 1e-4;
+    admm_params.max_iter      = 250;
     admm_params.warm_start    = true;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);

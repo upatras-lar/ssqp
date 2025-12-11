@@ -105,6 +105,7 @@ int main()
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
     // model_structure.integration = ssqp::model::ExplicitEuler;
+    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     Eigen::VectorXd init_state = Eigen::VectorXd::Zero(2 * STATE_SIZE);
