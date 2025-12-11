@@ -148,7 +148,7 @@ std::ostream &operator<<(std::ostream &os, const FlatVec &v)
 {
     static uint width     = 10;
     static uint precision = 4;
-    static uint max_cols  = 12;
+    static uint max_cols  = 10;
 
     bool skip = v.stages() > max_cols;
 

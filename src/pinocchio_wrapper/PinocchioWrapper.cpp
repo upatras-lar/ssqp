@@ -12,6 +12,7 @@
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/frames-derivatives.hpp>
 #include <pinocchio/algorithm/rnea.hpp>
+#include <pinocchio/algorithm/rnea-derivatives.hpp>
 
 namespace ssqp
 {
@@ -86,7 +87,8 @@ uint modelJoints(const std::shared_ptr<ModelImpl> &impl)
 }
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
-  const std::shared_ptr<ModelImpl> &impl, const bool free_flyer)
+  const std::shared_ptr<ModelImpl> &impl, const bool free_flyer,
+  const bool include_fb_torques)
 {
     uint            nbounds = impl->model.nq + 2 * impl->model.nv;
     Eigen::VectorXd lb, ub;
@@ -96,8 +98,16 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
         uint nq = impl->model.nq - 7;
         uint nv = impl->model.nv - 6;
 
-        lb.resize(nbounds - 19);
-        ub.resize(nbounds - 19);
+        if (include_fb_torques)
+        {
+            lb.resize(nbounds - 13);
+            ub.resize(nbounds - 13);
+        }
+        else
+        {
+            lb.resize(nbounds - 19);
+            ub.resize(nbounds - 19);
+        }
 
         lb.head(nq)        = impl->model.lowerPositionLimit.tail(nq);
         lb.segment(nq, nv) = -impl->model.velocityLimit.tail(nv);
@@ -106,6 +116,12 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
         ub.head(nq)        = impl->model.upperPositionLimit.tail(nq);
         ub.segment(nq, nv) = impl->model.velocityLimit.tail(nv);
         ub.tail(nv)        = impl->model.effortLimit.tail(nv);
+
+        if (include_fb_torques)
+        {
+            lb.segment(nq + nv, 6) = Eigen::Vector<double, 6>::Zero();
+            ub.segment(nq + nv, 6) = Eigen::Vector<double, 6>::Zero();
+        }
     }
     else
     {
@@ -226,7 +242,14 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
 
 Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
                      const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                     const Eigen::VectorXd              &a,
+                     const Eigen::VectorXd &a)
+{
+    return pinocchio::rnea(impl->model, impl->data, q, v, a);
+}
+
+Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
+                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                     const Eigen::VectorXd                       &a,
                      const std::vector<Eigen::Vector<double, 6>> &fext)
 {
     pinocchio::container::aligned_vector<pinocchio::Force> forces(
@@ -235,11 +258,50 @@ Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
 
     for (uint i = 0; i < fext.size(); ++i)
     {
-        forces[i].linear() = fext[i].head<3>();
+        forces[i].linear()  = fext[i].head<3>();
         forces[i].angular() = fext[i].tail<3>();
     }
 
     return pinocchio::rnea(impl->model, impl->data, q, v, a, forces);
+}
+
+void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
+                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                            const Eigen::VectorXd &a,
+                            Eigen::MatrixXd       &rnea_partial_dq,
+                            Eigen::MatrixXd       &rnea_partial_dv,
+                            Eigen::MatrixXd       &rnea_partial_da)
+{
+    pinocchio::computeRNEADerivatives(impl->model, impl->data, q, v, a);
+
+    rnea_partial_dq = impl->data.dtau_dq;
+    rnea_partial_dv = impl->data.dtau_dv;
+    rnea_partial_da = impl->data.M;
+}
+
+void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
+                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                            const Eigen::VectorXd                       &a,
+                            const std::vector<Eigen::Vector<double, 6>> &fext,
+                            Eigen::MatrixXd &rnea_partial_dq,
+                            Eigen::MatrixXd &rnea_partial_dv,
+                            Eigen::MatrixXd &rnea_partial_da)
+{
+    pinocchio::container::aligned_vector<pinocchio::Force> forces(
+      fext.size(),
+      pinocchio::Force::Zero());
+
+    for (uint i = 0; i < fext.size(); ++i)
+    {
+        forces[i].linear()  = fext[i].head<3>();
+        forces[i].angular() = fext[i].tail<3>();
+    }
+
+    pinocchio::computeRNEADerivatives(impl->model, impl->data, q, v, a, forces);
+
+    rnea_partial_dq = impl->data.dtau_dq;
+    rnea_partial_dv = impl->data.dtau_dv;
+    rnea_partial_da = impl->data.M;
 }
 
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl)

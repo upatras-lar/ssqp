@@ -19,7 +19,7 @@ void setup_model(std::shared_ptr<model::Model> &model)
     }
 }
 
-std::shared_ptr<Test> get_explicit_euler_without_forces_grad_test()
+std::shared_ptr<Test> get_fwdyn_explicit_euler_without_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration = model::IntegrationScheme::ExplicitEuler;
@@ -30,15 +30,15 @@ std::shared_ptr<Test> get_explicit_euler_without_forces_grad_test()
     setup_model(model);
     model->finalize();
 
-    std::shared_ptr<FDGradDynamics> dyn_test =
-      std::make_shared<FDGradDynamics>("ExplicitEulerWithoutForcesGradTest",
-                                       model,
-                                       0);
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "FwdynExplicitEulerWithoutForcesGradTest",
+      model,
+      0);
 
     return dyn_test;
 }
 
-std::shared_ptr<Test> get_explicit_euler_with_forces_grad_test()
+std::shared_ptr<Test> get_fwdyn_explicit_euler_with_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration = model::IntegrationScheme::ExplicitEuler;
@@ -56,14 +56,14 @@ std::shared_ptr<Test> get_explicit_euler_with_forces_grad_test()
     model->finalize();
 
     std::shared_ptr<FDGradDynamics> dyn_test =
-      std::make_shared<FDGradDynamics>("ExplicitEulerWithForcesGradTest",
+      std::make_shared<FDGradDynamics>("FwdynExplicitEulerWithForcesGradTest",
                                        model,
                                        0);
 
     return dyn_test;
 }
 
-std::shared_ptr<Test> get_semi_implicit_euler_without_forces_grad_test()
+std::shared_ptr<Test> get_fwdyn_semi_implicit_euler_without_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration = model::IntegrationScheme::SemiImplicitEuler;
@@ -74,15 +74,15 @@ std::shared_ptr<Test> get_semi_implicit_euler_without_forces_grad_test()
     setup_model(model);
     model->finalize();
 
-    std::shared_ptr<FDGradDynamics> dyn_test =
-      std::make_shared<FDGradDynamics>("ExplicitEulerWithoutForcesGradTest",
-                                       model,
-                                       0);
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "FwdynExplicitEulerWithoutForcesGradTest",
+      model,
+      0);
 
     return dyn_test;
 }
 
-std::shared_ptr<Test> get_semi_implicit_euler_with_forces_grad_test()
+std::shared_ptr<Test> get_fwdyn_semi_implicit_euler_with_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration = model::IntegrationScheme::SemiImplicitEuler;
@@ -99,15 +99,107 @@ std::shared_ptr<Test> get_semi_implicit_euler_with_forces_grad_test()
     model->addForce(0, "RR_foot");
     model->finalize();
 
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "FwdynSemiImplicitEulerWithForcesGradTest",
+      model,
+      0);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test> get_invdyn_explicit_euler_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::ExplicitEuler;
+    model_structure.urdf_path     = "examples/urdf/panda/panda.urdf";
+    model_structure.dynamics_mode = model::DynamicsMode::Inverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "InvdynExplicitEulerWithoutForcesGradTest",
+      model,
+      0);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test> get_invdyn_explicit_euler_with_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::ExplicitEuler;
+    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = model::DynamicsMode::Inverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+
+    model->addForce(0, "FL_foot");
+    model->addForce(0, "FR_foot");
+    model->addForce(0, "RL_foot");
+    model->addForce(0, "RR_foot");
+    model->finalize();
+
     std::shared_ptr<FDGradDynamics> dyn_test =
-      std::make_shared<FDGradDynamics>("SemiImplicitEulerWithForcesGradTest",
+      std::make_shared<FDGradDynamics>("InvdynExplicitEulerWithForcesGradTest",
                                        model,
                                        0);
 
     return dyn_test;
 }
 
-std::shared_ptr<Test> get_innate_constraint_grad_test()
+std::shared_ptr<Test> get_invdyn_semi_implicit_euler_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/urdf/panda/panda.urdf";
+    model_structure.dynamics_mode = model::DynamicsMode::Inverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "InvdynExplicitEulerWithoutForcesGradTest",
+      model,
+      0);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test> get_invdyn_semi_implicit_euler_with_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = model::DynamicsMode::Inverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+
+    model->addForce(0, "FL_foot");
+    model->addForce(0, "FR_foot");
+    model->addForce(0, "RL_foot");
+    model->addForce(0, "RR_foot");
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "InvdynSemiImplicitEulerWithForcesGradTest",
+      model,
+      0);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test> get_fwdyn_innate_constraint_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
@@ -119,7 +211,52 @@ std::shared_ptr<Test> get_innate_constraint_grad_test()
     model->finalize();
 
     std::shared_ptr<FDGradConstraints> constraints_test =
-      std::make_shared<FDGradConstraints>("InnateConstraintGradTest", model, 0);
+      std::make_shared<FDGradConstraints>("FwdynInnateConstraintGradTest",
+                                          model,
+                                          0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test> get_invdyn_innate_constraint_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path     = "examples/urdf/panda/panda.urdf";
+    model_structure.dynamics_mode = model::DynamicsMode::Inverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>(
+        "InvdynInnateConstraintWithoutForcesGradTest",
+        model,
+        0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test> get_invdyn_innate_constraint_with_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = model::DynamicsMode::Inverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    model->addForce(0, "FL_foot");
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>(
+        "InvdynInnateConstraintWithForcesGradTest",
+        model,
+        0);
 
     return constraints_test;
 }
@@ -356,7 +493,7 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test()
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
 
-    model->addForce(0, "Fl_foot");
+    model->addForce(0, "FL_foot");
 
     for (uint k = 0; k < model->dims().horizon; ++k)
     {

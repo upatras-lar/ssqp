@@ -14,13 +14,19 @@ namespace generators
 void setup_model(std::shared_ptr<model::Model> &model);
 
 // Dynamics gradients
-std::shared_ptr<Test> get_explicit_euler_without_forces_grad_test();
-std::shared_ptr<Test> get_explicit_euler_with_forces_grad_test();
-std::shared_ptr<Test> get_semi_implicit_euler_without_forces_grad_test();
-std::shared_ptr<Test> get_semi_implicit_euler_with_forces_grad_test();
+std::shared_ptr<Test> get_fwdyn_explicit_euler_without_forces_grad_test();
+std::shared_ptr<Test> get_fwdyn_explicit_euler_with_forces_grad_test();
+std::shared_ptr<Test> get_fwdyn_semi_implicit_euler_without_forces_grad_test();
+std::shared_ptr<Test> get_fwdyn_semi_implicit_euler_with_forces_grad_test();
+std::shared_ptr<Test> get_invdyn_explicit_euler_without_forces_grad_test();
+std::shared_ptr<Test> get_invdyn_explicit_euler_with_forces_grad_test();
+std::shared_ptr<Test> get_invdyn_semi_implicit_euler_without_forces_grad_test();
+std::shared_ptr<Test> get_invdyn_semi_implicit_euler_with_forces_grad_test();
 
 // Constraints gradients
-std::shared_ptr<Test> get_innate_constraint_grad_test();
+std::shared_ptr<Test> get_fwdyn_innate_constraint_grad_test();
+std::shared_ptr<Test> get_invdyn_innate_constraint_without_forces_grad_test();
+std::shared_ptr<Test> get_invdyn_innate_constraint_with_forces_grad_test();
 std::shared_ptr<Test> get_frame_position_bound_grad_test();
 std::shared_ptr<Test> get_frame_velocity_bound_grad_test();
 std::shared_ptr<Test> get_contact_constraint_grad_test();

@@ -5,19 +5,38 @@ int main()
 {
     ssqp::tests::TestContainer tests;
 
-    tests.addTest(
-      ssqp::tests::generators::get_explicit_euler_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::get_explicit_euler_with_forces_grad_test());
+    tests.addTest(ssqp::tests::generators::
+                    get_fwdyn_explicit_euler_without_forces_grad_test());
 
     tests.addTest(ssqp::tests::generators::
-                    get_semi_implicit_euler_without_forces_grad_test());
+                    get_fwdyn_explicit_euler_with_forces_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_fwdyn_semi_implicit_euler_without_forces_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_fwdyn_semi_implicit_euler_with_forces_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_invdyn_explicit_euler_without_forces_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_invdyn_explicit_euler_with_forces_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_invdyn_semi_implicit_euler_without_forces_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_invdyn_semi_implicit_euler_with_forces_grad_test());
 
     tests.addTest(
-      ssqp::tests::generators::get_semi_implicit_euler_with_forces_grad_test());
+      ssqp::tests::generators::get_fwdyn_innate_constraint_grad_test());
 
-    tests.addTest(ssqp::tests::generators::get_innate_constraint_grad_test());
+    tests.addTest(ssqp::tests::generators::
+                    get_invdyn_innate_constraint_without_forces_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_invdyn_innate_constraint_with_forces_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_frame_position_bound_grad_test());

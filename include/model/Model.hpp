@@ -265,9 +265,15 @@ class Model
                                  const MatX        &desired_rotation,
                                  const std::string &joint);
 
+    const VecX inverseDynamics(const VecX &q, const VecX &v,
+                               const VecX &a) const;
+
     const VecX inverseDynamics(
       const VecX &q, const VecX &v, const VecX &a,
       const std::unordered_map<std::string, std::vector<Vec3>> &forces) const;
+
+    const VecX inverseDynamics(const VecX &q, const VecX &v, const VecX &a,
+                               const std::vector<Vec6> &joint_forces) const;
 
     // Get a frame jacobian based on the URDF model dynamics
     const MatX frameJacobian(const VecX &x, const std::string &frame,
@@ -299,6 +305,33 @@ class Model
     ConstraintsContainer            _constraints;
     std::vector<std::vector<Force>> _forces;
 
+    // Total joints (including non-actuated)
+    uint _total_joints;
+
+    // Helper functions
+
+    /* Calculates joint forces given a configuration and an external force
+     * vector
+     * Input:
+     *  - `q`: The model configuration
+     *  - `f`: Stacked vector of external forces (the force part of the control
+     *    vector)
+     *  - `force_data`: Vector of data about each force in `f`
+     *
+     * Output: A vector of 6D forces, one for each of the model's joints
+     */
+    std::vector<Vec6> _calculateJointForces(
+      const VecX &q, const VecX &f, const std::vector<Force> &force_data) const;
+
+    /* Calculates joint forces and total force jacobian given a configuration
+     * and an external force vector
+     *
+     * Same as _calculateJointForces, but also calculates the full force
+     * jacobian
+     */
+    std::pair<std::vector<Vec6>, MatX> _calculateJointForcesAndJacobian(
+      const VecX &q, const VecX &f, const std::vector<Force> &force_data) const;
+
     // Functionality functions
 
     void _addURDFInnateConstraints();
@@ -310,9 +343,7 @@ class Model
     struct _StageDynamicsContext
     {
         const MatX         S;
-        const uint         total_joints;
-        uint               nf;
-        std::vector<Force> forces;
+        std::vector<Force> force_data;
         VecX               init_state;
         VecX               init_control;
     };
@@ -321,10 +352,15 @@ class Model
     std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
       const _StageDynamicsContext &ctx) const;
 
-    template<bool FloatingBase>
-    std::pair<std::shared_ptr<stagewise::StageConstraints>,
-              std::shared_ptr<stagewise::StageConstraints>>
-    _makeInnateConstraints() const;
+    struct _StageInnateConstraintsContext
+    {
+        std::vector<Force> force_data;
+    };
+
+    template<bool FloatingBase, bool IsTerminal,
+             DynamicsMode DM = DynamicsMode::Forward, bool WithForces = false>
+    std::shared_ptr<stagewise::StageConstraints> _makeStageInnateConstraints(
+      const _StageInnateConstraintsContext &ctx) const;
 };
 }
 }

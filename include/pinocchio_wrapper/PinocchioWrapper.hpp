@@ -42,7 +42,8 @@ std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl);
 uint modelJoints(const std::shared_ptr<ModelImpl> &impl);
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
-  const std::shared_ptr<ModelImpl> &impl, const bool free_flyer = false);
+  const std::shared_ptr<ModelImpl> &impl, const bool free_flyer = false,
+  const bool include_fb_torques = false);
 
 Eigen::VectorXd integrate(const std::shared_ptr<ModelImpl> &impl,
                           const Eigen::VectorXd &q, const Eigen::VectorXd &v);
@@ -86,8 +87,27 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
 
 Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
                      const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                     const Eigen::VectorXd              &a,
+                     const Eigen::VectorXd &a);
+
+Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
+                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                     const Eigen::VectorXd                       &a,
                      const std::vector<Eigen::Vector<double, 6>> &fext);
+
+void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
+                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                            const Eigen::VectorXd &a,
+                            Eigen::MatrixXd       &rnea_partial_dq,
+                            Eigen::MatrixXd       &rnea_partial_dv,
+                            Eigen::MatrixXd       &rnea_partial_da);
+
+void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
+                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                            const Eigen::VectorXd                       &a,
+                            const std::vector<Eigen::Vector<double, 6>> &fext,
+                            Eigen::MatrixXd &rnea_partial_dq,
+                            Eigen::MatrixXd &rnea_partial_dv,
+                            Eigen::MatrixXd &rnea_partial_da);
 
 void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
                 const Eigen::VectorXd &q, const Eigen::VectorXd &v,
