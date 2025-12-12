@@ -244,6 +244,8 @@ class Model
     // this might be undefined
     double dt() const;
 
+    // Algorithms defined if URDF was used to initialize model
+
     // Perform forward kinematics with the URDF model dynamics
     const std::pair<VecX, MatX> forwardKinematics(
       const VecX &q, const std::string &frame) const;
@@ -282,6 +284,9 @@ class Model
     // Get frame jacobian (assuming computeJointJacobians has been called)
     const MatX frameJacobian(const std::string &frame,
                              bool               local = false) const;
+
+    void dDifference(const VecX &q0, const VecX &q1, MatX &J,
+                     const uint arg_pos) const;
 
     VecX randomState(const uint stage) const;
     VecX randomControls(const uint stage) const;

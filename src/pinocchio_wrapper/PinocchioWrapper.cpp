@@ -378,13 +378,24 @@ Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl)
 
 void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
                 const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                Eigen::MatrixXd &J, uint arg_pos)
+                Eigen::MatrixXd &J, const uint arg_pos)
 {
     pinocchio::dIntegrate(impl->model,
                           q,
                           v,
                           J,
                           static_cast<pinocchio::ArgumentPosition>(arg_pos));
+}
+
+void dDifference(const std::shared_ptr<ModelImpl> &impl,
+                 const Eigen::VectorXd &q0, const Eigen::VectorXd &q1,
+                 Eigen::MatrixXd &J, const uint arg_pos)
+{
+    pinocchio::dDifference(impl->model,
+                           q0,
+                           q1,
+                           J,
+                           static_cast<pinocchio::ArgumentPosition>(arg_pos));
 }
 
 void updateFramePlacements(const std::shared_ptr<ModelImpl> &impl)

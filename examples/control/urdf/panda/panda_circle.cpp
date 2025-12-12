@@ -104,7 +104,7 @@ int main()
     // Define SSQP model
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
-    // model_structure.integration = ssqp::model::ExplicitEuler;
+    //model_structure.integration   = ssqp::model::ExplicitEuler;
     model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
@@ -230,14 +230,17 @@ int main()
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    // params.loose_success = false;
-    params.tolerance = 1e-4;
+    params.loose_success = false;
+    params.tolerance     = 1e-2;
 
     ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance          = 1e-4;
+    admm_params.abs_tolerance          = 1e-3;
     admm_params.rel_tolerance          = 1e-4;
     admm_params.adaptive_rho_tolerance = 5;
     admm_params.rho_update_iter_freq   = 25;
+    admm_params.reset_rho              = false;
+    admm_params.reset_y                = false;
+    admm_params.max_iter               = 100;
 
     // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);

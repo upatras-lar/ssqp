@@ -35,6 +35,8 @@ class admm_qp
         double primal_infs_tolerance = 1e-6; // Primal infeasibility tolerance
 
         bool warm_start = true;
+        bool reset_rho  = true;
+        bool reset_y    = true;
 
         static Params Default()
         {
@@ -53,6 +55,8 @@ class admm_qp
     };
 
     admm_qp(const QPData &qp, const Params &params = Params::Default());
+
+    void reset(const QPData &qp);
 
     SolverState solve(Solution &sol);
 

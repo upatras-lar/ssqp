@@ -69,13 +69,13 @@ SolverState ssqp::solve(Guess &guess)
 
     DEBUG_LOGLN("Starting SSQP solver loop");
 
+    QPData            qp = _setup_qp();
+    admm_qp::Solution sol(qp.dims);
+    admm_qp           qp_solver(qp, _admm_params);
+
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
-        QPData qp = _setup_qp();
-
-        admm_qp           qp_solver(qp, _admm_params);
-        admm_qp::Solution sol(qp.dims);
-        SolverState       state = qp_solver.solve(sol);
+        SolverState state = qp_solver.solve(sol);
 
         switch (state)
         {
@@ -175,6 +175,9 @@ SolverState ssqp::solve(Guess &guess)
             _prev_cost_dx = _cost_dx;
             _prev_cost_du = _cost_du;
         }
+
+        qp = _setup_qp();
+        qp_solver.reset(qp);
     }
 
     guess = _guess;
@@ -282,14 +285,28 @@ QPData ssqp::_setup_qp()
                               qp.stages[k].A,
                               qp.stages[k].B);
 
-        DEBUG_LOGLN("A: " << std::endl << qp.stages[k].A);
-        DEBUG_LOGLN("B: " << std::endl << qp.stages[k].B);
+        const VecX f =
+          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
 
         // Get gamma_k
-        qp.stages[k].gamma = dynamics[k]->state_right_minus(
-          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
-          _guess.x.stage(k + 1));
+        qp.stages[k].gamma =
+          dynamics[k]->state_right_minus(f, _guess.x.stage(k + 1));
 
+        MatX Jx = qp.stages[k].A.topLeftCorner(_model.nv(k), _model.nv(k));
+        MatX Ju = qp.stages[k].B.topLeftCorner(_model.nv(k), _model.nv(k));
+
+        MatX Jr_inv = MatX::Zero(_model.nv(k), _model.nv(k));
+        _model.dDifference(_guess.x.stage(k + 1).head(_model.nq(k)),
+                           f.head(_model.nq(k)),
+                           Jr_inv,
+                           1);
+
+        qp.stages[k].A.topLeftCorner(_model.nv(k), _model.nv(k)) = Jr_inv * Jx;
+        qp.stages[k].B.topLeftCorner(_model.nv(k), _model.nv(k)) = Jr_inv * Ju;
+
+        DEBUG_LOGLN("A: " << std::endl << qp.stages[k].A);
+        DEBUG_LOGLN("B: " << std::endl << qp.stages[k].B);
+        DEBUG_LOGLN("Jr_inv: " << std::endl << Jr_inv);
         DEBUG_LOGLN("gamma: " << qp.stages[k].gamma.transpose());
 
         // Calculate Q_k

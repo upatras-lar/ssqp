@@ -25,6 +25,24 @@ admm_qp::admm_qp(const QPData &qp, const Params &params)
     _rho_inv.vec.setConstant(1 / _params.init_rho);
 }
 
+void admm_qp::reset(const QPData &qp)
+{
+    _qp = qp;
+
+    if (_params.reset_rho)
+    {
+        _rho.vec.setConstant(_params.init_rho);
+        _rho_inv.vec.setConstant(1 / _params.init_rho);
+    }
+
+    if (_params.reset_y)
+    {
+        _solution.y.vec.setZero();
+    }
+
+    _solution.z.vec.setZero();
+}
+
 SolverState admm_qp::solve(admm_qp::Solution &sol)
 {
     DEBUG_LOGLN("Solving with ADMM");
@@ -66,13 +84,13 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         _solution.P = lqr_out.P;
         _solution.p = lqr_out.p;
 
-        // DEBUG_LOGLN("LQR solution, iteration " << _iter + 1);
-        // DEBUG_LOGLN("=============");
-        // DEBUG_LOGLN("x:");
-        // DEBUG_LOGLN(lqr_out.x);
-        // DEBUG_LOGLN("u:");
-        // DEBUG_LOGLN(lqr_out.u);
-        // DEBUG_LOGLN("=============");
+        DEBUG_LOGLN("LQR solution, iteration " << _iter + 1);
+        DEBUG_LOGLN("=============");
+        DEBUG_LOGLN("x:");
+        DEBUG_LOGLN(lqr_out.x);
+        DEBUG_LOGLN("u:");
+        DEBUG_LOGLN(lqr_out.u);
+        DEBUG_LOGLN("=============");
 
         FlatVec x_prev = _solution.dx, u_prev = _solution.du,
                 z_prev = _solution.z, y_prev = _solution.y;
@@ -81,17 +99,17 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
         _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
 
-        // DEBUG_LOGLN("Update step, iteration " << _iter + 1);
-        // DEBUG_LOGLN("=============");
-        // DEBUG_LOGLN("x:");
-        // DEBUG_LOGLN(_solution.dx);
-        // DEBUG_LOGLN("u:");
-        // DEBUG_LOGLN(_solution.du);
-        // DEBUG_LOGLN("z:");
-        // DEBUG_LOGLN(_solution.z);
-        // DEBUG_LOGLN("y:");
-        // DEBUG_LOGLN(_solution.y);
-        // DEBUG_LOGLN("=============");
+        DEBUG_LOGLN("Update step, iteration " << _iter + 1);
+        DEBUG_LOGLN("=============");
+        DEBUG_LOGLN("x:");
+        DEBUG_LOGLN(_solution.dx);
+        DEBUG_LOGLN("u:");
+        DEBUG_LOGLN(_solution.du);
+        DEBUG_LOGLN("z:");
+        DEBUG_LOGLN(_solution.z);
+        DEBUG_LOGLN("y:");
+        DEBUG_LOGLN(_solution.y);
+        DEBUG_LOGLN("=============");
         // DEBUG_WAIT();
 
         if (!((_iter) % _params.rho_update_iter_freq))
