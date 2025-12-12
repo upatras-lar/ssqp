@@ -646,6 +646,12 @@ const MatX Model::frameJacobian(const std::string &frame, bool local) const
     return J6;
 }
 
+void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
+                        const uint arg_pos) const
+{
+    pinocchio_wrapper::dDifference(_impl, q0, q1, J, arg_pos);
+}
+
 VecX Model::randomState(const uint stage) const
 {
     // TODO: Velocity limit

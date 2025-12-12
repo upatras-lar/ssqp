@@ -306,7 +306,6 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 {
                     dU = MatX::Zero(2 * _dims.nv[0], _dims.nv[0]);
                 }
-                // TODO: Tests succeed with below line, but verify why
                 dU.topLeftCorner(_dims.nv[0], _dims.nv[0]) = Jint_v * _dt * _dt;
                 dU.bottomLeftCorner(_dims.nv[0], _dims.nv[0])
                   .diagonal()
