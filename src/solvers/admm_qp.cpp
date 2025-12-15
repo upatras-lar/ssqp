@@ -110,7 +110,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         DEBUG_LOGLN("y:");
         DEBUG_LOGLN(_solution.y);
         DEBUG_LOGLN("=============");
-        // DEBUG_WAIT();
+        DEBUG_WAIT();
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {
@@ -157,6 +157,11 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
+        if (_qp.stages[k].D.rows() == 0)
+        {
+            continue;
+        }
+
         // DEBUG_LOGLN("Stage " << k << ": ");
         VecX zdiff_scaled =
           _rho.stage(k).cwiseProduct(_solution.z.stage(k) - z_prev.stage(k));
@@ -205,6 +210,11 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
           (_qp.stages[k].cu.transpose() * dy.stage(k).cwiseMax(0) +
            _qp.stages[k].cl.transpose() * dy.stage(k).cwiseMin(0))(0);
         */
+    }
+
+    if (_qp.Dt.rows() == 0)
+    {
+        return;
     }
 
     VecX zdiff_scaled = _rho.stage(_qp.dims.horizon)

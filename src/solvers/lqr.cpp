@@ -56,6 +56,11 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol)
     // Calculate constraint terms, assuming rho did not change
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
+        if (_qp.stages[k].D.rows() == 0)
+        {
+            continue;
+        }
+
         _qx[k].noalias() =
           _qp.stages[k].qx +
           _qp.stages[k].D.transpose() * current_sol.y.stage(k) -
@@ -70,11 +75,16 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol)
             current_sol.z.stage(k) -
           _sigma * current_sol.du.stage(k);
     }
-    _qt.noalias() =
-      _qp.qx_t + _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
-      _qp.Dt.transpose() * _rho.stage(_qp.dims.horizon).asDiagonal() *
-        current_sol.z.stage(_qp.dims.horizon) +
-      _sigma * current_sol.dx.stage(_qp.dims.horizon);
+
+    if (_qp.Dt.rows() != 0)
+    {
+        _qt.noalias() =
+          _qp.qx_t +
+          _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
+          _qp.Dt.transpose() * _rho.stage(_qp.dims.horizon).asDiagonal() *
+            current_sol.z.stage(_qp.dims.horizon) +
+          _sigma * current_sol.dx.stage(_qp.dims.horizon);
+    }
 
     _solve_cache_rho();
 
@@ -89,6 +99,11 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol,
     // Calculate constraint terms
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
+        if (_qp.stages[k].D.rows() == 0)
+        {
+            continue;
+        }
+
         _Qxx[k].noalias() = _qp.stages[k].Qxx +
                             _qp.stages[k].D.transpose() *
                               rho.stage(k).asDiagonal() * _qp.stages[k].D +
@@ -118,16 +133,21 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol,
           _sigma * current_sol.du.stage(k);
     }
 
-    _Qt.noalias() =
-      _qp.Qxx_t +
-      _qp.Dt.transpose() * rho.stage(_qp.dims.horizon).asDiagonal() * _qp.Dt +
-      _sigma * MatX::Identity(_qp.dims.stage_state[_qp.dims.horizon],
-                              _qp.dims.stage_state[_qp.dims.horizon]);
-    _qt.noalias() =
-      _qp.qx_t + _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
-      _qp.Dt.transpose() * rho.stage(_qp.dims.horizon).asDiagonal() *
-        current_sol.z.stage(_qp.dims.horizon) -
-      _sigma * current_sol.dx.stage(_qp.dims.horizon);
+    if (_qp.Dt.rows() != 0)
+    {
+        _Qt.noalias() =
+          _qp.Qxx_t +
+          _qp.Dt.transpose() * rho.stage(_qp.dims.horizon).asDiagonal() *
+            _qp.Dt +
+          _sigma * MatX::Identity(_qp.dims.stage_state[_qp.dims.horizon],
+                                  _qp.dims.stage_state[_qp.dims.horizon]);
+        _qt.noalias() =
+          _qp.qx_t +
+          _qp.Dt.transpose() * current_sol.y.stage(_qp.dims.horizon) -
+          _qp.Dt.transpose() * rho.stage(_qp.dims.horizon).asDiagonal() *
+            current_sol.z.stage(_qp.dims.horizon) -
+          _sigma * current_sol.dx.stage(_qp.dims.horizon);
+    }
 
     _solve();
 
@@ -199,6 +219,18 @@ void lqr::_solve()
         _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
                                       _output.P[k + 1] * _qp.stages[k].B;
 
+        // if (k == _qp.dims.horizon - 1)
+        // {
+        //     LOG("_qu: ");
+        //     LOGLN(_qu[k].transpose());
+        //     LOGLN("_Quu: ");
+        //     LOGLN(_Quu[k]);
+        //     LOGLN("_H:");
+        //     LOGLN(_H[k]);
+        //     LOG("h: ");
+        //     LOGLN(h.transpose());
+        // }
+
         if (_qp.dims.stage_control[k] > 1)
         {
             DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
@@ -206,6 +238,12 @@ void lqr::_solve()
             _H_ldlt[k]   = _H[k].ldlt();
             _output.K[k] = -_H_ldlt[k].solve(_G[k]);
             _output.k[k] = -_H_ldlt[k].solve(h);
+
+            // if (k == _qp.dims.horizon - 1)
+            // {
+            //     LOG("k: ");
+            //     LOGLN(_output.k[k].transpose());
+            // }
         }
         else
         {

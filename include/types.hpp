@@ -179,12 +179,17 @@ struct FlatVec
     friend FlatVec       operator*(double val, const FlatVec &p);
     friend std::ostream &operator<<(std::ostream &os, const FlatVec &v);
 
+    void setPrintColumns(const uint cols);
+    uint printColumns() const;
+
   protected:
     uint _max_dim;
     // Stage size vector
     std::vector<uint> _stage_sizes;
     // Accumulated indexing vector
     std::vector<uint> _acc_idx;
+
+    uint _print_cols = 10;
 };
 
 FlatVec       operator*(double val, const FlatVec &p);

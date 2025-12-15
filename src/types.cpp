@@ -148,7 +148,7 @@ std::ostream &operator<<(std::ostream &os, const FlatVec &v)
 {
     static uint width     = 10;
     static uint precision = 4;
-    static uint max_cols  = 10;
+    uint        max_cols  = v.printColumns();
 
     bool skip = v.stages() > max_cols;
 
@@ -195,6 +195,16 @@ std::ostream &operator<<(std::ostream &os, const FlatVec &v)
     }
 
     return os;
+}
+
+void FlatVec::setPrintColumns(const uint cols)
+{
+    _print_cols = cols;
+}
+
+uint FlatVec::printColumns() const
+{
+    return _print_cols > 0 ? _print_cols : stages() + 1;
 }
 
 const std::string to_string(const SolverState &state)

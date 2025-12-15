@@ -1,5 +1,6 @@
 #include "Test.hpp"
 #include "generators/gradients.hpp"
+#include "generators/admm.hpp"
 
 int main()
 {
@@ -74,6 +75,12 @@ int main()
 
     tests.addTest(
       ssqp::tests::generators::get_frame_squared_velocity_cost_grad_test());
+
+    for (std::shared_ptr<ssqp::tests::Test> test :
+         ssqp::tests::generators::get_admm_problems())
+    {
+        tests.addTest(test);
+    }
 
     tests.runAll();
 }
