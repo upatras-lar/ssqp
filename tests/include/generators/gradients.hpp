@@ -1,3 +1,6 @@
+#ifndef SSQP_TESTS_GENERATORS_GRADIENTS_HPP
+#define SSQP_TESTS_GENERATORS_GRADIENTS_HPP
+
 #include "Test.hpp"
 #include "FDGrad.hpp"
 #include "types.hpp"
@@ -45,3 +48,5 @@ std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test();
 }
 }
 }
+
+#endif
