@@ -23,8 +23,8 @@
 #define F_WGT 1e-9
 
 // Jump
-#define STEPS_BEFORE 40
-#define STEPS_AFTER  40
+#define STEPS_BEFORE 25
+#define STEPS_AFTER  25
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -59,7 +59,7 @@ int main()
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     // model_structure.ignore_innate_constraints = true;
-    // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
+    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     init_control.segment(6, 12) =
@@ -171,16 +171,16 @@ int main()
                                                           CONTROL_SIZE);
 
     ssqp::model::Model::Config model_config;
-    model_config.init_states   = { init };
-    model_config.init_controls = init_controls;
+    model_config.init_states = { init };
+    //model_config.init_controls = init_controls;
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
     params.loose_success  = false;
-    params.tolerance      = 1e-2;
+    params.tolerance      = 1e-1;
     params.use_filter     = false;
-    params.merit_mu_gamma = 1.0;
-    params.merit_mu_c     = 1.0;
+    params.merit_mu_gamma = 0.8;
+    params.merit_mu_c     = 6.0;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;

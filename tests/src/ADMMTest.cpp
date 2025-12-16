@@ -23,10 +23,14 @@ ADMMTest::ADMMTest(
 
 bool ADMMTest::run()
 {
-    solvers::admm_qp           qp_solver(_qp);
+    solvers::admm_qp::Params params;
+    params.abs_tolerance = 1e-6;
+    params.rel_tolerance = 1e-6;
+    solvers::admm_qp           qp_solver(_qp, params);
     solvers::admm_qp::Solution sol(_qp.dims);
     qp_solver.solve(sol);
 
+    bool pass = true;
     if ((sol.dx - _solution.dx).vec.lpNorm<Eigen::Infinity>() > _tol)
     {
         _solution.dx.setPrintColumns(-1);
@@ -38,12 +42,52 @@ bool ADMMTest::run()
         ss << "Calculated dx: " << std::endl << sol.dx << std::endl;
 
         _failed_logs.push_back(ss.str());
-        return false;
+        pass = false;
     }
 
-    // Note: Comparing u, z, y is pointless, since they can be different
+    if ((sol.du - _solution.du).vec.lpNorm<Eigen::Infinity>() > _tol)
+    {
+        _solution.du.setPrintColumns(-1);
+        sol.du.setPrintColumns(-1);
 
-    return true;
+        std::stringstream ss;
+        ss << "Solution du mismatch" << std::endl;
+        ss << "Expected du: " << std::endl << _solution.du << std::endl;
+        ss << "Calculated du: " << std::endl << sol.du << std::endl;
+
+        _failed_logs.push_back(ss.str());
+        pass = false;
+    }
+
+    if ((sol.z - _solution.z).vec.lpNorm<Eigen::Infinity>() > _tol)
+    {
+        _solution.z.setPrintColumns(-1);
+        sol.z.setPrintColumns(-1);
+
+        std::stringstream ss;
+        ss << "Solution z mismatch" << std::endl;
+        ss << "Expected z: " << std::endl << _solution.z << std::endl;
+        ss << "Calculated z: " << std::endl << sol.z << std::endl;
+
+        _failed_logs.push_back(ss.str());
+        pass = false;
+    }
+
+    if ((sol.y - _solution.y).vec.lpNorm<Eigen::Infinity>() > _tol)
+    {
+        _solution.y.setPrintColumns(-1);
+        sol.y.setPrintColumns(-1);
+
+        std::stringstream ss;
+        ss << "Solution y mismatch" << std::endl;
+        ss << "Expected y: " << std::endl << _solution.y << std::endl;
+        ss << "Calculated y: " << std::endl << sol.y << std::endl;
+
+        _failed_logs.push_back(ss.str());
+        pass = false;
+    }
+
+    return pass;
 }
 
 std::pair<solvers::QPData, solvers::admm_qp::Solution>

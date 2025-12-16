@@ -177,6 +177,11 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
         _norm_primal =
           std::max(_norm_primal,
                    (CdxCdu - _solution.z.stage(k)).lpNorm<Eigen::Infinity>());
+        // LOGLN((CdxCdu - _solution.z.stage(k)).lpNorm<Eigen::Infinity>());
+        // LOGLN("CDXCDU");
+        // LOGLN(CdxCdu);
+        // LOGLN("z");
+        // LOGLN(_solution.z.stage(k));
 
         _norm_primal_rel =
           std::max(_norm_primal_rel, CdxCdu.lpNorm<Eigen::Infinity>());
