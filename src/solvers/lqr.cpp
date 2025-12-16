@@ -6,7 +6,7 @@ namespace solvers
 {
 
 lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
-         const FlatVec &rho, const double sigma)
+         const FlatVec &rho, const lqr::Params &params)
   : _qp(qp)
   , _Qxx(qp.dims.horizon)
   , _Qxu(qp.dims.horizon)
@@ -14,10 +14,17 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
   , _qx(qp.dims.horizon)
   , _qu(qp.dims.horizon)
   , _rho(rho, true)
-  , _sigma(sigma)
+  , _sigma(params.sigma)
   , _G(qp.dims.horizon)
   , _H(qp.dims.horizon)
   , _H_llt(qp.dims.horizon)
+  , _solve_success_sma_k(params.solve_window)
+  , _solve_success_sma_ratio(params.solve_success_ratio)
+  , _solve_success_sum(0)
+  , _reg_init(params.reg_init)
+  , _reg_factor(params.reg_factor)
+  , _reg_max(params.reg_max)
+  , _reg(params.reg_init)
   , _output({ FlatVec(current_sol.dx, false),
               FlatVec(current_sol.du, false),
               std::vector<MatX>(qp.dims.horizon + 1),
@@ -198,70 +205,97 @@ void lqr::_solve_cache_rho()
 
 void lqr::_solve()
 {
-    DEBUG_LOGLN("Qt:" << std::endl << _Qt);
-    _output.P[_qp.dims.horizon] = _Qt;
-    _output.p[_qp.dims.horizon] = _qt;
+    bool backward_fail = false;
 
-    // Backward pass
-    for (int k = _qp.dims.horizon - 1; k >= 0; --k)
+    do {
+        DEBUG_LOGLN("Qt:" << std::endl << _Qt);
+        _output.P[_qp.dims.horizon] = _Qt;
+        _output.p[_qp.dims.horizon] = _qt;
+
+        // Backward pass
+        for (int k = _qp.dims.horizon - 1; k >= 0; --k)
+        {
+            VecX h = _qu[k] + _qp.stages[k].B.transpose() *
+                                (_output.p[k + 1] +
+                                 _output.P[k + 1] * _qp.stages[k].gamma);
+
+            _G[k].noalias() =
+              _Qxu[k].transpose() +
+              _qp.stages[k].B.transpose() * _output.P[k + 1] * _qp.stages[k].A;
+
+            DEBUG_LOGLN("Quu[" << k << "]:" << std::endl << _Quu[k]);
+            DEBUG_LOGLN("P[" << k + 1 << "]:" << std::endl << _output.P[k + 1]);
+
+            _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
+                                          _output.P[k + 1] * _qp.stages[k].B;
+
+            _H[k] = _H[k].selfadjointView<Eigen::Upper>();
+
+            MatX H_k = _H[k] + _reg * MatX::Identity(_qp.dims.stage_control[k],
+                                                     _qp.dims.stage_control[k]);
+
+            if (_qp.dims.stage_control[k] > 1)
+            {
+                DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
+                DEBUG_LOGLN("H[" << k << "]:" << std::endl << H_k);
+                DEBUG_LOGLN("h[" << k << "]: " << h.transpose());
+
+                _H_llt[k] = H_k.llt();
+                _solve_successes.push_front(_H_llt[k].info() == Eigen::Success);
+                _solve_success_sum += _solve_successes.front();
+
+                if (_solve_successes.size() > _solve_success_sma_k)
+                {
+                    _solve_success_sum -= _solve_successes.back();
+                    _solve_successes.pop_back();
+                }
+
+                if (!_solve_successes.front())
+                {
+                    DEBUG_LOGLN("Backward pass failed");
+                    backward_fail = true;
+                    break;
+                }
+
+                _output.K[k] = -_H_llt[k].solve(_G[k]);
+                _output.k[k] = -_H_llt[k].solve(h);
+            }
+            else
+            {
+                double coeff = 1. / H_k(0, 0);
+                _output.K[k] = -coeff * _G[k];
+                _output.k[k] = -coeff * h;
+            }
+
+            _output.P[k] =
+              _Qxx[k] +
+              _qp.stages[k].A.transpose() * _output.P[k + 1] * _qp.stages[k].A -
+              _output.K[k].transpose() * _H[k] * _output.K[k];
+
+            _output.P[k] = _output.P[k].selfadjointView<Eigen::Upper>();
+
+            _output.p[k] =
+              _qx[k] + _output.K[k].transpose() * _qu[k] +
+              (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]).transpose() *
+                (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
+        }
+
+        if (backward_fail)
+        {
+            DEBUG_LOGLN("Increasing LQR regularization");
+            _reg *= _reg_factor;
+            if (_reg > _reg_max)
+            {
+                throw std::runtime_error("LQR: Regularization failed");
+            }
+        }
+    } while (backward_fail);
+
+    if (_reg > _reg_init &&
+        static_cast<double>(_solve_success_sum) / _solve_success_sma_k >
+          _solve_success_sma_ratio)
     {
-        VecX h = _qu[k] +
-                 _qp.stages[k].B.transpose() *
-                   (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
-
-        _G[k].noalias() = _Qxu[k].transpose() + _qp.stages[k].B.transpose() *
-                                                  _output.P[k + 1] *
-                                                  _qp.stages[k].A;
-
-        DEBUG_LOGLN("Quu[" << k << "]:" << std::endl << _Quu[k]);
-        DEBUG_LOGLN("P[" << k + 1 << "]:" << std::endl << _output.P[k + 1]);
-
-        _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
-                                      _output.P[k + 1] * _qp.stages[k].B;
-
-        // if (k == _qp.dims.horizon - 1)
-        // {
-        //     LOG("_qu: ");
-        //     LOGLN(_qu[k].transpose());
-        //     LOGLN("_Quu: ");
-        //     LOGLN(_Quu[k]);
-        //     LOGLN("_H:");
-        //     LOGLN(_H[k]);
-        //     LOG("h: ");
-        //     LOGLN(h.transpose());
-        // }
-
-        if (_qp.dims.stage_control[k] > 1)
-        {
-            DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
-            DEBUG_LOGLN("H[" << k << "]:" << std::endl << _H[k]);
-            DEBUG_LOGLN("h[" << k << "]: " << h.transpose());
-            _H_llt[k]    = _H[k].llt();
-            _output.K[k] = -_H_llt[k].solve(_G[k]);
-            _output.k[k] = -_H_llt[k].solve(h);
-
-            // if (k == _qp.dims.horizon - 1)
-            // {
-            //     LOG("k: ");
-            //     LOGLN(_output.k[k].transpose());
-            // }
-        }
-        else
-        {
-            double coeff = 1. / _H[k](0, 0);
-            _output.K[k] = -coeff * _G[k];
-            _output.k[k] = -coeff * h;
-        }
-
-        _output.P[k] =
-          _Qxx[k] +
-          _qp.stages[k].A.transpose() * _output.P[k + 1] * _qp.stages[k].A -
-          _output.K[k].transpose() * _H[k] * _output.K[k];
-
-        _output.p[k] =
-          _qx[k] + _output.K[k].transpose() * _qu[k] +
-          (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]).transpose() *
-            (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
+        _reg /= _reg_factor;
     }
 
     // Forward pass

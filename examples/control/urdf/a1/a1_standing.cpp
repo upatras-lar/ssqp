@@ -11,20 +11,20 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      80
+#define HORIZON      1000
 #define dt           0.01
 // Trunk position weight
-#define P_WGT 1e5
+#define P_WGT 10
 // Orientation weight
-#define R_WGT 80
+#define R_WGT 8
 // Velocity regularization weight
-#define V_WGT 1e-1
+#define V_WGT 1e-4
 // Control regularization weight
-#define U_WGT 1e-3
+#define U_WGT 1e-5
 // Force regularization weight
 #define F_WGT 1e-9
 // Whether we only use two feet to stand on
-#define TWO_FEET false
+#define TWO_FEET true
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -32,9 +32,9 @@ int main()
 {
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer = true;
-    // model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     // Trunk position
@@ -74,6 +74,13 @@ int main()
     {
         init_control = Eigen::VectorXd::Zero(30);
     }
+
+    Eigen::Vector3d l(-std::numeric_limits<double>::infinity(),
+                      -std::numeric_limits<double>::infinity(),
+                      0.001);
+    Eigen::Vector3d u(std::numeric_limits<double>::infinity(),
+                      std::numeric_limits<double>::infinity(),
+                      std::numeric_limits<double>::infinity());
 
     for (uint k = 0; k < HORIZON; ++k)
     {
@@ -147,6 +154,24 @@ int main()
               STATE_SIZE,
               CONTROL_SIZE);
         }
+        else
+        {
+            model.addConstraints<constraints::FramePositionBound>(k,
+                                                                  model,
+                                                                  "FR_foot",
+                                                                  l,
+                                                                  u,
+                                                                  STATE_SIZE,
+                                                                  CONTROL_SIZE);
+
+            model.addConstraints<constraints::FramePositionBound>(k,
+                                                                  model,
+                                                                  "RL_foot",
+                                                                  l,
+                                                                  u,
+                                                                  STATE_SIZE,
+                                                                  CONTROL_SIZE);
+        }
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
@@ -175,13 +200,13 @@ int main()
                                                     0 * P_WGT,
                                                     0 * R_WGT);
 
-    // model.addConstraints<constraints::FramePositionBound>(HORIZON,
-    //   model,
-    //   "trunk",
-    //   base_pos,
-    //   base_pos,
-    //   STATE_SIZE,
-    //   CONTROL_SIZE);
+    model.addConstraints<constraints::FramePositionBound>(HORIZON,
+                                                          model,
+                                                          "trunk",
+                                                          base_pos,
+                                                          base_pos,
+                                                          STATE_SIZE,
+                                                          CONTROL_SIZE);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states   = { init };
@@ -191,12 +216,12 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     // params.loose_success = false;
-    params.tolerance  = 1e-3;
+    params.tolerance  = 1e-2;
     params.max_iter   = 500;
     params.use_filter = false;
 
     ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance = 1e-4;
+    admm_params.abs_tolerance = 1e-3;
     admm_params.rel_tolerance = 1e-4;
     admm_params.max_iter      = 1000;
 
