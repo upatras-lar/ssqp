@@ -18,7 +18,7 @@ std::vector<std::shared_ptr<Test>> get_admm_problems()
             tests.push_back(std::make_shared<ADMMTest>(
               "ADMMTest-" + static_cast<std::string>(entry.path().filename()),
               entry.path(),
-              5e-1));
+              1e-1));
         }
     }
 

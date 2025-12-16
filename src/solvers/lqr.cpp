@@ -17,7 +17,7 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
   , _sigma(sigma)
   , _G(qp.dims.horizon)
   , _H(qp.dims.horizon)
-  , _H_ldlt(qp.dims.horizon)
+  , _H_llt(qp.dims.horizon)
   , _output({ FlatVec(current_sol.dx, false),
               FlatVec(current_sol.du, false),
               std::vector<MatX>(qp.dims.horizon + 1),
@@ -168,7 +168,7 @@ void lqr::_solve_cache_rho()
         // TODO: is LLT appropriate?
         if (_qp.dims.stage_control[k] > 1)
         {
-            _output.k[k].noalias() = -_H_ldlt[k].solve(h);
+            _output.k[k].noalias() = -_H_llt[k].solve(h);
         }
         else
         {
@@ -235,9 +235,10 @@ void lqr::_solve()
         {
             DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
             DEBUG_LOGLN("H[" << k << "]:" << std::endl << _H[k]);
-            _H_ldlt[k]   = _H[k].ldlt();
-            _output.K[k] = -_H_ldlt[k].solve(_G[k]);
-            _output.k[k] = -_H_ldlt[k].solve(h);
+            DEBUG_LOGLN("h[" << k << "]: " << h.transpose());
+            _H_llt[k]    = _H[k].llt();
+            _output.K[k] = -_H_llt[k].solve(_G[k]);
+            _output.k[k] = -_H_llt[k].solve(h);
 
             // if (k == _qp.dims.horizon - 1)
             // {

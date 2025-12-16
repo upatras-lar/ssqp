@@ -13,21 +13,21 @@
 #define CONTROL_SIZE 18
 #define dt           0.01
 // Position weight
-#define P_WGT 1
+#define P_WGT 3
 // Orientation weight
-#define O_WGT 1
+#define O_WGT 10
 // State regularization weight
-#define A_WGT 1e-6
+#define A_WGT 0
 // Velocity regularization weight
-#define V_WGT 1e-3
+#define V_WGT 1e-5
 // Control regularization weight
-#define U_WGT 1e-4
+#define U_WGT 1e-5
 // Force regularization weight
-#define F_WGT 1e-5
+#define F_WGT 1e-7
 
 #define STANDING_STEPS 20
-#define INPLACE_STEPS  25
-#define REPEATS        4
+#define INPLACE_STEPS  40
+#define REPEATS        2
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -115,9 +115,8 @@ int main()
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer = true;
-    //model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
+    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
     model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
@@ -189,6 +188,13 @@ int main()
 
     uint current_step = STANDING_STEPS;
 
+    Eigen::Vector3d l(-std::numeric_limits<double>::infinity(),
+                      -std::numeric_limits<double>::infinity(),
+                      0.05);
+    Eigen::Vector3d u(std::numeric_limits<double>::infinity(),
+                      std::numeric_limits<double>::infinity(),
+                      std::numeric_limits<double>::infinity());
+
     for (uint i = 0; i < REPEATS; ++i)
     {
         for (uint k = current_step; k < current_step + INPLACE_STEPS; ++k)
@@ -224,6 +230,22 @@ int main()
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
               CONTROL_SIZE);
+
+            model.addConstraints<constraints::FramePositionBound>(k,
+                                                                  model,
+                                                                  "FR_foot",
+                                                                  l,
+                                                                  u,
+                                                                  STATE_SIZE,
+                                                                  CONTROL_SIZE);
+
+            model.addConstraints<constraints::FramePositionBound>(k,
+                                                                  model,
+                                                                  "RL_foot",
+                                                                  l,
+                                                                  u,
+                                                                  STATE_SIZE,
+                                                                  CONTROL_SIZE);
 
             init_controls.push_back(init_control_21);
         }
@@ -271,6 +293,22 @@ int main()
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
               CONTROL_SIZE);
+
+            model.addConstraints<constraints::FramePositionBound>(k,
+                                                                  model,
+                                                                  "FL_foot",
+                                                                  l,
+                                                                  u,
+                                                                  STATE_SIZE,
+                                                                  CONTROL_SIZE);
+
+            model.addConstraints<constraints::FramePositionBound>(k,
+                                                                  model,
+                                                                  "RR_foot",
+                                                                  l,
+                                                                  u,
+                                                                  STATE_SIZE,
+                                                                  CONTROL_SIZE);
 
             init_controls.push_back(init_control_22);
         }
@@ -323,20 +361,20 @@ int main()
     }
 
     ssqp::model::Model::Config model_config;
-    model_config.init_states = { init };
-    //model_config.init_controls = init_controls;
+    model_config.init_states   = { init };
+    model_config.init_controls = init_controls;
 
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
     params.tolerance  = 1e-2;
     params.max_iter   = 500;
-    params.use_filter = false;
+    params.use_filter = true;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
     admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 250;
+    admm_params.max_iter      = 500;
     admm_params.warm_start    = true;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);
