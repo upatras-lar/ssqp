@@ -14,17 +14,17 @@
 #define HORIZON      100
 #define dt           0.01
 // Angle regularization weight
-#define A_WGT 1e-5
+#define A_WGT 0
 // Velocity regularization weight
 #define V_WGT 1e-3
 // Control regularization weight
-#define U_WGT 1e-9
+#define U_WGT 1e-5
 // Force regularization weight
-#define F_WGT 1e-9
+#define F_WGT 1e-7
 
 // Jump
-#define STEPS_BEFORE 25
-#define STEPS_AFTER  25
+#define STEPS_BEFORE 15
+#define STEPS_AFTER  45
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -56,9 +56,8 @@ int main()
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer = true;
-    // model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
     model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
@@ -172,15 +171,14 @@ int main()
 
     ssqp::model::Model::Config model_config;
     model_config.init_states = { init };
-    //model_config.init_controls = init_controls;
+    // model_config.init_controls = init_controls;
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    params.loose_success  = false;
-    params.tolerance      = 1e-1;
-    params.use_filter     = false;
-    params.merit_mu_gamma = 0.8;
-    params.merit_mu_c     = 6.0;
+    params.loose_success = false;
+    params.tolerance     = 1e-2;
+    params.use_filter    = true;
+    params.filter_size   = 100;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;

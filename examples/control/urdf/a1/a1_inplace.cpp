@@ -13,21 +13,21 @@
 #define CONTROL_SIZE 18
 #define dt           0.01
 // Position weight
-#define P_WGT 3
+#define P_WGT 10
 // Orientation weight
-#define O_WGT 10
+#define O_WGT 8
 // State regularization weight
 #define A_WGT 0
 // Velocity regularization weight
-#define V_WGT 1e-5
+#define V_WGT 1e-4
 // Control regularization weight
 #define U_WGT 1e-5
 // Force regularization weight
 #define F_WGT 1e-7
 
-#define STANDING_STEPS 20
-#define INPLACE_STEPS  40
-#define REPEATS        2
+#define STANDING_STEPS 30
+#define INPLACE_STEPS  60
+#define REPEATS        6
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -231,21 +231,27 @@ int main()
               STATE_SIZE,
               CONTROL_SIZE);
 
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "FR_foot",
-                                                                  l,
-                                                                  u,
-                                                                  STATE_SIZE,
-                                                                  CONTROL_SIZE);
+            if (k > current_step + INPLACE_STEPS / 4 &&
+                k < current_step + 3 * INPLACE_STEPS / 4)
+            {
+                model.addConstraints<constraints::FramePositionBound>(
+                  k,
+                  model,
+                  "FR_foot",
+                  l,
+                  u,
+                  STATE_SIZE,
+                  CONTROL_SIZE);
 
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "RL_foot",
-                                                                  l,
-                                                                  u,
-                                                                  STATE_SIZE,
-                                                                  CONTROL_SIZE);
+                model.addConstraints<constraints::FramePositionBound>(
+                  k,
+                  model,
+                  "RL_foot",
+                  l,
+                  u,
+                  STATE_SIZE,
+                  CONTROL_SIZE);
+            }
 
             init_controls.push_back(init_control_21);
         }
@@ -294,21 +300,27 @@ int main()
               STATE_SIZE,
               CONTROL_SIZE);
 
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "FL_foot",
-                                                                  l,
-                                                                  u,
-                                                                  STATE_SIZE,
-                                                                  CONTROL_SIZE);
+            if (k > current_step + INPLACE_STEPS / 4 &&
+                k < current_step + 3 * INPLACE_STEPS / 4)
+            {
+                model.addConstraints<constraints::FramePositionBound>(
+                  k,
+                  model,
+                  "FL_foot",
+                  l,
+                  u,
+                  STATE_SIZE,
+                  CONTROL_SIZE);
 
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "RR_foot",
-                                                                  l,
-                                                                  u,
-                                                                  STATE_SIZE,
-                                                                  CONTROL_SIZE);
+                model.addConstraints<constraints::FramePositionBound>(
+                  k,
+                  model,
+                  "RR_foot",
+                  l,
+                  u,
+                  STATE_SIZE,
+                  CONTROL_SIZE);
+            }
 
             init_controls.push_back(init_control_22);
         }
@@ -361,20 +373,21 @@ int main()
     }
 
     ssqp::model::Model::Config model_config;
-    model_config.init_states   = { init };
-    model_config.init_controls = init_controls;
+    model_config.init_states = { init };
+    // model_config.init_controls = init_controls;
 
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
     params.tolerance  = 1e-2;
     params.max_iter   = 500;
-    params.use_filter = true;
+    params.use_filter = false;
+    params.merit_mu_c = 2.0;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
     admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 500;
+    admm_params.max_iter      = 400;
     admm_params.warm_start    = true;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);

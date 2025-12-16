@@ -104,8 +104,8 @@ int main()
     // Define SSQP model
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
-    //model_structure.integration   = ssqp::model::ExplicitEuler;
-    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
+    // model_structure.integration   = ssqp::model::ExplicitEuler;
+    // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     Eigen::VectorXd init_state = Eigen::VectorXd::Zero(2 * STATE_SIZE);
@@ -231,7 +231,7 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     params.loose_success = false;
-    params.tolerance     = 1e-2;
+    params.tolerance     = 1e-1;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance          = 1e-3;
@@ -240,7 +240,7 @@ int main()
     admm_params.rho_update_iter_freq   = 25;
     admm_params.reset_rho              = false;
     admm_params.reset_y                = false;
-    admm_params.max_iter               = 100;
+    admm_params.max_iter               = 1000;
 
     // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);

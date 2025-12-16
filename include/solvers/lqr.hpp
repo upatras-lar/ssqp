@@ -2,6 +2,8 @@
 #define SSQP_SOLVERS_LQR_HPP
 
 #include <vector>
+#include <deque>
+#include <exception>
 
 #include <Eigen/Dense>
 
@@ -15,6 +17,23 @@ namespace solvers
 class lqr
 {
   public:
+    struct Params
+    {
+        double sigma = 10e-6;
+
+        uint   solve_window        = 10;
+        double solve_success_ratio = 0.9;
+
+        double reg_init   = 1e-6;
+        double reg_factor = 10.0;
+        double reg_max    = 1e10;
+
+        static Params Default()
+        {
+            return {};
+        }
+    };
+
     struct Output
     {
         FlatVec           x, u;
@@ -23,7 +42,7 @@ class lqr
     };
 
     lqr(const QPData &qp, const admm_qp::Solution &current_sol,
-        const FlatVec &rho, const double sigma = 10e-6);
+        const FlatVec &rho, const Params &params = Params::Default());
 
     // Returns output for its structure
     Output output_structure();
@@ -49,6 +68,15 @@ class lqr
 
     std::vector<MatX>             _G, _H;
     std::vector<Eigen::LLT<MatX>> _H_llt;
+    const uint                    _solve_success_sma_k;
+    const double                  _solve_success_sma_ratio;
+    uint                          _solve_success_sum;
+    std::deque<bool>              _solve_successes;
+
+    const double _reg_init;
+    const double _reg_factor;
+    const double _reg_max;
+    double       _reg;
 
     Output _output;
 
