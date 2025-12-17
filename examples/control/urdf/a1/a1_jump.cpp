@@ -11,7 +11,7 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      200
+#define HORIZON      250
 #define dt           0.01
 // Angle regularization weight
 #define A_WGT 0
@@ -25,12 +25,11 @@
 #define TP_WEIGHT 100
 // Terminal orientation weight
 #define TO_WEIGHT 8
-// Times to repeat jump
-#define REPEATS 3
 
 // Jump
 #define STEPS_BEFORE 15
 #define STEPS_AFTER  45
+#define REPEATS      3
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -210,14 +209,14 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     params.loose_success = false;
-    params.tolerance     = 1e-2;
+    params.tolerance     = 2e-2;
     params.use_filter    = true;
     params.filter_size   = 100;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
     admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 1000;
+    admm_params.max_iter      = 500;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
