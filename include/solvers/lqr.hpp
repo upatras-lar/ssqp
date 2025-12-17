@@ -26,7 +26,7 @@ class lqr
 
         double reg_init   = 1e-6;
         double reg_factor = 10.0;
-        double reg_max    = 1e10;
+        double reg_max    = 1e4;
 
         static Params Default()
         {
