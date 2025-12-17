@@ -16,9 +16,9 @@
 // Angle regularization weight
 #define A_WGT 0
 // Velocity regularization weight
-#define V_WGT 1e-3
+#define V_WGT 1e-4
 // Control regularization weight
-#define U_WGT 1e-5
+#define U_WGT 1e-6
 // Force regularization weight
 #define F_WGT 1e-7
 
@@ -56,9 +56,10 @@ int main()
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer    = true;
-    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
+    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    // model_structure.ignore_innate_constraints = true;
+    // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     init_control.segment(6, 12) =
@@ -161,17 +162,17 @@ int main()
                                                    true);
 
     // TODO: fix terminal frame velocity bound
-    model.addConstraints<constraints::FramePositionBound>(HORIZON,
-                                                          model,
-                                                          "trunk",
-                                                          base_pos,
-                                                          base_pos,
-                                                          STATE_SIZE,
-                                                          CONTROL_SIZE);
+    // model.addConstraints<constraints::FramePositionBound>(HORIZON,
+    //                                                       model,
+    //                                                       "trunk",
+    //                                                       base_pos,
+    //                                                       base_pos,
+    //                                                       STATE_SIZE,
+    //                                                       CONTROL_SIZE);
 
     ssqp::model::Model::Config model_config;
-    model_config.init_states = { init };
-    // model_config.init_controls = init_controls;
+    model_config.init_states   = { init };
+    model_config.init_controls = init_controls;
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;

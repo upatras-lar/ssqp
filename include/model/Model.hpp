@@ -339,12 +339,25 @@ class Model
 
     // Functionality functions
 
+    // Adds all joint angle, velocity and effort limits from URDF as constraints
     void _addURDFInnateConstraints();
+
+    // Adds inverse dynamics torque constraints
+    void _addIDTorqueConstraints();
+
+    // Builds system dynamics from URDF
     void _buildURDFDynamics(const Config &config);
 
     VecX _randomVector(const uint size, const double start = -5,
                        const double end = 5) const;
 
+    /* Context for `_makeStageDynamics` for a given stage
+     * Data:
+     *  - `S`: Selection matrix for stage ($S \tau$)
+     *  - `force_data`: Vector containing a Force object for each force
+     *  - `init_state`: Initial state for stage
+     *  - `init_control`: Initial controls for stage
+     */
     struct _StageDynamicsContext
     {
         const MatX         S;
@@ -353,18 +366,62 @@ class Model
         VecX               init_control;
     };
 
+    /* Makes the dynamics for a given stage with context `ctx` based on the
+     * URDF, according to the passed templated options
+     * Options:
+     *  - `WithForces`: Whether there are additional external forces for this
+     *     stage
+     *  - `DM`: The dynamics mode that should be used (Forward or Inverse),
+     *     determining whether controls represent torques or accelerations
+     *  - `IS`: The integration scheme to be used for deriving the next state
+     */
     template<bool WithForces, DynamicsMode DM, IntegrationScheme IS>
     std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
       const _StageDynamicsContext &ctx) const;
 
+    /* Context for `_makeStageConstraints` for a given stage
+     * Data:
+     *  - `force_data`: Vector containing a Force object for each force
+     */
     struct _StageInnateConstraintsContext
     {
         std::vector<Force> force_data;
     };
 
+    /* Makes the innate constraints for a given stage with context `ctx` based
+     * based on the URDF, according to the passed templated options
+     * Options:
+     *  - `FloatingBase`: Whether the system includes a floating base or not
+     *  - `IsTerminal`: Whether the stage is the terminal stage (no controls)
+     *  - `DM`: The dynamics mode that should be used
+     *  - `WithForces`: Whether there are additional external forces for this
+     *     stage
+     * 
+     * ### Note
+     * If the selected dynamics mode is Inverse, this function does not generate
+     * the inverse dynamics constraints required by the Inverse dynamics mode. 
+     * `_makeStageIDTorqueConstraints` needs to also be called.
+     */
     template<bool FloatingBase, bool IsTerminal,
              DynamicsMode DM = DynamicsMode::Forward, bool WithForces = false>
     std::shared_ptr<stagewise::StageConstraints> _makeStageInnateConstraints(
+      const _StageInnateConstraintsContext &ctx) const;
+
+    /* Makes the inverse dynamics torque constraints required by the Inverse
+     * dynamics mode, based on the URDF effort limits.
+     * Options:
+     *  - `FloatingBase`: Whether the system includes a floating base or not
+     *  - `WithForces`: Whether there are additional external forces for this
+     *     stage
+     * 
+     * ### Note
+     * This function will only generate inverse dynamics torque constraints,
+     * intended for use with the Inverse dynamics mode. This function must be
+     * called regardless of the value of the `ignore_innate_constraints` option,
+     * since Inverse mode always requires these constraints.
+     */
+    template<bool FloatingBase, bool WithForces = false>
+    std::shared_ptr<stagewise::StageConstraints> _makeStageIDTorqueConstraints(
       const _StageInnateConstraintsContext &ctx) const;
 };
 }

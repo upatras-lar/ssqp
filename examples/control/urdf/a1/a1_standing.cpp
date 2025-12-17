@@ -11,7 +11,7 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      1000
+#define HORIZON      100
 #define dt           0.01
 // Trunk position weight
 #define P_WGT 10
@@ -35,6 +35,7 @@ int main()
     model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer    = true;
     model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
+    // model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     // Trunk position
