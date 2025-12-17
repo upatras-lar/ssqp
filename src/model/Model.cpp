@@ -78,9 +78,17 @@ void Model::finalize(const Config &config)
     }
 
     // Add innate constraints if model comes from URDF
-    if (_impl != nullptr && !_ignore_innate)
+    if (_impl != nullptr)
     {
-        _addURDFInnateConstraints();
+        if (!_ignore_innate)
+        {
+            _addURDFInnateConstraints();
+        }
+
+        if (_dynamics_mode == DynamicsMode::Inverse)
+        {
+            _addIDTorqueConstraints();
+        }
     }
 
     // Setup dynamics
@@ -295,6 +303,52 @@ void Model::_addURDFInnateConstraints()
         ? terminal_innate_constraints
         : stagewise::factory::merge_constraints(_constraints[_dims.horizon],
                                                 terminal_innate_constraints);
+}
+
+void Model::_addIDTorqueConstraints()
+{
+    _StageInnateConstraintsContext ctx;
+
+    for (uint k = 0; k < _dims.horizon; ++k)
+    {
+        std::shared_ptr<stagewise::StageConstraints> innate_constraints;
+
+        uint nf        = _forces[k].size();
+        ctx.force_data = _forces[k];
+
+        if (nf == 0)
+        {
+            if (_free_flyer)
+            {
+                innate_constraints =
+                  _makeStageIDTorqueConstraints<true, false>(ctx);
+            }
+            else
+            {
+                innate_constraints =
+                  _makeStageIDTorqueConstraints<false, false>(ctx);
+            }
+        }
+        else
+        {
+            if (_free_flyer)
+            {
+                innate_constraints =
+                  _makeStageIDTorqueConstraints<true, true>(ctx);
+            }
+            else
+            {
+                innate_constraints =
+                  _makeStageIDTorqueConstraints<false, true>(ctx);
+            }
+        }
+
+        _constraints[k] =
+          _constraints[k] == nullptr
+            ? innate_constraints
+            : stagewise::factory::merge_constraints(_constraints[k],
+                                                    innate_constraints);
+    }
 }
 
 void Model::_buildURDFDynamics(const Config &config)

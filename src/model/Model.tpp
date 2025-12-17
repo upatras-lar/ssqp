@@ -369,39 +369,12 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
 
     if constexpr (DM == DynamicsMode::Forward)
     {
-        std::tie(lb, ub) =
-          pinocchio_wrapper::modelBounds(_impl, _free_flyer, false);
+        std::tie(lb, ub) = pinocchio_wrapper::modelBounds(_impl, _free_flyer);
     }
     else if constexpr (DM == DynamicsMode::Inverse)
     {
         std::tie(lb, ub) =
           pinocchio_wrapper::modelBounds(_impl, _free_flyer, true);
-
-        if (!_actuated_joints.empty())
-        {
-            Eigen::VectorXd lb_n = Eigen::VectorXd::Zero(_dims.njoints[0]);
-            Eigen::VectorXd ub_n = Eigen::VectorXd::Zero(_dims.njoints[0]);
-
-            for (uint i = 0; i < _actuated_joints.size(); ++i)
-            {
-                uint constraint_idx;
-                if constexpr (FloatingBase)
-                {
-                    constraint_idx =
-                      _dims.nq[0] + _dims.nv[0] + 6 + _actuated_joints[i];
-                }
-                else
-                {
-                    constraint_idx =
-                      _dims.nq[0] + _dims.nv[0] + _actuated_joints[i];
-                }
-                lb_n[_actuated_joints[i]] = lb[constraint_idx];
-                ub_n[_actuated_joints[i]] = ub[constraint_idx];
-            }
-
-            lb.tail(_dims.njoints[0]) = lb_n;
-            ub.tail(_dims.njoints[0]) = ub_n;
-        }
     }
 
     auto innate_constraint_eval = [this, ctx](const VecX &x, const VecX &u)
@@ -418,7 +391,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         }
         else if constexpr (DM == DynamicsMode::Inverse)
         {
-            c.resize(2 * _dims.njoints[0] + _dims.nv[0]);
+            c.resize(2 * _dims.njoints[0]);
         }
 
         if constexpr (FloatingBase)
@@ -442,29 +415,6 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
             }
         }
 
-        if constexpr (!IsTerminal && DM == DynamicsMode::Inverse)
-        {
-
-            if constexpr (WithForces)
-            {
-                std::vector<Vec6> joint_forces =
-                  _calculateJointForces(x.head(_dims.nq[0]),
-                                        u.tail(u.size() - _dims.nv[0]),
-                                        ctx.force_data);
-
-                c.tail(_dims.nv[0]) = inverseDynamics(x.head(_dims.nq[0]),
-                                                      x.tail(_dims.nv[0]),
-                                                      u.head(_dims.nv[0]),
-                                                      joint_forces);
-            }
-            else
-            {
-                c.tail(_dims.nv[0]) = inverseDynamics(x.head(_dims.nq[0]),
-                                                      x.tail(_dims.nv[0]),
-                                                      u.head(_dims.nv[0]));
-            }
-        }
-
         return c;
     };
 
@@ -483,9 +433,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         }
         else if (DM == DynamicsMode::Inverse)
         {
-            dX =
-              MatX::Zero(2 * _dims.njoints[0] + _dims.nv[0], 2 * _dims.nv[0]);
-            dU = MatX::Zero(2 * _dims.njoints[0] + _dims.nv[0], u.size());
+            dX = MatX::Zero(2 * _dims.njoints[0], 2 * _dims.nv[0]);
+            dU = MatX::Zero(2 * _dims.njoints[0], u.size());
         }
 
         if constexpr (FloatingBase)
@@ -519,59 +468,6 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                          _dims.njoints[0],
                          _dims.njoints[0]) =
                   MatX::Identity(_dims.njoints[0], _dims.njoints[0]);
-            }
-        }
-
-        if constexpr (!IsTerminal && DM == DynamicsMode::Inverse)
-        {
-            MatX dtau_dq, dtau_dv, M;
-            MatX Jf_full;
-
-            if constexpr (WithForces)
-            {
-                std::vector<Vec6> joint_forces;
-                std::tie(joint_forces, Jf_full) =
-                  _calculateJointForcesAndJacobian(
-                    x.head(_dims.nq[0]),
-                    u.tail(u.size() - _dims.nv[0]),
-                    ctx.force_data);
-
-                pinocchio_wrapper::computeRNEADerivatives(_impl,
-                                                          x.head(_dims.nq[0]),
-                                                          x.tail(_dims.nv[0]),
-                                                          u.head(_dims.nv[0]),
-                                                          joint_forces,
-                                                          dtau_dq,
-                                                          dtau_dv,
-                                                          M);
-            }
-            else
-            {
-                pinocchio_wrapper::computeRNEADerivatives(_impl,
-                                                          x.head(_dims.nq[0]),
-                                                          x.tail(_dims.nv[0]),
-                                                          u.head(_dims.nv[0]),
-                                                          dtau_dq,
-                                                          dtau_dv,
-                                                          M);
-            }
-
-            M = M.selfadjointView<Eigen::Upper>();
-
-            dX.block(2 * _dims.njoints[0], 0, _dims.nv[0], _dims.nv[0]) =
-              dtau_dq;
-            dX.block(2 * _dims.njoints[0],
-                     _dims.nv[0],
-                     _dims.nv[0],
-                     _dims.nv[0]) = dtau_dv;
-            dU.block(2 * _dims.njoints[0], 0, _dims.nv[0], _dims.nv[0]) = M;
-
-            if constexpr (WithForces)
-            {
-                dU.block(2 * _dims.njoints[0],
-                         _dims.nv[0],
-                         _dims.nv[0],
-                         3 * ctx.force_data.size()) = -Jf_full.transpose();
             }
         }
     };
@@ -619,8 +515,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     else if constexpr (DM == DynamicsMode::Inverse)
     {
         return stagewise::factory::make_constraints(
-          2 * _dims.njoints[0] + _dims.nv[0],
-          2 * _dims.njoints[0] + _dims.nv[0],
+          2 * _dims.njoints[0],
+          2 * _dims.njoints[0],
           lb,
           ub,
           innate_constraint_eval,
@@ -630,6 +526,140 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           innate_constraint_hessprod_xu,
           innate_constraint_hessprod_uu);
     }
+}
+
+template<bool FloatingBase, bool WithForces>
+std::shared_ptr<stagewise::StageConstraints>
+Model::_makeStageIDTorqueConstraints(
+  const _StageInnateConstraintsContext &ctx) const
+{
+    VecX lb, ub;
+    std::tie(lb, ub) = pinocchio_wrapper::modelEffortLimits(_impl);
+
+    if (!_actuated_joints.empty())
+    {
+        Eigen::VectorXd lb_n = Eigen::VectorXd::Zero(_dims.njoints[0]);
+        Eigen::VectorXd ub_n = Eigen::VectorXd::Zero(_dims.njoints[0]);
+
+        for (uint i = 0; i < _actuated_joints.size(); ++i)
+        {
+            uint constraint_idx;
+            if constexpr (FloatingBase)
+            {
+                constraint_idx =
+                  _dims.nq[0] + _dims.nv[0] + 6 + _actuated_joints[i];
+            }
+            else
+            {
+                constraint_idx =
+                  _dims.nq[0] + _dims.nv[0] + _actuated_joints[i];
+            }
+            lb_n[_actuated_joints[i]] = lb[constraint_idx];
+            ub_n[_actuated_joints[i]] = ub[constraint_idx];
+        }
+
+        lb.tail(_dims.njoints[0]) = lb_n;
+        ub.tail(_dims.njoints[0]) = ub_n;
+    }
+
+    auto innate_constraint_eval = [this, ctx](const VecX &x, const VecX &u)
+    {
+        VecX c(_dims.nv[0]);
+
+        if constexpr (WithForces)
+        {
+            std::vector<Vec6> joint_forces =
+              _calculateJointForces(x.head(_dims.nq[0]),
+                                    u.tail(u.size() - _dims.nv[0]),
+                                    ctx.force_data);
+
+            c = inverseDynamics(x.head(_dims.nq[0]),
+                                x.tail(_dims.nv[0]),
+                                u.head(_dims.nv[0]),
+                                joint_forces);
+        }
+        else
+        {
+            c = inverseDynamics(x.head(_dims.nq[0]),
+                                x.tail(_dims.nv[0]),
+                                u.head(_dims.nv[0]));
+        }
+
+        return c;
+    };
+
+    auto innate_constraint_grad =
+      [this, ctx](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+    {
+        dX = MatX::Zero(_dims.nv[0], 2 * _dims.nv[0]);
+        dU = MatX::Zero(_dims.nv[0], u.size());
+
+        MatX dtau_dq, dtau_dv, M;
+        MatX Jf_full;
+
+        if constexpr (WithForces)
+        {
+            std::vector<Vec6> joint_forces;
+            std::tie(joint_forces, Jf_full) =
+              _calculateJointForcesAndJacobian(x.head(_dims.nq[0]),
+                                               u.tail(u.size() - _dims.nv[0]),
+                                               ctx.force_data);
+
+            pinocchio_wrapper::computeRNEADerivatives(_impl,
+                                                      x.head(_dims.nq[0]),
+                                                      x.tail(_dims.nv[0]),
+                                                      u.head(_dims.nv[0]),
+                                                      joint_forces,
+                                                      dtau_dq,
+                                                      dtau_dv,
+                                                      M);
+        }
+        else
+        {
+            pinocchio_wrapper::computeRNEADerivatives(_impl,
+                                                      x.head(_dims.nq[0]),
+                                                      x.tail(_dims.nv[0]),
+                                                      u.head(_dims.nv[0]),
+                                                      dtau_dq,
+                                                      dtau_dv,
+                                                      M);
+        }
+
+        M = M.selfadjointView<Eigen::Upper>();
+
+        dX.block(0, 0, _dims.nv[0], _dims.nv[0])           = dtau_dq;
+        dX.block(0, _dims.nv[0], _dims.nv[0], _dims.nv[0]) = dtau_dv;
+        dU.block(0, 0, _dims.nv[0], _dims.nv[0])           = M;
+
+        if constexpr (WithForces)
+        {
+            dU.block(0, _dims.nv[0], _dims.nv[0], 3 * ctx.force_data.size()) =
+              -Jf_full.transpose();
+        }
+    };
+
+    auto innate_constraint_hessprod_xx =
+      [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
+    { Pxx = MatX::Zero(2 * _dims.nv[0], 2 * _dims.nv[0]); };
+
+    auto innate_constraint_hessprod_xu =
+      [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
+    { Pxu = MatX::Zero(2 * _dims.nv[0], u.size()); };
+
+    auto innate_constraint_hessprod_uu =
+      [this](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
+    { Puu = MatX::Zero(u.size(), u.size()); };
+
+    return stagewise::factory::make_constraints(_dims.nv[0],
+                                                _dims.nv[0],
+                                                lb,
+                                                ub,
+                                                innate_constraint_eval,
+                                                innate_constraint_grad,
+                                                DefaultRightMinus,
+                                                innate_constraint_hessprod_xx,
+                                                innate_constraint_hessprod_xu,
+                                                innate_constraint_hessprod_uu);
 }
 }
 }

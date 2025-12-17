@@ -43,7 +43,10 @@ uint modelJoints(const std::shared_ptr<ModelImpl> &impl);
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
   const std::shared_ptr<ModelImpl> &impl, const bool free_flyer = false,
-  const bool include_fb_torques = false);
+  const bool skip_torques = false);
+
+std::pair<Eigen::VectorXd, Eigen::VectorXd> modelEffortLimits(
+  const std::shared_ptr<ModelImpl> &impl);
 
 Eigen::VectorXd integrate(const std::shared_ptr<ModelImpl> &impl,
                           const Eigen::VectorXd &q, const Eigen::VectorXd &v);

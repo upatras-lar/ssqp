@@ -88,50 +88,58 @@ uint modelJoints(const std::shared_ptr<ModelImpl> &impl)
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
   const std::shared_ptr<ModelImpl> &impl, const bool free_flyer,
-  const bool include_fb_torques)
+  const bool skip_torques)
 {
     uint            nbounds = impl->model.nq + 2 * impl->model.nv;
     Eigen::VectorXd lb, ub;
 
+    uint nq, nv;
+
     if (free_flyer)
     {
-        uint nq = impl->model.nq - 7;
-        uint nv = impl->model.nv - 6;
-
-        if (include_fb_torques)
-        {
-            lb.resize(nbounds - 13);
-            ub.resize(nbounds - 13);
-        }
-        else
-        {
-            lb.resize(nbounds - 19);
-            ub.resize(nbounds - 19);
-        }
-
-        lb.head(nq)        = impl->model.lowerPositionLimit.tail(nq);
-        lb.segment(nq, nv) = -impl->model.velocityLimit.tail(nv);
-        lb.tail(nv)        = -impl->model.effortLimit.tail(nv);
-
-        ub.head(nq)        = impl->model.upperPositionLimit.tail(nq);
-        ub.segment(nq, nv) = impl->model.velocityLimit.tail(nv);
-        ub.tail(nv)        = impl->model.effortLimit.tail(nv);
-
-        if (include_fb_torques)
-        {
-            lb.segment(nq + nv, 6) = Eigen::Vector<double, 6>::Zero();
-            ub.segment(nq + nv, 6) = Eigen::Vector<double, 6>::Zero();
-        }
+        nq = impl->model.nq - 7;
+        nv = impl->model.nv - 6;
     }
     else
     {
-        lb.resize(nbounds);
-        ub.resize(nbounds);
-        lb << impl->model.lowerPositionLimit, -impl->model.velocityLimit,
-          -impl->model.effortLimit;
-        ub << impl->model.upperPositionLimit, impl->model.velocityLimit,
-          impl->model.effortLimit;
+        nq = impl->model.nq;
+        nv = impl->model.nv;
     }
+
+    if (skip_torques)
+    {
+        lb.resize(nq + nv);
+        ub.resize(nq + nv);
+    }
+    else
+    {
+        lb.resize(nq + 2 * nv);
+        ub.resize(nq + 2 * nv);
+    }
+
+    lb.head(nq)        = impl->model.lowerPositionLimit.tail(nq);
+    lb.segment(nq, nv) = -impl->model.velocityLimit.tail(nv);
+
+    ub.head(nq)        = impl->model.upperPositionLimit.tail(nq);
+    ub.segment(nq, nv) = impl->model.velocityLimit.tail(nv);
+
+    if (!skip_torques)
+    {
+        lb.tail(nv) = -impl->model.effortLimit.tail(nv);
+        ub.tail(nv) = impl->model.effortLimit.tail(nv);
+    }
+
+    return { lb, ub };
+}
+
+std::pair<Eigen::VectorXd, Eigen::VectorXd> modelEffortLimits(
+  const std::shared_ptr<ModelImpl> &impl)
+{
+    Eigen::VectorXd lb = -impl->model.effortLimit;
+    Eigen::VectorXd ub = impl->model.effortLimit;
+
+    lb.head(6) = Eigen::Vector<double, 6>::Zero();
+    ub.head(6) = Eigen::Vector<double, 6>::Zero();
 
     return { lb, ub };
 }
