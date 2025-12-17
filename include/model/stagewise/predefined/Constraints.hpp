@@ -67,7 +67,7 @@ class FrameVelocityBound : public StageConstraints
     // Regular constructor
     FrameVelocityBound(const Model &model, const std::string &frame,
                        const VecX &lb, const VecX &ub, const uint nq,
-                       const uint nv);
+                       const uint nv, const bool terminal = false);
 
     uint output_size() const override;
 
@@ -91,6 +91,7 @@ class FrameVelocityBound : public StageConstraints
     const std::string            _frame;
     const VecX                   _lb, _ub;
     const uint                   _nq, _nv;
+    const bool                   _terminal;
 };
 
 class ContactConstraint : public StageConstraints

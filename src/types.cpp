@@ -141,7 +141,7 @@ FlatVec operator*(double val, const FlatVec &p)
     FlatVec n  = FlatVec(p);
     n.vec     *= val;
 
-    return p;
+    return n;
 }
 
 std::ostream &operator<<(std::ostream &os, const FlatVec &v)
