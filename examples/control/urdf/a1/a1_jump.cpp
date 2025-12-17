@@ -11,7 +11,7 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      100
+#define HORIZON      200
 #define dt           0.01
 // Angle regularization weight
 #define A_WGT 0
@@ -21,6 +21,12 @@
 #define U_WGT 1e-6
 // Force regularization weight
 #define F_WGT 1e-7
+// Terminal position weight
+#define TP_WEIGHT 100
+// Terminal orientation weight
+#define TO_WEIGHT 8
+// Times to repeat jump
+#define REPEATS 3
 
 // Jump
 #define STEPS_BEFORE 15
@@ -48,6 +54,10 @@ int main()
     init_control[26]             = 3.43525 * 9.81;
     init_control[29]             = 3.43525 * 9.81;
 
+    Eigen::VectorXd init_control_2 = Eigen::VectorXd::Zero(24);
+    init_control_2[20]             = 6.8705 * 9.81;
+    init_control_2[23]             = 6.8705 * 9.81;
+
     std::unordered_map<std::string, std::vector<Eigen::Vector3d>> forces;
     forces["FL_foot"].push_back(init_control.segment(18, 3));
     forces["FR_foot"].push_back(init_control.segment(21, 3));
@@ -58,7 +68,6 @@ int main()
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
-    // model_structure.ignore_innate_constraints = true;
     // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
@@ -72,6 +81,8 @@ int main()
 
     std::vector<Eigen::VectorXd> init_controls;
 
+    uint JUMP_STAGES = HORIZON / REPEATS;
+
     for (uint k = 0; k < HORIZON; ++k)
     {
         // Add regularization cost for velocity, controls and forces
@@ -82,41 +93,52 @@ int main()
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
-        if (k < STEPS_BEFORE || k > HORIZON - STEPS_AFTER)
+        uint rel_k = k % JUMP_STAGES;
+
+        if (rel_k < STEPS_BEFORE || rel_k > JUMP_STAGES - STEPS_AFTER)
         {
-            init_controls.push_back(init_control);
 
-            model.addConstraints<constraints::ContactConstraint>(k,
-                                                                 model,
-                                                                 "FL_foot",
-                                                                 STATE_SIZE,
-                                                                 CONTROL_SIZE,
-                                                                 0.6);
+            if (k < STEPS_BEFORE || k > HORIZON - STEPS_AFTER)
+            {
+                init_controls.push_back(init_control);
+                model.addConstraints<constraints::ContactConstraint>(
+                  k,
+                  model,
+                  "FL_foot",
+                  STATE_SIZE,
+                  CONTROL_SIZE,
+                  0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
-              k,
-              model,
-              "FL_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero(),
-              STATE_SIZE,
-              CONTROL_SIZE);
+                model.addConstraints<constraints::FrameVelocityBound>(
+                  k,
+                  model,
+                  "FL_foot",
+                  Eigen::Vector3d::Zero(),
+                  Eigen::Vector3d::Zero(),
+                  STATE_SIZE,
+                  CONTROL_SIZE);
 
-            model.addConstraints<constraints::ContactConstraint>(k,
-                                                                 model,
-                                                                 "FR_foot",
-                                                                 STATE_SIZE,
-                                                                 CONTROL_SIZE,
-                                                                 0.6);
+                model.addConstraints<constraints::ContactConstraint>(
+                  k,
+                  model,
+                  "FR_foot",
+                  STATE_SIZE,
+                  CONTROL_SIZE,
+                  0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
-              k,
-              model,
-              "FR_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero(),
-              STATE_SIZE,
-              CONTROL_SIZE);
+                model.addConstraints<constraints::FrameVelocityBound>(
+                  k,
+                  model,
+                  "FR_foot",
+                  Eigen::Vector3d::Zero(),
+                  Eigen::Vector3d::Zero(),
+                  STATE_SIZE,
+                  CONTROL_SIZE);
+            }
+            else
+            {
+                init_controls.push_back(init_control_2);
+            }
 
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
@@ -161,14 +183,25 @@ int main()
                                                    V_WGT,
                                                    true);
 
-    // TODO: fix terminal frame velocity bound
-    // model.addConstraints<constraints::FramePositionBound>(HORIZON,
-    //                                                       model,
-    //                                                       "trunk",
-    //                                                       base_pos,
-    //                                                       base_pos,
-    //                                                       STATE_SIZE,
-    //                                                       CONTROL_SIZE);
+    model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
+                                                    model,
+                                                    base_pos,
+                                                    Eigen::Matrix3d::Identity(),
+                                                    "trunk",
+                                                    STATE_SIZE,
+                                                    CONTROL_SIZE,
+                                                    TP_WEIGHT,
+                                                    TO_WEIGHT);
+
+    model.addConstraints<constraints::FrameVelocityBound>(
+      HORIZON,
+      model,
+      "trunk",
+      -1e-3 * Eigen::Vector3d::Ones(),
+      1e-3 * Eigen::Vector3d::Ones(),
+      STATE_SIZE,
+      CONTROL_SIZE,
+      true);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states   = { init };

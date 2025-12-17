@@ -58,6 +58,8 @@ class admm_qp
 
     void reset(const QPData &qp);
 
+    void increaseRegularization();
+
     SolverState solve(Solution &sol);
 
   protected:
@@ -79,6 +81,8 @@ class admm_qp
     double _primal_infs_tol_scaled;
 
     uint _iter;
+
+    uint _reg_incr;
 
     // Calculates residual norms
     // r_prim = Dx - z

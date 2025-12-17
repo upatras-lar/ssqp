@@ -80,13 +80,14 @@ void FramePositionBound::hessprod_uu(const VecX &x, const VecX &u,
 FrameVelocityBound::FrameVelocityBound(const Model       &model,
                                        const std::string &frame, const VecX &lb,
                                        const VecX &ub, const uint nq,
-                                       const uint nv)
+                                       const uint nv, const bool terminal)
   : _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _lb(lb)
   , _ub(ub)
   , _nq(nq)
   , _nv(nv)
+  , _terminal(terminal)
 {
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
 }
@@ -113,10 +114,21 @@ VecX FrameVelocityBound::evaluate(const VecX &x, const VecX &u) const
 void FrameVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                   MatX &dU) const
 {
+    VecX a;
+
+    if (_terminal)
+    {
+        a = VecX::Zero(_nv);
+    }
+    else
+    {
+        a = u.head(_nv);
+    }
+
     MatX dVdq, dVdv;
     std::tie(dVdq, dVdv) = _model->frameVelocityDerivatives(x.head(_nq),
                                                             x.tail(_nv),
-                                                            u.head(_nv),
+                                                            a,
                                                             _frame,
                                                             true);
 

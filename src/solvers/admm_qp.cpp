@@ -20,6 +20,7 @@ admm_qp::admm_qp(const QPData &qp, const Params &params)
   , _rho_common(params.init_rho)
   , _rho(_solution.z, false)
   , _rho_inv(_solution.z, false)
+  , _reg_incr(0)
 {
     _rho.vec.setConstant(_params.init_rho);
     _rho_inv.vec.setConstant(1 / _params.init_rho);
@@ -41,6 +42,13 @@ void admm_qp::reset(const QPData &qp)
     }
 
     _solution.z.vec.setZero();
+
+    _reg_incr = 0;
+}
+
+void admm_qp::increaseRegularization()
+{
+    ++_reg_incr;
 }
 
 SolverState admm_qp::solve(admm_qp::Solution &sol)
@@ -52,7 +60,9 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
     // Warm start with unconstrained LQR
     lqr::Params lqr_params;
-    lqr         lqr_solver(_qp, _solution, _rho, lqr_params);
+    lqr_params.reg_init *= std::pow(10, _reg_incr);
+
+    lqr lqr_solver(_qp, _solution, _rho, lqr_params);
 
     lqr::Output lqr_out = lqr_solver.output_structure();
 

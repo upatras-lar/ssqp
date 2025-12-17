@@ -90,10 +90,13 @@ SolverState ssqp::solve(Guess &guess)
             break;
         }
 
+        FlatVec x_n(_guess.x, false), u_n(_guess.u, false);
+        double  alpha;
+
         // Guess (x, u) update
         if (_params.use_filter)
         {
-            std::tie(_guess.x, _guess.u, std::ignore) = step::step(
+            std::tie(x_n, u_n, alpha) = step::step(
               [this](const step::Point &a, const step::Point &b)
               {
                   return step::filter(
@@ -114,19 +117,10 @@ SolverState ssqp::solve(Guess &guess)
               _model.dynamics(),
               _params.inv_alpha_scale_factor,
               _params.min_alpha);
-
-            _filter_memory.push_front({ _lf(_guess.x, _guess.u),
-                                        _gammaf(_guess.x, _guess.u),
-                                        _cf(_guess.x, _guess.u) });
-
-            if (_filter_memory.size() > _params.filter_size)
-            {
-                _filter_memory.pop_back();
-            }
         }
         else
         {
-            std::tie(_guess.x, _guess.u, std::ignore) = step::step(
+            std::tie(x_n, u_n, alpha) = step::step(
               [this](const step::Point &a, const step::Point &b)
               {
                   return step::merit(a,
@@ -146,6 +140,31 @@ SolverState ssqp::solve(Guess &guess)
               _model.dynamics(),
               _params.inv_alpha_scale_factor,
               _params.min_alpha);
+        }
+
+        if (alpha < _params.min_alpha)
+        {
+            LOGLN("Line search failed, increasing regularization");
+            qp_solver.increaseRegularization();
+            --_iter;
+            continue;
+        }
+
+        LOGLN("Step size: " << alpha);
+
+        _guess.x = x_n;
+        _guess.u = u_n;
+
+        if (_params.use_filter)
+        {
+            _filter_memory.push_front({ _lf(_guess.x, _guess.u),
+                                        _gammaf(_guess.x, _guess.u),
+                                        _cf(_guess.x, _guess.u) });
+
+            if (_filter_memory.size() > _params.filter_size)
+            {
+                _filter_memory.pop_back();
+            }
         }
 
         LOGLN("Current x: ");
