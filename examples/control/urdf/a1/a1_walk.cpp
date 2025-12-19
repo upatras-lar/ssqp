@@ -11,7 +11,7 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      210
+#define HORIZON      400
 #define dt           0.01
 // Velocity regularization weight
 #define V_WGT 1e-4
@@ -22,8 +22,8 @@
 // Terminal position weight
 #define P_WEIGHT 1
 
-#define AIR_STEPS    10
-#define GROUND_STEPS 5
+#define AIR_STEPS    20
+#define GROUND_STEPS 10
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -75,7 +75,7 @@ int main()
     std::vector<Eigen::VectorXd> init_controls;
 
     std::vector<Eigen::VectorXd> traj(HORIZON + 1);
-    double                       target = 2.25;
+    double                       target = 2.5;
 
     for (uint i = 0; i <= HORIZON; ++i)
     {

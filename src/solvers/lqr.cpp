@@ -172,16 +172,7 @@ void lqr::_solve_cache_rho()
                  _qp.stages[k].B.transpose() *
                    (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
 
-        // TODO: is LLT appropriate?
-        if (_qp.dims.stage_control[k] > 1)
-        {
-            _output.k[k].noalias() = -_H_llt[k].solve(h);
-        }
-        else
-        {
-            double coeff = 1. / _H[k](0, 0);
-            _output.k[k] = -coeff * h;
-        }
+        _output.k[k].noalias() = -_H_llt[k].solve(h);
 
         _output.p[k] =
           _qx[k] + _output.K[k].transpose() * _qu[k] +
@@ -234,38 +225,29 @@ void lqr::_solve()
             MatX H_k = _H[k] + _reg * MatX::Identity(_qp.dims.stage_control[k],
                                                      _qp.dims.stage_control[k]);
 
-            if (_qp.dims.stage_control[k] > 1)
+            DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
+            DEBUG_LOGLN("H[" << k << "]:" << std::endl << H_k);
+            DEBUG_LOGLN("h[" << k << "]: " << h.transpose());
+
+            _H_llt[k] = H_k.llt();
+            _solve_successes.push_front(_H_llt[k].info() == Eigen::Success);
+            _solve_success_sum += _solve_successes.front();
+
+            if (_solve_successes.size() > _solve_success_sma_k)
             {
-                DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
-                DEBUG_LOGLN("H[" << k << "]:" << std::endl << H_k);
-                DEBUG_LOGLN("h[" << k << "]: " << h.transpose());
-
-                _H_llt[k] = H_k.llt();
-                _solve_successes.push_front(_H_llt[k].info() == Eigen::Success);
-                _solve_success_sum += _solve_successes.front();
-
-                if (_solve_successes.size() > _solve_success_sma_k)
-                {
-                    _solve_success_sum -= _solve_successes.back();
-                    _solve_successes.pop_back();
-                }
-
-                if (!_solve_successes.front())
-                {
-                    DEBUG_LOGLN("Backward pass failed");
-                    backward_fail = true;
-                    break;
-                }
-
-                _output.K[k] = -_H_llt[k].solve(_G[k]);
-                _output.k[k] = -_H_llt[k].solve(h);
+                _solve_success_sum -= _solve_successes.back();
+                _solve_successes.pop_back();
             }
-            else
+
+            if (!_solve_successes.front())
             {
-                double coeff = 1. / H_k(0, 0);
-                _output.K[k] = -coeff * _G[k];
-                _output.k[k] = -coeff * h;
+                DEBUG_LOGLN("Backward pass failed");
+                backward_fail = true;
+                break;
             }
+
+            _output.K[k] = -_H_llt[k].solve(_G[k]);
+            _output.k[k] = -_H_llt[k].solve(h);
 
             _output.P[k] =
               _Qxx[k] +

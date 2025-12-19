@@ -11,7 +11,7 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      250
+#define HORIZON      325
 #define dt           0.01
 // Angle regularization weight
 #define A_WGT 0
@@ -27,7 +27,7 @@
 #define TO_WEIGHT 8
 
 // Jump
-#define STEPS_BEFORE 15
+#define STEPS_BEFORE 40
 #define STEPS_AFTER  45
 #define REPEATS      3
 
@@ -209,7 +209,7 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     params.loose_success = false;
-    params.tolerance     = 2e-2;
+    params.tolerance     = 1e-2;
     params.use_filter    = true;
     params.filter_size   = 100;
 
