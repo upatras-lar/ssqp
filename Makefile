@@ -71,7 +71,7 @@ all: $(CONFIG_FILE) $(EXE_FILES)
 tests: $(TEST_RUNNER)
 	@echo "Built tests"
 
-python: $(BUILD_DIR)/bindings/pyssqp$(PYTHON_EXT)
+python: $(BUILD_DIR)/bindings/ssqpy$(PYTHON_EXT)
 
 $(TEST_RUNNER): $(TEST_RUNNER_OBJ) $(TESTS_OBJ) $(LIB_OBJ)
 	@mkdir -p $(dir $@)
@@ -104,7 +104,7 @@ $(BUILD_DIR)/examples/%.o: $(EXAMPLES_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(INCLUDES) -c $< -o $@ $(CXXFLAGS)
 
-$(BUILD_DIR)/bindings/pyssqp$(PYTHON_EXT): $(LIB_OBJ) $(BINDINGS_OBJ)
+$(BUILD_DIR)/bindings/ssqpy$(PYTHON_EXT): $(LIB_OBJ) $(BINDINGS_OBJ)
 	$(CXX) -shared $^ $(LIBNANOBIND) $(LDFLAGS) -o $@
 
 # Rule for python bindings

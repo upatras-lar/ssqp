@@ -4,7 +4,7 @@ namespace nb = nanobind;
 
 void bind_model(nb::module_ &);
 
-NB_MODULE(pyssqp, m)
+NB_MODULE(ssqpy, m)
 {
     m.doc() = "Python bindings for SSQP";
 
