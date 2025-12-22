@@ -1,4 +1,5 @@
 #include <nanobind/nanobind.h>
+#include <nanobind/trampoline.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/eigen/dense.h>
 
@@ -6,38 +7,118 @@
 #include "model/stagewise/StageCost.hpp"
 #include "model/stagewise/predefined/Costs.hpp"
 
+namespace ssqp
+{
+namespace python
+{
 namespace nb = nanobind;
-using namespace ssqp::model;
-using namespace ssqp::model::stagewise;
-using namespace ssqp::model::stagewise::predefined::costs;
 
-NB_MAKE_OPAQUE(std::shared_ptr<StageCost>);
+using namespace model;
+using namespace model::stagewise;
+using namespace model::stagewise::predefined::costs;
+
+struct __attribute__((visibility("default"))) PyStageCost : StageCost
+{
+    NB_TRAMPOLINE(StageCost, 5);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override
+    {
+        NB_OVERRIDE_PURE(evaluate, x, u);
+    }
+
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override
+    {
+        NB_OVERRIDE_PURE(gradient, x, u, dx, du);
+    }
+
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override
+    {
+        NB_OVERRIDE_PURE(hessian_xx, x, u, Hxx);
+    }
+
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override
+    {
+        NB_OVERRIDE_PURE(hessian_xu, x, u, Hxu);
+    }
+
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override
+    {
+        NB_OVERRIDE_PURE(hessian_uu, x, u, Huu);
+    }
+};
 
 void bind_Costs(nb::module_ &m)
 {
-    nb::class_<SquaredJointAngleCost>(m, "SquaredJointAngleCost")
+    nb::class_<StageCost, PyStageCost>(m, "StageCost")
+      .def(nb::init())
+      .def("evaluate", &StageCost::evaluate, nb::arg("x"), nb::arg("u"))
+      .def(
+        "gradient",
+        [](const StageCost &self, const VecX &x, const VecX &u)
+        {
+            VecX dx, du;
+            self.gradient(x, u, dx, du);
+            return nb::make_tuple(dx, du);
+        },
+        nb::arg("x"),
+        nb::arg("u"))
+      .def(
+        "hessian_xx",
+        [](const StageCost &self, const VecX &x, const VecX &u)
+        {
+            MatX Hxx;
+            self.hessian_xx(x, u, Hxx);
+            return Hxx;
+        },
+        nb::arg("x"),
+        nb::arg("u"))
+      .def(
+        "hessian_xu",
+        [](const StageCost &self, const VecX &x, const VecX &u)
+        {
+            MatX Hxu;
+            self.hessian_xu(x, u, Hxu);
+            return Hxu;
+        },
+        nb::arg("x"),
+        nb::arg("u"))
+      .def(
+        "hessian_uu",
+        [](const StageCost &self, const VecX &x, const VecX &u)
+        {
+            MatX Huu;
+            self.hessian_uu(x, u, Huu);
+            return Huu;
+        },
+        nb::arg("x"),
+        nb::arg("u"));
+
+    nb::class_<SquaredJointAngleCost, StageCost>(m, "SquaredJointAngleCost")
       .def(nb::init<uint, uint, double, bool>(),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("free_flyer") = false);
 
-    nb::class_<SquaredJointVelocityCost>(m, "SquaredJointVelocityCost")
+    nb::class_<SquaredJointVelocityCost, StageCost>(m,
+                                                    "SquaredJointVelocityCost")
       .def(nb::init<uint, double, bool>(),
            nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("free_flyer") = false);
 
-    nb::class_<SquaredControlCost>(m, "SquaredControlCost")
+    nb::class_<SquaredControlCost, StageCost>(m, "SquaredControlCost")
       .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"));
 
-    nb::class_<SquaredForceCost>(m, "SquaredForceCost")
+    nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost")
       .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"));
 
-    nb::class_<FrameSquaredPositionErrorCost>(m,
-                                              "FrameSquaredPositionErrorCost")
+    nb::class_<FrameSquaredPositionErrorCost, StageCost>(
+      m,
+      "FrameSquaredPositionErrorCost")
       .def(nb::init<const Model &,
-                    const Eigen::Vector3d &,
+                    const Vec3 &,
                     const std::string &,
                     uint,
                     uint,
@@ -49,10 +130,11 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nv"),
            nb::arg("weight"));
 
-    nb::class_<FrameSquaredRotationErrorCost>(m,
-                                              "FrameSquaredRotationErrorCost")
+    nb::class_<FrameSquaredRotationErrorCost, StageCost>(
+      m,
+      "FrameSquaredRotationErrorCost")
       .def(nb::init<const Model &,
-                    const Eigen::Matrix3d &,
+                    const Mat3 &,
                     const std::string &,
                     uint,
                     uint,
@@ -68,7 +150,7 @@ void bind_Costs(nb::module_ &m)
       m,
       "FrameSquaredPoseErrorCost")
       .def(nb::init<const Model &,
-                    const Eigen::Matrix4d &,
+                    const Mat4 &,
                     const std::string &,
                     uint,
                     uint,
@@ -82,8 +164,8 @@ void bind_Costs(nb::module_ &m)
            nb::arg("position_weight"),
            nb::arg("rotation_weight"))
       .def(nb::init<const Model &,
-                    const Eigen::Vector3d &,
-                    const Eigen::Matrix3d &,
+                    const Vec3 &,
+                    const Mat3 &,
                     const std::string &,
                     uint,
                     uint,
@@ -98,11 +180,14 @@ void bind_Costs(nb::module_ &m)
            nb::arg("position_weight"),
            nb::arg("rotation_weight"));
 
-    nb::class_<FrameSquaredVelocityCost>(m, "FrameSquaredVelocityCost")
+    nb::class_<FrameSquaredVelocityCost, StageCost>(m,
+                                                    "FrameSquaredVelocityCost")
       .def(nb::init<const Model &, const std::string &, uint, uint, double>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"));
+}
+}
 }

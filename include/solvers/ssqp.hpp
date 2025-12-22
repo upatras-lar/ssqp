@@ -55,8 +55,7 @@ class ssqp
     struct Guess
     {
         // Vector sequences indexed over time horizon for state and control
-        // guesses
-        // n
+        // guesses n
         FlatVec x, u;
         // Equivalent vector sequences for lagrange multiplier guesses n
         FlatVec lambda, mu;
@@ -66,6 +65,8 @@ class ssqp
 
     ssqp(model::Model &model, const Params &params = Params::Default(),
          const admm_qp::Params &admm_params = admm_qp::Params::Default());
+
+    const model::Model &model() const;
 
     SolverState solve(Guess &guess);
 
