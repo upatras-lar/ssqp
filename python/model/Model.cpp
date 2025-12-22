@@ -1,15 +1,34 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/shared_ptr.h>
+#include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
 #include "model/terrain/Terrain.hpp"
+#include "model/stagewise/predefined/Constraints.hpp"
 
+namespace ssqp
+{
+namespace python
+{
 namespace nb = nanobind;
-using namespace ssqp::model;
-using namespace ssqp::model::terrain;
+
+using namespace model;
+using namespace model::terrain;
 
 void bind_Model(nb::module_ &m)
 {
+    nb::enum_<DynamicsMode>(m, "DynamicsMode")
+      .value("Forward", DynamicsMode::Forward)
+      .value("Inverse", DynamicsMode::Inverse)
+      .export_values();
+
+    nb::enum_<IntegrationScheme>(m, "Integration")
+      .value("ExplicitEuler", IntegrationScheme::ExplicitEuler)
+      .value("SemiImplicitEuler", IntegrationScheme::SemiImplicitEuler)
+      .export_values();
+
     nb::class_<Model>(m, "Model")
       .def("__init__",
            [](Model *self, uint horizon, double dt, nb::kwargs kwargs)
@@ -87,12 +106,12 @@ void bind_Model(nb::module_ &m)
             if (kwargs.contains("init_states"))
             {
                 config.init_states =
-                  nb::cast<std::vector<Eigen::VectorXd>>(kwargs["init_states"]);
+                  nb::cast<std::vector<VecX>>(kwargs["init_states"]);
             }
             if (kwargs.contains("init_controls"))
             {
-                config.init_controls = nb::cast<std::vector<Eigen::VectorXd>>(
-                  kwargs["init_controls"]);
+                config.init_controls =
+                  nb::cast<std::vector<VecX>>(kwargs["init_controls"]);
             }
 
             self->finalize(config);
@@ -103,5 +122,29 @@ void bind_Model(nb::module_ &m)
           Model::*)(const uint, const std::shared_ptr<stagewise::StageCost> &)>(
           &Model::addCost),
         nb::arg("k"),
-        nb::arg("cost"));
+        nb::arg("cost"))
+      .def("addConstraints",
+           static_cast<void (Model::*)(
+             const uint,
+             const std::shared_ptr<stagewise::StageConstraints> &)>(
+             &Model::addConstraints),
+           nb::arg("k"),
+           nb::arg("constraints"))
+      .def(
+        "addContactConstraint",
+        [](Model &self, const uint k, const std::string &frame, const double mu)
+        {
+            self.addConstraints<
+              stagewise::predefined::constraints::ContactConstraint>(k,
+                                                                     self,
+                                                                     frame,
+                                                                     self.nq(k),
+                                                                     self.nv(k),
+                                                                     mu);
+        },
+        nb::arg("k"),
+        nb::arg("frame"),
+        nb::arg("mu") = 0.6);
+}
+}
 }

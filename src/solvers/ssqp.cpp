@@ -61,6 +61,11 @@ ssqp::ssqp(model::Model &model, const Params &params,
     DEBUG_LOGLN(_guess.u);
 }
 
+const model::Model &ssqp::model() const
+{
+    return _model;
+}
+
 SolverState ssqp::solve(Guess &guess)
 {
     _stale_iters = 0;
