@@ -4,7 +4,7 @@ from math import pi, sin, cos
 
 nq = 9
 nv = 9
-H = 400
+H = 100
 dt = 0.01
 P_WGT = 10
 R_WGT = 1
@@ -90,7 +90,7 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
-print(solver.write("testout"))
+print(solver.write("panda_circle"))
 
 print("x:")
 x.print()
