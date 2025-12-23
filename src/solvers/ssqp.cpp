@@ -293,11 +293,9 @@ QPData ssqp::_setup_qp()
     VecX tmpVec;
     MatX tmpMat;
 
-    static const model::CostsContainer costs = _model.costs();
-
-    static const model::DynamicsContainer dynamics = _model.dynamics();
-
-    static const model::ConstraintsContainer constraints = _model.constraints();
+    const model::CostsContainer       costs       = _model.costs();
+    const model::DynamicsContainer    dynamics    = _model.dynamics();
+    const model::ConstraintsContainer constraints = _model.constraints();
 
     for (uint k = 0; k < qp.dims.horizon; ++k)
     {
@@ -480,13 +478,10 @@ SolverState ssqp::_check_termination()
     DEBUG_LOGLN("mu: " << std::endl << _guess.mu);
     DEBUG_LOGLN("=============");
 
-    static const uint horizon = _model.dims().horizon;
-
-    static const model::CostsContainer costs = _model.costs();
-
-    static const model::DynamicsContainer dynamics = _model.dynamics();
-
-    static const model::ConstraintsContainer constraints = _model.constraints();
+    static const uint                 horizon     = _model.dims().horizon;
+    const model::CostsContainer       costs       = _model.costs();
+    const model::DynamicsContainer    dynamics    = _model.dynamics();
+    const model::ConstraintsContainer constraints = _model.constraints();
 
     // Jacobian over x and y of lagrangian at current guess
     FlatVec lagrangian_dx(_cost_dx, false);
