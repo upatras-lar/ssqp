@@ -1,11 +1,10 @@
 import ssqpy
 import numpy as np
 from math import pi, sin, cos
-import weakref, gc
 
 nq = 9
 nv = 9
-H = 1
+H = 400
 dt = 0.01
 P_WGT = 10
 R_WGT = 1
@@ -68,8 +67,6 @@ class CustomCost(ssqpy.model.costs.StageCost):
         return U_WGT * np.eye(u.shape[0])
 
 
-cost = CustomCost()
-
 for k in range(H):
     desired_pose = np.zeros((4, 4))
     desired_pose[:3, :3] = Rd
@@ -84,7 +81,7 @@ for k in range(H):
     )
     model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
     model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
-    # model.addCost(k, cost)
+    # model.addCost(k, CustomCost())
 
 desired_pose = np.zeros((4, 4))
 desired_pose[:3, :3] = Rd

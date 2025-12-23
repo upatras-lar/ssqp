@@ -246,7 +246,6 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
-    // TODO: Assuming terrain basis is constant during linearization
     dX       = MatX::Zero(6, 2 * _nv);
     MatX Jfk = _model->frameJacobian(x.head(_nq), _frame).topRows<3>();
 
