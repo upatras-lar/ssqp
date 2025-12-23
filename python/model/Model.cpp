@@ -15,7 +15,62 @@ namespace python
 namespace nb = nanobind;
 
 using namespace model;
+using namespace model::stagewise;
+using namespace model::stagewise::predefined::constraints;
 using namespace model::terrain;
+
+int model_tp_traverse(PyObject *self, visitproc visit, void *arg)
+{
+    Py_VISIT(Py_TYPE(self));
+
+    if (!nb::inst_ready(self))
+    {
+        return 0;
+    }
+
+    Model *model = nb::inst_ptr<Model>(self);
+
+    CostsContainer       costs       = model->costs();
+    ConstraintsContainer constraints = model->constraints();
+    DynamicsContainer    dynamics    = model->dynamics();
+
+    for (uint k = 0; k < model->horizon(); ++k)
+    {
+        nb::handle value = nb::find(costs[k]);
+        Py_VISIT(value.ptr());
+        value = nb::find(constraints[k]);
+        Py_VISIT(value.ptr());
+        value = nb::find(dynamics[k]);
+        Py_VISIT(value.ptr());
+    }
+
+    return 0;
+}
+
+// TODO: merged still leak
+int model_tp_clear(PyObject *self)
+{
+    Model *model = nb::inst_ptr<Model>(self);
+
+    CostsContainer       costs       = model->costs();
+    ConstraintsContainer constraints = model->constraints();
+    DynamicsContainer    dynamics    = model->dynamics();
+
+    for (uint k = 0; k < model->horizon(); ++k)
+    {
+        costs[k]       = nullptr;
+        constraints[k] = nullptr;
+        dynamics[k]    = nullptr;
+    }
+
+    return 0;
+}
+
+PyType_Slot model_slots[] = {
+    { Py_tp_traverse, (void *)model_tp_traverse },
+    {    Py_tp_clear,    (void *)model_tp_clear },
+    {              0,                         0 }
+};
 
 void bind_Model(nb::module_ &m)
 {
@@ -29,7 +84,7 @@ void bind_Model(nb::module_ &m)
       .value("SemiImplicitEuler", IntegrationScheme::SemiImplicitEuler)
       .export_values();
 
-    nb::class_<Model>(m, "Model")
+    nb::class_<Model>(m, "Model", nb::type_slots(model_slots))
       .def("__init__",
            [](Model *self, uint horizon, double dt, nb::kwargs kwargs)
            {
@@ -67,66 +122,61 @@ void bind_Model(nb::module_ &m)
 
                new (self) Model(horizon, dt, structure);
            })
-      .def(
-        "finalize",
-        [](Model *self, nb::kwargs kwargs)
-        {
-            Model::Config config;
+      .def("finalize",
+           [](Model *self, nb::kwargs kwargs)
+           {
+               Model::Config config;
 
-            if (kwargs.contains("costs"))
-            {
-                config.costs =
-                  nb::cast<std::vector<std::shared_ptr<stagewise::StageCost>>>(
-                    kwargs["costs"]);
-            }
-            if (kwargs.contains("stage_cost"))
-            {
-                config.stage_cost =
-                  nb::cast<std::shared_ptr<stagewise::StageCost>>(
-                    kwargs["stage_cost"]);
-            }
-            if (kwargs.contains("terminal_cost"))
-            {
-                config.stage_cost =
-                  nb::cast<std::shared_ptr<stagewise::StageCost>>(
-                    kwargs["terminal_cost"]);
-            }
-            if (kwargs.contains("constraints"))
-            {
-                config.constraints = nb::cast<
-                  std::vector<std::shared_ptr<stagewise::StageConstraints>>>(
-                  kwargs["constraints"]);
-            }
-            if (kwargs.contains("dynamics"))
-            {
-                config.dynamics = nb::cast<
-                  std::vector<std::shared_ptr<stagewise::StageDynamics>>>(
-                  kwargs["dynamics"]);
-            }
-            if (kwargs.contains("init_states"))
-            {
-                config.init_states =
-                  nb::cast<std::vector<VecX>>(kwargs["init_states"]);
-            }
-            if (kwargs.contains("init_controls"))
-            {
-                config.init_controls =
-                  nb::cast<std::vector<VecX>>(kwargs["init_controls"]);
-            }
+               if (kwargs.contains("costs"))
+               {
+                   config.costs =
+                     nb::cast<std::vector<std::shared_ptr<StageCost>>>(
+                       kwargs["costs"]);
+               }
+               if (kwargs.contains("stage_cost"))
+               {
+                   config.stage_cost =
+                     nb::cast<std::shared_ptr<StageCost>>(kwargs["stage_cost"]);
+               }
+               if (kwargs.contains("terminal_cost"))
+               {
+                   config.stage_cost = nb::cast<std::shared_ptr<StageCost>>(
+                     kwargs["terminal_cost"]);
+               }
+               if (kwargs.contains("constraints"))
+               {
+                   config.constraints =
+                     nb::cast<std::vector<std::shared_ptr<StageConstraints>>>(
+                       kwargs["constraints"]);
+               }
+               if (kwargs.contains("dynamics"))
+               {
+                   config.dynamics =
+                     nb::cast<std::vector<std::shared_ptr<StageDynamics>>>(
+                       kwargs["dynamics"]);
+               }
+               if (kwargs.contains("init_states"))
+               {
+                   config.init_states =
+                     nb::cast<std::vector<VecX>>(kwargs["init_states"]);
+               }
+               if (kwargs.contains("init_controls"))
+               {
+                   config.init_controls =
+                     nb::cast<std::vector<VecX>>(kwargs["init_controls"]);
+               }
 
-            self->finalize(config);
-        })
-      .def(
-        "addCost",
-        static_cast<void (
-          Model::*)(const uint, const std::shared_ptr<stagewise::StageCost> &)>(
-          &Model::addCost),
-        nb::arg("k"),
-        nb::arg("cost"))
+               self->finalize(config);
+           })
+      .def("addCost",
+           static_cast<void (Model::*)(const uint,
+                                       const std::shared_ptr<StageCost> &)>(
+             &Model::addCost),
+           nb::arg("k"),
+           nb::arg("cost"))
       .def("addConstraints",
-           static_cast<void (Model::*)(
-             const uint,
-             const std::shared_ptr<stagewise::StageConstraints> &)>(
+           static_cast<void (
+             Model::*)(const uint, const std::shared_ptr<StageConstraints> &)>(
              &Model::addConstraints),
            nb::arg("k"),
            nb::arg("constraints"))
@@ -134,13 +184,12 @@ void bind_Model(nb::module_ &m)
         "addContactConstraint",
         [](Model &self, const uint k, const std::string &frame, const double mu)
         {
-            self.addConstraints<
-              stagewise::predefined::constraints::ContactConstraint>(k,
-                                                                     self,
-                                                                     frame,
-                                                                     self.nq(k),
-                                                                     self.nv(k),
-                                                                     mu);
+            self.addConstraints<ContactConstraint>(k,
+                                                   self,
+                                                   frame,
+                                                   self.nq(k),
+                                                   self.nv(k),
+                                                   mu);
         },
         nb::arg("k"),
         nb::arg("frame"),

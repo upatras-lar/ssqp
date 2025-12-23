@@ -60,31 +60,39 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
 
     VecX evaluate(const VecX &x, const VecX &u) const override
     {
-        NB_OVERRIDE_PURE(evaluate, x, u);
+        nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
+        return (Scalar() << nb::cast<double>(
+                  nb_trampoline.base().attr(nb_ticket.key)(x, u)))
+          .finished();
     }
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
                   MatX &dU) const override
     {
-        NB_OVERRIDE_PURE(gradient, x, u, dX, dU);
+        nanobind::detail::ticket nb_ticket(nb_trampoline, "gradient", true);
+        std::tie(dX, dU) = nb::cast<std::pair<MatX, MatX>>(
+          nb_trampoline.base().attr(nb_ticket.key)(x, u));
     }
 
     void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Pxx) const override
     {
-        NB_OVERRIDE_PURE(hessprod_xx, x, u, lambda, Pxx);
+        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_xx", true);
+        Pxx = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
     }
 
     void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Pxu) const override
     {
-        NB_OVERRIDE_PURE(hessprod_xu, x, u, lambda, Pxu);
+        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_xu", true);
+        Pxu = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
     }
 
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Puu) const override
     {
-        NB_OVERRIDE_PURE(hessprod_uu, x, u, lambda, Puu);
+        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_uu", true);
+        Puu = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
     }
 };
 

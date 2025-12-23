@@ -1,10 +1,11 @@
 import ssqpy
 import numpy as np
 from math import pi, sin, cos
+import weakref, gc
 
 nq = 9
 nv = 9
-H = 100
+H = 1
 dt = 0.01
 P_WGT = 10
 R_WGT = 1
@@ -47,6 +48,28 @@ init_state[:nq] = [
     0.0,
 ]
 
+
+class CustomCost(ssqpy.model.costs.StageCost):
+    def evaluate(self, x, u):
+        return U_WGT * 0.5 * u.T @ u
+
+    def gradient(self, x, u):
+        grad_x = np.zeros_like(x)
+        grad_u = U_WGT * u
+        return grad_x, grad_u
+
+    def hessian_xx(self, x, u):
+        return np.zeros((x.shape[0], x.shape[0]))
+
+    def hessian_xu(self, x, u):
+        return np.zeros((x.shape[0], u.shape[0]))
+
+    def hessian_uu(self, x, u):
+        return U_WGT * np.eye(u.shape[0])
+
+
+cost = CustomCost()
+
 for k in range(H):
     desired_pose = np.zeros((4, 4))
     desired_pose[:3, :3] = Rd
@@ -61,6 +84,7 @@ for k in range(H):
     )
     model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
     model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+    # model.addCost(k, cost)
 
 desired_pose = np.zeros((4, 4))
 desired_pose[:3, :3] = Rd
@@ -73,7 +97,7 @@ model.addCost(
         model, desired_pose, "panda_ee", nq, nq, P_WGT, R_WGT
     ),
 )
-model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+model.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
 model.finalize(init_states=[init_state])
 
