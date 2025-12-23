@@ -89,7 +89,6 @@ std::shared_ptr<StageConstraints> make_constraints(
       std::move(hess_uu));
 }
 
-// TODO: instead of merging, possibly hold multiple?
 std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
                                        const std::shared_ptr<StageCost> &l2)
 {
@@ -271,7 +270,7 @@ void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
                        HessianFunction3>::gradient(const VecX &x, const VecX &u,
                                                    VecX &dx, VecX &du) const
 {
-    return _grad(x, u, dx, du);
+    _grad(x, u, dx, du);
 }
 
 template<typename EvaluationFunction, typename GradientFunction,
@@ -283,7 +282,7 @@ void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
                                                      const VecX &u,
                                                      MatX       &Hxx) const
 {
-    return _hess_xx(x, u, Hxx);
+    _hess_xx(x, u, Hxx);
 }
 
 template<typename EvaluationFunction, typename GradientFunction,
@@ -295,7 +294,7 @@ void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
                                                      const VecX &u,
                                                      MatX       &Hxu) const
 {
-    return _hess_xu(x, u, Hxu);
+    _hess_xu(x, u, Hxu);
 }
 
 template<typename EvaluationFunction, typename GradientFunction,
@@ -307,7 +306,7 @@ void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
                                                      const VecX &u,
                                                      MatX       &Huu) const
 {
-    return _hess_uu(x, u, Huu);
+    _hess_uu(x, u, Huu);
 }
 
 FunctionStageDynamicsBase::FunctionStageDynamicsBase(
@@ -440,7 +439,7 @@ void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                                                         const VecX &u, MatX &dX,
                                                         MatX &dU) const
 {
-    return _grad(x, u, dX, dU);
+    _grad(x, u, dX, dU);
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
@@ -455,7 +454,7 @@ void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                                                            const VecX &lambda,
                                                            MatX &Pxx) const
 {
-    return _hess_xx(x, u, lambda, Pxx);
+    _hess_xx(x, u, lambda, Pxx);
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
@@ -470,7 +469,7 @@ void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                                                            const VecX &lambda,
                                                            MatX &Pxu) const
 {
-    return _hess_xu(x, u, lambda, Pxu);
+    _hess_xu(x, u, lambda, Pxu);
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
@@ -485,7 +484,7 @@ void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                                                            const VecX &lambda,
                                                            MatX &Puu) const
 {
-    return _hess_uu(x, u, lambda, Puu);
+    _hess_uu(x, u, lambda, Puu);
 }
 
 FunctionStageConstraintsBase::FunctionStageConstraintsBase(const uint  nout,
@@ -585,7 +584,7 @@ FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
                                                       const VecX &u, MatX &dX,
                                                       MatX &dU) const
 {
-    return _grad(x, u, dX, dU);
+    _grad(x, u, dX, dU);
 }
 
 template<typename EvaluationFunction, typename multiGradientFunction,
@@ -599,7 +598,7 @@ FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
                                                          const VecX &lambda,
                                                          MatX       &Pxx) const
 {
-    return _hess_xx(x, u, lambda, Pxx);
+    _hess_xx(x, u, lambda, Pxx);
 }
 
 template<typename EvaluationFunction, typename multiGradientFunction,
@@ -613,7 +612,7 @@ FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
                                                          const VecX &lambda,
                                                          MatX       &Pxu) const
 {
-    return _hess_xu(x, u, lambda, Pxu);
+    _hess_xu(x, u, lambda, Pxu);
 }
 
 template<typename EvaluationFunction, typename multiGradientFunction,
@@ -627,7 +626,7 @@ FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
                                                          const VecX &lambda,
                                                          MatX       &Puu) const
 {
-    return _hess_uu(x, u, lambda, Puu);
+    _hess_uu(x, u, lambda, Puu);
 }
 
 }
