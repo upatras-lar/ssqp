@@ -231,23 +231,26 @@ bool ssqp::write(const std::string &filename)
     // TODO: Assuming floatingBase is the same every stage
     for (uint k = 0; k < dims.horizon; ++k)
     {
-        uint                     nq            = _model.nq(k);
-        uint                     nv            = _model.nv(k);
-        uint                     njoints       = _model.njoints(k);
-        uint                     nforces       = _model.nforces(k);
+        uint                     nq      = _model.nq(k);
+        uint                     nv      = _model.nv(k);
+        uint                     njoints = _model.njoints(k);
+        uint                     nforces = _model.nforces(k);
+        std::vector<std::string> ordered_force_frames =
+          _model.orderedForceFrames(k);
         bool                     floating_base = _model.floatingBase();
         std::vector<std::string> actuated_joints =
           _model.orderedActuatedJoints();
 
         j["properties"]["stages"].push_back(ordered_json({
-          {          "size",   dims.stage_state[k] },
-          {       "control", dims.stage_control[k] },
-          {            "nq",                    nq },
-          {            "nv",                    nv },
-          {       "njoints",               njoints },
-          {       "nforces",               nforces },
-          { "floating_base",         floating_base },
-          {  "state_joints",       actuated_joints }
+          {                 "size",   dims.stage_state[k] },
+          {              "control", dims.stage_control[k] },
+          {                   "nq",                    nq },
+          {                   "nv",                    nv },
+          {              "njoints",               njoints },
+          {              "nforces",               nforces },
+          { "ordered_force_frames",  ordered_force_frames },
+          {        "floating_base",         floating_base },
+          {         "state_joints",       actuated_joints }
         }));
 
         ordered_json stage_data;

@@ -79,7 +79,18 @@ urdf = viser.extras.ViserUrdf(
     root_node_name="/robot",
 )
 
+# for joint, frame_handle in zip(urdf._joint_map_values, urdf._joint_frames):
+#     print(joint)
+
 urdf.show_frames = True
+
+# Line for shaft
+forces = server.scene.add_line_segments(
+    "/arrow_shaft",
+    points=np.array([[np.zeros(3), np.zeros(3)]]),
+    colors=np.array([210, 210, 210]),
+    line_width=4.0,
+)
 
 
 # Move client camera to initial position
@@ -122,6 +133,30 @@ while True:
             q = data["stage_data"][k]["orientation"].copy()
             q.insert(0, q.pop())
             robot_base.wxyz = np.array(q)
+
+        if data["properties"]["stages"][k]["nforces"] == 0:
+            forces.visible = False
+        else:
+            forces.visible = True
+
+            all_forces = []
+            for force_idx, frame in enumerate(
+                data["properties"]["stages"][k]["ordered_force_frames"]
+            ):
+                p0 = (
+                    urdf._urdf.get_transform(frame)
+                    @ np.hstack((robot_base.position, 1))
+                )[:3]
+                p1 = (
+                    p0
+                    + data["stage_data"][k]["forces"][
+                        3 * force_idx : 3 * force_idx + 3
+                    ]
+                )
+
+                all_forces.append([p0, p1])
+
+            forces.points = np.array(all_forces)
 
         sleep(data["properties"]["dt"] * args.delay_factor)
 

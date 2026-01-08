@@ -570,6 +570,18 @@ uint Model::nforces(const uint k) const
     return _forces[k].size();
 }
 
+std::vector<std::string> Model::orderedForceFrames(const uint k) const
+{
+    std::vector<std::string> frames;
+
+    for (uint i = 0; i < _forces[k].size(); ++i)
+    {
+        frames.push_back(_forces[k][i].frame);
+    }
+
+    return frames;
+}
+
 bool Model::hasFrame(const std::string &frame) const
 {
     return pinocchio_wrapper::hasFrame(_impl, frame);

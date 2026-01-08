@@ -230,6 +230,8 @@ class Model
     // Returns the number of external forces added for a given stage
     uint nforces(const uint k) const;
 
+    std::vector<std::string> orderedForceFrames(const uint k) const;
+
     bool hasFrame(const std::string &frame) const;
 
     void printFramesAndJoints() const;
