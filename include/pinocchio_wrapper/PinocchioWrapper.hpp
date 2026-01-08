@@ -28,6 +28,8 @@ void buildModelFromUrdf(const std::string         &urdf,
                         std::shared_ptr<ModelImpl> impl,
                         bool                       free_flyer = false);
 
+bool hasFrame(const std::shared_ptr<ModelImpl> &impl, const std::string &frame);
+
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
 
 std::vector<std::string> getOrderedActuatedJoints(
