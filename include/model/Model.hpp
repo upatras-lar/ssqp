@@ -251,6 +251,8 @@ class Model
 
     // Algorithms defined if URDF was used to initialize model
 
+    const VecX neutralPose() const;
+
     // Perform forward kinematics with the URDF model dynamics
     const std::pair<VecX, MatX> forwardKinematics(
       const VecX &q, const std::string &frame) const;

@@ -49,14 +49,6 @@ def parse_args():
         help="Whether to skip drawing the ground",
     )
 
-    parser.add_argument(
-        "-s",
-        "--state_size",
-        type=int,
-        default=-1,
-        help="Number of (first) elements to use for state",
-    )
-
     return parser.parse_args()
 
 
@@ -104,14 +96,11 @@ while True:
         state = np.array(data["stage_data"][k]["state"])
         data_joints = data["properties"]["stages"][k]["state_joints"]
 
-        # Slice stage if custom size was given
-        if args.state_size > 0:
-            state = state[: args.state_size]
-            data_joints = data_joints[: args.state_size]
-
         joints = urdf.get_actuated_joint_names()
-        if len(state) != len(joints):
-            print(f"Invalid state length for given URDF (stage {k})")
+        if len(state) < len(joints):
+            print(
+                f"State data size ({len(state)}) smaller than required ({len(joints)}) (stage {k})"
+            )
             exit(10)
         if len(data_joints) != len(state):
             print(f"Invalid state for listed joints (stage {k})")
