@@ -7,6 +7,5 @@
 /out.txt
 /nbvenv/*
 /examples/control/urdf/a1/a1_flip.cpp
-/examples/control/urdf/talos/*
 TODO.md
 /examples/python/*.json

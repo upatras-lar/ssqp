@@ -102,9 +102,6 @@ while True:
                 f"State data size ({len(state)}) smaller than required ({len(joints)}) (stage {k})"
             )
             exit(10)
-        if len(data_joints) != len(state):
-            print(f"Invalid state for listed joints (stage {k})")
-            exit(11)
 
         indices = []
         for joint in joints:
@@ -112,7 +109,7 @@ while True:
                 print(
                     f"Joint {joint} expected, but not found in stage {k} data"
                 )
-                exit(12)
+                exit(11)
 
             indices.append(data_joints.index(joint))
 
