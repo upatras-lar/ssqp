@@ -381,7 +381,25 @@ void bind_Model(nb::module_ &m)
                    throw std::runtime_error("Model was not loaded from URDF");
                }
                return self.inverseDynamics(q, v, a);
-           });
+           })
+      .def(
+        "inverseDynamics",
+        [](Model &self,
+           const VecX &q,
+           const VecX &v,
+           const VecX &a,
+           const std::unordered_map<std::string, std::vector<Vec3>> &forces)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            return self.inverseDynamics(q, v, a, forces);
+        },
+        nb::arg("q"),
+        nb::arg("v"),
+        nb::arg("a"),
+        nb::arg("forces"));
 }
 }
 }
