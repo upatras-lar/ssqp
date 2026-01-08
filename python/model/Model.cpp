@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/eigen/dense.h>
@@ -19,6 +20,7 @@ using namespace model::stagewise;
 using namespace model::stagewise::predefined::constraints;
 using namespace model::terrain;
 
+/*
 int model_tp_traverse(PyObject *self, visitproc visit, void *arg)
 {
     Py_VISIT(Py_TYPE(self));
@@ -50,6 +52,7 @@ int model_tp_traverse(PyObject *self, visitproc visit, void *arg)
 // TODO: merged still leak
 int model_tp_clear(PyObject *self)
 {
+    std::cout << "Running clear" << std::endl;
     Model *model = nb::inst_ptr<Model>(self);
 
     CostsContainer       costs       = model->costs();
@@ -71,6 +74,7 @@ PyType_Slot model_slots[] = {
     {    Py_tp_clear,    (void *)model_tp_clear },
     {              0,                         0 }
 };
+*/
 
 void bind_Model(nb::module_ &m)
 {
@@ -84,7 +88,7 @@ void bind_Model(nb::module_ &m)
       .value("SemiImplicitEuler", IntegrationScheme::SemiImplicitEuler)
       .export_values();
 
-    nb::class_<Model>(m, "Model", nb::type_slots(model_slots))
+    nb::class_<Model>(m, "Model")
       .def("__init__",
            [](Model *self, uint horizon, double dt, nb::kwargs kwargs)
            {
@@ -193,7 +197,191 @@ void bind_Model(nb::module_ &m)
         },
         nb::arg("k"),
         nb::arg("frame"),
-        nb::arg("mu") = 0.6);
+        nb::arg("mu") = 0.6)
+      .def_prop_ro("finalized", [](Model &self) { return self.finalized(); })
+      .def_prop_ro("horizon", [](Model &self) { return self.horizon(); })
+      .def_prop_ro("dt", [](Model &self) { return self.dt(); })
+      .def(
+        "getStateSize",
+        [](Model &self, const uint k)
+        {
+            if (!self.finalized())
+            {
+                throw std::runtime_error("Model is not finalized");
+            }
+
+            return self.dims().stage_state[k];
+        },
+        nb::arg("k"))
+      .def("getLinearStateSize",
+           [](Model &self, const uint k)
+           {
+               if (!self.finalized())
+               {
+                   throw std::runtime_error("Model is not finalized");
+               }
+
+               return self.linear_dims().stage_state[k];
+           })
+      .def(
+        "getControlSize",
+        [](Model &self, const uint k)
+        {
+            if (!self.finalized())
+            {
+                throw std::runtime_error("Model is not finalized");
+            }
+
+            return self.dims().stage_control[k];
+        },
+        nb::arg("k"))
+      .def(
+        "getConstraintSize",
+        [](Model &self, const uint k)
+        {
+            if (!self.finalized())
+            {
+                throw std::runtime_error("Model is not finalized");
+            }
+
+            return self.dims().stage_constraint[k];
+        },
+        nb::arg("k"))
+      .def("getLinearConstraintSize",
+           [](Model &self, const uint k)
+           {
+               if (!self.finalized())
+               {
+                   throw std::runtime_error("Model is not finalized");
+               }
+
+               return self.linear_dims().stage_constraint[k];
+           })
+      .def(
+        "getnq",
+        [](Model &self, const uint k)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+
+            return self.nq(k);
+        },
+        nb::arg("k"))
+      .def(
+        "getnv",
+        [](Model &self, const uint k)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+
+            return self.nv(k);
+        },
+        nb::arg("k"))
+      .def(
+        "getnjoints",
+        [](Model &self, const uint k)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+
+            return self.njoints(k);
+        },
+        nb::arg("k"))
+      .def("hasFloatingBase",
+           [](Model &self, const uint k)
+           {
+               if (!self.urdf())
+               {
+                   throw std::runtime_error("Model was not loaded from URDF");
+               }
+
+               return self.floatingBase();
+           })
+      .def(
+        "getCost",
+        [](Model &self, const uint k) { return self.costs()[k]; },
+        nb::arg("k"))
+      .def(
+        "getDynamics",
+        [](Model &self, const uint k) { return self.dynamics()[k]; },
+        nb::arg("k"))
+      .def(
+        "getConstraints",
+        [](Model &self, const uint k) { return self.constraints()[k]; },
+        nb::arg("k"))
+      .def_prop_ro("terrain", [](Model &self) { return self.terrain(); })
+      .def(
+        "addForce",
+        [](Model &self, const uint k, const std::string &frame)
+        {
+            if (self.finalized())
+            {
+                throw std::runtime_error("Model is finalized");
+            }
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            if (!self.hasFrame(frame))
+            {
+                throw std::runtime_error("Provided frame does not exist");
+            }
+
+            Force f = self.addForce(k, frame);
+            return f.force_index;
+        },
+        nb::arg("k"),
+        nb::arg("frame"))
+      .def("getTotalForces", &Model::nforces, nb::arg("k"))
+      .def("printFramesAndJoints", &Model::printFramesAndJoints)
+      .def("getOrderedActuatedJoints", &Model::orderedActuatedJoints)
+      .def(
+        "forwardKinematics",
+        [](Model &self, const VecX &q, const std::string &frame)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            if (!self.hasFrame(frame))
+            {
+                throw std::runtime_error("Provided frame does not exist");
+            }
+            return self.forwardKinematics(q, frame);
+        },
+        nb::arg("q"),
+        nb::arg("frame"))
+      .def(
+        "forwardKinematicsSE3",
+        [](Model &self, const VecX &q, const std::string &frame)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            if (!self.hasFrame(frame))
+            {
+                throw std::runtime_error("Provided frame does not exist");
+            }
+            return self.forwardKinematicsSE3(q, frame);
+        },
+        nb::arg("q"),
+        nb::arg("frame"))
+      .def("inverseDynamics",
+           [](Model &self, const VecX &q, const VecX &v, const VecX &a)
+           {
+               if (!self.urdf())
+               {
+                   throw std::runtime_error("Model was not loaded from URDF");
+               }
+               return self.inverseDynamics(q, v, a);
+           });
 }
 }
 }

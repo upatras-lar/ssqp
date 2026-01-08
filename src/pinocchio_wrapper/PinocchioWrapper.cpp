@@ -312,6 +312,20 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
     rnea_partial_da = impl->data.M;
 }
 
+bool hasFrame(const std::shared_ptr<ModelImpl> &impl, const std::string &frame)
+{
+    for (pinocchio::FrameIndex i = 0; i < impl->model.nframes; ++i)
+    {
+        const pinocchio::Frame &model_frame = impl->model.frames[i];
+        if (frame == model_frame.name)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl)
 {
     std::cout << "Number of joints: " << impl->model.njoints << std::endl;

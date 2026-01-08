@@ -41,7 +41,9 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
     _lin_dims.stage_control.resize(_lin_dims.horizon);
     _lin_dims.stage_constraint.resize(_lin_dims.horizon + 1);
 
-    if (!structure.urdf_path.empty())
+    _urdf = !structure.urdf_path.empty();
+
+    if (_urdf)
     {
         _impl = pinocchio_wrapper::makeImpl();
         pinocchio_wrapper::buildModelFromUrdf(structure.urdf_path,
@@ -78,7 +80,7 @@ void Model::finalize(const Config &config)
     }
 
     // Add innate constraints if model comes from URDF
-    if (_impl != nullptr)
+    if (_urdf)
     {
         if (!_ignore_innate)
         {
@@ -92,7 +94,7 @@ void Model::finalize(const Config &config)
     }
 
     // Setup dynamics
-    assert(_impl == nullptr ^ config.dynamics.empty() &&
+    assert(!_urdf ^ config.dynamics.empty() &&
            "Expected either a URDF or custom dynamics");
 
     // Build dynamics from URDF
@@ -492,6 +494,11 @@ bool Model::finalized() const
     return _finalized;
 }
 
+bool Model::urdf() const
+{
+    return _urdf;
+}
+
 const uint Model::horizon() const
 {
     return _dims.horizon;
@@ -563,7 +570,12 @@ uint Model::nforces(const uint k) const
     return _forces[k].size();
 }
 
-void Model::printFramesAndJoints()
+bool Model::hasFrame(const std::string &frame) const
+{
+    return pinocchio_wrapper::hasFrame(_impl, frame);
+}
+
+void Model::printFramesAndJoints() const
 {
     pinocchio_wrapper::printFramesAndJoints(_impl);
 }

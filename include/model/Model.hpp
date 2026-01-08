@@ -192,6 +192,9 @@ class Model
     // Whether the model is finalized
     bool finalized() const;
 
+    // Whether the model has been loaded from a URDF file
+    bool urdf() const;
+
     const uint       horizon() const;
     const Dimensions dims() const;
     const Dimensions linear_dims() const;
@@ -227,7 +230,9 @@ class Model
     // Returns the number of external forces added for a given stage
     uint nforces(const uint k) const;
 
-    void printFramesAndJoints();
+    bool hasFrame(const std::string &frame) const;
+
+    void printFramesAndJoints() const;
 
     std::vector<std::string> orderedActuatedJoints() const;
 
@@ -305,6 +310,7 @@ class Model
 
     // Configuration properties
     bool                            _finalized = false;
+    bool                            _urdf;
     CostsContainer                  _costs;
     DynamicsContainer               _dynamics;
     ConstraintsContainer            _constraints;
