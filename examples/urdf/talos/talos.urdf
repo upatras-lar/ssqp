@@ -1507,6 +1507,33 @@
     <axis xyz="1 0 0"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
+
+  <!-- Left Foot Plane Contact -->
+  <link name="left_mm"/>
+  <link name="left_mp"/>
+  <link name="left_pp"/>
+  <link name="left_pm"/>
+  <joint name="left_mm_fix_joint" type="fixed">
+    <parent link="leg_left_6_link"/>
+    <child link="left_mm"/>
+    <origin rpy="0 0 0" xyz="-0.1105 -0.067 -0.107"/>
+  </joint>
+  <joint name="left_mp_fix_joint" type="fixed">
+    <parent link="leg_left_6_link"/>
+    <child link="left_mp"/>
+    <origin rpy="0 0 0" xyz="-0.1105 0.067 -0.107"/>
+  </joint>
+  <joint name="left_pp_fix_joint" type="fixed">
+    <parent link="leg_left_6_link"/>
+    <child link="left_pp"/>
+    <origin rpy="0 0 0" xyz="0.1105 0.067 -0.107"/>
+  </joint>
+  <joint name="left_pm_fix_joint" type="fixed">
+    <parent link="leg_left_6_link"/>
+    <child link="left_pm"/>
+    <origin rpy="0 0 0" xyz="0.1105 -0.067 -0.107"/>
+  </joint>
+
   <!-- Joint hip_z (mesh link) : child link hip_x -> parent link base_link -->
   <link name="leg_right_1_link">
     <inertial>
@@ -1696,6 +1723,33 @@
     <axis xyz="1 0 0"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
+
+  <!-- Right Foot Plane Contact -->
+  <link name="right_mm"/>
+  <link name="right_mp"/>
+  <link name="right_pp"/>
+  <link name="right_pm"/>
+  <joint name="right_mm_fix_joint" type="fixed">
+    <parent link="leg_right_6_link"/>
+    <child link="right_mm"/>
+    <origin rpy="0 0 0" xyz="-0.1105 -0.067 -0.107"/>
+  </joint>
+  <joint name="right_mp_fix_joint" type="fixed">
+    <parent link="leg_right_6_link"/>
+    <child link="right_mp"/>
+    <origin rpy="0 0 0" xyz="-0.1105 0.067 -0.107"/>
+  </joint>
+  <joint name="right_pp_fix_joint" type="fixed">
+    <parent link="leg_right_6_link"/>
+    <child link="right_pp"/>
+    <origin rpy="0 0 0" xyz="0.1105 0.067 -0.107"/>
+  </joint>
+  <joint name="right_pm_fix_joint" type="fixed">
+    <parent link="leg_right_6_link"/>
+    <child link="right_pm"/>
+    <origin rpy="0 0 0" xyz="0.1105 -0.067 -0.107"/>
+  </joint>
+
   <material name="Blue">
     <color rgba="0.0 0.0 0.8 1.0"/>
   </material>
