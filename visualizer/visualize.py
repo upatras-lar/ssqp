@@ -7,6 +7,29 @@ import json
 from time import sleep
 
 
+def quaternion_to_rotation_matrix(q):
+    q0, q1, q2, q3 = q
+    return np.array(
+        [
+            [
+                2 * (q0**2 + q1**2) - 1,
+                2 * (q1 * q2 - q0 * q3),
+                2 * (q1 * q3 + q0 * q2),
+            ],
+            [
+                2 * (q1 * q2 + q0 * q3),
+                2 * (q0**2 + q2**2) - 1,
+                2 * (q2 * q3 - q0 * q1),
+            ],
+            [
+                2 * (q1 * q3 - q0 * q2),
+                2 * (q2 * q3 + q0 * q1),
+                2 * (q0**2 + q3**2) - 1,
+            ],
+        ]
+    )
+
+
 # Parse command-line arguments
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -49,6 +72,13 @@ def parse_args():
         help="Whether to skip drawing the ground",
     )
 
+    parser.add_argument(
+        "-f",
+        "--forces",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to visualize forces",
+    )
+
     return parser.parse_args()
 
 
@@ -84,13 +114,13 @@ urdf = viser.extras.ViserUrdf(
 
 urdf.show_frames = True
 
-# Line for shaft
-forces = server.scene.add_line_segments(
-    "/arrow_shaft",
-    points=np.array([[np.zeros(3), np.zeros(3)]]),
-    colors=np.array([210, 210, 210]),
-    line_width=4.0,
-)
+if args.forces:
+    forces = server.scene.add_line_segments(
+        "/arrow_shaft",
+        points=np.array([[np.zeros(3), np.zeros(3)]]),
+        colors=np.array([225, 165, 60]),
+        line_width=4.0,
+    )
 
 
 # Move client camera to initial position
@@ -134,29 +164,34 @@ while True:
             q.insert(0, q.pop())
             robot_base.wxyz = np.array(q)
 
-        if data["properties"]["stages"][k]["nforces"] == 0:
-            forces.visible = False
-        else:
-            forces.visible = True
+        if args.forces:
+            if data["properties"]["stages"][k]["nforces"] == 0:
+                forces.visible = False
+            else:
+                R_base = quaternion_to_rotation_matrix(robot_base.wxyz)
 
-            all_forces = []
-            for force_idx, frame in enumerate(
-                data["properties"]["stages"][k]["ordered_force_frames"]
-            ):
-                p0 = (
-                    urdf._urdf.get_transform(frame)
-                    @ np.hstack((robot_base.position, 1))
-                )[:3]
-                p1 = (
-                    p0
-                    + data["stage_data"][k]["forces"][
-                        3 * force_idx : 3 * force_idx + 3
-                    ]
-                )
+                all_forces = []
+                for force_idx, frame in enumerate(
+                    data["properties"]["stages"][k]["ordered_force_frames"]
+                ):
+                    frame_T = urdf._urdf.get_transform(frame)
+                    frame_R = frame_T[:3, :3]
+                    frame_t = frame_T[:3, 3]
 
-                all_forces.append([p0, p1])
+                    f_local = np.array(
+                        data["stage_data"][k]["forces"][
+                            3 * force_idx : 3 * force_idx + 3
+                        ]
+                    )
 
-            forces.points = np.array(all_forces)
+                    p0 = R_base @ frame_t + robot_base.position
+                    p1 = p0 + 0.005 * f_local
+
+                    all_forces.append([p0, p1])
+
+                forces.points = np.array(all_forces)
+
+                forces.visible = True
 
         sleep(data["properties"]["dt"] * args.delay_factor)
 
