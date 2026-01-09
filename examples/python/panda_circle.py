@@ -111,7 +111,7 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
-print(solver.write("../data/panda_circle"))
+solver.write("../data/panda_circle")
 
 print("x:")
 x.print()
