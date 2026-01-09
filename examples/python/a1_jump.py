@@ -102,7 +102,7 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
-print(solver.write("../data/a1_jump"))
+solver.write("../data/a1_jump")
 
 print("x:")
 x.print()

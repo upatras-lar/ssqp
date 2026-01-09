@@ -3,6 +3,7 @@
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/unordered_map.h>
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
@@ -399,7 +400,16 @@ void bind_Model(nb::module_ &m)
         nb::arg("q"),
         nb::arg("v"),
         nb::arg("a"),
-        nb::arg("forces"));
+        nb::arg("forces"))
+      .def("neutralPose",
+           [](Model &self)
+           {
+               if (!self.urdf())
+               {
+                   throw std::runtime_error("Model was not loaded from URDF");
+               }
+               return self.neutralPose();
+           });
 }
 }
 }
