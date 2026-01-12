@@ -1,6 +1,8 @@
 #include "solvers/admm_qp.hpp"
 #include "solvers/lqr.hpp"
 
+#include "tracy/Tracy.hpp"
+
 namespace ssqp
 {
 namespace solvers
@@ -32,6 +34,7 @@ void admm_qp::reset(const QPData &qp)
 
     if (_params.reset_rho)
     {
+        _rho_common = _params.init_rho;
         _rho.vec.setConstant(_params.init_rho);
         _rho_inv.vec.setConstant(1 / _params.init_rho);
     }
@@ -53,6 +56,8 @@ void admm_qp::increaseRegularization()
 
 SolverState admm_qp::solve(admm_qp::Solution &sol)
 {
+    ZoneScopedN("ADMM: solve");
+
     DEBUG_LOGLN("Solving with ADMM");
     DEBUG_LOGLN("=============");
 
@@ -64,7 +69,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
     lqr lqr_solver(_qp, _solution, _rho, lqr_params);
 
-    lqr::Output lqr_out = lqr_solver.output_structure();
+    lqr::Output &lqr_out = lqr_solver.output_structure();
 
     if (_params.warm_start)
     {
@@ -92,8 +97,6 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         {
             lqr_out = lqr_solver.constrained(_solution);
         }
-        _solution.P = lqr_out.P;
-        _solution.p = lqr_out.p;
 
         DEBUG_LOGLN("LQR solution, iteration " << _iter + 1);
         DEBUG_LOGLN("=============");
@@ -107,8 +110,6 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
                 z_prev = _solution.z, y_prev = _solution.y;
 
         _step(lqr_out.x, lqr_out.u);
-
-        _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
 
         DEBUG_LOGLN("Update step, iteration " << _iter + 1);
         DEBUG_LOGLN("=============");
@@ -125,20 +126,27 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {
+            _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
+
+            // Termination
+            if ((admm_state = _check_termination()) != ONGOING)
+            {
+                break;
+            }
+
             _update_rho();
         }
 
-        // Termination
-        if ((admm_state = _check_termination()) != ONGOING)
-        {
-            break;
-        }
+        FrameMarkNamed("ADMM Iteration");
     }
 
     if (admm_state == SUCCESS)
     {
         LOGLN("ADMM: Converged in " << _iter + 1 << " iterations");
     }
+
+    _solution.P = lqr_out.P;
+    _solution.p = lqr_out.p;
 
     sol = _solution;
     return admm_state;
@@ -147,6 +155,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
                                    const FlatVec &z_prev, const FlatVec &y_prev)
 {
+    ZoneScopedN("ADMM: _calculate_residuals");
     _norm_primal     = -std::numeric_limits<double>::infinity();
     _norm_dual       = -std::numeric_limits<double>::infinity();
     _norm_primal_rel = -std::numeric_limits<double>::infinity();
@@ -280,6 +289,8 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
 
 SolverState admm_qp::_check_termination() const
 {
+    ZoneScopedN("ADMM: _check_termination");
+
     if (_iter >= _params.max_iter)
     {
         return MAX_ITER_REACHED;
@@ -323,6 +334,8 @@ SolverState admm_qp::_check_termination() const
 
 void admm_qp::_update_rho()
 {
+    ZoneScopedN("ADMM: _update_rho");
+
     const double scale = std::sqrt((_norm_primal * _norm_dual_rel) /
                                    (_norm_dual * _norm_primal_rel));
 
@@ -373,7 +386,7 @@ void admm_qp::_update_rho()
                 _rho.stage(_qp.dims.horizon)(c)     = 1e3 * _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / (1e3 * _rho_common);
             }
-            else
+            else if (_qp.cl_t(c) < _qp.cu_t(c))
             {
                 _rho.stage(_qp.dims.horizon)(c)     = _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / _rho_common;
@@ -386,6 +399,8 @@ void admm_qp::_update_rho()
 
 void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
 {
+    ZoneScopedN("ADMM: _step");
+
     FlatVec z_hat(_solution.z, false);
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)

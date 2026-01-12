@@ -1,6 +1,8 @@
 #include "solvers/ssqp.hpp"
 #include "sqp_step/filter.hpp"
 
+#include "tracy/Tracy.hpp"
+
 namespace ssqp
 {
 namespace solvers
@@ -68,6 +70,8 @@ const model::Model &ssqp::model() const
 
 SolverState ssqp::solve(Guess &guess)
 {
+    ZoneScopedN("SSQP: solve");
+
     _stale_iters = 0;
 
     SolverState ssqp_state;
@@ -202,6 +206,8 @@ SolverState ssqp::solve(Guess &guess)
 
         qp = _setup_qp();
         qp_solver.reset(qp);
+
+        FrameMarkNamed("SQP Iteration");
     }
 
     guess = _guess;
@@ -291,6 +297,8 @@ bool ssqp::write(const std::string &filename)
 
 QPData ssqp::_setup_qp()
 {
+    ZoneScopedN("SSQP: _setup_qp");
+
     QPData qp(_model.linear_dims());
 
     VecX tmpVec;
@@ -473,6 +481,8 @@ QPData ssqp::_setup_qp()
 
 SolverState ssqp::_check_termination()
 {
+    ZoneScopedN("SSQP: _check_termination");
+
     DEBUG_LOGLN("Guess " << _iter + 1);
     DEBUG_LOGLN("=============");
     DEBUG_LOGLN("x: " << std::endl << _guess.x);

@@ -1,5 +1,7 @@
 #include "solvers/lqr.hpp"
 
+#include "tracy/Tracy.hpp"
+
 namespace ssqp
 {
 namespace solvers
@@ -34,13 +36,14 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
 {
 }
 
-lqr::Output lqr::output_structure()
+lqr::Output &lqr::output_structure()
 {
     return _output;
 }
 
-lqr::Output lqr::unconstrained()
+lqr::Output &lqr::unconstrained()
 {
+    ZoneScopedN("LQR: unconstrained");
     // Initialize unconstrained
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
@@ -58,8 +61,9 @@ lqr::Output lqr::unconstrained()
     return _output;
 }
 
-lqr::Output lqr::constrained(const admm_qp::Solution &current_sol)
+lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol)
 {
+    ZoneScopedN("LQR: constrained (cached)");
     // Calculate constraint terms, assuming rho did not change
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
@@ -98,9 +102,10 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol)
     return _output;
 }
 
-lqr::Output lqr::constrained(const admm_qp::Solution &current_sol,
-                             const FlatVec           &rho)
+lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
+                              const FlatVec           &rho)
 {
+    ZoneScopedN("LQR: constrained (uncached)");
     _rho = rho;
 
     // Calculate constraint terms
@@ -163,6 +168,7 @@ lqr::Output lqr::constrained(const admm_qp::Solution &current_sol,
 
 void lqr::_solve_cache_rho()
 {
+    ZoneScopedN("LQR: _solve_cache_rho");
     _output.p[_qp.dims.horizon] = _qt;
 
     // Backward pass
@@ -196,6 +202,7 @@ void lqr::_solve_cache_rho()
 
 void lqr::_solve()
 {
+    ZoneScopedN("LQR: _solve");
     bool backward_fail = false;
 
     do {

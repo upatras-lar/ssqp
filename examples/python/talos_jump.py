@@ -5,11 +5,14 @@ import numpy as np
 
 nq = 51
 nv = 50
-H = 50
-dt = 0.02
+H = 80
+dt = 0.01
 
-pos_wgt = 2
-rot_wgt = 1
+STEPS_BEFORE = 15
+STEPS_AFTER = 30
+
+pos_wgt = 20
+rot_wgt = 10
 
 v_wgt = 1e-3
 u_wgt = 1e-6
@@ -40,6 +43,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../examples/urdf/talos/talos.urdf",
     free_flyer=True,
+    # ignore_innate_constraints=True,
     # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 init_control[6:nv] = model.inverseDynamics(
@@ -48,7 +52,7 @@ init_control[6:nv] = model.inverseDynamics(
 
 pose_cost = costs.FrameSquaredPoseErrorCost(
     model,
-    base_pos + np.array((1.5, 0, 0)),
+    base_pos + np.array((0, 0, 0)),
     np.eye(3),
     "torso_1_link",
     nq,
@@ -94,7 +98,7 @@ for k in range(H):
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
 
-    if k < H // 3 or k > 2 * H // 3:
+    if k < STEPS_BEFORE or k > STEPS_AFTER:
         model.addContactConstraint(k, "left_mm")
         model.addContactConstraint(k, "left_mp")
         model.addContactConstraint(k, "left_pp")
@@ -117,11 +121,14 @@ for k in range(H):
     else:
         init_controls.append(np.zeros(nv))
 
-    if k > 2 * H // 3:
-        model.addCost(k, pose_cost)
-
 model.addCost(H, joint_vel_cost)
 model.addCost(H, pose_cost)
+model.addConstraints(
+    H,
+    constraints.FrameVelocityBound(
+        model, "torso_1_link", np.zeros(3), np.zeros(3), nq, nv, True
+    ),
+)
 
 model.finalize(init_states=[init], init_controls=init_controls)
 
