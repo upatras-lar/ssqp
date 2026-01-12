@@ -45,15 +45,15 @@ class lqr
         const FlatVec &rho, const Params &params = Params::Default());
 
     // Returns output for its structure
-    Output output_structure();
+    Output &output_structure();
 
-    Output unconstrained();
+    Output &unconstrained();
 
     // No rho change
-    Output constrained(const admm_qp::Solution &current_sol);
+    Output &constrained(const admm_qp::Solution &current_sol);
     // Rho change
-    Output constrained(const admm_qp::Solution &current_sol,
-                       const FlatVec           &rho);
+    Output &constrained(const admm_qp::Solution &current_sol,
+                        const FlatVec           &rho);
 
   protected:
     QPData _qp;

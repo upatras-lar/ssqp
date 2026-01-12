@@ -1,5 +1,7 @@
 #include "sqp_step/filter.hpp"
 
+#include "tracy/Tracy.hpp"
+
 namespace ssqp
 {
 namespace step
@@ -11,6 +13,8 @@ bool filter(const Point &previous, const Point &next,
             const FilterFunction1 &ff1, const FilterFunction2 &ff2,
             const FilterFunction3 &ff3)
 {
+    ZoneScopedN("SQP Step: filter");
+
     double v1 = ff1(next.x, next.u);
     double v2 = ff2(next.x, next.u);
     double v3 = ff3(next.x, next.u);

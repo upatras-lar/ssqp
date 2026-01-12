@@ -6,16 +6,16 @@ from math import pi, sin, cos
 
 nq = 19
 nv = 18
-HORIZON = 140
+HORIZON = 155
 dt = 0.01
 
 V_WGT = 1e-3
-U_WGT = 1e-6
-F_WGT = 1e-8
+U_WGT = 1e-7
+F_WGT = 1e-9
 TP_WGT = 10
 TO_WGT = 10
 
-STEPS_BEFORE = 40
+STEPS_BEFORE = 50
 STEPS_AFTER = 40
 
 base_pos = np.array([0, 0, 0.3689])
@@ -37,7 +37,8 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../examples/urdf/go2/go2.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    # ignore_innate_constraints=True,
+    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
@@ -65,7 +66,7 @@ init_controls = []
 rotation_traj = []
 rotation_range = HORIZON - STEPS_BEFORE - STEPS_AFTER
 for k in range(rotation_range):
-    θk = pi / 2 * (1 - cos(2 * pi * k / (rotation_range - 1)))
+    θk = pi / 2 * (1 - cos(pi * k / (rotation_range - 1)))
     R = np.eye(3)
     R[1, 1] = cos(θk)
     R[1, 2] = -sin(θk)
@@ -73,15 +74,10 @@ for k in range(rotation_range):
     R[2, 2] = cos(θk)
     rotation_traj.append(R)
 
-
 for k in range(HORIZON):
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
-
-    # if k >= HORIZON - STEPS_AFTER:
-    #     init_controls.append(np.zeros(nv))
-    #     continue
 
     if k < STEPS_BEFORE or k >= HORIZON - STEPS_AFTER:
         model.addContactConstraint(k, "FL_foot")
@@ -97,15 +93,16 @@ for k in range(HORIZON):
         model.addConstraints(k, rr_foot_vel_bound)
 
         init_controls.append(init_control)
+        continue
     else:
         model.addCost(
             k,
             costs.FrameSquaredRotationErrorCost(
-                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 1.0
+                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 10.0
             ),
         )
 
-        init_controls.append(np.zeros(nv))
+    init_controls.append(np.zeros(nv))
 
 model.addCost(HORIZON, joint_vel_cost)
 # model.addCost(
@@ -120,11 +117,11 @@ model.finalize(init_states=[init], init_controls=init_controls)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    tolerance=1e-2,
+    tolerance=1e-1,
     filter_size=100,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-4,
-    admm_max_iter=750,
+    admm_abs_tolerance=1e-2,
+    admm_rel_tolerance=1e-3,
+    admm_max_iter=1000,
 )
 
 state, x, u = solver.solve()

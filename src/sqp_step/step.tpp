@@ -1,5 +1,7 @@
 #include "sqp_step/step.hpp"
 
+#include "tracy/Tracy.hpp"
+
 namespace ssqp
 {
 namespace step
@@ -11,6 +13,8 @@ std::tuple<solvers::FlatVec, solvers::FlatVec, double> step(
   const model::DynamicsContainer &dynamics, double inv_alpha_scale_factor,
   double min_alpha)
 {
+    ZoneScopedN("SQP Step: step");
+
     double alpha = 1.0;
 
     step::Point a(x, u);
