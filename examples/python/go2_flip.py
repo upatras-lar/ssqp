@@ -6,16 +6,14 @@ from math import pi, sin, cos
 
 nq = 19
 nv = 18
-HORIZON = 155
+HORIZON = 160
 dt = 0.01
 
-V_WGT = 1e-3
-U_WGT = 1e-7
-F_WGT = 1e-9
-TP_WGT = 10
-TO_WGT = 10
+V_WGT = 1e-6
+U_WGT = 1e-8
+F_WGT = 1e-10
 
-STEPS_BEFORE = 50
+STEPS_BEFORE = 60
 STEPS_AFTER = 40
 
 base_pos = np.array([0, 0, 0.3689])
@@ -66,13 +64,15 @@ init_controls = []
 rotation_traj = []
 rotation_range = HORIZON - STEPS_BEFORE - STEPS_AFTER
 for k in range(rotation_range):
-    θk = pi / 2 * (1 - cos(pi * k / (rotation_range - 1)))
+    θk = pi / 2 * (1 - cos(2 * pi * k / (rotation_range - 1)))
     R = np.eye(3)
     R[1, 1] = cos(θk)
-    R[1, 2] = -sin(θk)
-    R[2, 1] = sin(θk)
+    R[1, 2] = sin(θk) if k <= rotation_range / 2 else -sin(θk)
+    R[2, 1] = -sin(θk) if k <= rotation_range / 2 else sin(θk)
     R[2, 2] = cos(θk)
     rotation_traj.append(R)
+
+    print(R)
 
 for k in range(HORIZON):
     model.addCost(k, joint_vel_cost)
@@ -98,19 +98,13 @@ for k in range(HORIZON):
         model.addCost(
             k,
             costs.FrameSquaredRotationErrorCost(
-                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 10.0
+                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 100.0
             ),
         )
 
     init_controls.append(np.zeros(nv))
 
 model.addCost(HORIZON, joint_vel_cost)
-# model.addCost(
-# HORIZON,
-# costs.FrameSquaredPoseErrorCost(
-# model, base_pos, np.eye(3), "base", nq, nv, TP_WGT, TO_WGT
-# ),
-# )
 
 model.finalize(init_states=[init], init_controls=init_controls)
 
