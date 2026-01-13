@@ -364,7 +364,7 @@ void admm_qp::_update_rho()
                     _rho.stage(k)(c)     = 1e3 * _rho_common;
                     _rho_inv.stage(k)(c) = 1.0 / (1e3 * _rho_common);
                 }
-                else if (_qp.stages[k].cl(c) < _qp.stages[k].cu(c))
+                else
                 {
                     _rho.stage(k)(c)     = _rho_common;
                     _rho_inv.stage(k)(c) = 1.0 / _rho_common;
@@ -386,7 +386,7 @@ void admm_qp::_update_rho()
                 _rho.stage(_qp.dims.horizon)(c)     = 1e3 * _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / (1e3 * _rho_common);
             }
-            else if (_qp.cl_t(c) < _qp.cu_t(c))
+            else
             {
                 _rho.stage(_qp.dims.horizon)(c)     = _rho_common;
                 _rho_inv.stage(_qp.dims.horizon)(c) = 1.0 / _rho_common;
@@ -449,10 +449,6 @@ void admm_qp::_step(const FlatVec &dx_hat, const FlatVec &du_hat)
       _rho.stage(_qp.dims.horizon)
         .cwiseProduct(z_hat.stage(_qp.dims.horizon) -
                       _solution.z.stage(_qp.dims.horizon));
-
-    // LOGLN(_qp.stages[0].cl.segment(24 + 12 + 12 * 2, 6).transpose());
-    // LOGLN(_qp.stages[0].cu.segment(24 + 12 + 12 * 2, 6).transpose());
-    // LOGLN(_rho);
 }
 }
 }

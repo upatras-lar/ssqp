@@ -5,15 +5,16 @@ import numpy as np
 
 nq = 51
 nv = 50
-H = 80
+H = 30
 dt = 0.01
 
-STEPS_BEFORE = 15
-STEPS_AFTER = 30
+STEPS_BEFORE = 10
+STEPS_AFTER = 10
 
 pos_wgt = 20
 rot_wgt = 10
 
+a_wgt = 1e-1
 v_wgt = 1e-3
 u_wgt = 1e-6
 f_wgt = 1e-8
@@ -61,6 +62,7 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
     rot_wgt,
 )
 
+joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, a_wgt, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, v_wgt, True)
 control_cost = costs.SquaredControlCost(nv, u_wgt)
 force_cost = costs.SquaredForceCost(nv, f_wgt)
@@ -94,6 +96,7 @@ right_pm_vel_bound = constraints.FrameVelocityBound(
 init_controls = []
 
 for k in range(H):
+    model.addCost(k, joint_angle_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
@@ -136,10 +139,10 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     filter_size=5,
-    tolerance=5e-2,
+    tolerance=1e-2,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-4,
-    admm_max_iter=1000,
+    admm_max_iter=500,
 )
 
 state, x, u = solver.solve()
