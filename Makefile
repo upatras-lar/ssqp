@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX := g++
-CXXFLAGS := -std=c++17 -fPIC -march=native
+CXXFLAGS := -std=c++17 -fPIC -march=native -DEIGEN_RUNTIME_NO_MALLOC
 INCLUDES := -I/usr/include/eigen3 -I./include -I.
 TEST_INCLUDES := -Itests/include
 LDFLAGS :=
@@ -21,7 +21,7 @@ LIBNANOBIND := $(shell python -m nanobind --include)/../libnanobind.o
 PYTHON_EXT := $(shell python3-config --extension-suffix)
 PYTHON_DIR := python
 
-INCLUDES += -I./tracy/public
+INCLUDES += -I./external/tracy/public
 
 ENABLE_PROFILING ?= 0
 ifeq ($(ENABLE_PROFILING), 1)
@@ -58,7 +58,7 @@ STATIC_LIB := $(BUILD_DIR)/lib/lib$(LIB_NAME).a
 LIB_SRC := $(shell find $(SRC_DIR) -name '*.cpp')
 LIB_OBJ := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(LIB_SRC))
 
-LIB_SRC += tracy/public/TracyClient.cpp
+LIB_SRC += external/tracy/public/TracyClient.cpp
 LIB_OBJ += $(BUILD_DIR)/obj/TracyClient.o
 
 # Recursively find all example source files
@@ -110,7 +110,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(INCLUDES) -c $< -o $@ $(CXXFLAGS)
 
-$(OBJ_DIR)/TracyClient.o: tracy/public/TracyClient.cpp
+$(OBJ_DIR)/TracyClient.o: external/tracy/public/TracyClient.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(INCLUDES) -c $< -o $@ $(CXXFLAGS)
 

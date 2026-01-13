@@ -34,6 +34,15 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
               std::vector<VecX>(qp.dims.horizon + 1),
               std::vector<VecX>(qp.dims.horizon) })
 {
+    /*
+    uint max_x =
+      *std::max_element(qp.dims.stage_state.begin(), qp.dims.stage_state.end());
+
+    _tmp_nx_1.resize(max_x);
+    _tmp_nx_2.resize(max_x);
+    _tmp_nx_3.resize(max_x);
+    _tmp_nx_nx_1.resize(max_x, max_x);
+    */
 }
 
 lqr::Output &lqr::output_structure()
@@ -174,16 +183,45 @@ void lqr::_solve_cache_rho()
     // Backward pass
     for (int k = _qp.dims.horizon - 1; k >= 0; --k)
     {
-        VecX h = _qu[k] +
-                 _qp.stages[k].B.transpose() *
-                   (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
+        VecX h;
+        {
+            ZoneScopedN("h");
+            h = _qu[k] +
+                _qp.stages[k].B.transpose() *
+                  (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
+        }
 
-        _output.k[k].noalias() = -_H_llt[k].solve(h);
+        {
+            ZoneScopedN("k");
+            _output.k[k].noalias() = -_H_llt[k].solve(h);
+        }
 
-        _output.p[k] =
-          _qx[k] + _output.K[k].transpose() * _qu[k] +
-          (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]).transpose() *
-            (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
+        {
+            ZoneScopedN("p");
+
+            /*
+            _tmp_nx_1.head(_qp.dims.stage_state[k]).noalias() =
+              _output.K[k].transpose() * _qu[k];
+
+            _tmp_nx_2.head(_qp.dims.stage_state[k]).noalias() =
+              _output.P[k + 1] * _qp.stages[k].gamma;
+
+            _tmp_nx_3.head(_qp.dims.stage_state[k]) =
+              _output.p[k + 1] + _tmp_nx_2;
+
+            _tmp_nx_nx_1 = _qp.stages[k].A;
+
+            _tmp_nx_nx_1.noalias() += _qp.stages[k].B * _output.K[k];
+
+            _output.p[k].noalias() =
+              _qx[k] + _tmp_nx_1 + _tmp_nx_nx_1.transpose() * _tmp_nx_3;
+            */
+
+            _output.p[k].noalias() =
+              _qx[k] + _output.K[k].transpose() * _qu[k] +
+              (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]).transpose() *
+                (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
+        }
     }
 
     // Forward pass
@@ -191,12 +229,18 @@ void lqr::_solve_cache_rho()
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        _output.x.stage(k + 1) =
-          (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
-            _output.x.stage(k) +
-          _qp.stages[k].B * _output.k[k] + _qp.stages[k].gamma;
-        _output.u.stage(k).noalias() =
-          _output.K[k] * _output.x.stage(k) + _output.k[k];
+        {
+            ZoneScopedN("x");
+            _output.x.stage(k + 1).noalias() =
+              (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
+                _output.x.stage(k) +
+              _qp.stages[k].B * _output.k[k] + _qp.stages[k].gamma;
+        }
+        {
+            ZoneScopedN("u");
+            _output.u.stage(k).noalias() =
+              _output.K[k] * _output.x.stage(k) + _output.k[k];
+        }
     }
 }
 
@@ -213,30 +257,46 @@ void lqr::_solve()
         // Backward pass
         for (int k = _qp.dims.horizon - 1; k >= 0; --k)
         {
-            VecX h = _qu[k] + _qp.stages[k].B.transpose() *
-                                (_output.p[k + 1] +
-                                 _output.P[k + 1] * _qp.stages[k].gamma);
+            VecX h;
+            {
+                ZoneScopedN("h");
+                h = _qu[k] + _qp.stages[k].B.transpose() *
+                               (_output.p[k + 1] +
+                                _output.P[k + 1] * _qp.stages[k].gamma);
+            }
 
-            _G[k].noalias() =
-              _Qxu[k].transpose() +
-              _qp.stages[k].B.transpose() * _output.P[k + 1] * _qp.stages[k].A;
+            {
+                ZoneScopedN("G");
+                _G[k].noalias() =
+                  _Qxu[k].transpose() + _qp.stages[k].B.transpose() *
+                                          _output.P[k + 1] * _qp.stages[k].A;
+            }
 
             DEBUG_LOGLN("Quu[" << k << "]:" << std::endl << _Quu[k]);
             DEBUG_LOGLN("P[" << k + 1 << "]:" << std::endl << _output.P[k + 1]);
 
-            _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
-                                          _output.P[k + 1] * _qp.stages[k].B;
+            MatX H_k;
+            {
+                ZoneScopedN("H");
+                _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
+                                              _output.P[k + 1] *
+                                              _qp.stages[k].B;
 
-            _H[k] = _H[k].selfadjointView<Eigen::Upper>();
+                _H[k] = _H[k].selfadjointView<Eigen::Upper>();
 
-            MatX H_k = _H[k] + _reg * MatX::Identity(_qp.dims.stage_control[k],
-                                                     _qp.dims.stage_control[k]);
+                H_k = _H[k] + _reg * MatX::Identity(_qp.dims.stage_control[k],
+                                                    _qp.dims.stage_control[k]);
+            }
 
             DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
             DEBUG_LOGLN("H[" << k << "]:" << std::endl << H_k);
             DEBUG_LOGLN("h[" << k << "]: " << h.transpose());
 
-            _H_llt[k] = H_k.llt();
+            {
+                ZoneScopedN("llt_create");
+
+                _H_llt[k] = H_k.llt();
+            }
             _solve_successes.push_front(_H_llt[k].info() == Eigen::Success);
             _solve_success_sum += _solve_successes.front();
 
@@ -253,20 +313,34 @@ void lqr::_solve()
                 break;
             }
 
-            _output.K[k] = -_H_llt[k].solve(_G[k]);
-            _output.k[k] = -_H_llt[k].solve(h);
+            {
+                ZoneScopedN("Solve1");
+                _output.K[k] = -_H_llt[k].solve(_G[k]);
+            }
+            {
+                ZoneScopedN("Solve2");
+                _output.k[k] = -_H_llt[k].solve(h);
+            }
 
-            _output.P[k] =
-              _Qxx[k] +
-              _qp.stages[k].A.transpose() * _output.P[k + 1] * _qp.stages[k].A -
-              _output.K[k].transpose() * _H[k] * _output.K[k];
+            {
+                ZoneScopedN("P");
+                _output.P[k] = _Qxx[k] +
+                               _qp.stages[k].A.transpose() * _output.P[k + 1] *
+                                 _qp.stages[k].A -
+                               _output.K[k].transpose() * _H[k] * _output.K[k];
 
-            _output.P[k] = _output.P[k].selfadjointView<Eigen::Upper>();
+                _output.P[k] = _output.P[k].selfadjointView<Eigen::Upper>();
+            }
 
-            _output.p[k] =
-              _qx[k] + _output.K[k].transpose() * _qu[k] +
-              (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]).transpose() *
-                (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
+            {
+                ZoneScopedN("p");
+
+                _output.p[k] =
+                  _qx[k] + _output.K[k].transpose() * _qu[k] +
+                  (_qp.stages[k].A + _qp.stages[k].B * _output.K[k])
+                      .transpose() *
+                    (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
+            }
         }
 
         if (backward_fail)
