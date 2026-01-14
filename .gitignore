@@ -7,6 +7,7 @@
 /out.txt
 /nbvenv/*
 /examples/control/urdf/a1/a1_flip.cpp
-TODO.md
+/TODO.md
 /examples/python/*.json
-perf*
+/perf*
+/mpc/mpcvenv

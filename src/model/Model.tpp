@@ -71,6 +71,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
     auto dyn_eval = [this, ctx](const VecX &x, const VecX &u)
     {
+        LOGLN(_dims.horizon);
+        LOGLN(_dims.nv[0]);
         VecX ddq;
 
         if constexpr (DM == DynamicsMode::Forward)

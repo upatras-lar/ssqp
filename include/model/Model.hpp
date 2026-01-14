@@ -205,6 +205,12 @@ class Model
 
     const std::shared_ptr<terrain::Terrain> terrain() const;
 
+    // Set initial state for stage k (must be finalized)
+    void setInitState(const uint k, const VecX &init_state);
+
+    // Set initial control for stage k (must be finalized)
+    void setInitControl(const uint k, const VecX &init_control);
+
     // Add a new cost for stage k of StageCost type L
     template<typename L, typename... Args>
     void addCost(const uint k, Args... args);

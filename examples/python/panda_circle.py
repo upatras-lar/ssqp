@@ -47,7 +47,7 @@ init_state[:nq] = [
     0.0,
 ]
 
-
+"""
 class CustomCost(ssqpy.model.costs.StageCost):
     def evaluate(self, x, u):
         return U_WGT * 0.5 * u.T @ u
@@ -65,6 +65,7 @@ class CustomCost(ssqpy.model.costs.StageCost):
 
     def hessian_uu(self, x, u):
         return U_WGT * np.eye(u.shape[0])
+"""
 
 
 for k in range(H):
@@ -81,7 +82,6 @@ for k in range(H):
     )
     model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
     model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
-    # model.addCost(k, CustomCost())
 
 desired_pose = np.zeros((4, 4))
 desired_pose[:3, :3] = Rd
