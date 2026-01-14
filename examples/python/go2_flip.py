@@ -6,16 +6,16 @@ from math import pi, sin, cos
 
 nq = 19
 nv = 18
-HORIZON = 280
+HORIZON = 160
 dt = 0.01
 
-A_WGT = 1e-1
-V_WGT = 1e-3
+A_WGT = 1e-4
+V_WGT = 1e-4
 U_WGT = 1e-5
 F_WGT = 1e-9
 
-STEPS_BEFORE = 100
-STEPS_AFTER = 100
+STEPS_BEFORE = 30
+STEPS_AFTER = 50
 
 base_pos = np.array([0, 0, 0.3689])
 
@@ -37,7 +37,7 @@ model = ssqpy.model.Model(
     urdf_path="../../examples/urdf/go2/go2.urdf",
     free_flyer=True,
     # ignore_innate_constraints=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -99,7 +99,7 @@ for k in range(HORIZON):
         model.addCost(
             k,
             costs.FrameSquaredRotationErrorCost(
-                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 1.0
+                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 10.0
             ),
         )
 
@@ -119,7 +119,7 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-1,
-    filter_size=100,
+    filter_size=1,
     admm_abs_tolerance=1e-2,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,

@@ -24,7 +24,7 @@ class lqr
         uint   solve_window        = 10;
         double solve_success_ratio = 0.9;
 
-        double reg_init   = 1e-6;
+        double reg_init   = 1e-5;
         double reg_factor = 10.0;
         double reg_max    = 1e4;
 
