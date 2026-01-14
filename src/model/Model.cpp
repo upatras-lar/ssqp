@@ -534,6 +534,22 @@ const std::shared_ptr<terrain::Terrain> Model::terrain() const
     return _terrain;
 }
 
+void Model::setInitState(const uint k, const VecX &init_state)
+{
+    assert(_finalized && "Cannot set initial state for unfinalized model");
+    assert(init_state.size() == _dynamics[k]->state_size() &&
+           "Invalid initial state size");
+    _dynamics[k]->set_init_state(init_state);
+}
+
+void Model::setInitControl(const uint k, const VecX &init_control)
+{
+    assert(_finalized && "Cannot set initial controls for unfinalized model");
+    assert(init_control.size() == _dynamics[k]->control_size() &&
+           "Invalid initial controls size");
+    _dynamics[k]->set_init_control(init_control);
+}
+
 void Model::addCost(const uint                                   k,
                     const std::shared_ptr<stagewise::StageCost> &cost)
 {
