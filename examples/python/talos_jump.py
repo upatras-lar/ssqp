@@ -5,17 +5,17 @@ import numpy as np
 
 nq = 51
 nv = 50
-H = 30
+H = 40
 dt = 0.01
 
-STEPS_BEFORE = 10
-STEPS_AFTER = 10
+STEPS_BEFORE = 15
+STEPS_AFTER = 15
 
 pos_wgt = 20
 rot_wgt = 10
 
 a_wgt = 1e-1
-v_wgt = 1e-3
+v_wgt = 1e-4
 u_wgt = 1e-6
 f_wgt = 1e-8
 
@@ -53,7 +53,7 @@ init_control[6:nv] = model.inverseDynamics(
 
 pose_cost = costs.FrameSquaredPoseErrorCost(
     model,
-    base_pos + np.array((0, 0, 0)),
+    base_pos,
     np.eye(3),
     "torso_1_link",
     nq,
@@ -101,7 +101,7 @@ for k in range(H):
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
 
-    if k < STEPS_BEFORE or k > STEPS_AFTER:
+    if k < STEPS_BEFORE or k > H - STEPS_AFTER:
         model.addContactConstraint(k, "left_mm")
         model.addContactConstraint(k, "left_mp")
         model.addContactConstraint(k, "left_pp")
@@ -125,7 +125,7 @@ for k in range(H):
         init_controls.append(np.zeros(nv))
 
 model.addCost(H, joint_vel_cost)
-model.addCost(H, pose_cost)
+# model.addCost(H, pose_cost)
 model.addConstraints(
     H,
     constraints.FrameVelocityBound(
@@ -138,10 +138,10 @@ model.finalize(init_states=[init], init_controls=init_controls)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    filter_size=5,
-    tolerance=1e-2,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-4,
+    filter_size=20,
+    tolerance=5e-2,
+    admm_abs_tolerance=5e-3,
+    admm_rel_tolerance=5e-4,
     admm_max_iter=500,
 )
 
