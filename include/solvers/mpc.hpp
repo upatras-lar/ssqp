@@ -24,7 +24,13 @@ class MPC
 
     MPC(model::Model &model, const Params &params = Params::Default());
 
-    VecX step(VecX current_state);
+    std::pair<FlatVec, FlatVec> step(const FlatVec &states,
+                                     const FlatVec &controls);
+
+    std::pair<FlatVec, FlatVec> step(const std::vector<VecX> &states,
+                                     const std::vector<VecX> &controls);
+
+    std::pair<FlatVec, FlatVec> step();
 
   protected:
     Params        _params;

@@ -1,4 +1,6 @@
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/pair.h>
+#include <nanobind/stl/vector.h>
 #include <nanobind/eigen/dense.h>
 
 #include "solvers/mpc.hpp"
@@ -34,7 +36,12 @@ void bind_MPC(nb::module_ &m)
             new (self) MPC(model, params);
         },
         nb::keep_alive<1, 2>())
-      .def("step", &MPC::step, nb::arg("current_state"));
+      .def("step",
+           static_cast<std::pair<FlatVec, FlatVec> (
+             MPC::*)(const std::vector<VecX> &, const std::vector<VecX> &)>(
+             &MPC::step),
+           nb::arg("states"),
+           nb::arg("controls"));
 }
 
 }
