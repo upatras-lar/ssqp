@@ -69,10 +69,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         right_minus
     };
 
-    // LOGLN("Location of nv[0] before making lambda: " << &_dims.nv[0]);
     auto dyn_eval = [this, ctx](const VecX &x, const VecX &u)
     {
-        //LOGLN("Location of nv[0] inside lambda (corrupted): " << &_dims.nv[0]);
         VecX ddq;
 
         if constexpr (DM == DynamicsMode::Forward)

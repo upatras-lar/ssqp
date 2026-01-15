@@ -6,7 +6,8 @@ from math import pi, sin, cos
 
 nq = 9
 nv = 9
-H = 25
+MPC_H = 15
+H = 200
 dt = 0.01
 P_WGT = 10
 R_WGT = 1
@@ -32,20 +33,9 @@ Rd = np.eye(3)
 Rd[1, 1] = -1
 Rd[2, 2] = -1
 
-model = ssqpy.model.Model(H, dt, urdf_path="../examples/urdf/panda/panda.urdf")
-
-init_state = np.zeros(2 * nq)
-init_state[:nq] = [
-    0.0013,
-    -0.9115,
-    -0.0010,
-    -2.6316,
-    -0.0008,
-    1.7431,
-    0.7862,
-    0.0,
-    0.0,
-]
+model = ssqpy.model.Model(
+    MPC_H, dt, urdf_path="../examples/urdf/panda/panda.urdf"
+)
 
 for k in range(H):
     desired_pose = np.zeros((4, 4))
@@ -74,8 +64,6 @@ model.addCost(
     ),
 )
 model.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
-
-model.finalize(init_states=[init_state])
 
 mpc = ssqpy.solvers.MPC(model)
 
