@@ -11,19 +11,25 @@
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      400
+#define HORIZON      200
 #define dt           0.01
+// Angle regularization weight
+#define A_WGT 0
 // Velocity regularization weight
 #define V_WGT 1e-4
 // Control regularization weight
 #define U_WGT 1e-6
 // Force regularization weight
-#define F_WGT 1e-8
+#define F_WGT 1e-7
 // Terminal position weight
-#define P_WEIGHT 1
+#define TP_WEIGHT 10
+// Terminal orientation weight
+#define TO_WEIGHT 8
 
-#define AIR_STEPS    20
-#define GROUND_STEPS 10
+// Jump
+#define STEPS_BEFORE 30
+#define STEPS_AFTER  30
+#define REPEATS      2
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -59,9 +65,9 @@ int main()
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer    = true;
-    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
+    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     init_control.segment(6, 12) =
@@ -74,19 +80,9 @@ int main()
 
     std::vector<Eigen::VectorXd> init_controls;
 
-    std::vector<Eigen::VectorXd> traj(HORIZON + 1);
-    double                       target = 2.5;
+    Eigen::Vector3d target(1.6, 0.0, base_pos[2]);
 
-    for (uint i = 0; i <= HORIZON; ++i)
-    {
-        traj[i] = (Eigen::Vector3d() << i * (target - base_pos[0]) / HORIZON,
-                   0.0,
-                   base_pos[2])
-                    .finished();
-    }
-
-    uint MOVE_STEPS = 2 * GROUND_STEPS + AIR_STEPS;
-    bool ls1        = false;
+    uint JUMP_STAGES = HORIZON / REPEATS;
 
     for (uint k = 0; k < HORIZON; ++k)
     {
@@ -98,51 +94,98 @@ int main()
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
-        model.addCost<costs::FrameSquaredPoseErrorCost>(
-          k,
-          model,
-          traj[k],
-          Eigen::Matrix3d::Identity(),
-          "trunk",
-          STATE_SIZE,
-          CONTROL_SIZE,
-          P_WEIGHT,
-          P_WEIGHT);
+        uint rel_k = k % JUMP_STAGES;
 
-        uint rel_k = k % MOVE_STEPS;
-
-        if (rel_k < GROUND_STEPS || rel_k > GROUND_STEPS + AIR_STEPS)
+        if (rel_k == 0 && k > 0)
         {
-            init_controls.push_back(init_control);
-            model.addConstraints<constraints::ContactConstraint>(
-              k,
-              model,
-              ls1 ? "RR_foot" : "RL_foot",
-              STATE_SIZE,
-              CONTROL_SIZE,
-              0.6);
+            Eigen::Vector3d lb(0.1,
+                               -std::numeric_limits<double>::infinity(),
+                               -std::numeric_limits<double>::infinity()),
+              ub(std::numeric_limits<double>::infinity(),
+                 std::numeric_limits<double>::infinity(),
+                 std::numeric_limits<double>::infinity());
+
+            model.addConstraints<constraints::FramePositionBound>(k,
+                                                                  model,
+                                                                  "trunk",
+                                                                  lb,
+                                                                  ub,
+                                                                  STATE_SIZE,
+                                                                  CONTROL_SIZE);
+        }
+
+        if (rel_k < STEPS_BEFORE || rel_k > JUMP_STAGES - STEPS_AFTER)
+        {
+
+            if (k < STEPS_BEFORE || k > HORIZON - STEPS_AFTER)
+            {
+                init_controls.push_back(init_control);
+                model.addConstraints<constraints::ContactConstraint>(
+                  k,
+                  model,
+                  "FL_foot",
+                  STATE_SIZE,
+                  CONTROL_SIZE,
+                  0.6);
+
+                model.addConstraints<constraints::FrameVelocityBound>(
+                  k,
+                  model,
+                  "FL_foot",
+                  Eigen::Vector3d::Zero(),
+                  Eigen::Vector3d::Zero(),
+                  STATE_SIZE,
+                  CONTROL_SIZE);
+
+                model.addConstraints<constraints::ContactConstraint>(
+                  k,
+                  model,
+                  "FR_foot",
+                  STATE_SIZE,
+                  CONTROL_SIZE,
+                  0.6);
+
+                model.addConstraints<constraints::FrameVelocityBound>(
+                  k,
+                  model,
+                  "FR_foot",
+                  Eigen::Vector3d::Zero(),
+                  Eigen::Vector3d::Zero(),
+                  STATE_SIZE,
+                  CONTROL_SIZE);
+            }
+            else
+            {
+                init_controls.push_back(init_control_2);
+            }
+
+            model.addConstraints<constraints::ContactConstraint>(k,
+                                                                 model,
+                                                                 "RL_foot",
+                                                                 STATE_SIZE,
+                                                                 CONTROL_SIZE,
+                                                                 0.6);
 
             model.addConstraints<constraints::FrameVelocityBound>(
               k,
               model,
-              ls1 ? "RR_foot" : "RL_foot",
+              "RL_foot",
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
               CONTROL_SIZE);
 
-            model.addConstraints<constraints::ContactConstraint>(
-              k,
-              model,
-              ls1 ? "FR_foot" : "FL_foot",
-              STATE_SIZE,
-              CONTROL_SIZE,
-              0.6);
+            model.addConstraints<constraints::ContactConstraint>(k,
+                                                                 model,
+                                                                 "RR_foot",
+                                                                 STATE_SIZE,
+                                                                 CONTROL_SIZE,
+                                                                 0.6);
 
             model.addConstraints<constraints::FrameVelocityBound>(
               k,
               model,
-              ls1 ? "FR_foot" : "FL_foot",
+              "RR_foot",
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
@@ -150,47 +193,8 @@ int main()
         }
         else
         {
-            init_controls.push_back(init_control_2);
+            init_controls.push_back(Eigen::VectorXd::Zero(18));
         }
-
-        if (rel_k == 0)
-        {
-            ls1 = !ls1;
-        }
-
-        model.addConstraints<constraints::ContactConstraint>(k,
-                                                             model,
-                                                             ls1 ? "FR_foot"
-                                                                 : "FL_foot",
-                                                             STATE_SIZE,
-                                                             CONTROL_SIZE,
-                                                             0.6);
-
-        model.addConstraints<constraints::FrameVelocityBound>(
-          k,
-          model,
-          ls1 ? "FR_foot" : "FL_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          CONTROL_SIZE);
-
-        model.addConstraints<constraints::ContactConstraint>(k,
-                                                             model,
-                                                             ls1 ? "RL_foot"
-                                                                 : "RR_foot",
-                                                             STATE_SIZE,
-                                                             CONTROL_SIZE,
-                                                             0.6);
-
-        model.addConstraints<constraints::FrameVelocityBound>(
-          k,
-          model,
-          ls1 ? "RL_foot" : "RR_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          CONTROL_SIZE);
     }
 
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
@@ -200,13 +204,13 @@ int main()
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
-                                                    traj[HORIZON],
+                                                    target,
                                                     Eigen::Matrix3d::Identity(),
                                                     "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    P_WEIGHT,
-                                                    P_WEIGHT);
+                                                    TP_WEIGHT,
+                                                    TO_WEIGHT);
 
     model.addConstraints<constraints::FrameVelocityBound>(
       HORIZON,
@@ -232,7 +236,7 @@ int main()
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
     admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 250;
+    admm_params.max_iter      = 500;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
@@ -248,7 +252,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/data/a1_walk");
+    solver.write("examples/trajgen/data/a1_jumpwalk");
 
     return 0;
 }

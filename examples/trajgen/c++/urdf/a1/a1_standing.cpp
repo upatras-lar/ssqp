@@ -289,7 +289,7 @@ int main()
     }
     */
 
-    solver.write("examples/data/a1_standing");
+    solver.write("examples/trajgen/data/a1_standing");
 
     return 0;
 }

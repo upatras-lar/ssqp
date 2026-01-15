@@ -46,7 +46,7 @@ endif
 
 # Directories
 SRC_DIR := src
-EXAMPLES_DIR := examples/control
+EXAMPLES_DIR := examples/trajgen/c++
 BUILD_DIR := build
 OBJ_DIR := $(BUILD_DIR)/obj
 BINDINGS_OBJ_DIR := $(BUILD_DIR)/bindings

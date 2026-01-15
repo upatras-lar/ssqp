@@ -28,7 +28,7 @@ for f in range(1, 5):
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../examples/urdf/talos/talos.urdf",
+    urdf_path="../../urdf/talos/talos.urdf",
     free_flyer=True,
     # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )

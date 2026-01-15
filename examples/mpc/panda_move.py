@@ -25,9 +25,7 @@ desired_pose[:3, :3] = Rd
 desired_pose[:3, 3] = pd
 desired_pose[3, 3] = 1
 
-model = ssqpy.model.Model(
-    MPC_H, dt, urdf_path="../examples/urdf/panda/panda.urdf"
-)
+model = ssqpy.model.Model(MPC_H, dt, urdf_path="../urdf/panda/panda.urdf")
 
 init_state = np.zeros(2 * nq)
 init_state[:nq] = [
@@ -62,7 +60,7 @@ model.addCost(MPC_H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
 mpc = ssqpy.solvers.MPC(model, sqp_iters=5, admm_iters=50)
 
-model = mujoco.MjModel.from_xml_path("mjcf/panda/panda.xml")
+model = mujoco.MjModel.from_xml_path("../mjcf/panda/panda.xml")
 data = mujoco.MjData(model)
 
 data.qpos = init_state[:9]

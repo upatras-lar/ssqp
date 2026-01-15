@@ -257,7 +257,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/data/panda_circle");
+    solver.write("examples/trajgen/data/panda_circle");
 
     return 0;
 }

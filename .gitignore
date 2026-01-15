@@ -1,13 +1,13 @@
 /.vscode/
 /build/*
-/examples/data/*
+/examples/trajgen/data/*
 /VARIABLES.sh
 /visualizer/viser-venv/*
 /tests/logs/*
 /out.txt
 /nbvenv/*
-/examples/control/urdf/a1/a1_flip.cpp
+/examples/trajgen/c++/urdf/a1/a1_flip.cpp
 /TODO.md
 /examples/python/*.json
 /perf*
-/mpc/mpcvenv
+/examples/mpc/mpcvenv
