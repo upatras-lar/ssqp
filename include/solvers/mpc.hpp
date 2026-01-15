@@ -27,8 +27,8 @@ class MPC
     VecX step(VecX current_state);
 
   protected:
-    Params       _params;
-    model::Model _model;
+    Params        _params;
+    model::Model &_model;
 };
 }
 }

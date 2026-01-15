@@ -144,7 +144,8 @@ void bind_ssqp(nb::module_ &m)
             }
 
             new (self) ssqp(model, params, admm_params);
-        })
+        },
+        nb::keep_alive<1, 2>())
       .def("solve",
            [](ssqp &self)
            {
