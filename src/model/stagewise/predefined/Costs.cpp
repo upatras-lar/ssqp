@@ -21,6 +21,11 @@ SquaredJointAngleCost::SquaredJointAngleCost(const uint nq, const uint nv,
 {
 }
 
+void SquaredJointAngleCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
 VecX SquaredJointAngleCost::evaluate(const VecX &x, const VecX &u) const
 {
     VecX q = _free_flyer ? x.segment(7, _nq - 7) : x.head(_nq);
@@ -79,6 +84,11 @@ SquaredJointVelocityCost::SquaredJointVelocityCost(const uint   nv,
 {
 }
 
+void SquaredJointVelocityCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
 VecX SquaredJointVelocityCost::evaluate(const VecX &x, const VecX &u) const
 {
     return (Scalar() << 0.5 * _weight * x.tail(_njoints).squaredNorm())
@@ -120,6 +130,11 @@ SquaredControlCost::SquaredControlCost(const uint nv, const double weight)
 {
 }
 
+void SquaredControlCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
 VecX SquaredControlCost::evaluate(const VecX &x, const VecX &u) const
 {
     return (Scalar() << 0.5 * _weight * u.head(_nv).squaredNorm()).finished();
@@ -159,6 +174,11 @@ SquaredForceCost::SquaredForceCost(const uint nv, const double weight)
 {
 }
 
+void SquaredForceCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
 VecX SquaredForceCost::evaluate(const VecX &x, const VecX &u) const
 {
     return (Scalar() << 0.5 * _weight * u.tail(u.size() - _nv).squaredNorm())
@@ -191,8 +211,8 @@ void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
       .setConstant(_weight);
 }
 
-// FrameSquaredPositionErrorCost
-FrameSquaredPositionErrorCost::FrameSquaredPositionErrorCost(
+// FrameSquaredTranslationErrorCost
+FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const Vec3 &desired_translation, const std::string &frame,
   const uint nq, const uint nv, const double weight)
   : _model(std::make_shared<Model>(model))
@@ -204,7 +224,19 @@ FrameSquaredPositionErrorCost::FrameSquaredPositionErrorCost(
 {
 }
 
-VecX FrameSquaredPositionErrorCost::evaluate(const VecX &x, const VecX &u) const
+void FrameSquaredTranslationErrorCost::set_desired_translation(
+  const Vec3 &desired_translation)
+{
+    _desired_translation = desired_translation;
+}
+
+void FrameSquaredTranslationErrorCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
+VecX FrameSquaredTranslationErrorCost::evaluate(const VecX &x,
+                                                const VecX &u) const
 {
     VecX pos;
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
@@ -216,8 +248,8 @@ VecX FrameSquaredPositionErrorCost::evaluate(const VecX &x, const VecX &u) const
       .finished();
 }
 
-void FrameSquaredPositionErrorCost::gradient(const VecX &x, const VecX &u,
-                                             VecX &dx, VecX &du) const
+void FrameSquaredTranslationErrorCost::gradient(const VecX &x, const VecX &u,
+                                                VecX &dx, VecX &du) const
 {
     VecX pos;
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
@@ -230,8 +262,8 @@ void FrameSquaredPositionErrorCost::gradient(const VecX &x, const VecX &u,
 
     du = VecX::Zero(u.size());
 }
-void FrameSquaredPositionErrorCost::hessian_xx(const VecX &x, const VecX &u,
-                                               MatX &Hxx) const
+void FrameSquaredTranslationErrorCost::hessian_xx(const VecX &x, const VecX &u,
+                                                  MatX &Hxx) const
 {
     MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
@@ -240,14 +272,14 @@ void FrameSquaredPositionErrorCost::hessian_xx(const VecX &x, const VecX &u,
       _weight * Jfk.topRows(3).transpose() * Jfk.topRows(3);
 }
 
-void FrameSquaredPositionErrorCost::hessian_xu(const VecX &x, const VecX &u,
-                                               MatX &Hxu) const
+void FrameSquaredTranslationErrorCost::hessian_xu(const VecX &x, const VecX &u,
+                                                  MatX &Hxu) const
 {
     Hxu = MatX::Zero(2 * _nv, u.size());
 }
 
-void FrameSquaredPositionErrorCost::hessian_uu(const VecX &x, const VecX &u,
-                                               MatX &Huu) const
+void FrameSquaredTranslationErrorCost::hessian_uu(const VecX &x, const VecX &u,
+                                                  MatX &Huu) const
 {
     Huu = MatX::Zero(u.size(), u.size());
 }
@@ -263,6 +295,17 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   , _nv(nv)
   , _weight(weight)
 {
+}
+
+void FrameSquaredRotationErrorCost::set_desired_rotation(
+  const Mat3 &desired_rotation)
+{
+    _desired_rotation = desired_rotation;
+}
+
+void FrameSquaredRotationErrorCost::set_weight(const double weight)
+{
+    _weight = weight;
 }
 
 VecX FrameSquaredRotationErrorCost::evaluate(const VecX &x, const VecX &u) const
@@ -327,7 +370,7 @@ void FrameSquaredRotationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 // FrameSquaredPoseErrorCost
 FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   const Model &model, const Mat4 &desired_pose, const std::string &frame,
-  const uint nq, const uint nv, const double position_weight,
+  const uint nq, const uint nv, const double translation_weight,
   const double rotation_weight)
   : _model(std::make_shared<Model>(model))
   , _desired_pose(desired_pose)
@@ -336,32 +379,62 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   , _nv(nv)
   , _weight(Mat6::Zero())
 {
-    _weight.topLeftCorner<3, 3>()     = position_weight * Mat3::Identity();
+    _weight.topLeftCorner<3, 3>()     = translation_weight * Mat3::Identity();
     _weight.bottomRightCorner<3, 3>() = rotation_weight * Mat3::Identity();
 }
 
 FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
-  const Model &model, const Vec3 &desired_position,
+  const Model &model, const Vec3 &desired_translation,
   const Mat3 &desired_rotation, const std::string &frame, const uint nq,
-  const uint nv, const double position_weight, const double rotation_weight)
+  const uint nv, const double translation_weight, const double rotation_weight)
   : FrameSquaredPoseErrorCost(model,
                               Mat4 {
                                 { desired_rotation(0, 0),
                                  desired_rotation(0, 1),
                                  desired_rotation(0, 2),
-                                 desired_position(0) },
+                                 desired_translation(0) },
                                 { desired_rotation(1, 0),
                                  desired_rotation(1, 1),
                                  desired_rotation(1, 2),
-                                 desired_position(1) },
+                                 desired_translation(1) },
                                 { desired_rotation(2, 0),
                                  desired_rotation(2, 1),
                                  desired_rotation(2, 2),
-                                 desired_position(2) },
+                                 desired_translation(2) },
                                 { 0.0, 0.0, 0.0, 1.0 }
 },
-                              frame, nq, nv, position_weight, rotation_weight)
+                              frame, nq, nv, translation_weight,
+                              rotation_weight)
 {
+}
+
+void FrameSquaredPoseErrorCost::set_desired_pose(const Mat4 &desired_pose)
+{
+    _desired_pose = desired_pose;
+}
+
+void FrameSquaredPoseErrorCost::set_desired_translation(
+  const Vec3 &desired_translation)
+{
+    _desired_pose.block<3, 1>(0, 3) = desired_translation.transpose();
+}
+
+void FrameSquaredPoseErrorCost::set_desired_rotation(
+  const Mat3 &desired_rotation)
+{
+    _desired_pose.block<3, 3>(0, 0) = desired_rotation;
+}
+
+void FrameSquaredPoseErrorCost::set_translation_weight(
+  const double translation_weight)
+{
+    _weight.topLeftCorner<3, 3>() = translation_weight * Mat3::Identity();
+}
+
+void FrameSquaredPoseErrorCost::set_rotation_weight(
+  const double rotation_weight)
+{
+    _weight.bottomRightCorner<3, 3>() = rotation_weight * Mat3::Identity();
 }
 
 VecX FrameSquaredPoseErrorCost::evaluate(const VecX &x, const VecX &u) const
@@ -449,6 +522,11 @@ FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
 {
 }
 
+void FrameSquaredVelocityCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
 VecX FrameSquaredVelocityCost::evaluate(const VecX &x, const VecX &u) const
 {
     return (Scalar()
@@ -495,7 +573,6 @@ void FrameSquaredVelocityCost::hessian_uu(const VecX &x, const VecX &u,
                                           MatX &Huu) const
 {
     Huu = MatX::Zero(u.size(), u.size());
-    ;
 }
 
 }

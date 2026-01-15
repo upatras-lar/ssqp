@@ -527,21 +527,20 @@ std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test()
 
     for (uint k = 0; k <= model->dims().horizon; ++k)
     {
-        model->addCost<
-          model::stagewise::predefined::costs::FrameSquaredPositionErrorCost>(
-          k,
-          *model,
-          Vec3::Zero(),
-          "trunk",
-          19,
-          18,
-          1);
+        model->addCost<model::stagewise::predefined::costs::
+                         FrameSquaredTranslationErrorCost>(k,
+                                                           *model,
+                                                           Vec3::Zero(),
+                                                           "trunk",
+                                                           19,
+                                                           18,
+                                                           1);
     }
 
     model->finalize();
 
     std::shared_ptr<FDGradCost> cost_test =
-      std::make_shared<FDGradCost>("FrameSquaredPositionErrorCostGradTest",
+      std::make_shared<FDGradCost>("FrameSquaredTranslationErrorCostGradTest",
                                    model,
                                    0);
 

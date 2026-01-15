@@ -30,6 +30,9 @@ class FramePositionBound : public StageConstraints
                        const VecX &lb, const VecX &ub, const uint nq,
                        const uint nv);
 
+    void set_lower_bound(const VecX &lb);
+    void set_upper_bound(const VecX &ub);
+
     uint output_size() const override;
 
     VecX lower_bound() const override;
@@ -50,7 +53,7 @@ class FramePositionBound : public StageConstraints
   protected:
     const std::shared_ptr<Model> _model;
     const std::string            _frame;
-    const VecX                   _lb, _ub;
+    VecX                         _lb, _ub;
     const uint                   _nq, _nv;
 };
 
@@ -69,6 +72,9 @@ class FrameVelocityBound : public StageConstraints
                        const VecX &lb, const VecX &ub, const uint nq,
                        const uint nv, const bool terminal = false);
 
+    void set_lower_bound(const VecX &lb);
+    void set_upper_bound(const VecX &ub);
+
     uint output_size() const override;
 
     VecX lower_bound() const override;
@@ -89,7 +95,7 @@ class FrameVelocityBound : public StageConstraints
   protected:
     const std::shared_ptr<Model> _model;
     const std::string            _frame;
-    const VecX                   _lb, _ub;
+    VecX                         _lb, _ub;
     const uint                   _nq, _nv;
     const bool                   _terminal;
 };
@@ -99,6 +105,8 @@ class ContactConstraint : public StageConstraints
   public:
     ContactConstraint(const Model &model, const std::string &frame,
                       const uint nq, const uint nv, const double mu = 0.6);
+
+    void set_mu(const double mu);
 
     uint output_size() const override;
 
@@ -128,7 +136,7 @@ class ContactConstraint : public StageConstraints
     const std::string            _frame;
     std::vector<Force>           _forces;
     const uint                   _nq, _nv;
-    const double                 _mu;
+    double                       _mu;
 };
 
 }
