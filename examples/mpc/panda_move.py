@@ -40,13 +40,12 @@ init_state[:nq] = [
     0.0,
 ]
 
+pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
+    model, desired_pose, "panda_ee", nq, nq, P_WGT, R_WGT
+)
+
 for k in range(MPC_H):
-    model.addCost(
-        k,
-        ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, desired_pose, "panda_ee", nq, nq, P_WGT, R_WGT
-        ),
-    )
+    model.addCost(k, pose_error)
     model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
     model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
@@ -89,9 +88,15 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         steps += 1
 
         if steps == total_steps:
-            print(f"\rControl frequency: {(1 / (elapsed*dt)):.2f}Hz", end="")
+            print(f"\rControl frequency: {(1 / (elapsed*dt)):.2f}Hz\t", end="")
             elapsed = 0
             steps = 0
+
+            pose_error.set_desired_translation(
+                np.array(
+                    (np.random.random() - 0.5, np.random.random() - 0.5, 0.6)
+                )
+            )
 
         data.ctrl = controls.stage(0)[:8]
         mujoco.mj_step(model, data)

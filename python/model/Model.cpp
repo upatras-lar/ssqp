@@ -189,12 +189,12 @@ void bind_Model(nb::module_ &m)
         "addContactConstraint",
         [](Model &self, const uint k, const std::string &frame, const double mu)
         {
-            self.addConstraints<ContactConstraint>(k,
-                                                   self,
-                                                   frame,
-                                                   self.nq(k),
-                                                   self.nv(k),
-                                                   mu);
+            return self.addConstraints<ContactConstraint>(k,
+                                                          self,
+                                                          frame,
+                                                          self.nq(k),
+                                                          self.nv(k),
+                                                          mu);
         },
         nb::arg("k"),
         nb::arg("frame"),

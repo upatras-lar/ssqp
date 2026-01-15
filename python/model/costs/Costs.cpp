@@ -108,24 +108,30 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"),
-           nb::arg("free_flyer") = false);
+           nb::arg("free_flyer") = false)
+      .def("set_weight", &SquaredJointAngleCost::set_weight, nb::arg("weight"));
 
     nb::class_<SquaredJointVelocityCost, StageCost>(m,
                                                     "SquaredJointVelocityCost")
       .def(nb::init<uint, double, bool>(),
            nb::arg("nv"),
            nb::arg("weight"),
-           nb::arg("free_flyer") = false);
+           nb::arg("free_flyer") = false)
+      .def("set_weight",
+           &SquaredJointVelocityCost::set_weight,
+           nb::arg("weight"));
 
     nb::class_<SquaredControlCost, StageCost>(m, "SquaredControlCost")
-      .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"));
+      .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"))
+      .def("set_weight", &SquaredControlCost::set_weight, nb::arg("weight"));
 
     nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost")
-      .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"));
+      .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"))
+      .def("set_weight", &SquaredForceCost::set_weight, nb::arg("weight"));
 
-    nb::class_<FrameSquaredPositionErrorCost, StageCost>(
+    nb::class_<FrameSquaredTranslationErrorCost, StageCost>(
       m,
-      "FrameSquaredPositionErrorCost")
+      "FrameSquaredTranslationErrorCost")
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const std::string &,
@@ -137,6 +143,12 @@ void bind_Costs(nb::module_ &m)
            nb::arg("frame"),
            nb::arg("nq"),
            nb::arg("nv"),
+           nb::arg("weight"))
+      .def("set_desired_translation",
+           &FrameSquaredTranslationErrorCost::set_desired_translation,
+           nb::arg("desired_translation"))
+      .def("set_weight",
+           &FrameSquaredTranslationErrorCost::set_weight,
            nb::arg("weight"));
 
     nb::class_<FrameSquaredRotationErrorCost, StageCost>(
@@ -153,6 +165,12 @@ void bind_Costs(nb::module_ &m)
            nb::arg("frame"),
            nb::arg("nq"),
            nb::arg("nv"),
+           nb::arg("weight"))
+      .def("set_desired_rotation",
+           &FrameSquaredRotationErrorCost::set_desired_rotation,
+           nb::arg("desired_rotation"))
+      .def("set_weight",
+           &FrameSquaredRotationErrorCost::set_weight,
            nb::arg("weight"));
 
     nb::class_<FrameSquaredPoseErrorCost, StageCost>(
@@ -187,6 +205,21 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("position_weight"),
+           nb::arg("rotation_weight"))
+      .def("set_desired_pose",
+           &FrameSquaredPoseErrorCost::set_desired_pose,
+           nb::arg("desired_pose"))
+      .def("set_desired_translation",
+           &FrameSquaredPoseErrorCost::set_desired_translation,
+           nb::arg("desired_translation"))
+      .def("set_desired_rotation",
+           &FrameSquaredPoseErrorCost::set_desired_rotation,
+           nb::arg("desired_rotation"))
+      .def("set_translation_weight",
+           &FrameSquaredPoseErrorCost::set_translation_weight,
+           nb::arg("translation_weight"))
+      .def("set_rotation_weight",
+           &FrameSquaredPoseErrorCost::set_rotation_weight,
            nb::arg("rotation_weight"));
 
     nb::class_<FrameSquaredVelocityCost, StageCost>(m,
@@ -196,6 +229,9 @@ void bind_Costs(nb::module_ &m)
            nb::arg("frame"),
            nb::arg("nq"),
            nb::arg("nv"),
+           nb::arg("weight"))
+      .def("set_weight",
+           &FrameSquaredVelocityCost::set_weight,
            nb::arg("weight"));
 }
 }

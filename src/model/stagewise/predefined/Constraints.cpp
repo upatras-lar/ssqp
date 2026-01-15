@@ -25,6 +25,16 @@ FramePositionBound::FramePositionBound(const Model       &model,
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
 }
 
+void FramePositionBound::set_lower_bound(const VecX &lb)
+{
+    _lb = lb;
+}
+
+void FramePositionBound::set_upper_bound(const VecX &ub)
+{
+    _ub = ub;
+}
+
 uint FramePositionBound::output_size() const
 {
     return 3;
@@ -90,6 +100,16 @@ FrameVelocityBound::FrameVelocityBound(const Model       &model,
   , _terminal(terminal)
 {
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
+}
+
+void FrameVelocityBound::set_lower_bound(const VecX &lb)
+{
+    _lb = lb;
+}
+
+void FrameVelocityBound::set_upper_bound(const VecX &ub)
+{
+    _ub = ub;
 }
 
 uint FrameVelocityBound::output_size() const
@@ -165,6 +185,11 @@ ContactConstraint::ContactConstraint(const Model       &model,
   , _nv(nv)
   , _mu(mu)
 {
+}
+
+void ContactConstraint::set_mu(const double mu)
+{
+    _mu = mu;
 }
 
 uint ContactConstraint::output_size() const

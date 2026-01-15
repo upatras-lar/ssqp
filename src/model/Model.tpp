@@ -5,17 +5,20 @@ namespace ssqp
 namespace model
 {
 template<typename L, typename... Args>
-void Model::addCost(const uint k, Args... args)
+std::shared_ptr<stagewise::StageCost> Model::addCost(const uint k, Args... args)
 {
     static_assert(std::is_base_of_v<stagewise::StageCost, L>, "Invalid cost");
 
     std::shared_ptr<stagewise::StageCost> cost = std::make_shared<L>(args...);
 
     addCost(k, cost);
+
+    return cost;
 }
 
 template<typename C, typename... Args>
-void Model::addConstraints(const uint k, Args... args)
+std::shared_ptr<stagewise::StageConstraints> Model::addConstraints(const uint k,
+                                                                   Args... args)
 {
     static_assert(std::is_base_of_v<stagewise::StageConstraints, C>,
                   "Invalid constraint");
@@ -32,6 +35,8 @@ void Model::addConstraints(const uint k, Args... args)
     constraints->set_forces(forces);
 
     addConstraints(k, constraints);
+
+    return constraints;
 }
 
 template<bool WithForces, DynamicsMode DM, IntegrationScheme IS>

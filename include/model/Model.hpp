@@ -63,7 +63,7 @@ class Model
      *  - `free_flyer`: Whether the model has a floating base (only relevant
      *     if initialized through URDF)
      *  - `terrain`: The ground terrain (default flat at z=0)
-     *  - `dynamics_mode`: The dynamics mode to use (default Inverse Dynamics)
+     *  - `dynamics_mode`: The dynamics mode to use (default Forward Dynamics)
      *  - `integration`: The integration scheme to use (default Semi-Implicit
      *     Euler)
      *  - `ignore_innate_constraints`: Whether to ignore innate constraints from
@@ -138,14 +138,14 @@ class Model
      * This constructor does not finalize the model. The `finalize` method 
      * must be explicitly called before passing the model to a solver. If an
      * unfinalized model is passed to a solver, the solver will attempt to
-     * finalize it with the default parameters.
+     * finalize it with the default configuration.
      */
     Model(uint horizon, double dt,
           const Structure &structure = Structure::Default());
 
     /* Model Config Constructor
      * ---
-     * Initializes model with default structure and the given config
+     * Initializes model with default structure and the given configuration
      * 
      * Input:
      *  - `horizon`: The time horizon to optimize over
@@ -154,6 +154,8 @@ class Model
      * 
      * #### Note:
      * This constructor finalizes the model.
+     * When using this constructor to finalize the model, the `finalize` method
+     * must not be called afterwards.
      */
     Model(uint horizon, double dt, const Config &config);
 
@@ -169,6 +171,7 @@ class Model
      *  - `config`: The system configuration
      * 
      * #### Note:
+     * This constructor finalizes the model.
      * When using this constructor to finalize the model, the `finalize` method
      * must not be called afterwards.
      */
@@ -185,7 +188,7 @@ class Model
      * #### Note:
      * This method must only be called once, in the case that the model is not
      * finalized, before passing the model to a solver. If it is not called,
-     * the default parameters will be used.
+     * the default configuration will be used.
      */
     void finalize(const Config &config = Config::Default());
 
@@ -212,12 +215,15 @@ class Model
     void setInitControl(const uint k, const VecX &init_control);
 
     // Add a new cost for stage k of StageCost type L
+    // Returns: the created cost
     template<typename L, typename... Args>
-    void addCost(const uint k, Args... args);
+    std::shared_ptr<stagewise::StageCost> addCost(const uint k, Args... args);
 
     // Add new constraints for stage k of StageConstraint type L
+    // Returns: the created constraints
     template<typename C, typename... Args>
-    void addConstraints(const uint k, Args... args);
+    std::shared_ptr<stagewise::StageConstraints> addConstraints(const uint k,
+                                                                Args... args);
 
     // Add a new cost for stage k from existing object
     void addCost(const uint                                   k,

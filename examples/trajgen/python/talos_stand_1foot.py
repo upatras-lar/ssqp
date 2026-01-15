@@ -84,7 +84,7 @@ for k in range(H):
     if k > H // 2:
         model.addCost(
             k,
-            costs.FrameSquaredPositionErrorCost(
+            costs.FrameSquaredTranslationErrorCost(
                 model,
                 np.array((0.4, -0.25, 0.65)),
                 "leg_right_4_link",
@@ -96,7 +96,7 @@ for k in range(H):
 
         model.addCost(
             k,
-            costs.FrameSquaredPositionErrorCost(
+            costs.FrameSquaredTranslationErrorCost(
                 model,
                 np.array((0.0, 0.6, 1.0)),
                 "arm_left_4_link",
@@ -108,7 +108,7 @@ for k in range(H):
 
         model.addCost(
             k,
-            costs.FrameSquaredPositionErrorCost(
+            costs.FrameSquaredTranslationErrorCost(
                 model,
                 np.array((0.0, -0.6, 1.0)),
                 "arm_right_4_link",
