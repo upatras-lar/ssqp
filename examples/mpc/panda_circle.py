@@ -2,7 +2,7 @@ import mujoco
 import mujoco.viewer
 import ssqpy
 import numpy as np
-from math import pi, sin, cos
+from math import pi, sin, cos, atan2, sqrt
 from time import time
 
 nq = 9
@@ -16,14 +16,51 @@ A_WGT = 1e-1
 V_WGT = 1e-3
 U_WGT = 1e-5
 
+CONSTRAIN = True
+
 cx = 0.3
 cy = 0
 cz = 0.26
-cr = 0.3
+cr = 0.22
 
 DISTANCE = 2 * pi
 ω = DISTANCE / (H * dt)
 φ0 = 0
+
+
+def circle_to_square_point(p):
+    θ = atan2(p[2] - cz, p[1] - cy)
+    c = cos(θ)
+    s = sin(θ)
+    a = cr / sqrt(2.0)
+    t = a / max(abs(c), abs(s))
+
+    return np.array((cx, cy + t * c, cz + t * s))
+
+
+def square_point_bounds(p):
+    lb = np.zeros(3)
+    ub = np.zeros(3)
+
+    lb[0] = -np.inf
+    ub[0] = np.inf
+
+    if p[1] > cy:
+        lb[1] = -np.inf
+        ub[1] = p[1]
+    else:
+        lb[1] = p[1]
+        ub[1] = np.inf
+
+    if p[2] > cz:
+        lb[2] = -np.inf
+        ub[2] = p[2]
+    else:
+        lb[2] = p[2]
+        ub[2] = np.inf
+
+    return lb, ub
+
 
 traj = []
 
@@ -51,6 +88,7 @@ init_state[:nq] = [
 ]
 
 pose_costs = []
+box_constraints = []
 
 for k in range(MPC_H):
     pose_costs.append(
@@ -63,6 +101,17 @@ for k in range(MPC_H):
     model.addCost(k, ssqpy.model.costs.SquaredJointAngleCost(nq, nv, A_WGT))
     model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
     model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
+
+    if CONSTRAIN:
+        lb, ub = square_point_bounds(circle_to_square_point(traj[k]))
+
+        box_constraints.append(
+            ssqpy.model.constraints.FramePositionBound(
+                model, "panda_ee", lb, ub, nq, nv
+            )
+        )
+
+        model.addConstraints(k, box_constraints[-1])
 
 pose_costs.append(
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
@@ -80,6 +129,16 @@ def update_pose_costs(current_stage):
         pose_costs[k - current_stage].set_desired_translation(
             traj[current_stage % H]
         )
+
+
+def update_box_constraints(current_stage):
+    for k in range(current_stage, current_stage + MPC_H):
+        lb, ub = square_point_bounds(
+            circle_to_square_point(traj[current_stage % H])
+        )
+
+        box_constraints[k - current_stage].set_lower_bound(lb)
+        box_constraints[k - current_stage].set_upper_bound(ub)
 
 
 mpc = ssqpy.solvers.MPC(model, sqp_iters=4, admm_iters=50)
@@ -127,3 +186,5 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         stage += 1
         update_pose_costs(stage)
+        if CONSTRAIN:
+            update_box_constraints(stage)
