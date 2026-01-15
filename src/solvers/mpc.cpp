@@ -16,14 +16,38 @@ MPC::MPC(model::Model &model, const Params &params)
     }
 }
 
-VecX MPC::step(VecX current_state)
+std::pair<FlatVec, FlatVec> MPC::step(const std::vector<VecX> &states,
+                                      const std::vector<VecX> &controls)
 {
-    for (uint k = 0; k < _model.horizon(); ++k)
-    {
-        _model.setInitState(k, current_state);
-        _model.setInitControl(k, VecX::Zero(_model.dims().stage_control[k]));
-    }
+    const uint H = _model.horizon();
 
+    for (uint k = 0; k < H; ++k)
+    {
+        _model.setInitState(k, states[k]);
+        _model.setInitControl(k, controls[k]);
+    }
+    _model.setInitState(H, states[H]);
+
+    return step();
+}
+
+std::pair<FlatVec, FlatVec> MPC::step(const FlatVec &states,
+                                      const FlatVec &controls)
+{
+    const uint H = _model.horizon();
+
+    for (uint k = 0; k < H; ++k)
+    {
+        _model.setInitState(k, states.stage(k));
+        _model.setInitControl(k, controls.stage(k));
+    }
+    _model.setInitState(H, states.stage(H));
+
+    return step();
+}
+
+std::pair<FlatVec, FlatVec> MPC::step()
+{
     ssqp::Params ssqp_params;
     ssqp_params.max_iter = _params.sqp_iters;
 
@@ -34,7 +58,7 @@ VecX MPC::step(VecX current_state)
     ssqp::Guess solution(_model.dims(), _model.linear_dims());
     SolverState state = solver.solve(solution);
 
-    return solution.u.stage(0);
+    return { solution.x, solution.u };
 }
 }
 }
