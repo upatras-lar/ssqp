@@ -75,7 +75,7 @@ class ssqp
   protected:
     Params          _params;
     admm_qp::Params _admm_params;
-    model::Model    _model;
+    model::Model   &_model;
     Guess           _guess;
 
     FlatVec _prev_cost_dx, _prev_cost_du;
