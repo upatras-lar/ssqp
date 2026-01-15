@@ -10,6 +10,10 @@ MPC::MPC(model::Model &model, const Params &params)
   : _model(model)
   , _params(params)
 {
+    if (!model.finalized())
+    {
+        model.finalize();
+    }
 }
 
 VecX MPC::step(VecX current_state)
