@@ -165,8 +165,8 @@ int main()
         if (CONSTRAIN)
         {
             Eigen::Vector3d lb, ub;
-            std::tie(lb, ub) = square_point_bounds(
-              circle_to_square_point(circle_to_square_point(traj[k])));
+            std::tie(lb, ub) =
+              square_point_bounds(circle_to_square_point(traj[k]));
 
             model.addConstraints<constraints::FramePositionBound>(k,
                                                                   model,

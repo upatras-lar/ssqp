@@ -163,7 +163,13 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("lb"),
            nb::arg("ub"),
            nb::arg("nq"),
-           nb::arg("nv"));
+           nb::arg("nv"))
+      .def("set_lower_bound",
+           &FramePositionBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FramePositionBound::set_upper_bound,
+           nb::arg("upper_bound"));
 
     nb::class_<FrameVelocityBound, StageConstraints>(m, "FrameVelocityBound")
       .def(nb::init<const Model &,
@@ -179,7 +185,13 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("ub"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("terminal") = false);
+           nb::arg("terminal") = false)
+      .def("set_lower_bound",
+           &FrameVelocityBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FrameVelocityBound::set_upper_bound,
+           nb::arg("upper_bound"));
 }
 }
 }
