@@ -57,12 +57,12 @@ model.addCost(
 )
 model.addCost(MPC_H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
-mpc = ssqpy.solvers.MPC(model, sqp_iters=10, admm_iters=50)
+mpc = ssqpy.solvers.MPC(model, sqp_iters=5, admm_iters=50)
 
-model = mujoco.MjModel.from_xml_path("../mjcf/panda/panda.xml")
-data = mujoco.MjData(model)
+mjmodel = mujoco.MjModel.from_xml_path("../mjcf/panda/panda.xml")
+mjdata = mujoco.MjData(mjmodel)
 
-data.qpos = init_state[:9]
+mjdata.qpos = init_state[:9]
 
 elapsed = 0
 steps = 0
@@ -71,9 +71,9 @@ total_steps = int(1 / dt)
 states = np.tile(init_state, (MPC_H + 1, 1))
 controls = np.zeros((MPC_H, nv))
 
-with mujoco.viewer.launch_passive(model, data) as viewer:
+with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
-        state = np.hstack((data.qpos, data.qvel))
+        state = np.hstack((mjdata.qpos, mjdata.qvel))
 
         states = np.delete(states, (0), axis=0)
         states[0, :] = state
@@ -98,8 +98,8 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
                 )
             )
 
-        data.ctrl = controls.stage(0)[:8]
-        mujoco.mj_step(model, data)
+        mjdata.ctrl = controls.stage(0)[:8]
+        mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 
         states, controls = states.toarray(), controls.toarray()
