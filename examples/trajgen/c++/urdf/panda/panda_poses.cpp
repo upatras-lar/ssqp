@@ -193,7 +193,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/data/panda_poses");
+    solver.write("examples/trajgen/data/panda_poses");
 
     return 0;
 }

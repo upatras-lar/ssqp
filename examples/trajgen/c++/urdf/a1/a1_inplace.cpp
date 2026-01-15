@@ -404,7 +404,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/data/a1_inplace");
+    solver.write("examples/trajgen/data/a1_inplace");
 
     return 0;
 }

@@ -32,7 +32,7 @@ forces["left_pm"] = [init_control[nv + 9 : nv + 12]]
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../examples/urdf/talos/talos.urdf",
+    urdf_path="../../urdf/talos/talos.urdf",
     free_flyer=True,
     # ignore_innate_constraints=True,
     # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,

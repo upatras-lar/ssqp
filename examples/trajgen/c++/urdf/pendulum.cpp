@@ -106,7 +106,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/data/pendulum");
+    solver.write("examples/trajgen/data/pendulum");
 
     return 0;
 }
