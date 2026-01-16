@@ -24,6 +24,9 @@ class MPC
 
     MPC(model::Model &model, const Params &params = Params::Default());
 
+    // Receding horizon initialization
+    VecX step(const VecX &state);
+
     std::pair<FlatVec, FlatVec> step(const FlatVec &states,
                                      const FlatVec &controls);
 
@@ -35,6 +38,8 @@ class MPC
   protected:
     Params        _params;
     model::Model &_model;
+
+    std::unique_ptr<FlatVec> _prev_states = nullptr, _prev_controls = nullptr;
 };
 }
 }

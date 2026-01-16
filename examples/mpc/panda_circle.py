@@ -5,7 +5,7 @@ import numpy as np
 from math import pi, sin, cos, atan2, sqrt
 from time import time, sleep
 
-PLOT = True
+PLOT = False
 
 if PLOT:
     import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ H = 200
 dt = 0.01
 P_WGT = 100
 R_WGT = 10
-A_WGT = 1e-1
+A_WGT = 0
 V_WGT = 1e-4
 U_WGT = 1e-5
 
@@ -153,9 +153,6 @@ elapsed = 0
 steps = 0
 total_steps = int(1 / dt)
 
-states = np.tile(init_state, (MPC_H + 1, 1))
-controls = np.zeros((MPC_H, nv))
-
 stage = 0
 
 state_data = None
@@ -180,15 +177,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             if stage == H:
                 break
 
-        states = np.delete(states, (0), axis=0)
-        states[0, :] = state
-        states = np.vstack([states, states[MPC_H - 1, :]])
-
-        controls = np.delete(controls, (0), axis=0)
-        controls = np.vstack([controls, controls[MPC_H - 2, :]])
-
         pre = time()
-        states, controls = mpc.step(states, controls)
+        mjdata.ctrl = mpc.step(state)[:8]
         elapsed += time() - pre
         steps += 1
 
@@ -197,11 +187,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             elapsed = 0
             steps = 0
 
-        mjdata.ctrl = controls.stage(0)[:8]
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
-
-        states, controls = states.toarray(), controls.toarray()
 
         stage += 1
         update_pose_costs(stage)
