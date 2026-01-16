@@ -2,6 +2,11 @@ import ssqpy
 import numpy as np
 from math import pi, sin, cos
 
+PLOT = True
+
+if PLOT:
+    import matplotlib.pyplot as plt
+
 nq = 9
 nv = 9
 H = 400
@@ -10,6 +15,10 @@ P_WGT = 10
 R_WGT = 1
 V_WGT = 1e-5
 U_WGT = 1e-5
+
+CONSTRAIN = True
+constraint_hlines = [0.1, 0.41]
+constraint_vlines = [-0.15, 0.15]
 
 cx = 0.3
 cy = 0
@@ -65,6 +74,11 @@ class CustomCost(ssqpy.model.costs.StageCost):
         return U_WGT * np.eye(u.shape[0])
 """
 
+lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
+ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
+box_constraint = ssqpy.model.constraints.FramePositionBound(
+    model, "panda_ee", lb, ub, nq, nv
+)
 
 for k in range(H):
     desired_pose = np.zeros((4, 4))
@@ -81,6 +95,9 @@ for k in range(H):
     model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
     model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
+    if CONSTRAIN:
+        model.addConstraints(k, box_constraint)
+
 desired_pose = np.zeros((4, 4))
 desired_pose[:3, :3] = Rd
 desired_pose[:3, 3] = traj[k]
@@ -93,6 +110,9 @@ model.addCost(
     ),
 )
 model.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+
+if CONSTRAIN:
+    model.addConstraints(H, box_constraint)
 
 model.finalize(init_states=[init_state])
 
@@ -115,3 +135,43 @@ print("x:")
 x.print()
 print("u:")
 u.print()
+
+if PLOT:
+    state_data = np.array(
+        [model.forwardKinematics(q[:9], "panda_ee")[0] for q in x.toarray()]
+    )
+    traj = np.array(traj)
+
+    fig, axs = plt.subplots(1, 2)
+    axs[0].set_title("Total Error")
+    axs[0].plot(
+        np.arange(H + 1),
+        np.linalg.norm(state_data - traj, axis=1),
+    )
+    axs[0].set(xlabel="Step", ylabel="End effector position error")
+    axs[0].grid(True)
+
+    axs[1].set_title("Trajectory")
+
+    traj = np.delete(traj, 0, axis=1)
+
+    state_data = np.delete(state_data, 0, axis=1)
+
+    axs[1].scatter(*zip(*traj), label="Cost trajectory")
+
+    if CONSTRAIN:
+        axs[1].hlines(
+            y=constraint_hlines,
+            xmin=constraint_vlines[0],
+            xmax=constraint_vlines[1],
+        )
+        axs[1].vlines(
+            x=constraint_vlines,
+            ymin=constraint_hlines[0],
+            ymax=constraint_hlines[1],
+        )
+
+    axs[1].scatter(*zip(*state_data), label="Actual trajectory")
+    axs[1].legend()
+
+    plt.show()
