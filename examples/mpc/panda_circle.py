@@ -3,17 +3,22 @@ import mujoco.viewer
 import ssqpy
 import numpy as np
 from math import pi, sin, cos, atan2, sqrt
-from time import time
+from time import time, sleep
+
+PLOT = True
+
+if PLOT:
+    import matplotlib.pyplot as plt
 
 nq = 9
 nv = 9
 MPC_H = 15
 H = 200
 dt = 0.01
-P_WGT = 10
+P_WGT = 100
 R_WGT = 10
 A_WGT = 1e-1
-V_WGT = 1e-3
+V_WGT = 1e-4
 U_WGT = 1e-5
 
 CONSTRAIN = True
@@ -126,16 +131,12 @@ model.addCost(MPC_H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
 def update_pose_costs(current_stage):
     for k in range(current_stage, current_stage + MPC_H):
-        pose_costs[k - current_stage].set_desired_translation(
-            traj[current_stage % H]
-        )
+        pose_costs[k - current_stage].set_desired_translation(traj[k % H])
 
 
 def update_box_constraints(current_stage):
     for k in range(current_stage, current_stage + MPC_H):
-        lb, ub = square_point_bounds(
-            circle_to_square_point(traj[current_stage % H])
-        )
+        lb, ub = square_point_bounds(circle_to_square_point(traj[k % H]))
 
         box_constraints[k - current_stage].set_lower_bound(lb)
         box_constraints[k - current_stage].set_upper_bound(ub)
@@ -157,9 +158,27 @@ controls = np.zeros((MPC_H, nv))
 
 stage = 0
 
+state_data = None
+if PLOT:
+    state_data = []
+
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
+        frame_start = time()
+
         state = np.hstack((mjdata.qpos, mjdata.qvel))
+
+        if PLOT:
+            # print(
+            #     f"Stage: {stage}, Mujoco: {mjdata.xpos[9]}, Ours: {model.forwardKinematics(mjdata.qpos, "panda_ee")[0]}"
+            # )
+            # state_data.append(mjdata.xpos[9].copy())
+            state_data.append(
+                model.forwardKinematics(mjdata.qpos, "panda_ee")[0]
+            )
+
+            if stage == H:
+                break
 
         states = np.delete(states, (0), axis=0)
         states[0, :] = state
@@ -188,3 +207,25 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         update_pose_costs(stage)
         if CONSTRAIN:
             update_box_constraints(stage)
+
+        to_sleep = dt - (time() - frame_start)
+        if to_sleep > 0:
+            sleep(to_sleep)
+
+if PLOT:
+    if CONSTRAIN:
+        traj = [circle_to_square_point(p) for p in traj]
+
+    for i, p in enumerate(zip(traj, state_data)):
+        print(f"{i}. Expected: {p[0]}, Actual: {p[1]}")
+
+    plt.figure()
+    plt.plot(
+        np.arange(H + 1),
+        np.linalg.norm(np.array(state_data) - np.array(traj), axis=1),
+    )
+    plt.xlabel("Step")
+    plt.ylabel("End effector position error")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
