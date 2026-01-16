@@ -41,7 +41,8 @@ void bind_MPC(nb::module_ &m)
              MPC::*)(const std::vector<VecX> &, const std::vector<VecX> &)>(
              &MPC::step),
            nb::arg("states"),
-           nb::arg("controls"));
+           nb::arg("controls"))
+      .def("step", static_cast<VecX (MPC::*)(const VecX &)>(&MPC::step));
 }
 
 }

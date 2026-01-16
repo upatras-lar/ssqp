@@ -34,7 +34,7 @@
 // Initial phase
 #define φ0 0
 
-#define CONSTRAIN false
+#define CONSTRAIN true
 
 inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
 {

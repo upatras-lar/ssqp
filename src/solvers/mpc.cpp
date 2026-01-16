@@ -16,6 +16,30 @@ MPC::MPC(model::Model &model, const Params &params)
     }
 }
 
+VecX MPC::step(const VecX &state)
+{
+    if (_prev_states != nullptr)
+    {
+        const uint H = _model.horizon();
+
+        _model.setInitState(0, state);
+
+        for (uint k = 1; k < H; ++k)
+        {
+            _model.setInitState(k, _prev_states->stage(k + 1));
+            _model.setInitControl(k - 1, _prev_controls->stage(k));
+        }
+
+        _model.setInitControl(H - 1, _prev_controls->stage(H - 1));
+    }
+
+    std::pair<FlatVec, FlatVec> p = step();
+    _prev_states                  = std::make_unique<FlatVec>(p.first);
+    _prev_controls                = std::make_unique<FlatVec>(p.second);
+
+    return _prev_controls->stage(0);
+}
+
 std::pair<FlatVec, FlatVec> MPC::step(const std::vector<VecX> &states,
                                       const std::vector<VecX> &controls)
 {
