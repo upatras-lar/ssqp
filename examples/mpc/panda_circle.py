@@ -5,23 +5,25 @@ import numpy as np
 from math import pi, sin, cos, atan2, sqrt
 from time import time, sleep
 
-PLOT = False
+PLOT = True
 
 if PLOT:
     import matplotlib.pyplot as plt
 
 nq = 9
 nv = 9
-MPC_H = 15
+MPC_H = 10
 H = 200
 dt = 0.01
-P_WGT = 100
-R_WGT = 10
+P_WGT = 35
+R_WGT = 35
 A_WGT = 0
 V_WGT = 1e-4
 U_WGT = 1e-5
 
 CONSTRAIN = True
+constraint_hlines = [0.1, 0.41]
+constraint_vlines = [-0.15, 0.15]
 
 cx = 0.3
 cy = 0
@@ -31,40 +33,6 @@ cr = 0.22
 DISTANCE = 2 * pi
 ω = DISTANCE / (H * dt)
 φ0 = 0
-
-
-def circle_to_square_point(p):
-    θ = atan2(p[2] - cz, p[1] - cy)
-    c = cos(θ)
-    s = sin(θ)
-    a = cr / sqrt(2.0)
-    t = a / max(abs(c), abs(s))
-
-    return np.array((cx, cy + t * c, cz + t * s))
-
-
-def square_point_bounds(p):
-    lb = np.zeros(3)
-    ub = np.zeros(3)
-
-    lb[0] = -np.inf
-    ub[0] = np.inf
-
-    if p[1] > cy:
-        lb[1] = -np.inf
-        ub[1] = p[1]
-    else:
-        lb[1] = p[1]
-        ub[1] = np.inf
-
-    if p[2] > cz:
-        lb[2] = -np.inf
-        ub[2] = p[2]
-    else:
-        lb[2] = p[2]
-        ub[2] = np.inf
-
-    return lb, ub
 
 
 traj = []
@@ -93,7 +61,12 @@ init_state[:nq] = [
 ]
 
 pose_costs = []
-box_constraints = []
+
+lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
+ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
+box_constraint = ssqpy.model.constraints.FramePositionBound(
+    model, "panda_ee", lb, ub, nq, nv
+)
 
 for k in range(MPC_H):
     pose_costs.append(
@@ -108,15 +81,7 @@ for k in range(MPC_H):
     model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
 
     if CONSTRAIN:
-        lb, ub = square_point_bounds(circle_to_square_point(traj[k]))
-
-        box_constraints.append(
-            ssqpy.model.constraints.FramePositionBound(
-                model, "panda_ee", lb, ub, nq, nv
-            )
-        )
-
-        model.addConstraints(k, box_constraints[-1])
+        model.addConstraints(k, box_constraint)
 
 pose_costs.append(
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
@@ -128,18 +93,13 @@ model.addCost(MPC_H, pose_costs[-1])
 model.addCost(MPC_H, ssqpy.model.costs.SquaredJointAngleCost(nq, nv, A_WGT))
 model.addCost(MPC_H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
+if CONSTRAIN:
+    model.addConstraints(MPC_H, box_constraint)
+
 
 def update_pose_costs(current_stage):
     for k in range(current_stage, current_stage + MPC_H):
         pose_costs[k - current_stage].set_desired_translation(traj[k % H])
-
-
-def update_box_constraints(current_stage):
-    for k in range(current_stage, current_stage + MPC_H):
-        lb, ub = square_point_bounds(circle_to_square_point(traj[k % H]))
-
-        box_constraints[k - current_stage].set_lower_bound(lb)
-        box_constraints[k - current_stage].set_upper_bound(ub)
 
 
 mpc = ssqpy.solvers.MPC(model, sqp_iters=4, admm_iters=50)
@@ -192,27 +152,45 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         stage += 1
         update_pose_costs(stage)
-        if CONSTRAIN:
-            update_box_constraints(stage)
 
         to_sleep = dt - (time() - frame_start)
         if to_sleep > 0:
             sleep(to_sleep)
 
 if PLOT:
-    if CONSTRAIN:
-        traj = [circle_to_square_point(p) for p in traj]
+    state_data = np.array(state_data)
+    traj = np.array(traj)
 
-    for i, p in enumerate(zip(traj, state_data)):
-        print(f"{i}. Expected: {p[0]}, Actual: {p[1]}")
-
-    plt.figure()
-    plt.plot(
+    fig, axs = plt.subplots(1, 2)
+    axs[0].set_title("Total Error")
+    axs[0].plot(
         np.arange(H + 1),
-        np.linalg.norm(np.array(state_data) - np.array(traj), axis=1),
+        np.linalg.norm(state_data - traj, axis=1),
     )
-    plt.xlabel("Step")
-    plt.ylabel("End effector position error")
-    plt.grid(True)
-    plt.tight_layout()
+    axs[0].set(xlabel="Step", ylabel="End effector position error")
+    axs[0].grid(True)
+
+    axs[1].set_title("Trajectory")
+
+    traj = np.delete(traj, 0, axis=1)
+
+    state_data = np.delete(state_data, 0, axis=1)
+
+    axs[1].scatter(*zip(*traj), label="Cost trajectory")
+
+    if CONSTRAIN:
+        axs[1].hlines(
+            y=constraint_hlines,
+            xmin=constraint_vlines[0],
+            xmax=constraint_vlines[1],
+        )
+        axs[1].vlines(
+            x=constraint_vlines,
+            ymin=constraint_hlines[0],
+            ymax=constraint_hlines[1],
+        )
+
+    axs[1].scatter(*zip(*state_data), label="Actual trajectory")
+    axs[1].legend()
+
     plt.show()

@@ -76,7 +76,9 @@ std::pair<FlatVec, FlatVec> MPC::step()
     ssqp_params.max_iter = _params.sqp_iters;
 
     admm_qp::Params admm_params;
-    admm_params.max_iter = _params.admm_iters;
+    admm_params.max_iter  = _params.admm_iters;
+    admm_params.reset_rho = false;
+    admm_params.reset_y   = false;
 
     ssqp        solver(_model, ssqp_params, admm_params);
     ssqp::Guess solution(_model.dims(), _model.linear_dims());
