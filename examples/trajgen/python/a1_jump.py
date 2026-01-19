@@ -6,17 +6,18 @@ from math import pi
 
 nq = 19
 nv = 18
-HORIZON = 140
+HORIZON = 150
 dt = 0.01
 
-V_WGT = 1e-3
+V_WGT = 1e-4
 U_WGT = 1e-6
-F_WGT = 1e-8
+F_WGT_START = 1e-8
+F_WGT_END = 1e-5
 TP_WGT = 100
-TO_WGT = 10
+TO_WGT = 100
 
-STEPS_BEFORE = 50
-STEPS_AFTER = 60
+STEPS_BEFORE = 60
+STEPS_AFTER = 50
 
 base_pos = np.array([0, 0, 0.3464])
 
@@ -38,7 +39,6 @@ model = ssqpy.model.Model(
 
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
-force_cost = costs.SquaredForceCost(nv, F_WGT)
 
 fl_foot_vel_bound = constraints.FrameVelocityBound(
     model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
@@ -61,7 +61,15 @@ init_controls = []
 for k in range(HORIZON):
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+
+    if k < STEPS_BEFORE:
+        force_cost_k = costs.SquaredForceCost(
+            nv, F_WGT_START + k * (F_WGT_END - F_WGT_START) / STEPS_BEFORE
+        )
+        model.addCost(k, force_cost_k)
+    elif k > HORIZON - STEPS_AFTER:
+        force_cost_k = costs.SquaredForceCost(nv, F_WGT_START)
+        model.addCost(k, force_cost_k)
 
     if k < STEPS_BEFORE or k > HORIZON - STEPS_AFTER:
         model.addContactConstraint(k, "FL_foot")
@@ -97,7 +105,7 @@ solver = ssqpy.solvers.ssqp(
     filter_size=100,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-4,
-    admm_max_iter=400,
+    admm_max_iter=500,
 )
 
 state, x, u = solver.solve()

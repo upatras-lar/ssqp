@@ -28,7 +28,7 @@ class SquaredJointAngleCost : public StageCost
 {
   public:
     SquaredJointAngleCost(const uint nq, const uint nv, const double weight,
-                          bool free_flyer = false);
+                          const bool free_flyer = false);
 
     void set_weight(const double weight);
 
@@ -55,7 +55,7 @@ class SquaredJointVelocityCost : public StageCost
 {
   public:
     SquaredJointVelocityCost(const uint nv, const double weight,
-                             bool free_flyer = false);
+                             const bool free_flyer = false);
 
     void set_weight(const double weight);
 
@@ -116,6 +116,38 @@ class SquaredForceCost : public StageCost
   protected:
     const uint _nv;
     double     _weight;
+};
+
+/* Predefined squared configuration difference cost
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_q (\boldsymbol{q} - \boldsymbol{q}_d)^2$
+ * where:
+ *  - $\boldsymbol{q}$ is the configuration part of the state
+ *  - $\boldsymbol{q}_d$ is the desired configuration
+ *  - $w_q$ is the weight for the difference
+ */
+class SquaredConfigurationDifferenceCost : public StageCost
+{
+  public:
+    SquaredConfigurationDifferenceCost(const VecX &desired_configuration,
+                                       const uint nq, const uint nv,
+                                       const double weight,
+                                       const bool   free_flyer = false);
+
+    void set_desired_configuration(const VecX &desired_configuration);
+    void set_weight(const double weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    VecX       _desired_configuration;
+    const uint _nq, _nv;
+    double     _weight;
+    const bool _free_flyer;
 };
 
 /* Predefined squared frame translation error cost

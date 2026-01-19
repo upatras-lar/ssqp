@@ -11,3 +11,4 @@
 /examples/python/*.json
 /perf*
 /examples/mpc/mpcvenv
+__pycache__
