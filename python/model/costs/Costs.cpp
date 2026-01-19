@@ -129,6 +129,22 @@ void bind_Costs(nb::module_ &m)
       .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"))
       .def("set_weight", &SquaredForceCost::set_weight, nb::arg("weight"));
 
+    nb::class_<SquaredConfigurationDifferenceCost, StageCost>(
+      m,
+      "SquaredConfigurationDifferenceCost")
+      .def(nb::init<const VecX &, uint, uint, double, bool>(),
+           nb::arg("desired_configuration"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"),
+           nb::arg("free_flyer"))
+      .def("set_desired_configuration",
+           &SquaredConfigurationDifferenceCost::set_desired_configuration,
+           nb::arg("desired_configuration"))
+      .def("set_weight",
+           &SquaredConfigurationDifferenceCost::set_weight,
+           nb::arg("weight"));
+
     nb::class_<FrameSquaredTranslationErrorCost, StageCost>(
       m,
       "FrameSquaredTranslationErrorCost")

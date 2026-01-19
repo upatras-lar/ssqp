@@ -84,8 +84,8 @@ class lqr
     void _solve_cache_rho();
 
     // Temporaries
-    VecX _tmp_nx_1, _tmp_nx_2, _tmp_nx_3;
-    MatX _tmp_nx_nx_1;
+    // VecX _tmp_nx_1, _tmp_nx_2, _tmp_nx_3;
+    // MatX _tmp_nx_nx_1;
 };
 }
 }

@@ -13,7 +13,7 @@ namespace costs
 // SquaredJointAngleCost
 SquaredJointAngleCost::SquaredJointAngleCost(const uint nq, const uint nv,
                                              const double weight,
-                                             bool         free_flyer)
+                                             const bool   free_flyer)
   : _nq(nq)
   , _nv(nv)
   , _weight(weight)
@@ -42,7 +42,7 @@ void SquaredJointAngleCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     }
     else
     {
-        dx.head(_nq) = _weight * x.head(_nq);
+        dx.head(_nv) = _weight * x.head(_nv);
     }
 
     du = VecX::Zero(u.size());
@@ -58,7 +58,7 @@ void SquaredJointAngleCost::hessian_xx(const VecX &x, const VecX &u,
     }
     else
     {
-        Hxx.topLeftCorner(_nq, _nq).diagonal().setConstant(_weight);
+        Hxx.topLeftCorner(_nv, _nv).diagonal().setConstant(_weight);
     }
 }
 
@@ -77,7 +77,7 @@ void SquaredJointAngleCost::hessian_uu(const VecX &x, const VecX &u,
 // SquaredJointVelocityCost
 SquaredJointVelocityCost::SquaredJointVelocityCost(const uint   nv,
                                                    const double weight,
-                                                   bool         free_flyer)
+                                                   const bool   free_flyer)
   : _nv(nv)
   , _weight(weight)
   , _njoints(free_flyer ? nv - 6 : nv)
@@ -209,6 +209,86 @@ void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
     Huu.bottomRightCorner(u.size() - _nv, u.size() - _nv)
       .diagonal()
       .setConstant(_weight);
+}
+
+// SquaredConfigurationDifferenceCost
+SquaredConfigurationDifferenceCost::SquaredConfigurationDifferenceCost(
+  const VecX &desired_configuration, const uint nq, const uint nv,
+  const double weight, const bool free_flyer)
+  : _desired_configuration(desired_configuration)
+  , _nq(nq)
+  , _nv(nv)
+  , _weight(weight)
+  , _free_flyer(free_flyer)
+{
+}
+
+void SquaredConfigurationDifferenceCost::set_desired_configuration(
+  const VecX &desired_configuration)
+{
+    _desired_configuration = desired_configuration;
+}
+
+void SquaredConfigurationDifferenceCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
+VecX SquaredConfigurationDifferenceCost::evaluate(const VecX &x,
+                                                  const VecX &u) const
+{
+    return (Scalar() << 0.5 * _weight *
+                          ((_free_flyer ? x.segment(7, _nq - 7) : x.head(_nq)) -
+                           _desired_configuration)
+                            .squaredNorm())
+      .finished();
+}
+
+void SquaredConfigurationDifferenceCost::gradient(const VecX &x, const VecX &u,
+                                                  VecX &dx, VecX &du) const
+{
+    dx = VecX::Zero(2 * _nv);
+    if (_free_flyer)
+    {
+        dx.segment(6, _nv - 6) =
+          _weight * (x.segment(7, _nq - 7) - _desired_configuration);
+    }
+    else
+    {
+        dx.head(_nv) = _weight * (x.head(_nv) - _desired_configuration);
+    }
+
+    du = VecX::Zero(u.size());
+}
+
+void SquaredConfigurationDifferenceCost::hessian_xx(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Hxx) const
+{
+    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
+
+    if (_free_flyer)
+    {
+        Hxx.block(7, 7, _nq - 7, _nq - 7).diagonal().setConstant(_weight);
+    }
+    else
+    {
+        Hxx.topLeftCorner(_nv, _nv).diagonal().setConstant(_weight);
+    }
+}
+
+void SquaredConfigurationDifferenceCost::hessian_xu(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Hxu) const
+{
+    Hxu = MatX::Zero(2 * _nv, u.size());
+}
+
+void SquaredConfigurationDifferenceCost::hessian_uu(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
 }
 
 // FrameSquaredTranslationErrorCost

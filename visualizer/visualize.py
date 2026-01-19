@@ -96,7 +96,7 @@ if not args.no_ground:
     server.scene.add_box(
         "/ground",
         color=(225, 225, 205),
-        dimensions=(10, 10, 0.001),
+        dimensions=(20, 20, 0.0001),
     )
 
 # Create a parent frame for the robot
