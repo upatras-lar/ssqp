@@ -7,7 +7,7 @@ from utils.GaitManager import GaitManager
 
 nq = 19
 nv = 18
-HORIZON = 300
+HORIZON = 450
 dt = 0.01
 
 A_WGT = 1e-2
@@ -17,8 +17,8 @@ F_WGT = 1e-9
 
 FINAL_STANDING_STEPS = 10
 
-base_pos = np.array([-5.0, 0.0, 0.3689])
-final_pos = np.array([5.0, 0.0, 0.3689])
+base_pos = np.array([-4.0, 0.0, 0.3689])
+final_pos = np.array([4.0, 0.0, 0.3689])
 
 init = np.zeros(37)
 init[:3] = base_pos
@@ -48,17 +48,25 @@ for k in range(HORIZON):
 
     model.addCost(
         k,
-        costs.FrameSquaredRotationErrorCost(
-            model, np.eye(3), "base", nq, nv, 0.1
+        costs.FrameSquaredRotationErrorCost(model, np.eye(3), "base", nq, nv, 0.1),
+    )
+
+    model.addConstraints(
+        k,
+        constraints.FramePositionBound(
+            model,
+            "Head_lower",
+            np.array((-np.inf, -np.inf, 0.1)),
+            np.array((np.inf, np.inf, np.inf)),
+            nq,
+            nv,
         ),
     )
 
 model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
-    costs.FrameSquaredTranslationErrorCost(
-        model, final_pos, "base", nq, nv, 100.0
-    ),
+    costs.FrameSquaredTranslationErrorCost(model, final_pos, "base", nq, nv, 100.0),
 )
 # model.addCost(
 #     HORIZON,
@@ -73,11 +81,14 @@ model.addConstraints(
 
 init_controls = []
 
-gait_manager = GaitManager(
-    model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
-)
+gait_manager = GaitManager(model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"])
+init_controls.extend(gait_manager.setRotatoryGallop(0, HORIZON // 2))
+for k in range(HORIZON // 2 + 1, HORIZON // 2 + 1 + FINAL_STANDING_STEPS):
+    init_controls.extend(gait_manager.addStandingStage(k))
 init_controls.extend(
-    gait_manager.setRotatoryGallop(0, HORIZON - FINAL_STANDING_STEPS - 1)
+    gait_manager.setWalk(
+        HORIZON // 2 + FINAL_STANDING_STEPS + 1, HORIZON - FINAL_STANDING_STEPS - 1
+    )
 )
 for k in range(HORIZON - FINAL_STANDING_STEPS, HORIZON):
     init_controls.extend(gait_manager.addStandingStage(k))
