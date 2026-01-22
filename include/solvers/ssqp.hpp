@@ -27,7 +27,9 @@ class ssqp
     {
         uint max_iter = 10'000;
         // Tolerance for lagrangian jacobian norms
-        double tolerance = 1e-3;
+        double tolerance              = 1e-3;
+        double tolerance_final        = -1.0;
+        uint   tolerance_update_steps = 0;
 
         // Loose success
         bool loose_success = true;
@@ -83,6 +85,8 @@ class ssqp
 
     uint _iter;
     uint _stale_iters;
+
+    double _tolerance_init;
 
     QPData _setup_qp();
 

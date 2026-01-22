@@ -26,6 +26,7 @@ ssqp::ssqp(model::Model &model, const Params &params,
   , _cost_dx(_prev_cost_dx, false)
   , _prev_cost_du(_guess.u, false)
   , _cost_du(_guess.u, false)
+  , _tolerance_init(_params.tolerance)
 {
     if (!model.finalized())
     {
@@ -81,6 +82,8 @@ SolverState ssqp::solve(Guess &guess)
     QPData            qp = _setup_qp();
     admm_qp::Solution sol(qp.dims);
     admm_qp           qp_solver(qp, _admm_params);
+
+    _params.tolerance = _tolerance_init;
 
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
@@ -202,6 +205,15 @@ SolverState ssqp::solve(Guess &guess)
         {
             _prev_cost_dx = _cost_dx;
             _prev_cost_du = _cost_du;
+        }
+
+        if (_params.tolerance_final > 0.0 &&
+            _params.tolerance > _params.tolerance_final)
+        {
+            _params.tolerance += (_params.tolerance_final - _tolerance_init) /
+                                 (_params.tolerance_update_steps == 0
+                                    ? _params.max_iter
+                                    : _params.tolerance_update_steps);
         }
 
         qp = _setup_qp();

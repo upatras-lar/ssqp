@@ -29,10 +29,13 @@ class admm_qp
         uint   rho_update_iter_freq   = 25;
 
         // Termination parameters
-        uint   max_iter              = 10'000;
-        double abs_tolerance         = 1e-3; // Absolute tolerance
-        double rel_tolerance         = 1e-4; // Relative tolerance
-        double primal_infs_tolerance = 1e-6; // Primal infeasibility tolerance
+        uint   max_iter               = 10'000;
+        double abs_tolerance          = 1e-3; // Absolute tolerance
+        double abs_tolerance_final    = -1.0;
+        double rel_tolerance          = 1e-4; // Relative tolerance
+        double rel_tolerance_final    = -1.0;
+        uint   tolerance_update_steps = 0;
+        double primal_infs_tolerance  = 1e-6; // Primal infeasibility tolerance
 
         bool warm_start = true;
         bool reset_rho  = true;
@@ -83,6 +86,9 @@ class admm_qp
     uint _iter;
 
     uint _reg_incr;
+
+    double _abs_tolerance_init;
+    double _rel_tolerance_init;
 
     // Calculates residual norms
     // r_prim = Dx - z
