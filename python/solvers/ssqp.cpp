@@ -40,6 +40,16 @@ void bind_ssqp(nb::module_ &m)
             {
                 params.tolerance = nb::cast<double>(kwargs["tolerance"]);
             }
+            if (kwargs.contains("tolerance_final"))
+            {
+                params.tolerance_final =
+                  nb::cast<double>(kwargs["tolerance_final"]);
+            }
+            if (kwargs.contains("tolerance_update_steps"))
+            {
+                params.tolerance_update_steps =
+                  nb::cast<uint>(kwargs["tolerance_update_steps"]);
+            }
             if (kwargs.contains("loose_success"))
             {
                 params.loose_success = nb::cast<bool>(kwargs["loose_success"]);
@@ -123,10 +133,30 @@ void bind_ssqp(nb::module_ &m)
                 admm_params.abs_tolerance =
                   nb::cast<double>(kwargs["admm_abs_tolerance"]);
             }
+            if (kwargs.contains("admm_abs_tolerance_final"))
+            {
+                admm_params.abs_tolerance_final =
+                  nb::cast<double>(kwargs["admm_abs_tolerance_final"]);
+            }
             if (kwargs.contains("admm_rel_tolerance"))
             {
                 admm_params.rel_tolerance =
                   nb::cast<double>(kwargs["admm_rel_tolerance"]);
+            }
+            if (kwargs.contains("admm_rel_tolerance_final"))
+            {
+                admm_params.rel_tolerance_final =
+                  nb::cast<double>(kwargs["admm_rel_tolerance_final"]);
+            }
+            if (kwargs.contains("admm_tolerance_update_steps"))
+            {
+                admm_params.tolerance_update_steps =
+                  nb::cast<uint>(kwargs["admm_tolerance_update_steps"]);
+            }
+            if (kwargs.contains("admm_prim_infs_tolerance"))
+            {
+                admm_params.primal_infs_tolerance =
+                  nb::cast<double>(kwargs["admm_prim_infs_tolerance"]);
             }
             if (kwargs.contains("admm_warm_start"))
             {

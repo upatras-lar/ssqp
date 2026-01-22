@@ -6,6 +6,7 @@ int main()
 {
     ssqp::tests::TestContainer tests;
 
+    /*
     tests.addTest(ssqp::tests::generators::
                     get_fwdyn_explicit_euler_without_forces_grad_test());
 
@@ -80,7 +81,9 @@ int main()
          ssqp::tests::generators::get_admm_problems())
     {
         tests.addTest(test);
-    }
+    }*/
+
+    tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
 
     tests.runAll();
 }

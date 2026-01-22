@@ -24,6 +24,11 @@ std::vector<std::shared_ptr<Test>> get_admm_problems()
 
     return tests;
 }
+
+std::shared_ptr<Test> get_admm_infeasibility()
+{
+    return std::make_shared<ADMMInfeasibility>("ADMMInfeasibilityTest");
+}
 }
 }
 }
