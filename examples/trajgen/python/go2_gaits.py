@@ -53,18 +53,6 @@ for k in range(HORIZON):
         ),
     )
 
-    # model.addConstraints(
-    #     k,
-    #     constraints.FramePositionBound(
-    #         model,
-    #         "base",
-    #         np.array((-np.inf, -np.inf, 0.32)),
-    #         np.array((np.inf, np.inf, -0.32)),
-    #         nq,
-    #         nv,
-    #     ),
-    # )
-
 model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
@@ -72,10 +60,6 @@ model.addCost(
         model, final_pos, "base", nq, nv, 100.0
     ),
 )
-# model.addCost(
-#     HORIZON,
-#     costs.SquaredConfigurationDifferenceCost(init[7:19], nq, nv, 1.0, True),
-# )
 model.addConstraints(
     HORIZON,
     constraints.FrameVelocityBound(
@@ -91,13 +75,6 @@ gait_manager = GaitManager(
 init_controls.extend(
     gait_manager.setRotatoryGallop(0, HORIZON - FINAL_STANDING_STEPS - 1)
 )
-# for k in range(HORIZON // 2 + 1, HORIZON // 2 + 1 + FINAL_STANDING_STEPS):
-#     init_controls.extend(gait_manager.addStandingStage(k))
-# init_controls.extend(
-#     gait_manager.setWalk(
-#         HORIZON // 2 + FINAL_STANDING_STEPS + 1, HORIZON - FINAL_STANDING_STEPS - 1
-#     )
-# )
 for k in range(HORIZON - FINAL_STANDING_STEPS, HORIZON):
     init_controls.extend(gait_manager.addStandingStage(k))
 

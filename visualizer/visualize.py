@@ -109,9 +109,6 @@ urdf = viser.extras.ViserUrdf(
     root_node_name="/robot",
 )
 
-# for joint, frame_handle in zip(urdf._joint_map_values, urdf._joint_frames):
-#     print(joint)
-
 urdf.show_frames = True
 
 if args.forces:

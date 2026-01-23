@@ -229,6 +229,7 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
                    (_qp.stages[k].E.transpose() * _solution.y.stage(k))
                      .lpNorm<Eigen::Infinity>());
 
+        /*
         _primal_infs_norm = std::max(_primal_infs_norm,
                                      (_qp.stages[k].D.transpose() * dy.stage(k))
                                        .lpNorm<Eigen::Infinity>());
@@ -250,6 +251,7 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
                   _qp.stages[k].cl[i] * std::min(dy.stage(k)[i], 0.0);
             }
         }
+        */
     }
 
     if (_qp.Dt.rows() == 0)
@@ -280,6 +282,7 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
                (_qp.Dt.transpose() * _solution.y.stage(_qp.dims.horizon))
                  .lpNorm<Eigen::Infinity>());
 
+    /*
     _primal_infs_norm =
       std::max(_primal_infs_norm,
                (_qp.Dt.transpose() * dy.stage(_qp.dims.horizon))
@@ -301,6 +304,7 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
     }
 
     _primal_infs_tol_scaled *= dy.vec.lpNorm<Eigen::Infinity>();
+    */
 }
 
 SolverState admm_qp::_check_termination() const
