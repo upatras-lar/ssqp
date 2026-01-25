@@ -6,7 +6,7 @@ from math import pi
 
 nq = 19
 nv = 18
-HORIZON = 280
+HORIZON = 300
 dt = 0.01
 
 A_WGT = 1e-3
@@ -14,12 +14,12 @@ V_WGT = 1e-5
 U_WGT = 1e-4
 F_WGT = 1e-8
 
-JUMP_STEPS = [(50, 70), (100, 120), (150, 180), (200, 220)]
-LAND_SEQ = [0, 1, 1]
+JUMP_STEPS = [(50, 70), (100, 120), (150, 180), (200, 220), (240, 260)]
+LAND_SEQ = ["F", "RR", "FL", "B"]
 
 base_pos = np.array([0, 0, 0.3689])
 
-final_pos = np.array([1.0, 0.0, 0.3689])
+final_pos = np.array([0.0, 0.0, 0.3689])
 
 init = np.zeros(37)
 init[:3] = base_pos
@@ -37,11 +37,15 @@ init_control_2 = np.zeros(24)
 init_control_2[20] = 7.5 * 9.81
 init_control_2[23] = 7.5 * 9.81
 
+init_control_1 = np.zeros(21)
+init_control_1[20] = 15 * 9.81
+
 model = ssqpy.model.Model(
     HORIZON,
     dt,
     urdf_path="../../urdf/go2/go2.urdf",
     free_flyer=True,
+    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -152,32 +156,70 @@ for k in range(HORIZON):
             break
 
     if not on_air:
-        if LAND_SEQ[i - 1]:
-            model.addContactConstraint(k, "FL_foot")
-            model.addConstraints(k, fl_foot_vel_bound)
-
-            model.addContactConstraint(k, "FR_foot")
-            model.addConstraints(k, fr_foot_vel_bound)
-        else:
+        if LAND_SEQ[i - 1] == "B":
             model.addContactConstraint(k, "RL_foot")
             model.addConstraints(k, rl_foot_vel_bound)
 
             model.addContactConstraint(k, "RR_foot")
             model.addConstraints(k, rr_foot_vel_bound)
 
-        init_controls.append(init_control_2)
+            init_controls.append(init_control_2)
+        elif LAND_SEQ[i - 1] == "F":
+            model.addContactConstraint(k, "FL_foot")
+            model.addConstraints(k, fl_foot_vel_bound)
+
+            model.addContactConstraint(k, "FR_foot")
+            model.addConstraints(k, fr_foot_vel_bound)
+
+            init_controls.append(init_control_2)
+        elif LAND_SEQ[i - 1] == "L":
+            model.addContactConstraint(k, "FL_foot")
+            model.addConstraints(k, fl_foot_vel_bound)
+
+            model.addContactConstraint(k, "RL_foot")
+            model.addConstraints(k, rl_foot_vel_bound)
+
+            init_controls.append(init_control_2)
+        elif LAND_SEQ[i - 1] == "R":
+            model.addContactConstraint(k, "FR_foot")
+            model.addConstraints(k, fr_foot_vel_bound)
+
+            model.addContactConstraint(k, "RR_foot")
+            model.addConstraints(k, rr_foot_vel_bound)
+
+            init_controls.append(init_control_2)
+        elif LAND_SEQ[i - 1] == "FL":
+            model.addContactConstraint(k, "FL_foot")
+            model.addConstraints(k, fl_foot_vel_bound)
+
+            init_controls.append(init_control_1)
+        elif LAND_SEQ[i - 1] == "FR":
+            model.addContactConstraint(k, "FR_foot")
+            model.addConstraints(k, fr_foot_vel_bound)
+
+            init_controls.append(init_control_1)
+        elif LAND_SEQ[i - 1] == "RL":
+            model.addContactConstraint(k, "RL_foot")
+            model.addConstraints(k, rl_foot_vel_bound)
+
+            init_controls.append(init_control_1)
+        elif LAND_SEQ[i - 1] == "RR":
+            model.addContactConstraint(k, "RR_foot")
+            model.addConstraints(k, rr_foot_vel_bound)
+
+            init_controls.append(init_control_1)
 
 model.addCost(HORIZON, joint_vel_cost)
 # model.addCost(
 #     HORIZON,
 #     costs.SquaredConfigurationDifferenceCost(init[7:19], nq, nv, 5.0, True),
 # )
-# model.addCost(
-#     HORIZON,
-#     costs.FrameSquaredPoseErrorCost(
-#         model, final_pos, np.eye(3), "base", nq, nv, 50.0, 10.0
-#     ),
-# )
+model.addCost(
+    HORIZON,
+    costs.FrameSquaredPoseErrorCost(
+        model, final_pos, np.eye(3), "base", nq, nv, 50.0, 10.0
+    ),
+)
 model.addConstraints(
     HORIZON,
     constraints.FrameVelocityBound(
