@@ -748,7 +748,13 @@ const MatX Model::frameJacobian(const std::string &frame, bool local) const
 void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
                         const uint arg_pos) const
 {
-    pinocchio_wrapper::dDifference(_impl, q0, q1, J, arg_pos);
+    if (_urdf)
+    {
+        pinocchio_wrapper::dDifference(_impl, q0, q1, J, arg_pos);
+        return;
+    }
+
+    J.diagonal().setConstant(1.0);
 }
 
 VecX Model::randomState(const uint stage) const
