@@ -68,6 +68,10 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     // Warm start with unconstrained LQR
     lqr::Params lqr_params;
     lqr_params.reg_init *= std::pow(10, _reg_incr);
+    if (lqr_params.reg_init > lqr_params.reg_max)
+    {
+        throw std::runtime_error("LQR: Regularization failed");
+    }
 
     lqr lqr_solver(_qp, _solution, _rho, lqr_params);
 
@@ -127,7 +131,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         DEBUG_LOGLN("y:");
         DEBUG_LOGLN(_solution.y);
         DEBUG_LOGLN("=============");
-        //DEBUG_WAIT();
+        DEBUG_WAIT();
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {

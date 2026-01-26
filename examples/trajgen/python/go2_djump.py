@@ -28,24 +28,24 @@ init[6] = 1.0
 init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 init_control = np.zeros(30)
-init_control[20] = 3.75 * 9.81
-init_control[23] = 3.75 * 9.81
-init_control[26] = 3.75 * 9.81
-init_control[29] = 3.75 * 9.81
+# init_control[20] = 3.75 * 9.81
+# init_control[23] = 3.75 * 9.81
+# init_control[26] = 3.75 * 9.81
+# init_control[29] = 3.75 * 9.81
 
 init_control_2 = np.zeros(24)
-init_control_2[20] = 7.5 * 9.81
-init_control_2[23] = 7.5 * 9.81
+# init_control_2[20] = 7.5 * 9.81
+# init_control_2[23] = 7.5 * 9.81
 
 init_control_1 = np.zeros(21)
-init_control_1[20] = 15 * 9.81
+# init_control_1[20] = 15 * 9.81
 
 model = ssqpy.model.Model(
     HORIZON,
     dt,
     urdf_path="../../urdf/go2/go2.urdf",
     free_flyer=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -245,7 +245,7 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
-solver.write("../data/go2_djump")
+solver.write("../data/go2_djump.json")
 
 print("x:")
 x.print()

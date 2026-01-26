@@ -32,7 +32,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../urdf/go2/go2.urdf",
     free_flyer=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -97,7 +97,7 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
-solver.write("../data/go2_walk")
+solver.write("../data/go2_walk.json")
 
 print("x:")
 x.print()

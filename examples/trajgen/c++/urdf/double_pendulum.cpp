@@ -1,13 +1,18 @@
 #include <iostream>
 #include <cmath>
 
-#include "solvers/ssqp.hpp"
-#include "model/Model.hpp"
+#include "solvers/ssqp.hpp" // ssqp::solvers::ssqp
+#include "model/Model.hpp"  // ssqp::model::Model
+
+// ssqp::model::stagewise::predefined::costs namespace
 #include "model/stagewise/predefined/Costs.hpp"
 
+/* Create a custom StageCost object using lambda functions
+ */
 std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
   const double weight = 1)
 {
+    // Evaluation function
     auto cost_eval =
       [weight](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
@@ -21,6 +26,7 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
         return res;
     };
 
+    // Gradient function
     auto cost_grad = [weight](const Eigen::VectorXd &x,
                               const Eigen::VectorXd &u,
                               Eigen::VectorXd &dx,
@@ -39,6 +45,7 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
         du.setZero();
     };
 
+    // Hessian xx function
     auto cost_hess_xx = [weight](const Eigen::VectorXd &x,
                                  const Eigen::VectorXd &u,
                                  Eigen::MatrixXd &Hxx)
@@ -53,6 +60,8 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
         Hxx(3, 3) = weight * 0.01;
     };
 
+    // Use the make_cost helper to create the custom stage cost
+    // By leaving hessian_xu and hessian_uu empty, they are set to zero
     return ssqp::model::stagewise::factory::make_cost(cost_eval,
                                                       cost_grad,
                                                       cost_hess_xx);
@@ -65,25 +74,43 @@ using namespace ssqp::model::stagewise::predefined;
 
 int main()
 {
+    // Initialize model structure
     ssqp::model::Model::Structure structure;
+    // Set the URDF file path
     structure.urdf_path = "examples/urdf/double_pendulum/double_pendulum.urdf";
+    // Ignore constraints outlined in URDF
     structure.ignore_innate_constraints = true;
-    //structure.integration     = ssqp::model::IntegrationScheme::ExplicitEuler;
+    // Allow only joint 1 (second joint) to be actuated
     structure.actuated_joints = { 1 };
+
+    // Initialize model using the structure
+    // Note: Model will be unfinalized and not yet ready for use in SSQP
     ssqp::model::Model model(HORIZON, dt, structure);
 
+    // Add costs to each stage
     for (uint k = 0; k < HORIZON; ++k)
     {
+        // Add cost using the addCost method for stage k
+        // For the cost, we pass the custom StageCost object created by getCost
         model.addCost(k, getCost());
+        // Also add a predefined cost of type SquaredControlCost to stage k
+        // with arguments nv = 2 and weight = 1e-5
         model.addCost<costs::SquaredControlCost>(k, 2, 1e-5);
     }
 
+    // Add terminal cost with larger weight
     model.addCost(HORIZON, getCost(100.0));
 
+    // Create a model config to pass an initial state
     ssqp::model::Model::Config config;
+    // init_states vector of size 1: Same initial state for every stage
+    // This will set the stage 0 state to the given state (which cannot be
+    // changed) and provide it as an initial guess for other stages
     config.init_states = {
         (Eigen::Vector4d() << 3.14, 0.0, 0.0, 0.0).finished()
     };
+
+    // Finalize the model with the created configuration
     model.finalize(config);
 
     ssqp::solvers::ssqp::Params params;
@@ -104,7 +131,8 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/trajgen/data/double_pendulum");
+    // Write the output to a JSON file
+    solver.write("examples/trajgen/data/double_pendulum.json");
 
     return 0;
 }

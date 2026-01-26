@@ -105,7 +105,17 @@ void Model::finalize(const Config &config)
     // Use custom dynamics
     else
     {
-        _dynamics = config.dynamics;
+        if (config.dynamics.size() == 1)
+        {
+            for (uint k = 0; k <= _dims.horizon; ++k)
+            {
+                _dynamics[k] = config.dynamics[0];
+            }
+        }
+        else
+        {
+            _dynamics = config.dynamics;
+        }
     }
 
     // Setup costs
@@ -161,8 +171,8 @@ void Model::finalize(const Config &config)
     // Setup stagewise dimension data
     for (uint k = 0; k < _dims.horizon; ++k)
     {
-        assert(_dynamics[k] != nullptr && _costs[k] != nullptr &&
-               "All stage dynamics and costs must be defined");
+        assert(_dynamics[k] != nullptr && "All stage dynamics must be defined");
+        assert(_costs[k] != nullptr && "All stage costs must be defined");
         _dims.stage_state[k]   = _dynamics[k]->state_size();
         _dims.stage_control[k] = _dynamics[k]->control_size();
         _dims.stage_constraint[k] =
@@ -191,8 +201,9 @@ void Model::finalize(const Config &config)
     }
 
     assert(_dynamics[_dims.horizon] != nullptr &&
-           _costs[_dims.horizon] != nullptr &&
-           "All stage dynamics and costs must be defined");
+           "All stage dynamics must be defined");
+    assert(_costs[_dims.horizon] != nullptr &&
+           "All stage costs must be defined");
     _dims.stage_state[_dims.horizon] = _dynamics[_dims.horizon]->state_size();
     _dims.stage_constraint[_dims.horizon] =
       (_constraints[_dims.horizon] != nullptr)
