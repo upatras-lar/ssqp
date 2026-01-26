@@ -2,21 +2,27 @@
 #include <cmath>
 #include <vector>
 
-#include "solvers/ssqp.hpp"
-#include "solvers/admm_qp.hpp"
-#include "model/Model.hpp"
+#include "solvers/ssqp.hpp"    // ssqp::solvers::ssqp
+#include "solvers/admm_qp.hpp" // ssqp::solvers::admm_qp::Params
+#include "model/Model.hpp"     // ssqp::model::Model
+
+// ssqp::stagewise::predefined::costs namespace
 #include "model/stagewise/predefined/Costs.hpp"
+// ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
-#include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #define STATE_SIZE 9
 #define HORIZON    400
 #define dt         0.01
-#define P_WGT      10
-#define R_WGT      1
-#define V_WGT      1e-5
-#define U_WGT      1e-5
-#define TERM_WGT   1
+
+// Position and rotation weights
+#define P_WGT 10
+#define R_WGT 1
+
+// Joint velocity weight
+#define V_WGT 1e-5
+// Control weight
+#define U_WGT 1e-5
 
 // Circle properties:
 // Center
@@ -34,6 +40,8 @@
 // Initial phase
 #define φ0 0
 
+// Whether to constain movement in a rectangle within the circle
+// @script-parameter
 #define CONSTRAIN true
 
 inline Eigen::Vector3d circle_to_square_point(const Eigen::Vector3d &p)
@@ -104,8 +112,6 @@ int main()
     // Define SSQP model
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
-    // model_structure.integration   = ssqp::model::ExplicitEuler;
-    // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     Eigen::VectorXd init_state = Eigen::VectorXd::Zero(2 * STATE_SIZE);
@@ -113,42 +119,15 @@ int main()
     init_state.head(STATE_SIZE) << 0.0013, -0.9115, -0.0010, -2.6316, -0.0008,
       1.7431, 0.7862, 0.0, 0.0;
 
-    LOGLN("Trajectory[0]: " << traj[0].transpose());
-    Eigen::VectorXd pos;
-    std::tie(pos, std::ignore) =
-      model.forwardKinematics(init_state.head(STATE_SIZE), "panda_ee");
-    LOGLN("Actual initial state: " << pos.transpose());
-
-    // std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
-    //   constraints(HORIZON + 1, nullptr);
-
-    // model.printFramesAndJoints();
-    // model.addForce(0, "panda_ee");
-    //model.addForce(2, "panda_ee");
-
     for (uint k = 0; k < HORIZON; ++k)
     {
-        // model.addCost<costs::FrameSquaredTranslationErrorCost>(k,
-        //                                                     model,
-        //                                                     traj[k],
-        //                                                     "panda_ee",
-        //                                                     STATE_SIZE,
-        //                                                     STATE_SIZE,
-        //                                                     P_WGT);
-
-        // model.addCost<costs::FrameSquaredTranslationErrorCost>(k,
-        //                                                     model,
-        //                                                     Rd,
-        //                                                     "panda_ee",
-        //                                                     STATE_SIZE,
-        //                                                     STATE_SIZE,
-        //                                                     R_WGT);
-
         Eigen::Matrix4d desired_pose        = Eigen::Matrix4d::Zero();
         desired_pose.topLeftCorner<3, 3>()  = Rd;
         desired_pose.topRightCorner<3, 1>() = traj[k];
         desired_pose(3, 3)                  = 1.0;
 
+        // Pass an SE3 transformation matrix as a desired pose, generated with
+        // the current translation for stage k and the normal rotation matrix
         model.addCost<costs::FrameSquaredPoseErrorCost>(k,
                                                         model,
                                                         desired_pose,
@@ -158,16 +137,18 @@ int main()
                                                         P_WGT,
                                                         R_WGT);
 
-        model.addCost<costs::SquaredControlCost>(k, STATE_SIZE, U_WGT);
-
+        // Add regularization costs
         model.addCost<costs::SquaredJointVelocityCost>(k, STATE_SIZE, V_WGT);
+        model.addCost<costs::SquaredControlCost>(k, STATE_SIZE, U_WGT);
 
         if (CONSTRAIN)
         {
+            // Constrain within rectangle
             Eigen::Vector3d lb, ub;
             std::tie(lb, ub) =
               square_point_bounds(circle_to_square_point(traj[k]));
 
+            // Add a FramePositionBound for the panda_ee frame
             model.addConstraints<constraints::FramePositionBound>(k,
                                                                   model,
                                                                   "panda_ee",
@@ -177,22 +158,6 @@ int main()
                                                                   STATE_SIZE);
         }
     }
-
-    // model.addCost<costs::FrameSquaredTranslationErrorCost>(HORIZON,
-    //                                                     model,
-    //                                                     traj[HORIZON],
-    //                                                     "panda_ee",
-    //                                                     STATE_SIZE,
-    //                                                     STATE_SIZE,
-    //                                                     TERM_WGT * P_WGT);
-
-    // model.addCost<costs::FrameSquaredRotationErrorCost>(HORIZON,
-    //                                                     model,
-    //                                                     Rd,
-    //                                                     "panda_ee",
-    //                                                     STATE_SIZE,
-    //                                                     STATE_SIZE,
-    //                                                     TERM_WGT * R_WGT);
 
     Eigen::Matrix4d desired_pose        = Eigen::Matrix4d::Zero();
     desired_pose.topLeftCorner<3, 3>()  = Rd;
@@ -205,8 +170,8 @@ int main()
                                                     "panda_ee",
                                                     STATE_SIZE,
                                                     STATE_SIZE,
-                                                    TERM_WGT * P_WGT,
-                                                    TERM_WGT * R_WGT);
+                                                    P_WGT,
+                                                    R_WGT);
 
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON, STATE_SIZE, V_WGT);
 
@@ -229,20 +194,24 @@ int main()
     model_config.init_states = { init_state };
     model.finalize(model_config);
 
+    // Use custom SSQP parameters
     ssqp::solvers::ssqp::Params params;
+    // Disable loose success
     params.loose_success = false;
-    params.tolerance     = 1e-1;
+    // Edit the SSQP tolerance
+    params.tolerance = 1e-2;
 
+    // Use custom ADMM parameters
     ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance          = 1e-3;
-    admm_params.rel_tolerance          = 1e-4;
-    admm_params.adaptive_rho_tolerance = 5;
-    admm_params.rho_update_iter_freq   = 25;
-    admm_params.reset_rho              = false;
-    admm_params.reset_y                = false;
-    admm_params.max_iter               = 1000;
+    // Change the maximum ADMM iterations
+    admm_params.max_iter = 1000;
+    // Edit the ADMM tolerance
+    admm_params.abs_tolerance = 1e-3;
+    admm_params.rel_tolerance = 1e-4;
+    // Do not reset rho and y for consecutive ADMMs
+    admm_params.reset_rho = false;
+    admm_params.reset_y   = false;
 
-    // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
@@ -257,7 +226,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/trajgen/data/panda_circle");
+    solver.write("examples/trajgen/data/panda_circle.json");
 
     return 0;
 }

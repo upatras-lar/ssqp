@@ -129,7 +129,7 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
-solver.write("../data/panda_circle")
+solver.write("../data/panda_circle.json")
 
 print("x:")
 x.print()

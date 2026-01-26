@@ -233,7 +233,7 @@ bool ssqp::write(const std::string &filename)
     static const double            &dt   = _model.dt();
 
     std::ofstream out;
-    out.open(filename + ".json");
+    out.open(filename);
     if (!out)
     {
         return false;

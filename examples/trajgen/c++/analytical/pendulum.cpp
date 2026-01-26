@@ -1,11 +1,12 @@
 #include <iostream>
 #include <cmath>
 
-#include "solvers/ssqp.hpp"
+#include "solvers/ssqp.hpp" // ssqp::solvers::ssqp
 
-#include "model/stagewise/StageCost.hpp"
-#include "model/stagewise/StageDynamics.hpp"
-#include "model/stagewise/StageConstraints.hpp"
+#include "model/Model.hpp"               // ssqp::model::Model
+#include "model/stagewise/StageCost.hpp" // ssqp::model::stagewise::StageCost
+#include "model/stagewise/StageDynamics.hpp" // ssqp::model::stagewise::StageDynamics
+#include "model/stagewise/StageConstraints.hpp" // ssqp::model::stagewise::StageConstraints
 
 #define HORIZON 100
 
@@ -283,32 +284,34 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
 
 int main()
 {
-    std::vector<std::shared_ptr<ssqp::model::stagewise::StageCost>> costs(
-      HORIZON + 1);
-    std::vector<std::shared_ptr<ssqp::model::stagewise::StageDynamics>>
-      dynamics(HORIZON + 1);
     std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
       constraints(HORIZON + 1);
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        costs[k]       = std::make_shared<Cost>();
-        dynamics[k]    = std::make_shared<Dynamics>();
         constraints[k] = std::make_shared<Constraints>();
     }
 
-    costs[HORIZON]       = std::make_shared<TerminalCost>();
-    dynamics[HORIZON]    = std::make_shared<Dynamics>();
     constraints[HORIZON] = nullptr;
 
+    // Use config to pass model stage functions
     ssqp::model::Model::Config model_config;
-    model_config.costs       = costs;
-    model_config.dynamics    = dynamics;
+    // config.stage_cost: Add this to every non-terminal stage's cost
+    model_config.stage_cost = std::make_shared<Cost>();
+    // config.terminal_cost: Use this as the terminal cost
+    model_config.terminal_cost = std::make_shared<TerminalCost>();
+    // Size 1 vector for dynamics: Use these for all stages
+    model_config.dynamics    = { std::make_shared<Dynamics>() };
     model_config.constraints = constraints;
 
     ssqp::model::Model model(HORIZON, dt, model_config);
 
-    ssqp::solvers::ssqp        solver(model);
+    // Custom parameters for SSQP
+    ssqp::solvers::ssqp::Params params;
+    params.tolerance = 1e-2;
+
+    // Initialize SSQP solver with created model and custom SSQP parameters
+    ssqp::solvers::ssqp        solver(model, params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 

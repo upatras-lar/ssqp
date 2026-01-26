@@ -2,12 +2,15 @@
 #include <cmath>
 #include <vector>
 
-#include "solvers/ssqp.hpp"
-#include "solvers/admm_qp.hpp"
-#include "model/Model.hpp"
+#include "solvers/ssqp.hpp"    // ssqp::solvers::ssqp
+#include "solvers/admm_qp.hpp" // ssqp::solvers::admm_qp::Params
+#include "model/Model.hpp"     // ssqp::model::Model
+
+// ssqp::stagewise::predefined::costs namespace
 #include "model/stagewise/predefined/Costs.hpp"
+
+// ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
-#include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
@@ -22,9 +25,9 @@
 // Force regularization weight
 #define F_WGT 1e-7
 // Terminal position weight
-#define TP_WEIGHT 100
+#define TP_WGT 100
 // Terminal orientation weight
-#define TO_WEIGHT 8
+#define TO_WGT 8
 
 // Jump
 #define STEPS_BEFORE 40
@@ -57,26 +60,11 @@ int main()
     init_control_2[20]             = 6.8705 * 9.81;
     init_control_2[23]             = 6.8705 * 9.81;
 
-    std::unordered_map<std::string, std::vector<Eigen::Vector3d>> forces;
-    forces["FL_foot"].push_back(init_control.segment(18, 3));
-    forces["FR_foot"].push_back(init_control.segment(21, 3));
-    forces["RL_foot"].push_back(init_control.segment(24, 3));
-    forces["RR_foot"].push_back(init_control.segment(27, 3));
-
     // Initialize model
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
-    // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
-
-    init_control.segment(6, 12) =
-      model
-        .inverseDynamics(init.head(STATE_SIZE),
-                         init.tail(CONTROL_SIZE),
-                         Eigen::VectorXd::Zero(CONTROL_SIZE),
-                         forces)
-        .tail(12);
 
     std::vector<Eigen::VectorXd> init_controls;
 
@@ -92,13 +80,16 @@ int main()
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
+        // Get stage index relative to jumps
         uint rel_k = k % JUMP_STAGES;
 
+        // If we are on the ground
         if (rel_k < STEPS_BEFORE || rel_k > JUMP_STAGES - STEPS_AFTER)
         {
-
+            // If we are at the start or end (all feet on the ground)
             if (k < STEPS_BEFORE || k > HORIZON - STEPS_AFTER)
             {
+                // Add constraints for front feet to touch the ground
                 init_controls.push_back(init_control);
                 model.addConstraints<constraints::ContactConstraint>(
                   k,
@@ -134,11 +125,14 @@ int main()
                   STATE_SIZE,
                   CONTROL_SIZE);
             }
+            // If we are not at the start or end, only back feet should touch
+            // the ground
             else
             {
                 init_controls.push_back(init_control_2);
             }
 
+            // Add constraints for back feet to touch the ground
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RL_foot",
@@ -171,12 +165,14 @@ int main()
               STATE_SIZE,
               CONTROL_SIZE);
         }
+        // If we are on air, do not add constraints
         else
         {
             init_controls.push_back(Eigen::VectorXd::Zero(18));
         }
     }
 
+    // Add regularization costs for the terminal stage
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
                                                    CONTROL_SIZE,
                                                    V_WGT,
@@ -189,9 +185,10 @@ int main()
                                                     "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    TP_WEIGHT,
-                                                    TO_WEIGHT);
+                                                    TP_WGT,
+                                                    TO_WGT);
 
+    // Add bound to keep final trunk velocity low
     model.addConstraints<constraints::FrameVelocityBound>(
       HORIZON,
       model,
@@ -208,15 +205,14 @@ int main()
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    params.loose_success = false;
-    params.tolerance     = 1e-2;
-    params.use_filter    = true;
-    params.filter_size   = 100;
+    params.tolerance   = 1e-2;
+    params.use_filter  = true;
+    params.filter_size = 100;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
-    admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 500;
+    admm_params.rel_tolerance = 1e-3;
+    admm_params.max_iter      = 750;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
@@ -232,7 +228,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/trajgen/data/a1_jump");
+    solver.write("examples/trajgen/data/a1_jump.json");
 
     return 0;
 }

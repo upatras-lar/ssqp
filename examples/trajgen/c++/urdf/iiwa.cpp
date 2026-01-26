@@ -1,15 +1,18 @@
 #include <iostream>
 #include <cmath>
 
-#include "solvers/ssqp.hpp"
-#include "model/Model.hpp"
+#include "solvers/ssqp.hpp" // ssqp::solvers::ssqp
+#include "model/Model.hpp"  // ssqp::model::Model
 
 #define HORIZON  200
 #define dt       0.01
-#define P_WGT    2
-#define V_WGT    1e-3
-#define TERM_WGT 100
-#define TARGET   1
+#define Q_WGT    2    // Configuration weight
+#define U_WGT    1e-3 // Control weight
+#define TERM_WGT 100  // Terminal weight
+
+// Which type of move to make (values in [0, 3])
+// @script-parameter
+#define TARGET 1
 
 int main()
 {
@@ -39,12 +42,13 @@ int main()
         target << -0.9, 0.6, -1.1, -0.2, -0.15, 0.1, 0.0;
     }
 
+    // Define cost using lambdas
     auto cost_eval =
       [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
         return (Eigen::Vector<double, 1>()
-                << V_WGT * u.transpose() * u +
-                     P_WGT * (x.head(7) - target).squaredNorm())
+                << U_WGT * u.transpose() * u +
+                     Q_WGT * (x.head(7) - target).squaredNorm())
           .finished();
     };
 
@@ -54,20 +58,21 @@ int main()
                               Eigen::VectorXd &du)
     {
         dx         = Eigen::VectorXd::Zero(14);
-        dx.head(7) = 2 * P_WGT * (x.head(7) - target);
-        du         = 2 * V_WGT * u;
+        dx.head(7) = 2 * Q_WGT * (x.head(7) - target);
+        du         = 2 * U_WGT * u;
     };
 
     auto cost_hess_xx = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
                            Eigen::MatrixXd &Hxx)
-    { Hxx = 2 * P_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
+    { Hxx = 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
 
     auto cost_hess_uu = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
                            Eigen::MatrixXd &Huu)
-    { Huu = 2 * V_WGT * Eigen::MatrixXd::Identity(7, 7); };
+    { Huu = 2 * U_WGT * Eigen::MatrixXd::Identity(7, 7); };
 
+    // Create StageCost object using the make_cost helper
     std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
       ssqp::model::stagewise::factory::make_cost(cost_eval,
                                                  cost_grad,
@@ -75,11 +80,12 @@ int main()
                                                  ssqp::model::ZeroHessian_xu,
                                                  cost_hess_uu);
 
+    // Define terminal cost with a larger terminal weight
     auto terminal_cost_eval =
       [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
         return (Eigen::Vector<double, 1>()
-                << TERM_WGT * (P_WGT * (x.head(7) - target).squaredNorm() +
+                << TERM_WGT * (Q_WGT * (x.head(7) - target).squaredNorm() +
                                x.tail(7).squaredNorm()))
           .finished();
     };
@@ -90,14 +96,14 @@ int main()
                                        Eigen::VectorXd &du)
     {
         dx         = Eigen::VectorXd::Zero(14);
-        dx.head(7) = TERM_WGT * 2 * P_WGT * (x.head(7) - target);
+        dx.head(7) = TERM_WGT * 2 * Q_WGT * (x.head(7) - target);
         dx.tail(7) = TERM_WGT * 2 * x.tail(7);
     };
 
     auto terminal_cost_hess_xx = [](const Eigen::VectorXd &x,
                                     const Eigen::VectorXd &u,
                                     Eigen::MatrixXd &Hxx)
-    { Hxx = TERM_WGT * 2 * P_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
+    { Hxx = TERM_WGT * 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
       ssqp::model::stagewise::factory::make_cost(terminal_cost_eval,
@@ -106,14 +112,19 @@ int main()
                                                  ssqp::model::ZeroHessian_xu,
                                                  ssqp::model::ZeroHessian_uu);
 
+    // Use model structure object to pass URDF path
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path = "examples/urdf/iiwa.urdf";
 
+    // Use model config object to set the stage and terminal costs, as well as
+    // the initial state
     ssqp::model::Model::Config model_config;
     model_config.stage_cost    = cost;
     model_config.terminal_cost = terminal_cost;
     model_config.init_states   = { init };
 
+    // Initialize model using mixed constructor (with both structure and config)
+    // Since we pass a config, this constructor will also finalize the model
     ssqp::model::Model model(HORIZON, dt, model_structure, model_config);
 
     ssqp::solvers::ssqp::Params params;
@@ -133,7 +144,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/trajgen/data/iiwa");
+    solver.write("examples/trajgen/data/iiwa.json");
 
     return 0;
 }

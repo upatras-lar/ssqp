@@ -124,7 +124,7 @@ solver = ssqpy.solvers.ssqp(
 )
 
 state, x, u = solver.solve()
-solver.write("../data/talos_walk")
+solver.write("../data/talos_walk.json")
 
 print("x:")
 x.print()

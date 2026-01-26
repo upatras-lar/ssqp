@@ -151,7 +151,7 @@ solver = ssqpy.solvers.ssqp(
 )
 
 state, x, u = solver.solve()
-solver.write("../data/talos_stand_1foot")
+solver.write("../data/talos_stand_1foot.json")
 
 print("x:")
 x.print()

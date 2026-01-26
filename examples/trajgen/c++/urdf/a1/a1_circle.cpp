@@ -2,12 +2,15 @@
 #include <cmath>
 #include <vector>
 
-#include "solvers/ssqp.hpp"
-#include "solvers/admm_qp.hpp"
-#include "model/Model.hpp"
+#include "solvers/ssqp.hpp"    // ssqp::solvers::ssqp
+#include "solvers/admm_qp.hpp" // ssqp::solvers::admm_qp::Params
+#include "model/Model.hpp"     // ssqp::model::Model
+
+// ssqp::stagewise::predefined::costs namespace
 #include "model/stagewise/predefined/Costs.hpp"
+
+// ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
-#include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
@@ -71,6 +74,7 @@ std::vector<Eigen::Vector3d> make_trajectory(int H)
     return traj;
 }
 
+// A1 making a circular motion with its trunk example
 int main()
 {
     // Trunk position
@@ -91,9 +95,7 @@ int main()
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
-    // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);
-    model.printFramesAndJoints();
 
     for (uint k = 0; k < HORIZON; ++k)
     {
@@ -197,15 +199,13 @@ int main()
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    // params.loose_success = false;
-    params.tolerance = 1e-1;
+    params.tolerance = 1e-2;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
-    admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 1000;
+    admm_params.rel_tolerance = 1e-3;
+    admm_params.max_iter      = 500;
 
-    // params.loose_success_tolerance = 1e-3;
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
@@ -220,7 +220,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/trajgen/data/a1_circle");
+    solver.write("examples/trajgen/data/a1_circle.json");
 
     return 0;
 }

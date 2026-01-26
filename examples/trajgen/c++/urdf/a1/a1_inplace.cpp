@@ -2,16 +2,19 @@
 #include <cmath>
 #include <vector>
 
-#include "solvers/ssqp.hpp"
-#include "solvers/admm_qp.hpp"
-#include "model/Model.hpp"
+#include "solvers/ssqp.hpp"    // ssqp::solvers::ssqp
+#include "solvers/admm_qp.hpp" // ssqp::solvers::admm_qp::Params
+#include "model/Model.hpp"     // ssqp::model::Model
+
+// ssqp::stagewise::predefined::costs namespace
 #include "model/stagewise/predefined/Costs.hpp"
+
+// ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
-#include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define dt           0.01
+#define dt           0.02
 // Position weight
 #define P_WGT 10
 // Orientation weight
@@ -25,9 +28,12 @@
 // Force regularization weight
 #define F_WGT 1e-7
 
-#define STANDING_STEPS 30
-#define INPLACE_STEPS  60
-#define REPEATS        6
+// How many steps to stand for (all feet on the ground)
+#define STANDING_STEPS 15
+// Total steps for one cycle
+#define INPLACE_STEPS 40
+// How many times to repeat motion
+#define REPEATS 3
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -109,15 +115,15 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
     }
 }
 
+// A1 raising feet in place example
 int main()
 {
     uint HORIZON = 2 * STANDING_STEPS + 4 * REPEATS * INPLACE_STEPS;
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer    = true;
-    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
+    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     // Initial configuration
@@ -130,7 +136,7 @@ int main()
 
     // Initial controls
     std::vector<Eigen::VectorXd> init_controls;
-    Eigen::VectorXd init_control_4, init_control_21, init_control_22;
+    Eigen::VectorXd              init_control_4, init_control_2;
 
     init_control_4     = Eigen::VectorXd::Zero(30);
     init_control_4[20] = 3.43525 * 9.81;
@@ -138,51 +144,9 @@ int main()
     init_control_4[26] = 3.43525 * 9.81;
     init_control_4[29] = 3.43525 * 9.81;
 
-    std::unordered_map<std::string, std::vector<Eigen::Vector3d>> forces;
-    forces["FL_foot"].push_back(init_control_4.segment(18, 3));
-    forces["FR_foot"].push_back(init_control_4.segment(21, 3));
-    forces["RL_foot"].push_back(init_control_4.segment(24, 3));
-    forces["RR_foot"].push_back(init_control_4.segment(27, 3));
-
-    init_control_4.segment(6, 12) =
-      model
-        .inverseDynamics(init.head(STATE_SIZE),
-                         init.tail(CONTROL_SIZE),
-                         Eigen::VectorXd::Zero(CONTROL_SIZE),
-                         forces)
-        .tail(12);
-
-    init_control_21     = Eigen::VectorXd::Zero(24);
-    init_control_21[20] = 6.8705 * 9.81;
-    init_control_21[23] = 6.8705 * 9.81;
-
-    forces.clear();
-    forces["FL_foot"].push_back(init_control_21.segment(18, 3));
-    forces["RR_foot"].push_back(init_control_21.segment(21, 3));
-
-    init_control_21.segment(6, 12) =
-      model
-        .inverseDynamics(init.head(STATE_SIZE),
-                         init.tail(CONTROL_SIZE),
-                         Eigen::VectorXd::Zero(CONTROL_SIZE),
-                         forces)
-        .tail(12);
-
-    init_control_22     = Eigen::VectorXd::Zero(24);
-    init_control_22[20] = 6.8705 * 9.81;
-    init_control_22[23] = 6.8705 * 9.81;
-
-    forces.clear();
-    forces["FR_foot"].push_back(init_control_22.segment(18, 3));
-    forces["RL_foot"].push_back(init_control_22.segment(21, 3));
-
-    init_control_22.segment(6, 12) =
-      model
-        .inverseDynamics(init.head(STATE_SIZE),
-                         init.tail(CONTROL_SIZE),
-                         Eigen::VectorXd::Zero(CONTROL_SIZE),
-                         forces)
-        .tail(12);
+    init_control_2     = Eigen::VectorXd::Zero(24);
+    init_control_2[20] = 6.8705 * 9.81;
+    init_control_2[23] = 6.8705 * 9.81;
 
     addStandingPhase(STANDING_STEPS, init_control_4, model, init_controls);
 
@@ -199,6 +163,8 @@ int main()
     {
         for (uint k = current_step; k < current_step + INPLACE_STEPS; ++k)
         {
+            // Place front left & rear right feet on the ground
+
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "FL_foot",
@@ -231,6 +197,8 @@ int main()
               STATE_SIZE,
               CONTROL_SIZE);
 
+            // If at the right part of cycle (first or last fourth), place
+            // remaining feet on the ground
             if (k > current_step + INPLACE_STEPS / 4 &&
                 k < current_step + 3 * INPLACE_STEPS / 4)
             {
@@ -253,11 +221,12 @@ int main()
                   CONTROL_SIZE);
             }
 
-            init_controls.push_back(init_control_21);
+            init_controls.push_back(init_control_2);
         }
 
         current_step += INPLACE_STEPS;
 
+        // Add standing phase in the middle
         addStandingPhase(INPLACE_STEPS,
                          init_control_4,
                          model,
@@ -268,6 +237,8 @@ int main()
 
         for (uint k = current_step; k < current_step + INPLACE_STEPS; ++k)
         {
+            // Place front right & rear left feet on the ground
+
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "FR_foot",
@@ -300,6 +271,8 @@ int main()
               STATE_SIZE,
               CONTROL_SIZE);
 
+            // If at the right part of cycle (first or last fourth), place
+            // remaining feet on the ground
             if (k > current_step + INPLACE_STEPS / 4 &&
                 k < current_step + 3 * INPLACE_STEPS / 4)
             {
@@ -322,11 +295,12 @@ int main()
                   CONTROL_SIZE);
             }
 
-            init_controls.push_back(init_control_22);
+            init_controls.push_back(init_control_2);
         }
 
         current_step += INPLACE_STEPS;
 
+        // Add another standing phase
         addStandingPhase(INPLACE_STEPS,
                          init_control_4,
                          model,
@@ -342,6 +316,7 @@ int main()
                      init_controls,
                      current_step);
 
+    // Add costs for each stage, including horizon
     for (uint k = 0; k <= HORIZON; ++k)
     {
         model.addCost<costs::FrameSquaredPoseErrorCost>(
@@ -373,22 +348,18 @@ int main()
     }
 
     ssqp::model::Model::Config model_config;
-    model_config.init_states = { init };
-    // model_config.init_controls = init_controls;
+    model_config.init_states   = { init };
+    model_config.init_controls = init_controls;
 
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    params.tolerance  = 1e-2;
-    params.max_iter   = 500;
-    params.use_filter = false;
-    params.merit_mu_c = 2.0;
+    params.tolerance = 1e-2;
 
     ssqp::solvers::admm_qp::Params admm_params;
     admm_params.abs_tolerance = 1e-3;
-    admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 400;
-    admm_params.warm_start    = true;
+    admm_params.rel_tolerance = 1e-3;
+    admm_params.max_iter      = 500;
 
     ssqp::solvers::ssqp        solver(model, params, admm_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
@@ -404,7 +375,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/trajgen/data/a1_inplace");
+    solver.write("examples/trajgen/data/a1_inplace.json");
 
     return 0;
 }

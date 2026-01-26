@@ -101,6 +101,8 @@ class Model
      *     existing costs)
      *  - `terminal_cost`: Stage cost for terminal stage
      *  - `constraints`: (empty / size $H + 1$) Vector of stage constraints
+     *  - `dynamics`: (empty -> URDF dynamics / size 1 -> same dynamics for
+     *     every stage / size $H + 1$) Vector of stage dynamics
      *  - `init_states`: (empty / size $1$ / size $H + 1$) Vector of initial states
      *     (empty -> $\boldsymbol{0}$ initial states / size $1$ -> same initial state for 
      *     every stage / size $H + 1$ -> given sizes per stage)

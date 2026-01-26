@@ -1,8 +1,8 @@
 #include <iostream>
 #include <cmath>
 
-#include "solvers/ssqp.hpp"
-#include "model/Model.hpp"
+#include "solvers/ssqp.hpp" // ssqp::solvers::ssqp
+#include "model/Model.hpp"  // ssqp::model::Model
 
 #define HORIZON 100
 
@@ -106,7 +106,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    solver.write("examples/trajgen/data/pendulum");
+    solver.write("examples/trajgen/data/pendulum.json");
 
     return 0;
 }

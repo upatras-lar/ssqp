@@ -2,16 +2,18 @@
 #include <cmath>
 #include <vector>
 
-#include "solvers/ssqp.hpp"
-#include "solvers/admm_qp.hpp"
-#include "model/Model.hpp"
+#include "solvers/ssqp.hpp" // ssqp::solvers::ssqp
+#include "model/Model.hpp"  // ssqp::model::Model
+
+// ssqp::stagewise::predefined::costs namespace
 #include "model/stagewise/predefined/Costs.hpp"
+
+// ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
-#include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #define STATE_SIZE   19
 #define CONTROL_SIZE 18
-#define HORIZON      100
+#define HORIZON      400
 #define dt           0.01
 // Trunk position weight
 #define P_WGT 10
@@ -24,6 +26,7 @@
 // Force regularization weight
 #define F_WGT 1e-9
 // Whether we only use two feet to stand on
+// @script-parameter
 #define TWO_FEET true
 
 using namespace ssqp::model::stagewise::predefined;
@@ -32,10 +35,12 @@ int main()
 {
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer    = true;
-    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
-    // model_structure.integration = ssqp::model::IntegrationScheme::ExplicitEuler;
+    model_structure.urdf_path = "examples/urdf/a1/a1.urdf";
+
+    // Since the A1 robot has a floating base, we must set the free_flyer
+    // parameter to true
+    model_structure.free_flyer = true;
+
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     // Trunk position
@@ -55,6 +60,8 @@ int main()
 
     if (TWO_FEET)
     {
+        // If only standing on two feet, initial controls for forces should be
+        // twice as large
         init_control     = Eigen::VectorXd::Zero(24);
         init_control[20] = 6.8705 * 9.81;
         init_control[23] = 6.8705 * 9.81;
@@ -73,6 +80,7 @@ int main()
     }
     else
     {
+        // For 4 feet, we simply pass 0 (no need for initialization)
         init_control = Eigen::VectorXd::Zero(30);
     }
 
@@ -105,6 +113,10 @@ int main()
         model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
         model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
 
+        // Add contact constraints for front left and rear right feet
+        // We also add velocity bounds to each contact constraint frame to
+        // constrain its velocity to 0, since we do not want it slipping
+
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "FL_foot",
@@ -121,8 +133,27 @@ int main()
           STATE_SIZE,
           CONTROL_SIZE);
 
+        model.addConstraints<constraints::ContactConstraint>(k,
+                                                             model,
+                                                             "RR_foot",
+                                                             STATE_SIZE,
+                                                             CONTROL_SIZE,
+                                                             0.6);
+
+        model.addConstraints<constraints::FrameVelocityBound>(
+          k,
+          model,
+          "RR_foot",
+          Eigen::Vector3d::Zero(),
+          Eigen::Vector3d::Zero(),
+          STATE_SIZE,
+          CONTROL_SIZE);
+
         if (!TWO_FEET)
         {
+            // If standing on four feet, add contact constraints and velocity
+            // bounds for the other two feet as well
+
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "FR_foot",
@@ -157,6 +188,9 @@ int main()
         }
         else
         {
+            // If the remaining two feet are on the air, add position bounds
+            // to keep them above ground
+
             model.addConstraints<constraints::FramePositionBound>(k,
                                                                   model,
                                                                   "FR_foot",
@@ -173,24 +207,9 @@ int main()
                                                                   STATE_SIZE,
                                                                   CONTROL_SIZE);
         }
-
-        model.addConstraints<constraints::ContactConstraint>(k,
-                                                             model,
-                                                             "RR_foot",
-                                                             STATE_SIZE,
-                                                             CONTROL_SIZE,
-                                                             0.6);
-
-        model.addConstraints<constraints::FrameVelocityBound>(
-          k,
-          model,
-          "RR_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          CONTROL_SIZE);
     }
 
+    // At the terminal stage, add a cost to keep the trunk at the initial position
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
                                                     base_pos,
@@ -198,16 +217,8 @@ int main()
                                                     "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    0 * P_WGT,
-                                                    0 * R_WGT);
-
-    model.addConstraints<constraints::FramePositionBound>(HORIZON,
-                                                          model,
-                                                          "trunk",
-                                                          base_pos,
-                                                          base_pos,
-                                                          STATE_SIZE,
-                                                          CONTROL_SIZE);
+                                                    P_WGT,
+                                                    R_WGT);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states   = { init };
@@ -216,18 +227,9 @@ int main()
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    // params.loose_success = false;
-    params.tolerance  = 1e-2;
-    params.max_iter   = 500;
-    params.use_filter = false;
+    params.tolerance = 1e-2;
 
-    ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance = 1e-3;
-    admm_params.rel_tolerance = 1e-4;
-    admm_params.max_iter      = 1000;
-
-    // params.loose_success_tolerance = 1e-3;
-    ssqp::solvers::ssqp        solver(model, params, admm_params);
+    ssqp::solvers::ssqp        solver(model, params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 
@@ -241,55 +243,7 @@ int main()
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
 
-    /*
-    std::cout << "Feet z-coordinate over horizon:" << std::endl;
-    for (uint k = 0; k < HORIZON; ++k)
-    {
-        std::cout << "Stage " << k << std::endl;
-        Eigen::Vector3d pos, vel;
-        std::tie(pos, std::ignore) =
-          model.forwardKinematics(solution.x.stage(k).head(STATE_SIZE),
-                                  "FL_foot");
-        vel = model.frameVelocity(solution.x.stage(k).head(STATE_SIZE),
-                                  solution.x.stage(k).tail(CONTROL_SIZE),
-                                  "FL_foot",
-                                  true);
-        std::cout << "FL_foot: " << std::endl;
-        std::cout << pos.transpose() << " " << vel.transpose() << std::endl;
-
-        std::tie(pos, std::ignore) =
-          model.forwardKinematics(solution.x.stage(k).head(STATE_SIZE),
-                                  "FR_foot");
-        vel = model.frameVelocity(solution.x.stage(k).head(STATE_SIZE),
-                                  solution.x.stage(k).tail(CONTROL_SIZE),
-                                  "FR_foot",
-                                  true);
-        std::cout << "FR_foot: " << std::endl;
-        std::cout << pos.transpose() << " " << vel.transpose() << std::endl;
-
-        std::tie(pos, std::ignore) =
-          model.forwardKinematics(solution.x.stage(k).head(STATE_SIZE),
-                                  "RL_foot");
-        vel = model.frameVelocity(solution.x.stage(k).head(STATE_SIZE),
-                                  solution.x.stage(k).tail(CONTROL_SIZE),
-                                  "RL_foot",
-                                  true);
-        std::cout << "RL_foot: " << std::endl;
-        std::cout << pos.transpose() << " " << vel.transpose() << std::endl;
-
-        std::tie(pos, std::ignore) =
-          model.forwardKinematics(solution.x.stage(k).head(STATE_SIZE),
-                                  "RR_foot");
-        vel = model.frameVelocity(solution.x.stage(k).head(STATE_SIZE),
-                                  solution.x.stage(k).tail(CONTROL_SIZE),
-                                  "RR_foot",
-                                  true);
-        std::cout << "RR_foot: " << std::endl;
-        std::cout << pos.transpose() << " " << vel.transpose() << std::endl;
-    }
-    */
-
-    solver.write("examples/trajgen/data/a1_standing");
+    solver.write("examples/trajgen/data/a1_standing.json");
 
     return 0;
 }

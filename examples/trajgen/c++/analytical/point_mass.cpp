@@ -1,41 +1,48 @@
 #include <iostream>
 
-#include "solvers/ssqp.hpp"
+#include "solvers/ssqp.hpp" // ssqp::solvers::ssqp
 
-#include "model/stagewise/StageCost.hpp"
-#include "model/stagewise/StageDynamics.hpp"
-#include "model/stagewise/StageConstraints.hpp"
+#include "model/Model.hpp"               // ssqp::model::Model
+#include "model/stagewise/StageCost.hpp" // ssqp::model::stagewise::StageCost
+#include "model/stagewise/StageDynamics.hpp" // ssqp::model::stagewise::StageDynamics
+#include "model/stagewise/StageConstraints.hpp" // ssqp::model::stagewise::StageConstraints
 
 #define HORIZON 10
+#define dt      0.1
 
 /* 1D point mass
  * state x = [p v] (position, velocity)
  * control u = [a] (acceleration)
  *
  * Start state: [0 0]
- * Target state: [1 x]
-
- * Constraints:
- *  a) -10 <= a <= 10 (control bounds)
- *
+ * Target state: [0.4 x]
+ * 
  * Horizon = 10, dt = 0.1
  * Dynamics:
  *  1) p(k+1) = p(k) + dt*v(k) + 0.5*dt^2*a(k)
  *  2) v(k+1) = v(k) + dt*a(k)
  * Cost:
- *  sum_{k=0}{H-1} 10e-5*a(k)^2 + (p(H) - 1)^2
+ *  sum_{k=0}{H-1} 1e-3*a(k)^2 + 2*v(k)^2 + (p(H) - 1)^2
  * Constraints:
- *  1) a(k) + 10 >= 0
- *  2) 10 - a(k) >= 0
+ *  a) -27 <= a(k) <= 27 (control bounds)
+ *  b) 12 <= p(H) <= 12
  */
 
 class TerminalCost : public ssqp::model::stagewise::StageCost
 {
-  public:
+    /* Manually defined custom cost class for terminal cost
+     * Class must provide implementations for:
+     *  - evaluate
+     *  - gradient
+     *  - hessian_xx
+     *  - hessian_xu
+     *  - hessian_uu
+     */
+
     Eigen::VectorXd evaluate(const ssqp::VecX &x,
                              const ssqp::VecX &u) const override
     {
-        return (Eigen::Vector<double, 1>() << u(0) * u(0) * 0.001 +
+        return (Eigen::Vector<double, 1>() << 1e-3 * u(0) * u(0) +
                                                 2 * x(1) * x(1) +
                                                 (x(0) - 0.4) * (x(0) - 0.4))
           .finished();
@@ -45,7 +52,7 @@ class TerminalCost : public ssqp::model::stagewise::StageCost
                   ssqp::VecX &du) const override
     {
         dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
-        du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
+        du = (Eigen::VectorXd(1) << 2 * 1e-3 * u(0)).finished();
     }
 
     void hessian_xx(const ssqp::VecX &x, const ssqp::VecX &u,
@@ -71,12 +78,15 @@ class TerminalCost : public ssqp::model::stagewise::StageCost
 
 class Cost : public ssqp::model::stagewise::StageCost
 {
-  public:
+    /* Similarly, we manually define a cost class for non-terminal stages
+     * Same as above, but without the terminal position term
+     */
+
     Eigen::VectorXd evaluate(const ssqp::VecX &x,
                              const ssqp::VecX &u) const override
     {
         return (Eigen::Vector<double, 1>()
-                << u(0) * u(0) * 0.001 + 2 * x(1) * x(1))
+                << 1e-3 * u(0) * u(0) + 2 * x(1) * x(1))
           .finished();
     }
 
@@ -85,7 +95,7 @@ class Cost : public ssqp::model::stagewise::StageCost
     {
 
         dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
-        du = (Eigen::VectorXd(1) << 0.002 * u(0)).finished();
+        du = (Eigen::VectorXd(1) << 2 * 1e-3 * u(0)).finished();
     }
 
     void hessian_xx(const ssqp::VecX &x, const ssqp::VecX &u,
@@ -110,6 +120,20 @@ class Cost : public ssqp::model::stagewise::StageCost
 
 class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
 {
+    /* Manually defined custom constraints class for terminal constraints
+     * Class must provide implementations for:
+     *  - output_size
+     *  - lower_bound
+     *  - upper_bound
+     *  - evaluate
+     *  - gradient
+     *  - hessprod_xx
+     *  - hessprod_xu
+     *  - hessprod_uu
+     * Here, we provide the same value for the lower and upper bounds (12)
+     * As such, we make this an equality constraint on the desired variable (p(H))
+     */
+
     uint output_size() const override
     {
         return 1;
@@ -164,6 +188,10 @@ class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
 
 class Constraints : public ssqp::model::stagewise::StageConstraints
 {
+    /* Similarly, we manually define a constraints class for non-terminal constraints
+     * Here, we constrain the acceleration value (-27 <= a(k) <= 27)
+     */
+
     uint output_size() const override
     {
         return 1;
@@ -218,6 +246,20 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
 
 class Dynamics : public ssqp::model::stagewise::StageDynamics
 {
+    /* Manually defined custom dynamics class
+     * Class must provide implementations for:
+     *  - output_size
+     *  - state_size
+     *  - control_size
+     *  - evaluate
+     *  - gradient
+     *  - hessprod_xx
+     *  - hessprod_xu
+     *  - hessprod_uu
+     * Since we are not using a URDF to initialize the SSQP model, the dynamics
+     * must be defined analytically
+     */
+
     uint output_size() const override
     {
         return 2;
@@ -235,8 +277,8 @@ class Dynamics : public ssqp::model::stagewise::StageDynamics
 
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
     {
-        return (Eigen::Vector2d() << x(0) + 0.1 * x(1) + 0.005 * u(0),
-                x(1) + 0.1 * u(0))
+        return (Eigen::Vector2d() << x(0) + dt * x(1) + 0.5 * dt * dt * u(0),
+                x(1) + dt * u(0))
           .finished();
     }
 
@@ -247,11 +289,11 @@ class Dynamics : public ssqp::model::stagewise::StageDynamics
         dU = Eigen::Matrix<double, 2, 1>::Zero();
 
         dX(0, 0) = 1;
-        dX(0, 1) = 0.1;
+        dX(0, 1) = dt;
         dX(1, 1) = 1;
 
-        dU(0, 0) = 0.005;
-        dU(1, 0) = 0.1;
+        dU(0, 0) = 0.5 * dt * dt;
+        dU(1, 0) = dt;
     }
 
     void hessprod_xx(const ssqp::VecX &x, const ssqp::VecX &u,
@@ -275,6 +317,7 @@ class Dynamics : public ssqp::model::stagewise::StageDynamics
 
 int main()
 {
+    // A cost, dynamics and (optionally) constraints must be passed for each stage
     std::vector<std::shared_ptr<ssqp::model::stagewise::StageCost>> costs(
       HORIZON + 1);
     std::vector<std::shared_ptr<ssqp::model::stagewise::StageDynamics>>
@@ -293,16 +336,21 @@ int main()
     dynamics[HORIZON]    = std::make_shared<Dynamics>();
     constraints[HORIZON] = std::make_shared<TerminalConstraints>();
 
+    // Pass generated vectors directly to the model config
     ssqp::model::Model::Config model_config;
     model_config.costs         = costs;
     model_config.terminal_cost = costs[HORIZON];
     model_config.dynamics      = dynamics;
     model_config.constraints   = constraints;
 
-    ssqp::model::Model model(HORIZON, 0.1, model_config);
+    // Initialize the model with our HORIZON, dt and config
+    ssqp::model::Model model(HORIZON, dt, model_config);
 
-    ssqp::solvers::ssqp        solver(model);
+    // Create an SSQP solver object based on the model
+    ssqp::solvers::ssqp solver(model);
+    // Create a guess object using the model's dimensions and linear dimensions
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
+    // Solve
     ssqp::solvers::SolverState state = solver.solve(solution);
 
     std::cout << "Solver state: " << ssqp::solvers::to_string(state)
@@ -311,6 +359,7 @@ int main()
     if (state == ssqp::solvers::SolverState::SUCCESS ||
         state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
     {
+        // Output solver solution
         std::cout << "x: " << std::endl << solution.x << std::endl;
         std::cout << "u: " << std::endl << solution.u << std::endl;
     }
