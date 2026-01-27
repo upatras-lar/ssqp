@@ -541,6 +541,12 @@ Model::_makeStageIDTorqueConstraints(
     VecX lb, ub;
     std::tie(lb, ub) = pinocchio_wrapper::modelEffortLimits(_impl);
 
+    if constexpr (FloatingBase)
+    {
+        lb.head(6) = Eigen::Vector<double, 6>::Zero();
+        ub.head(6) = Eigen::Vector<double, 6>::Zero();
+    }
+
     if (!_actuated_joints.empty())
     {
         Eigen::VectorXd lb_n = Eigen::VectorXd::Zero(_dims.njoints[0]);
@@ -551,13 +557,11 @@ Model::_makeStageIDTorqueConstraints(
             uint constraint_idx;
             if constexpr (FloatingBase)
             {
-                constraint_idx =
-                  _dims.nq[0] + _dims.nv[0] + 6 + _actuated_joints[i];
+                constraint_idx = 6 + _actuated_joints[i];
             }
             else
             {
-                constraint_idx =
-                  _dims.nq[0] + _dims.nv[0] + _actuated_joints[i];
+                constraint_idx = _actuated_joints[i];
             }
             lb_n[_actuated_joints[i]] = lb[constraint_idx];
             ub_n[_actuated_joints[i]] = ub[constraint_idx];

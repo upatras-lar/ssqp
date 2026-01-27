@@ -138,9 +138,6 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelEffortLimits(
     Eigen::VectorXd lb = -impl->model.effortLimit;
     Eigen::VectorXd ub = impl->model.effortLimit;
 
-    lb.head(6) = Eigen::Vector<double, 6>::Zero();
-    ub.head(6) = Eigen::Vector<double, 6>::Zero();
-
     return { lb, ub };
 }
 

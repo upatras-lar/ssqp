@@ -17,8 +17,8 @@ F_WGT = 1e-8
 
 FINAL_STANDING_STEPS = 10
 
-base_pos = np.array([-3.0, 0.0, 0.3689])
-final_pos = np.array([3.0, 0.0, 0.3689])
+base_pos = np.array([-1.0, 0.0, 0.3689])
+final_pos = np.array([1.0, 0.0, 0.3689])
 
 init = np.zeros(37)
 init[:3] = base_pos
@@ -32,7 +32,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../urdf/go2/go2.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -73,7 +73,7 @@ gait_manager = GaitManager(
     model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 )
 init_controls.extend(
-    gait_manager.setRotatoryGallop(0, HORIZON - FINAL_STANDING_STEPS - 1)
+    gait_manager.setWalk(0, HORIZON - FINAL_STANDING_STEPS - 1)
 )
 for k in range(HORIZON - FINAL_STANDING_STEPS, HORIZON):
     init_controls.extend(gait_manager.addStandingStage(k))
@@ -93,6 +93,9 @@ solver = ssqpy.solvers.ssqp(
     admm_rel_tolerance_final=5e-4,
     admm_tolerance_update_steps=400,
     admm_max_iter=500,
+    # admm_reset_rho=False,
+    # admm_reset_y=False,
+    admm_warm_start=False,
 )
 
 state, x, u = solver.solve()

@@ -6,9 +6,9 @@
 /tests/logs/*
 /out.txt
 /nbvenv/*
-/examples/trajgen/c++/urdf/a1/a1_flip.cpp
 /TODO.md
 /examples/python/*.json
 /perf*
 /examples/mpc/mpcvenv
+/examples/trajgen/python/go2_vjump.py
 __pycache__
