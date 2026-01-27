@@ -90,101 +90,152 @@ void bind_Model(nb::module_ &m)
       .export_values();
 
     nb::class_<Model>(m, "Model")
-      .def("__init__",
-           [](Model *self, uint horizon, double dt, nb::kwargs kwargs)
-           {
-               Model::Structure structure;
+      .def(
+        "__init__",
+        [](Model *self, uint horizon, double dt, nb::kwargs kwargs)
+        {
+            Model::Structure structure;
 
-               if (kwargs.contains("urdf_path"))
-               {
-                   structure.urdf_path =
-                     nb::cast<std::string>(kwargs["urdf_path"]);
-               }
-               if (kwargs.contains("free_flyer"))
-               {
-                   structure.free_flyer = nb::cast<bool>(kwargs["free_flyer"]);
-               }
-               if (kwargs.contains("dynamics_mode"))
-               {
-                   structure.dynamics_mode =
-                     nb::cast<DynamicsMode>(kwargs["dynamics_mode"]);
-               }
-               if (kwargs.contains("integration"))
-               {
-                   structure.integration =
-                     nb::cast<IntegrationScheme>(kwargs["integration"]);
-               }
-               if (kwargs.contains("ignore_innate_constraints"))
-               {
-                   structure.ignore_innate_constraints =
-                     nb::cast<bool>(kwargs["ignore_innate_constraints"]);
-               }
-               if (kwargs.contains("actuated_joints"))
-               {
-                   structure.actuated_joints =
-                     nb::cast<std::vector<uint>>(kwargs["actuated_joints"]);
-               }
+            if (kwargs.contains("urdf_path"))
+            {
+                structure.urdf_path =
+                  nb::cast<std::string>(kwargs["urdf_path"]);
+            }
+            if (kwargs.contains("free_flyer"))
+            {
+                structure.free_flyer = nb::cast<bool>(kwargs["free_flyer"]);
+            }
+            if (kwargs.contains("dynamics_mode"))
+            {
+                structure.dynamics_mode =
+                  nb::cast<DynamicsMode>(kwargs["dynamics_mode"]);
+            }
+            if (kwargs.contains("integration"))
+            {
+                structure.integration =
+                  nb::cast<IntegrationScheme>(kwargs["integration"]);
+            }
+            if (kwargs.contains("ignore_innate_constraints"))
+            {
+                structure.ignore_innate_constraints =
+                  nb::cast<bool>(kwargs["ignore_innate_constraints"]);
+            }
+            if (kwargs.contains("actuated_joints"))
+            {
+                structure.actuated_joints =
+                  nb::cast<std::vector<uint>>(kwargs["actuated_joints"]);
+            }
 
-               new (self) Model(horizon, dt, structure);
-           })
-      .def("finalize",
-           [](Model *self, nb::kwargs kwargs)
-           {
-               Model::Config config;
+            new (self) Model(horizon, dt, structure);
+        },
+        R"doc(
+        Initialize an SSQP Model.
 
-               if (kwargs.contains("costs"))
-               {
-                   config.costs =
-                     nb::cast<std::vector<std::shared_ptr<StageCost>>>(
-                       kwargs["costs"]);
-               }
-               if (kwargs.contains("stage_cost"))
-               {
-                   config.stage_cost =
-                     nb::cast<std::shared_ptr<StageCost>>(kwargs["stage_cost"]);
-               }
-               if (kwargs.contains("terminal_cost"))
-               {
-                   config.stage_cost = nb::cast<std::shared_ptr<StageCost>>(
-                     kwargs["terminal_cost"]);
-               }
-               if (kwargs.contains("constraints"))
-               {
-                   config.constraints =
-                     nb::cast<std::vector<std::shared_ptr<StageConstraints>>>(
-                       kwargs["constraints"]);
-               }
-               if (kwargs.contains("dynamics"))
-               {
-                   config.dynamics =
-                     nb::cast<std::vector<std::shared_ptr<StageDynamics>>>(
-                       kwargs["dynamics"]);
-               }
-               if (kwargs.contains("init_states"))
-               {
-                   config.init_states =
-                     nb::cast<std::vector<VecX>>(kwargs["init_states"]);
-               }
-               if (kwargs.contains("init_controls"))
-               {
-                   config.init_controls =
-                     nb::cast<std::vector<VecX>>(kwargs["init_controls"]);
-               }
+        Positional arguments (required):
+            horizon (int): Optimization horizon (excluding initial stage)
+            dt (float): Optimization time step
 
-               self->finalize(config);
-           })
+        Keyword arguments (optional):
+            urdf_path (str): Path to URDF file to use for the system dynamics
+            free_flyer (bool): Whether the model has a floating base
+            dynamics_mode (ssqpy.model.DynamicsMode): The dynamics mode to solve in
+            integration (ssqpy.model.Integration): The integration method to use
+            ignore_innate_constraints (bool): Whether to ignore URDF constraints
+            actuated_joints (list of int): List of joints to apply controls to;
+                if non-empty, all joints whose indices are not included will not be
+                actuated
+           )doc")
+      .def(
+        "finalize",
+        [](Model *self, nb::kwargs kwargs)
+        {
+            Model::Config config;
+
+            if (kwargs.contains("costs"))
+            {
+                config.costs =
+                  nb::cast<std::vector<std::shared_ptr<StageCost>>>(
+                    kwargs["costs"]);
+            }
+            if (kwargs.contains("stage_cost"))
+            {
+                config.stage_cost =
+                  nb::cast<std::shared_ptr<StageCost>>(kwargs["stage_cost"]);
+            }
+            if (kwargs.contains("terminal_cost"))
+            {
+                config.stage_cost =
+                  nb::cast<std::shared_ptr<StageCost>>(kwargs["terminal_cost"]);
+            }
+            if (kwargs.contains("constraints"))
+            {
+                config.constraints =
+                  nb::cast<std::vector<std::shared_ptr<StageConstraints>>>(
+                    kwargs["constraints"]);
+            }
+            if (kwargs.contains("dynamics"))
+            {
+                config.dynamics =
+                  nb::cast<std::vector<std::shared_ptr<StageDynamics>>>(
+                    kwargs["dynamics"]);
+            }
+            if (kwargs.contains("init_states"))
+            {
+                if (nb::isinstance<std::vector<VecX>>(kwargs["init_states"]))
+                {
+                    config.init_states =
+                      nb::cast<std::vector<VecX>>(kwargs["init_states"]);
+                }
+                else //if (nb::isinstance<VecX>(kwargs["init_states"]))
+                {
+                    config.init_states = { nb::cast<VecX>(
+                      kwargs["init_states"]) };
+                }
+            }
+            if (kwargs.contains("init_controls"))
+            {
+                if (nb::isinstance<std::vector<VecX>>(kwargs["init_controls"]))
+                {
+                    config.init_controls =
+                      nb::cast<std::vector<VecX>>(kwargs["init_controls"]);
+                }
+                else //if (nb::isinstance<VecX>(kwargs["init_controls"]))
+                {
+                    config.init_controls = { nb::cast<VecX>(
+                      kwargs["init_controls"]) };
+                }
+            }
+
+            self->finalize(config);
+        },
+        R"doc(
+        Finalize the model with the provided configuration.
+
+        Keyword arguments (optional):
+            costs (list of StageCost): Costs for each optimization stage
+            stage_cost (StageCost): Cost to add to each non-terminal stage
+            terminal_cost (StageCost): Cost for the terminal stage
+            constraints (list of StageConstraints): Constraints for each optimization stage
+            dynamics (list of StageDynamics): Dynamics for each optimization stage
+            init_states (np.array or list of np.array): Initial states for each optimization stage;
+                if np.array: initial state to use for every stage
+            init_controls (np.array or list of np.array): Initial controls for each optimization stage;
+                if np.array: initial controls to use for every stage
+        )doc")
       .def("addCost",
            static_cast<void (Model::*)(const uint,
                                        const std::shared_ptr<StageCost> &)>(
              &Model::addCost),
            nb::arg("k"),
-           nb::arg("cost"))
+           nb::arg("cost"),
+           "Add a cost to a stage.")
       .def("addConstraints",
            static_cast<void (
              Model::*)(const uint, const std::shared_ptr<StageConstraints> &)>(
              &Model::addConstraints),
            nb::arg("k"),
-           nb::arg("constraints"))
+           nb::arg("constraints"),
+           "Add constraints to a stage.")
       .def(
         "addContactConstraint",
         [](Model &self, const uint k, const std::string &frame, const double mu)
@@ -198,10 +249,23 @@ void bind_Model(nb::module_ &m)
         },
         nb::arg("k"),
         nb::arg("frame"),
-        nb::arg("mu") = 0.6)
-      .def_prop_ro("finalized", [](Model &self) { return self.finalized(); })
-      .def_prop_ro("horizon", [](Model &self) { return self.horizon(); })
-      .def_prop_ro("dt", [](Model &self) { return self.dt(); })
+        nb::arg("mu") = 0.6,
+        R"doc(
+        Add a contact constraint for a frame to a stage.
+        This includes adding a force for the contact constraint at that stage.
+        )doc")
+      .def_prop_ro(
+        "finalized",
+        [](Model &self) { return self.finalized(); },
+        "Whether the model has been finalized.")
+      .def_prop_ro(
+        "horizon",
+        [](Model &self) { return self.horizon(); },
+        "Get the optimization horizon.")
+      .def_prop_ro(
+        "dt",
+        [](Model &self) { return self.dt(); },
+        "Get the optimization time step.")
       .def(
         "getStateSize",
         [](Model &self, const uint k)
@@ -213,17 +277,20 @@ void bind_Model(nb::module_ &m)
 
             return self.dims().stage_state[k];
         },
-        nb::arg("k"))
-      .def("getLinearStateSize",
-           [](Model &self, const uint k)
-           {
-               if (!self.finalized())
-               {
-                   throw std::runtime_error("Model is not finalized");
-               }
+        nb::arg("k"),
+        "Get the state size of the model.")
+      .def(
+        "getLinearStateSize",
+        [](Model &self, const uint k)
+        {
+            if (!self.finalized())
+            {
+                throw std::runtime_error("Model is not finalized");
+            }
 
-               return self.linear_dims().stage_state[k];
-           })
+            return self.linear_dims().stage_state[k];
+        },
+        "Get the state size of the model after state linearization.")
       .def(
         "getControlSize",
         [](Model &self, const uint k)
@@ -235,7 +302,8 @@ void bind_Model(nb::module_ &m)
 
             return self.dims().stage_control[k];
         },
-        nb::arg("k"))
+        nb::arg("k"),
+        "Get the control size of the model.")
       .def(
         "getConstraintSize",
         [](Model &self, const uint k)
@@ -247,17 +315,20 @@ void bind_Model(nb::module_ &m)
 
             return self.dims().stage_constraint[k];
         },
-        nb::arg("k"))
-      .def("getLinearConstraintSize",
-           [](Model &self, const uint k)
-           {
-               if (!self.finalized())
-               {
-                   throw std::runtime_error("Model is not finalized");
-               }
+        nb::arg("k"),
+        "Get the constraint size of the model.")
+      .def(
+        "getLinearConstraintSize",
+        [](Model &self, const uint k)
+        {
+            if (!self.finalized())
+            {
+                throw std::runtime_error("Model is not finalized");
+            }
 
-               return self.linear_dims().stage_constraint[k];
-           })
+            return self.linear_dims().stage_constraint[k];
+        },
+        "Get the constraint size of the model after linearization.")
       .def(
         "getnq",
         [](Model &self, const uint k)
@@ -269,7 +340,11 @@ void bind_Model(nb::module_ &m)
 
             return self.nq(k);
         },
-        nb::arg("k"))
+        nb::arg("k"),
+        R"doc(
+        Get the configuration size of the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
       .def(
         "getnv",
         [](Model &self, const uint k)
@@ -281,7 +356,11 @@ void bind_Model(nb::module_ &m)
 
             return self.nv(k);
         },
-        nb::arg("k"))
+        nb::arg("k"),
+        R"doc(
+        Get the velocity size of the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
       .def(
         "getnjoints",
         [](Model &self, const uint k)
@@ -293,30 +372,45 @@ void bind_Model(nb::module_ &m)
 
             return self.njoints(k);
         },
-        nb::arg("k"))
-      .def("hasFloatingBase",
-           [](Model &self, const uint k)
-           {
-               if (!self.urdf())
-               {
-                   throw std::runtime_error("Model was not loaded from URDF");
-               }
+        nb::arg("k"),
+        R"doc(
+        Get the number of actuated joints of the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
+      .def(
+        "hasFloatingBase",
+        [](Model &self, const uint k)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
 
-               return self.floatingBase();
-           })
+            return self.floatingBase();
+        },
+        R"doc(
+        Whether the model has a floating base.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
       .def(
         "getCost",
         [](Model &self, const uint k) { return self.costs()[k]; },
-        nb::arg("k"))
+        nb::arg("k"),
+        "Get the current model cost at a stage.")
       .def(
         "getDynamics",
         [](Model &self, const uint k) { return self.dynamics()[k]; },
-        nb::arg("k"))
+        nb::arg("k"),
+        "Get the current model dynamics at a stage.")
       .def(
         "getConstraints",
         [](Model &self, const uint k) { return self.constraints()[k]; },
-        nb::arg("k"))
-      .def_prop_ro("terrain", [](Model &self) { return self.terrain(); })
+        nb::arg("k"),
+        "Get the current model constraints at a stage.")
+      .def_prop_ro(
+        "terrain",
+        [](Model &self) { return self.terrain(); },
+        "Get the model's terrain.")
       .def(
         "addForce",
         [](Model &self, const uint k, const std::string &frame)
@@ -338,10 +432,24 @@ void bind_Model(nb::module_ &m)
             return f.force_index;
         },
         nb::arg("k"),
-        nb::arg("frame"))
-      .def("getTotalForces", &Model::nforces, nb::arg("k"))
-      .def("printFramesAndJoints", &Model::printFramesAndJoints)
-      .def("getOrderedActuatedJoints", &Model::orderedActuatedJoints)
+        nb::arg("frame"),
+        R"doc(
+        Add a force on a frame at a stage.
+        Only defined if the model was initialized using a URDF file.
+        For this method to be called, the model must not be finalized.
+        )doc")
+      .def("getTotalForces", &Model::nforces, nb::arg("k"), R"doc(
+        Get the current number of forces for a stage.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
+      .def("printFramesAndJoints", &Model::printFramesAndJoints, R"doc(
+        Print the frames and joints of the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
+      .def("getOrderedActuatedJoints", &Model::orderedActuatedJoints, R"doc(
+        Get an ordered list of the actuated joints of the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
       .def(
         "forwardKinematics",
         [](Model &self, const VecX &q, const std::string &frame)
@@ -357,7 +465,11 @@ void bind_Model(nb::module_ &m)
             return self.forwardKinematics(q, frame);
         },
         nb::arg("q"),
-        nb::arg("frame"))
+        nb::arg("frame"),
+        R"doc(
+        Perform forward kinematics on the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
       .def(
         "forwardKinematicsSE3",
         [](Model &self, const VecX &q, const std::string &frame)
@@ -373,16 +485,25 @@ void bind_Model(nb::module_ &m)
             return self.forwardKinematicsSE3(q, frame);
         },
         nb::arg("q"),
-        nb::arg("frame"))
-      .def("inverseDynamics",
-           [](Model &self, const VecX &q, const VecX &v, const VecX &a)
-           {
-               if (!self.urdf())
-               {
-                   throw std::runtime_error("Model was not loaded from URDF");
-               }
-               return self.inverseDynamics(q, v, a);
-           })
+        nb::arg("frame"),
+        R"doc(
+        Perform forward kinematics on the model and return a transformation matrix.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
+      .def(
+        "inverseDynamics",
+        [](Model &self, const VecX &q, const VecX &v, const VecX &a)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            return self.inverseDynamics(q, v, a);
+        },
+        R"doc(
+        Perform inverse dynamics on the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
       .def(
         "inverseDynamics",
         [](Model &self,
@@ -400,16 +521,25 @@ void bind_Model(nb::module_ &m)
         nb::arg("q"),
         nb::arg("v"),
         nb::arg("a"),
-        nb::arg("forces"))
-      .def("neutralPose",
-           [](Model &self)
-           {
-               if (!self.urdf())
-               {
-                   throw std::runtime_error("Model was not loaded from URDF");
-               }
-               return self.neutralPose();
-           });
+        nb::arg("forces"),
+        R"doc(
+        Perform inverse dynamics on the model with forces.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
+      .def(
+        "neutralPose",
+        [](Model &self)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            return self.neutralPose();
+        },
+        R"doc(
+        Get a configuration for the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc");
 }
 }
 }
