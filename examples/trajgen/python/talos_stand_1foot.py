@@ -3,49 +3,60 @@ import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
 import numpy as np
 
+"""
+Talos Standing on 1 Foot example
+Balances the Talos humanoid robot on 1 foot
+"""
+
+# Model Parameters
 nq = 51
 nv = 50
 H = 40
 dt = 0.01
 
+# Weights
 a_wgt = 1e-3
 v_wgt = 1e-4
 u_wgt = 1e-6
 f_wgt = 1e-8
 
+# Initial position for the torso
 base_pos = np.array((0, 0, 1.072))
 
+# Initial configuration
 init = np.zeros(nq + nv)
 init[:3] = base_pos
 init[6] = 1.0
 
+# Initial control (for forces)
 init_control = np.zeros(nv + 12)
 for f in range(1, 5):
     init_control[nv + 3 * f - 1] = 2 * 116
 
+# For Talos, we must apply 4 forces per foot
+# As such, we create a rectangle (in the URDF) around the foot and apply forces
+# to each of the rectangle's corners
 forces = {}
 forces["left_mm"] = [init_control[nv : nv + 3]]
 forces["left_mp"] = [init_control[nv + 3 : nv + 6]]
 forces["left_pp"] = [init_control[nv + 6 : nv + 9]]
 forces["left_pm"] = [init_control[nv + 9 : nv + 12]]
 
+# Create an SSQP model for Talos
 model = ssqpy.model.Model(
     H,
     dt,
     urdf_path="../../urdf/talos/talos.urdf",
     free_flyer=True,
-    # ignore_innate_constraints=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
-init_control[6:nv] = model.inverseDynamics(
-    init[:nq], init[nq:], np.zeros(nv), forces
-)[-nv + 6 :]
 
+# Create regularization costs
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, a_wgt, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, v_wgt, True)
 control_cost = costs.SquaredControlCost(nv, u_wgt)
 force_cost = costs.SquaredForceCost(nv, f_wgt)
 
+# Create velocity bounds for each frame that will have a force applied
 left_mm_vel_bound = constraints.FrameVelocityBound(
     model, "left_mm", np.zeros(3), np.zeros(3), nq, nv
 )
@@ -62,11 +73,16 @@ left_pm_vel_bound = constraints.FrameVelocityBound(
 init_controls = []
 
 for k in range(H):
+    # Add regularization costs
     model.addCost(k, joint_angle_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
 
+    # Add a frame squared pose error cost for the torso to remain in the
+    # position (0.0, 0.15, 1.072)
+    # This moves it slightly closer to the left foot that's on the ground,
+    # thus improving balance
     model.addCost(
         k,
         costs.FrameSquaredPoseErrorCost(
@@ -81,7 +97,9 @@ for k in range(H):
         ),
     )
 
+    # After the middle of the trajectory
     if k > H // 2:
+        # Add a cost to raise the right knee
         model.addCost(
             k,
             costs.FrameSquaredTranslationErrorCost(
@@ -94,6 +112,7 @@ for k in range(H):
             ),
         )
 
+        # Add costs to raise arms
         model.addCost(
             k,
             costs.FrameSquaredTranslationErrorCost(
@@ -118,6 +137,7 @@ for k in range(H):
             ),
         )
 
+    # Add contact constraints and velocity bounds for points on left foot
     model.addContactConstraint(k, "left_mm")
     model.addContactConstraint(k, "left_mp")
     model.addContactConstraint(k, "left_pp")
@@ -129,8 +149,11 @@ for k in range(H):
 
     init_controls.append(init_control)
 
+# Add regularization costs at the terminal stage
 model.addCost(H, joint_angle_cost)
 model.addCost(H, joint_vel_cost)
+
+# Add velocity bound for the torso at the terminal stage
 model.addConstraints(
     H,
     constraints.FrameVelocityBound(
@@ -138,7 +161,7 @@ model.addConstraints(
     ),
 )
 
-model.finalize(init_states=[init], init_controls=init_controls)
+model.finalize(init_states=init, init_controls=init_controls)
 
 solver = ssqpy.solvers.ssqp(
     model,

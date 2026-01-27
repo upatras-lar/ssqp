@@ -9,8 +9,10 @@ Optionally, constrain the movement within a rectangle inside the circle
 """
 
 # @script-parameter
+# Whether to plot error and trajectory
 PLOT = False
 # @script-parameter
+# Whether to add a box constraint within the circle for the end effector
 CONSTRAIN = True
 
 if PLOT:
@@ -59,7 +61,7 @@ model = ssqpy.model.Model(
     H,
     dt,
     urdf_path="../../urdf/panda/panda.urdf",
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 # Use the following initial state
@@ -156,6 +158,8 @@ solver = ssqpy.solvers.ssqp(
     admm_adaptive_rho_tolerance=5,
     admm_rho_update_iter_freq=25,
     admm_max_iter=500,
+    # admm_reset_rho=False,
+    # admm_reset_y=False,
 )
 
 # Solve using the SSQP solver and the model we created
