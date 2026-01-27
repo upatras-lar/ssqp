@@ -3,7 +3,21 @@ import ssqpy.model.constraints as constraints
 
 
 class GaitManager:
+    """
+    GaitManager class
+    Accepts a model for a quadruped and generates gaits of different types
+    """
+
     def __init__(self, model, nq, nv, foot_frames):
+        """
+        Initialize GaitManager
+
+        :param model: The SSQP model (must not be finalized)
+        :param nq: The configuration size
+        :param nv: The velocity size
+        :param foot_frames: Ordered foot frames: [front_left, front_right,
+        rear_left, rear_right]
+        """
         self.model = model
         self.fl_foot = foot_frames[0]
         self.fr_foot = foot_frames[1]
@@ -184,7 +198,10 @@ class GaitManager:
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 init_controls.append(self._getInitControl(2))
-            elif gait_stage > 0.5 * cycle_steps and gait_stage < 0.8 * cycle_steps:
+            elif (
+                gait_stage > 0.5 * cycle_steps
+                and gait_stage < 0.8 * cycle_steps
+            ):
                 self.model.addContactConstraint(k, self.fr_foot)
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(k, self.rl_foot)
@@ -219,7 +236,10 @@ class GaitManager:
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
                 init_controls.append(self._getInitControl(2))
-            elif gait_stage > 0.5 * cycle_steps and gait_stage < 0.8 * cycle_steps:
+            elif (
+                gait_stage > 0.5 * cycle_steps
+                and gait_stage < 0.8 * cycle_steps
+            ):
                 self.model.addContactConstraint(k, self.fr_foot)
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(k, self.rr_foot)
@@ -408,7 +428,9 @@ class GaitManager:
             or end_stage >= self.model.horizon
             or start_stage >= end_stage
         ):
-            raise ValueError(f"Invalid stage range {start_stage} - {end_stage}")
+            raise ValueError(
+                f"Invalid stage range {start_stage} - {end_stage}"
+            )
 
         if cycle_steps < 0 or cycle_steps > end_stage - start_stage:
             raise ValueError(f"Invalid cycle steps value {cycle_steps}")

@@ -5,47 +5,79 @@ import numpy as np
 from math import pi
 from utils.GaitManager import GaitManager
 
+"""
+Go2 Gaits example
+Performs different types of gaits (walking/running styles) with the Go2 robot
+The `GaitManager` class is used to handle gait creation
+"""
+
+# Model Parameters
 nq = 19
 nv = 18
 HORIZON = 300
 dt = 0.01
 
+# Weights
 A_WGT = 1e-2
 V_WGT = 1e-5
 U_WGT = 1e-6
 F_WGT = 1e-8
 
+# @script-parameter
+# Which gait to use
+# Available options:
+#  - `setWalk`
+#  - `setAmble`
+#  - `setTrot`
+#  - `setPace`
+#  - `setCanter`
+#  - `setGallop`
+#  - `setRotatoryGallop`
+GAIT = GaitManager.setWalk
+
+# @script-parameter
+# How many steps to take per gait cycle
+# With `None`, the default cycle step value for the gait being used is used
+CYCLE_STEPS = None
+
+# @script-parameter
+# The number of steps to stand on all 4 feet for at the end of the trajectory
 FINAL_STANDING_STEPS = 10
 
+# Initial and final positions
 base_pos = np.array([-1.0, 0.0, 0.3689])
 final_pos = np.array([1.0, 0.0, 0.3689])
 
+# Initial configuration
 init = np.zeros(37)
 init[:3] = base_pos
 init[6] = 1.0
-
 init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 
-
+# Create an SSQP model for the Go2
 model = ssqpy.model.Model(
     HORIZON,
     dt,
     urdf_path="../../urdf/go2/go2.urdf",
     free_flyer=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
+# Create regularization costs
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
 
 for k in range(HORIZON):
+    # Add the regularization costs for each stage
     model.addCost(k, joint_angle_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
 
+    # Add a cost to keep the orientation of the robot roughly at the base
+    # orientation
     model.addCost(
         k,
         costs.FrameSquaredRotationErrorCost(
@@ -53,13 +85,19 @@ for k in range(HORIZON):
         ),
     )
 
+# Add a velocity regularization cost for the final stage
 model.addCost(HORIZON, joint_vel_cost)
+
+# Add a cost for the final translation of the base to be that of the final
+# position
 model.addCost(
     HORIZON,
     costs.FrameSquaredTranslationErrorCost(
         model, final_pos, "base", nq, nv, 100.0
     ),
 )
+
+# Add a bound such that the base has no velocity at the end of the trajectory
 model.addConstraints(
     HORIZON,
     constraints.FrameVelocityBound(
@@ -67,19 +105,40 @@ model.addConstraints(
     ),
 )
 
+# List of initial controls
 init_controls = []
 
+# Create a `GaitManager`, passing the model, the configuration and velocity
+# sizes and the ordered frames for each of the 4 feet
 gait_manager = GaitManager(
     model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 )
-init_controls.extend(
-    gait_manager.setWalk(0, HORIZON - FINAL_STANDING_STEPS - 1)
-)
+
+# Add a gait of the specified type for the range [0, H - FSS - 1]
+# Gait methods will return the initial controls as a list, so we extend
+# `init_controls` by their return value
+if CYCLE_STEPS is None:
+    init_controls.extend(
+        GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1)
+    )
+else:
+    init_controls.extend(
+        GAIT(
+            gait_manager,
+            0,
+            HORIZON - FINAL_STANDING_STEPS - 1,
+            cycle_steps=CYCLE_STEPS,
+        )
+    )
+
+# Add standing stages at the end, depending on the FINAL_STANDING_STEPS value
 for k in range(HORIZON - FINAL_STANDING_STEPS, HORIZON):
     init_controls.extend(gait_manager.addStandingStage(k))
 
-model.finalize(init_states=[init], init_controls=init_controls)
+# Finalize the model
+model.finalize(init_states=init, init_controls=init_controls)
 
+# Create an SSQP solver for the model
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
@@ -100,7 +159,7 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
-solver.write("../data/go2_walk.json")
+solver.write("../data/go2_gaits.json")
 
 print("x:")
 x.print()
