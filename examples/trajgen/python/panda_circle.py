@@ -138,14 +138,6 @@ if CONSTRAIN:
 # be applied to all stages (including as an initial stage)
 model.finalize(init_states=init_state)
 
-# np.set_printoptions(suppress=True)
-# for k in range(H):
-#     print("Stage:", k)
-#     c = model.getConstraints(k)
-#     print("Lower bound:", c.lower_bound())
-#     print("Upper bound:", c.upper_bound())
-#     input()
-
 # Initialize an SSQP solver object with the created model
 # Parameters are passed as keyword arguments
 # ADMM-specific parameters start with "admm_"
@@ -158,8 +150,6 @@ solver = ssqpy.solvers.ssqp(
     admm_adaptive_rho_tolerance=5,
     admm_rho_update_iter_freq=25,
     admm_max_iter=500,
-    # admm_reset_rho=False,
-    # admm_reset_y=False,
 )
 
 # Solve using the SSQP solver and the model we created
