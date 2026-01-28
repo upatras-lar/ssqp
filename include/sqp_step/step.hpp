@@ -11,7 +11,7 @@ namespace step
 template<typename SelectionMethod>
 std::tuple<solvers::FlatVec, solvers::FlatVec, double> step(
   const SelectionMethod &selection, solvers::FlatVec &x, solvers::FlatVec &u,
-  solvers::FlatVec &dX, solvers::FlatVec &dU,
+  const solvers::FlatVec &dX, const solvers::FlatVec &dU,
   const model::DynamicsContainer &dynamics, double inv_alpha_scale_factor,
   double min_alpha);
 }

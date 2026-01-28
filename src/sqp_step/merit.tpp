@@ -6,12 +6,20 @@ namespace ssqp
 {
 namespace step
 {
-template<typename MeritFunction>
-bool merit(const Point &previous, const Point &next, const MeritFunction &mf)
+template<typename MeritFunction, typename MeritGradFunction>
+bool merit(const Point &previous, const Point &next, const Point &offset,
+           const double alpha, const MeritFunction &mf,
+           const MeritGradFunction &dmf)
 {
     ZoneScopedN("SQP step: merit");
 
-    return mf(next.x, next.u) < mf(previous.x, previous.u);
+    solvers::FlatVec dx(offset.x, false), du(offset.u, false);
+    dmf(previous.x, previous.u, dx, du);
+
+    return mf(next.x, next.u) <
+           mf(previous.x, previous.u) +
+             alpha * (dx.vec.transpose() * offset.x.vec +
+                      du.vec.transpose() * offset.u.vec)[0];
 }
 }
 }

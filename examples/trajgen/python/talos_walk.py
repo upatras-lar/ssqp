@@ -278,13 +278,13 @@ model.finalize(init_states=init, init_controls=init_controls)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    filter_size=5,
+    use_filter=False,
     tolerance=5e-2,
     admm_abs_tolerance=5e-3,
     admm_rel_tolerance=5e-3,
     admm_max_iter=50,
-    admm_reset_rho=False,
-    admm_reset_y=False,
+    # admm_reset_rho=False,
+    # admm_reset_y=False,
     admm_warm_start=False,
 )
 

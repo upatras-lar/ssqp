@@ -101,16 +101,18 @@ class ssqp
 
     // Trajectory cost
     double _lf(const FlatVec &x, const FlatVec &u) const;
-    void _lf_grad(const FlatVec &x, const FlatVec &u, VecX &dx, VecX &du) const;
+    void   _lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
+                    FlatVec &du) const;
 
     // Gap violation
     double _gammaf(const FlatVec &x, const FlatVec &u) const;
-    void   _gammaf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
-                        VecX &du) const;
+    void   _gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
+                        FlatVec &du) const;
 
     // Constraint violation
     double _cf(const FlatVec &x, const FlatVec &u) const;
-    void _cf_grad(const FlatVec &x, const FlatVec &u, VecX &dx, VecX &du) const;
+    void   _cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
+                    FlatVec &du) const;
 
     std::deque<std::tuple<double, double, double>> _filter_memory;
 };
