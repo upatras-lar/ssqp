@@ -36,11 +36,6 @@ for f in range(1, 5):
 # For Talos, we must apply 4 forces per foot
 # As such, we create a rectangle (in the URDF) around the foot and apply forces
 # to each of the rectangle's corners
-forces = {}
-forces["left_mm"] = [init_control[nv : nv + 3]]
-forces["left_mp"] = [init_control[nv + 3 : nv + 6]]
-forces["left_pp"] = [init_control[nv + 6 : nv + 9]]
-forces["left_pm"] = [init_control[nv + 9 : nv + 12]]
 
 # Create an SSQP model for Talos
 model = ssqpy.model.Model(

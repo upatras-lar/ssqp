@@ -19,6 +19,11 @@
 
 namespace ssqp
 {
+inline int sgn(double val)
+{
+    return (0.0 < val) - (val < 0.0);
+}
+
 namespace solvers
 {
 class ssqp
@@ -43,8 +48,9 @@ class ssqp
         bool use_filter  = true;
         uint filter_size = 10;
 
-        double merit_mu_gamma = 1.0;
-        double merit_mu_c     = 1.0;
+        double merit_mu_gamma          = 1.0;
+        double merit_mu_c              = 1.0;
+        double merit_grad_softmax_beta = 10.0;
 
         double inv_alpha_scale_factor = 2.0;
         double min_alpha              = 1e-4;
@@ -95,12 +101,16 @@ class ssqp
 
     // Trajectory cost
     double _lf(const FlatVec &x, const FlatVec &u) const;
+    void _lf_grad(const FlatVec &x, const FlatVec &u, VecX &dx, VecX &du) const;
 
     // Gap violation
     double _gammaf(const FlatVec &x, const FlatVec &u) const;
+    void   _gammaf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
+                        VecX &du) const;
 
     // Constraint violation
     double _cf(const FlatVec &x, const FlatVec &u) const;
+    void _cf_grad(const FlatVec &x, const FlatVec &u, VecX &dx, VecX &du) const;
 
     std::deque<std::tuple<double, double, double>> _filter_memory;
 };
