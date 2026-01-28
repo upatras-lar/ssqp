@@ -680,6 +680,29 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
     return sum + costs[horizon]->evaluate(x.stage(horizon), VecX::Zero(1))(0);
 }
 
+void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
+                    VecX &du) const
+{
+    static const uint           horizon = _model.horizon();
+    const model::CostsContainer costs   = _model.costs();
+    dx.resize(x.vec.size());
+    du.resize(u.vec.size());
+
+    VecX dxk, duk;
+    uint offset_x = 0, offset_u = 0;
+    for (uint k = 0; k < horizon; ++k)
+    {
+        costs[k]->gradient(x.stage(k), u.stage(k), dxk, duk);
+        dx.segment(offset_x, dxk.size())  = dxk;
+        du.segment(offset_u, duk.size())  = duk;
+        offset_x                         += dxk.size();
+        offset_u                         += duk.size();
+    }
+
+    costs[horizon]->gradient(x.stage(horizon), u.stage(horizon), dxk, duk);
+    dx.segment(offset_x, dxk.size()) = dxk;
+}
+
 double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 {
     static const uint              horizon  = _model.horizon();
@@ -695,32 +718,167 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
     return sum;
 }
 
+void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
+                        VecX &du) const
+{
+    static const uint              horizon  = _model.horizon();
+    const model::DynamicsContainer dynamics = _model.dynamics();
+
+    dx = VecX::Zero(x.vec.size());
+    du = VecX::Zero(u.vec.size());
+
+    MatX dXk, dUk;
+    uint offset_x = 0, offset_u = 0;
+    for (uint k = 0; k < horizon; ++k)
+    {
+        VecX r_k =
+          x.stage(k + 1) - dynamics[k]->evaluate(x.stage(k), u.stage(k));
+        double softmax_total = 0.0;
+        for (uint j = 0; j < r_k.size(); ++j)
+        {
+            softmax_total +=
+              std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(r_k[j]));
+        }
+
+        for (uint i = 0; i < r_k.size(); ++i)
+        {
+            r_k[i] =
+              std::pow(M_E,
+                       _params.merit_grad_softmax_beta * std::abs(r_k[i])) /
+              softmax_total * sgn(r_k[i]);
+        }
+
+        dynamics[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
+
+        dx.segment(offset_x, dXk.cols()) -= dXk.transpose() * r_k;
+        du.segment(offset_u, dUk.cols()) -= dUk.transpose() * r_k;
+
+        offset_x += dXk.cols();
+        offset_u += dUk.cols();
+
+        dx.segment(offset_x, r_k.size()) += r_k;
+    }
+}
+
 double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 {
     static const uint                 horizon     = _model.horizon();
     const model::ConstraintsContainer constraints = _model.constraints();
     double                            sum         = 0.0;
 
+    VecX c;
     for (uint k = 0; k < horizon; ++k)
     {
         if (constraints[k] != nullptr)
         {
-            sum += constraints[k]
-                     ->evaluate(x.stage(k), u.stage(k))
+            c    = constraints[k]->evaluate(x.stage(k), u.stage(k));
+            sum += (c - constraints[k]->lower_bound())
                      .cwiseMin(0)
+                     .lpNorm<Eigen::Infinity>();
+            sum += (c - constraints[k]->upper_bound())
+                     .cwiseMax(0)
                      .lpNorm<Eigen::Infinity>();
         }
     }
 
     if (constraints[horizon] != nullptr)
     {
-        sum += constraints[horizon]
-                 ->evaluate(x.stage(horizon), VecX::Zero(1))
+        c    = constraints[horizon]->evaluate(x.stage(horizon), VecX::Zero(1));
+        sum += (c - constraints[horizon]->lower_bound())
                  .cwiseMin(0)
+                 .lpNorm<Eigen::Infinity>();
+        sum += (c - constraints[horizon]->upper_bound())
+                 .cwiseMax(0)
                  .lpNorm<Eigen::Infinity>();
     }
 
     return sum;
+}
+
+void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
+                    VecX &du) const
+{
+    static const uint                 horizon     = _model.horizon();
+    const model::ConstraintsContainer constraints = _model.constraints();
+
+    dx = VecX::Zero(x.vec.size());
+    du = VecX::Zero(u.vec.size());
+
+    MatX dXk, dUk;
+    uint offset_x = 0, offset_u = 0;
+    for (uint k = 0; k < horizon; ++k)
+    {
+        VecX c_k  = constraints[k]->evaluate(x.stage(k), u.stage(k));
+        VecX cl_k = c_k - constraints[k]->lower_bound();
+        VecX cu_k = c_k - constraints[k]->upper_bound();
+
+        double softmax_total_lower = 0.0;
+        double softmax_total_upper = 0.0;
+        for (uint j = 0; j < c_k.size(); ++j)
+        {
+            softmax_total_lower +=
+              std::pow(M_E,
+                       _params.merit_grad_softmax_beta * std::abs(cl_k[j]));
+            softmax_total_upper +=
+              std::pow(M_E,
+                       _params.merit_grad_softmax_beta * std::abs(cu_k[j]));
+        }
+
+        for (uint i = 0; i < c_k.size(); ++i)
+        {
+            cl_k[i] =
+              std::pow(M_E,
+                       _params.merit_grad_softmax_beta * std::abs(cl_k[i])) /
+              softmax_total_lower * sgn(cl_k[i]);
+            cu_k[i] =
+              std::pow(M_E,
+                       _params.merit_grad_softmax_beta * std::abs(cu_k[i])) /
+              softmax_total_upper * sgn(cu_k[i]);
+        }
+
+        constraints[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
+
+        dx.segment(offset_x, dXk.cols()) += dXk.transpose() * cl_k;
+        dx.segment(offset_x, dXk.cols()) += dXk.transpose() * cu_k;
+        du.segment(offset_u, dUk.cols()) += dUk.transpose() * cl_k;
+        du.segment(offset_u, dUk.cols()) += dUk.transpose() * cu_k;
+
+        offset_x += dXk.cols();
+        offset_u += dUk.cols();
+    }
+
+    VecX c_H =
+      constraints[horizon]->evaluate(x.stage(horizon), u.stage(horizon));
+    VecX cl_H = c_H - constraints[horizon]->lower_bound();
+    VecX cu_H = c_H - constraints[horizon]->upper_bound();
+
+    double softmax_total_lower = 0.0;
+    double softmax_total_upper = 0.0;
+    for (uint j = 0; j < c_H.size(); ++j)
+    {
+        softmax_total_lower +=
+          std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(cl_H[j]));
+        softmax_total_upper +=
+          std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(cu_H[j]));
+    }
+
+    for (uint i = 0; i < c_H.size(); ++i)
+    {
+        cl_H[i] =
+          std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(cl_H[i])) /
+          softmax_total_lower * sgn(cl_H[i]);
+        cu_H[i] =
+          std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(cu_H[i])) /
+          softmax_total_upper * sgn(cu_H[i]);
+    }
+
+    constraints[horizon]->gradient(x.stage(horizon),
+                                   u.stage(horizon),
+                                   dXk,
+                                   dUk);
+
+    dx.segment(offset_x, dXk.cols()) += dXk.transpose() * cl_H;
+    dx.segment(offset_x, dXk.cols()) += dXk.transpose() * cu_H;
 }
 }
 }

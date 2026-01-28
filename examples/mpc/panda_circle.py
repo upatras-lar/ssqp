@@ -21,7 +21,7 @@ A_WGT = 0
 V_WGT = 1e-4
 U_WGT = 1e-5
 
-CONSTRAIN = True
+CONSTRAIN = False
 constraint_hlines = [0.1, 0.41]
 constraint_vlines = [-0.15, 0.15]
 
@@ -45,7 +45,12 @@ Rd = np.eye(3)
 Rd[1, 1] = -1
 Rd[2, 2] = -1
 
-model = ssqpy.model.Model(MPC_H, dt, urdf_path="../urdf/panda/panda.urdf")
+model = ssqpy.model.Model(
+    MPC_H,
+    dt,
+    urdf_path="../urdf/panda/panda.urdf",
+    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+)
 
 init_state = np.zeros(2 * nq)
 init_state[:nq] = [

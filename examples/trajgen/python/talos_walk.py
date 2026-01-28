@@ -114,30 +114,30 @@ model = ssqpy.model.Model(
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
-forces_left = {}
-forces_left["left_mm"] = [init_control_left[nv : nv + 3]]
-forces_left["left_mp"] = [init_control_left[nv + 3 : nv + 6]]
-forces_left["left_pp"] = [init_control_left[nv + 6 : nv + 9]]
-forces_left["left_pm"] = [init_control_left[nv + 9 : nv + 12]]
+# forces_left = {}
+# forces_left["left_mm"] = [init_control_left[nv : nv + 3]]
+# forces_left["left_mp"] = [init_control_left[nv + 3 : nv + 6]]
+# forces_left["left_pp"] = [init_control_left[nv + 6 : nv + 9]]
+# forces_left["left_pm"] = [init_control_left[nv + 9 : nv + 12]]
 
-forces_right = {}
-forces_right["right_mm"] = [init_control_right[nv : nv + 3]]
-forces_right["right_mp"] = [init_control_right[nv + 3 : nv + 6]]
-forces_right["right_pp"] = [init_control_right[nv + 6 : nv + 9]]
-forces_right["right_pm"] = [init_control_right[nv + 9 : nv + 12]]
+# forces_right = {}
+# forces_right["right_mm"] = [init_control_right[nv : nv + 3]]
+# forces_right["right_mp"] = [init_control_right[nv + 3 : nv + 6]]
+# forces_right["right_pp"] = [init_control_right[nv + 6 : nv + 9]]
+# forces_right["right_pm"] = [init_control_right[nv + 9 : nv + 12]]
 
-# Use inverse dynamics to calculate initial joint torques
-init_control_left[6:nv] = model.inverseDynamics(
-    init[:nq], init[nq:], np.zeros(nv), forces_left
-)[-nv + 6 :]
+# # Use inverse dynamics to calculate initial joint torques
+# init_control_left[6:nv] = model.inverseDynamics(
+#     init[:nq], init[nq:], np.zeros(nv), forces_left
+# )[-nv + 6 :]
 
-init_control_right[6:nv] = model.inverseDynamics(
-    init[:nq], init[nq:], np.zeros(nv), forces_right
-)[-nv + 6 :]
+# init_control_right[6:nv] = model.inverseDynamics(
+#     init[:nq], init[nq:], np.zeros(nv), forces_right
+# )[-nv + 6 :]
 
-init_control[6:nv] = model.inverseDynamics(
-    init[:nq], init[nq:], np.zeros(nv), forces_left | forces_right
-)[-nv + 6 :]
+# init_control[6:nv] = model.inverseDynamics(
+#     init[:nq], init[nq:], np.zeros(nv), forces_left | forces_right
+# )[-nv + 6 :]
 
 # Create cost to move robot to final position
 pose_cost = costs.FrameSquaredPoseErrorCost(
@@ -282,7 +282,7 @@ solver = ssqpy.solvers.ssqp(
     tolerance=5e-2,
     admm_abs_tolerance=5e-3,
     admm_rel_tolerance=5e-3,
-    admm_max_iter=500,
+    admm_max_iter=50,
     admm_reset_rho=False,
     admm_reset_y=False,
     admm_warm_start=False,

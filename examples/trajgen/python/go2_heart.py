@@ -74,6 +74,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../urdf/go2/go2.urdf",
     free_flyer=True,
+    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 # forces = {}
@@ -207,10 +208,8 @@ model.finalize(init_states=init, init_controls=init_controls)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    tolerance=1e-1,
-    tolerance_final=5e-2,
-    tolerance_update_steps=20,
-    filter_size=5,
+    tolerance=1e-2,
+    filter_size=10,
     admm_abs_tolerance=1e-2,
     admm_abs_tolerance_final=5e-3,
     admm_rel_tolerance=1e-2,

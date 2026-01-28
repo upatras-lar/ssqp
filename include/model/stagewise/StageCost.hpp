@@ -25,8 +25,8 @@ class StageCost : public Function
     // Get cost Jacobians with respect to $\boldsymbol{x}$ and $\boldsymbol{u}$, evaluated at
     // given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_x \ell_k(\boldsymbol{x}, \boldsymbol{u})$ and $\nabla_u \ell_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
-    //  dX: gradient with respect to $\boldsymbol{x}$, $n_{dx} \times 1$
-    //  dU: gradient with respect to $\boldsymbol{u}$, $n_u \times 1$
+    //  dx: gradient with respect to $\boldsymbol{x}$, $n_{dx} \times 1$
+    //  du: gradient with respect to $\boldsymbol{u}$, $n_u \times 1$
     virtual void gradient(const VecX &x, const VecX &u, VecX &dx,
                           VecX &du) const = 0;
 

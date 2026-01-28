@@ -110,15 +110,15 @@ model = ssqpy.model.Model(
 # First, we create a dictionary
 # For each force frame as a key, we provide a list of vectors (3D forces) for
 # its value
-forces = {}
-forces["left_mm"] = [init_control[nv : nv + 3]]
-forces["left_mp"] = [init_control[nv + 3 : nv + 6]]
-forces["left_pp"] = [init_control[nv + 6 : nv + 9]]
-forces["left_pm"] = [init_control[nv + 9 : nv + 12]]
-forces["right_mm"] = [init_control[nv + 12 : nv + 15]]
-forces["right_mp"] = [init_control[nv + 15 : nv + 18]]
-forces["right_pp"] = [init_control[nv + 18 : nv + 21]]
-forces["right_pm"] = [init_control[nv + 21 : nv + 24]]
+# forces = {}
+# forces["left_mm"] = [init_control[nv : nv + 3]]
+# forces["left_mp"] = [init_control[nv + 3 : nv + 6]]
+# forces["left_pp"] = [init_control[nv + 6 : nv + 9]]
+# forces["left_pm"] = [init_control[nv + 9 : nv + 12]]
+# forces["right_mm"] = [init_control[nv + 12 : nv + 15]]
+# forces["right_mp"] = [init_control[nv + 15 : nv + 18]]
+# forces["right_pp"] = [init_control[nv + 18 : nv + 21]]
+# forces["right_pm"] = [init_control[nv + 21 : nv + 24]]
 
 # We then use the `Model` object we have created to perform inverse dynamics
 # This is valid because the model was initialized with a URDF
@@ -126,9 +126,9 @@ forces["right_pm"] = [init_control[nv + 21 : nv + 24]]
 # the above force dictionary
 # The output will be joint torques, which we store in our initial controls
 # vector, at the torque part
-init_control[6:nv] = model.inverseDynamics(
-    init[:nq], init[nq:], np.zeros(nv), forces
-)[-nv + 6 :]
+# init_control[6:nv] = model.inverseDynamics(
+#     init[:nq], init[nq:], np.zeros(nv), forces
+# )[-nv + 6 :]
 
 # Create a cost for the torso to remain at the base position
 pose_cost = costs.FrameSquaredPoseErrorCost(
