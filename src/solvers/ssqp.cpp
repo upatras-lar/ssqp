@@ -78,6 +78,7 @@ SolverState ssqp::solve(Guess &guess)
     SolverState ssqp_state;
 
     DEBUG_LOGLN("Starting SSQP solver loop");
+    auto start = std::chrono::high_resolution_clock::now();
 
     QPData            qp = _setup_qp();
     admm_qp::Solution sol(qp.dims);
@@ -197,6 +198,12 @@ SolverState ssqp::solve(Guess &guess)
         // Termination
         if ((ssqp_state = _check_termination()) != ONGOING)
         {
+            auto duration =
+              std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::high_resolution_clock::now() - start);
+
+            LOGLN("SSQP: Total runtime: " << duration.count() << "ms");
+
             guess = _guess;
             return ssqp_state;
         }
@@ -221,6 +228,11 @@ SolverState ssqp::solve(Guess &guess)
 
         FrameMarkNamed("SQP Iteration");
     }
+
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::high_resolution_clock::now() - start);
+
+    LOGLN("SSQP: Total runtime: " << duration.count() << "ms");
 
     guess = _guess;
     return MAX_ITER_REACHED;

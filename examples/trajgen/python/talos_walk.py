@@ -25,7 +25,7 @@ f_wgt = 1e-8
 FINAL_STANDING_STEPS = 20
 
 # Number of steps for each swing
-FOOT_SWING_STEPS = 25
+FOOT_SWING_STEPS = 20
 
 # Initial position
 base_pos = np.array((0, 0, 1.0611))
@@ -285,6 +285,7 @@ solver = ssqpy.solvers.ssqp(
     admm_max_iter=500,
     admm_reset_rho=False,
     admm_reset_y=False,
+    admm_warm_start=False,
 )
 
 state, x, u = solver.solve()

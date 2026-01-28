@@ -6,6 +6,7 @@
 #include <vector>
 #include <variant>
 #include <deque>
+#include <chrono>
 
 #include "types.hpp"
 #include "sqp_step/step.hpp"
