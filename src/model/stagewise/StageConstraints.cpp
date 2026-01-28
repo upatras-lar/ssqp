@@ -23,9 +23,9 @@ bool StageConstraints::is_satisfied(const VecX &x, const VecX &u,
 {
     VecX c = evaluate(x, u);
 
-    return (c - lower_bound()).cwiseMin(0).lpNorm<Eigen::Infinity>() <
+    return right_minus(c, lower_bound()).cwiseMin(0).lpNorm<Eigen::Infinity>() <
              tolerance &&
-           (c - upper_bound()).cwiseMax(0).lpNorm<Eigen::Infinity>() <
+           right_minus(c, upper_bound()).cwiseMax(0).lpNorm<Eigen::Infinity>() <
              tolerance;
 }
 

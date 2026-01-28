@@ -110,7 +110,10 @@ SolverState ssqp::solve(Guess &guess)
         if (_params.use_filter)
         {
             std::tie(x_n, u_n, alpha) = step::step(
-              [this](const step::Point &a, const step::Point &b)
+              [this](const step::Point &a,
+                     const step::Point &b,
+                     const step::Point &offset,
+                     const double alpha)
               {
                   return step::filter(
                     a,
@@ -134,17 +137,39 @@ SolverState ssqp::solve(Guess &guess)
         else
         {
             std::tie(x_n, u_n, alpha) = step::step(
-              [this](const step::Point &a, const step::Point &b)
+              [this](const step::Point &a,
+                     const step::Point &b,
+                     const step::Point &offset,
+                     const double alpha)
               {
-                  return step::merit(a,
-                                     b,
-                                     [this](const FlatVec &x, const FlatVec &u)
-                                     {
-                                         return _lf(x, u) +
-                                                _params.merit_mu_gamma *
-                                                  _gammaf(x, u) +
-                                                _params.merit_mu_c * _cf(x, u);
-                                     });
+                  return step::merit(
+                    a,
+                    b,
+                    offset,
+                    alpha,
+                    [this](const FlatVec &x, const FlatVec &u)
+                    {
+                        return _lf(x, u) +
+                               _params.merit_mu_gamma * _gammaf(x, u) +
+                               _params.merit_mu_c * _cf(x, u);
+                    },
+                    [this](const FlatVec &x,
+                           const FlatVec &u,
+                           FlatVec       &dx,
+                           FlatVec       &du)
+                    {
+                        FlatVec tmp_x(dx, false), tmp_u(du, false);
+                        _lf_grad(x, u, dx, du);
+                        _gammaf_grad(x, u, tmp_x, tmp_u);
+                        dx.vec += _params.merit_mu_gamma * tmp_x.vec;
+                        du.vec += _params.merit_mu_gamma * tmp_u.vec;
+
+                        tmp_x.vec.setZero();
+                        tmp_u.vec.setZero();
+                        _cf_grad(x, u, tmp_x, tmp_u);
+                        dx.vec += _params.merit_mu_c * tmp_x.vec;
+                        du.vec += _params.merit_mu_c * tmp_u.vec;
+                    });
               },
               _guess.x,
               _guess.u,
@@ -680,27 +705,22 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
     return sum + costs[horizon]->evaluate(x.stage(horizon), VecX::Zero(1))(0);
 }
 
-void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
-                    VecX &du) const
+void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
+                    FlatVec &du) const
 {
     static const uint           horizon = _model.horizon();
     const model::CostsContainer costs   = _model.costs();
-    dx.resize(x.vec.size());
-    du.resize(u.vec.size());
 
     VecX dxk, duk;
-    uint offset_x = 0, offset_u = 0;
     for (uint k = 0; k < horizon; ++k)
     {
         costs[k]->gradient(x.stage(k), u.stage(k), dxk, duk);
-        dx.segment(offset_x, dxk.size())  = dxk;
-        du.segment(offset_u, duk.size())  = duk;
-        offset_x                         += dxk.size();
-        offset_u                         += duk.size();
+        dx.stage(k) = dxk;
+        du.stage(k) = duk;
     }
 
-    costs[horizon]->gradient(x.stage(horizon), u.stage(horizon), dxk, duk);
-    dx.segment(offset_x, dxk.size()) = dxk;
+    costs[horizon]->gradient(x.stage(horizon), VecX::Zero(1), dxk, duk);
+    dx.stage(horizon) = dxk;
 }
 
 double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
@@ -718,21 +738,18 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
     return sum;
 }
 
-void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
-                        VecX &du) const
+void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
+                        FlatVec &du) const
 {
     static const uint              horizon  = _model.horizon();
     const model::DynamicsContainer dynamics = _model.dynamics();
 
-    dx = VecX::Zero(x.vec.size());
-    du = VecX::Zero(u.vec.size());
-
     MatX dXk, dUk;
-    uint offset_x = 0, offset_u = 0;
     for (uint k = 0; k < horizon; ++k)
     {
-        VecX r_k =
-          x.stage(k + 1) - dynamics[k]->evaluate(x.stage(k), u.stage(k));
+        VecX r_k = dynamics[k]->state_right_minus(
+          x.stage(k + 1),
+          dynamics[k]->evaluate(x.stage(k), u.stage(k)));
         double softmax_total = 0.0;
         for (uint j = 0; j < r_k.size(); ++j)
         {
@@ -750,13 +767,10 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
 
         dynamics[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
 
-        dx.segment(offset_x, dXk.cols()) -= dXk.transpose() * r_k;
-        du.segment(offset_u, dUk.cols()) -= dUk.transpose() * r_k;
+        dx.stage(k) -= dXk.transpose() * r_k;
+        du.stage(k) -= dUk.transpose() * r_k;
 
-        offset_x += dXk.cols();
-        offset_u += dUk.cols();
-
-        dx.segment(offset_x, r_k.size()) += r_k;
+        dx.stage(k + 1) += r_k;
     }
 }
 
@@ -772,10 +786,12 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
         if (constraints[k] != nullptr)
         {
             c    = constraints[k]->evaluate(x.stage(k), u.stage(k));
-            sum += (c - constraints[k]->lower_bound())
+            sum += constraints[k]
+                     ->right_minus(c, constraints[k]->lower_bound())
                      .cwiseMin(0)
                      .lpNorm<Eigen::Infinity>();
-            sum += (c - constraints[k]->upper_bound())
+            sum += constraints[k]
+                     ->right_minus(c, constraints[k]->upper_bound())
                      .cwiseMax(0)
                      .lpNorm<Eigen::Infinity>();
         }
@@ -784,10 +800,12 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
     if (constraints[horizon] != nullptr)
     {
         c    = constraints[horizon]->evaluate(x.stage(horizon), VecX::Zero(1));
-        sum += (c - constraints[horizon]->lower_bound())
+        sum += constraints[horizon]
+                 ->right_minus(c, constraints[horizon]->lower_bound())
                  .cwiseMin(0)
                  .lpNorm<Eigen::Infinity>();
-        sum += (c - constraints[horizon]->upper_bound())
+        sum += constraints[horizon]
+                 ->right_minus(c, constraints[horizon]->upper_bound())
                  .cwiseMax(0)
                  .lpNorm<Eigen::Infinity>();
     }
@@ -795,22 +813,20 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
     return sum;
 }
 
-void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
-                    VecX &du) const
+void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
+                    FlatVec &du) const
 {
     static const uint                 horizon     = _model.horizon();
     const model::ConstraintsContainer constraints = _model.constraints();
 
-    dx = VecX::Zero(x.vec.size());
-    du = VecX::Zero(u.vec.size());
-
     MatX dXk, dUk;
-    uint offset_x = 0, offset_u = 0;
     for (uint k = 0; k < horizon; ++k)
     {
-        VecX c_k  = constraints[k]->evaluate(x.stage(k), u.stage(k));
-        VecX cl_k = c_k - constraints[k]->lower_bound();
-        VecX cu_k = c_k - constraints[k]->upper_bound();
+        VecX c_k = constraints[k]->evaluate(x.stage(k), u.stage(k));
+        VecX cl_k =
+          constraints[k]->right_minus(c_k, constraints[k]->lower_bound());
+        VecX cu_k =
+          constraints[k]->right_minus(c_k, constraints[k]->upper_bound());
 
         double softmax_total_lower = 0.0;
         double softmax_total_upper = 0.0;
@@ -838,19 +854,19 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
 
         constraints[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
 
-        dx.segment(offset_x, dXk.cols()) += dXk.transpose() * cl_k;
-        dx.segment(offset_x, dXk.cols()) += dXk.transpose() * cu_k;
-        du.segment(offset_u, dUk.cols()) += dUk.transpose() * cl_k;
-        du.segment(offset_u, dUk.cols()) += dUk.transpose() * cu_k;
-
-        offset_x += dXk.cols();
-        offset_u += dUk.cols();
+        dx.stage(k) += dXk.transpose() * cl_k;
+        dx.stage(k) += dXk.transpose() * cu_k;
+        du.stage(k) += dUk.transpose() * cl_k;
+        du.stage(k) += dUk.transpose() * cu_k;
     }
 
-    VecX c_H =
-      constraints[horizon]->evaluate(x.stage(horizon), u.stage(horizon));
-    VecX cl_H = c_H - constraints[horizon]->lower_bound();
-    VecX cu_H = c_H - constraints[horizon]->upper_bound();
+    VecX c_H = constraints[horizon]->evaluate(x.stage(horizon), VecX::Zero(1));
+    VecX cl_H =
+      constraints[horizon]->right_minus(c_H,
+                                        constraints[horizon]->lower_bound());
+    VecX cu_H =
+      constraints[horizon]->right_minus(c_H,
+                                        constraints[horizon]->upper_bound());
 
     double softmax_total_lower = 0.0;
     double softmax_total_upper = 0.0;
@@ -872,13 +888,10 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, VecX &dx,
           softmax_total_upper * sgn(cu_H[i]);
     }
 
-    constraints[horizon]->gradient(x.stage(horizon),
-                                   u.stage(horizon),
-                                   dXk,
-                                   dUk);
+    constraints[horizon]->gradient(x.stage(horizon), VecX::Zero(1), dXk, dUk);
 
-    dx.segment(offset_x, dXk.cols()) += dXk.transpose() * cl_H;
-    dx.segment(offset_x, dXk.cols()) += dXk.transpose() * cu_H;
+    dx.stage(horizon) += dXk.transpose() * cl_H;
+    dx.stage(horizon) += dXk.transpose() * cu_H;
 }
 }
 }
