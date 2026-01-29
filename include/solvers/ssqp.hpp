@@ -19,9 +19,11 @@
 
 namespace ssqp
 {
-inline int sgn(double val)
+namespace tests
 {
-    return (0.0 < val) - (val < 0.0);
+class FDGradFullTrajectoryCost;
+class FDGradFullTrajectoryStageGap;
+class FDGradFullTrajectoryConstraintViolation;
 }
 
 namespace solvers
@@ -103,16 +105,20 @@ class ssqp
     double _lf(const FlatVec &x, const FlatVec &u) const;
     void   _lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
                     FlatVec &du) const;
+    friend class tests::FDGradFullTrajectoryCost;
 
     // Gap violation
     double _gammaf(const FlatVec &x, const FlatVec &u) const;
     void   _gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
                         FlatVec &du) const;
+    friend class tests::FDGradFullTrajectoryStageGap;
 
     // Constraint violation
     double _cf(const FlatVec &x, const FlatVec &u) const;
     void   _cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
                     FlatVec &du) const;
+
+    friend class tests::FDGradFullTrajectoryConstraintViolation;
 
     std::deque<std::tuple<double, double, double>> _filter_memory;
 };

@@ -160,6 +160,7 @@ SolverState ssqp::solve(Guess &guess)
                     {
                         FlatVec tmp_x(dx, false), tmp_u(du, false);
                         _lf_grad(x, u, dx, du);
+
                         _gammaf_grad(x, u, tmp_x, tmp_u);
                         dx.vec += _params.merit_mu_gamma * tmp_x.vec;
                         du.vec += _params.merit_mu_gamma * tmp_u.vec;

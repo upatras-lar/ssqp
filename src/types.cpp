@@ -16,6 +16,11 @@ void print_matrix_dimensions(const MatX &mat)
     std::cout << mat.rows() << 'x' << mat.cols() << std::endl;
 }
 
+int sgn(double val)
+{
+    return (0.0 < val) - (val < 0.0);
+}
+
 std::string format_double(double val, uint precision)
 {
     static uint        SCIENTIFIC_CUTOFF = 1e5;

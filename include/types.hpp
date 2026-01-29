@@ -51,6 +51,7 @@ using MatX  = Eigen::MatrixXd;
 using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
 void print_matrix_dimensions(const MatX &mat);
+int  sgn(double val);
 
 namespace model
 {
