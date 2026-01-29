@@ -82,13 +82,11 @@ int main()
 
     tests.addTest(ssqp::tests::generators::get_cf_grad_test());
 
-    /*
     for (std::shared_ptr<ssqp::tests::Test> test :
          ssqp::tests::generators::get_admm_problems())
     {
         tests.addTest(test);
     }
-    */
 
     // tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
 

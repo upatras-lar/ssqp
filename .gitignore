@@ -12,3 +12,4 @@
 /examples/mpc/mpcvenv
 /examples/trajgen/python/go2_vjump.py
 __pycache__
+out.txt

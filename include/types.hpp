@@ -50,8 +50,9 @@ using Mat6  = Eigen::Matrix<double, 6, 6>;
 using MatX  = Eigen::MatrixXd;
 using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
-void print_matrix_dimensions(const MatX &mat);
-int  sgn(double val);
+void   print_matrix_dimensions(const MatX &mat);
+int    sgn(double val);
+double softmax_max(const VecX &v, double alpha);
 
 namespace model
 {
