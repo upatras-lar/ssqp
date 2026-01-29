@@ -736,6 +736,9 @@ std::shared_ptr<Test> get_cf_grad_test()
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(horizon, 0.01, model_structure);
 
+    Vec3 lb(-std::numeric_limits<double>::infinity(), 0.1, -3.2);
+    Vec3 ub(5.2, std::numeric_limits<double>::infinity(), -1.0);
+
     for (uint k = 0; k < horizon; ++k)
     {
         model->addCost<
@@ -747,6 +750,16 @@ std::shared_ptr<Test> get_cf_grad_test()
           k,
           18,
           1);
+
+        model->addConstraints<
+          model::stagewise::predefined::constraints::FramePositionBound>(
+          k,
+          *model.get(),
+          "FL_foot",
+          lb,
+          ub,
+          19,
+          18);
     }
 
     model
@@ -755,6 +768,16 @@ std::shared_ptr<Test> get_cf_grad_test()
         18,
         1,
         true);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::FramePositionBound>(
+      horizon,
+      *model.get(),
+      "FL_foot",
+      lb,
+      ub,
+      19,
+      18);
 
     VecX init_state(37);
     init_state[6] = 1.0;

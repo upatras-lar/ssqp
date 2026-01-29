@@ -421,7 +421,8 @@ void FDGradFullTrajectoryStageGap::_fd_grad(const solvers::FlatVec &x,
             xm.stage(k) = dynamics[k]->state_right_plus(x_k, -_h * e);
 
             dx.stage(k)[i] =
-              (_ssqp._gammaf(xp, u) - _ssqp._gammaf(xm, u)) / (2 * _h);
+              (_ssqp._gammaf_softmax(xp, u) - _ssqp._gammaf_softmax(xm, u)) /
+              (2 * _h);
         }
     }
 
@@ -441,7 +442,8 @@ void FDGradFullTrajectoryStageGap::_fd_grad(const solvers::FlatVec &x,
             um.stage(k) = u_k - _h * e;
 
             du.stage(k)[i] =
-              (_ssqp._gammaf(x, up) - _ssqp._gammaf(x, um)) / (2 * _h);
+              (_ssqp._gammaf_softmax(x, up) - _ssqp._gammaf_softmax(x, um)) /
+              (2 * _h);
         }
     }
 }
@@ -548,7 +550,8 @@ void FDGradFullTrajectoryConstraintViolation::_fd_grad(
             xp.stage(k) = dynamics[k]->state_right_plus(x_k, _h * e);
             xm.stage(k) = dynamics[k]->state_right_plus(x_k, -_h * e);
 
-            dx.stage(k)[i] = (_ssqp._cf(xp, u) - _ssqp._cf(xm, u)) / (2 * _h);
+            dx.stage(k)[i] =
+              (_ssqp._cf_softmax(xp, u) - _ssqp._cf_softmax(xm, u)) / (2 * _h);
         }
     }
 
@@ -567,7 +570,8 @@ void FDGradFullTrajectoryConstraintViolation::_fd_grad(
             up.stage(k) = u_k + _h * e;
             um.stage(k) = u_k - _h * e;
 
-            du.stage(k)[i] = (_ssqp._cf(x, up) - _ssqp._cf(x, um)) / (2 * _h);
+            du.stage(k)[i] =
+              (_ssqp._cf_softmax(x, up) - _ssqp._cf_softmax(x, um)) / (2 * _h);
         }
     }
 }

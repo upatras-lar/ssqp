@@ -21,6 +21,12 @@ int sgn(double val)
     return (0.0 < val) - (val < 0.0);
 }
 
+double softmax_max(const VecX &v, double alpha)
+{
+    const double m = v.maxCoeff();
+    return m + std::log((alpha * (v.array() - m)).exp().sum()) / alpha;
+}
+
 std::string format_double(double val, uint precision)
 {
     static uint        SCIENTIFIC_CUTOFF = 1e5;
