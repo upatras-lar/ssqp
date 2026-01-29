@@ -7,6 +7,7 @@
 #include "model/stagewise/StageCost.hpp"
 #include "model/stagewise/StageDynamics.hpp"
 #include "model/stagewise/StageConstraints.hpp"
+#include "solvers/ssqp.hpp"
 
 namespace ssqp
 {
@@ -85,6 +86,78 @@ class FDGradConstraints : public Test
     const double                                              _h;
 
     void _fd_grad(const VecX &x, const VecX &u, MatX &dX, MatX &dU) const;
+};
+
+/* Finite-differences gradient test for total trajectory cost function _ssqp::_lf
+ * Tests whether the function's gradient is valid by comparing its output with
+ * that of the finite-differences gradient on random inputs
+ */
+class FDGradFullTrajectoryCost : public Test
+{
+  public:
+    FDGradFullTrajectoryCost(const std::string                   &name,
+                             const std::shared_ptr<model::Model> &model,
+                             const uint ninputs = 100, const double h = 1e-4);
+
+    bool run() override;
+
+  protected:
+    const solvers::ssqp                 _ssqp;
+    const std::shared_ptr<model::Model> _model;
+    const uint                          _ninputs;
+    const double                        _h;
+
+    void _fd_grad(const solvers::FlatVec &x, const solvers::FlatVec &u,
+                  solvers::FlatVec &dx, solvers::FlatVec &du);
+};
+
+/* Finite-differences gradient test for total trajectory stage gap function 
+ * _ssqp::_gammaf
+ * Tests whether the function's gradient is valid by comparing its output with
+ * that of the finite-differences gradient on random inputs
+ */
+class FDGradFullTrajectoryStageGap : public Test
+{
+  public:
+    FDGradFullTrajectoryStageGap(const std::string                   &name,
+                                 const std::shared_ptr<model::Model> &model,
+                                 const uint ninputs = 100,
+                                 const double h     = 1e-4);
+
+    bool run() override;
+
+  protected:
+    const solvers::ssqp                 _ssqp;
+    const std::shared_ptr<model::Model> _model;
+    const uint                          _ninputs;
+    const double                        _h;
+
+    void _fd_grad(const solvers::FlatVec &x, const solvers::FlatVec &u,
+                  solvers::FlatVec &dx, solvers::FlatVec &du);
+};
+
+/* Finite-differences gradient test for total trajectory constraint violation
+ * function _ssqp::_cf
+ * Tests whether the function's gradient is valid by comparing its output with
+ * that of the finite-differences gradient on random inputs
+ */
+class FDGradFullTrajectoryConstraintViolation : public Test
+{
+  public:
+    FDGradFullTrajectoryConstraintViolation(
+      const std::string &name, const std::shared_ptr<model::Model> &model,
+      const uint ninputs = 100, const double h = 1e-4);
+
+    bool run() override;
+
+  protected:
+    const solvers::ssqp                 _ssqp;
+    const std::shared_ptr<model::Model> _model;
+    const uint                          _ninputs;
+    const double                        _h;
+
+    void _fd_grad(const solvers::FlatVec &x, const solvers::FlatVec &u,
+                  solvers::FlatVec &dx, solvers::FlatVec &du);
 };
 
 }

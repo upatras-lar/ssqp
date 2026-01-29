@@ -641,6 +641,136 @@ std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test()
     return cost_test;
 }
 
+std::shared_ptr<Test> get_lf_grad_test()
+{
+    const uint              horizon = 100;
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(horizon, 0.01, model_structure);
+
+    for (uint k = 0; k < horizon; ++k)
+    {
+        model->addCost<
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
+                                                                         18,
+                                                                         1,
+                                                                         true);
+        model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
+          k,
+          18,
+          1);
+    }
+
+    model
+      ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+        horizon,
+        18,
+        1,
+        true);
+
+    VecX init_state(37);
+    init_state[6] = 1.0;
+
+    model::Model::Config config;
+    config.init_states = { init_state };
+    model->finalize(config);
+
+    std::shared_ptr<FDGradFullTrajectoryCost> lf_test =
+      std::make_shared<FDGradFullTrajectoryCost>("lfGradTest", model);
+
+    return lf_test;
+}
+
+std::shared_ptr<Test> get_gammaf_grad_test()
+{
+    const uint              horizon = 100;
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(horizon, 0.01, model_structure);
+
+    for (uint k = 0; k < horizon; ++k)
+    {
+        model->addCost<
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
+                                                                         18,
+                                                                         1,
+                                                                         true);
+        model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
+          k,
+          18,
+          1);
+    }
+
+    model
+      ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+        horizon,
+        18,
+        1,
+        true);
+
+    VecX init_state(37);
+    init_state[6] = 1.0;
+
+    model::Model::Config config;
+    config.init_states = { init_state };
+    model->finalize(config);
+
+    std::shared_ptr<FDGradFullTrajectoryStageGap> gammaf_test =
+      std::make_shared<FDGradFullTrajectoryStageGap>("gammafGradTest",
+                                                     model,
+                                                     10);
+
+    return gammaf_test;
+}
+
+std::shared_ptr<Test> get_cf_grad_test()
+{
+    const uint              horizon = 100;
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(horizon, 0.01, model_structure);
+
+    for (uint k = 0; k < horizon; ++k)
+    {
+        model->addCost<
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
+                                                                         18,
+                                                                         1,
+                                                                         true);
+        model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
+          k,
+          18,
+          1);
+    }
+
+    model
+      ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+        horizon,
+        18,
+        1,
+        true);
+
+    VecX init_state(37);
+    init_state[6] = 1.0;
+
+    model::Model::Config config;
+    config.init_states = { init_state };
+    model->finalize(config);
+
+    std::shared_ptr<FDGradFullTrajectoryConstraintViolation> cf_test =
+      std::make_shared<FDGradFullTrajectoryConstraintViolation>("cfGradTest",
+                                                                model,
+                                                                10);
+
+    return cf_test;
+}
+
 }
 }
 }

@@ -26,7 +26,7 @@ void FDGradCost::_fd_grad(const VecX &x, const VecX &u, VecX &dx,
 
     for (uint i = 0; i < _ndx; ++i)
     {
-        Eigen::VectorXd e(_ndx);
+        VecX e(_ndx);
         e.setUnit(i);
 
         dx[i] = (_cost->evaluate(
@@ -40,7 +40,7 @@ void FDGradCost::_fd_grad(const VecX &x, const VecX &u, VecX &dx,
 
     for (uint i = 0; i < _nu; ++i)
     {
-        Eigen::VectorXd e(_nu);
+        VecX e(_nu);
         e.setUnit(i);
         du[i] = (_cost->evaluate(x, u + _h * e)[0] -
                  _cost->evaluate(x, u - _h * e)[0]) /
@@ -111,7 +111,7 @@ void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
 
     for (uint i = 0; i < ndx; ++i)
     {
-        Eigen::VectorXd e(ndx);
+        VecX e(ndx);
         e.setUnit(i);
         dX.col(i) =
           _next_dynamics->state_right_minus(
@@ -122,7 +122,7 @@ void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
 
     for (uint i = 0; i < nu; ++i)
     {
-        Eigen::VectorXd e(nu);
+        VecX e(nu);
         e.setUnit(i);
         dU.col(i) = _next_dynamics->state_right_minus(
                       _dynamics->evaluate(x, u + _h * e),
@@ -198,7 +198,7 @@ void FDGradConstraints::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
 
     for (uint i = 0; i < _ndx; ++i)
     {
-        Eigen::VectorXd e(_ndx);
+        VecX e(_ndx);
         e.setUnit(i);
         dX.col(i) =
           _constraints->right_minus(
@@ -210,7 +210,7 @@ void FDGradConstraints::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
 
     for (uint i = 0; i < _nu; ++i)
     {
-        Eigen::VectorXd e(_nu);
+        VecX e(_nu);
         e.setUnit(i);
         dU.col(i) =
           _constraints->right_minus(_constraints->evaluate(x, u + _h * e),
@@ -260,5 +260,386 @@ bool FDGradConstraints::run()
 
     return pass;
 }
+
+FDGradFullTrajectoryCost::FDGradFullTrajectoryCost(
+  const std::string &name, const std::shared_ptr<model::Model> &model,
+  const uint ninputs, const double h)
+  : Test(name)
+  , _ssqp(*model.get())
+  , _model(model)
+  , _ninputs(ninputs)
+  , _h(h)
+{
+}
+
+void FDGradFullTrajectoryCost::_fd_grad(const solvers::FlatVec &x,
+                                        const solvers::FlatVec &u,
+                                        solvers::FlatVec       &dx,
+                                        solvers::FlatVec       &du)
+{
+    const model::DynamicsContainer dynamics = _model->dynamics();
+
+    for (uint k = 0; k < x.stages(); ++k)
+    {
+        VecX x_k = x.stage(k);
+
+        const uint ndx = dx.stage(k).size();
+
+        for (uint i = 0; i < ndx; ++i)
+        {
+            VecX e(ndx);
+            e.setUnit(i);
+
+            solvers::FlatVec xp(x), xm(x);
+            xp.stage(k) = dynamics[k]->state_right_plus(x_k, _h * e);
+            xm.stage(k) = dynamics[k]->state_right_plus(x_k, -_h * e);
+
+            dx.stage(k)[i] = (_ssqp._lf(xp, u) - _ssqp._lf(xm, u)) / (2 * _h);
+        }
+    }
+
+    for (uint k = 0; k < u.stages(); ++k)
+    {
+        VecX u_k = u.stage(k);
+
+        const uint nu = du.stage(k).size();
+
+        for (uint i = 0; i < nu; ++i)
+        {
+            VecX e(nu);
+            e.setUnit(i);
+
+            solvers::FlatVec up(u), um(u);
+            up.stage(k) = u_k + _h * e;
+            um.stage(k) = u_k - _h * e;
+
+            du.stage(k)[i] = (_ssqp._lf(x, up) - _ssqp._lf(x, um)) / (2 * _h);
+        }
+    }
+}
+
+bool FDGradFullTrajectoryCost::run()
+{
+    bool pass = true;
+
+    const model::Dimensions dims     = _model->dims();
+    const model::Dimensions lin_dims = _model->linear_dims();
+
+    solvers::FlatVec x(dims.state, dims.stage_state);
+    solvers::FlatVec u(dims.control, dims.stage_control);
+
+    solvers::FlatVec dx(lin_dims.state, lin_dims.stage_state);
+    solvers::FlatVec du(lin_dims.control, lin_dims.stage_control);
+
+    solvers::FlatVec dxfd(dx, false);
+    solvers::FlatVec dufd(du, false);
+
+    x.setPrintColumns(-1);
+    u.setPrintColumns(-1);
+    dx.setPrintColumns(-1);
+    du.setPrintColumns(-1);
+    dxfd.setPrintColumns(-1);
+    dufd.setPrintColumns(-1);
+
+    for (uint i = 0; i < _ninputs; ++i)
+    {
+        for (uint k = 0; k < x.stages(); ++k)
+        {
+            x.stage(k) = _model->randomState(k);
+        }
+
+        for (uint k = 0; k < u.stages(); ++k)
+        {
+            u.stage(k) = _model->randomControls(k);
+        }
+
+        _ssqp._lf_grad(x, u, dx, du);
+        _fd_grad(x, u, dxfd, dufd);
+
+        if ((dx - dxfd).vec.lpNorm<Eigen::Infinity>() > _h ||
+            (du - dufd).vec.lpNorm<Eigen::Infinity>() > _h)
+        {
+            std::stringstream ss;
+            ss << "Run " << i << " failed" << std::endl
+               << "Run input:" << std::endl
+               << "Norm dX: " << (dx - dxfd).vec.lpNorm<Eigen::Infinity>()
+               << std::endl
+               << "Norm dU: " << (du - dufd).vec.lpNorm<Eigen::Infinity>()
+               << std::endl
+               << "x:" << std::endl
+               << x << std::endl
+               << "u:" << std::endl
+               << u << std::endl
+               << "Gradient dx:" << std::endl
+               << dx << std::endl
+               << "FD gradient dx:" << std::endl
+               << dxfd << std::endl
+               << "Gradient du:" << std::endl
+               << du << std::endl
+               << "FD gradient du:" << std::endl
+               << dufd << std::endl;
+
+            _failed_logs.push_back(ss.str());
+            pass = false;
+        }
+    }
+
+    return pass;
+}
+
+FDGradFullTrajectoryStageGap::FDGradFullTrajectoryStageGap(
+  const std::string &name, const std::shared_ptr<model::Model> &model,
+  const uint ninputs, const double h)
+  : Test(name)
+  , _ssqp(*model.get())
+  , _model(model)
+  , _ninputs(ninputs)
+  , _h(h)
+{
+}
+
+void FDGradFullTrajectoryStageGap::_fd_grad(const solvers::FlatVec &x,
+                                            const solvers::FlatVec &u,
+                                            solvers::FlatVec       &dx,
+                                            solvers::FlatVec       &du)
+{
+    const model::DynamicsContainer dynamics = _model->dynamics();
+
+    for (uint k = 0; k < x.stages(); ++k)
+    {
+        VecX x_k = x.stage(k);
+
+        const uint ndx = dx.stage(k).size();
+
+        for (uint i = 0; i < ndx; ++i)
+        {
+            VecX e(ndx);
+            e.setUnit(i);
+
+            solvers::FlatVec xp(x), xm(x);
+            xp.stage(k) = dynamics[k]->state_right_plus(x_k, _h * e);
+            xm.stage(k) = dynamics[k]->state_right_plus(x_k, -_h * e);
+
+            dx.stage(k)[i] =
+              (_ssqp._gammaf(xp, u) - _ssqp._gammaf(xm, u)) / (2 * _h);
+        }
+    }
+
+    for (uint k = 0; k < u.stages(); ++k)
+    {
+        VecX u_k = u.stage(k);
+
+        const uint nu = du.stage(k).size();
+
+        for (uint i = 0; i < nu; ++i)
+        {
+            VecX e(nu);
+            e.setUnit(i);
+
+            solvers::FlatVec up(u), um(u);
+            up.stage(k) = u_k + _h * e;
+            um.stage(k) = u_k - _h * e;
+
+            du.stage(k)[i] =
+              (_ssqp._gammaf(x, up) - _ssqp._gammaf(x, um)) / (2 * _h);
+        }
+    }
+}
+
+bool FDGradFullTrajectoryStageGap::run()
+{
+    bool pass = true;
+
+    const model::Dimensions dims     = _model->dims();
+    const model::Dimensions lin_dims = _model->linear_dims();
+
+    solvers::FlatVec x(dims.state, dims.stage_state);
+    solvers::FlatVec u(dims.control, dims.stage_control);
+
+    solvers::FlatVec dx(lin_dims.state, lin_dims.stage_state);
+    solvers::FlatVec du(lin_dims.control, lin_dims.stage_control);
+
+    solvers::FlatVec dxfd(dx, false);
+    solvers::FlatVec dufd(du, false);
+
+    x.setPrintColumns(-1);
+    u.setPrintColumns(-1);
+    dx.setPrintColumns(-1);
+    du.setPrintColumns(-1);
+    dxfd.setPrintColumns(-1);
+    dufd.setPrintColumns(-1);
+
+    for (uint i = 0; i < _ninputs; ++i)
+    {
+        for (uint k = 0; k < x.stages(); ++k)
+        {
+            x.stage(k) = _model->randomState(k);
+        }
+
+        for (uint k = 0; k < u.stages(); ++k)
+        {
+            u.stage(k) = _model->randomControls(k);
+        }
+
+        _ssqp._gammaf_grad(x, u, dx, du);
+        _fd_grad(x, u, dxfd, dufd);
+
+        if ((dx - dxfd).vec.lpNorm<Eigen::Infinity>() > _h ||
+            (du - dufd).vec.lpNorm<Eigen::Infinity>() > _h)
+        {
+            std::stringstream ss;
+            ss << "Run " << i << " failed" << std::endl
+               << "Run input:" << std::endl
+               << "Norm dX: " << (dx - dxfd).vec.lpNorm<Eigen::Infinity>()
+               << std::endl
+               << "Norm dU: " << (du - dufd).vec.lpNorm<Eigen::Infinity>()
+               << std::endl
+               << "x:" << std::endl
+               << x << std::endl
+               << "u:" << std::endl
+               << u << std::endl
+               << "Gradient dx:" << std::endl
+               << dx << std::endl
+               << "FD gradient dx:" << std::endl
+               << dxfd << std::endl
+               << "Gradient du:" << std::endl
+               << du << std::endl
+               << "FD gradient du:" << std::endl
+               << dufd << std::endl;
+
+            _failed_logs.push_back(ss.str());
+            pass = false;
+        }
+    }
+
+    return pass;
+}
+
+FDGradFullTrajectoryConstraintViolation::
+  FDGradFullTrajectoryConstraintViolation(
+    const std::string &name, const std::shared_ptr<model::Model> &model,
+    const uint ninputs, const double h)
+  : Test(name)
+  , _ssqp(*model.get())
+  , _model(model)
+  , _ninputs(ninputs)
+  , _h(h)
+{
+}
+
+void FDGradFullTrajectoryConstraintViolation::_fd_grad(
+  const solvers::FlatVec &x, const solvers::FlatVec &u, solvers::FlatVec &dx,
+  solvers::FlatVec &du)
+{
+    const model::DynamicsContainer dynamics = _model->dynamics();
+
+    for (uint k = 0; k < x.stages(); ++k)
+    {
+        VecX x_k = x.stage(k);
+
+        const uint ndx = dx.stage(k).size();
+
+        for (uint i = 0; i < ndx; ++i)
+        {
+            VecX e(ndx);
+            e.setUnit(i);
+
+            solvers::FlatVec xp(x), xm(x);
+            xp.stage(k) = dynamics[k]->state_right_plus(x_k, _h * e);
+            xm.stage(k) = dynamics[k]->state_right_plus(x_k, -_h * e);
+
+            dx.stage(k)[i] = (_ssqp._cf(xp, u) - _ssqp._cf(xm, u)) / (2 * _h);
+        }
+    }
+
+    for (uint k = 0; k < u.stages(); ++k)
+    {
+        VecX u_k = u.stage(k);
+
+        const uint nu = du.stage(k).size();
+
+        for (uint i = 0; i < nu; ++i)
+        {
+            VecX e(nu);
+            e.setUnit(i);
+
+            solvers::FlatVec up(u), um(u);
+            up.stage(k) = u_k + _h * e;
+            um.stage(k) = u_k - _h * e;
+
+            du.stage(k)[i] = (_ssqp._cf(x, up) - _ssqp._cf(x, um)) / (2 * _h);
+        }
+    }
+}
+
+bool FDGradFullTrajectoryConstraintViolation::run()
+{
+    bool pass = true;
+
+    const model::Dimensions dims     = _model->dims();
+    const model::Dimensions lin_dims = _model->linear_dims();
+
+    solvers::FlatVec x(dims.state, dims.stage_state);
+    solvers::FlatVec u(dims.control, dims.stage_control);
+
+    solvers::FlatVec dx(lin_dims.state, lin_dims.stage_state);
+    solvers::FlatVec du(lin_dims.control, lin_dims.stage_control);
+
+    solvers::FlatVec dxfd(dx, false);
+    solvers::FlatVec dufd(du, false);
+
+    x.setPrintColumns(-1);
+    u.setPrintColumns(-1);
+    dx.setPrintColumns(-1);
+    du.setPrintColumns(-1);
+    dxfd.setPrintColumns(-1);
+    dufd.setPrintColumns(-1);
+
+    for (uint i = 0; i < _ninputs; ++i)
+    {
+        for (uint k = 0; k < x.stages(); ++k)
+        {
+            x.stage(k) = _model->randomState(k);
+        }
+
+        for (uint k = 0; k < u.stages(); ++k)
+        {
+            u.stage(k) = _model->randomControls(k);
+        }
+
+        _ssqp._cf_grad(x, u, dx, du);
+        _fd_grad(x, u, dxfd, dufd);
+
+        if ((dx - dxfd).vec.lpNorm<Eigen::Infinity>() > _h ||
+            (du - dufd).vec.lpNorm<Eigen::Infinity>() > _h)
+        {
+            std::stringstream ss;
+            ss << "Run " << i << " failed" << std::endl
+               << "Run input:" << std::endl
+               << "Norm dX: " << (dx - dxfd).vec.lpNorm<Eigen::Infinity>()
+               << std::endl
+               << "Norm dU: " << (du - dufd).vec.lpNorm<Eigen::Infinity>()
+               << std::endl
+               << "x:" << std::endl
+               << x << std::endl
+               << "u:" << std::endl
+               << u << std::endl
+               << "Gradient dx:" << std::endl
+               << dx << std::endl
+               << "FD gradient dx:" << std::endl
+               << dxfd << std::endl
+               << "Gradient du:" << std::endl
+               << du << std::endl
+               << "FD gradient du:" << std::endl
+               << dufd << std::endl;
+
+            _failed_logs.push_back(ss.str());
+            pass = false;
+        }
+    }
+
+    return pass;
+}
+
 }
 }
