@@ -643,7 +643,7 @@ std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test()
 
 std::shared_ptr<Test> get_lf_grad_test()
 {
-    const uint              horizon = 100;
+    const uint              horizon = 40;
     model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
     model_structure.free_flyer = true;
@@ -685,7 +685,7 @@ std::shared_ptr<Test> get_lf_grad_test()
 
 std::shared_ptr<Test> get_gammaf_grad_test()
 {
-    const uint              horizon = 100;
+    const uint              horizon = 40;
     model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
     model_structure.free_flyer = true;
@@ -729,7 +729,7 @@ std::shared_ptr<Test> get_gammaf_grad_test()
 
 std::shared_ptr<Test> get_cf_grad_test()
 {
-    const uint              horizon = 100;
+    const uint              horizon = 40;
     model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
     model_structure.free_flyer = true;

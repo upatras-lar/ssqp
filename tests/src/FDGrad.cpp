@@ -61,8 +61,11 @@ bool FDGradCost::run()
         _cost->gradient(x, u, dx, du);
         _fd_grad(x, u, dxfd, dufd);
 
-        if ((dx - dxfd).lpNorm<Eigen::Infinity>() > _h ||
-            (du - dufd).lpNorm<Eigen::Infinity>() > _h)
+        double dxdiff = (dx - dxfd).lpNorm<Eigen::Infinity>();
+        double dudiff = (du - dufd).lpNorm<Eigen::Infinity>();
+
+        if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
+            dudiff > _h)
         {
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
@@ -144,8 +147,11 @@ bool FDGradDynamics::run()
         _dynamics->gradient(x, u, dX, dU);
         _fd_grad(x, u, dXfd, dUfd);
 
-        if ((dX - dXfd).lpNorm<Eigen::Infinity>() > _h ||
-            (dU - dUfd).lpNorm<Eigen::Infinity>() > _h)
+        double dXdiff = (dX - dXfd).lpNorm<Eigen::Infinity>();
+        double dUdiff = (dU - dUfd).lpNorm<Eigen::Infinity>();
+
+        if (std::isnan(dXdiff) || std::isnan(dUdiff) || dXdiff > _h ||
+            dUdiff > _h)
         {
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
@@ -232,8 +238,11 @@ bool FDGradConstraints::run()
         _constraints->gradient(x, u, dX, dU);
         _fd_grad(x, u, dXfd, dUfd);
 
-        if ((dX - dXfd).lpNorm<Eigen::Infinity>() > _h ||
-            (dU - dUfd).lpNorm<Eigen::Infinity>() > _h)
+        double dXdiff = (dX - dXfd).lpNorm<Eigen::Infinity>();
+        double dUdiff = (dU - dUfd).lpNorm<Eigen::Infinity>();
+
+        if (std::isnan(dXdiff) || std::isnan(dUdiff) || dXdiff > _h ||
+            dUdiff > _h)
         {
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
@@ -356,8 +365,11 @@ bool FDGradFullTrajectoryCost::run()
         _ssqp._lf_grad(x, u, dx, du);
         _fd_grad(x, u, dxfd, dufd);
 
-        if ((dx - dxfd).vec.lpNorm<Eigen::Infinity>() > _h ||
-            (du - dufd).vec.lpNorm<Eigen::Infinity>() > _h)
+        double dxdiff = (dx - dxfd).vec.lpNorm<Eigen::Infinity>();
+        double dudiff = (du - dufd).vec.lpNorm<Eigen::Infinity>();
+
+        if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
+            dudiff > _h)
         {
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
@@ -483,11 +495,20 @@ bool FDGradFullTrajectoryStageGap::run()
             u.stage(k) = _model->randomControls(k);
         }
 
+        dx.vec.setZero();
+        du.vec.setZero();
+
+        dx.vec.setZero();
+        du.vec.setZero();
+
         _ssqp._gammaf_grad(x, u, dx, du);
         _fd_grad(x, u, dxfd, dufd);
 
-        if ((dx - dxfd).vec.lpNorm<Eigen::Infinity>() > _h ||
-            (du - dufd).vec.lpNorm<Eigen::Infinity>() > _h)
+        double dxdiff = (dx - dxfd).vec.lpNorm<Eigen::Infinity>();
+        double dudiff = (du - dufd).vec.lpNorm<Eigen::Infinity>();
+
+        if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
+            dudiff > _h)
         {
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
@@ -611,11 +632,17 @@ bool FDGradFullTrajectoryConstraintViolation::run()
             u.stage(k) = _model->randomControls(k);
         }
 
+        dx.vec.setZero();
+        du.vec.setZero();
+
         _ssqp._cf_grad(x, u, dx, du);
         _fd_grad(x, u, dxfd, dufd);
 
-        if ((dx - dxfd).vec.lpNorm<Eigen::Infinity>() > _h ||
-            (du - dufd).vec.lpNorm<Eigen::Infinity>() > _h)
+        double dxdiff = (dx - dxfd).vec.lpNorm<Eigen::Infinity>();
+        double dudiff = (du - dufd).vec.lpNorm<Eigen::Infinity>();
+
+        if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
+            dudiff > _h)
         {
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl

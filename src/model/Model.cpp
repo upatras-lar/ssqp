@@ -761,7 +761,7 @@ void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
 {
     if (_urdf)
     {
-        pinocchio_wrapper::dDifference(_impl, q0, q1, J, arg_pos);
+        pinocchio_wrapper::dDifference(_impl, q1, q0, J, !arg_pos);
         return;
     }
 
