@@ -158,9 +158,9 @@ SolverState ssqp::solve(Guess &guess)
                            FlatVec       &dx,
                            FlatVec       &du)
                     {
-                        FlatVec tmp_x(dx, false), tmp_u(du, false);
                         _lf_grad(x, u, dx, du);
 
+                        FlatVec tmp_x(dx, false), tmp_u(du, false);
                         _gammaf_grad(x, u, tmp_x, tmp_u);
                         dx.vec += _params.merit_mu_gamma * tmp_x.vec;
                         du.vec += _params.merit_mu_gamma * tmp_u.vec;
@@ -379,10 +379,10 @@ QPData ssqp::_setup_qp()
         MatX Ju = qp.stages[k].B.topLeftCorner(_model.nv(k), _model.nv(k));
 
         MatX Jr_inv = MatX::Zero(_model.nv(k), _model.nv(k));
-        _model.dDifference(_guess.x.stage(k + 1).head(_model.nq(k)),
-                           f.head(_model.nq(k)),
+        _model.dDifference(f.head(_model.nq(k)),
+                           _guess.x.stage(k + 1).head(_model.nq(k)),
                            Jr_inv,
-                           1);
+                           0);
 
         qp.stages[k].A.topLeftCorner(_model.nv(k), _model.nv(k)) = Jr_inv * Jx;
         qp.stages[k].B.topLeftCorner(_model.nv(k), _model.nv(k)) = Jr_inv * Ju;
@@ -772,22 +772,14 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     MatX dXk, dUk;
     for (uint k = 0; k < horizon; ++k)
     {
-        VecX   f   = dynamics[k]->evaluate(x.stage(k), u.stage(k));
-        VecX   r_k = dynamics[k]->state_right_minus(x.stage(k + 1), f);
-        double softmax_total = 0.0;
-        for (uint j = 0; j < r_k.size(); ++j)
-        {
-            softmax_total +=
-              std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(r_k[j]));
-        }
+        VecX f   = dynamics[k]->evaluate(x.stage(k), u.stage(k));
+        VecX r_k = dynamics[k]->state_right_minus(x.stage(k + 1), f);
 
-        for (uint i = 0; i < r_k.size(); ++i)
-        {
-            r_k[i] =
-              std::pow(M_E,
-                       _params.merit_grad_softmax_beta * std::abs(r_k[i])) /
-              softmax_total * sgn(r_k[i]);
-        }
+        VecX a =
+          (_params.merit_grad_softmax_beta *
+           dynamics[k]->state_right_minus(x.stage(k + 1), f).array().abs())
+            .exp();
+        r_k = (r_k.array().sign() * a.array()) / a.sum();
 
         const uint nq = _model.nq(k);
         const uint nv = _model.nv(k);
@@ -806,13 +798,15 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
         dynamics[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
 
-        dx.stage(k).head(nv) -= dXk.transpose().topLeftCorner(nv, nv) *
-                                Jr_inv_wrt_x.transpose() * r_k.head(nv);
-        dx.stage(k).tail(nv) -=
-          dXk.transpose().bottomRightCorner(nv, nv) * r_k.tail(nv);
-        du.stage(k) -= dUk.transpose() * r_k;
+        // J_r = [ Jr_inv_wrt_f, 0; 0, -I ];
+        MatX J_r                  = MatX::Zero(2 * nv, 2 * nv);
+        J_r.topLeftCorner(nv, nv) = Jr_inv_wrt_f;
+        J_r.bottomRightCorner(nv, nv).diagonal().setConstant(-1.0);
 
-        dx.stage(k + 1).head(nv) += Jr_inv_wrt_f.transpose() * r_k.head(nv);
+        dx.stage(k) += (J_r * dXk).transpose() * r_k;
+        du.stage(k) += (J_r * dUk).transpose() * r_k;
+
+        dx.stage(k + 1).head(nv) += Jr_inv_wrt_x.transpose() * r_k.head(nv);
         dx.stage(k + 1).tail(nv) += r_k.tail(nv);
     }
 }
@@ -882,8 +876,7 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 
         VecX v_ub = constraints[k]
                       ->right_minus(c, constraints[k]->upper_bound())
-                      .cwiseMax(0)
-                      .cwiseAbs();
+                      .cwiseMax(0);
 
         if (v_lb.size() > 0)
         {
@@ -940,30 +933,25 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
                       .cwiseAbs();
         VecX cu_k = constraints[k]
                       ->right_minus(c_k, constraints[k]->upper_bound())
-                      .cwiseMax(0)
-                      .cwiseAbs();
+                      .cwiseMax(0);
 
         double softmax_total_lower = 0.0;
         double softmax_total_upper = 0.0;
         for (uint j = 0; j < c_k.size(); ++j)
         {
             softmax_total_lower +=
-              std::pow(M_E,
-                       _params.merit_grad_softmax_beta * std::abs(cl_k[j]));
+              std::exp(_params.merit_grad_softmax_beta * std::abs(cl_k[j]));
             softmax_total_upper +=
-              std::pow(M_E,
-                       _params.merit_grad_softmax_beta * std::abs(cu_k[j]));
+              std::exp(_params.merit_grad_softmax_beta * std::abs(cu_k[j]));
         }
 
         for (uint i = 0; i < c_k.size(); ++i)
         {
             cl_k[i] =
-              std::pow(M_E,
-                       _params.merit_grad_softmax_beta * std::abs(cl_k[i])) /
+              std::exp(_params.merit_grad_softmax_beta * std::abs(cl_k[i])) /
               softmax_total_lower * sgn(cl_k[i]);
             cu_k[i] =
-              std::pow(M_E,
-                       _params.merit_grad_softmax_beta * std::abs(cu_k[i])) /
+              std::exp(_params.merit_grad_softmax_beta * std::abs(cu_k[i])) /
               softmax_total_upper * sgn(cu_k[i]);
         }
 
@@ -982,26 +970,25 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
                   .cwiseAbs();
     VecX cu_H = constraints[horizon]
                   ->right_minus(c_H, constraints[horizon]->upper_bound())
-                  .cwiseMax(0)
-                  .cwiseAbs();
+                  .cwiseMax(0);
 
     double softmax_total_lower = 0.0;
     double softmax_total_upper = 0.0;
     for (uint j = 0; j < c_H.size(); ++j)
     {
         softmax_total_lower +=
-          std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(cl_H[j]));
+          std::exp(_params.merit_grad_softmax_beta * std::abs(cl_H[j]));
         softmax_total_upper +=
-          std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(cu_H[j]));
+          std::exp(_params.merit_grad_softmax_beta * std::abs(cu_H[j]));
     }
 
     for (uint i = 0; i < c_H.size(); ++i)
     {
         cl_H[i] =
-          std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(cl_H[i])) /
+          std::exp(_params.merit_grad_softmax_beta * std::abs(cl_H[i])) /
           softmax_total_lower * sgn(cl_H[i]);
         cu_H[i] =
-          std::pow(M_E, _params.merit_grad_softmax_beta * std::abs(cu_H[i])) /
+          std::exp(_params.merit_grad_softmax_beta * std::abs(cu_H[i])) /
           softmax_total_upper * sgn(cu_H[i]);
     }
 

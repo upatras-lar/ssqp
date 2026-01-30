@@ -67,18 +67,18 @@ FlatVec::FlatVec(const uint total_size, const std::vector<uint> &dims)
   , _stage_sizes(dims.size())
   , _acc_idx(dims.size())
 {
-    _max_dim                        = dims[0];
-    _stage_sizes[0]                 = dims[0];
-    _acc_idx[0]                     = 0;
-    vec.segment(0, _stage_sizes[0]) = VecX::Zero(dims[0]);
+    _max_dim        = dims[0];
+    _stage_sizes[0] = dims[0];
+    _acc_idx[0]     = 0;
 
     for (uint k = 1; k < dims.size(); ++k)
     {
         _max_dim        = std::max(_max_dim, dims[k]);
         _stage_sizes[k] = dims[k];
         _acc_idx[k]     = _acc_idx[k - 1] + _stage_sizes[k - 1];
-        vec.segment(_acc_idx[k], _stage_sizes[k]) = VecX::Zero(dims[k]);
     }
+
+    vec.setZero();
 }
 
 FlatVec::FlatVec(const uint total_size, const std::vector<VecX> &vectors)
