@@ -170,7 +170,8 @@ SolverState ssqp::solve(Guess &guess)
                         _cf_grad(x, u, tmp_x, tmp_u);
                         dx.vec += _params.merit_mu_c * tmp_x.vec;
                         du.vec += _params.merit_mu_c * tmp_u.vec;
-                    });
+                    },
+                    _params.merit_armijo_beta);
               },
               _guess.x,
               _guess.u,

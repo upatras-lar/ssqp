@@ -11,7 +11,7 @@ namespace step
 template<typename MeritFunction, typename MeritGradFunction>
 bool merit(const Point &previous, const Point &next, const Point &offset,
            const double alpha, const MeritFunction &mf,
-           const MeritGradFunction &dmf);
+           const MeritGradFunction &dmf, const double armijo_beta = 1e-4);
 }
 }
 
