@@ -282,9 +282,9 @@ solver = ssqpy.solvers.ssqp(
     tolerance=5e-2,
     admm_abs_tolerance=5e-3,
     admm_rel_tolerance=5e-3,
-    admm_max_iter=50,
-    # admm_reset_rho=False,
-    # admm_reset_y=False,
+    admm_max_iter=500,
+    admm_reset_rho=False,
+    admm_reset_y=False,
     admm_warm_start=False,
 )
 

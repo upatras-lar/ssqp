@@ -25,6 +25,8 @@ CONSTRAIN = False
 constraint_hlines = [0.1, 0.41]
 constraint_vlines = [-0.15, 0.15]
 
+INVERSE_MODE = True
+
 cx = 0.3
 cy = 0
 cz = 0.26
@@ -49,7 +51,11 @@ model = ssqpy.model.Model(
     MPC_H,
     dt,
     urdf_path="../urdf/panda/panda.urdf",
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=(
+        ssqpy.model.DynamicsMode.Inverse
+        if INVERSE_MODE
+        else ssqpy.model.DynamicsMode.Forward
+    ),
 )
 
 init_state = np.zeros(2 * nq)
@@ -107,7 +113,7 @@ def update_pose_costs(current_stage):
         pose_costs[k - current_stage].set_desired_translation(traj[k % H])
 
 
-mpc = ssqpy.solvers.MPC(model, sqp_iters=4, admm_iters=50)
+mpc = ssqpy.solvers.MPC(model, sqp_iters=5, admm_iters=75)
 
 mjmodel = mujoco.MjModel.from_xml_path("../mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)
@@ -143,7 +149,12 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
                 break
 
         pre = time()
-        mjdata.ctrl = mpc.step(state)[:8]
+        if INVERSE_MODE:
+            mjdata.ctrl = model.inverseDynamics(
+                mjdata.qpos, mjdata.qvel, mpc.step(state)
+            )[:8]
+        else:
+            mjdata.ctrl = mpc.step(state)[:8]
         elapsed += time() - pre
         steps += 1
 
