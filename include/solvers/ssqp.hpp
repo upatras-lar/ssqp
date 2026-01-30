@@ -52,7 +52,7 @@ class ssqp
 
         double merit_mu_gamma          = 1.0;
         double merit_mu_c              = 1.0;
-        double merit_grad_softmax_beta = 20.0;
+        double merit_grad_softmax_beta = 10.0;
 
         double inv_alpha_scale_factor = 2.0;
         double min_alpha              = 1e-4;
