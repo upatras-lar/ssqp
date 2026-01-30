@@ -81,6 +81,11 @@ void bind_ssqp(nb::module_ &m)
             {
                 params.merit_mu_c = nb::cast<double>(kwargs["merit_mu_c"]);
             }
+            if (kwargs.contains("merit_armijo_beta"))
+            {
+                params.merit_armijo_beta =
+                  nb::cast<double>(kwargs["merit_armijo_beta"]);
+            }
             if (kwargs.contains("inv_alpha_scale_factor"))
             {
                 params.inv_alpha_scale_factor =
