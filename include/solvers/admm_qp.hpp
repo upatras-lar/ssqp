@@ -65,6 +65,8 @@ class admm_qp
 
     SolverState solve(Solution &sol);
 
+    uint iterations() const;
+
   protected:
     const QPData &_qp;
     Params        _params;

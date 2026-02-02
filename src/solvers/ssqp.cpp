@@ -105,85 +105,89 @@ SolverState ssqp::solve(Guess &guess)
         }
 
         FlatVec x_n(_guess.x, false), u_n(_guess.u, false);
-        double  alpha;
+
+        _iteration_convergence_data.push_back(
+          IterationConvergenceData { qp_solver.iterations() });
 
         // Guess (x, u) update
         if (_params.use_filter)
         {
-            std::tie(x_n, u_n, alpha) = step::step(
-              [this](const step::Point &a,
-                     const step::Point &b,
-                     const step::Point &offset,
-                     const double alpha)
-              {
-                  return step::filter(
-                    a,
-                    b,
-                    _filter_memory,
-                    [this](const FlatVec &x, const FlatVec &u)
-                    { return _lf(x, u); },
-                    [this](const FlatVec &x, const FlatVec &u)
-                    { return _gammaf(x, u); },
-                    [this](const FlatVec &x, const FlatVec &u)
-                    { return _cf(x, u); });
-              },
-              _guess.x,
-              _guess.u,
-              sol.dx,
-              sol.du,
-              _model.dynamics(),
-              _params.inv_alpha_scale_factor,
-              _params.min_alpha);
+            std::tie(x_n, u_n, _iteration_convergence_data.back().step_size) =
+              step::step(
+                [this](const step::Point &a,
+                       const step::Point &b,
+                       const step::Point &offset,
+                       const double alpha)
+                {
+                    return step::filter(
+                      a,
+                      b,
+                      _filter_memory,
+                      [this](const FlatVec &x, const FlatVec &u)
+                      { return _lf(x, u); },
+                      [this](const FlatVec &x, const FlatVec &u)
+                      { return _gammaf(x, u); },
+                      [this](const FlatVec &x, const FlatVec &u)
+                      { return _cf(x, u); });
+                },
+                _guess.x,
+                _guess.u,
+                sol.dx,
+                sol.du,
+                _model.dynamics(),
+                _params.inv_alpha_scale_factor,
+                _params.min_alpha);
         }
         else
         {
-            std::tie(x_n, u_n, alpha) = step::step(
-              [this](const step::Point &a,
-                     const step::Point &b,
-                     const step::Point &offset,
-                     const double alpha)
-              {
-                  return step::merit(
-                    a,
-                    b,
-                    offset,
-                    alpha,
-                    [this](const FlatVec &x, const FlatVec &u)
-                    {
-                        return _lf(x, u) +
-                               _params.merit_mu_gamma * _gammaf(x, u) +
-                               _params.merit_mu_c * _cf(x, u);
-                    },
-                    [this](const FlatVec &x,
-                           const FlatVec &u,
-                           FlatVec       &dx,
-                           FlatVec       &du)
-                    {
-                        _lf_grad(x, u, dx, du);
+            std::tie(x_n, u_n, _iteration_convergence_data.back().step_size) =
+              step::step(
+                [this](const step::Point &a,
+                       const step::Point &b,
+                       const step::Point &offset,
+                       const double alpha)
+                {
+                    return step::merit(
+                      a,
+                      b,
+                      offset,
+                      alpha,
+                      [this](const FlatVec &x, const FlatVec &u)
+                      {
+                          return _lf(x, u) +
+                                 _params.merit_mu_gamma * _gammaf(x, u) +
+                                 _params.merit_mu_c * _cf(x, u);
+                      },
+                      [this](const FlatVec &x,
+                             const FlatVec &u,
+                             FlatVec       &dx,
+                             FlatVec       &du)
+                      {
+                          _lf_grad(x, u, dx, du);
 
-                        FlatVec tmp_x(dx, false), tmp_u(du, false);
-                        _gammaf_grad(x, u, tmp_x, tmp_u);
-                        dx.vec += _params.merit_mu_gamma * tmp_x.vec;
-                        du.vec += _params.merit_mu_gamma * tmp_u.vec;
+                          FlatVec tmp_x(dx, false), tmp_u(du, false);
+                          _gammaf_grad(x, u, tmp_x, tmp_u);
+                          dx.vec += _params.merit_mu_gamma * tmp_x.vec;
+                          du.vec += _params.merit_mu_gamma * tmp_u.vec;
 
-                        tmp_x.vec.setZero();
-                        tmp_u.vec.setZero();
-                        _cf_grad(x, u, tmp_x, tmp_u);
-                        dx.vec += _params.merit_mu_c * tmp_x.vec;
-                        du.vec += _params.merit_mu_c * tmp_u.vec;
-                    },
-                    _params.merit_armijo_beta);
-              },
-              _guess.x,
-              _guess.u,
-              sol.dx,
-              sol.du,
-              _model.dynamics(),
-              _params.inv_alpha_scale_factor,
-              _params.min_alpha);
+                          tmp_x.vec.setZero();
+                          tmp_u.vec.setZero();
+                          _cf_grad(x, u, tmp_x, tmp_u);
+                          dx.vec += _params.merit_mu_c * tmp_x.vec;
+                          du.vec += _params.merit_mu_c * tmp_u.vec;
+                      },
+                      _params.merit_armijo_beta);
+                },
+                _guess.x,
+                _guess.u,
+                sol.dx,
+                sol.du,
+                _model.dynamics(),
+                _params.inv_alpha_scale_factor,
+                _params.min_alpha);
         }
 
-        if (alpha < _params.min_alpha)
+        if (_iteration_convergence_data.back().step_size < _params.min_alpha)
         {
             LOGLN("Line search failed, increasing regularization");
             qp_solver.increaseRegularization();
@@ -191,7 +195,7 @@ SolverState ssqp::solve(Guess &guess)
             continue;
         }
 
-        LOGLN("Step size: " << alpha);
+        LOGLN("Step size: " << _iteration_convergence_data.back().step_size);
 
         _guess.x = x_n;
         _guess.u = u_n;
@@ -226,11 +230,12 @@ SolverState ssqp::solve(Guess &guess)
         // Termination
         if ((ssqp_state = _check_termination()) != ONGOING)
         {
-            auto duration =
+            _total_duration =
               std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::high_resolution_clock::now() - start);
+                std::chrono::high_resolution_clock::now() - start)
+                .count();
 
-            LOGLN("SSQP: Total runtime: " << duration.count() << "ms");
+            LOGLN("SSQP: Total runtime: " << _total_duration << "ms");
 
             guess = _guess;
             return ssqp_state;
@@ -259,10 +264,11 @@ SolverState ssqp::solve(Guess &guess)
         FrameMarkNamed("SQP Iteration");
     }
 
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::high_resolution_clock::now() - start);
+    _total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::high_resolution_clock::now() - start)
+                        .count();
 
-    LOGLN("SSQP: Total runtime: " << duration.count() << "ms");
+    LOGLN("SSQP: Total runtime: " << _total_duration << "ms");
 
     guess = _guess;
     return MAX_ITER_REACHED;
@@ -282,6 +288,24 @@ bool ssqp::write(const std::string &filename)
     }
 
     ordered_json j;
+    j["solver"]              = ordered_json({});
+    j["solver"]["tolerance"] = _params.tolerance;
+
+    j["convergence"]                   = ordered_json({});
+    j["convergence"]["runtime"]        = _total_duration;
+    j["convergence"]["iterations"]     = _iter + 1;
+    j["convergence"]["iteration_data"] = ordered_json::array();
+
+    for (uint i = 0; i < _iteration_convergence_data.size(); ++i)
+    {
+        j["convergence"]["iteration_data"].push_back(ordered_json({
+          { "qp_iterations",  _iteration_convergence_data[i].qp_iters },
+          {     "step_size", _iteration_convergence_data[i].step_size },
+          {       "norm_dx",   _iteration_convergence_data[i].norm_dx },
+          {       "norm_du",   _iteration_convergence_data[i].norm_du }
+        }));
+    }
+
     j["properties"]            = ordered_json({});
     j["properties"]["horizon"] = dims.horizon;
     j["properties"]["dt"]      = dt;
@@ -463,8 +487,13 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    LOGLN("Norm dx: " << lagrangian_dx.vec.lpNorm<Eigen::Infinity>());
-    LOGLN("Norm du: " << lagrangian_du.vec.lpNorm<Eigen::Infinity>());
+    _iteration_convergence_data.back().norm_dx =
+      lagrangian_dx.vec.lpNorm<Eigen::Infinity>();
+    _iteration_convergence_data.back().norm_du =
+      lagrangian_du.vec.lpNorm<Eigen::Infinity>();
+
+    LOGLN("Norm dx: " << _iteration_convergence_data.back().norm_dx);
+    LOGLN("Norm du: " << _iteration_convergence_data.back().norm_du);
 
     // Terminal constraint violation
     if (constraints[horizon] != nullptr &&
@@ -507,7 +536,7 @@ SolverState ssqp::_check_termination()
     if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
-        LOGLN("SSQP: Convergence reached in " << _iter + 1 << " iterations");
+        LOGLN("SSQP: Convergence reached in " << ++_iter << " iterations");
         return SUCCESS;
     }
 
@@ -519,7 +548,7 @@ SolverState ssqp::_check_termination()
     {
         if (++_stale_iters == _params.loose_success_stale_iters)
         {
-            LOGLN("SSQP: Loose criteria satisfied after " << _iter + 1
+            LOGLN("SSQP: Loose criteria satisfied after " << ++_iter
                                                           << " iterations");
             return LOOSE_SUCCESS;
         }

@@ -164,7 +164,7 @@ void bind_Model(nb::module_ &m)
             }
             if (kwargs.contains("terminal_cost"))
             {
-                config.stage_cost =
+                config.terminal_cost =
                   nb::cast<std::shared_ptr<StageCost>>(kwargs["terminal_cost"]);
             }
             if (kwargs.contains("constraints"))
