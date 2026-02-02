@@ -30,10 +30,8 @@ admm_qp::admm_qp(const QPData &qp, const Params &params)
     _rho_inv.vec.setConstant(1 / _params.init_rho);
 }
 
-void admm_qp::reset(const QPData &qp)
+void admm_qp::reset()
 {
-    _qp = qp;
-
     if (_params.reset_rho)
     {
         _rho_common = _params.init_rho;

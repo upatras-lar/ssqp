@@ -40,7 +40,7 @@ class ssqp
         uint   tolerance_update_steps = 0;
 
         // Loose success
-        bool loose_success = true;
+        bool loose_success = false;
         // Tolerance for change in cost jacobian norms
         double loose_success_tolerance = tolerance / 10;
         // Number of iterations for stale cost jacobian norms
@@ -89,6 +89,7 @@ class ssqp
     admm_qp::Params _admm_params;
     model::Model   &_model;
     Guess           _guess;
+    QPData          _qp;
 
     FlatVec _prev_cost_dx, _prev_cost_du;
     FlatVec _cost_dx, _cost_du;
@@ -98,7 +99,8 @@ class ssqp
 
     double _tolerance_init;
 
-    QPData _setup_qp();
+    template<bool withGradients>
+    void _setup_qp();
 
     SolverState _check_termination();
 
@@ -127,5 +129,7 @@ class ssqp
 };
 }
 }
+
+#include "src/solvers/ssqp.tpp"
 
 #endif
