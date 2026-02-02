@@ -22,6 +22,7 @@ ssqp::ssqp(model::Model &model, const Params &params,
   , _admm_params(admm_params)
   , _model(model)
   , _guess(model.dims(), model.linear_dims())
+  , _qp(model.linear_dims())
   , _prev_cost_dx(model.linear_dims().state, model.linear_dims().stage_state)
   , _cost_dx(_prev_cost_dx, false)
   , _prev_cost_du(_guess.u, false)
@@ -80,9 +81,9 @@ SolverState ssqp::solve(Guess &guess)
     DEBUG_LOGLN("Starting SSQP solver loop");
     auto start = std::chrono::high_resolution_clock::now();
 
-    QPData            qp = _setup_qp();
-    admm_qp::Solution sol(qp.dims);
-    admm_qp           qp_solver(qp, _admm_params);
+    _setup_qp<true>();
+    admm_qp::Solution sol(_qp.dims);
+    admm_qp           qp_solver(_qp, _admm_params);
 
     _params.tolerance = _tolerance_init;
 
@@ -250,8 +251,10 @@ SolverState ssqp::solve(Guess &guess)
                                     : _params.tolerance_update_steps);
         }
 
-        qp = _setup_qp();
-        qp_solver.reset(qp);
+        // Skip gradient calculation in _setup_qp, since they have been
+        // calculated in _check_termination
+        _setup_qp<false>();
+        qp_solver.reset();
 
         FrameMarkNamed("SQP Iteration");
     }
@@ -346,190 +349,6 @@ bool ssqp::write(const std::string &filename)
     return true;
 }
 
-QPData ssqp::_setup_qp()
-{
-    ZoneScopedN("SSQP: _setup_qp");
-
-    QPData qp(_model.linear_dims());
-
-    VecX tmpVec;
-    MatX tmpMat;
-
-    const model::CostsContainer       costs       = _model.costs();
-    const model::DynamicsContainer    dynamics    = _model.dynamics();
-    const model::ConstraintsContainer constraints = _model.constraints();
-
-    for (uint k = 0; k < qp.dims.horizon; ++k)
-    {
-        DEBUG_LOGLN("Stage " << k << ":");
-
-        // Get A_k and B_k matrices
-        dynamics[k]->gradient(_guess.x.stage(k),
-                              _guess.u.stage(k),
-                              qp.stages[k].A,
-                              qp.stages[k].B);
-
-        const VecX f =
-          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
-
-        // Get gamma_k
-        qp.stages[k].gamma =
-          dynamics[k]->state_right_minus(f, _guess.x.stage(k + 1));
-
-        MatX Jx = qp.stages[k].A.topLeftCorner(_model.nv(k), _model.nv(k));
-        MatX Ju = qp.stages[k].B.topLeftCorner(_model.nv(k), _model.nv(k));
-
-        MatX Jr_inv = MatX::Zero(_model.nv(k), _model.nv(k));
-        _model.dDifference(f.head(_model.nq(k)),
-                           _guess.x.stage(k + 1).head(_model.nq(k)),
-                           Jr_inv,
-                           0);
-
-        qp.stages[k].A.topLeftCorner(_model.nv(k), _model.nv(k)) = Jr_inv * Jx;
-        qp.stages[k].B.topLeftCorner(_model.nv(k), _model.nv(k)) = Jr_inv * Ju;
-
-        DEBUG_LOGLN("A: " << std::endl << qp.stages[k].A);
-        DEBUG_LOGLN("B: " << std::endl << qp.stages[k].B);
-        DEBUG_LOGLN("Jr_inv: " << std::endl << Jr_inv);
-        DEBUG_LOGLN("gamma: " << qp.stages[k].gamma.transpose());
-
-        // Calculate Q_k
-        costs[k]->hessian_xx(_guess.x.stage(k),
-                             _guess.u.stage(k),
-                             qp.stages[k].Qxx);
-
-        dynamics[k]->hessprod_xx(_guess.x.stage(k),
-                                 _guess.u.stage(k),
-                                 _guess.lambda.stage(k),
-                                 tmpMat);
-
-        qp.stages[k].Qxx += tmpMat;
-
-        // Calculate S_k
-        costs[k]->hessian_xu(_guess.x.stage(k),
-                             _guess.u.stage(k),
-                             qp.stages[k].Qxu);
-        dynamics[k]->hessprod_xu(_guess.x.stage(k),
-                                 _guess.u.stage(k),
-                                 _guess.lambda.stage(k),
-                                 tmpMat);
-
-        qp.stages[k].Qxu += tmpMat;
-
-        // Calculate R_k
-        costs[k]->hessian_uu(_guess.x.stage(k),
-                             _guess.u.stage(k),
-                             qp.stages[k].Quu);
-
-        dynamics[k]->hessprod_uu(_guess.x.stage(k),
-                                 _guess.u.stage(k),
-                                 _guess.lambda.stage(k),
-                                 tmpMat);
-        qp.stages[k].Quu += tmpMat;
-
-        // Get q and r
-        costs[k]->gradient(_guess.x.stage(k),
-                           _guess.u.stage(k),
-                           qp.stages[k].qx,
-                           qp.stages[k].qu);
-
-        // Get D and E
-        if (constraints[k] != nullptr)
-        {
-            constraints[k]->hessprod_xx(_guess.x.stage(k),
-                                        _guess.u.stage(k),
-                                        _guess.mu.stage(k),
-                                        tmpMat);
-            qp.stages[k].Qxx += tmpMat;
-
-            constraints[k]->hessprod_xu(_guess.x.stage(k),
-                                        _guess.u.stage(k),
-                                        _guess.mu.stage(k),
-                                        tmpMat);
-            qp.stages[k].Qxu += tmpMat;
-
-            constraints[k]->hessprod_uu(_guess.x.stage(k),
-                                        _guess.u.stage(k),
-                                        _guess.mu.stage(k),
-                                        tmpMat);
-            qp.stages[k].Quu += tmpMat;
-
-            constraints[k]->gradient(_guess.x.stage(k),
-                                     _guess.u.stage(k),
-                                     qp.stages[k].D,
-                                     qp.stages[k].E);
-
-            // Get cl, cu
-            VecX c =
-              constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
-            qp.stages[k].cl =
-              constraints[k]->right_minus(constraints[k]->lower_bound(), c);
-            qp.stages[k].cu =
-              constraints[k]->right_minus(constraints[k]->upper_bound(), c);
-        }
-        else
-        {
-            qp.stages[k].D  = MatX::Zero(0, qp.dims.stage_state[k]);
-            qp.stages[k].E  = MatX::Zero(0, qp.dims.stage_control[k]);
-            qp.stages[k].cl = VecX::Zero(0);
-            qp.stages[k].cu = VecX::Zero(0);
-        }
-
-        DEBUG_LOGLN("Qxx: " << std::endl << qp.stages[k].Qxx);
-        DEBUG_LOGLN("Qxu: " << std::endl << qp.stages[k].Qxu);
-        DEBUG_LOGLN("Quu: " << std::endl << qp.stages[k].Quu);
-        DEBUG_LOGLN("qx: " << qp.stages[k].qx.transpose());
-        DEBUG_LOGLN("qu: " << qp.stages[k].qu.transpose());
-        DEBUG_LOGLN("D: " << std::endl << qp.stages[k].D);
-        DEBUG_LOGLN("E: " << std::endl << qp.stages[k].E);
-        DEBUG_LOGLN("cl: " << qp.stages[k].cl.transpose());
-        DEBUG_LOGLN("cu: " << qp.stages[k].cu.transpose());
-    }
-
-    // Terminal values for Q, q, D and c
-    costs[qp.dims.horizon]->hessian_xx(_guess.x.stage(qp.dims.horizon),
-                                       VecX::Zero(1),
-                                       qp.Qxx_t);
-
-    costs[qp.dims.horizon]->gradient(_guess.x.stage(qp.dims.horizon),
-                                     VecX::Zero(1),
-                                     qp.qx_t,
-                                     tmpVec);
-
-    if (constraints[qp.dims.horizon] != nullptr)
-    {
-        constraints[qp.dims.horizon]->hessprod_xx(
-          _guess.x.stage(qp.dims.horizon),
-          VecX::Zero(1),
-          _guess.mu.stage(qp.dims.horizon),
-          tmpMat);
-        qp.Qxx_t += tmpMat;
-
-        // TODO: Size 1 vector for u (merge_constraints issue)
-        constraints[qp.dims.horizon]->gradient(_guess.x.stage(qp.dims.horizon),
-                                               VecX::Zero(1),
-                                               qp.Dt,
-                                               tmpMat);
-        VecX ct = constraints[qp.dims.horizon]->evaluate(
-          _guess.x.stage(qp.dims.horizon),
-          VecX::Zero(1));
-        qp.cl_t = constraints[qp.dims.horizon]->right_minus(
-          constraints[qp.dims.horizon]->lower_bound(),
-          ct);
-        qp.cu_t = constraints[qp.dims.horizon]->right_minus(
-          constraints[qp.dims.horizon]->upper_bound(),
-          ct);
-    }
-    else
-    {
-        qp.Dt   = MatX::Zero(0, qp.dims.stage_state[qp.dims.horizon]);
-        qp.cl_t = VecX::Zero(0);
-        qp.cu_t = VecX::Zero(0);
-    }
-
-    return qp;
-}
-
 SolverState ssqp::_check_termination()
 {
     ZoneScopedN("SSQP: _check_termination");
@@ -552,75 +371,95 @@ SolverState ssqp::_check_termination()
     FlatVec lagrangian_du(_cost_du, false);
 
     // Cost gradients for loose success
-    VecX dx, du;
-    MatX dX, dU;
+    VecX tmp_vec;
+    MatX tmp_mat;
 
     // Add terminal terms for x
-    costs[horizon]->gradient(_guess.x.stage(horizon), VecX::Zero(1), dx, du);
+    costs[horizon]->gradient(_guess.x.stage(horizon),
+                             VecX::Zero(1),
+                             _qp.qx_t,
+                             tmp_vec);
 
-    lagrangian_dx.stage(horizon) += dx;
+    lagrangian_dx.stage(horizon) += _qp.qx_t;
     // Add contribution from previous integration step (λ)
     lagrangian_dx.stage(horizon) -= _guess.lambda.stage(horizon - 1);
 
-    _cost_dx.stage(horizon) = dx;
+    _cost_dx.stage(horizon) = _qp.qx_t;
 
     // Add constraint terms for terminal x
     if (constraints[horizon] != nullptr)
     {
         constraints[horizon]->gradient(_guess.x.stage(horizon),
                                        VecX::Zero(1),
-                                       dX,
-                                       dU);
+                                       _qp.Dt,
+                                       tmp_mat);
 
         lagrangian_dx.stage(horizon).noalias() -=
-          dX.transpose() * _guess.mu.stage(horizon);
+          _qp.Dt.transpose() * _guess.mu.stage(horizon);
     }
 
     // Add k=0 terms for u
-    costs[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dx, du);
-    lagrangian_du.stage(0) += du;
+    costs[0]->gradient(_guess.x.stage(0),
+                       _guess.u.stage(0),
+                       _qp.stages[0].qx,
+                       _qp.stages[0].qu);
+    lagrangian_du.stage(0) += _qp.stages[0].qu;
 
-    _cost_du.stage(0) = du;
+    _cost_du.stage(0) = _qp.stages[0].qu;
 
-    dynamics[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
-    lagrangian_du.stage(0).noalias() += dU.transpose() * _guess.lambda.stage(0);
+    dynamics[0]->gradient(_guess.x.stage(0),
+                          _guess.u.stage(0),
+                          _qp.stages[0].A,
+                          _qp.stages[0].B);
+    lagrangian_du.stage(0).noalias() +=
+      _qp.stages[0].B.transpose() * _guess.lambda.stage(0);
 
     if (constraints[0] != nullptr)
     {
-        constraints[0]->gradient(_guess.x.stage(0), _guess.u.stage(0), dX, dU);
-        lagrangian_du.stage(0).noalias() -= dU.transpose() * _guess.mu.stage(0);
+        constraints[0]->gradient(_guess.x.stage(0),
+                                 _guess.u.stage(0),
+                                 _qp.stages[0].D,
+                                 _qp.stages[0].E);
+        lagrangian_du.stage(0).noalias() -=
+          _qp.stages[0].E.transpose() * _guess.mu.stage(0);
     }
 
     // Ignore x0 terms since it is not being optimized
     for (uint k = 1; k < horizon; ++k)
     {
         // Compute cost jacobian
-        costs[k]->gradient(_guess.x.stage(k), _guess.u.stage(k), dx, du);
-        lagrangian_dx.stage(k) += dx;
-        lagrangian_du.stage(k) += du;
+        costs[k]->gradient(_guess.x.stage(k),
+                           _guess.u.stage(k),
+                           _qp.stages[k].qx,
+                           _qp.stages[k].qu);
+        lagrangian_dx.stage(k) += _qp.stages[k].qx;
+        lagrangian_du.stage(k) += _qp.stages[k].qu;
 
-        _cost_dx.stage(k) = dx;
-        _cost_du.stage(k) = du;
+        _cost_dx.stage(k) = _qp.stages[k].qx;
+        _cost_du.stage(k) = _qp.stages[k].qu;
 
         // Compute dynamics gap jacobian
-        dynamics[k]->gradient(_guess.x.stage(k), _guess.u.stage(k), dX, dU);
+        dynamics[k]->gradient(_guess.x.stage(k),
+                              _guess.u.stage(k),
+                              _qp.stages[k].A,
+                              _qp.stages[k].B);
         lagrangian_dx.stage(k).noalias() +=
-          dX.transpose() * _guess.lambda.stage(k);
+          _qp.stages[k].A.transpose() * _guess.lambda.stage(k);
         lagrangian_dx.stage(k) -= _guess.lambda.stage(k - 1);
         lagrangian_du.stage(k).noalias() +=
-          dU.transpose() * _guess.lambda.stage(k);
+          _qp.stages[k].B.transpose() * _guess.lambda.stage(k);
 
         // Compute constraint jacobian
         if (constraints[k] != nullptr)
         {
             constraints[k]->gradient(_guess.x.stage(k),
                                      _guess.u.stage(k),
-                                     dX,
-                                     dU);
+                                     _qp.stages[k].D,
+                                     _qp.stages[k].E);
             lagrangian_dx.stage(k).noalias() -=
-              dX.transpose() * _guess.mu.stage(k);
+              _qp.stages[k].D.transpose() * _guess.mu.stage(k);
             lagrangian_du.stage(k).noalias() -=
-              dU.transpose() * _guess.mu.stage(k);
+              _qp.stages[k].E.transpose() * _guess.mu.stage(k);
         }
     }
 
@@ -695,6 +534,8 @@ SolverState ssqp::_check_termination()
 
 double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 {
+    ZoneScopedN("SSQP: _lf");
+
     static const uint           horizon = _model.horizon();
     double                      sum     = 0.0;
     const model::CostsContainer costs   = _model.costs();
@@ -710,6 +551,8 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
                     FlatVec &du) const
 {
+    ZoneScopedN("SSQP: _lf_grad");
+
     static const uint           horizon = _model.horizon();
     const model::CostsContainer costs   = _model.costs();
 
@@ -727,6 +570,8 @@ void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
 double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 {
+    ZoneScopedN("SSQP: _gammaf");
+
     static const uint              horizon  = _model.horizon();
     const model::DynamicsContainer dynamics = _model.dynamics();
     double                         sum      = 0.0;
@@ -767,6 +612,8 @@ double ssqp::_gammaf_softmax(const FlatVec &x, const FlatVec &u) const
 void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
                         FlatVec &du) const
 {
+    ZoneScopedN("SSQP: _gammaf_grad");
+
     static const uint              horizon  = _model.horizon();
     const model::DynamicsContainer dynamics = _model.dynamics();
 
@@ -811,6 +658,8 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
 double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 {
+    ZoneScopedN("SSQP: _cf");
+
     static const uint                 horizon     = _model.horizon();
     const model::ConstraintsContainer constraints = _model.constraints();
     double                            sum         = 0.0;
@@ -898,6 +747,8 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
                     FlatVec &du) const
 {
+    ZoneScopedN("SSQP: _cf_grad");
+
     static const uint                 horizon     = _model.horizon();
     const model::ConstraintsContainer constraints = _model.constraints();
 

@@ -59,16 +59,16 @@ class admm_qp
 
     admm_qp(const QPData &qp, const Params &params = Params::Default());
 
-    void reset(const QPData &qp);
+    void reset();
 
     void increaseRegularization();
 
     SolverState solve(Solution &sol);
 
   protected:
-    QPData   _qp;
-    Params   _params;
-    Solution _solution;
+    const QPData &_qp;
+    Params        _params;
+    Solution      _solution;
 
     FlatVec      _rho, _rho_inv;
     double       _rho_common;
