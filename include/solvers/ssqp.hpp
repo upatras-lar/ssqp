@@ -75,6 +75,16 @@ class ssqp
         Guess(const model::Dimensions &dims, const model::Dimensions &lin_dims);
     };
 
+    struct IterationConvergenceData
+    {
+        // QP iterations
+        uint qp_iters;
+        // Step size
+        double step_size;
+        // Lagrangian norms
+        double norm_dx, norm_du;
+    };
+
     ssqp(model::Model &model, const Params &params = Params::Default(),
          const admm_qp::Params &admm_params = admm_qp::Params::Default());
 
@@ -98,6 +108,9 @@ class ssqp
     uint _stale_iters;
 
     double _tolerance_init;
+
+    double                                _total_duration;
+    std::vector<IterationConvergenceData> _iteration_convergence_data;
 
     template<bool withGradients>
     void _setup_qp();

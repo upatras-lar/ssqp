@@ -29,8 +29,9 @@ bool filter(const Point &previous, const Point &next,
         }
     }
 
-    return v1 < ff1(previous.x, previous.u) ||
-           v2 < ff2(previous.x, previous.u) || v3 < ff3(previous.x, previous.u);
+    return v1 <= ff1(previous.x, previous.u) ||
+           v2 <= ff2(previous.x, previous.u) ||
+           v3 <= ff3(previous.x, previous.u);
 }
 
 }

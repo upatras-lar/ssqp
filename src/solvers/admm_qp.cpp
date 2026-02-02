@@ -179,6 +179,11 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     return admm_state;
 }
 
+uint admm_qp::iterations() const
+{
+    return _iter;
+}
+
 void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
                                    const FlatVec &z_prev, const FlatVec &y_prev)
 {

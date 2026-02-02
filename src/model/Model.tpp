@@ -557,7 +557,7 @@ Model::_makeStageIDTorqueConstraints(
             uint constraint_idx;
             if constexpr (FloatingBase)
             {
-                constraint_idx = 6 + _actuated_joints[i];
+                constraint_idx = _actuated_joints[i];
             }
             else
             {
