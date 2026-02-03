@@ -25,7 +25,55 @@ void bind_ssqp(nb::module_ &m)
       .value("Ongoing", SolverState::ONGOING)
       .export_values();
 
+    nb::class_<ssqp::Params>(m, "ssqpParams")
+      .def(nb::init<>())
+      .def_rw("max_iter", &ssqp::Params::max_iter)
+      .def_rw("tolerance", &ssqp::Params::tolerance)
+      .def_rw("tolerance_final", &ssqp::Params::tolerance_final)
+      .def_rw("tolerance_update_steps", &ssqp::Params::tolerance_update_steps)
+      .def_rw("loose_success", &ssqp::Params::loose_success)
+      .def_rw("loose_success_tolerance", &ssqp::Params::loose_success_tolerance)
+      .def_rw("loose_success_stale_iters",
+              &ssqp::Params::loose_success_stale_iters)
+      .def_rw("use_filter", &ssqp::Params::use_filter)
+      .def_rw("filter_size", &ssqp::Params::filter_size)
+      .def_rw("merit_mu_gamma", &ssqp::Params::merit_mu_gamma)
+      .def_rw("merit_mu_c", &ssqp::Params::merit_mu_c)
+      .def_rw("merit_armijo_beta", &ssqp::Params::merit_armijo_beta)
+      .def_rw("inv_alpha_scale_factor", &ssqp::Params::inv_alpha_scale_factor)
+      .def_rw("min_alpha", &ssqp::Params::min_alpha)
+      .def_rw("skip_regularization", &ssqp::Params::skip_regularization)
+      .def_rw("accept_worse_update", &ssqp::Params::accept_worse_update);
+
+    nb::class_<admm_qp::Params>(m, "admmParams")
+      .def(nb::init<>())
+      .def_rw("init_rho", &admm_qp::Params::init_rho)
+      .def_rw("alpha", &admm_qp::Params::alpha)
+      .def_rw("sigma", &admm_qp::Params::sigma)
+      .def_rw("rho_min", &admm_qp::Params::rho_min)
+      .def_rw("rho_max", &admm_qp::Params::rho_max)
+      .def_rw("adaptive_rho_tolerance",
+              &admm_qp::Params::adaptive_rho_tolerance)
+      .def_rw("rho_update_iter_freq", &admm_qp::Params::rho_update_iter_freq)
+      .def_rw("max_iter", &admm_qp::Params::max_iter)
+      .def_rw("abs_tolerance", &admm_qp::Params::abs_tolerance)
+      .def_rw("abs_tolerance_final", &admm_qp::Params::abs_tolerance_final)
+      .def_rw("rel_tolerance", &admm_qp::Params::rel_tolerance)
+      .def_rw("rel_tolerance_final", &admm_qp::Params::rel_tolerance_final)
+      .def_rw("tolerance_update_steps",
+              &admm_qp::Params::tolerance_update_steps)
+      .def_rw("warm_start", &admm_qp::Params::warm_start)
+      .def_rw("reset_rho", &admm_qp::Params::reset_rho)
+      .def_rw("reset_y", &admm_qp::Params::reset_y);
+
     nb::class_<ssqp>(m, "ssqp")
+      .def(nb::init<model::Model &,
+                    const ssqp::Params &,
+                    const admm_qp::Params &>(),
+           nb::keep_alive<1, 2>(),
+           nb::arg("model"),
+           nb::arg("params")      = ssqp::Params::Default(),
+           nb::arg("admm_params") = admm_qp::Params::Default())
       .def(
         "__init__",
         [](ssqp *self, Model &model, nb::kwargs kwargs)
@@ -94,6 +142,16 @@ void bind_ssqp(nb::module_ &m)
             if (kwargs.contains("min_alpha"))
             {
                 params.min_alpha = nb::cast<double>(kwargs["min_alpha"]);
+            }
+            if (kwargs.contains("skip_regularization"))
+            {
+                params.skip_regularization =
+                  nb::cast<bool>(kwargs["regularization"]);
+            }
+            if (kwargs.contains("accept_worse_update"))
+            {
+                params.accept_worse_update =
+                  nb::cast<bool>(kwargs["accept_worse_update"]);
             }
 
             admm_qp::Params admm_params;

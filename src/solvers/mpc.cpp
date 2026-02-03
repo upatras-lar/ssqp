@@ -6,10 +6,15 @@ namespace ssqp
 {
 namespace solvers
 {
-MPC::MPC(model::Model &model, const Params &params)
+MPC::MPC(model::Model &model, const Params &params,
+         const ssqp::Params &ssqp_params, const admm_qp::Params &admm_params)
   : _model(model)
-  , _params(params)
+  , _ssqp_params(ssqp_params)
+  , _admm_params(admm_params)
 {
+    _ssqp_params.max_iter = params.sqp_iters;
+    _admm_params.max_iter = params.admm_iters;
+
     if (!model.finalized())
     {
         model.finalize();
@@ -72,15 +77,7 @@ std::pair<FlatVec, FlatVec> MPC::step(const FlatVec &states,
 
 std::pair<FlatVec, FlatVec> MPC::step()
 {
-    ssqp::Params ssqp_params;
-    ssqp_params.max_iter = _params.sqp_iters;
-
-    admm_qp::Params admm_params;
-    admm_params.max_iter  = _params.admm_iters;
-    admm_params.reset_rho = false;
-    admm_params.reset_y   = false;
-
-    ssqp        solver(_model, ssqp_params, admm_params);
+    ssqp        solver(_model, _ssqp_params, _admm_params);
     ssqp::Guess solution(_model.dims(), _model.linear_dims());
     SolverState state = solver.solve(solution);
 

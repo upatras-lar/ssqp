@@ -58,6 +58,12 @@ class ssqp
         double inv_alpha_scale_factor = 2.0;
         double min_alpha              = 1e-4;
 
+        // Whether to update with min_alpha if it is reached
+        // Automatically also skips regularization
+        bool accept_worse_update = false;
+        // Whether to skip regularization step if line search fails
+        bool skip_regularization = false;
+
         static Params Default()
         {
             return {};
