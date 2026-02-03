@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <robot name="panda">
     <!-- Panda link 0 -->
     <link name="panda_link0">

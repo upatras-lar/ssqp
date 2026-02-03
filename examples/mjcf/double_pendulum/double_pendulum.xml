@@ -1,0 +1,85 @@
+<mujoco model="double_pendulum">
+    <visual>
+        <global azimuth="180" />
+    </visual>
+
+    <default>
+        <default class="robot">
+            <default class="motor">
+                <joint />
+                <motor />
+            </default>
+            <default class="visual">
+
+                <geom material="visualgeom" contype="0" conaffinity="0" group="2" />
+            </default>
+            <default class="collision">
+                <geom material="collision_material" condim="3" contype="0" conaffinity="1"
+                    priority="1" group="1" solref="0.005 1" solimp="0.99 0.999 1e-05"
+                    friction="1 0.01 0.01" />
+            </default>
+        </default>
+    </default>
+
+    <compiler angle="radian" />
+
+    <asset>
+        <material name="gray" rgba="0.5 0.5 0.5 1" />
+        <material name="default_material" rgba="1 1 1 1" />
+        <material name="collision_material" rgba="1.0 0.28 0.1 1" />
+    </asset>
+
+    <worldbody>
+        <body name="base_link" pos="0.00000000 0.00000000 0.10000000" quat="1 0 0 0"
+            childclass="robot">
+            <geom name="base_link_visual" pos="0 0 0" quat="1 0 0 0" material="gray" type="box"
+                size="0.01 0.01 0.01" class="visual" />
+            <body name="joint1_sphere" pos="0 0 0" quat="1.0 0.0 0.0 0.0">
+                <joint name="joint1" type="hinge" ref="0.0" class="motor" range="-3.14 3.14"
+                    axis="1 0 0" />
+                <geom name="joint1_sphere_visual" pos="0 0 0" quat="1 0 0 0"
+                    material="default_material" type="sphere" size="0.01" class="visual" />
+                <body name="link1" pos="0 0 0" quat="1 0 0 0">
+                    <inertial pos="0 0 -0.05" quat="1.0 0.0 0.0 0.0" mass="0.10548177618443695"
+                        diaginertia="0.00046166221821039165 0.00046166221821039165 0.00046166221821039165" />
+                    <geom name="link1_visual" pos="0 0 -0.025" quat="1.0 0.0 0.0 0.0"
+                        material="default_material" type="cylinder" size="0.005 0.025"
+                        class="visual" />
+                    <body name="joint2_sphere" pos="0 0 -0.05" quat="1.0 0.0 0.0 0.0">
+                        <joint name="joint2" type="hinge" ref="0.0" class="motor" range="-3.14 3.14"
+                            axis="1 0 0" />
+                        <geom name="joint2_sphere_visual" pos="0 0 0" quat="1 0 0 0"
+                            material="default_material" type="sphere" size="0.01" class="visual" />
+                        <body name="link2" pos="0 0 0" quat="1 0 0 0">
+                            <inertial pos="0 0 -0.03670036749567022" quat="1.0 0.0 0.0 0.0"
+                                mass="0.07619744360415454"
+                                diaginertia="0.00023702395072092597 0.00023702395072092597 0.00023702395072092597" />
+                            <geom name="link2_visual" pos="0 0 -0.025" quat="1.0 0.0 0.0 0.0"
+                                material="default_material" type="cylinder" size="0.005 0.025"
+                                class="visual" />
+                        </body>
+                    </body>
+                </body>
+            </body>
+            <site name="base_link_site" pos="0 0 0" quat="1 0 0 0" />
+            <camera name="front_camera" mode="track" fovy="90.0"
+                quat="0 0 0 1"
+                pos="0.0 2.0 0.5" />
+            <camera name="side_camera" mode="track" fovy="90.0"
+                quat="-0.5 -0.4999999999999999 0.5 0.5000000000000001" pos="-2.0 0.0 0.5" />
+        </body>
+    </worldbody>
+
+    <actuator>
+        <motor name="joint1_ctrl" joint="joint1" class="motor" />
+        <motor name="joint2_ctrl" joint="joint2" class="motor" />
+    </actuator>
+
+    <sensor>
+        <framepos name="base_link_site_pos" objtype="site" objname="base_link_site" />
+        <framequat name="base_link_site_quat" objtype="site" objname="base_link_site" />
+        <framelinvel name="base_link_site_linvel" objtype="site" objname="base_link_site" />
+        <frameangvel name="base_link_site_angvel" objtype="site" objname="base_link_site" />
+        <velocimeter name="base_link_site_vel" site="base_link_site" />
+    </sensor>
+</mujoco>

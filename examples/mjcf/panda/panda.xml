@@ -1,245 +1,255 @@
 <mujoco model="panda">
-  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+    <compiler angle="radian" meshdir="assets" autolimits="true" />
 
-  <option integrator="implicitfast" timestep="0.01"/>
+    <option integrator="implicitfast" timestep="0.01" />
 
-  <default>
-    <default class="panda">
-      <material specular="0.5" shininess="0.25"/>
-      <joint armature="0.1" damping="1" axis="0 0 1"/>
-      <general dyntype="none" biastype="affine"/>
-      <default class="finger">
-        <joint axis="0 1 0" type="slide" range="0 0.04"/>
-      </default>
-      <default class="visual">
-        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
-      </default>
-      <default class="collision">
-        <geom type="mesh" group="3"/>
-      </default>
+    <default>
+        <default class="panda">
+            <material specular="0.5" shininess="0.25" />
+            <joint armature="0.1" damping="1" axis="0 0 1" />
+            <general dyntype="none" biastype="affine" />
+            <default class="finger">
+                <joint axis="0 1 0" type="slide" range="0 0.04" />
+            </default>
+            <default class="visual">
+                <geom type="mesh" contype="0" conaffinity="0" group="2" />
+            </default>
+            <default class="collision">
+                <geom type="mesh" group="3" />
+            </default>
+        </default>
     </default>
-  </default>
 
-  <asset>
-    <material class="panda" name="white" rgba="1 1 1 1"/>
-    <material class="panda" name="off_white" rgba="0.901961 0.921569 0.929412 1"/>
-    <material class="panda" name="black" rgba="0.25 0.25 0.25 1"/>
-    <material class="panda" name="green" rgba="0 1 0 1"/>
-    <material class="panda" name="light_blue" rgba="0.039216 0.541176 0.780392 1"/>
+    <asset>
+        <material class="panda" name="white" rgba="1 1 1 1" />
+        <material class="panda" name="off_white" rgba="0.901961 0.921569 0.929412 1" />
+        <material class="panda" name="black" rgba="0.25 0.25 0.25 1" />
+        <material class="panda" name="green" rgba="0 1 0 1" />
+        <material class="panda" name="light_blue" rgba="0.039216 0.541176 0.780392 1" />
 
-    <!-- collision -->
-    <mesh name="link0_c" file="link0.stl"/>
-    <mesh name="link1_c" file="link1.stl"/>
-    <mesh name="link2_c" file="link2.stl"/>
-    <mesh name="link3_c" file="link3.stl"/>
-    <mesh name="link4_c" file="link4.stl"/>
-    <mesh name="link5_c0" file="link5_collision_0.obj"/>
-    <mesh name="link5_c1" file="link5_collision_1.obj"/>
-    <mesh name="link5_c2" file="link5_collision_2.obj"/>
-    <mesh name="link6_c" file="link6.stl"/>
-    <mesh name="link7_c" file="link7.stl"/>
-    <mesh name="hand_c" file="hand.stl"/>
+        <!-- collision -->
+        <mesh name="link0_c" file="link0.stl" />
+        <mesh name="link1_c" file="link1.stl" />
+        <mesh name="link2_c" file="link2.stl" />
+        <mesh name="link3_c" file="link3.stl" />
+        <mesh name="link4_c" file="link4.stl" />
+        <mesh name="link5_c0" file="link5_collision_0.obj" />
+        <mesh name="link5_c1" file="link5_collision_1.obj" />
+        <mesh name="link5_c2" file="link5_collision_2.obj" />
+        <mesh name="link6_c" file="link6.stl" />
+        <mesh name="link7_c" file="link7.stl" />
+        <mesh name="hand_c" file="hand.stl" />
 
-    <!-- visuals (unchanged) -->
-    <mesh file="link0_0.obj"/>
-    <mesh file="link0_1.obj"/>
-    <mesh file="link0_2.obj"/>
-    <mesh file="link0_3.obj"/>
-    <mesh file="link0_4.obj"/>
-    <mesh file="link0_5.obj"/>
-    <mesh file="link0_7.obj"/>
-    <mesh file="link0_8.obj"/>
-    <mesh file="link0_9.obj"/>
-    <mesh file="link0_10.obj"/>
-    <mesh file="link0_11.obj"/>
-    <mesh file="link1.obj"/>
-    <mesh file="link2.obj"/>
-    <mesh file="link3_0.obj"/>
-    <mesh file="link3_1.obj"/>
-    <mesh file="link3_2.obj"/>
-    <mesh file="link3_3.obj"/>
-    <mesh file="link4_0.obj"/>
-    <mesh file="link4_1.obj"/>
-    <mesh file="link4_2.obj"/>
-    <mesh file="link4_3.obj"/>
-    <mesh file="link5_0.obj"/>
-    <mesh file="link5_1.obj"/>
-    <mesh file="link5_2.obj"/>
-    <mesh file="link6_0.obj"/>
-    <mesh file="link6_1.obj"/>
-    <mesh file="link6_2.obj"/>
-    <mesh file="link6_3.obj"/>
-    <mesh file="link6_4.obj"/>
-    <mesh file="link6_5.obj"/>
-    <mesh file="link6_6.obj"/>
-    <mesh file="link6_7.obj"/>
-    <mesh file="link6_8.obj"/>
-    <mesh file="link6_9.obj"/>
-    <mesh file="link6_10.obj"/>
-    <mesh file="link6_11.obj"/>
-    <mesh file="link6_12.obj"/>
-    <mesh file="link6_13.obj"/>
-    <mesh file="link6_14.obj"/>
-    <mesh file="link6_15.obj"/>
-    <mesh file="link6_16.obj"/>
-    <mesh file="link7_0.obj"/>
-    <mesh file="link7_1.obj"/>
-    <mesh file="link7_2.obj"/>
-    <mesh file="link7_3.obj"/>
-    <mesh file="link7_4.obj"/>
-    <mesh file="link7_5.obj"/>
-    <mesh file="link7_6.obj"/>
-    <mesh file="link7_7.obj"/>
-    <mesh file="hand_0.obj"/>
-    <mesh file="hand_1.obj"/>
-    <mesh file="hand_2.obj"/>
-    <mesh file="hand_3.obj"/>
-    <mesh file="hand_4.obj"/>
-    <mesh file="finger_0.obj"/>
-    <mesh file="finger_1.obj"/>
-  </asset>
+        <!-- visuals (unchanged) -->
+        <mesh file="link0_0.obj" />
+        <mesh file="link0_1.obj" />
+        <mesh file="link0_2.obj" />
+        <mesh file="link0_3.obj" />
+        <mesh file="link0_4.obj" />
+        <mesh file="link0_5.obj" />
+        <mesh file="link0_7.obj" />
+        <mesh file="link0_8.obj" />
+        <mesh file="link0_9.obj" />
+        <mesh file="link0_10.obj" />
+        <mesh file="link0_11.obj" />
+        <mesh file="link1.obj" />
+        <mesh file="link2.obj" />
+        <mesh file="link3_0.obj" />
+        <mesh file="link3_1.obj" />
+        <mesh file="link3_2.obj" />
+        <mesh file="link3_3.obj" />
+        <mesh file="link4_0.obj" />
+        <mesh file="link4_1.obj" />
+        <mesh file="link4_2.obj" />
+        <mesh file="link4_3.obj" />
+        <mesh file="link5_0.obj" />
+        <mesh file="link5_1.obj" />
+        <mesh file="link5_2.obj" />
+        <mesh file="link6_0.obj" />
+        <mesh file="link6_1.obj" />
+        <mesh file="link6_2.obj" />
+        <mesh file="link6_3.obj" />
+        <mesh file="link6_4.obj" />
+        <mesh file="link6_5.obj" />
+        <mesh file="link6_6.obj" />
+        <mesh file="link6_7.obj" />
+        <mesh file="link6_8.obj" />
+        <mesh file="link6_9.obj" />
+        <mesh file="link6_10.obj" />
+        <mesh file="link6_11.obj" />
+        <mesh file="link6_12.obj" />
+        <mesh file="link6_13.obj" />
+        <mesh file="link6_14.obj" />
+        <mesh file="link6_15.obj" />
+        <mesh file="link6_16.obj" />
+        <mesh file="link7_0.obj" />
+        <mesh file="link7_1.obj" />
+        <mesh file="link7_2.obj" />
+        <mesh file="link7_3.obj" />
+        <mesh file="link7_4.obj" />
+        <mesh file="link7_5.obj" />
+        <mesh file="link7_6.obj" />
+        <mesh file="link7_7.obj" />
+        <mesh file="hand_0.obj" />
+        <mesh file="hand_1.obj" />
+        <mesh file="hand_2.obj" />
+        <mesh file="hand_3.obj" />
+        <mesh file="hand_4.obj" />
+        <mesh file="finger_0.obj" />
+        <mesh file="finger_1.obj" />
+    </asset>
 
-  <worldbody>
-    <light name="top" pos="0 0 2" mode="trackcom"/>
+    <worldbody>
+        <light name="top" pos="0 0 2" mode="trackcom" />
 
-    <body name="link0" childclass="panda">
-      <geom mesh="link0_0" material="off_white" class="visual"/>
-      <geom mesh="link0_1" material="black" class="visual"/>
-      <geom mesh="link0_2" material="off_white" class="visual"/>
-      <geom mesh="link0_3" material="black" class="visual"/>
-      <geom mesh="link0_4" material="off_white" class="visual"/>
-      <geom mesh="link0_5" material="black" class="visual"/>
-      <geom mesh="link0_7" material="white" class="visual"/>
-      <geom mesh="link0_8" material="white" class="visual"/>
-      <geom mesh="link0_9" material="black" class="visual"/>
-      <geom mesh="link0_10" material="off_white" class="visual"/>
-      <geom mesh="link0_11" material="white" class="visual"/>
-      <geom mesh="link0_c" class="collision"/>
+        <body name="link0" childclass="panda">
+            <geom mesh="link0_0" material="off_white" class="visual" />
+            <geom mesh="link0_1" material="black" class="visual" />
+            <geom mesh="link0_2" material="off_white" class="visual" />
+            <geom mesh="link0_3" material="black" class="visual" />
+            <geom mesh="link0_4" material="off_white" class="visual" />
+            <geom mesh="link0_5" material="black" class="visual" />
+            <geom mesh="link0_7" material="white" class="visual" />
+            <geom mesh="link0_8" material="white" class="visual" />
+            <geom mesh="link0_9" material="black" class="visual" />
+            <geom mesh="link0_10" material="off_white" class="visual" />
+            <geom mesh="link0_11" material="white" class="visual" />
+            <geom mesh="link0_c" class="collision" />
 
-      <body name="link1" pos="0 0 0.333">
-        <joint name="joint1" range="-2.8973 2.8973"/>
-        <geom material="white" mesh="link1" class="visual"/>
-        <geom mesh="link1_c" class="collision"/>
+            <body name="link1" pos="0 0 0.333">
+                <joint name="joint1" range="-2.8973 2.8973" />
+                <geom material="white" mesh="link1" class="visual" />
+                <geom mesh="link1_c" class="collision" />
 
-        <body name="link2" quat="1 -1 0 0">
-          <joint name="joint2" range="-1.7628 1.7628"/>
-          <geom material="white" mesh="link2" class="visual"/>
-          <geom mesh="link2_c" class="collision"/>
+                <body name="link2" quat="1 -1 0 0">
+                    <joint name="joint2" range="-1.7628 1.7628" />
+                    <geom material="white" mesh="link2" class="visual" />
+                    <geom mesh="link2_c" class="collision" />
 
-          <body name="link3" pos="0 -0.316 0" quat="1 1 0 0">
-            <joint name="joint3" range="-2.8973 2.8973"/>
-            <geom mesh="link3_0" material="white" class="visual"/>
-            <geom mesh="link3_1" material="white" class="visual"/>
-            <geom mesh="link3_2" material="white" class="visual"/>
-            <geom mesh="link3_3" material="black" class="visual"/>
-            <geom mesh="link3_c" class="collision"/>
+                    <body name="link3" pos="0 -0.316 0" quat="1 1 0 0">
+                        <joint name="joint3" range="-2.8973 2.8973" />
+                        <geom mesh="link3_0" material="white" class="visual" />
+                        <geom mesh="link3_1" material="white" class="visual" />
+                        <geom mesh="link3_2" material="white" class="visual" />
+                        <geom mesh="link3_3" material="black" class="visual" />
+                        <geom mesh="link3_c" class="collision" />
 
-            <body name="link4" pos="0.0825 0 0" quat="1 1 0 0">
-              <joint name="joint4" range="-3.0718 -0.0698"/>
-              <geom mesh="link4_0" material="white" class="visual"/>
-              <geom mesh="link4_1" material="white" class="visual"/>
-              <geom mesh="link4_2" material="black" class="visual"/>
-              <geom mesh="link4_3" material="white" class="visual"/>
-              <geom mesh="link4_c" class="collision"/>
+                        <body name="link4" pos="0.0825 0 0" quat="1 1 0 0">
+                            <joint name="joint4" range="-3.0718 -0.0698" />
+                            <geom mesh="link4_0" material="white" class="visual" />
+                            <geom mesh="link4_1" material="white" class="visual" />
+                            <geom mesh="link4_2" material="black" class="visual" />
+                            <geom mesh="link4_3" material="white" class="visual" />
+                            <geom mesh="link4_c" class="collision" />
 
-              <body name="link5" pos="-0.0825 0.384 0" quat="1 -1 0 0">
-                <joint name="joint5" range="-2.8973 2.8973"/>
-                <geom mesh="link5_0" material="black" class="visual"/>
-                <geom mesh="link5_1" material="white" class="visual"/>
-                <geom mesh="link5_2" material="white" class="visual"/>
-                <geom mesh="link5_c0" class="collision"/>
-                <geom mesh="link5_c1" class="collision"/>
-                <geom mesh="link5_c2" class="collision"/>
+                            <body name="link5" pos="-0.0825 0.384 0" quat="1 -1 0 0">
+                                <joint name="joint5" range="-2.8973 2.8973" />
+                                <geom mesh="link5_0" material="black" class="visual" />
+                                <geom mesh="link5_1" material="white" class="visual" />
+                                <geom mesh="link5_2" material="white" class="visual" />
+                                <geom mesh="link5_c0" class="collision" />
+                                <geom mesh="link5_c1" class="collision" />
+                                <geom mesh="link5_c2" class="collision" />
 
-                <body name="link6" quat="1 1 0 0">
-                  <joint name="joint6" range="-0.0175 3.7525"/>
-                  <geom mesh="link6_0" material="off_white" class="visual"/>
-                  <geom mesh="link6_1" material="white" class="visual"/>
-                  <geom mesh="link6_2" material="black" class="visual"/>
-                  <geom mesh="link6_3" material="white" class="visual"/>
-                  <geom mesh="link6_4" material="white" class="visual"/>
-                  <geom mesh="link6_5" material="white" class="visual"/>
-                  <geom mesh="link6_6" material="white" class="visual"/>
-                  <geom mesh="link6_7" material="light_blue" class="visual"/>
-                  <geom mesh="link6_8" material="light_blue" class="visual"/>
-                  <geom mesh="link6_9" material="black" class="visual"/>
-                  <geom mesh="link6_10" material="black" class="visual"/>
-                  <geom mesh="link6_11" material="white" class="visual"/>
-                  <geom mesh="link6_12" material="green" class="visual"/>
-                  <geom mesh="link6_13" material="white" class="visual"/>
-                  <geom mesh="link6_14" material="black" class="visual"/>
-                  <geom mesh="link6_15" material="black" class="visual"/>
-                  <geom mesh="link6_16" material="white" class="visual"/>
-                  <geom mesh="link6_c" class="collision"/>
+                                <body name="link6" quat="1 1 0 0">
+                                    <joint name="joint6" range="-0.0175 3.7525" />
+                                    <geom mesh="link6_0" material="off_white" class="visual" />
+                                    <geom mesh="link6_1" material="white" class="visual" />
+                                    <geom mesh="link6_2" material="black" class="visual" />
+                                    <geom mesh="link6_3" material="white" class="visual" />
+                                    <geom mesh="link6_4" material="white" class="visual" />
+                                    <geom mesh="link6_5" material="white" class="visual" />
+                                    <geom mesh="link6_6" material="white" class="visual" />
+                                    <geom mesh="link6_7" material="light_blue" class="visual" />
+                                    <geom mesh="link6_8" material="light_blue" class="visual" />
+                                    <geom mesh="link6_9" material="black" class="visual" />
+                                    <geom mesh="link6_10" material="black" class="visual" />
+                                    <geom mesh="link6_11" material="white" class="visual" />
+                                    <geom mesh="link6_12" material="green" class="visual" />
+                                    <geom mesh="link6_13" material="white" class="visual" />
+                                    <geom mesh="link6_14" material="black" class="visual" />
+                                    <geom mesh="link6_15" material="black" class="visual" />
+                                    <geom mesh="link6_16" material="white" class="visual" />
+                                    <geom mesh="link6_c" class="collision" />
 
-                  <body name="link7" pos="0.088 0 0" quat="1 1 0 0">
-                    <joint name="joint7" range="-2.8973 2.8973"/>
-                    <geom mesh="link7_0" material="white" class="visual"/>
-                    <geom mesh="link7_1" material="black" class="visual"/>
-                    <geom mesh="link7_2" material="black" class="visual"/>
-                    <geom mesh="link7_3" material="black" class="visual"/>
-                    <geom mesh="link7_4" material="black" class="visual"/>
-                    <geom mesh="link7_5" material="black" class="visual"/>
-                    <geom mesh="link7_6" material="black" class="visual"/>
-                    <geom mesh="link7_7" material="white" class="visual"/>
-                    <geom mesh="link7_c" class="collision"/>
+                                    <body name="link7" pos="0.088 0 0" quat="1 1 0 0">
+                                        <joint name="joint7" range="-2.8973 2.8973" />
+                                        <geom mesh="link7_0" material="white" class="visual" />
+                                        <geom mesh="link7_1" material="black" class="visual" />
+                                        <geom mesh="link7_2" material="black" class="visual" />
+                                        <geom mesh="link7_3" material="black" class="visual" />
+                                        <geom mesh="link7_4" material="black" class="visual" />
+                                        <geom mesh="link7_5" material="black" class="visual" />
+                                        <geom mesh="link7_6" material="black" class="visual" />
+                                        <geom mesh="link7_7" material="white" class="visual" />
+                                        <geom mesh="link7_c" class="collision" />
 
-                    <!-- link8 -->
-                    <body name="link8" pos="0 0 0.107">
-                      <inertial pos="0 0 0.107" mass="1e-10" diaginertia="1e-6 1e-6 1e-6"/>
+                                        <!-- link8 -->
+                                        <body name="link8" pos="0 0 0.107">
+                                            <inertial pos="0 0 0.107" mass="1e-10"
+                                                diaginertia="1e-6 1e-6 1e-6" />
 
-                      <!-- ee frame -->
-                      <body name="ee" pos="0 0 0.103" quat="0.9238795 0 0 -0.3826834">
-                        <inertial pos="0 0 0.103" mass="1e-10" diaginertia="1e-6 1e-6 1e-6"/>
-                      </body>
+                                            <!-- ee frame -->
+                                            <body name="ee" pos="0 0 0.103"
+                                                quat="0.9238795 0 0 -0.3826834">
+                                                <inertial pos="0 0 0.103" mass="1e-10"
+                                                    diaginertia="1e-6 1e-6 1e-6" />
+                                            </body>
 
-                      <!-- hand -->
-                      <body name="hand" quat="0.9238795 0 0 -0.3826834">
-                        <geom mesh="hand_0" material="off_white" class="visual"/>
-                        <geom mesh="hand_1" material="black" class="visual"/>
-                        <geom mesh="hand_2" material="black" class="visual"/>
-                        <geom mesh="hand_3" material="white" class="visual"/>
-                        <geom mesh="hand_4" material="off_white" class="visual"/>
-                        <geom mesh="hand_c" class="collision"/>
+                                            <!-- hand -->
+                                            <body name="hand" quat="0.9238795 0 0 -0.3826834">
+                                                <geom mesh="hand_0" material="off_white"
+                                                    class="visual" />
+                                                <geom mesh="hand_1" material="black" class="visual" />
+                                                <geom mesh="hand_2" material="black" class="visual" />
+                                                <geom mesh="hand_3" material="white" class="visual" />
+                                                <geom mesh="hand_4" material="off_white"
+                                                    class="visual" />
+                                                <geom mesh="hand_c" class="collision" />
 
-                        <body name="left_finger" pos="0 0 0.0584">
-                          <joint name="finger_joint1" class="finger"/>
-                          <geom mesh="finger_0" material="off_white" class="visual"/>
-                          <geom mesh="finger_1" material="black" class="visual"/>
-                          <geom mesh="finger_0" class="collision"/>
+                                                <body name="left_finger" pos="0 0 0.0584">
+                                                    <joint name="finger_joint1" class="finger" />
+                                                    <geom mesh="finger_0" material="off_white"
+                                                        class="visual" />
+                                                    <geom mesh="finger_1" material="black"
+                                                        class="visual" />
+                                                    <geom mesh="finger_0" class="collision" />
+                                                </body>
+
+                                                <body name="right_finger" pos="0 0 0.0584"
+                                                    quat="0 0 0 1">
+                                                    <joint name="finger_joint2" class="finger" />
+                                                    <geom mesh="finger_0" material="off_white"
+                                                        class="visual" />
+                                                    <geom mesh="finger_1" material="black"
+                                                        class="visual" />
+                                                    <geom mesh="finger_0" class="collision" />
+                                                </body>
+
+                                            </body>
+                                        </body>
+                                    </body>
+                                </body>
+                            </body>
                         </body>
-
-                        <body name="right_finger" pos="0 0 0.0584" quat="0 0 0 1">
-                          <joint name="finger_joint2" class="finger"/>
-                          <geom mesh="finger_0" material="off_white" class="visual"/>
-                          <geom mesh="finger_1" material="black" class="visual"/>
-                          <geom mesh="finger_0" class="collision"/>
-                        </body>
-
-                      </body>
                     </body>
-                  </body>
                 </body>
-              </body>
             </body>
-          </body>
         </body>
-      </body>
-    </body>
-  </worldbody>
+    </worldbody>
 
-  <equality>
-    <joint joint1="finger_joint1" joint2="finger_joint2"/>
-  </equality>
+    <equality>
+        <joint joint1="finger_joint1" joint2="finger_joint2" />
+    </equality>
 
-  <actuator>
-    <motor joint="joint1" forcerange="-87 87"/>
-    <motor joint="joint2" forcerange="-87 87"/>
-    <motor joint="joint3" forcerange="-87 87"/>
-    <motor joint="joint4" forcerange="-87 87"/>
-    <motor joint="joint5" forcerange="-12 12"/>
-    <motor joint="joint6" forcerange="-12 12"/>
-    <motor joint="joint7" forcerange="-12 12"/>
-    <motor joint="finger_joint1" forcerange="-20 20"/>
-  </actuator>
+    <actuator>
+        <motor joint="joint1" forcerange="-87 87" />
+        <motor joint="joint2" forcerange="-87 87" />
+        <motor joint="joint3" forcerange="-87 87" />
+        <motor joint="joint4" forcerange="-87 87" />
+        <motor joint="joint5" forcerange="-12 12" />
+        <motor joint="joint6" forcerange="-12 12" />
+        <motor joint="joint7" forcerange="-12 12" />
+        <motor joint="finger_joint1" forcerange="-20 20" />
+    </actuator>
 </mujoco>

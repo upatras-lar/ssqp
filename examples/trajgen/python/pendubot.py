@@ -22,9 +22,8 @@ model = ssqpy.model.Model(
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, 1e-4)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, 1e-5)
-
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, 1e-6)
+u_cost = ssqpy.model.costs.SquaredControlCost(nv, 1e-8)
 config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
     np.array((pi, 0.0)), nq, nv, 10.0, False
 )
@@ -33,7 +32,7 @@ for k in range(H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
 
-    if k > 350:
+    if k > 250:
         model.addCost(k, config_cost)
 
 model.finalize(
@@ -42,7 +41,7 @@ model.finalize(
 
 solver = ssqpy.solvers.ssqp(
     model,
-    tolerance=5e-2,
+    tolerance=1e-2,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,
