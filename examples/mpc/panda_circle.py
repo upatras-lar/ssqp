@@ -2,7 +2,7 @@ import mujoco
 import mujoco.viewer
 import ssqpy
 import numpy as np
-from math import pi, sin, cos, atan2, sqrt
+from math import pi, sin, cos
 from time import time, sleep
 
 PLOT = True

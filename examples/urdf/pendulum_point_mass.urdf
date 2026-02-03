@@ -1,56 +1,56 @@
 <?xml version="1.0"?>
 <robot name="point_mass_pendulum">
-  <!-- Base link (fixed) -->
-  <link name="base_link">
-    <inertial>
-      <mass value="1e-6"/>
-      <origin xyz="0 0 0"/>
-      <inertia ixx="1e-6" iyy="1e-6" izz="1e-6"
-               ixy="0" ixz="0" iyz="0"/>
-    </inertial>
-  </link>
+    <!-- Base link (fixed) -->
+    <link name="base_link">
+        <inertial>
+            <mass value="1e-6" />
+            <origin xyz="0 0 0" />
+            <inertia ixx="1e-6" iyy="1e-6" izz="1e-6"
+                ixy="0" ixz="0" iyz="0" />
+        </inertial>
+    </link>
 
-  <!-- Pendulum link: point mass at the end of a massless rod -->
-  <link name="pendulum_link">
-    <visual>
-      <origin xyz="0 0 -1.0"/>
-      <geometry>
-        <sphere radius="0.05"/>
-      </geometry>
-      <material name="red">
-        <color rgba="0.8 0.2 0.2 1"/>
-      </material>
-    </visual>
-    <inertial>
-      <!-- CoM located at -1.0 m below the pivot -->
-      <origin xyz="0 0 -1.0" rpy="0 0 0"/>
-      <mass value="1.0"/>
-      <!-- Moment of inertia for a point mass: I = m*l^2 -->
-      <inertia ixx="1.0" iyy="1.0" izz="1e-6"
-               ixy="0" ixz="0" iyz="0"/>
-    </inertial>
-  </link>
+    <!-- Pendulum link: point mass at the end of a massless rod -->
+    <link name="pendulum_link">
+        <visual>
+            <origin xyz="0 0 -1.0" />
+            <geometry>
+                <sphere radius="0.05" />
+            </geometry>
+            <material name="red">
+                <color rgba="0.8 0.2 0.2 1" />
+            </material>
+        </visual>
+        <inertial>
+            <!-- CoM located at -1.0 m below the pivot -->
+            <origin xyz="0 0 -1.0" rpy="0 0 0" />
+            <mass value="1.0" />
+            <!-- Moment of inertia for a point mass: I = m*l^2 -->
+            <inertia ixx="1.0" iyy="1.0" izz="1e-6"
+                ixy="0" ixz="0" iyz="0" />
+        </inertial>
+    </link>
 
-  <!-- Revolute joint (pivot) -->
-  <joint name="pivot_joint" type="revolute">
-    <parent link="base_link"/>
-    <child link="pendulum_link"/>
-    <origin xyz="0 0 0"/>
-    <axis xyz="0 1 0"/>
-    <limit lower="-100000.0" upper="100000.0"
-           effort="7.0" velocity="100000.0"/>
-    <dynamics damping="0.1" friction="0.0"/>
-  </joint>
+    <!-- Revolute joint (pivot) -->
+    <joint name="pivot_joint" type="revolute">
+        <parent link="base_link" />
+        <child link="pendulum_link" />
+        <origin xyz="0 0 0" />
+        <axis xyz="0 1 0" />
+        <limit lower="-100000.0" upper="100000.0"
+            effort="7.0" velocity="100000.0" />
+        <dynamics damping="0.1" friction="0.0" />
+    </joint>
 
-  <!-- Actuator (torque input u) -->
-  <transmission name="pendulum_transmission">
-    <type>transmission_interface/SimpleTransmission</type>
-    <actuator name="motor"/>
-    <joint name="pivot_joint"/>
-    <mechanicalReduction>1</mechanicalReduction>
-  </transmission>
+    <!-- Actuator (torque input u) -->
+    <transmission name="pendulum_transmission">
+        <type>transmission_interface/SimpleTransmission</type>
+        <actuator name="motor" />
+        <joint name="pivot_joint" />
+        <mechanicalReduction>1</mechanicalReduction>
+    </transmission>
 
-  <actuator name="motor">
-    <hardwareInterface>EffortJointInterface</hardwareInterface>
-  </actuator>
+    <actuator name="motor">
+        <hardwareInterface>EffortJointInterface</hardwareInterface>
+    </actuator>
 </robot>
