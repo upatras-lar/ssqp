@@ -187,8 +187,14 @@ SolverState ssqp::solve(Guess &guess)
                 _params.min_alpha);
         }
 
-        if (_iteration_convergence_data.back().step_size < _params.min_alpha)
+        if (!_params.accept_worse_update &&
+            _iteration_convergence_data.back().step_size < _params.min_alpha)
         {
+            if (_params.skip_regularization)
+            {
+                throw std::runtime_error("LQR: Regularization failed");
+            }
+
             LOGLN("Line search failed, increasing regularization");
             qp_solver.increaseRegularization();
             --_iter;

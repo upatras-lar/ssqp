@@ -3,6 +3,8 @@
 
 #include "types.hpp"
 #include "model/Model.hpp"
+#include "solvers/ssqp.hpp"
+#include "solvers/admm_qp.hpp"
 
 namespace ssqp
 {
@@ -22,7 +24,9 @@ class MPC
         }
     };
 
-    MPC(model::Model &model, const Params &params = Params::Default());
+    MPC(model::Model &model, const Params &params = Params::Default(),
+        const ssqp::Params &ssqp_params    = ssqp::Params::Default(),
+        const admm_qp::Params &admm_params = admm_qp::Params::Default());
 
     // Receding horizon initialization
     VecX step(const VecX &state);
@@ -36,8 +40,9 @@ class MPC
     std::pair<FlatVec, FlatVec> step();
 
   protected:
-    Params        _params;
-    model::Model &_model;
+    ssqp::Params    _ssqp_params;
+    admm_qp::Params _admm_params;
+    model::Model   &_model;
 
     std::unique_ptr<FlatVec> _prev_states = nullptr, _prev_controls = nullptr;
 };

@@ -35,7 +35,7 @@
             <geom name="base_link_visual" pos="0 0 0" quat="1 0 0 0" material="gray" type="box"
                 size="0.01 0.01 0.01" class="visual" />
             <body name="joint1_sphere" pos="0 0 0" quat="1.0 0.0 0.0 0.0">
-                <joint name="joint1" type="hinge" ref="0.0" class="motor" range="-3.14 3.14"
+                <joint name="joint1" type="hinge" ref="0.0" class="motor" range="-10000 10000"
                     axis="1 0 0" />
                 <geom name="joint1_sphere_visual" pos="0 0 0" quat="1 0 0 0"
                     material="default_material" type="sphere" size="0.01" class="visual" />
@@ -46,7 +46,8 @@
                         material="default_material" type="cylinder" size="0.005 0.025"
                         class="visual" />
                     <body name="joint2_sphere" pos="0 0 -0.05" quat="1.0 0.0 0.0 0.0">
-                        <joint name="joint2" type="hinge" ref="0.0" class="motor" range="-3.14 3.14"
+                        <joint name="joint2" type="hinge" ref="0.0" class="motor"
+                            range="-10000 10000"
                             axis="1 0 0" />
                         <geom name="joint2_sphere_visual" pos="0 0 0" quat="1 0 0 0"
                             material="default_material" type="sphere" size="0.01" class="visual" />
@@ -71,8 +72,8 @@
     </worldbody>
 
     <actuator>
-        <motor name="joint1_ctrl" joint="joint1" class="motor" />
-        <motor name="joint2_ctrl" joint="joint2" class="motor" />
+        <motor name="joint1_ctrl" joint="joint1" class="motor" forcerange="-0.15 0.15" />
+        <motor name="joint2_ctrl" joint="joint2" class="motor" forcerange="-0.15 0.15" />
     </actuator>
 
     <sensor>
