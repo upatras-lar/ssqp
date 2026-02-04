@@ -19,7 +19,7 @@
         <child link="joint1_sphere" />
         <origin xyz="0 0 0" />
         <axis xyz="1 0 0" />
-        <limit lower="-10000" upper="10000" effort="0.15" velocity="25" />
+        <limit lower="-10000" upper="10000" effort="0.1" velocity="25" />
         <dynamics damping="7.634058385430087e-12" friction="0.00305" />
     </joint>
 
@@ -69,7 +69,7 @@
     <link name="joint2_sphere">
         <visual>
             <geometry>
-                <sphere radius="0.01" />
+                <sphere radius="0.006" />
             </geometry>
         </visual>
     </link>
@@ -97,6 +97,21 @@
                 izz="0.00023702395072092597"
                 ixy="0" ixz="0" iyz="0" />
         </inertial>
+    </link>
+
+    <joint name="tip_link" type="fixed">
+        <parent link="link2" />
+        <child link="tip" />
+        <origin xyz="0 0 -0.05" />
+    </joint>
+
+    <!-- Tip -->
+    <link name="tip">
+        <visual>
+            <geometry>
+                <sphere radius="0.006"></sphere>
+            </geometry>
+        </visual>
     </link>
 
 </robot>

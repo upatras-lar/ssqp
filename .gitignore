@@ -11,5 +11,6 @@
 /perf*
 /examples/mpc/mpcvenv
 /examples/trajgen/python/go2_vjump.py
+/examples/real-mpc/*
 __pycache__
 out.txt

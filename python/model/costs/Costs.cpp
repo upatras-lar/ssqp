@@ -109,7 +109,19 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("free_flyer") = false)
-      .def("set_weight", &SquaredJointAngleCost::set_weight, nb::arg("weight"));
+      .def(nb::init<uint, uint, const VecX &, bool>(),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"),
+           nb::arg("free_flyer") = false)
+      .def("set_weight",
+           static_cast<void (SquaredJointAngleCost::*)(const double)>(
+             &SquaredJointAngleCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredJointAngleCost::*)(const VecX &)>(
+             &SquaredJointAngleCost::set_weight),
+           nb::arg("weight"));
 
     nb::class_<SquaredJointVelocityCost, StageCost>(m,
                                                     "SquaredJointVelocityCost")
@@ -117,17 +129,42 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("free_flyer") = false)
+      .def(nb::init<uint, const VecX &, bool>(),
+           nb::arg("nv"),
+           nb::arg("weight"),
+           nb::arg("free_flyer") = false)
       .def("set_weight",
-           &SquaredJointVelocityCost::set_weight,
+           static_cast<void (SquaredJointVelocityCost::*)(const double)>(
+             &SquaredJointVelocityCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredJointVelocityCost::*)(const VecX &)>(
+             &SquaredJointVelocityCost::set_weight),
            nb::arg("weight"));
 
     nb::class_<SquaredControlCost, StageCost>(m, "SquaredControlCost")
       .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"))
-      .def("set_weight", &SquaredControlCost::set_weight, nb::arg("weight"));
+      .def(nb::init<uint, const VecX &>(), nb::arg("nv"), nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredControlCost::*)(const double)>(
+             &SquaredControlCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredControlCost::*)(const VecX &)>(
+             &SquaredControlCost::set_weight),
+           nb::arg("weight"));
 
     nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost")
       .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"))
-      .def("set_weight", &SquaredForceCost::set_weight, nb::arg("weight"));
+      .def(nb::init<uint, const VecX &>(), nb::arg("nv"), nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredForceCost::*)(const double)>(
+             &SquaredForceCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredForceCost::*)(const VecX &)>(
+             &SquaredForceCost::set_weight),
+           nb::arg("weight"));
 
     nb::class_<SquaredConfigurationDifferenceCost, StageCost>(
       m,
@@ -138,12 +175,25 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("free_flyer"))
+      .def(nb::init<const VecX &, uint, uint, const VecX &, bool>(),
+           nb::arg("desired_configuration"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"),
+           nb::arg("free_flyer"))
       .def("set_desired_configuration",
            &SquaredConfigurationDifferenceCost::set_desired_configuration,
            nb::arg("desired_configuration"))
-      .def("set_weight",
-           &SquaredConfigurationDifferenceCost::set_weight,
-           nb::arg("weight"));
+      .def(
+        "set_weight",
+        static_cast<void (SquaredConfigurationDifferenceCost::*)(const double)>(
+          &SquaredConfigurationDifferenceCost::set_weight),
+        nb::arg("weight"))
+      .def(
+        "set_weight",
+        static_cast<void (SquaredConfigurationDifferenceCost::*)(const VecX &)>(
+          &SquaredConfigurationDifferenceCost::set_weight),
+        nb::arg("weight"));
 
     nb::class_<FrameSquaredTranslationErrorCost, StageCost>(
       m,
@@ -160,12 +210,31 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"))
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const std::string &,
+                    uint,
+                    uint,
+                    const Vec3 &>(),
+           nb::arg("model"),
+           nb::arg("desired_translation"),
+           nb::arg("frame"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"))
       .def("set_desired_translation",
            &FrameSquaredTranslationErrorCost::set_desired_translation,
            nb::arg("desired_translation"))
-      .def("set_weight",
-           &FrameSquaredTranslationErrorCost::set_weight,
-           nb::arg("weight"));
+      .def(
+        "set_weight",
+        static_cast<void (FrameSquaredTranslationErrorCost::*)(const double)>(
+          &FrameSquaredTranslationErrorCost::set_weight),
+        nb::arg("weight"))
+      .def(
+        "set_weight",
+        static_cast<void (FrameSquaredTranslationErrorCost::*)(const Vec3 &)>(
+          &FrameSquaredTranslationErrorCost::set_weight),
+        nb::arg("weight"));
 
     nb::class_<FrameSquaredRotationErrorCost, StageCost>(
       m,
@@ -246,8 +315,21 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"))
+      .def(
+        nb::
+          init<const Model &, const std::string &, uint, uint, const Vec3 &>(),
+        nb::arg("model"),
+        nb::arg("frame"),
+        nb::arg("nq"),
+        nb::arg("nv"),
+        nb::arg("weight"))
       .def("set_weight",
-           &FrameSquaredVelocityCost::set_weight,
+           static_cast<void (FrameSquaredVelocityCost::*)(const double)>(
+             &FrameSquaredVelocityCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (FrameSquaredVelocityCost::*)(const Vec3 &)>(
+             &FrameSquaredVelocityCost::set_weight),
            nb::arg("weight"));
 }
 }
