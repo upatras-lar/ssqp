@@ -2,17 +2,61 @@ import mujoco
 import mujoco.viewer
 import ssqpy
 import numpy as np
-from math import pi
+from math import pi, sin, cos
 from time import time, sleep
 
 nq = 2
 nv = 2
-MPC_H = 40
+MPC_H = 400
 dt = 0.01
+
+cost_wgt = 10.0
+vel_wgt = 1e-3
+u_wgt = 1e-9
 
 
 def state_mod(state):
     return [x % (2 * pi) for x in state]
+
+
+class UprightCost(ssqpy.model.costs.StageCost):
+    def evaluate(self, x, u):
+        # q = np.array((sin(x[0]), sin(x[1]), cos(x[0]) + 1, cos(x[1]) - 1))
+        # return 0.5 * cost_wgt * q.T * q
+        return cost_wgt * (cos(x[0]) - cos(x[1]) + 2)
+
+    def gradient(self, x, u):
+        s0 = sin(x[0])
+        s1 = sin(x[1])
+
+        dx = np.array(
+            (
+                -cost_wgt * s0,
+                cost_wgt * s1,
+                0.0,
+                0.0,
+            )
+        )
+
+        du = np.zeros(u.size)
+
+        return dx, du
+
+    def hessian_xx(self, x, u):
+        c0 = cos(x[0])
+        c1 = cos(x[1])
+
+        Hxx = np.zeros((4, 4))
+        Hxx[0, 0] = -cost_wgt * c0
+        Hxx[1, 1] = cost_wgt * c1
+
+        return Hxx
+
+    def hessian_xu(self, x, u):
+        return np.zeros((4, 2))
+
+    def hessian_uu(self, x, u):
+        return np.zeros((2, 2))
 
 
 model = ssqpy.model.Model(
@@ -23,20 +67,20 @@ model = ssqpy.model.Model(
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, 1e-3)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, 1e-9)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, vel_wgt)
+u_cost = ssqpy.model.costs.SquaredControlCost(nv, u_wgt)
 
 for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
 
     config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
-        np.array((pi, 0.0)), nq, nv, 10.0 / (MPC_H - k), False
+        np.array((pi, 0.0)), nq, nv, cost_wgt / (MPC_H - k), False
     )
     model.addCost(k, config_cost)
 
 config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
-    np.array((pi, 0.0)), nq, nv, 10.0, False
+    np.array((pi, 0.0)), nq, nv, cost_wgt, False
 )
 
 model.addCost(MPC_H, vel_cost)
@@ -54,7 +98,7 @@ admm_params.reset_rho = False
 admm_params.reset_y = False
 
 mpc = ssqpy.solvers.MPC(
-    model, ssqp_params, admm_params, sqp_iters=3, admm_iters=175
+    model, ssqp_params, admm_params, sqp_iters=3, admm_iters=160
 )
 
 mjmodel = mujoco.MjModel.from_xml_path(

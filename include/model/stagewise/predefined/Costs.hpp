@@ -29,8 +29,11 @@ class SquaredJointAngleCost : public StageCost
   public:
     SquaredJointAngleCost(const uint nq, const uint nv, const double weight,
                           const bool free_flyer = false);
+    SquaredJointAngleCost(const uint nq, const uint nv, const VecX &weight,
+                          const bool free_flyer = false);
 
     void set_weight(const double weight);
+    void set_weight(const VecX &weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -41,7 +44,7 @@ class SquaredJointAngleCost : public StageCost
 
   protected:
     const uint _nq, _nv;
-    double     _weight;
+    VecX       _weight;
     const bool _free_flyer;
 };
 
@@ -56,8 +59,11 @@ class SquaredJointVelocityCost : public StageCost
   public:
     SquaredJointVelocityCost(const uint nv, const double weight,
                              const bool free_flyer = false);
+    SquaredJointVelocityCost(const uint nv, const VecX &weight,
+                             const bool free_flyer = false);
 
     void set_weight(const double weight);
+    void set_weight(const VecX &weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -68,7 +74,7 @@ class SquaredJointVelocityCost : public StageCost
 
   protected:
     const uint _nv, _njoints;
-    double     _weight;
+    VecX       _weight;
 };
 
 /* Predefined squared control cost
@@ -79,8 +85,10 @@ class SquaredControlCost : public StageCost
 {
   public:
     SquaredControlCost(const uint nv, const double weight);
+    SquaredControlCost(const uint nv, const VecX &weight);
 
     void set_weight(const double weight);
+    void set_weight(const VecX &weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -91,7 +99,7 @@ class SquaredControlCost : public StageCost
 
   protected:
     const uint _nv;
-    double     _weight;
+    VecX       _weight;
 };
 
 /* Predefined squared force cost
@@ -103,8 +111,10 @@ class SquaredForceCost : public StageCost
 {
   public:
     SquaredForceCost(const uint nv, const double weight);
+    SquaredForceCost(const uint nv, const VecX &weight);
 
     void set_weight(const double weight);
+    void set_weight(const VecX &weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -116,6 +126,8 @@ class SquaredForceCost : public StageCost
   protected:
     const uint _nv;
     double     _weight;
+    VecX       _weight_vec;
+    bool       _single_weight;
 };
 
 /* Predefined squared configuration difference cost
@@ -132,9 +144,14 @@ class SquaredConfigurationDifferenceCost : public StageCost
                                        const uint nq, const uint nv,
                                        const double weight,
                                        const bool   free_flyer = false);
+    SquaredConfigurationDifferenceCost(const VecX &desired_configuration,
+                                       const uint nq, const uint nv,
+                                       const VecX &weight,
+                                       const bool  free_flyer = false);
 
     void set_desired_configuration(const VecX &desired_configuration);
     void set_weight(const double weight);
+    void set_weight(const VecX &weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -146,7 +163,7 @@ class SquaredConfigurationDifferenceCost : public StageCost
   protected:
     VecX       _desired_configuration;
     const uint _nq, _nv;
-    double     _weight;
+    VecX       _weight;
     const bool _free_flyer;
 };
 
@@ -164,9 +181,14 @@ class FrameSquaredTranslationErrorCost : public StageCost
                                      const Vec3        &desired_translation,
                                      const std::string &frame, const uint nq,
                                      const uint nv, const double weight);
+    FrameSquaredTranslationErrorCost(const Model       &model,
+                                     const Vec3        &desired_translation,
+                                     const std::string &frame, const uint nq,
+                                     const uint nv, const Vec3 &weight);
 
     void set_desired_translation(const Vec3 &desired_translation);
     void set_weight(const double weight);
+    void set_weight(const Vec3 &weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -181,7 +203,7 @@ class FrameSquaredTranslationErrorCost : public StageCost
     const std::string            _frame;
 
     const uint _nq, _nv;
-    double     _weight;
+    Vec3       _weight;
 };
 
 /* Predefined squared frame rotation error cost
@@ -270,8 +292,11 @@ class FrameSquaredVelocityCost : public StageCost
   public:
     FrameSquaredVelocityCost(const Model &model, const std::string &frame,
                              const uint nq, const uint nv, const double weight);
+    FrameSquaredVelocityCost(const Model &model, const std::string &frame,
+                             const uint nq, const uint nv, const Vec3 &weight);
 
     void set_weight(const double weight);
+    void set_weight(const Vec3 &weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -285,7 +310,7 @@ class FrameSquaredVelocityCost : public StageCost
     const std::string            _frame;
 
     const uint _nq, _nv;
-    double     _weight;
+    Vec3       _weight;
 };
 }
 }
