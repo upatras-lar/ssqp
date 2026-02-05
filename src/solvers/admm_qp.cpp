@@ -141,7 +141,10 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
                 break;
             }
 
-            _update_rho();
+            if (_params.rho_update)
+            {
+                _update_rho();
+            }
         }
 
         if (_params.abs_tolerance_final > 0.0 &&
@@ -169,7 +172,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
     if (admm_state == SUCCESS)
     {
-        LOGLN("ADMM: Converged in " << _iter + 1 << " iterations");
+        LOGLN("ADMM: Converged in " << _iter << " iterations");
     }
 
     _solution.P = lqr_out.P;
