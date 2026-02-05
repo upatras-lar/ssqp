@@ -50,6 +50,7 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("init_rho", &admm_qp::Params::init_rho)
       .def_rw("alpha", &admm_qp::Params::alpha)
       .def_rw("sigma", &admm_qp::Params::sigma)
+      .def_rw("rho_update", &admm_qp::Params::rho_update)
       .def_rw("rho_min", &admm_qp::Params::rho_min)
       .def_rw("rho_max", &admm_qp::Params::rho_max)
       .def_rw("adaptive_rho_tolerance",
@@ -168,6 +169,11 @@ void bind_ssqp(nb::module_ &m)
             if (kwargs.contains("admm_sigma"))
             {
                 admm_params.sigma = nb::cast<double>(kwargs["admm_sigma"]);
+            }
+            if (kwargs.contains("admm_rho_update"))
+            {
+                admm_params.rho_update =
+                  nb::cast<bool>(kwargs["admm_rho_update"]);
             }
             if (kwargs.contains("admm_rho_min"))
             {

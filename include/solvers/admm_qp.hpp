@@ -23,6 +23,7 @@ class admm_qp
         double sigma    = 1e-6;
 
         // Rho update
+        bool   rho_update             = true;
         double rho_min                = 1e-6;
         double rho_max                = 1e8;
         double adaptive_rho_tolerance = 5;

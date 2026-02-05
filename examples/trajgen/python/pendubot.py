@@ -19,7 +19,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../urdf/double_pendulum/double_pendulum_2.urdf",
     actuated_joints=[0],
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
     # integration=ssqpy.model.Integration.ExplicitEuler,
 )
 
@@ -36,22 +36,13 @@ for k in range(H):
     if k > 100:
         model.addCost(k, config_cost)
 
-# model.addConstraints(
-#     k,
-#     ssqpy.model.constraints.FramePositionBound(
-#         model,
-#         "tip",
-#         np.array((0.0, 0.0, 0.1)),
-#         np.array((0.0, 0.0, 0.1)),
-#         nq,
-#         nv,
-#     ),
-# )
 model.finalize(terminal_cost=config_cost)
 
 solver = ssqpy.solvers.ssqp(
     model,
     tolerance=1e-2,
+    use_filter=True,
+    admm_adaptive_rho_tolerance=20,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,
