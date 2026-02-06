@@ -25,7 +25,7 @@ def state_mod(state):
 model = ssqpy.model.Model(
     MPC_H,
     dt,
-    urdf_path="../urdf/double_pendulum/double_pendulum_2.urdf",
+    urdf_path="../urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
     # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
