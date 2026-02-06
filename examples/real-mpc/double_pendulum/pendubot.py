@@ -13,13 +13,13 @@ SOCK_PATH = "/tmp/mpc_socket"
 if os.path.exists(SOCK_PATH):
     os.unlink(SOCK_PATH)
 
-# -------- Build MPC ONCE --------
+# Build MPC
 nq = 2
 nv = 2
 dt = 0.01
-MPC_H = 40
+MPC_H = 45
 
-tip_cost_wgt = 25.0
+tip_cost_wgt = 10.0
 link_cost_wgt = 0.0
 
 model = ssqpy.model.Model(
@@ -27,15 +27,13 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(
-    nq, np.array([1e-8, 1e-6])
+    nq, np.array([1e-6, 1e-6])
 )
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, 1e-1)
-link2_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, np.array((0.0, 0.0, 0.05)), "link2", nq, nv, link_cost_wgt
-)
+u_cost = ssqpy.model.costs.SquaredControlCost(nv, 1e-6)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, tip_cost_wgt
 )
@@ -43,7 +41,6 @@ tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
 for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
-    # model.addCost(k, link2_cost)
     model.addCost(k, tip_cost)
 
 config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
@@ -55,7 +52,6 @@ config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
 )
 
 model.addCost(MPC_H, vel_cost)
-model.addCost(MPC_H, link2_cost)
 model.addCost(MPC_H, tip_cost)
 model.addCost(MPC_H, config_cost)
 
@@ -66,13 +62,13 @@ admm_params = ssqpy.solvers.admmParams()
 admm_params.adaptive_rho_tolerance = 10
 admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
-admm_params.warm_start = True
+admm_params.warm_start = False
 
 mpc = ssqpy.solvers.MPC(
-    model, ssqp_params, admm_params, sqp_iters=4, admm_iters=75
+    model, ssqp_params, admm_params, sqp_iters=4, admm_iters=200
 )
 
-# -------- Socket server --------
+# Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 server.bind(SOCK_PATH)
 server.listen(1)
@@ -95,6 +91,7 @@ while True:
     except RuntimeError:
         u = np.zeros(nv)
 
-    print(u)
+    tau = model.inverseDynamics(pos, vel, u)
+    tau[1] = 0.0
 
-    send(conn, u)
+    send(conn, tau)

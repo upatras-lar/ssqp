@@ -37,11 +37,11 @@ args = parse_args()
 
 SOCK_PATH = "/tmp/mpc_socket"
 
-# -------- Connect to MPC --------
+# Connect to MPC server
 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 sock.connect(SOCK_PATH)
 
-# -------- Hardware init --------
+# Initialize hardware
 candle = pyCandle.Candle(pyCandle.CAN_BAUD_1M, True)
 ids = candle.ping()
 
