@@ -1,12 +1,18 @@
 import socket
 import os
 import numpy as np
-from math import pi
+from math import pi, atan2, sin, cos
 import ssqpy
 import sys
 
 sys.path.insert(0, "..")
 from socket_utils import send, recv
+
+# Use -1 to to not plot
+PLOT_STEPS = 4000
+
+if PLOT_STEPS > 0:
+    import matplotlib.pyplot as plt
 
 SOCK_PATH = "/tmp/mpc_socket"
 
@@ -66,7 +72,12 @@ print("MPC ready, waiting for connection…")
 conn, _ = server.accept()
 print("Hardware connected")
 
-while True:
+data = []
+
+normalize_angle = lambda a: atan2(sin(a), cos(a))
+
+i = 0
+while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
     state = recv(conn)
     if state is None:
         break
@@ -82,4 +93,63 @@ while True:
     tau = model.inverseDynamics(pos, vel, u)
     tau[1] = 0.0
 
+    if PLOT_STEPS > 0:
+        data.append(
+            (
+                np.array(list(map(normalize_angle, pos))),
+                vel,
+                np.clip(tau, -0.15, 0.15),
+            )
+        )
+        i += 1
+
     send(conn, tau)
+
+conn.close()
+
+if PLOT_STEPS > 0:
+    # Unpack data
+    positions = np.array([item[0] for item in data])  # (N, 2)
+    velocities = np.array([item[1] for item in data])  # (N, 2)
+    torques = np.array([item[2] for item in data])  # (N, 2)
+
+    # Time axis (sample index)
+    t = np.arange(len(data))
+
+    # Derived quantities
+    velocity_mag = np.linalg.norm(velocities, axis=1)
+    torque_0 = torques[:, 0]
+
+    # Create figure
+    fig, axes = plt.subplots(2, 2, figsize=(10, 6))
+
+    # --- Position x(t) ---
+    axes[0, 0].plot(t, positions[:, 0])
+    axes[0, 0].set_title("Joint 1 angle")
+    axes[0, 0].set_xlabel("Step")
+    axes[0, 0].set_ylabel("a₀")
+    axes[0, 0].grid(True)
+
+    # --- Position y(t) ---
+    axes[0, 1].plot(t, positions[:, 1])
+    axes[0, 1].set_title("Joint 2 angle")
+    axes[0, 1].set_xlabel("Step")
+    axes[0, 1].set_ylabel("a₁")
+    axes[0, 1].grid(True)
+
+    # --- Velocity magnitude ---
+    axes[1, 0].plot(t, velocity_mag)
+    axes[1, 0].set_title("Velocity magnitude")
+    axes[1, 0].set_xlabel("Step")
+    axes[1, 0].set_ylabel("|v|")
+    axes[1, 0].grid(True)
+
+    # --- Torque (first component) ---
+    axes[1, 1].plot(t, torque_0)
+    axes[1, 1].set_title("Torque (first component)")
+    axes[1, 1].set_xlabel("Step")
+    axes[1, 1].set_ylabel("τ₀")
+    axes[1, 1].grid(True)
+
+    plt.tight_layout()
+    plt.show()

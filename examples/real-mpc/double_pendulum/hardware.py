@@ -84,15 +84,11 @@ while True:
     state = np.hstack((pos, vel))
 
     send(sock, state)
-    tau = recv(sock)
+    tau = np.clip(recv(sock), -MAX_TORQUE, MAX_TORQUE)
 
     if not args.pendubot:
-        candle.md80s[0].setTargetTorque(
-            np.sign(tau[1]) * min(abs(tau[1]), MAX_TORQUE)
-        )
-    candle.md80s[1].setTargetTorque(
-        np.sign(tau[0]) * min(abs(tau[0]), MAX_TORQUE)
-    )
+        candle.md80s[0].setTargetTorque(tau[1])
+    candle.md80s[1].setTargetTorque(tau[0])
 
     steps += 1
 
