@@ -13,7 +13,7 @@ SOCK_PATH = "/tmp/mpc_socket"
 if os.path.exists(SOCK_PATH):
     os.unlink(SOCK_PATH)
 
-# -------- Build MPC ONCE --------
+# Build MPC
 nq = 2
 nv = 2
 dt = 0.01
@@ -62,13 +62,12 @@ admm_params.adaptive_rho_tolerance = 10
 admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
-# admm_params.reset_rho = False
 
 mpc = ssqpy.solvers.MPC(
     model, ssqp_params, admm_params, sqp_iters=4, admm_iters=75
 )
 
-# -------- Socket server --------
+# Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 server.bind(SOCK_PATH)
 server.listen(1)
