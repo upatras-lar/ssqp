@@ -20,7 +20,6 @@ dt = 0.01
 MPC_H = 45
 
 tip_cost_wgt = 10.0
-link_cost_wgt = 0.0
 
 model = ssqpy.model.Model(
     MPC_H,
@@ -30,9 +29,7 @@ model = ssqpy.model.Model(
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(
-    nq, np.array([1e-6, 1e-6])
-)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, 1e-6)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, 1e-6)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, tip_cost_wgt
@@ -43,17 +40,8 @@ for k in range(MPC_H):
     model.addCost(k, u_cost)
     model.addCost(k, tip_cost)
 
-config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
-    np.array((pi, 0.0)),
-    nq,
-    nv,
-    np.array((1e-5, 0.0)),
-    False,
-)
-
 model.addCost(MPC_H, vel_cost)
 model.addCost(MPC_H, tip_cost)
-model.addCost(MPC_H, config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
