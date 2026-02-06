@@ -8,6 +8,8 @@ import sys
 sys.path.insert(0, "..")
 from socket_utils import send, recv
 
+INVERSE_MODE = True
+
 SOCK_PATH = "/tmp/mpc_socket"
 
 if os.path.exists(SOCK_PATH):
@@ -18,8 +20,6 @@ nq = 2
 nv = 2
 dt = 0.01
 MPC_H = 50
-
-INVERSE_MODE = True
 
 tip_cost_wgt = 10.0
 
