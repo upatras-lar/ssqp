@@ -111,7 +111,7 @@ int main()
 
     // Define SSQP model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     Eigen::VectorXd init_state = Eigen::VectorXd::Zero(2 * STATE_SIZE);

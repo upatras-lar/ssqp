@@ -26,7 +26,7 @@ tip_cost_wgt = 10.0
 model = ssqpy.model.Model(
     MPC_H,
     dt,
-    urdf_path="../../urdf/double_pendulum/double_pendulum.urdf",
+    urdf_path="../../assets/urdf/double_pendulum/double_pendulum.urdf",
     dynamics_mode=(
         ssqpy.model.DynamicsMode.Inverse
         if INVERSE_MODE
@@ -45,7 +45,6 @@ tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
 for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
-
     model.addCost(k, tip_cost)
 
 model.addCost(MPC_H, tip_cost)

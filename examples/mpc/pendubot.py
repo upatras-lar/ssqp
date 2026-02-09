@@ -25,7 +25,7 @@ def state_mod(state):
 model = ssqpy.model.Model(
     MPC_H,
     dt,
-    urdf_path="../urdf/double_pendulum/pendubot.urdf",
+    urdf_path="../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
     # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
@@ -42,7 +42,6 @@ tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
 for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
-
     model.addCost(k, tip_cost)
 
 config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
@@ -70,7 +69,7 @@ mpc = ssqpy.solvers.MPC(
 )
 
 mjmodel = mujoco.MjModel.from_xml_path(
-    "../mjcf/double_pendulum/double_pendulum.xml"
+    "../assets/mjcf/double_pendulum/double_pendulum.xml"
 )
 mjdata = mujoco.MjData(mjmodel)
 
@@ -102,7 +101,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         if NOISE:
             mjdata.ctrl[0] += (
                 np.random.uniform(0, 0.1)
-                if np.random.uniform(0, 10) > 5
+                if np.random.uniform(0, 10) > 8
                 else 0.0
             )
 

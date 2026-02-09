@@ -114,7 +114,7 @@ int main()
 
     // Use model structure object to pass URDF path
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path = "examples/urdf/iiwa.urdf";
+    model_structure.urdf_path = "examples/assets/urdf/iiwa.urdf";
 
     // Use model config object to set the stage and terminal costs, as well as
     // the initial state

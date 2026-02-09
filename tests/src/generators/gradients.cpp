@@ -23,7 +23,7 @@ std::shared_ptr<Test> get_fwdyn_explicit_euler_without_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration = model::IntegrationScheme::ExplicitEuler;
-    model_structure.urdf_path   = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path   = "examples/assets/urdf/panda/panda.urdf";
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
 
@@ -42,7 +42,7 @@ std::shared_ptr<Test> get_fwdyn_explicit_euler_with_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration = model::IntegrationScheme::ExplicitEuler;
-    model_structure.urdf_path   = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path   = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer  = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -67,7 +67,7 @@ std::shared_ptr<Test> get_fwdyn_semi_implicit_euler_without_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration = model::IntegrationScheme::SemiImplicitEuler;
-    model_structure.urdf_path   = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path   = "examples/assets/urdf/panda/panda.urdf";
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
 
@@ -86,7 +86,7 @@ std::shared_ptr<Test> get_fwdyn_semi_implicit_euler_with_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration = model::IntegrationScheme::SemiImplicitEuler;
-    model_structure.urdf_path   = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path   = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer  = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -111,7 +111,7 @@ std::shared_ptr<Test> get_invdyn_explicit_euler_without_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration   = model::IntegrationScheme::ExplicitEuler;
-    model_structure.urdf_path     = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
     model_structure.dynamics_mode = model::DynamicsMode::Inverse;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -131,7 +131,7 @@ std::shared_ptr<Test> get_invdyn_explicit_euler_with_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration   = model::IntegrationScheme::ExplicitEuler;
-    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer    = true;
     model_structure.dynamics_mode = model::DynamicsMode::Inverse;
     std::shared_ptr<model::Model> model =
@@ -157,7 +157,7 @@ std::shared_ptr<Test> get_invdyn_semi_implicit_euler_without_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
-    model_structure.urdf_path     = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
     model_structure.dynamics_mode = model::DynamicsMode::Inverse;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -177,7 +177,7 @@ std::shared_ptr<Test> get_invdyn_semi_implicit_euler_with_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
-    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer    = true;
     model_structure.dynamics_mode = model::DynamicsMode::Inverse;
     std::shared_ptr<model::Model> model =
@@ -202,7 +202,7 @@ std::shared_ptr<Test> get_invdyn_semi_implicit_euler_with_forces_grad_test()
 std::shared_ptr<Test> get_fwdyn_innate_constraint_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -221,7 +221,7 @@ std::shared_ptr<Test> get_fwdyn_innate_constraint_grad_test()
 std::shared_ptr<Test> get_invdyn_innate_constraint_without_forces_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path     = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
     model_structure.dynamics_mode = model::DynamicsMode::Inverse;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -241,7 +241,7 @@ std::shared_ptr<Test> get_invdyn_innate_constraint_without_forces_grad_test()
 std::shared_ptr<Test> get_invdyn_innate_constraint_with_forces_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path     = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer    = true;
     model_structure.dynamics_mode = model::DynamicsMode::Inverse;
     std::shared_ptr<model::Model> model =
@@ -265,8 +265,8 @@ std::shared_ptr<Test> get_frame_position_bound_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.ignore_innate_constraints = true;
-    model_structure.urdf_path                 = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer                = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
     setup_model(model);
@@ -295,8 +295,8 @@ std::shared_ptr<Test> get_frame_velocity_bound_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.ignore_innate_constraints = true;
-    model_structure.urdf_path                 = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer                = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
     setup_model(model);
@@ -325,8 +325,8 @@ std::shared_ptr<Test> get_contact_constraint_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.ignore_innate_constraints = true;
-    model_structure.urdf_path                 = "examples/urdf/a1/a1.urdf";
-    model_structure.free_flyer                = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
     setup_model(model);
@@ -352,7 +352,7 @@ std::shared_ptr<Test> get_contact_constraint_grad_test()
 std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
 
@@ -377,7 +377,7 @@ std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test()
 std::shared_ptr<Test> get_squared_joint_angle_cost_floating_base_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -406,7 +406,7 @@ std::shared_ptr<Test> get_squared_joint_angle_cost_floating_base_grad_test()
 std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path = "examples/urdf/panda/panda.urdf";
+    model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
 
@@ -431,7 +431,7 @@ std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test()
 std::shared_ptr<Test> get_squared_joint_velocity_cost_floating_base_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -458,7 +458,7 @@ std::shared_ptr<Test> get_squared_joint_velocity_cost_floating_base_grad_test()
 std::shared_ptr<Test> get_squared_control_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -488,7 +488,7 @@ std::shared_ptr<Test> get_squared_control_cost_grad_test()
 std::shared_ptr<Test> get_squared_force_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -520,7 +520,7 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test()
 std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -550,7 +550,7 @@ std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test()
 std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -581,7 +581,7 @@ std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test()
 std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -614,7 +614,7 @@ std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test()
 std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -645,7 +645,7 @@ std::shared_ptr<Test> get_lf_grad_test()
 {
     const uint              horizon = 40;
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/go2/go2.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(horizon, 0.01, model_structure);
@@ -687,7 +687,7 @@ std::shared_ptr<Test> get_gammaf_grad_test()
 {
     const uint              horizon = 40;
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/go2/go2.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(horizon, 0.01, model_structure);
@@ -731,7 +731,7 @@ std::shared_ptr<Test> get_cf_grad_test()
 {
     const uint              horizon = 40;
     model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/go2/go2.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/go2/go2.urdf";
     model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(horizon, 0.01, model_structure);

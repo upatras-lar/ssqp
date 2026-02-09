@@ -35,7 +35,7 @@ int main()
 {
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path = "examples/assets/urdf/a1/a1.urdf";
 
     // Since the A1 robot has a floating base, we must set the free_flyer
     // parameter to true

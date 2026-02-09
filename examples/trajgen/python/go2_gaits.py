@@ -58,7 +58,7 @@ init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 model = ssqpy.model.Model(
     HORIZON,
     dt,
-    urdf_path="../../urdf/go2/go2.urdf",
+    urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )

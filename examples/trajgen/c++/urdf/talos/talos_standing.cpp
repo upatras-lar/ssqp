@@ -30,7 +30,7 @@ int main()
 {
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/talos/talos.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/talos/talos.urdf";
     model_structure.free_flyer = true;
     // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
     ssqp::model::Model model(HORIZON, dt, model_structure);

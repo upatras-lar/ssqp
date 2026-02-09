@@ -49,7 +49,7 @@ init_control[29] = 3.43525 * 9.81
 # Create an SSQP model
 # Since the A1 has a floating base, we must set free_flyer to True
 model = ssqpy.model.Model(
-    HORIZON, dt, urdf_path="../../urdf/a1/a1.urdf", free_flyer=True
+    HORIZON, dt, urdf_path="../../assets/urdf/a1/a1.urdf", free_flyer=True
 )
 
 # Create regularization costs for joint angles, joint velocity and control

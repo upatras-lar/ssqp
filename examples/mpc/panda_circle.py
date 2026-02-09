@@ -50,7 +50,7 @@ Rd[2, 2] = -1
 model = ssqpy.model.Model(
     MPC_H,
     dt,
-    urdf_path="../urdf/panda/panda.urdf",
+    urdf_path="../assets/urdf/panda/panda.urdf",
     dynamics_mode=(
         ssqpy.model.DynamicsMode.Inverse
         if INVERSE_MODE
@@ -115,7 +115,7 @@ def update_pose_costs(current_stage):
 
 mpc = ssqpy.solvers.MPC(model, sqp_iters=5, admm_iters=75)
 
-mjmodel = mujoco.MjModel.from_xml_path("../mjcf/panda/panda.xml")
+mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = init_state[:9]
