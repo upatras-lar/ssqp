@@ -9,7 +9,7 @@ sys.path.insert(0, "..")
 from socket_utils import send, recv
 
 # Use -1 to to not plot
-PLOT_STEPS = 4000
+PLOT_STEPS = 10000
 
 if PLOT_STEPS > 0:
     import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ tip_cost_wgt = 10.0
 model = ssqpy.model.Model(
     MPC_H,
     dt,
-    urdf_path="../../urdf/double_pendulum/pendubot.urdf",
+    urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
@@ -116,40 +116,38 @@ if PLOT_STEPS > 0:
     # Time axis (sample index)
     t = np.arange(len(data))
 
-    # Derived quantities
-    velocity_mag = np.linalg.norm(velocities, axis=1)
+    # Torque first component
     torque_0 = torques[:, 0]
 
-    # Create figure
-    fig, axes = plt.subplots(2, 2, figsize=(10, 6))
+    # Create figure with GridSpec
+    fig = plt.figure(figsize=(10, 8))
+    gs = fig.add_gridspec(3, 1, height_ratios=[1, 1, 1])
 
-    # --- Position x(t) ---
-    axes[0, 0].plot(t, positions[:, 0])
-    axes[0, 0].set_title("Joint 1 angle")
-    axes[0, 0].set_xlabel("Step")
-    axes[0, 0].set_ylabel("a₀")
-    axes[0, 0].grid(True)
+    # --- Position (x & y together) ---
+    ax_pos = fig.add_subplot(gs[0, 0])
+    ax_pos.plot(t, positions[:, 0], label="q₀")
+    ax_pos.plot(t, positions[:, 1], label="q₁")
+    ax_pos.set_title("Position")
+    ax_pos.set_ylabel("Position")
+    ax_pos.legend()
+    ax_pos.grid(True)
 
-    # --- Position y(t) ---
-    axes[0, 1].plot(t, positions[:, 1])
-    axes[0, 1].set_title("Joint 2 angle")
-    axes[0, 1].set_xlabel("Step")
-    axes[0, 1].set_ylabel("a₁")
-    axes[0, 1].grid(True)
-
-    # --- Velocity magnitude ---
-    axes[1, 0].plot(t, velocity_mag)
-    axes[1, 0].set_title("Velocity magnitude")
-    axes[1, 0].set_xlabel("Step")
-    axes[1, 0].set_ylabel("|v|")
-    axes[1, 0].grid(True)
+    # --- Velocity (vx & vy together) ---
+    ax_vel = fig.add_subplot(gs[1, 0], sharex=ax_pos)
+    ax_vel.plot(t, velocities[:, 0], label="v₀")
+    ax_vel.plot(t, velocities[:, 1], label="v₁")
+    ax_vel.set_title("Velocity")
+    ax_vel.set_ylabel("Velocity")
+    ax_vel.legend()
+    ax_vel.grid(True)
 
     # --- Torque (first component) ---
-    axes[1, 1].plot(t, torque_0)
-    axes[1, 1].set_title("Torque (first component)")
-    axes[1, 1].set_xlabel("Step")
-    axes[1, 1].set_ylabel("τ₀")
-    axes[1, 1].grid(True)
+    ax_tau = fig.add_subplot(gs[2, 0], sharex=ax_pos)
+    ax_tau.plot(t, torque_0, label="τ₀")
+    ax_tau.set_title("Torque")
+    ax_tau.set_xlabel("Time")
+    ax_tau.set_ylabel("τ₀")
+    ax_tau.grid(True)
 
     plt.tight_layout()
     plt.show()

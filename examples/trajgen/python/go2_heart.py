@@ -72,7 +72,7 @@ init_control_2[23] = 7.5 * 9.81
 model = ssqpy.model.Model(
     HORIZON,
     dt,
-    urdf_path="../../urdf/go2/go2.urdf",
+    urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
     # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )

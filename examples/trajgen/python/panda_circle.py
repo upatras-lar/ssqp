@@ -60,7 +60,7 @@ Rd[2, 2] = -1
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../urdf/panda/panda.urdf",
+    urdf_path="../../assets/urdf/panda/panda.urdf",
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 

@@ -67,7 +67,7 @@ int main()
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path  = "examples/urdf/a1/a1.urdf";
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
 
     // Select inverse dynamics mode

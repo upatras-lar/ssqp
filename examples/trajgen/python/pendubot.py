@@ -17,7 +17,7 @@ dt = 0.01
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../urdf/double_pendulum/pendubot.urdf",
+    urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
     # integration=ssqpy.model.Integration.ExplicitEuler,

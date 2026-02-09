@@ -7,7 +7,7 @@ namespace tests
 ADMMInfeasibility::ADMMInfeasibility(const std::string &name)
   : Test(name)
   , _model(100, 0.01,
-           model::Model::Structure { "examples/urdf/panda/panda.urdf" })
+           model::Model::Structure { "examples/assets/urdf/panda/panda.urdf" })
 {
     Vec3 lb(0.1, 0.1, 0.1);
     Vec3 ub(-0.1, -0.1, -0.1);
