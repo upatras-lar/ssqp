@@ -82,7 +82,7 @@ box_constraint = ssqpy.model.constraints.FramePositionBound(
 for k in range(MPC_H):
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, traj[k], Rd, "panda_ee", nq, nq, P_WGT, R_WGT
+            model, traj[k], Rd, "panda_ee", nq, nv, P_WGT, R_WGT
         )
     )
 
@@ -96,7 +96,7 @@ for k in range(MPC_H):
 
 pose_costs.append(
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, traj[MPC_H], Rd, "panda_ee", nq, nq, P_WGT, R_WGT
+        model, traj[MPC_H], Rd, "panda_ee", nq, nv, P_WGT, R_WGT
     )
 )
 
