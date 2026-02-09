@@ -87,17 +87,45 @@ struct __attribute__((visibility("default"))) PyStageConstraints
 
 void bind_Constraints(nb::module_ &m)
 {
-    nb::class_<StageConstraints, PyStageConstraints>(m, "StageConstraints")
+    nb::class_<StageConstraints, PyStageConstraints>(m,
+                                                     "StageConstraints",
+                                                     R"doc(
+        General abstract constraint function for an optimization stage $k$: $\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+        Defines the required functions for stage constraints, while providing 
+        default implementations for some
+        )doc")
       .def(nb::init())
-      .def("output_size", &StageConstraints::output_size)
-      .def("lower_bound", &StageConstraints::lower_bound)
-      .def("upper_bound", &StageConstraints::upper_bound)
-      .def("constraint_diff_size", &StageConstraints::constraint_diff_size)
+      .def("output_size",
+           &StageConstraints::output_size,
+           "Get the constraints function output size.")
+      .def("lower_bound",
+           &StageConstraints::lower_bound,
+           "Get the constraints' lower bound vector.")
+      .def("upper_bound",
+           &StageConstraints::upper_bound,
+           "Get the constraints' upper bound vector.")
+      .def("constraint_diff_size",
+           &StageConstraints::constraint_diff_size,
+           R"doc(
+        Size of the difference vector: $\boldsymbol{c}_k(\boldsymbol{x}_1, \boldsymbol{u}_1) \ominus \boldsymbol{c}_k(\boldsymbol{x}_2, \boldsymbol{u}_2)$
+        Where $\ominus$: the defined right_minus operator
+           )doc")
       .def("right_minus",
            &StageConstraints::right_minus,
            nb::arg("x"),
-           nb::arg("u"))
-      .def("evaluate", &StageConstraints::evaluate, nb::arg("x"), nb::arg("u"))
+           nb::arg("y"),
+           R"doc(
+        The $\ominus$ operator, which outputs the difference of two constraint
+        vectors in tangent space
+            )doc")
+      .def("evaluate",
+           &StageConstraints::evaluate,
+           nb::arg("x"),
+           nb::arg("u"),
+           R"doc(
+        Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
+        Returns: output vector, $n \times 1$
+            )doc")
       .def(
         "gradient",
         [](const StageConstraints &self, const VecX &x, const VecX &u)
@@ -107,7 +135,14 @@ void bind_Constraints(nb::module_ &m)
             return nb::make_tuple(dX, dU);
         },
         nb::arg("x"),
-        nb::arg("u"))
+        nb::arg("u"),
+        R"doc(
+        Get constraint Jacobians with respect to $\boldsymbol{x}$ and $\boldsymbol{u}$, evaluated at
+        given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_x \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$ and $\nabla_u \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+         dX: gradient with respect to $\boldsymbol{x}$, $n_c \times n_{dx}$
+         dU: gradient with respect to $\boldsymbol{u}$, $n_c \times n_u$
+        )doc")
       .def(
         "hessprod_xx",
         [](const StageConstraints &self,
@@ -121,7 +156,12 @@ void bind_Constraints(nb::module_ &m)
         },
         nb::arg("x"),
         nb::arg("u"),
-        nb::arg("mu"))
+        nb::arg("mu"),
+        R"doc(
+        Get product $\nabla_{x} \mu_k^\top \nabla_{x} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+         Pxx: Product, $n_{dx} \times n_{dx}$
+        )doc")
       .def(
         "hessprod_xu",
         [](const StageConstraints &self,
@@ -135,7 +175,12 @@ void bind_Constraints(nb::module_ &m)
         },
         nb::arg("x"),
         nb::arg("u"),
-        nb::arg("mu"))
+        nb::arg("mu"),
+        R"doc(
+        Get product $\nabla_{x} \mu_k^\top \nabla_{u} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+         Pxu: Product, $n_{dx} \times n_u$
+        )doc")
       .def(
         "hessprod_uu",
         [](const StageConstraints &self,
@@ -149,7 +194,12 @@ void bind_Constraints(nb::module_ &m)
         },
         nb::arg("x"),
         nb::arg("u"),
-        nb::arg("mu"));
+        nb::arg("mu"),
+        R"doc(
+        Get product $\nabla_{u} \mu_k^\top \nabla_{u} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+         Puu: Product, $n_u \times n_u$
+        )doc");
 
     nb::class_<FramePositionBound, StageConstraints>(m, "FramePositionBound")
       .def(nb::init<const Model &,
@@ -163,7 +213,15 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("lb"),
            nb::arg("ub"),
            nb::arg("nq"),
-           nb::arg("nv"))
+           nb::arg("nv"),
+           R"doc(
+        Predefined 3D position bound for a given frame
+        Creates a linear bound constraint on the position of a frame of the given
+        model: $\boldsymbol{b}_l <= \boldsymbol{p}_f <= \boldsymbol{b}_u$
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+         - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
+           )doc")
       .def("set_lower_bound",
            &FramePositionBound::set_lower_bound,
            nb::arg("lower_bound"))
@@ -185,7 +243,15 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("ub"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("terminal") = false)
+           nb::arg("terminal") = false,
+           R"doc(
+        Predefined 3D velocity bound for a given frame
+        Creates a linear bound constraint on the velocity of a frame of the given
+        model: $\boldsymbol{b}_l <= \boldsymbol{v}_f <= \boldsymbol{b}_u$
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+         - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)          
+           )doc")
       .def("set_lower_bound",
            &FrameVelocityBound::set_lower_bound,
            nb::arg("lower_bound"))

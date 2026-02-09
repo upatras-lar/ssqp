@@ -79,17 +79,64 @@ PyType_Slot model_slots[] = {
 
 void bind_Model(nb::module_ &m)
 {
-    nb::enum_<DynamicsMode>(m, "DynamicsMode")
+    nb::enum_<DynamicsMode>(m, "DynamicsMode", R"doc(
+        The mode the solver uses for the system dynamics formulation
+        Options:
+        - Forward: The solver optimizes with a forward dynamics approach. As such,
+        the generated controls correspond to torques which, when applied over time
+        to the system, generate the output trajectory.
+        - Inverse: The solver optimizes with an inverse dynamics approach. As such,
+        the generated controls correspond to accelerations. This simplifies the
+        LQR formulation, generally leading to more robust solutions. Inverse
+        dynamics is used as a constraint, ensuring the torques producing the
+        generated acceleration controls are within the required effort limits.
+        )doc")
       .value("Forward", DynamicsMode::Forward)
       .value("Inverse", DynamicsMode::Inverse)
       .export_values();
 
-    nb::enum_<IntegrationScheme>(m, "Integration")
+    nb::enum_<IntegrationScheme>(m, "Integration", R"doc(
+        The type of integration used for the system dynamics
+        Options:
+        - ExplicitEuler:
+            $\boldsymbol{x}_{n+1}=\boldsymbol{x}_n+\boldsymbol{v}_ndt$
+            $\boldsymbol{v}_{n+1}=\boldsymbol{v}_n+\boldsymbol{a}_ndt$
+        - SemiImplicitEuler:
+            $\boldsymbol{x}_{n+1}=\boldsymbol{x}_n+\boldsymbol{v}_{n+1}dt$
+            $\boldsymbol{v}_{n+1}=\boldsymbol{v}_n+\boldsymbol{a}_ndt$
+        )doc")
       .value("ExplicitEuler", IntegrationScheme::ExplicitEuler)
       .value("SemiImplicitEuler", IntegrationScheme::SemiImplicitEuler)
       .export_values();
 
-    nb::class_<Model>(m, "Model")
+    nb::class_<Model>(m, "Model", R"doc(
+        Defines an SSQP model
+        An SSQP model object is a prerequisite to performing optimization using SSQP
+        The model contains the following:
+         - An optimization horizon, $H$
+         - A cost function for each stage of the horizon, $\ell_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}$, $0 \leq k \leq H$
+         - Dynamics functions for each stage of the horizon, $\boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^n$, $0 \leq k \leq H$
+         - Constraint functions for each stage of the horizon, $\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^c$, $0 \leq k \leq H$
+            
+        Of the above, all stage cost and dynamics functions must be defined, but
+        constraints may be left empty.
+            
+        Note that models optimize for $H$ total steps while considering the initial
+        state to be constant, whereas the initial controls can be altered. This means
+        that there are $H$ total controls ($\boldsymbol{u}_0$ to $\boldsymbol{u}_{H-1}$) and $H + 1$ total states ($\boldsymbol{x}_0$ to 
+        $\boldsymbol{x}_H$), with $\boldsymbol{x}_0$ being constant. At the terminal stage (stage $H$), there are no
+        controls and, as such, stagewise functions must be appropriately defined to
+        ignore them. Predefined functions all have constructors to account for this.
+            
+        Models may be defined either by passing custom function implementations, or
+        by using URDF files. Some constructors allow for defining a model using a
+        URDF file, but without passing the required cost functions. This is done to
+        allow access to robot-related algorithms such as forward dynamics, which may
+        be used to define model costs. Note that, if such constructors are used, the
+        `finalize` method must be called before attempting to use the model for
+        optimization. The user is responsible for either manually assigning all
+        required costs, or passing them to the `finalize` method.
+        )doc")
       .def(
         "__init__",
         [](Model *self, uint horizon, double dt, nb::kwargs kwargs)

@@ -167,9 +167,12 @@ struct FlatVec
     // If copy is true, operators are also copied (argument ignored)
     FlatVec(const FlatVec &other, bool copy = true);
 
+    // Return a stage vector reference for setting
     Eigen::VectorBlock<VecX> stage(const uint k);
-    const VecX               stage(const uint k) const;
-    const uint               stages() const;
+    // Return a const stage vector for reading
+    const VecX stage(const uint k) const;
+    // Return the total number of stages
+    const uint stages() const;
 
     FlatVec operator-() const;
     FlatVec operator/(double val);

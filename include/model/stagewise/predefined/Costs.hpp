@@ -18,11 +18,15 @@ namespace predefined
 {
 namespace costs
 {
+// Note: The $\odot$ symbol below denoted the element-wise product
+
 /* Predefined squared joint angle cost
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_a \boldsymbol{x}_{ang}^2$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{ang} \rVert_2^2$
  * where:
  *  - $\boldsymbol{x}_{ang}$ is the angular (position) part of the state
- *  - $w_a$ is the weight on the angular term
+ *    Note that this will ignore the first 7 elements if the model has a 
+ *    floating base
+ *  - $\boldsymbol{w}$ is the weight on the angular term
  */
 class SquaredJointAngleCost : public StageCost
 {
@@ -49,10 +53,10 @@ class SquaredJointAngleCost : public StageCost
 };
 
 /* Predefined squared joint velocity cost
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_v \boldsymbol{x}_{vel}^2$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{vel} \rVert_2^2$
  * where:
  *  - $\boldsymbol{x}_{vel}$ is the velocity part of the state
- *  - $w_v$ is the weight on the velocity term
+ *  - $\boldsymbol{w}$ is the weight on the velocity term
  */
 class SquaredJointVelocityCost : public StageCost
 {
@@ -78,8 +82,10 @@ class SquaredJointVelocityCost : public StageCost
 };
 
 /* Predefined squared control cost
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_u \boldsymbol{u}^2$
- * where $w_u$ is the weight on the control term
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{ctrl} \rVert_2^2$
+ * where:
+ *  - $\boldsymbol{u}_{ctrl}$ is the control part of the controls
+ *  - $\boldsymbol{w}$ is the weight on the control term
  */
 class SquaredControlCost : public StageCost
 {
@@ -103,9 +109,10 @@ class SquaredControlCost : public StageCost
 };
 
 /* Predefined squared force cost
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u})=w_f \boldsymbol{u}_f$
- * where $\boldsymbol{u}_f$ is the force part of the controls
- * and $w_f$ is the weight on the term
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{f} \rVert_2^2$
+ * where:
+ *  - $\boldsymbol{u}_{f}$ is the force part of the controls
+ *  - $\boldsymbol{w}$ is the weight on the force term
  */
 class SquaredForceCost : public StageCost
 {
@@ -131,11 +138,11 @@ class SquaredForceCost : public StageCost
 };
 
 /* Predefined squared configuration difference cost
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_q (\boldsymbol{q} - \boldsymbol{q}_d)^2$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2$
  * where:
  *  - $\boldsymbol{q}$ is the configuration part of the state
  *  - $\boldsymbol{q}_d$ is the desired configuration
- *  - $w_q$ is the weight for the difference
+ *  - $\boldsymbol{w}$ is the weight for the difference
  */
 class SquaredConfigurationDifferenceCost : public StageCost
 {
@@ -168,11 +175,11 @@ class SquaredConfigurationDifferenceCost : public StageCost
 };
 
 /* Predefined squared frame translation error cost
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_p (\boldsymbol{p}_f - \boldsymbol{p}_d)^2$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
  * where:
- *  - $\boldsymbol{p}_f$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
- *  - $\boldsymbol{p}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
- *  - $w_p$ is the weight on the translation error
+ *  - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{w}$ is the weight on the translation error
  */
 class FrameSquaredTranslationErrorCost : public StageCost
 {
@@ -207,11 +214,11 @@ class FrameSquaredTranslationErrorCost : public StageCost
 };
 
 /* Predefined squared frame rotation error cost
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = w_r \log^2_{\mathit{SO3}}R_dR$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert w \log_{SO(3)}R^\top R_d\rVert_2^2$
  * where:
  *  - $R$ is the frame rotation for a given frame of the model (in $\mathit{SO3}$)
  *  - $R_d$ is the desired rotation for that frame (in $\mathit{SO3}$)
- *  - $w_r$ is the weight on the rotation error
+ *  - $\boldsymbol{w}$ is the weight on the rotation error
  */
 class FrameSquaredRotationErrorCost : public StageCost
 {
@@ -242,11 +249,12 @@ class FrameSquaredRotationErrorCost : public StageCost
 };
 
 /* Predefined squared frame pose error cost
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = W_t \log^2_{\mathit{SE3}}T_dT$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D$
  * where:
+ *  - $D = \log_{SE(3)} T^{-1}T_d$
  *  - $T$ is the frame pose for a given frame of the model (in $\mathit{SE3}$)
  *  - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)
- *  - $W_t$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
+ *  - $W$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
  *    for rotation
  */
 class FrameSquaredPoseErrorCost : public StageCost
@@ -287,6 +295,12 @@ class FrameSquaredPoseErrorCost : public StageCost
     Mat6       _weight;
 };
 
+/* Predefined squared frame velocity cost
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
+ * where:
+ *  - $\boldsymbol{v}_f$ is the velocity for a frame
+ *  - $\boldsymbol{w}$ is the weight on the velocity term
+ */
 class FrameSquaredVelocityCost : public StageCost
 {
   public:

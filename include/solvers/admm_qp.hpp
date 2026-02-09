@@ -18,29 +18,59 @@ class admm_qp
     struct Params
     {
         // Parameters
+
+        // Initial rho value
         double init_rho = 0.1;
-        double alpha    = 1.6;
-        double sigma    = 1e-6;
+        // Over-relaxation parameter
+        double alpha = 1.6;
+        // Proximal regularization parameter
+        double sigma = 1e-6;
 
         // Rho update
-        bool   rho_update             = true;
-        double rho_min                = 1e-6;
-        double rho_max                = 1e8;
+
+        // Whether to perform rho update
+        bool rho_update = true;
+        // Minimum possible rho value
+        double rho_min = 1e-6;
+        // Maximum possible rho value
+        double rho_max = 1e8;
+        // Factor by which rho must change to actually perform rho update
         double adaptive_rho_tolerance = 5;
-        uint   rho_update_iter_freq   = 25;
+        // Number of iterations to wait before updating rho
+        // Also affects checking for termination
+        uint rho_update_iter_freq = 25;
 
         // Termination parameters
-        uint   max_iter               = 1'000;
-        double abs_tolerance          = 1e-3; // Absolute tolerance
-        double abs_tolerance_final    = -1.0;
-        double rel_tolerance          = 1e-4; // Relative tolerance
-        double rel_tolerance_final    = -1.0;
+
+        // Maximum number of ADMM iterations
+        uint max_iter = 1'000;
+        // Absolute ADMM tolerance
+        double abs_tolerance = 1e-3;
+        // Final absolute ADMM tolerance
+        // This value will be reached after `tolerance_update_steps` ADMM steps
+        // Use -1.0 to ignore
+        double abs_tolerance_final = -1.0;
+        // Relative ADMM tolerance
+        double rel_tolerance = 1e-4;
+        // Final relative ADMM tolerance
+        // This value will be reached after `tolerance_update_steps` ADMM steps
+        // Use -1.0 to ignore
+        double rel_tolerance_final = -1.0;
+        // Number of steps to go from initial to final tolerances
+        // Updates are done linearly per step
+        // Ignored (per tolerance) if tolerance is -1.0
         uint   tolerance_update_steps = 0;
         double primal_infs_tolerance  = 1e-6; // Primal infeasibility tolerance
 
+        // Whether to warm start ADMM with the unconstrained solution
+        // Note: set to false if using Inverse Dynamics
         bool warm_start = true;
-        bool reset_rho  = true;
-        bool reset_y    = true;
+        // Whether to reset the rho parameter between each new ADMM formulation
+        // Note: setting to false may often cause oscillations
+        bool reset_rho = true;
+        // Whether to reset the y parameter between each new ADMM formulation
+        // Note: setting to false may often cause oscillations
+        bool reset_y = true;
 
         static Params Default()
         {

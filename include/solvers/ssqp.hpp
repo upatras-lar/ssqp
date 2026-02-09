@@ -28,6 +28,27 @@ class FDGradFullTrajectoryConstraintViolation;
 
 namespace solvers
 {
+
+/* SSQP class
+ * Defines an SSQP problem solver based on a given SSQP model and the desired
+ * parameters.
+ * 
+ * SSQP is a Structure-exploiting Sequential Quadratic Programming solver.
+ * The solver starts with an initial guess (either provided, or zero) for the
+ * states (x) and controls (u) of an optimization problem over a time horizon H.
+ * 
+ * At each step, SSQP constructs a Quadratic Program at the current SSQP guess
+ * with a quadratic cost function and linearized constraints. This is done using
+ * the SSQP model, a model of the system being optimized which provides the
+ * necessary methods to linearize at each guess, like gradients and hessians.
+ * 
+ * The solver then utilizes a QP solver to produce a solution to the constructed
+ * QP, which can act as an update step for the current SSQP guess. Based on this
+ * solution, a line search method is used to update the current guess.
+ * 
+ * Termination criteria are then checked for the new SSQP guess. The process is
+ * repeated until convergence is reached.
+ */
 class ssqp
 {
   public:
@@ -40,7 +61,7 @@ class ssqp
         // (Initial) Tolerance for lagrangian jacobian norms
         double tolerance = 1e-3;
         // Final tolerance for lagrangian jacobian norms
-        // This value will be reached after `tolerance_update_steps` ssqp steps
+        // This value will be reached after `tolerance_update_steps` SSQP steps
         // Use -1.0 to ignore
         double tolerance_final = -1.0;
         // Number of steps to go from `tolerance` to `tolerance_final`
@@ -104,6 +125,11 @@ class ssqp
         }
     };
 
+    /* Guess struct
+     * Stores data related to an SSQP guess.
+     * This includes the solution vectors $\boldsymbol{x}$ and $\boldsymbol{u}$, as well as the lagrange
+     * multipliers $\boldsymbol{\lambda}$ for equality and $\boldsymbol{\mu}$ for inequality constraints
+     */
     struct Guess
     {
         // Vector sequences indexed over time horizon for state and control
@@ -112,9 +138,11 @@ class ssqp
         // Equivalent vector sequences for lagrange multiplier guesses n
         FlatVec lambda, mu;
 
+        // Initialize a guess based on the model non-linear and linear dimensions
         Guess(const model::Dimensions &dims, const model::Dimensions &lin_dims);
     };
 
+    // Data related to convergence
     struct IterationConvergenceData
     {
         // QP iterations
@@ -125,13 +153,17 @@ class ssqp
         double norm_dx, norm_du;
     };
 
+    // Initialize an SSQP solver based on the given model and SSQP and ADMM
+    // parameters
     ssqp(model::Model &model, const Params &params = Params::Default(),
          const admm_qp::Params &admm_params = admm_qp::Params::Default());
 
     const model::Model &model() const;
 
+    // Solve the defined problem using SSQP
     SolverState solve(Guess &guess);
 
+    // Write the current solution to the output file with the provided name
     bool write(const std::string &filename);
 
   protected:

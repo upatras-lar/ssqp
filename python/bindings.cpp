@@ -13,8 +13,13 @@ NB_MODULE(ssqpy, m)
 {
     m.doc() = "Python bindings for SSQP";
 
-    auto model   = m.def_submodule("model");
-    auto solvers = m.def_submodule("solvers");
+    auto model   = m.def_submodule("model", R"doc(
+Submodule containing classes related to the SSQP model, a respresentation of the
+system used for optimization.
+        )doc");
+    auto solvers = m.def_submodule("solvers", R"doc(
+Submodule containing classes related to the SSQP solvers.
+        )doc");
 
     bind_model(model);
     bind_solvers(solvers);
