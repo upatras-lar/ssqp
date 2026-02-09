@@ -10,7 +10,6 @@
 /examples/python/*.json
 /perf*
 /examples/mpc/mpcvenv
-/examples/trajgen/python/go2_vjump.py
 /examples/real-mpc/candlevenv
 __pycache__
 out.txt

@@ -59,9 +59,15 @@ struct __attribute__((visibility("default"))) PyStageCost : StageCost
 
 void bind_Costs(nb::module_ &m)
 {
-    nb::class_<StageCost, PyStageCost>(m, "StageCost")
-      .def(nb::init())
-      .def("evaluate", &StageCost::evaluate, nb::arg("x"), nb::arg("u"))
+    nb::class_<StageCost, PyStageCost>(m, "StageCost", R"doc(
+        General abstract constraint function for an optimization stage $k$: $\ell_k(\boldsymbol{x}, \boldsymbol{u})$
+        Defines the required functions for a stage cost, while providing 
+        default implementations for some
+        )doc")
+      .def("evaluate", &StageCost::evaluate, nb::arg("x"), nb::arg("u"), R"doc(
+        Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
+        Returns: output vector, $n \times 1$
+      )doc")
       .def(
         "gradient",
         [](const StageCost &self, const VecX &x, const VecX &u)
@@ -71,7 +77,14 @@ void bind_Costs(nb::module_ &m)
             return nb::make_tuple(dx, du);
         },
         nb::arg("x"),
-        nb::arg("u"))
+        nb::arg("u"),
+        R"doc(
+        Get cost Jacobians with respect to $\boldsymbol{x}$ and $\boldsymbol{u}$, evaluated at
+        given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_x \ell_k(\boldsymbol{x}, \boldsymbol{u})$ and $\nabla_u \ell_k(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+            dx: gradient with respect to $\boldsymbol{x}$, $n_{dx} \times 1$
+            du: gradient with respect to $\boldsymbol{u}$, $n_u \times 1$
+        )doc")
       .def(
         "hessian_xx",
         [](const StageCost &self, const VecX &x, const VecX &u)
@@ -81,7 +94,14 @@ void bind_Costs(nb::module_ &m)
             return Hxx;
         },
         nb::arg("x"),
-        nb::arg("u"))
+        nb::arg("u"),
+        R"doc(
+        Get cost function hessian matrix with respect to $\boldsymbol{xx}$, evaluated at given
+        $(\boldsymbol{x}, \boldsymbol{u})$:
+        $\nabla_{xx}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+         Hxx: Hessian matrix, $n_{dx} \times n_{dx}$
+        )doc")
       .def(
         "hessian_xu",
         [](const StageCost &self, const VecX &x, const VecX &u)
@@ -91,7 +111,14 @@ void bind_Costs(nb::module_ &m)
             return Hxu;
         },
         nb::arg("x"),
-        nb::arg("u"))
+        nb::arg("u"),
+        R"doc(
+        Get cost function hessian matrix with respect to $\boldsymbol{xu}$, evaluated at given
+        $(\boldsymbol{x}, \boldsymbol{u})$:
+        $\nabla_{xu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+         Hxu: Hessian matrix, $n_{dx} \times n_u$
+        )doc")
       .def(
         "hessian_uu",
         [](const StageCost &self, const VecX &x, const VecX &u)
@@ -101,9 +128,26 @@ void bind_Costs(nb::module_ &m)
             return Huu;
         },
         nb::arg("x"),
-        nb::arg("u"));
+        nb::arg("u"),
+        R"doc(
+        Get cost function hessian matrix with respect to $\boldsymbol{uu}$, evaluated at given
+        $(\boldsymbol{x}, \boldsymbol{u})$:
+        $\nabla_{uu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+         Huu: Hessian matrix, $n_u \times n_u$
+        )doc");
 
-    nb::class_<SquaredJointAngleCost, StageCost>(m, "SquaredJointAngleCost")
+    nb::class_<SquaredJointAngleCost, StageCost>(m,
+                                                 "SquaredJointAngleCost",
+                                                 R"doc(
+        Predefined squared joint angle cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{ang} \rVert_2^2$
+        where:
+         - $\boldsymbol{x}_{ang}$ is the angular (position) part of the state
+           Note that this will ignore the first 7 elements if the model has a 
+           floating base
+         - $\boldsymbol{w}$ is the weight on the angular term
+            )doc")
       .def(nb::init<uint, uint, double, bool>(),
            nb::arg("nq"),
            nb::arg("nv"),
@@ -124,7 +168,14 @@ void bind_Costs(nb::module_ &m)
            nb::arg("weight"));
 
     nb::class_<SquaredJointVelocityCost, StageCost>(m,
-                                                    "SquaredJointVelocityCost")
+                                                    "SquaredJointVelocityCost",
+                                                    R"doc(
+Predefined squared joint velocity cost
+Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{vel} \rVert_2^2$
+where:
+ - $\boldsymbol{x}_{vel}$ is the velocity part of the state
+ - $\boldsymbol{w}$ is the weight on the velocity term
+                                                    )doc")
       .def(nb::init<uint, double, bool>(),
            nb::arg("nv"),
            nb::arg("weight"),
@@ -142,7 +193,13 @@ void bind_Costs(nb::module_ &m)
              &SquaredJointVelocityCost::set_weight),
            nb::arg("weight"));
 
-    nb::class_<SquaredControlCost, StageCost>(m, "SquaredControlCost")
+    nb::class_<SquaredControlCost, StageCost>(m, "SquaredControlCost", R"doc(
+Predefined squared control cost
+Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{ctrl} \rVert_2^2$
+where:
+ - $\boldsymbol{u}_{ctrl}$ is the control part of the controls
+ - $\boldsymbol{w}$ is the weight on the control term
+        )doc")
       .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"))
       .def(nb::init<uint, const VecX &>(), nb::arg("nv"), nb::arg("weight"))
       .def("set_weight",
@@ -154,7 +211,12 @@ void bind_Costs(nb::module_ &m)
              &SquaredControlCost::set_weight),
            nb::arg("weight"));
 
-    nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost")
+    nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost", R"doc(
+        Predefined squared force cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u})=w_f \boldsymbol{u}_f$
+        where $\boldsymbol{u}_f$ is the force part of the controls
+        and $w_f$ is the weight on the term
+        )doc")
       .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"))
       .def(nb::init<uint, const VecX &>(), nb::arg("nv"), nb::arg("weight"))
       .def("set_weight",
@@ -168,7 +230,15 @@ void bind_Costs(nb::module_ &m)
 
     nb::class_<SquaredConfigurationDifferenceCost, StageCost>(
       m,
-      "SquaredConfigurationDifferenceCost")
+      "SquaredConfigurationDifferenceCost",
+      R"doc(
+Predefined squared configuration difference cost
+Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2$
+where:
+ - $\boldsymbol{q}$ is the configuration part of the state
+ - $\boldsymbol{q}_d$ is the desired configuration
+ - $\boldsymbol{w}$ is the weight for the difference
+      )doc")
       .def(nb::init<const VecX &, uint, uint, double, bool>(),
            nb::arg("desired_configuration"),
            nb::arg("nq"),
@@ -197,7 +267,15 @@ void bind_Costs(nb::module_ &m)
 
     nb::class_<FrameSquaredTranslationErrorCost, StageCost>(
       m,
-      "FrameSquaredTranslationErrorCost")
+      "FrameSquaredTranslationErrorCost",
+      R"doc(
+Predefined squared frame translation error cost
+Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
+where:
+ - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
+ - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
+ - $\boldsymbol{w}$ is the weight on the translation error  
+      )doc")
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const std::string &,
@@ -238,7 +316,15 @@ void bind_Costs(nb::module_ &m)
 
     nb::class_<FrameSquaredRotationErrorCost, StageCost>(
       m,
-      "FrameSquaredRotationErrorCost")
+      "FrameSquaredRotationErrorCost",
+      R"doc(
+Predefined squared frame rotation error cost
+Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert w \log_{SO(3)}R^\top R_d\rVert_2^2$
+where:
+ - $R$ is the frame rotation for a given frame of the model (in $\mathit{SO3}$)
+ - $R_d$ is the desired rotation for that frame (in $\mathit{SO3}$)
+ - $\boldsymbol{w}$ is the weight on the rotation error
+      )doc")
       .def(nb::init<const Model &,
                     const Mat3 &,
                     const std::string &,
@@ -260,7 +346,17 @@ void bind_Costs(nb::module_ &m)
 
     nb::class_<FrameSquaredPoseErrorCost, StageCost>(
       m,
-      "FrameSquaredPoseErrorCost")
+      "FrameSquaredPoseErrorCost",
+      R"doc(
+Predefined squared frame pose error cost
+Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D$
+where:
+ - $D = \log_{SE(3)} T^{-1}T_d$
+ - $T$ is the frame pose for a given frame of the model (in $\mathit{SE3}$)
+ - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)
+ - $W$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
+   for rotation
+      )doc")
       .def(nb::init<const Model &,
                     const Mat4 &,
                     const std::string &,
@@ -308,7 +404,14 @@ void bind_Costs(nb::module_ &m)
            nb::arg("rotation_weight"));
 
     nb::class_<FrameSquaredVelocityCost, StageCost>(m,
-                                                    "FrameSquaredVelocityCost")
+                                                    "FrameSquaredVelocityCost",
+                                                    R"doc(
+Predefined squared frame velocity cost
+Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
+where:
+ - $\boldsymbol{v}_f$ is the velocity for a frame
+ - $\boldsymbol{w}$ is the weight on the velocity term
+                                                    )doc")
       .def(nb::init<const Model &, const std::string &, uint, uint, double>(),
            nb::arg("model"),
            nb::arg("frame"),

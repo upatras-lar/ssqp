@@ -10,12 +10,25 @@ namespace ssqp
 {
 namespace solvers
 {
+
+/* MPC class
+ * Helper class which utilizes SSQP to perform MPC for real-time SSQP-based 
+ * control.
+ * 
+ * Repeatedly uses SSQP with low iterations to solve a problem for the current 
+ * state of a system, applies the first of the generated controls, updates
+ * the initial guess using feedback from the system and a warm start using the
+ * previous solution  and repeats the process.
+ */
 class MPC
 {
   public:
+    // MPC-specific parameters
     struct Params
     {
-        uint sqp_iters  = 10;
+        // Upper limit on SSQP iterations
+        uint sqp_iters = 10;
+        // Upper limit on ADMM iterations
         uint admm_iters = 50;
 
         static Params Default()
@@ -24,19 +37,28 @@ class MPC
         }
     };
 
+    // Initialize an MPC helper for the given model, the given MPC, SSQP and
+    // ADMM parameters.
+    // Note that the max iterations used for SSQP and ADMM will be determined
+    // by the MPC parameters only.
     MPC(model::Model &model, const Params &params = Params::Default(),
         const ssqp::Params &ssqp_params    = ssqp::Params::Default(),
         const admm_qp::Params &admm_params = admm_qp::Params::Default());
 
-    // Receding horizon initialization
+    // Receding horizon initialization step.
+    // Uses the provided state as feedback and the previous solution for
+    // warm-starting.
     VecX step(const VecX &state);
 
+    // Uses the provided states and controls for warm-starting
     std::pair<FlatVec, FlatVec> step(const FlatVec &states,
                                      const FlatVec &controls);
 
+    // Uses the provided states and controls for warm-starting
     std::pair<FlatVec, FlatVec> step(const std::vector<VecX> &states,
                                      const std::vector<VecX> &controls);
 
+    // Performs an MPC step with the current guess as-is
     std::pair<FlatVec, FlatVec> step();
 
   protected:

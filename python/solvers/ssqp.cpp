@@ -16,7 +16,16 @@ using namespace model;
 
 void bind_ssqp(nb::module_ &m)
 {
-    nb::enum_<SolverState>(m, "SolverState")
+    nb::enum_<SolverState>(m, "SolverState", R"doc(
+        The state of the solver.
+        States:
+         - Success: Convergence was achieved.
+         - Loose Success: Solver stopped after loose success tolerance was reached.
+         - Primal Infeasible: The problem is primal infeasible (currently not used).
+         - Dual Infeasible: The problem is dual infeasible (currently not used).
+         - Max Iter Reached: Maximum number of iterations reached before convergence was achieved.
+         - Ongoing: The solver is ongoing.
+        )doc")
       .value("Success", SolverState::SUCCESS)
       .value("LooseSuccess", SolverState::LOOSE_SUCCESS)
       .value("PrimalInfeasible", SolverState::PRIMAL_INFEASIBLE)
@@ -25,56 +34,169 @@ void bind_ssqp(nb::module_ &m)
       .value("Ongoing", SolverState::ONGOING)
       .export_values();
 
-    nb::class_<ssqp::Params>(m, "ssqpParams")
+    nb::class_<ssqp::Params>(m, "ssqpParams", "SSQP solver parameters.")
       .def(nb::init<>())
-      .def_rw("max_iter", &ssqp::Params::max_iter)
-      .def_rw("tolerance", &ssqp::Params::tolerance)
-      .def_rw("tolerance_final", &ssqp::Params::tolerance_final)
-      .def_rw("tolerance_update_steps", &ssqp::Params::tolerance_update_steps)
-      .def_rw("loose_success", &ssqp::Params::loose_success)
-      .def_rw("loose_success_tolerance", &ssqp::Params::loose_success_tolerance)
+      .def_rw("max_iter",
+              &ssqp::Params::max_iter,
+              "Maximum number of SSQP iterations.")
+      .def_rw("tolerance",
+              &ssqp::Params::tolerance,
+              "(Initial) Tolerance for lagrangian jacobian norms.")
+      .def_rw("tolerance_final", &ssqp::Params::tolerance_final, R"doc(
+        Final tolerance for lagrangian jacobian norms
+        This value will be reached after `tolerance_update_steps` SSQP steps
+        Use -1.0 to ignore
+        )doc")
+      .def_rw("tolerance_update_steps",
+              &ssqp::Params::tolerance_update_steps,
+              R"doc(
+        Number of steps to go from `tolerance` to `tolerance_final`
+        Updates are done linearly per step
+        Ignored if `tolerance_final` is -1.0
+        )doc")
+      .def_rw("loose_success", &ssqp::Params::loose_success, R"doc(
+        Whether to enable loose success
+        Loose success will terminate if there are no updates for
+        `loose_success_stale_iters` that are larger than
+        `loose_success_tolerance`
+        )doc")
+      .def_rw("loose_success_tolerance",
+              &ssqp::Params::loose_success_tolerance,
+              "Tolerance for change in cost jacobian norms.")
       .def_rw("loose_success_stale_iters",
-              &ssqp::Params::loose_success_stale_iters)
-      .def_rw("use_filter", &ssqp::Params::use_filter)
-      .def_rw("filter_size", &ssqp::Params::filter_size)
-      .def_rw("merit_mu_gamma", &ssqp::Params::merit_mu_gamma)
-      .def_rw("merit_mu_c", &ssqp::Params::merit_mu_c)
-      .def_rw("merit_armijo_beta", &ssqp::Params::merit_armijo_beta)
-      .def_rw("inv_alpha_scale_factor", &ssqp::Params::inv_alpha_scale_factor)
-      .def_rw("min_alpha", &ssqp::Params::min_alpha)
-      .def_rw("skip_regularization", &ssqp::Params::skip_regularization)
-      .def_rw("accept_worse_update", &ssqp::Params::accept_worse_update);
+              &ssqp::Params::loose_success_stale_iters,
+              "Number of iterations for stale cost jacobian norms.")
+      .def_rw("use_filter", &ssqp::Params::use_filter, R"doc(
+        Which type of line search to use
+        Choose between:
+         - Filter line search
+         - Merit function line search
+        )doc")
+      .def_rw("filter_size",
+              &ssqp::Params::filter_size,
+              "Size of filter history.")
+      .def_rw("merit_mu_gamma", &ssqp::Params::merit_mu_gamma, R"doc(
+        Weight for stage gap term
+        NOTE: Set to 0 in Inverse Dynamics mode
+        )doc")
+      .def_rw("merit_mu_c",
+              &ssqp::Params::merit_mu_c,
+              "Weight for constraint violation term.")
+      .def_rw("merit_armijo_beta",
+              &ssqp::Params::merit_armijo_beta,
+              "Factor for gradient of merit function.")
+      .def_rw("inv_alpha_scale_factor",
+              &ssqp::Params::inv_alpha_scale_factor,
+              "Factor to divide α (step size) by each line search step.")
+      .def_rw("min_alpha",
+              &ssqp::Params::min_alpha,
+              "Minimum α (step size) value.")
+      .def_rw("accept_worse_update", &ssqp::Params::accept_worse_update, R"doc(
+        Whether to update with min_alpha if it is reached
+        Automatically also skips regularization
+        )doc")
+      .def_rw("skip_regularization", &ssqp::Params::skip_regularization, R"doc(
+        Whether to skip regularization step if line search fails
+        Will throw an exception instead
+        )doc");
 
     nb::class_<admm_qp::Params>(m, "admmParams")
       .def(nb::init<>())
-      .def_rw("init_rho", &admm_qp::Params::init_rho)
-      .def_rw("alpha", &admm_qp::Params::alpha)
-      .def_rw("sigma", &admm_qp::Params::sigma)
-      .def_rw("rho_update", &admm_qp::Params::rho_update)
-      .def_rw("rho_min", &admm_qp::Params::rho_min)
-      .def_rw("rho_max", &admm_qp::Params::rho_max)
+      .def_rw("init_rho", &admm_qp::Params::init_rho, "Initial rho value.")
+      .def_rw("alpha", &admm_qp::Params::alpha, "Over-relaxation parameter.")
+      .def_rw("sigma",
+              &admm_qp::Params::sigma,
+              "Proximal regularization parameter.")
+      .def_rw("rho_update",
+              &admm_qp::Params::rho_update,
+              "Whether to perform rho update.")
+      .def_rw("rho_min",
+              &admm_qp::Params::rho_min,
+              "Minimum possible rho value.")
+      .def_rw("rho_max",
+              &admm_qp::Params::rho_max,
+              "Maximum possible rho value.")
       .def_rw("adaptive_rho_tolerance",
-              &admm_qp::Params::adaptive_rho_tolerance)
-      .def_rw("rho_update_iter_freq", &admm_qp::Params::rho_update_iter_freq)
-      .def_rw("max_iter", &admm_qp::Params::max_iter)
-      .def_rw("abs_tolerance", &admm_qp::Params::abs_tolerance)
-      .def_rw("abs_tolerance_final", &admm_qp::Params::abs_tolerance_final)
-      .def_rw("rel_tolerance", &admm_qp::Params::rel_tolerance)
-      .def_rw("rel_tolerance_final", &admm_qp::Params::rel_tolerance_final)
+              &admm_qp::Params::adaptive_rho_tolerance,
+              "Factor by which rho must change to actually perform rho update.")
+      .def_rw("rho_update_iter_freq",
+              &admm_qp::Params::rho_update_iter_freq,
+              R"doc(
+        Number of iterations to wait before updating rho
+        Also affects checking for termination
+        )doc")
+      .def_rw("max_iter",
+              &admm_qp::Params::max_iter,
+              "Maximum number of ADMM iterations.")
+      .def_rw("abs_tolerance",
+              &admm_qp::Params::abs_tolerance,
+              "Absolute ADMM tolerance.")
+      .def_rw("abs_tolerance_final",
+              &admm_qp::Params::abs_tolerance_final,
+              R"doc(
+        Final absolute ADMM tolerance
+        This value will be reached after `tolerance_update_steps` ADMM steps
+        Use -1.0 to ignore
+        )doc")
+      .def_rw("rel_tolerance",
+              &admm_qp::Params::rel_tolerance,
+              "Relative ADMM tolerance.")
+      .def_rw("rel_tolerance_final",
+              &admm_qp::Params::rel_tolerance_final,
+              R"doc(
+        Final relative ADMM tolerance
+        This value will be reached after `tolerance_update_steps` ADMM steps
+        Use -1.0 to ignore
+        )doc")
       .def_rw("tolerance_update_steps",
-              &admm_qp::Params::tolerance_update_steps)
-      .def_rw("warm_start", &admm_qp::Params::warm_start)
-      .def_rw("reset_rho", &admm_qp::Params::reset_rho)
-      .def_rw("reset_y", &admm_qp::Params::reset_y);
+              &admm_qp::Params::tolerance_update_steps,
+              R"doc(
+        Number of steps to go from initial to final tolerances
+        Updates are done linearly per step
+        Ignored (per tolerance) if tolerance is -1.0
+              )doc")
+      .def_rw("warm_start", &admm_qp::Params::warm_start, R"doc(
+        Whether to warm start ADMM with the unconstrained solution
+        Note: set to false if using Inverse Dynamics
+        )doc")
+      .def_rw("reset_rho", &admm_qp::Params::reset_rho, R"doc(
+        Whether to reset the rho parameter between each new ADMM formulation
+        Note: setting to false may often cause oscillations
+        )doc")
+      .def_rw("reset_y", &admm_qp::Params::reset_y, R"doc(
+        Whether to reset the y parameter between each new ADMM formulation
+        Note: setting to false may often cause oscillations
+        )doc");
 
-    nb::class_<ssqp>(m, "ssqp")
+    nb::class_<ssqp>(m, "ssqp", R"doc(
+        Defines an SSQP problem solver based on a given SSQP model and the desired
+        parameters.
+
+        SSQP is a Structure-exploiting Sequential Quadratic Programming solver.
+        The solver starts with an initial guess (either provided, or zero) for the
+        states (x) and controls (u) of an optimization problem over a time horizon H.
+
+        At each step, SSQP constructs a Quadratic Program at the current SSQP guess
+        with a quadratic cost function and linearized constraints. This is done using
+        the SSQP model, a model of the system being optimized which provides the
+        necessary methods to linearize at each guess, like gradients and hessians.
+
+        The solver then utilizes a QP solver to produce a solution to the constructed
+        QP, which can act as an update step for the current SSQP guess. Based on this
+        solution, a line search method is used to update the current guess.
+
+        Termination criteria are then checked for the new SSQP guess. The process is
+        repeated until convergence is reached.   
+           )doc")
       .def(nb::init<model::Model &,
                     const ssqp::Params &,
                     const admm_qp::Params &>(),
            nb::keep_alive<1, 2>(),
            nb::arg("model"),
            nb::arg("params")      = ssqp::Params::Default(),
-           nb::arg("admm_params") = admm_qp::Params::Default())
+           nb::arg("admm_params") = admm_qp::Params::Default(),
+           "Initialize an SSQP solver based on the given model and SSQP and "
+           "ADMM parameter objects.")
       .def(
         "__init__",
         [](ssqp *self, Model &model, nb::kwargs kwargs)
@@ -244,18 +366,30 @@ void bind_ssqp(nb::module_ &m)
 
             new (self) ssqp(model, params, admm_params);
         },
-        nb::keep_alive<1, 2>())
-      .def("solve",
-           [](ssqp &self)
-           {
-               const Model &model = self.model();
-               ssqp::Guess  solution(model.dims(), model.linear_dims());
+        nb::keep_alive<1, 2>(),
+        R"doc(
+        Initialize an SSQP solver based on the given model and SSQP and ADMM 
+        parameters. Parameters, as defined in ssqpParams, can be passed as 
+        keyword arguments to this constructor. ADMM parameters, as defined in 
+        admmParams, can be passed as keyword arguments with the `admm_` prefix.
+        )doc")
+      .def(
+        "solve",
+        [](ssqp &self)
+        {
+            const Model &model = self.model();
+            ssqp::Guess  solution(model.dims(), model.linear_dims());
 
-               SolverState state = self.solve(solution);
+            SolverState state = self.solve(solution);
 
-               return nb::make_tuple(state, solution.x, solution.u);
-           })
-      .def("write", &ssqp::write, nb::arg("filename"));
+            return nb::make_tuple(state, solution.x, solution.u);
+        },
+        "Solve the defined problem using SSQP.")
+      .def("write",
+           &ssqp::write,
+           nb::arg("filename"),
+           "Write the current solution to the output file with the provided "
+           "name.");
 }
 }
 }
