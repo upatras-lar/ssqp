@@ -10,6 +10,186 @@ namespace predefined
 {
 namespace constraints
 {
+// JointAngleConstraint
+JointAngleConstraint::JointAngleConstraint(const VecX &lb, const VecX &ub,
+                                           const uint nq, const uint nv,
+                                           const bool free_flyer)
+  : _lb(lb)
+  , _ub(ub)
+  , _nv(nv)
+  , _njoints(free_flyer ? nq - 7 : nq)
+  , _free_flyer(free_flyer)
+{
+    assert(lb.size() == ub.size() && lb.size() == _njoints &&
+           "Invalid bound size");
+}
+
+void JointAngleConstraint::set_lower_bound(const VecX &lb)
+{
+    assert(lb.size() == _njoints && "Invalid bound size");
+    _lb = lb;
+}
+
+void JointAngleConstraint::set_upper_bound(const VecX &ub)
+{
+    assert(ub.size() == _njoints && "Invalid bound size");
+    _ub = ub;
+}
+
+VecX JointAngleConstraint::evaluate(const VecX &x, const VecX &u) const
+{
+    return _free_flyer ? x.segment(7, _njoints) : x.head(_njoints);
+}
+
+void JointAngleConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                    MatX &dU) const
+{
+    dX = MatX::Zero(_njoints, 2 * _nv);
+    if (_free_flyer)
+    {
+        dX.block(0, 6, _njoints, _njoints).setIdentity();
+    }
+    else
+    {
+        dX.topLeftCorner(_njoints, _njoints).setIdentity();
+    }
+
+    dU = MatX::Zero(_njoints, u.size());
+}
+
+void JointAngleConstraint::hessprod_xx(const VecX &x, const VecX &u,
+                                       const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+}
+void JointAngleConstraint::hessprod_xu(const VecX &x, const VecX &u,
+                                       const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(2 * _nv, u.size());
+}
+void JointAngleConstraint::hessprod_uu(const VecX &x, const VecX &u,
+                                       const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// JointVelocityConstraint
+JointVelocityConstraint::JointVelocityConstraint(const VecX &lb, const VecX &ub,
+                                                 const uint nv,
+                                                 const bool free_flyer)
+  : _lb(lb)
+  , _ub(ub)
+  , _nv(nv)
+  , _njoints(free_flyer ? nv - 6 : nv)
+{
+    assert(lb.size() == ub.size() && lb.size() == _njoints &&
+           "Invalid bound size");
+}
+
+void JointVelocityConstraint::set_lower_bound(const VecX &lb)
+{
+    assert(lb.size() == _njoints && "Invalid bound size");
+    _lb = lb;
+}
+
+void JointVelocityConstraint::set_upper_bound(const VecX &ub)
+{
+    assert(ub.size() == _njoints && "Invalid bound size");
+    _ub = ub;
+}
+
+VecX JointVelocityConstraint::evaluate(const VecX &x, const VecX &u) const
+{
+    return x.tail(_njoints);
+}
+
+void JointVelocityConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                       MatX &dU) const
+{
+    dX = MatX::Zero(_njoints, 2 * _nv);
+    dX.bottomRightCorner(_njoints, _njoints).setIdentity();
+
+    dU = MatX::Zero(_njoints, u.size());
+}
+
+void JointVelocityConstraint::hessprod_xx(const VecX &x, const VecX &u,
+                                          const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+}
+void JointVelocityConstraint::hessprod_xu(const VecX &x, const VecX &u,
+                                          const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(2 * _nv, u.size());
+}
+void JointVelocityConstraint::hessprod_uu(const VecX &x, const VecX &u,
+                                          const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// JointControlConstraint
+JointControlConstraint::JointControlConstraint(const VecX &lb, const VecX &ub,
+                                               const uint nv,
+                                               const bool free_flyer)
+  : _lb(lb)
+  , _ub(ub)
+  , _nv(nv)
+  , _njoints(free_flyer ? nv - 6 : nv)
+  , _free_flyer(free_flyer)
+{
+    assert(lb.size() == ub.size() && lb.size() == _njoints &&
+           "Invalid bound size");
+}
+
+void JointControlConstraint::set_lower_bound(const VecX &lb)
+{
+    assert(lb.size() == _njoints && "Invalid bound size");
+    _lb = lb;
+}
+
+void JointControlConstraint::set_upper_bound(const VecX &ub)
+{
+    assert(ub.size() == _njoints && "Invalid bound size");
+    _ub = ub;
+}
+
+VecX JointControlConstraint::evaluate(const VecX &x, const VecX &u) const
+{
+    return _free_flyer ? u.segment(6, _njoints) : u.head(_njoints);
+}
+
+void JointControlConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                      MatX &dU) const
+{
+    dX = MatX::Zero(_njoints, 2 * _nv);
+    dU = MatX::Zero(_njoints, u.size());
+    if (_free_flyer)
+    {
+        dU.block(0, 6, _njoints, _njoints).setIdentity();
+    }
+    else
+    {
+        dU.topLeftCorner(_njoints, _njoints).setIdentity();
+    }
+}
+
+void JointControlConstraint::hessprod_xx(const VecX &x, const VecX &u,
+                                         const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+}
+void JointControlConstraint::hessprod_xu(const VecX &x, const VecX &u,
+                                         const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(2 * _nv, u.size());
+}
+void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
+                                         const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
 // FramePositionBound
 FramePositionBound::FramePositionBound(const Model       &model,
                                        const std::string &frame, const VecX &lb,
@@ -27,11 +207,13 @@ FramePositionBound::FramePositionBound(const Model       &model,
 
 void FramePositionBound::set_lower_bound(const VecX &lb)
 {
+    assert(lb.size() == 3 && "Bound vector size must be 3");
     _lb = lb;
 }
 
 void FramePositionBound::set_upper_bound(const VecX &ub)
 {
+    assert(ub.size() == 3 && "Bound vector size must be 3");
     _ub = ub;
 }
 
@@ -104,11 +286,13 @@ FrameVelocityBound::FrameVelocityBound(const Model       &model,
 
 void FrameVelocityBound::set_lower_bound(const VecX &lb)
 {
+    assert(lb.size() == 3 && "Bound vector size must be 3");
     _lb = lb;
 }
 
 void FrameVelocityBound::set_upper_bound(const VecX &ub)
 {
+    assert(ub.size() == 3 && "Bound vector size must be 3");
     _ub = ub;
 }
 
