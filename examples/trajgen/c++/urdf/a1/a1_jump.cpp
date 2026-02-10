@@ -99,7 +99,7 @@ int main()
                   CONTROL_SIZE,
                   0.6);
 
-                model.addConstraints<constraints::FrameVelocityBound>(
+                model.addConstraints<constraints::FrameLinearVelocityBound>(
                   k,
                   model,
                   "FL_foot",
@@ -116,7 +116,7 @@ int main()
                   CONTROL_SIZE,
                   0.6);
 
-                model.addConstraints<constraints::FrameVelocityBound>(
+                model.addConstraints<constraints::FrameLinearVelocityBound>(
                   k,
                   model,
                   "FR_foot",
@@ -140,7 +140,7 @@ int main()
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
+            model.addConstraints<constraints::FrameLinearVelocityBound>(
               k,
               model,
               "RL_foot",
@@ -156,7 +156,7 @@ int main()
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
+            model.addConstraints<constraints::FrameLinearVelocityBound>(
               k,
               model,
               "RR_foot",
@@ -189,7 +189,7 @@ int main()
                                                     TO_WGT);
 
     // Add bound to keep final trunk velocity low
-    model.addConstraints<constraints::FrameVelocityBound>(
+    model.addConstraints<constraints::FrameLinearVelocityBound>(
       HORIZON,
       model,
       "trunk",

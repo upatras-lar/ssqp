@@ -277,7 +277,7 @@ class Model
                                     const std::string &frame) const;
 
     // Get the velocity for a given frame
-    const Vec3 frameVelocity(const VecX &q, const VecX &v,
+    const Vec6 frameVelocity(const VecX &q, const VecX &v,
                              const std::string &frame,
                              bool               local = false) const;
 

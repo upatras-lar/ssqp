@@ -457,8 +457,8 @@ Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
     return impl->data.oMf[frame_id].toHomogeneousMatrix();
 }
 
-Eigen::Vector3d frameVelocity(const std::shared_ptr<ModelImpl> &impl,
-                              const std::string &frame, bool local)
+Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
+                                       const std::string &frame, bool local)
 {
     return pinocchio::getFrameVelocity(
              impl->model,
@@ -466,7 +466,7 @@ Eigen::Vector3d frameVelocity(const std::shared_ptr<ModelImpl> &impl,
              impl->model.getFrameId(frame),
              local ? pinocchio::ReferenceFrame::LOCAL
                    : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED)
-      .linear();
+      .toVector();
 }
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,

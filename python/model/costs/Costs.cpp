@@ -409,7 +409,7 @@ where:
 Predefined squared frame velocity cost
 Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
 where:
- - $\boldsymbol{v}_f$ is the velocity for a frame
+ - $\boldsymbol{v}_f$ is the (6D) velocity for a frame
  - $\boldsymbol{w}$ is the weight on the velocity term
                                                     )doc")
       .def(nb::init<const Model &, const std::string &, uint, uint, double>(),
@@ -420,7 +420,7 @@ where:
            nb::arg("weight"))
       .def(
         nb::
-          init<const Model &, const std::string &, uint, uint, const Vec3 &>(),
+          init<const Model &, const std::string &, uint, uint, const Vec6 &>(),
         nb::arg("model"),
         nb::arg("frame"),
         nb::arg("nq"),
@@ -431,7 +431,7 @@ where:
              &FrameSquaredVelocityCost::set_weight),
            nb::arg("weight"))
       .def("set_weight",
-           static_cast<void (FrameSquaredVelocityCost::*)(const Vec3 &)>(
+           static_cast<void (FrameSquaredVelocityCost::*)(const Vec6 &)>(
              &FrameSquaredVelocityCost::set_weight),
            nb::arg("weight"));
 }

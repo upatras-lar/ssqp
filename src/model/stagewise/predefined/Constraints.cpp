@@ -268,11 +268,10 @@ void FramePositionBound::hessprod_uu(const VecX &x, const VecX &u,
     Puu = MatX::Zero(u.size(), u.size());
 }
 
-// FrameVelocityBound
-FrameVelocityBound::FrameVelocityBound(const Model       &model,
-                                       const std::string &frame, const VecX &lb,
-                                       const VecX &ub, const uint nq,
-                                       const uint nv, const bool terminal)
+// FrameLinearVelocityBound
+FrameLinearVelocityBound::FrameLinearVelocityBound(
+  const Model &model, const std::string &frame, const VecX &lb, const VecX &ub,
+  const uint nq, const uint nv, const bool terminal)
   : _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _lb(lb)
@@ -284,39 +283,40 @@ FrameVelocityBound::FrameVelocityBound(const Model       &model,
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
 }
 
-void FrameVelocityBound::set_lower_bound(const VecX &lb)
+void FrameLinearVelocityBound::set_lower_bound(const VecX &lb)
 {
     assert(lb.size() == 3 && "Bound vector size must be 3");
     _lb = lb;
 }
 
-void FrameVelocityBound::set_upper_bound(const VecX &ub)
+void FrameLinearVelocityBound::set_upper_bound(const VecX &ub)
 {
     assert(ub.size() == 3 && "Bound vector size must be 3");
     _ub = ub;
 }
 
-uint FrameVelocityBound::output_size() const
+uint FrameLinearVelocityBound::output_size() const
 {
     return 3;
 }
 
-VecX FrameVelocityBound::lower_bound() const
+VecX FrameLinearVelocityBound::lower_bound() const
 {
     return _lb;
 }
-VecX FrameVelocityBound::upper_bound() const
+VecX FrameLinearVelocityBound::upper_bound() const
 {
     return _ub;
 }
 
-VecX FrameVelocityBound::evaluate(const VecX &x, const VecX &u) const
+VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true);
+    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true)
+      .head(3);
 }
 
-void FrameVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                  MatX &dU) const
+void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                        MatX &dU) const
 {
     VecX a;
 
@@ -343,18 +343,18 @@ void FrameVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     dU = MatX::Zero(3, u.size());
 }
 
-void FrameVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Pxx) const
+void FrameLinearVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
+                                           const VecX &mu, MatX &Pxx) const
 {
     Pxx = MatX::Zero(2 * _nv, 2 * _nv);
 }
-void FrameVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Pxu) const
+void FrameLinearVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
+                                           const VecX &mu, MatX &Pxu) const
 {
     Pxu = MatX::Zero(2 * _nv, u.size());
 }
-void FrameVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Puu) const
+void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
+                                           const VecX &mu, MatX &Puu) const
 {
     Puu = MatX::Zero(u.size(), u.size());
 }

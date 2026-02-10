@@ -11,7 +11,7 @@ dt = 0.01
 
 A_WGT = 1e-4
 V_WGT = 1e-4
-U_WGT = 1e-5
+U_WGT = 1e-4
 F_WGT = 1e-9
 
 STEPS_BEFORE = 60
@@ -36,6 +36,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
+    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -46,23 +47,23 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
     model, base_pos, np.eye(3), "base", nq, nv, 20.0, 1.0
 )
 
-fl_foot_vel_bound = constraints.FrameVelocityBound(
+fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-fr_foot_vel_bound = constraints.FrameVelocityBound(
+fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-rl_foot_vel_bound = constraints.FrameVelocityBound(
+rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-rr_foot_vel_bound = constraints.FrameVelocityBound(
+rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-above_ground_lb = np.array((-np.inf, -np.inf, 0.0))
+above_ground_lb = np.array((-np.inf, -np.inf, 0.1))
 above_ground_ub = np.array((np.inf, np.inf, np.inf))
 
 base_above_ground_bound = constraints.FramePositionBound(
@@ -87,11 +88,28 @@ for k in range(rotation_range):
     R[2, 2] = cos(θk)
     rotation_traj.append(R)
 
+# ang_vel_vectors = [np.zeros(3)]
+# for k in range(1, rotation_range):
+#     R_rel = rotation_traj[k] @ rotation_traj[k - 1].T
+#     ang_vel_vectors.append(
+#         0.5
+#         * np.array(
+#             (
+#                 R_rel[3, 2] - R_rel[2, 3],
+#                 R_rel[1, 3] - R_rel[3, 1],
+#                 R_rel[2, 1] - R_rel[1, 2],
+#             )
+#         )
+#     )
+
 for k in range(HORIZON):
     model.addCost(k, joint_angle_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
+
+    model.addConstraints(k, base_above_ground_bound)
+    model.addConstraints(k, head_above_ground_bound)
 
     if k < STEPS_BEFORE or k >= HORIZON - STEPS_AFTER:
         model.addContactConstraint(k, "FL_foot")
@@ -106,9 +124,6 @@ for k in range(HORIZON):
         model.addContactConstraint(k, "RR_foot")
         model.addConstraints(k, rr_foot_vel_bound)
 
-        model.addConstraints(k, base_above_ground_bound)
-        model.addConstraints(k, head_above_ground_bound)
-
         init_states.append(init)
         init_controls.append(init_control)
         continue
@@ -116,7 +131,7 @@ for k in range(HORIZON):
         model.addCost(
             k,
             costs.FrameSquaredRotationErrorCost(
-                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 2.0
+                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 1.0
             ),
         )
 
@@ -129,7 +144,7 @@ model.addCost(HORIZON, pose_cost)
 model.addCost(HORIZON, joint_vel_cost)
 model.addConstraints(
     HORIZON,
-    constraints.FrameVelocityBound(
+    constraints.FrameLinearVelocityBound(
         model, "base", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )
@@ -142,7 +157,8 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-1,
-    filter_size=1,
+    use_filter=False,
+    merit_mu_gamma=0.0,
     admm_abs_tolerance=1e-2,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,

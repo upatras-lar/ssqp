@@ -229,7 +229,9 @@ void bind_Constraints(nb::module_ &m)
            &FramePositionBound::set_upper_bound,
            nb::arg("upper_bound"));
 
-    nb::class_<FrameVelocityBound, StageConstraints>(m, "FrameVelocityBound")
+    nb::class_<FrameLinearVelocityBound, StageConstraints>(
+      m,
+      "FrameLinearVelocityBound")
       .def(nb::init<const Model &,
                     const std::string &,
                     const VecX &,
@@ -253,10 +255,10 @@ void bind_Constraints(nb::module_ &m)
          - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)          
            )doc")
       .def("set_lower_bound",
-           &FrameVelocityBound::set_lower_bound,
+           &FrameLinearVelocityBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
-           &FrameVelocityBound::set_upper_bound,
+           &FrameLinearVelocityBound::set_upper_bound,
            nb::arg("upper_bound"));
 }
 }

@@ -671,7 +671,7 @@ const MatX Model::forwardKinematicsSE3(const VecX        &q,
     return pinocchio_wrapper::forwardKinematicsSE3(_impl, q, frame);
 }
 
-const Vec3 Model::frameVelocity(const VecX &q, const VecX &v,
+const Vec6 Model::frameVelocity(const VecX &q, const VecX &v,
                                 const std::string &frame, bool local) const
 {
     pinocchio_wrapper::forwardKinematics(_impl, q, v, frame);

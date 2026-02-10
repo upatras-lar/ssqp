@@ -758,7 +758,7 @@ FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
 FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
                                                    const std::string &frame,
                                                    const uint nq, const uint nv,
-                                                   const Vec3 &weight)
+                                                   const Vec6 &weight)
   : _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _nq(nq)
@@ -772,13 +772,14 @@ void FrameSquaredVelocityCost::set_weight(const double weight)
     _weight.setConstant(weight);
 }
 
-void FrameSquaredVelocityCost::set_weight(const Vec3 &weight)
+void FrameSquaredVelocityCost::set_weight(const Vec6 &weight)
 {
     _weight = weight;
 }
 
 VecX FrameSquaredVelocityCost::evaluate(const VecX &x, const VecX &u) const
 {
+    LOGLN("TF?");
     return (Scalar()
             << 0.5 *
                  (_weight.array() *
@@ -792,7 +793,7 @@ VecX FrameSquaredVelocityCost::evaluate(const VecX &x, const VecX &u) const
 void FrameSquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                         VecX &du) const
 {
-    Vec3 vel =
+    Vec6 vel =
       _weight.array() *
       _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true).array();
 
@@ -805,8 +806,8 @@ void FrameSquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 
     dx = VecX::Zero(2 * _nv);
 
-    dx.head(_nv) = _weight * dVdq.topRows<3>().transpose() * vel;
-    dx.tail(_nv) = _weight * dVdv.topRows<3>().transpose() * vel;
+    dx.head(_nv) = _weight * dVdq.transpose() * vel;
+    dx.tail(_nv) = _weight * dVdv.transpose() * vel;
 
     du = VecX::Zero(u.size());
 }
@@ -817,7 +818,7 @@ void FrameSquaredVelocityCost::hessian_xx(const VecX &x, const VecX &u,
 
     Hxx = MatX::Zero(2 * _nv, 2 * _nv);
     Hxx.bottomRightCorner(_nv, _nv) =
-      Jfk.topRows(3).transpose() * _weight.asDiagonal() * Jfk.topRows(3);
+      Jfk.transpose() * _weight.asDiagonal() * Jfk;
 }
 void FrameSquaredVelocityCost::hessian_xu(const VecX &x, const VecX &u,
                                           MatX &Hxu) const
@@ -829,7 +830,6 @@ void FrameSquaredVelocityCost::hessian_uu(const VecX &x, const VecX &u,
 {
     Huu = MatX::Zero(u.size(), u.size());
 }
-
 }
 }
 }

@@ -100,7 +100,7 @@ model.addCost(
 # Add a bound such that the base has no velocity at the end of the trajectory
 model.addConstraints(
     HORIZON,
-    constraints.FrameVelocityBound(
+    constraints.FrameLinearVelocityBound(
         model, "base", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )

@@ -59,19 +59,19 @@ control_cost = costs.SquaredControlCost(nv, U_WGT)
 
 # Velocity bounds for feet frames
 # These add constraints, such that the feet have no velocity
-fl_foot_vel_bound = constraints.FrameVelocityBound(
+fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-fr_foot_vel_bound = constraints.FrameVelocityBound(
+fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-rl_foot_vel_bound = constraints.FrameVelocityBound(
+rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-rr_foot_vel_bound = constraints.FrameVelocityBound(
+rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 

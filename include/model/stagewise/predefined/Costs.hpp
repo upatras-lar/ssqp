@@ -298,7 +298,7 @@ class FrameSquaredPoseErrorCost : public StageCost
 /* Predefined squared frame velocity cost
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
  * where:
- *  - $\boldsymbol{v}_f$ is the velocity for a frame
+ *  - $\boldsymbol{v}_f$ is the (6D) velocity for a frame
  *  - $\boldsymbol{w}$ is the weight on the velocity term
  */
 class FrameSquaredVelocityCost : public StageCost
@@ -307,10 +307,10 @@ class FrameSquaredVelocityCost : public StageCost
     FrameSquaredVelocityCost(const Model &model, const std::string &frame,
                              const uint nq, const uint nv, const double weight);
     FrameSquaredVelocityCost(const Model &model, const std::string &frame,
-                             const uint nq, const uint nv, const Vec3 &weight);
+                             const uint nq, const uint nv, const Vec6 &weight);
 
     void set_weight(const double weight);
-    void set_weight(const Vec3 &weight);
+    void set_weight(const Vec6 &weight);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -324,7 +324,7 @@ class FrameSquaredVelocityCost : public StageCost
     const std::string            _frame;
 
     const uint _nq, _nv;
-    Vec3       _weight;
+    Vec6       _weight;
 };
 }
 }

@@ -54,7 +54,7 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "FL_foot",
@@ -70,7 +70,7 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "FR_foot",
@@ -86,7 +86,7 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "RL_foot",
@@ -102,7 +102,7 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "RR_foot",
@@ -172,7 +172,7 @@ int main()
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
+            model.addConstraints<constraints::FrameLinearVelocityBound>(
               k,
               model,
               "FL_foot",
@@ -188,7 +188,7 @@ int main()
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
+            model.addConstraints<constraints::FrameLinearVelocityBound>(
               k,
               model,
               "RR_foot",
@@ -246,7 +246,7 @@ int main()
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
+            model.addConstraints<constraints::FrameLinearVelocityBound>(
               k,
               model,
               "FR_foot",
@@ -262,7 +262,7 @@ int main()
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
+            model.addConstraints<constraints::FrameLinearVelocityBound>(
               k,
               model,
               "RL_foot",

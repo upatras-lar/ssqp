@@ -302,7 +302,7 @@ std::shared_ptr<Test> get_frame_velocity_bound_grad_test()
     setup_model(model);
 
     model->addConstraints<
-      model::stagewise::predefined::constraints::FrameVelocityBound>(
+      model::stagewise::predefined::constraints::FrameLinearVelocityBound>(
       0,
       *model,
       "trunk",
@@ -314,7 +314,7 @@ std::shared_ptr<Test> get_frame_velocity_bound_grad_test()
     model->finalize();
 
     std::shared_ptr<FDGradConstraints> constraints_test =
-      std::make_shared<FDGradConstraints>("FrameVelocityBoundGradTest",
+      std::make_shared<FDGradConstraints>("FrameLinearVelocityBoundGradTest",
                                           model,
                                           0);
 

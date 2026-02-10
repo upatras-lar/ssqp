@@ -149,29 +149,29 @@ control_cost = costs.SquaredControlCost(nv, u_wgt)
 force_cost = costs.SquaredForceCost(nv, f_wgt)
 
 # Create velocity bounds for feet frames that are in contact
-left_mm_vel_bound = constraints.FrameVelocityBound(
+left_mm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_mm", np.zeros(3), np.zeros(3), nq, nv
 )
-left_mp_vel_bound = constraints.FrameVelocityBound(
+left_mp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_mp", np.zeros(3), np.zeros(3), nq, nv
 )
-left_pp_vel_bound = constraints.FrameVelocityBound(
+left_pp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_pp", np.zeros(3), np.zeros(3), nq, nv
 )
-left_pm_vel_bound = constraints.FrameVelocityBound(
+left_pm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_pm", np.zeros(3), np.zeros(3), nq, nv
 )
 
-right_mm_vel_bound = constraints.FrameVelocityBound(
+right_mm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "right_mm", np.zeros(3), np.zeros(3), nq, nv
 )
-right_mp_vel_bound = constraints.FrameVelocityBound(
+right_mp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "right_mp", np.zeros(3), np.zeros(3), nq, nv
 )
-right_pp_vel_bound = constraints.FrameVelocityBound(
+right_pp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "right_pp", np.zeros(3), np.zeros(3), nq, nv
 )
-right_pm_vel_bound = constraints.FrameVelocityBound(
+right_pm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "right_pm", np.zeros(3), np.zeros(3), nq, nv
 )
 
@@ -217,7 +217,7 @@ model.addCost(H, pose_cost)
 # Add velocity bound for torso to stay still
 model.addConstraints(
     H,
-    constraints.FrameVelocityBound(
+    constraints.FrameLinearVelocityBound(
         model, "torso_1_link", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )

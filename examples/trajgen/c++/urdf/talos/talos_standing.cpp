@@ -77,7 +77,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "left_mm",
@@ -93,7 +93,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "left_mp",
@@ -109,7 +109,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "left_pp",
@@ -125,7 +125,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "left_pm",
@@ -141,7 +141,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "right_mm",
@@ -157,7 +157,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "right_mp",
@@ -173,7 +173,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "right_pp",
@@ -189,7 +189,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           "right_pm",

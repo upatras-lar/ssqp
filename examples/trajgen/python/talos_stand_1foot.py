@@ -52,16 +52,16 @@ control_cost = costs.SquaredControlCost(nv, u_wgt)
 force_cost = costs.SquaredForceCost(nv, f_wgt)
 
 # Create velocity bounds for each frame that will have a force applied
-left_mm_vel_bound = constraints.FrameVelocityBound(
+left_mm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_mm", np.zeros(3), np.zeros(3), nq, nv
 )
-left_mp_vel_bound = constraints.FrameVelocityBound(
+left_mp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_mp", np.zeros(3), np.zeros(3), nq, nv
 )
-left_pp_vel_bound = constraints.FrameVelocityBound(
+left_pp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_pp", np.zeros(3), np.zeros(3), nq, nv
 )
-left_pm_vel_bound = constraints.FrameVelocityBound(
+left_pm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_pm", np.zeros(3), np.zeros(3), nq, nv
 )
 
@@ -151,7 +151,7 @@ model.addCost(H, joint_vel_cost)
 # Add velocity bound for the torso at the terminal stage
 model.addConstraints(
     H,
-    constraints.FrameVelocityBound(
+    constraints.FrameLinearVelocityBound(
         model, "torso_1_link", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )

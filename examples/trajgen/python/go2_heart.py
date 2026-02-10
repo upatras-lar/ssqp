@@ -103,19 +103,19 @@ force_cost = costs.SquaredForceCost(nv, F_WGT)
 
 # Define velocity bounds for feet
 # Used in conjunction with contact constraints
-fl_foot_vel_bound = constraints.FrameVelocityBound(
+fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-fr_foot_vel_bound = constraints.FrameVelocityBound(
+fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-rl_foot_vel_bound = constraints.FrameVelocityBound(
+rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-rr_foot_vel_bound = constraints.FrameVelocityBound(
+rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
@@ -196,7 +196,7 @@ model.addCost(
 # Add a bound such that the base has no velocity at the end of the trajectory
 model.addConstraints(
     HORIZON,
-    constraints.FrameVelocityBound(
+    constraints.FrameLinearVelocityBound(
         model, "base", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )
