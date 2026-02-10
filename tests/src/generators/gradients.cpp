@@ -8,12 +8,13 @@ namespace generators
 {
 void setup_model(std::shared_ptr<model::Model> &model)
 {
-    for (uint k = 0; k <= model->dims().horizon; ++k)
+    model::Dimensions dims = model->dims();
+    for (uint k = 0; k <= dims.horizon; ++k)
     {
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(
           k,
-          1,
+          dims.nv[k],
           1,
           model->floatingBase());
     }
@@ -363,7 +364,7 @@ std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test()
             k,
             9,
             9,
-            1);
+            2.0);
     }
 
     model->finalize();
@@ -389,7 +390,7 @@ std::shared_ptr<Test> get_squared_joint_angle_cost_floating_base_grad_test()
             k,
             19,
             18,
-            1,
+            2.0,
             true);
     }
 
@@ -415,7 +416,7 @@ std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
                                                                          9,
-                                                                         1);
+                                                                         2.0);
     }
 
     model->finalize();
@@ -441,7 +442,7 @@ std::shared_ptr<Test> get_squared_joint_velocity_cost_floating_base_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
                                                                          18,
-                                                                         1,
+                                                                         2.0,
                                                                          true);
     }
 
@@ -468,7 +469,7 @@ std::shared_ptr<Test> get_squared_control_cost_grad_test()
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
           18,
-          1);
+          2.0);
     }
 
     model
@@ -500,19 +501,77 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test()
         model->addCost<model::stagewise::predefined::costs::SquaredForceCost>(
           k,
           18,
-          1);
+          2.0);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         2,
         1,
-        1);
+        1.0);
 
     model->finalize();
 
     std::shared_ptr<FDGradCost> cost_test =
       std::make_shared<FDGradCost>("SquaredForceCostGradTest", model, 0);
+
+    return cost_test;
+}
+
+std::shared_ptr<Test> get_squared_configuration_difference_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<model::stagewise::predefined::costs::
+                         SquaredConfigurationDifferenceCost>(k,
+                                                             VecX::Zero(9),
+                                                             9,
+                                                             9,
+                                                             2.0,
+                                                             false);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("SquaredConfigurationDifferenceCostGradTest",
+                                   model,
+                                   0);
+
+    return cost_test;
+}
+
+std::shared_ptr<Test>
+get_squared_configuration_difference_cost_floating_base_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<model::stagewise::predefined::costs::
+                         SquaredConfigurationDifferenceCost>(k,
+                                                             VecX::Zero(12),
+                                                             19,
+                                                             18,
+                                                             2.0,
+                                                             true);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
+      "SquaredConfigurationDifferenceCostFloatingBaseGradTest",
+      model,
+      0);
 
     return cost_test;
 }
@@ -534,7 +593,7 @@ std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test()
                                                            "trunk",
                                                            19,
                                                            18,
-                                                           1);
+                                                           2.0);
     }
 
     model->finalize();
@@ -565,7 +624,7 @@ std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test()
           "trunk",
           19,
           18,
-          1);
+          2.0);
     }
 
     model->finalize();
@@ -597,8 +656,8 @@ std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test()
           "trunk",
           19,
           18,
-          1,
-          1);
+          2.0,
+          1.5);
     }
 
     model->finalize();
@@ -631,7 +690,7 @@ std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test()
           "FR_foot",
           19,
           18,
-          1);
+          2.0);
     }
 
     model->finalize();
@@ -661,7 +720,7 @@ std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test()
           "FR_foot",
           19,
           18,
-          1);
+          2.0);
     }
 
     model->finalize();
@@ -688,19 +747,19 @@ std::shared_ptr<Test> get_lf_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
                                                                          18,
-                                                                         1,
+                                                                         2.0,
                                                                          true);
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
           18,
-          1);
+          2.0);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         horizon,
         18,
-        1,
+        2.0,
         true);
 
     VecX init_state(37);
@@ -730,19 +789,19 @@ std::shared_ptr<Test> get_gammaf_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
                                                                          18,
-                                                                         1,
+                                                                         2.0,
                                                                          true);
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
           18,
-          1);
+          2.0);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         horizon,
         18,
-        1,
+        2.0,
         true);
 
     VecX init_state(37);
@@ -777,12 +836,12 @@ std::shared_ptr<Test> get_cf_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
                                                                          18,
-                                                                         1,
+                                                                         2.0,
                                                                          true);
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
           18,
-          1);
+          2.0);
 
         model->addConstraints<
           model::stagewise::predefined::constraints::FramePositionBound>(
@@ -799,7 +858,7 @@ std::shared_ptr<Test> get_cf_grad_test()
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         horizon,
         18,
-        1,
+        2.0,
         true);
 
     model->addConstraints<

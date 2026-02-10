@@ -6,16 +6,16 @@ from math import pi, sin, cos
 
 nq = 19
 nv = 18
-HORIZON = 180
+HORIZON = 220
 dt = 0.01
 
-A_WGT = 1e-4
-V_WGT = 1e-4
-U_WGT = 1e-4
-F_WGT = 1e-9
+A_WGT = 1e-1
+V_WGT = 5e-2
+U_WGT = 1e-5
+F_WGT = 1e-7
 
-STEPS_BEFORE = 60
-STEPS_AFTER = 60
+STEPS_BEFORE = 80
+STEPS_AFTER = 80
 
 base_pos = np.array([0, 0, 0.3689])
 
@@ -135,7 +135,7 @@ for k in range(HORIZON):
     model.addCost(
         k,
         costs.FrameSquaredRotationErrorCost(
-            model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 0.01
+            model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 1.0
         ),
     )
 
@@ -172,13 +172,11 @@ model.finalize(init_states=init_states, init_controls=init_controls)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    tolerance=1e-1,
+    use_filter=False,
+    tolerance=5e-2,
     admm_abs_tolerance=1e-2,
-    admm_abs_tolerance_final=1e-3,
-    admm_rel_tolerance=1e-2,
-    admm_rel_tolerance_final=1e-3,
-    admm_tolerance_update_steps=250,
-    admm_max_iter=500,
+    admm_rel_tolerance=1e-3,
+    admm_max_iter=750,
 )
 
 state, x, u = solver.solve()

@@ -62,11 +62,11 @@ void SquaredJointAngleCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     if (_free_flyer)
     {
         dx.segment(6, _nv - 6) =
-          _weight.array() * x.segment(7, _nq - 7).array();
+          _weight.array().square() * x.segment(7, _nq - 7).array();
     }
     else
     {
-        dx.head(_nv) = _weight.array() * x.head(_nv).array();
+        dx.head(_nv) = _weight.array().square() * x.head(_nv).array();
     }
 
     du = VecX::Zero(u.size());
@@ -78,11 +78,11 @@ void SquaredJointAngleCost::hessian_xx(const VecX &x, const VecX &u,
 
     if (_free_flyer)
     {
-        Hxx.block(7, 7, _nq - 7, _nq - 7).diagonal() = _weight;
+        Hxx.block(7, 7, _nq - 7, _nq - 7).diagonal() = _weight.array().square();
     }
     else
     {
-        Hxx.topLeftCorner(_nv, _nv).diagonal() = _weight;
+        Hxx.topLeftCorner(_nv, _nv).diagonal() = _weight * _weight;
     }
 }
 
@@ -143,7 +143,7 @@ void SquaredJointVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                         VecX &du) const
 {
     dx                = VecX::Zero(2 * _nv);
-    dx.tail(_njoints) = _weight.array() * x.tail(_njoints).array();
+    dx.tail(_njoints) = _weight.array().square() * x.tail(_njoints).array();
 
     du = VecX::Zero(u.size());
 }
@@ -152,7 +152,8 @@ void SquaredJointVelocityCost::hessian_xx(const VecX &x, const VecX &u,
                                           MatX &Hxx) const
 {
     Hxx = MatX::Zero(2 * _nv, 2 * _nv);
-    Hxx.bottomRightCorner(_njoints, _njoints).diagonal() = _weight;
+    Hxx.bottomRightCorner(_njoints, _njoints).diagonal() =
+      _weight.array().square();
 }
 
 void SquaredJointVelocityCost::hessian_xu(const VecX &x, const VecX &u,
@@ -207,7 +208,7 @@ void SquaredControlCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 {
     dx           = VecX::Zero(2 * _nv);
     du           = VecX::Zero(u.size());
-    du.head(_nv) = _weight.array() * u.head(_nv).array();
+    du.head(_nv) = _weight.array().square() * u.head(_nv).array();
 }
 
 void SquaredControlCost::hessian_xx(const VecX &x, const VecX &u,
@@ -226,7 +227,7 @@ void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
                                     MatX &Huu) const
 {
     Huu                                    = MatX::Zero(u.size(), u.size());
-    Huu.topLeftCorner(_nv, _nv).diagonal() = _weight;
+    Huu.topLeftCorner(_nv, _nv).diagonal() = _weight.array().square();
 }
 
 // SquaredForceCost
@@ -262,13 +263,13 @@ VecX SquaredForceCost::evaluate(const VecX &x, const VecX &u) const
 
     if (_single_weight)
     {
-        res[0] = (_weight * u.tail(u.size() - _nv)).squaredNorm();
+        res[0] = 0.5 * (_weight * u.tail(u.size() - _nv)).squaredNorm();
     }
     else
     {
-        res[0] = (_weight_vec.array() * u.tail(u.size() - _nv).array())
-                   .matrix()
-                   .squaredNorm();
+        res[0] = 0.5 * (_weight_vec.array() * u.tail(u.size() - _nv).array())
+                         .matrix()
+                         .squaredNorm();
     }
 
     return res;
@@ -282,12 +283,12 @@ void SquaredForceCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 
     if (_single_weight)
     {
-        du.tail(u.size() - _nv) = _weight * u.tail(u.size() - _nv);
+        du.tail(u.size() - _nv) = _weight * _weight * u.tail(u.size() - _nv);
     }
     else
     {
         du.tail(u.size() - _nv) =
-          _weight_vec.array() * u.tail(u.size() - _nv).array();
+          _weight_vec.array().square() * u.tail(u.size() - _nv).array();
     }
 }
 
@@ -308,12 +309,12 @@ void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
     {
         Huu.bottomRightCorner(u.size() - _nv, u.size() - _nv)
           .diagonal()
-          .setConstant(_weight);
+          .setConstant(_weight * _weight);
     }
     else
     {
         Huu.bottomRightCorner(u.size() - _nv, u.size() - _nv).diagonal() =
-          _weight_vec;
+          _weight_vec.array().square();
     }
 }
 
@@ -382,13 +383,13 @@ void SquaredConfigurationDifferenceCost::gradient(const VecX &x, const VecX &u,
     if (_free_flyer)
     {
         dx.segment(6, _nv - 6) =
-          _weight.array() *
+          _weight.array().square() *
           (x.segment(7, _nq - 7) - _desired_configuration).array();
     }
     else
     {
-        dx.head(_nv) =
-          _weight.array() * (x.head(_nv) - _desired_configuration).array();
+        dx.head(_nv) = _weight.array().square() *
+                       (x.head(_nv) - _desired_configuration).array();
     }
 
     du = VecX::Zero(u.size());
@@ -402,11 +403,11 @@ void SquaredConfigurationDifferenceCost::hessian_xx(const VecX &x,
 
     if (_free_flyer)
     {
-        Hxx.block(7, 7, _nq - 7, _nq - 7).diagonal() = _weight;
+        Hxx.block(7, 7, _nq - 7, _nq - 7).diagonal() = _weight.array().square();
     }
     else
     {
-        Hxx.topLeftCorner(_nv, _nv).diagonal() = _weight;
+        Hxx.topLeftCorner(_nv, _nv).diagonal() = _weight.array().square();
     }
 }
 
@@ -491,7 +492,8 @@ void FrameSquaredTranslationErrorCost::gradient(const VecX &x, const VecX &u,
 
     dx.head(_nv) =
       Jfk.topRows(3).transpose() *
-      (_weight.array() * (pos - _desired_translation).array()).matrix();
+      (_weight.array().square() * (pos - _desired_translation).array())
+        .matrix();
 
     du = VecX::Zero(u.size());
 }
@@ -502,7 +504,8 @@ void FrameSquaredTranslationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 
     Hxx = MatX::Zero(2 * _nv, 2 * _nv);
     Hxx.topLeftCorner(_nv, _nv) =
-      Jfk.topRows(3).transpose() * _weight.asDiagonal() * Jfk.topRows(3);
+      Jfk.topRows(3).transpose() *
+      _weight.array().square().matrix().asDiagonal() * Jfk.topRows(3);
 }
 
 void FrameSquaredTranslationErrorCost::hessian_xu(const VecX &x, const VecX &u,
@@ -800,7 +803,7 @@ VecX FrameSquaredVelocityErrorCost::evaluate(const VecX &x, const VecX &u) const
 void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
                                              VecX &dx, VecX &du) const
 {
-    Vec6 diff = _weight.array() *
+    Vec6 diff = _weight.array().square() *
                 (_model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true) -
                  _desired_velocity)
                   .array();
@@ -827,7 +830,7 @@ void FrameSquaredVelocityErrorCost::hessian_xx(const VecX &x, const VecX &u,
 
     Hxx = MatX::Zero(2 * _nv, 2 * _nv);
     Hxx.bottomRightCorner(_nv, _nv) =
-      Jfk.transpose() * _weight.asDiagonal() * Jfk;
+      Jfk.transpose() * _weight.array().square().matrix().asDiagonal() * Jfk;
 }
 void FrameSquaredVelocityErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                MatX &Hxu) const
@@ -891,7 +894,7 @@ void FrameSquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                         VecX &du) const
 {
     Vec6 vel =
-      _weight.array() *
+      _weight.array().square() *
       _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true).array();
 
     MatX dVdq, dVdv;
@@ -915,7 +918,7 @@ void FrameSquaredVelocityCost::hessian_xx(const VecX &x, const VecX &u,
 
     Hxx = MatX::Zero(2 * _nv, 2 * _nv);
     Hxx.bottomRightCorner(_nv, _nv) =
-      Jfk.transpose() * _weight.asDiagonal() * Jfk;
+      Jfk.transpose() * _weight.array().square().matrix().asDiagonal() * Jfk;
 }
 void FrameSquaredVelocityCost::hessian_xu(const VecX &x, const VecX &u,
                                           MatX &Hxu) const
