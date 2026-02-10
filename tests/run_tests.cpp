@@ -4,6 +4,7 @@
 
 int main()
 {
+    // TODO: Killed
     ssqp::tests::TestContainer tests;
 
     tests.addTest(ssqp::tests::generators::
@@ -73,6 +74,9 @@ int main()
     tests.addTest(
       ssqp::tests::generators::get_frame_squared_pose_error_cost_grad_test());
 
+    tests.addTest(ssqp::tests::generators::
+                    get_frame_squared_velocity_error_cost_grad_test());
+
     tests.addTest(
       ssqp::tests::generators::get_frame_squared_velocity_cost_grad_test());
 
@@ -88,7 +92,7 @@ int main()
         tests.addTest(test);
     }
 
-    // tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
+    tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
 
     tests.runAll();
 }

@@ -170,11 +170,11 @@ void bind_Costs(nb::module_ &m)
     nb::class_<SquaredJointVelocityCost, StageCost>(m,
                                                     "SquaredJointVelocityCost",
                                                     R"doc(
-Predefined squared joint velocity cost
-Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{vel} \rVert_2^2$
-where:
- - $\boldsymbol{x}_{vel}$ is the velocity part of the state
- - $\boldsymbol{w}$ is the weight on the velocity term
+        Predefined squared joint velocity cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{vel} \rVert_2^2$
+        where:
+         - $\boldsymbol{x}_{vel}$ is the velocity part of the state
+         - $\boldsymbol{w}$ is the weight on the velocity term
                                                     )doc")
       .def(nb::init<uint, double, bool>(),
            nb::arg("nv"),
@@ -194,11 +194,11 @@ where:
            nb::arg("weight"));
 
     nb::class_<SquaredControlCost, StageCost>(m, "SquaredControlCost", R"doc(
-Predefined squared control cost
-Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{ctrl} \rVert_2^2$
-where:
- - $\boldsymbol{u}_{ctrl}$ is the control part of the controls
- - $\boldsymbol{w}$ is the weight on the control term
+        Predefined squared control cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{ctrl} \rVert_2^2$
+        where:
+         - $\boldsymbol{u}_{ctrl}$ is the control part of the controls
+         - $\boldsymbol{w}$ is the weight on the control term
         )doc")
       .def(nb::init<uint, double>(), nb::arg("nv"), nb::arg("weight"))
       .def(nb::init<uint, const VecX &>(), nb::arg("nv"), nb::arg("weight"))
@@ -232,12 +232,12 @@ where:
       m,
       "SquaredConfigurationDifferenceCost",
       R"doc(
-Predefined squared configuration difference cost
-Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2$
-where:
- - $\boldsymbol{q}$ is the configuration part of the state
- - $\boldsymbol{q}_d$ is the desired configuration
- - $\boldsymbol{w}$ is the weight for the difference
+        Predefined squared configuration difference cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2$
+        where:
+         - $\boldsymbol{q}$ is the configuration part of the state
+         - $\boldsymbol{q}_d$ is the desired configuration
+         - $\boldsymbol{w}$ is the weight for the difference
       )doc")
       .def(nb::init<const VecX &, uint, uint, double, bool>(),
            nb::arg("desired_configuration"),
@@ -269,12 +269,12 @@ where:
       m,
       "FrameSquaredTranslationErrorCost",
       R"doc(
-Predefined squared frame translation error cost
-Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
-where:
- - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
- - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
- - $\boldsymbol{w}$ is the weight on the translation error  
+        Predefined squared frame translation error cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
+        where:
+         - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
+         - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
+         - $\boldsymbol{w}$ is the weight on the translation error  
       )doc")
       .def(nb::init<const Model &,
                     const Vec3 &,
@@ -318,12 +318,12 @@ where:
       m,
       "FrameSquaredRotationErrorCost",
       R"doc(
-Predefined squared frame rotation error cost
-Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert w \log_{SO(3)}R^\top R_d\rVert_2^2$
-where:
- - $R$ is the frame rotation for a given frame of the model (in $\mathit{SO3}$)
- - $R_d$ is the desired rotation for that frame (in $\mathit{SO3}$)
- - $\boldsymbol{w}$ is the weight on the rotation error
+        Predefined squared frame rotation error cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert w \log_{SO(3)}R^\top R_d\rVert_2^2$
+        where:
+         - $R$ is the frame rotation for a given frame of the model (in $\mathit{SO3}$)
+         - $R_d$ is the desired rotation for that frame (in $\mathit{SO3}$)
+         - $\boldsymbol{w}$ is the weight on the rotation error
       )doc")
       .def(nb::init<const Model &,
                     const Mat3 &,
@@ -348,14 +348,14 @@ where:
       m,
       "FrameSquaredPoseErrorCost",
       R"doc(
-Predefined squared frame pose error cost
-Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D$
-where:
- - $D = \log_{SE(3)} T^{-1}T_d$
- - $T$ is the frame pose for a given frame of the model (in $\mathit{SE3}$)
- - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)
- - $W$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
-   for rotation
+        Predefined squared frame pose error cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D$
+        where:
+         - $D = \log_{SE(3)} T^{-1}T_d$
+         - $T$ is the frame pose for a given frame of the model (in $\mathit{SE3}$)
+         - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)
+         - $W$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
+           for rotation
       )doc")
       .def(nb::init<const Model &,
                     const Mat4 &,
@@ -403,14 +403,61 @@ where:
            &FrameSquaredPoseErrorCost::set_rotation_weight,
            nb::arg("rotation_weight"));
 
+    nb::class_<FrameSquaredVelocityErrorCost, StageCost>(
+      m,
+      "FrameSquaredVelocityErrorCost",
+      R"doc(
+        Predefined squared frame velocity error cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_f - \boldsymbol{v}_d)\rVert_2^2$
+        where:
+         - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model (in $\mathcal{R}^6$)
+         - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$)
+         - $\boldsymbol{w}$ is the weight on the velocity error
+      )doc")
+      .def(nb::init<const Model &,
+                    const Vec6 &,
+                    const std::string &,
+                    uint,
+                    uint,
+                    double>(),
+           nb::arg("model"),
+           nb::arg("desired_translation"),
+           nb::arg("frame"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"))
+      .def(nb::init<const Model &,
+                    const Vec6 &,
+                    const std::string &,
+                    uint,
+                    uint,
+                    const Vec6 &>(),
+           nb::arg("model"),
+           nb::arg("desired_translation"),
+           nb::arg("frame"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"))
+      .def("set_desired_velocity",
+           &FrameSquaredVelocityErrorCost::set_desired_velocity,
+           nb::arg("desired_translation"))
+      .def("set_weight",
+           static_cast<void (FrameSquaredVelocityErrorCost::*)(const double)>(
+             &FrameSquaredVelocityErrorCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (FrameSquaredVelocityErrorCost::*)(const Vec6 &)>(
+             &FrameSquaredVelocityErrorCost::set_weight),
+           nb::arg("weight"));
+
     nb::class_<FrameSquaredVelocityCost, StageCost>(m,
                                                     "FrameSquaredVelocityCost",
                                                     R"doc(
-Predefined squared frame velocity cost
-Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
-where:
- - $\boldsymbol{v}_f$ is the (6D) velocity for a frame
- - $\boldsymbol{w}$ is the weight on the velocity term
+        Predefined squared frame velocity cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
+        where:
+         - $\boldsymbol{v}_f$ is the (6D) velocity for a frame
+         - $\boldsymbol{w}$ is the weight on the velocity term
                                                     )doc")
       .def(nb::init<const Model &, const std::string &, uint, uint, double>(),
            nb::arg("model"),

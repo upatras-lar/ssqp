@@ -44,6 +44,7 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test();
+std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test();
 
 // Full trajectory cost gradients
