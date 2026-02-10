@@ -167,13 +167,13 @@ class FramePositionBound : public StageConstraints
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)
  */
-class FrameVelocityBound : public StageConstraints
+class FrameLinearVelocityBound : public StageConstraints
 {
   public:
     // Regular constructor
-    FrameVelocityBound(const Model &model, const std::string &frame,
-                       const VecX &lb, const VecX &ub, const uint nq,
-                       const uint nv, const bool terminal = false);
+    FrameLinearVelocityBound(const Model &model, const std::string &frame,
+                             const VecX &lb, const VecX &ub, const uint nq,
+                             const uint nv, const bool terminal = false);
 
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
@@ -226,7 +226,7 @@ class FrameVelocityBound : public StageConstraints
  * simply use the `Model`'s `addConstraints` function, instantiated with the
  * template type `ContactConstraint`. In that case, adding and assigning of the
  * force will be handled automatically.
- * Also note that this constraint should be coupled with a `FrameVelocityBound`
+ * Also note that this constraint should be coupled with a `FrameLinearVelocityBound`
  * on the frame to avoid slipping.
  */
 class ContactConstraint : public StageConstraints

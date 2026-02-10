@@ -140,7 +140,7 @@ int main()
               CONTROL_SIZE,
               0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
+            model.addConstraints<constraints::FrameLinearVelocityBound>(
               k,
               model,
               ls1 ? "RR_foot" : "RL_foot",
@@ -157,7 +157,7 @@ int main()
               CONTROL_SIZE,
               0.6);
 
-            model.addConstraints<constraints::FrameVelocityBound>(
+            model.addConstraints<constraints::FrameLinearVelocityBound>(
               k,
               model,
               ls1 ? "FR_foot" : "FL_foot",
@@ -187,7 +187,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           ls1 ? "FR_foot" : "FL_foot",
@@ -204,7 +204,7 @@ int main()
                                                              CONTROL_SIZE,
                                                              0.6);
 
-        model.addConstraints<constraints::FrameVelocityBound>(
+        model.addConstraints<constraints::FrameLinearVelocityBound>(
           k,
           model,
           ls1 ? "RL_foot" : "RR_foot",
@@ -231,7 +231,7 @@ int main()
                                                     P_WGT,
                                                     P_WGT);
 
-    model.addConstraints<constraints::FrameVelocityBound>(
+    model.addConstraints<constraints::FrameLinearVelocityBound>(
       HORIZON,
       model,
       "trunk",

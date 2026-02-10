@@ -26,19 +26,19 @@ class GaitManager:
         self.nq = nq
         self.nv = nv
 
-        self.fl_foot_vel_bound = constraints.FrameVelocityBound(
+        self.fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
             model, self.fl_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
         )
 
-        self.fr_foot_vel_bound = constraints.FrameVelocityBound(
+        self.fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
             model, self.fr_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
         )
 
-        self.rl_foot_vel_bound = constraints.FrameVelocityBound(
+        self.rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
             model, self.rl_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
         )
 
-        self.rr_foot_vel_bound = constraints.FrameVelocityBound(
+        self.rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
             model, self.rr_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
         )
 

@@ -166,15 +166,23 @@ SolverState ssqp::solve(Guess &guess)
                           _lf_grad(x, u, dx, du);
 
                           FlatVec tmp_x(dx, false), tmp_u(du, false);
-                          _gammaf_grad(x, u, tmp_x, tmp_u);
-                          dx.vec += _params.merit_mu_gamma * tmp_x.vec;
-                          du.vec += _params.merit_mu_gamma * tmp_u.vec;
 
-                          tmp_x.vec.setZero();
-                          tmp_u.vec.setZero();
-                          _cf_grad(x, u, tmp_x, tmp_u);
-                          dx.vec += _params.merit_mu_c * tmp_x.vec;
-                          du.vec += _params.merit_mu_c * tmp_u.vec;
+                          if (_params.merit_mu_gamma > 0.0)
+                          {
+                              _gammaf_grad(x, u, tmp_x, tmp_u);
+                              dx.vec += _params.merit_mu_gamma * tmp_x.vec;
+                              du.vec += _params.merit_mu_gamma * tmp_u.vec;
+
+                              tmp_x.vec.setZero();
+                              tmp_u.vec.setZero();
+                          }
+
+                          if (_params.merit_mu_c > 0.0)
+                          {
+                              _cf_grad(x, u, tmp_x, tmp_u);
+                              dx.vec += _params.merit_mu_c * tmp_x.vec;
+                              du.vec += _params.merit_mu_c * tmp_u.vec;
+                          }
                       },
                       _params.merit_armijo_beta);
                 },

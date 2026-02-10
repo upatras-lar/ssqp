@@ -157,29 +157,29 @@ control_cost = costs.SquaredControlCost(nv, u_wgt)
 force_cost = costs.SquaredForceCost(nv, f_wgt)
 
 # For each contact frame, create a zero velocity bound
-left_mm_vel_bound = constraints.FrameVelocityBound(
+left_mm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_mm", np.zeros(3), np.zeros(3), nq, nv
 )
-left_mp_vel_bound = constraints.FrameVelocityBound(
+left_mp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_mp", np.zeros(3), np.zeros(3), nq, nv
 )
-left_pp_vel_bound = constraints.FrameVelocityBound(
+left_pp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_pp", np.zeros(3), np.zeros(3), nq, nv
 )
-left_pm_vel_bound = constraints.FrameVelocityBound(
+left_pm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "left_pm", np.zeros(3), np.zeros(3), nq, nv
 )
 
-right_mm_vel_bound = constraints.FrameVelocityBound(
+right_mm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "right_mm", np.zeros(3), np.zeros(3), nq, nv
 )
-right_mp_vel_bound = constraints.FrameVelocityBound(
+right_mp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "right_mp", np.zeros(3), np.zeros(3), nq, nv
 )
-right_pp_vel_bound = constraints.FrameVelocityBound(
+right_pp_vel_bound = constraints.FrameLinearVelocityBound(
     model, "right_pp", np.zeros(3), np.zeros(3), nq, nv
 )
-right_pm_vel_bound = constraints.FrameVelocityBound(
+right_pm_vel_bound = constraints.FrameLinearVelocityBound(
     model, "right_pm", np.zeros(3), np.zeros(3), nq, nv
 )
 
@@ -246,13 +246,13 @@ for k in range(H - FINAL_STANDING_STEPS, H):
     # Add constraints to keep the base and head still at the end
     model.addConstraints(
         k,
-        constraints.FrameVelocityBound(
+        constraints.FrameLinearVelocityBound(
             model, "base_link", np.zeros(3), np.zeros(3), nq, nv, True
         ),
     )
     model.addConstraints(
         k,
-        constraints.FrameVelocityBound(
+        constraints.FrameLinearVelocityBound(
             model, "head_1_link", np.zeros(3), np.zeros(3), nq, nv, True
         ),
     )
@@ -262,13 +262,13 @@ model.addCost(H, joint_vel_cost)
 model.addCost(H, pose_cost)
 model.addConstraints(
     H,
-    constraints.FrameVelocityBound(
+    constraints.FrameLinearVelocityBound(
         model, "base_link", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )
 model.addConstraints(
     k,
-    constraints.FrameVelocityBound(
+    constraints.FrameLinearVelocityBound(
         model, "head_1_link", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )
