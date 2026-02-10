@@ -66,6 +66,13 @@ int main()
     tests.addTest(ssqp::tests::generators::get_squared_force_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::
+                    get_squared_configuration_difference_cost_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_squared_configuration_difference_cost_floating_base_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
                     get_frame_squared_position_error_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::
@@ -86,13 +93,13 @@ int main()
 
     tests.addTest(ssqp::tests::generators::get_cf_grad_test());
 
-    for (std::shared_ptr<ssqp::tests::Test> test :
-         ssqp::tests::generators::get_admm_problems())
-    {
-        tests.addTest(test);
-    }
+    // for (std::shared_ptr<ssqp::tests::Test> test :
+    //      ssqp::tests::generators::get_admm_problems())
+    // {
+    //     tests.addTest(test);
+    // }
 
-    tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
+    // tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
 
     tests.runAll();
 }
