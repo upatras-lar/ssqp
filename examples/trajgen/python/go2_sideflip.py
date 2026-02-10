@@ -88,19 +88,23 @@ for k in range(rotation_range):
     R[2, 2] = cos(θk)
     rotation_traj.append(R)
 
-# ang_vel_vectors = [np.zeros(3)]
-# for k in range(1, rotation_range):
-#     R_rel = rotation_traj[k] @ rotation_traj[k - 1].T
-#     ang_vel_vectors.append(
-#         0.5
-#         * np.array(
-#             (
-#                 R_rel[3, 2] - R_rel[2, 3],
-#                 R_rel[1, 3] - R_rel[3, 1],
-#                 R_rel[2, 1] - R_rel[1, 2],
-#             )
-#         )
-#     )
+ang_vel_vectors = [np.zeros(6)]
+for k in range(1, rotation_range):
+    R_rel = rotation_traj[k] @ rotation_traj[k - 1].T
+    ang_vel_vectors.append(
+        0.5
+        * np.array(
+            (
+                0.0,
+                0.0,
+                0.0,
+                R_rel[2, 1] - R_rel[1, 2],
+                R_rel[0, 2] - R_rel[2, 0],
+                R_rel[1, 0] - R_rel[0, 1],
+            )
+        )
+        / dt
+    )
 
 for k in range(HORIZON):
     model.addCost(k, joint_angle_cost)
@@ -127,13 +131,25 @@ for k in range(HORIZON):
         init_states.append(init)
         init_controls.append(init_control)
         continue
-    else:
-        model.addCost(
-            k,
-            costs.FrameSquaredRotationErrorCost(
-                model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 1.0
-            ),
-        )
+
+    model.addCost(
+        k,
+        costs.FrameSquaredRotationErrorCost(
+            model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 0.01
+        ),
+    )
+
+    # model.addCost(
+    #     k,
+    #     costs.FrameSquaredVelocityErrorCost(
+    #         model,
+    #         ang_vel_vectors[k - STEPS_BEFORE],
+    #         "base",
+    #         nq,
+    #         nv,
+    #         np.array((0.0, 0.0, 0.0, 1.0, 1.0, 1.0)),
+    #     ),
+    # )
 
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0
@@ -157,10 +173,11 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-1,
-    use_filter=False,
-    merit_mu_gamma=0.0,
     admm_abs_tolerance=1e-2,
-    admm_rel_tolerance=1e-3,
+    admm_abs_tolerance_final=1e-3,
+    admm_rel_tolerance=1e-2,
+    admm_rel_tolerance_final=1e-3,
+    admm_tolerance_update_steps=250,
     admm_max_iter=500,
 )
 

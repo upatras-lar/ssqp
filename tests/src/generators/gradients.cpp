@@ -611,6 +611,39 @@ std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test()
     return cost_test;
 }
 
+std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    Vec6 vd(1.0, 1.0, 0.1, 0.5, 0.3, -0.1);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<
+          model::stagewise::predefined::costs::FrameSquaredVelocityErrorCost>(
+          k,
+          *model,
+          vd,
+          "FR_foot",
+          19,
+          18,
+          1);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("FrameSquaredVelocityErrorCostGradTest",
+                                   model,
+                                   0);
+
+    return cost_test;
+}
+
 std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test()
 {
     model::Model::Structure model_structure;

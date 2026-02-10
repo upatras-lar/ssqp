@@ -295,10 +295,49 @@ class FrameSquaredPoseErrorCost : public StageCost
     Mat6       _weight;
 };
 
+/* Predefined squared frame velocity error cost
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_f - \boldsymbol{v}_d)\rVert_2^2$
+ * where:
+ *  - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model (in $\mathcal{R}^6$)
+ *  - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$)
+ *  - $\boldsymbol{w}$ is the weight on the velocity error
+ */
+class FrameSquaredVelocityErrorCost : public StageCost
+{
+  public:
+    FrameSquaredVelocityErrorCost(const Model       &model,
+                                  const Vec6        &desired_velocity,
+                                  const std::string &frame, const uint nq,
+                                  const uint nv, const double weight);
+    FrameSquaredVelocityErrorCost(const Model       &model,
+                                  const Vec6        &desired_velocity,
+                                  const std::string &frame, const uint nq,
+                                  const uint nv, const Vec6 &weight);
+
+    void set_desired_velocity(const Vec6 &desired_velocity);
+    void set_weight(const double weight);
+    void set_weight(const Vec6 &weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    Vec6                         _desired_velocity;
+    const std::string            _frame;
+
+    const uint _nq, _nv;
+    Vec6       _weight;
+};
+
 /* Predefined squared frame velocity cost
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
  * where:
- *  - $\boldsymbol{v}_f$ is the (6D) velocity for a frame
+ *  - $\boldsymbol{v}_f$ is the velocity for a frame (in $\mathcal{R}^6$)
  *  - $\boldsymbol{w}$ is the weight on the velocity term
  */
 class FrameSquaredVelocityCost : public StageCost

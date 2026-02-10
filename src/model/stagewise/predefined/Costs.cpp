@@ -742,6 +742,104 @@ void FrameSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
     Huu = MatX::Zero(u.size(), u.size());
 }
 
+// FrameSquaredVelocityErrorCost
+FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
+  const Model &model, const Vec6 &desired_velocity, const std::string &frame,
+  const uint nq, const uint nv, const double weight)
+  : _model(std::make_shared<Model>(model))
+  , _desired_velocity(desired_velocity)
+  , _frame(frame)
+  , _nq(nq)
+  , _nv(nv)
+{
+    _weight.setConstant(weight);
+}
+
+FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
+  const Model &model, const Vec6 &desired_velocity, const std::string &frame,
+  const uint nq, const uint nv, const Vec6 &weight)
+  : _model(std::make_shared<Model>(model))
+  , _desired_velocity(desired_velocity)
+  , _frame(frame)
+  , _nq(nq)
+  , _nv(nv)
+  , _weight(weight)
+{
+}
+
+void FrameSquaredVelocityErrorCost::set_desired_velocity(
+  const Vec6 &desired_velocity)
+{
+    _desired_velocity = desired_velocity;
+}
+
+void FrameSquaredVelocityErrorCost::set_weight(const double weight)
+{
+    _weight.setConstant(weight);
+}
+
+void FrameSquaredVelocityErrorCost::set_weight(const Vec6 &weight)
+{
+    _weight = weight;
+}
+
+VecX FrameSquaredVelocityErrorCost::evaluate(const VecX &x, const VecX &u) const
+{
+    return (Scalar() << 0.5 *
+                          (_weight.array() * (_model->frameVelocity(x.head(_nq),
+                                                                    x.tail(_nv),
+                                                                    _frame,
+                                                                    true) -
+                                              _desired_velocity)
+                                               .array())
+                            .matrix()
+                            .squaredNorm())
+      .finished();
+}
+
+void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
+                                             VecX &dx, VecX &du) const
+{
+    Vec6 diff = _weight.array() *
+                (_model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true) -
+                 _desired_velocity)
+                  .array();
+
+    MatX dVdq, dVdv;
+    std::tie(dVdq, dVdv) = _model->frameVelocityDerivatives(x.head(_nq),
+                                                            x.tail(_nv),
+                                                            u.head(_nv),
+                                                            _frame,
+                                                            true);
+
+    dx = VecX::Zero(2 * _nv);
+
+    dx.head(_nv) = dVdq.transpose() * diff;
+    dx.tail(_nv) = dVdv.transpose() * diff;
+
+    du = VecX::Zero(u.size());
+}
+
+void FrameSquaredVelocityErrorCost::hessian_xx(const VecX &x, const VecX &u,
+                                               MatX &Hxx) const
+{
+    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
+
+    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Hxx.bottomRightCorner(_nv, _nv) =
+      Jfk.transpose() * _weight.asDiagonal() * Jfk;
+}
+void FrameSquaredVelocityErrorCost::hessian_xu(const VecX &x, const VecX &u,
+                                               MatX &Hxu) const
+{
+    Hxu = MatX::Zero(2 * _nv, u.size());
+}
+void FrameSquaredVelocityErrorCost::hessian_uu(const VecX &x, const VecX &u,
+                                               MatX &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+}
+
 // FrameSquaredVelocityCost
 FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
                                                    const std::string &frame,
@@ -779,7 +877,6 @@ void FrameSquaredVelocityCost::set_weight(const Vec6 &weight)
 
 VecX FrameSquaredVelocityCost::evaluate(const VecX &x, const VecX &u) const
 {
-    LOGLN("TF?");
     return (Scalar()
             << 0.5 *
                  (_weight.array() *
@@ -806,8 +903,8 @@ void FrameSquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 
     dx = VecX::Zero(2 * _nv);
 
-    dx.head(_nv) = _weight * dVdq.transpose() * vel;
-    dx.tail(_nv) = _weight * dVdv.transpose() * vel;
+    dx.head(_nv) = dVdq.transpose() * vel;
+    dx.tail(_nv) = dVdv.transpose() * vel;
 
     du = VecX::Zero(u.size());
 }
