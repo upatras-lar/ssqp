@@ -62,6 +62,17 @@ rr_foot_vel_bound = constraints.FrameVelocityBound(
     model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
+above_ground_lb = np.array((-np.inf, -np.inf, 0.0))
+above_ground_ub = np.array((np.inf, np.inf, np.inf))
+
+base_above_ground_bound = constraints.FramePositionBound(
+    model, "base", above_ground_lb, above_ground_ub, nq, nv
+)
+
+head_above_ground_bound = constraints.FramePositionBound(
+    model, "Head_lower", above_ground_lb, above_ground_ub, nq, nv
+)
+
 init_states = []
 init_controls = []
 
@@ -95,6 +106,9 @@ for k in range(HORIZON):
         model.addContactConstraint(k, "RR_foot")
         model.addConstraints(k, rr_foot_vel_bound)
 
+        model.addConstraints(k, base_above_ground_bound)
+        model.addConstraints(k, head_above_ground_bound)
+
         init_states.append(init)
         init_controls.append(init_control)
         continue
@@ -108,7 +122,7 @@ for k in range(HORIZON):
 
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0
-    init_states[-1][7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
+    init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
     init_controls.append(np.zeros(nv))
 
 model.addCost(HORIZON, pose_cost)
