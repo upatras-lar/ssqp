@@ -17,10 +17,12 @@ HORIZON = 300
 dt = 0.01
 
 # Weights
-A_WGT = 1e-3
-V_WGT = 1e-5
-U_WGT = 1e-4
-F_WGT = 1e-8
+A_WGT = 1e-1
+V_WGT = 1e-3
+U_WGT = 1e-2
+F_WGT = 1e-4
+TF_WGT = 7.0
+RF_WGT = 3.0
 
 # @script-parameter
 # List of tuples defining the step ranges for which the robot should be on air
@@ -260,7 +262,7 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredPoseErrorCost(
-        model, final_pos, np.eye(3), "base", nq, nv, 50.0, 10.0
+        model, final_pos, np.eye(3), "base", nq, nv, TF_WGT, RF_WGT
     ),
 )
 # Add constraint for the final velocity of the base to be 0

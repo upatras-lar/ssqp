@@ -17,13 +17,13 @@
 #define HORIZON      100
 #define dt           0.01
 // Trunk position weight
-#define P_WGT 100
+#define T_WGT 10.0
 // Orientation weight
-#define R_WGT 10
+#define R_WGT 3.0
 // Velocity regularization weight
-#define V_WGT 1e-3
+#define V_WGT 3e-2
 // Control regularization weight
-#define U_WGT 1e-3
+#define U_WGT 3e-2
 // Force regularization weight
 #define F_WGT 1e-4
 
@@ -108,7 +108,7 @@ int main()
           "trunk",
           STATE_SIZE,
           CONTROL_SIZE,
-          P_WGT,
+          T_WGT,
           R_WGT);
 
         // Add regularization cost for velocity, controls and forces
@@ -191,7 +191,7 @@ int main()
                                                     "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    P_WGT,
+                                                    T_WGT,
                                                     R_WGT);
 
     ssqp::model::Model::Config model_config;

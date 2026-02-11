@@ -8,10 +8,11 @@ nq = 9
 nv = 9
 MPC_H = 10
 dt = 0.01
-P_WGT = 10
-R_WGT = 10
-V_WGT = 1e-4
-U_WGT = 1e-5
+
+T_WGT = 3.0
+R_WGT = 3.0
+V_WGT = 1e-2
+U_WGT = 3e-3
 
 pd = np.array((0.2, -0.2, 0.6))
 
@@ -41,22 +42,19 @@ init_state[:nq] = [
     0.0,
 ]
 
+v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
 pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
-    model, desired_pose, "panda_ee", nq, nq, P_WGT, R_WGT
+    model, desired_pose, "panda_ee", nq, nq, T_WGT, R_WGT
 )
 
 for k in range(MPC_H):
+    model.addCost(k, v_cost)
+    model.addCost(k, u_cost)
     model.addCost(k, pose_error)
-    model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
-    model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
-model.addCost(
-    MPC_H,
-    ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, desired_pose, "panda_ee", nq, nq, P_WGT, R_WGT
-    ),
-)
-model.addCost(MPC_H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+model.addCost(MPC_H, pose_error)
+model.addCost(MPC_H, v_cost)
 
 mpc = ssqpy.solvers.MPC(model, sqp_iters=5, admm_iters=50)
 
@@ -104,3 +102,5 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         viewer.sync()
 
         states, controls = states.toarray(), controls.toarray()
+
+print()

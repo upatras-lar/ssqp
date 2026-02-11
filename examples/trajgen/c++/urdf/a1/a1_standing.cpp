@@ -16,15 +16,15 @@
 #define HORIZON      400
 #define dt           0.01
 // Trunk position weight
-#define P_WGT 10
+#define TF_WGT 3.0
 // Orientation weight
-#define R_WGT 8
+#define RF_WGT 2.8
 // Velocity regularization weight
-#define V_WGT 1e-4
+#define V_WGT 1e-2
 // Control regularization weight
-#define U_WGT 1e-5
+#define U_WGT 3e-3
 // Force regularization weight
-#define F_WGT 1e-9
+#define F_WGT 1e-4
 // Whether we only use two feet to stand on
 // @script-parameter
 #define TWO_FEET true
@@ -93,18 +93,6 @@ int main()
 
     for (uint k = 0; k < HORIZON; ++k)
     {
-        // Add cost for trunk to stay in base position
-        // model.addCost<costs::FrameSquaredPoseErrorCost>(
-        //   k,
-        //   model,
-        //   base_pos,
-        //   Eigen::Matrix3d::Identity(),
-        //   "trunk",
-        //   STATE_SIZE,
-        //   CONTROL_SIZE,
-        //   P_WGT,
-        //   R_WGT);
-
         // Add regularization cost for velocity, controls and forces
         model.addCost<costs::SquaredJointVelocityCost>(k,
                                                        CONTROL_SIZE,
@@ -217,8 +205,8 @@ int main()
                                                     "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    P_WGT,
-                                                    R_WGT);
+                                                    TF_WGT,
+                                                    RF_WGT);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states   = { init };

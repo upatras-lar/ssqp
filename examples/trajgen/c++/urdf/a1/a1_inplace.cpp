@@ -16,17 +16,17 @@
 #define CONTROL_SIZE 18
 #define dt           0.02
 // Position weight
-#define P_WGT 10
+#define T_WGT 3.0
 // Orientation weight
-#define O_WGT 8
+#define R_WGT 2.8
 // State regularization weight
-#define A_WGT 0
+#define A_WGT 1e-3
 // Velocity regularization weight
-#define V_WGT 1e-4
+#define V_WGT 1e-2
 // Control regularization weight
-#define U_WGT 1e-5
+#define U_WGT 3e-3
 // Force regularization weight
-#define F_WGT 1e-7
+#define F_WGT 1e-4
 
 // How many steps to stand for (all feet on the ground)
 #define STANDING_STEPS 15
@@ -327,8 +327,8 @@ int main()
           "trunk",
           STATE_SIZE,
           CONTROL_SIZE,
-          P_WGT,
-          O_WGT);
+          T_WGT,
+          R_WGT);
 
         model.addCost<costs::SquaredJointAngleCost>(k,
                                                     STATE_SIZE,

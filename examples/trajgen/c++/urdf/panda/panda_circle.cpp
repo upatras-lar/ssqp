@@ -16,13 +16,13 @@
 #define dt         0.01
 
 // Position and rotation weights
-#define P_WGT 10
-#define R_WGT 1
+#define T_WGT 3.0
+#define R_WGT 1.0
 
 // Joint velocity weight
-#define V_WGT 1e-5
+#define V_WGT 3e-3
 // Control weight
-#define U_WGT 1e-5
+#define U_WGT 3e-3
 
 // Circle properties:
 // Center
@@ -134,7 +134,7 @@ int main()
                                                         "panda_ee",
                                                         STATE_SIZE,
                                                         STATE_SIZE,
-                                                        P_WGT,
+                                                        T_WGT,
                                                         R_WGT);
 
         // Add regularization costs
@@ -170,7 +170,7 @@ int main()
                                                     "panda_ee",
                                                     STATE_SIZE,
                                                     STATE_SIZE,
-                                                    P_WGT,
+                                                    T_WGT,
                                                     R_WGT);
 
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON, STATE_SIZE, V_WGT);

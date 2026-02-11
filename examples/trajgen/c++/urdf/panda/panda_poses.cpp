@@ -7,9 +7,9 @@
 #define STATE_SIZE 9
 #define HORIZON    200
 #define dt         0.01
-#define Q_WGT      1    // Configuration weight
-#define U_WGT      1e-5 // Control weight
-#define TERM_WGT   10   // Terminal weight
+#define Q_WGT      1.0  // Configuration weight
+#define U_WGT      3e-3 // Control weight
+#define QF_WGT     3.0  // Terminal weight
 
 // Which type of move to make (values in [0, 4])
 // @script-parameter
@@ -104,7 +104,7 @@ int main()
       [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
     {
         return (Eigen::Vector<double, 1>()
-                << TERM_WGT *
+                << QF_WGT *
                      (Q_WGT * (x.head(STATE_SIZE) - target).squaredNorm() +
                       x.tail(STATE_SIZE).squaredNorm()))
           .finished();
@@ -117,15 +117,15 @@ int main()
     {
         dx = Eigen::VectorXd::Zero(2 * STATE_SIZE);
         dx.head(STATE_SIZE) =
-          TERM_WGT * 2 * Q_WGT * (x.head(STATE_SIZE) - target);
-        dx.tail(STATE_SIZE) = TERM_WGT * 2 * x.tail(STATE_SIZE);
+          QF_WGT * 2 * Q_WGT * (x.head(STATE_SIZE) - target);
+        dx.tail(STATE_SIZE) = QF_WGT * 2 * x.tail(STATE_SIZE);
     };
 
     auto terminal_cost_hess_xx = [](const Eigen::VectorXd &x,
                                     const Eigen::VectorXd &u,
                                     Eigen::MatrixXd &Hxx)
     {
-        Hxx = TERM_WGT * 2 * Q_WGT *
+        Hxx = QF_WGT * 2 * Q_WGT *
               Eigen::MatrixXd::Identity(2 * STATE_SIZE, 2 * STATE_SIZE);
     };
 

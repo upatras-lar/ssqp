@@ -10,9 +10,10 @@ HORIZON = 220
 dt = 0.01
 
 A_WGT = 1e-1
-V_WGT = 5e-2
-U_WGT = 1e-5
+V_WGT = 1e-1
+U_WGT = 1e-3
 F_WGT = 1e-7
+R_WGT = 1.0
 
 STEPS_BEFORE = 80
 STEPS_AFTER = 80
@@ -135,7 +136,7 @@ for k in range(HORIZON):
     model.addCost(
         k,
         costs.FrameSquaredRotationErrorCost(
-            model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, 1.0
+            model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, R_WGT
         ),
     )
 
@@ -173,10 +174,10 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     use_filter=False,
-    tolerance=5e-2,
-    admm_abs_tolerance=1e-2,
+    tolerance=1e-2,
+    admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
-    admm_max_iter=750,
+    admm_max_iter=1000,
 )
 
 state, x, u = solver.solve()

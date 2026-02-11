@@ -19,12 +19,12 @@ STEPS_BEFORE = 20
 STEPS_AFTER = 20
 
 # Weights
-pos_wgt = 20
-rot_wgt = 10
-a_wgt = 1e-2
-v_wgt = 1e-6
-u_wgt = 1e-6
-f_wgt = 1e-8
+A_WGT = 1e-1
+V_WGT = 1e-3
+U_WGT = 1e-3
+F_WGT = 1e-4
+T_WGT = 4.4
+R_WGT = 3.0
 
 # Initial position
 base_pos = np.array((0, 0, 0.96))
@@ -138,15 +138,15 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
     "torso_1_link",
     nq,
     nv,
-    pos_wgt,
-    rot_wgt,
+    T_WGT,
+    R_WGT,
 )
 
 # Create regularization costs
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, a_wgt, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, v_wgt, True)
-control_cost = costs.SquaredControlCost(nv, u_wgt)
-force_cost = costs.SquaredForceCost(nv, f_wgt)
+joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
+joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
+control_cost = costs.SquaredControlCost(nv, U_WGT)
+force_cost = costs.SquaredForceCost(nv, F_WGT)
 
 # Create velocity bounds for feet frames that are in contact
 left_mm_vel_bound = constraints.FrameLinearVelocityBound(

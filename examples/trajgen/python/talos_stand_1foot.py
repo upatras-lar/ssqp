@@ -15,10 +15,14 @@ H = 40
 dt = 0.01
 
 # Weights
-a_wgt = 1e-3
-v_wgt = 1e-4
-u_wgt = 1e-6
-f_wgt = 1e-8
+A_WGT = 3e-2
+V_WGT = 1e-2
+U_WGT = 1e-3
+F_WGT = 1e-4
+T_BASE_WGT = 3.0
+R_BASE_WGT = 1.0
+T_KNEE_RAISE_WGT = 3.0
+T_ARM_RAISE_WGT = 1.4
 
 # Initial position for the torso
 base_pos = np.array((0, 0, 1.072))
@@ -46,10 +50,10 @@ model = ssqpy.model.Model(
 )
 
 # Create regularization costs
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, a_wgt, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, v_wgt, True)
-control_cost = costs.SquaredControlCost(nv, u_wgt)
-force_cost = costs.SquaredForceCost(nv, f_wgt)
+joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
+joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
+control_cost = costs.SquaredControlCost(nv, U_WGT)
+force_cost = costs.SquaredForceCost(nv, F_WGT)
 
 # Create velocity bounds for each frame that will have a force applied
 left_mm_vel_bound = constraints.FrameLinearVelocityBound(
@@ -87,8 +91,8 @@ for k in range(H):
             "torso_1_link",
             nq,
             nv,
-            10.0,
-            1.0,
+            T_BASE_WGT,
+            R_BASE_WGT,
         ),
     )
 
@@ -103,7 +107,7 @@ for k in range(H):
                 "leg_right_4_link",
                 nq,
                 nv,
-                10.0,
+                T_KNEE_RAISE_WGT,
             ),
         )
 
@@ -116,7 +120,7 @@ for k in range(H):
                 "arm_left_4_link",
                 nq,
                 nv,
-                2.0,
+                T_ARM_RAISE_WGT,
             ),
         )
 
@@ -128,7 +132,7 @@ for k in range(H):
                 "arm_right_4_link",
                 nq,
                 nv,
-                2.0,
+                T_ARM_RAISE_WGT,
             ),
         )
 

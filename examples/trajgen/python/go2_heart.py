@@ -16,10 +16,13 @@ HORIZON = 200
 dt = 0.01
 
 # Weights
-A_WGT = 1e-3
-V_WGT = 1e-5
-U_WGT = 1e-6
-F_WGT = 1e-8
+A_WGT = 1e-2
+V_WGT = 1e-3
+U_WGT = 1e-4
+F_WGT = 1e-4
+TRACE_ARM_WGT = 3.0
+TF_WGT = 10.0
+
 
 # Steps to stand for at beginning/end of trajectory
 STANDING_STEPS = 20
@@ -160,7 +163,7 @@ for k in range(HORIZON):
                 "FL_foot",
                 nq,
                 nv,
-                10.0,
+                TRACE_ARM_WGT,
             ),
         )
 
@@ -174,7 +177,7 @@ for k in range(HORIZON):
                 "FR_foot",
                 nq,
                 nv,
-                10.0,
+                TRACE_ARM_WGT,
             ),
         )
 
@@ -189,7 +192,7 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredTranslationErrorCost(
-        model, base_pos, "base", nq, nv, 100.0
+        model, base_pos, "base", nq, nv, TF_WGT
     ),
 )
 
@@ -210,11 +213,8 @@ solver = ssqpy.solvers.ssqp(
     loose_success=False,
     tolerance=1e-2,
     filter_size=10,
-    admm_abs_tolerance=1e-2,
-    admm_abs_tolerance_final=5e-3,
-    admm_rel_tolerance=1e-2,
-    admm_rel_tolerance_final=5e-3,
-    admm_tolerance_update_steps=250,
+    admm_abs_tolerance=1e-3,
+    admm_rel_tolerance=1e-3,
     admm_max_iter=500,
     # admm_reset_rho=False,
     # admm_reset_y=False,

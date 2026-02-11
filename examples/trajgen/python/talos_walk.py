@@ -15,11 +15,11 @@ H = 160
 dt = 0.01
 
 # Weights
-pos_wgt = 10
-rot_wgt = 10
-v_wgt = 1e-3
-u_wgt = 1e-6
-f_wgt = 1e-8
+V_WGT = 3e-2
+U_WGT = 1e-3
+F_WGT = 1e-4
+TF_WGT = 3.0
+RF_WGT = 3.0
 
 # Number of steps to stand upright for at the end of the trajectory
 FINAL_STANDING_STEPS = 20
@@ -147,14 +147,14 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
     "torso_1_link",
     nq,
     nv,
-    pos_wgt,
-    rot_wgt,
+    TF_WGT,
+    RF_WGT,
 )
 
 # Create regularization costs
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, v_wgt, True)
-control_cost = costs.SquaredControlCost(nv, u_wgt)
-force_cost = costs.SquaredForceCost(nv, f_wgt)
+joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
+control_cost = costs.SquaredControlCost(nv, U_WGT)
+force_cost = costs.SquaredForceCost(nv, F_WGT)
 
 # For each contact frame, create a zero velocity bound
 left_mm_vel_bound = constraints.FrameLinearVelocityBound(
@@ -279,6 +279,7 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     use_filter=False,
+    merit_mu_gamma=0.0,
     tolerance=5e-2,
     admm_abs_tolerance=5e-3,
     admm_rel_tolerance=5e-3,

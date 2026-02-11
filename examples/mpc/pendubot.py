@@ -10,16 +10,13 @@ nv = 2
 MPC_H = 60
 dt = 0.01
 
-cost_wgt = 25.0
-vel_wgt = 1e-6
-u_wgt = 1e-8
+TIP_WGT = 5.0
+LINK_WGT = 1.4
+V_WGT = 1e-3
+U_WGT = 1e-4
 
 REAL_TIME = True
 NOISE = True
-
-
-def state_mod(state):
-    return [x % (2 * pi) for x in state]
 
 
 model = ssqpy.model.Model(
@@ -30,20 +27,14 @@ model = ssqpy.model.Model(
     # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, vel_wgt)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, u_wgt)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
 link2_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, np.array((0.0, 0.0, 0.05)), "link2", nq, nv, 2.0
+    model, np.array((0.0, 0.0, 0.05)), "link2", nq, nv, LINK_WGT
 )
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, cost_wgt
+    model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
 )
-
-for k in range(MPC_H):
-    model.addCost(k, vel_cost)
-    model.addCost(k, u_cost)
-    model.addCost(k, tip_cost)
-
 config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
     np.array((pi, 0.0)),
     nq,
@@ -51,6 +42,12 @@ config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
     np.array((1e-5, 0.0)),
     False,
 )
+
+for k in range(MPC_H):
+    model.addCost(k, vel_cost)
+    model.addCost(k, u_cost)
+    model.addCost(k, tip_cost)
+
 model.addCost(MPC_H, link2_cost)
 model.addCost(MPC_H, tip_cost)
 model.addCost(MPC_H, config_cost)

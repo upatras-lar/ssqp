@@ -14,15 +14,15 @@
 #define HORIZON      20
 #define dt           0.025
 // Trunk position weight
-#define P_WGT 10
+#define T_WGT 3.0
 // Orientation weight
-#define R_WGT 10
+#define R_WGT 3.0
 // Velocity regularization weight
 #define V_WGT 1e-1
 // Control regularization weight
-#define U_WGT 1e-5
+#define U_WGT 3e-3
 // Force regularization weight
-#define F_WGT 1e-8
+#define F_WGT 1e-4
 
 using namespace ssqp::model::stagewise::predefined;
 
@@ -59,7 +59,7 @@ int main()
           "torso_1_link",
           STATE_SIZE,
           CONTROL_SIZE,
-          P_WGT,
+          T_WGT,
           R_WGT);
 
         // Add regularization cost for velocity, controls and forces
@@ -211,8 +211,8 @@ int main()
                                                     "torso_1_link",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    0 * P_WGT,
-                                                    0 * R_WGT);
+                                                    T_WGT,
+                                                    R_WGT);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states = { init };

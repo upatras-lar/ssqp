@@ -15,13 +15,13 @@ nv = 9
 MPC_H = 10
 H = 200
 dt = 0.01
-P_WGT = 35
-R_WGT = 35
-A_WGT = 0
-V_WGT = 1e-4
-U_WGT = 1e-5
+T_WGT = 5.0
+R_WGT = 10.0
+A_WGT = 1e-3
+V_WGT = 1e-2
+U_WGT = 3e-3
 
-CONSTRAIN = False
+CONSTRAIN = True
 constraint_hlines = [0.1, 0.41]
 constraint_vlines = [-0.15, 0.15]
 
@@ -79,30 +79,34 @@ box_constraint = ssqpy.model.constraints.FramePositionBound(
     model, "panda_ee", lb, ub, nq, nv
 )
 
+a_cost = ssqpy.model.costs.SquaredJointAngleCost(nq, nv, A_WGT)
+v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
+
 for k in range(MPC_H):
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, traj[k], Rd, "panda_ee", nq, nv, P_WGT, R_WGT
+            model, traj[k], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
         )
     )
 
+    model.addCost(k, a_cost)
+    model.addCost(k, v_cost)
+    model.addCost(k, u_cost)
     model.addCost(k, pose_costs[-1])
-    model.addCost(k, ssqpy.model.costs.SquaredJointAngleCost(nq, nv, A_WGT))
-    model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
-    model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
 
     if CONSTRAIN:
         model.addConstraints(k, box_constraint)
 
 pose_costs.append(
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, traj[MPC_H], Rd, "panda_ee", nq, nv, P_WGT, R_WGT
+        model, traj[MPC_H], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
     )
 )
 
+model.addCost(MPC_H, a_cost)
+model.addCost(MPC_H, v_cost)
 model.addCost(MPC_H, pose_costs[-1])
-model.addCost(MPC_H, ssqpy.model.costs.SquaredJointAngleCost(nq, nv, A_WGT))
-model.addCost(MPC_H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
 if CONSTRAIN:
     model.addConstraints(MPC_H, box_constraint)
@@ -172,6 +176,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         to_sleep = dt - (time() - frame_start)
         if to_sleep > 0:
             sleep(to_sleep)
+
+print()
 
 if PLOT:
     state_data = np.array(state_data)
