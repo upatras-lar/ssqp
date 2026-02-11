@@ -1,3 +1,6 @@
 [submodule "tracy"]
 	path = external/tracy
 	url = https://github.com/wolfpld/tracy.git
+[submodule "external/json"]
+	path = external/json
+	url = https://github.com/nlohmann/json

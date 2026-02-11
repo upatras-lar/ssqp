@@ -21,7 +21,7 @@ LIBNANOBIND := $(shell python -m nanobind --include)/../libnanobind.o
 PYTHON_EXT := $(shell python3-config --extension-suffix)
 PYTHON_DIR := python
 
-INCLUDES += -I./external/tracy/public
+INCLUDES += -I./external/tracy/public -I./external/json/single_include
 
 ENABLE_PROFILING ?= 0
 ifeq ($(ENABLE_PROFILING), 1)
