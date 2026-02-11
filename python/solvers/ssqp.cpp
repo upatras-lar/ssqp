@@ -77,7 +77,6 @@ void bind_ssqp(nb::module_ &m)
               "Size of filter history.")
       .def_rw("merit_mu_gamma", &ssqp::Params::merit_mu_gamma, R"doc(
         Weight for stage gap term
-        NOTE: Set to 0 in Inverse Dynamics mode
         )doc")
       .def_rw("merit_mu_c",
               &ssqp::Params::merit_mu_c,

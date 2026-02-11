@@ -279,7 +279,6 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     use_filter=False,
-    merit_mu_gamma=0.0,
     tolerance=5e-2,
     admm_abs_tolerance=5e-3,
     admm_rel_tolerance=5e-3,

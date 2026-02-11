@@ -6,17 +6,18 @@ from math import pi, sin, cos
 
 nq = 19
 nv = 18
-HORIZON = 220
+HORIZON = 180
 dt = 0.01
 
-A_WGT = 1e-1
-V_WGT = 1e-1
-U_WGT = 1e-3
-F_WGT = 1e-7
+A_WGT = 1e-2
+V_WGT = 2e-2
+U_WGT = 1e-4
+F_WGT = 1e-4
+T_WGT = 4.4
 R_WGT = 1.0
 
-STEPS_BEFORE = 80
-STEPS_AFTER = 80
+STEPS_BEFORE = 60
+STEPS_AFTER = 60
 
 base_pos = np.array([0, 0, 0.3689])
 
@@ -45,7 +46,7 @@ joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
 pose_cost = costs.FrameSquaredPoseErrorCost(
-    model, base_pos, np.eye(3), "base", nq, nv, 20.0, 1.0
+    model, base_pos, np.eye(3), "base", nq, nv, T_WGT, R_WGT
 )
 
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
@@ -89,24 +90,6 @@ for k in range(rotation_range):
     R[2, 2] = cos(θk)
     rotation_traj.append(R)
 
-ang_vel_vectors = [np.zeros(6)]
-for k in range(1, rotation_range):
-    R_rel = rotation_traj[k] @ rotation_traj[k - 1].T
-    ang_vel_vectors.append(
-        0.5
-        * np.array(
-            (
-                0.0,
-                0.0,
-                0.0,
-                R_rel[2, 1] - R_rel[1, 2],
-                R_rel[0, 2] - R_rel[2, 0],
-                R_rel[1, 0] - R_rel[0, 1],
-            )
-        )
-        / dt
-    )
-
 for k in range(HORIZON):
     model.addCost(k, joint_angle_cost)
     model.addCost(k, joint_vel_cost)
@@ -140,18 +123,6 @@ for k in range(HORIZON):
         ),
     )
 
-    # model.addCost(
-    #     k,
-    #     costs.FrameSquaredVelocityErrorCost(
-    #         model,
-    #         ang_vel_vectors[k - STEPS_BEFORE],
-    #         "base",
-    #         nq,
-    #         nv,
-    #         np.array((0.0, 0.0, 0.0, 1.0, 1.0, 1.0)),
-    #     ),
-    # )
-
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0
     init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
@@ -174,10 +145,14 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     use_filter=False,
-    tolerance=1e-2,
+    merit_mu_c=3.0,
+    tolerance=2e-2,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
-    admm_max_iter=1000,
+    admm_max_iter=500,
+    admm_adaptive_rho_tolerance=15,
+    admm_warm_start=False,
+    admm_reset_rho=False,
 )
 
 state, x, u = solver.solve()

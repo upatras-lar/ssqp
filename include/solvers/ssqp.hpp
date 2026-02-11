@@ -97,7 +97,6 @@ class ssqp
         // Merit function line-search parameters
 
         // Weight for stage gap term
-        // NOTE: Set to 0 in Inverse Dynamics mode
         double merit_mu_gamma = 1.0;
         // Weight for constraint violation term
         double merit_mu_c = 1.0;
