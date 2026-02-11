@@ -8,7 +8,7 @@
 #include "types.hpp"
 #include "solvers/admm_qp.hpp"
 
-#include "external/nlohmann/json.hpp"
+#include "nlohmann/json.hpp"
 
 namespace ssqp
 {
