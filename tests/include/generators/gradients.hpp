@@ -1,6 +1,8 @@
 #ifndef SSQP_TESTS_GENERATORS_GRADIENTS_HPP
 #define SSQP_TESTS_GENERATORS_GRADIENTS_HPP
 
+#include <random>
+
 #include "Test.hpp"
 #include "FDGrad.hpp"
 #include "types.hpp"

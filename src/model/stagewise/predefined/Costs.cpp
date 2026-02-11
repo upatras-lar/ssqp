@@ -82,7 +82,7 @@ void SquaredJointAngleCost::hessian_xx(const VecX &x, const VecX &u,
     }
     else
     {
-        Hxx.topLeftCorner(_nv, _nv).diagonal() = _weight * _weight;
+        Hxx.topLeftCorner(_nv, _nv).diagonal() = _weight.array().square();
     }
 }
 

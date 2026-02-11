@@ -21,7 +21,9 @@ nv = 2
 dt = 0.01
 MPC_H = 50
 
-tip_cost_wgt = 10.0
+V_WGT = 1e-3
+U_WGT = 3e-5 if INVERSE_MODE else 1.0
+TIP_WGT = 3.0
 
 model = ssqpy.model.Model(
     MPC_H,
@@ -34,12 +36,10 @@ model = ssqpy.model.Model(
     ),
 )
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, 1e-6)
-u_cost = ssqpy.model.costs.SquaredControlCost(
-    nv, 1e-9 if INVERSE_MODE else 1.0
-)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, tip_cost_wgt
+    model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
 )
 
 for k in range(MPC_H):
@@ -47,6 +47,7 @@ for k in range(MPC_H):
     model.addCost(k, u_cost)
     model.addCost(k, tip_cost)
 
+model.addCost(MPC_H, vel_cost)
 model.addCost(MPC_H, tip_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()

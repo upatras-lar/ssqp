@@ -19,13 +19,13 @@ HORIZON = 150
 dt = 0.01
 
 # Weights
-A_WGT = 1e-2
-V_WGT = 1e-4
-U_WGT = 1e-6
-F_WGT_START = 1e-8
-F_WGT_END = 1e-5
-TP_WGT = 100
-TO_WGT = 100
+A_WGT = 1e-1
+V_WGT = 1e-2
+U_WGT = 1e-3
+F_WGT_START = 1e-4
+F_WGT_END = 3e-3
+TF_WGT = 10
+RF_WGT = 10
 
 # Number of steps with contacts at the start & end of time horizon
 STEPS_BEFORE = 60
@@ -130,7 +130,7 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredPoseErrorCost(
-        model, base_pos, np.eye(3), "trunk", nq, nv, TP_WGT, TO_WGT
+        model, base_pos, np.eye(3), "trunk", nq, nv, TF_WGT, RF_WGT
     ),
 )
 

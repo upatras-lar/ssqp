@@ -18,10 +18,12 @@ HORIZON = 300
 dt = 0.01
 
 # Weights
-A_WGT = 1e-2
-V_WGT = 1e-5
-U_WGT = 1e-6
-F_WGT = 1e-8
+A_WGT = 1e-1
+V_WGT = 3e-3
+U_WGT = 1e-3
+F_WGT = 1e-4
+ROT_WGT = 1.0
+TF_WGT = 10.0
 
 # @script-parameter
 # Which gait to use
@@ -81,7 +83,7 @@ for k in range(HORIZON):
     model.addCost(
         k,
         costs.FrameSquaredRotationErrorCost(
-            model, np.eye(3), "base", nq, nv, 1.0
+            model, np.eye(3), "base", nq, nv, ROT_WGT
         ),
     )
 
@@ -93,7 +95,7 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredTranslationErrorCost(
-        model, final_pos, "base", nq, nv, 100.0
+        model, final_pos, "base", nq, nv, TF_WGT
     ),
 )
 

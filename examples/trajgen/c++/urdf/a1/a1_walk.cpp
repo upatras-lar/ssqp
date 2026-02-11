@@ -17,13 +17,13 @@
 #define HORIZON      400
 #define dt           0.01
 // Velocity regularization weight
-#define V_WGT 1e-4
+#define V_WGT 1e-2
 // Control regularization weight
-#define U_WGT 1e-6
+#define U_WGT 1e-3
 // Force regularization weight
-#define F_WGT 1e-8
-// Terminal position weight
-#define P_WGT 1
+#define F_WGT 1e-4
+// Position weight
+#define T_WGT 1.0
 
 #define AIR_STEPS    20
 #define GROUND_STEPS 10
@@ -123,8 +123,8 @@ int main()
           "trunk",
           STATE_SIZE,
           CONTROL_SIZE,
-          P_WGT,
-          P_WGT);
+          T_WGT,
+          T_WGT);
 
         uint rel_k = k % MOVE_STEPS;
 
@@ -215,7 +215,6 @@ int main()
     }
 
     // Add terminal costs
-
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
                                                    CONTROL_SIZE,
                                                    V_WGT,
@@ -228,8 +227,8 @@ int main()
                                                     "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    P_WGT,
-                                                    P_WGT);
+                                                    T_WGT,
+                                                    T_WGT);
 
     model.addConstraints<constraints::FrameLinearVelocityBound>(
       HORIZON,

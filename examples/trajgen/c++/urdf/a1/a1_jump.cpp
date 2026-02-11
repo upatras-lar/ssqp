@@ -17,17 +17,17 @@
 #define HORIZON      325
 #define dt           0.01
 // Angle regularization weight
-#define A_WGT 0
+#define A_WGT 1e-3
 // Velocity regularization weight
-#define V_WGT 1e-4
+#define V_WGT 1e-2
 // Control regularization weight
-#define U_WGT 1e-6
+#define U_WGT 1e-3
 // Force regularization weight
-#define F_WGT 1e-7
+#define F_WGT 1e-4
 // Terminal position weight
-#define TP_WGT 100
+#define TF_WGT 3.0
 // Terminal orientation weight
-#define TO_WGT 8
+#define RF_WGT 2.8
 
 // Jump
 #define STEPS_BEFORE 40
@@ -185,8 +185,8 @@ int main()
                                                     "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
-                                                    TP_WGT,
-                                                    TO_WGT);
+                                                    TF_WGT,
+                                                    RF_WGT);
 
     // Add bound to keep final trunk velocity low
     model.addConstraints<constraints::FrameLinearVelocityBound>(

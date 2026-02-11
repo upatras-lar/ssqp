@@ -24,10 +24,10 @@ H = 400
 dt = 0.01
 
 # Weights
-P_WGT = 10
-R_WGT = 1
-V_WGT = 1e-5
-U_WGT = 1e-5
+T_WGT = 3.0
+R_WGT = 1.0
+V_WGT = 3e-3
+U_WGT = 3e-3
 
 # Horizontal and vertical line coordinates for constraints
 constraint_hlines = [0.1, 0.41]
@@ -104,7 +104,7 @@ for k in range(H):
     model.addCost(
         k,
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, traj[k], Rd, "panda_ee", nq, nq, P_WGT, R_WGT
+            model, traj[k], Rd, "panda_ee", nq, nq, T_WGT, R_WGT
         ),
     )
 
@@ -120,7 +120,7 @@ for k in range(H):
 model.addCost(
     H,
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, traj[H], Rd, "panda_ee", nq, nq, P_WGT, R_WGT
+        model, traj[H], Rd, "panda_ee", nq, nq, T_WGT, R_WGT
     ),
 )
 
@@ -145,13 +145,13 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-2,
-    use_filter=False,
-    merit_mu_gamma=0.0,
+    # use_filter=False,
+    # merit_mu_gamma=0.0,
     admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-4,
-    admm_adaptive_rho_tolerance=5,
+    admm_rel_tolerance=1e-3,
+    admm_adaptive_rho_tolerance=10,
     admm_rho_update_iter_freq=25,
-    admm_max_iter=500,
+    admm_max_iter=1000,
 )
 
 # Solve using the SSQP solver and the model we created

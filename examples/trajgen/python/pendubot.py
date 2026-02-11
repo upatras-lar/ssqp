@@ -14,6 +14,10 @@ nv = 2
 H = 500
 dt = 0.01
 
+V_WGT = 1e-3
+U_WGT = 1e-4
+C_WGT = 3.0
+
 model = ssqpy.model.Model(
     H,
     dt,
@@ -23,10 +27,10 @@ model = ssqpy.model.Model(
     # integration=ssqpy.model.Integration.ExplicitEuler,
 )
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, 1e-6)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, 1e-8)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
 config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
-    np.array((pi, 0.0)), nq, nv, 10.0, False
+    np.array((pi, 0.0)), nq, nv, C_WGT, False
 )
 
 for k in range(H):
