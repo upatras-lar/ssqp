@@ -146,7 +146,6 @@ solver = ssqpy.solvers.ssqp(
     loose_success=False,
     tolerance=1e-2,
     # use_filter=False,
-    # merit_mu_gamma=0.0,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_adaptive_rho_tolerance=10,

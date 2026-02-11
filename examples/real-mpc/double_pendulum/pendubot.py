@@ -27,7 +27,7 @@ MPC_H = 45
 
 V_WGT = 1e-3
 U_WGT = 1e-3
-TIP_WGT = 3.1622
+TIP_WGT = 3.5
 
 model = ssqpy.model.Model(
     MPC_H,
