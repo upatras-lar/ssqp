@@ -9,23 +9,25 @@ nv = 18
 HORIZON = 180
 dt = 0.01
 
-A_WGT = 1e-2
-V_WGT = 1e-2
+A_WGT = 1e-1
+V_WGT = 1e-3
 U_WGT = 1e-4
 F_WGT = 1e-4
-T_WGT = 1.0
-R_WGT = 1.0
+T_WGT = 4.0
+R_WGT = 4.0
+C_WGT = 4.0
 
 STEPS_BEFORE = 60
 STEPS_AFTER = 60
 
 base_pos = np.array([0, 0, 0.3689])
+base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 init = np.zeros(37)
 init[:3] = base_pos
 init[6] = 1.0
 
-init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
+init[7:19] = base_config
 
 init_control = np.zeros(30)
 init_control[20] = 3.75 * 9.81
@@ -47,6 +49,9 @@ control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
 pose_cost = costs.FrameSquaredPoseErrorCost(
     model, base_pos, np.eye(3), "base", nq, nv, T_WGT, R_WGT
+)
+config_cost = costs.SquaredConfigurationErrorCost(
+    base_config, nq, nv, C_WGT, True
 )
 
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
@@ -92,10 +97,10 @@ for k in range(rotation_range - 1):
     omega_traj.append(np.array([0.0, 0.0, 0.0, omega_x, 0.0, 0.0]))
 
 for k in range(HORIZON):
-    model.addCost(k, joint_angle_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
+    model.addCost(k, joint_angle_cost)
 
     model.addConstraints(k, base_above_ground_bound)
     model.addConstraints(k, head_above_ground_bound)
@@ -117,17 +122,6 @@ for k in range(HORIZON):
         init_controls.append(init_control)
         continue
 
-    if k == STEPS_BEFORE + 30:
-        R = np.eye(3)
-        R[1, 1] = -1.0
-        R[2, 2] = -1.0
-        model.addCost(
-            k,
-            costs.FrameSquaredRotationErrorCost(
-                model, R, "base", nq, nv, R_WGT
-            ),
-        )
-
     model.addCost(
         k,
         costs.FrameSquaredVelocityErrorCost(
@@ -136,23 +130,50 @@ for k in range(HORIZON):
             "base",
             nq,
             nv,
-            np.array((0.1, 0.1, 0.0, 1.0, 0.1, 0.1)),
+            np.array((0.1, 0.1, 0.0, 0.1, 0.1, 0.1)),
         ),
     )
 
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0
-    init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
+    # init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
     init_controls.append(np.zeros(nv))
 
-model.addCost(HORIZON, pose_cost)
 model.addCost(HORIZON, joint_vel_cost)
+model.addCost(HORIZON, pose_cost)
+model.addCost(HORIZON, config_cost)
+
 model.addConstraints(
     HORIZON,
     constraints.FrameLinearVelocityBound(
         model, "base", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )
+
+# fl_pos = np.array((0.1934, 0.142, 0.0))
+# fr_pos = np.array((0.1934, -0.142, 0.0))
+# rl_pos = np.array((-0.1934, 0.142, 0.0))
+# rr_pos = np.array((-0.1934, -0.142, 0.0))
+
+# model.addConstraints(
+#     HORIZON,
+#     constraints.FramePositionBound(model, "FL_foot", fl_pos, fl_pos, nq, nv),
+# )
+
+# model.addConstraints(
+#     HORIZON,
+#     constraints.FramePositionBound(model, "FR_foot", fr_pos, fr_pos, nq, nv),
+# )
+
+# model.addConstraints(
+#     HORIZON,
+#     constraints.FramePositionBound(model, "RL_foot", rl_pos, rl_pos, nq, nv),
+# )
+
+# model.addConstraints(
+#     HORIZON,
+#     constraints.FramePositionBound(model, "RR_foot", rr_pos, rr_pos, nq, nv),
+# )
 
 init_states.append(init)
 
@@ -162,20 +183,19 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     use_filter=False,
-    merit_mu_c=4.0,
-    merit_mu_gamma=0.1,
-    tolerance=1e-1,
+    merit_mu_c=2.0,
+    tolerance=1e-2,
     admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_max_iter=500,
+    admm_rel_tolerance=1e-4,
+    admm_max_iter=1000,
     admm_adaptive_rho_tolerance=15,
     admm_warm_start=False,
-    admm_reset_rho=False,
+    # admm_reset_rho=False,
 )
 
 state, x, u = solver.solve()
 
-solver.write("../data/go2_sideflip.json")
+solver.write("../data/go2_sideflip_id.json")
 
 print("x:")
 x.print()

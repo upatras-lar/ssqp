@@ -29,7 +29,7 @@ model = ssqpy.model.Model(
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
-config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
+config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((pi, 0.0)), nq, nv, C_WGT, False
 )
 

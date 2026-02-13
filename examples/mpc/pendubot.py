@@ -35,7 +35,7 @@ link2_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
 )
-config_cost = ssqpy.model.costs.SquaredConfigurationDifferenceCost(
+config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((pi, 0.0)),
     nq,
     nv,

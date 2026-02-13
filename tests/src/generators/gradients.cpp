@@ -527,19 +527,20 @@ std::shared_ptr<Test> get_squared_configuration_difference_cost_grad_test()
 
     for (uint k = 0; k <= model->dims().horizon; ++k)
     {
-        model->addCost<model::stagewise::predefined::costs::
-                         SquaredConfigurationDifferenceCost>(k,
-                                                             VecX::Zero(9),
-                                                             9,
-                                                             9,
-                                                             9.17,
-                                                             false);
+        model->addCost<
+          model::stagewise::predefined::costs::SquaredConfigurationErrorCost>(
+          k,
+          VecX::Zero(9),
+          9,
+          9,
+          9.17,
+          false);
     }
 
     model->finalize();
 
     std::shared_ptr<FDGradCost> cost_test =
-      std::make_shared<FDGradCost>("SquaredConfigurationDifferenceCostGradTest",
+      std::make_shared<FDGradCost>("SquaredConfigurationErrorCostGradTest",
                                    model,
                                    0);
 
@@ -557,19 +558,20 @@ get_squared_configuration_difference_cost_floating_base_grad_test()
 
     for (uint k = 0; k <= model->dims().horizon; ++k)
     {
-        model->addCost<model::stagewise::predefined::costs::
-                         SquaredConfigurationDifferenceCost>(k,
-                                                             VecX::Zero(12),
-                                                             19,
-                                                             18,
-                                                             3.27,
-                                                             true);
+        model->addCost<
+          model::stagewise::predefined::costs::SquaredConfigurationErrorCost>(
+          k,
+          VecX::Zero(12),
+          19,
+          18,
+          3.27,
+          true);
     }
 
     model->finalize();
 
     std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
-      "SquaredConfigurationDifferenceCostFloatingBaseGradTest",
+      "SquaredConfigurationErrorCostFloatingBaseGradTest",
       model,
       0);
 

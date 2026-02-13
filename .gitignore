@@ -1,8 +1,8 @@
 /.vscode/
 /build/*
 /examples/trajgen/data/*
+/examples/trajgen/visualizer/viser-venv/*
 /VARIABLES.sh
-/visualizer/viser-venv/*
 /tests/logs/*
 /out.txt
 /nbvenv/*

@@ -318,8 +318,8 @@ void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
     }
 }
 
-// SquaredConfigurationDifferenceCost
-SquaredConfigurationDifferenceCost::SquaredConfigurationDifferenceCost(
+// SquaredConfigurationErrorCost
+SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   const VecX &desired_configuration, const uint nq, const uint nv,
   const double weight, const bool free_flyer)
   : _desired_configuration(desired_configuration)
@@ -331,7 +331,7 @@ SquaredConfigurationDifferenceCost::SquaredConfigurationDifferenceCost(
     _weight.setConstant(weight);
 }
 
-SquaredConfigurationDifferenceCost::SquaredConfigurationDifferenceCost(
+SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   const VecX &desired_configuration, const uint nq, const uint nv,
   const VecX &weight, const bool free_flyer)
   : _desired_configuration(desired_configuration)
@@ -344,18 +344,18 @@ SquaredConfigurationDifferenceCost::SquaredConfigurationDifferenceCost(
            "Invalid weight vector size");
 }
 
-void SquaredConfigurationDifferenceCost::set_desired_configuration(
+void SquaredConfigurationErrorCost::set_desired_configuration(
   const VecX &desired_configuration)
 {
     _desired_configuration = desired_configuration;
 }
 
-void SquaredConfigurationDifferenceCost::set_weight(const double weight)
+void SquaredConfigurationErrorCost::set_weight(const double weight)
 {
     _weight.setConstant(weight);
 }
 
-void SquaredConfigurationDifferenceCost::set_weight(const VecX &weight)
+void SquaredConfigurationErrorCost::set_weight(const VecX &weight)
 {
     assert(weight.size() == (_free_flyer ? _nq - 7 : _nq) &&
            "Invalid weight vector size");
@@ -363,8 +363,7 @@ void SquaredConfigurationDifferenceCost::set_weight(const VecX &weight)
     _weight = weight;
 }
 
-VecX SquaredConfigurationDifferenceCost::evaluate(const VecX &x,
-                                                  const VecX &u) const
+VecX SquaredConfigurationErrorCost::evaluate(const VecX &x, const VecX &u) const
 {
     return (Scalar() << 0.5 * (_weight.array() *
                                ((_free_flyer ? x.segment(7, _nq - 7)
@@ -376,8 +375,8 @@ VecX SquaredConfigurationDifferenceCost::evaluate(const VecX &x,
       .finished();
 }
 
-void SquaredConfigurationDifferenceCost::gradient(const VecX &x, const VecX &u,
-                                                  VecX &dx, VecX &du) const
+void SquaredConfigurationErrorCost::gradient(const VecX &x, const VecX &u,
+                                             VecX &dx, VecX &du) const
 {
     dx = VecX::Zero(2 * _nv);
     if (_free_flyer)
@@ -395,9 +394,8 @@ void SquaredConfigurationDifferenceCost::gradient(const VecX &x, const VecX &u,
     du = VecX::Zero(u.size());
 }
 
-void SquaredConfigurationDifferenceCost::hessian_xx(const VecX &x,
-                                                    const VecX &u,
-                                                    MatX       &Hxx) const
+void SquaredConfigurationErrorCost::hessian_xx(const VecX &x, const VecX &u,
+                                               MatX &Hxx) const
 {
     Hxx = MatX::Zero(2 * _nv, 2 * _nv);
 
@@ -411,16 +409,14 @@ void SquaredConfigurationDifferenceCost::hessian_xx(const VecX &x,
     }
 }
 
-void SquaredConfigurationDifferenceCost::hessian_xu(const VecX &x,
-                                                    const VecX &u,
-                                                    MatX       &Hxu) const
+void SquaredConfigurationErrorCost::hessian_xu(const VecX &x, const VecX &u,
+                                               MatX &Hxu) const
 {
     Hxu = MatX::Zero(2 * _nv, u.size());
 }
 
-void SquaredConfigurationDifferenceCost::hessian_uu(const VecX &x,
-                                                    const VecX &u,
-                                                    MatX       &Huu) const
+void SquaredConfigurationErrorCost::hessian_uu(const VecX &x, const VecX &u,
+                                               MatX &Huu) const
 {
     Huu = MatX::Zero(u.size(), u.size());
 }
