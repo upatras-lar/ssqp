@@ -228,16 +228,16 @@ void bind_Costs(nb::module_ &m)
              &SquaredForceCost::set_weight),
            nb::arg("weight"));
 
-    nb::class_<SquaredConfigurationDifferenceCost, StageCost>(
+    nb::class_<SquaredConfigurationErrorCost, StageCost>(
       m,
-      "SquaredConfigurationDifferenceCost",
+      "SquaredConfigurationErrorCost",
       R"doc(
-        Predefined squared configuration difference cost
+        Predefined squared configuration error cost
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2$
         where:
          - $\boldsymbol{q}$ is the configuration part of the state
          - $\boldsymbol{q}_d$ is the desired configuration
-         - $\boldsymbol{w}$ is the weight for the difference
+         - $\boldsymbol{w}$ is the weight for the configuration error
       )doc")
       .def(nb::init<const VecX &, uint, uint, double, bool>(),
            nb::arg("desired_configuration"),
@@ -252,18 +252,16 @@ void bind_Costs(nb::module_ &m)
            nb::arg("weight"),
            nb::arg("free_flyer"))
       .def("set_desired_configuration",
-           &SquaredConfigurationDifferenceCost::set_desired_configuration,
+           &SquaredConfigurationErrorCost::set_desired_configuration,
            nb::arg("desired_configuration"))
-      .def(
-        "set_weight",
-        static_cast<void (SquaredConfigurationDifferenceCost::*)(const double)>(
-          &SquaredConfigurationDifferenceCost::set_weight),
-        nb::arg("weight"))
-      .def(
-        "set_weight",
-        static_cast<void (SquaredConfigurationDifferenceCost::*)(const VecX &)>(
-          &SquaredConfigurationDifferenceCost::set_weight),
-        nb::arg("weight"));
+      .def("set_weight",
+           static_cast<void (SquaredConfigurationErrorCost::*)(const double)>(
+             &SquaredConfigurationErrorCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredConfigurationErrorCost::*)(const VecX &)>(
+             &SquaredConfigurationErrorCost::set_weight),
+           nb::arg("weight"));
 
     nb::class_<FrameSquaredTranslationErrorCost, StageCost>(
       m,

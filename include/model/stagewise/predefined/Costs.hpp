@@ -137,24 +137,24 @@ class SquaredForceCost : public StageCost
     bool       _single_weight;
 };
 
-/* Predefined squared configuration difference cost
+/* Predefined squared configuration error cost
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2$
  * where:
  *  - $\boldsymbol{q}$ is the configuration part of the state
  *  - $\boldsymbol{q}_d$ is the desired configuration
- *  - $\boldsymbol{w}$ is the weight for the difference
+ *  - $\boldsymbol{w}$ is the weight for the configuration error
  */
-class SquaredConfigurationDifferenceCost : public StageCost
+class SquaredConfigurationErrorCost : public StageCost
 {
   public:
-    SquaredConfigurationDifferenceCost(const VecX &desired_configuration,
-                                       const uint nq, const uint nv,
-                                       const double weight,
-                                       const bool   free_flyer = false);
-    SquaredConfigurationDifferenceCost(const VecX &desired_configuration,
-                                       const uint nq, const uint nv,
-                                       const VecX &weight,
-                                       const bool  free_flyer = false);
+    SquaredConfigurationErrorCost(const VecX &desired_configuration,
+                                  const uint nq, const uint nv,
+                                  const double weight,
+                                  const bool   free_flyer = false);
+    SquaredConfigurationErrorCost(const VecX &desired_configuration,
+                                  const uint nq, const uint nv,
+                                  const VecX &weight,
+                                  const bool  free_flyer = false);
 
     void set_desired_configuration(const VecX &desired_configuration);
     void set_weight(const double weight);

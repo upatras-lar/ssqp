@@ -305,9 +305,13 @@ bool ssqp::write(const std::string &filename)
     j["solver"]              = ordered_json({});
     j["solver"]["tolerance"] = _params.tolerance;
 
-    j["convergence"]                   = ordered_json({});
-    j["convergence"]["runtime"]        = _total_duration;
-    j["convergence"]["iterations"]     = _iter + 1;
+    j["convergence"]                         = ordered_json({});
+    j["convergence"]["runtime"]              = _total_duration;
+    j["convergence"]["iterations"]           = _iter + 1;
+    j["convergence"]["trajectory_cost"]      = _lf(_guess.x, _guess.u);
+    j["convergence"]["trajectory_stage_gap"] = _gammaf(_guess.x, _guess.u);
+    j["convergence"]["trajectory_constraint_violation"] =
+      _cf(_guess.x, _guess.u);
     j["convergence"]["iteration_data"] = ordered_json::array();
 
     for (uint i = 0; i < _iteration_convergence_data.size(); ++i)
