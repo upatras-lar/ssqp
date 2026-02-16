@@ -2,19 +2,34 @@ import mujoco
 import mujoco.viewer
 import ssqpy
 import numpy as np
-from time import time
+from time import time, sleep
+
+np.random.seed(int(time()))
+
+
+def get_random_pd():
+    return np.array(
+        (
+            0.3,
+            np.random.random() - 0.5,
+            np.random.random() / 3 + 0.2,
+        )
+    )
+
 
 nq = 9
 nv = 9
-MPC_H = 10
+MPC_H = 20
 dt = 0.01
 
-T_WGT = 3.0
+T_WGT = 4.0
 R_WGT = 3.0
-V_WGT = 1e-2
-U_WGT = 3e-3
+V_WGT = 1e-1
+U_WGT = 1e-3
 
-pd = np.array((0.2, -0.2, 0.6))
+REAL_TIME = True
+INVERSE_MODE = True
+PD_CHANGE_FREQ = 2
 
 Rd = np.eye(3)
 Rd[1, 1] = -1
@@ -22,11 +37,18 @@ Rd[2, 2] = -1
 
 desired_pose = np.zeros((4, 4))
 desired_pose[:3, :3] = Rd
-desired_pose[:3, 3] = pd
+desired_pose[:3, 3] = get_random_pd()
 desired_pose[3, 3] = 1
 
 model = ssqpy.model.Model(
-    MPC_H, dt, urdf_path="../assets/urdf/panda/panda.urdf"
+    MPC_H,
+    dt,
+    urdf_path="../assets/urdf/panda/panda.urdf",
+    dynamics_mode=(
+        ssqpy.model.DynamicsMode.Inverse
+        if INVERSE_MODE
+        else ssqpy.model.DynamicsMode.Forward
+    ),
 )
 
 init_state = np.zeros(2 * nq)
@@ -56,7 +78,17 @@ for k in range(MPC_H):
 model.addCost(MPC_H, pose_error)
 model.addCost(MPC_H, v_cost)
 
-mpc = ssqpy.solvers.MPC(model, sqp_iters=5, admm_iters=50)
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.tolerance = 1e-1
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-2
+admm_params.rel_tolerance = 1e-2
+admm_params.warm_start = False
+
+mpc = ssqpy.solvers.MPC(
+    model, ssqp_params, admm_params, sqp_iters=5, admm_iters=75
+)
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)
@@ -65,42 +97,44 @@ mjdata.qpos = init_state[:9]
 
 elapsed = 0
 steps = 0
-total_steps = int(1 / dt)
+total_steps = PD_CHANGE_FREQ * int(1 / dt)
 
 states = np.tile(init_state, (MPC_H + 1, 1))
 controls = np.zeros((MPC_H, nv))
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
+        frame_start = time()
+
         state = np.hstack((mjdata.qpos, mjdata.qvel))
 
-        states = np.delete(states, (0), axis=0)
-        states[0, :] = state
-        states = np.vstack([states, states[MPC_H - 1, :]])
-
-        controls = np.delete(controls, (0), axis=0)
-        controls = np.vstack([controls, controls[MPC_H - 2, :]])
-
         pre = time()
-        states, controls = mpc.step(states, controls)
+        if INVERSE_MODE:
+            mjdata.ctrl = model.inverseDynamics(
+                mjdata.qpos, mjdata.qvel, mpc.step(state)
+            )[:8]
+        else:
+            mjdata.ctrl = mpc.step(state)[:8]
         elapsed += time() - pre
         steps += 1
 
         if steps == total_steps:
-            print(f"\rControl frequency: {(1 / (elapsed*dt)):.2f}Hz\t", end="")
+            print(f"Control frequency: {(total_steps / elapsed):.2f}Hz\t")
             elapsed = 0
             steps = 0
 
-            pose_error.set_desired_translation(
-                np.array(
-                    (np.random.random() - 0.5, np.random.random() - 0.5, 0.6)
-                )
-            )
+            new_pd = get_random_pd()
+            print()
+            print("Setting new goal:", new_pd)
 
-        mjdata.ctrl = controls.stage(0)[:8]
+            pose_error.set_desired_translation(new_pd)
+
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 
-        states, controls = states.toarray(), controls.toarray()
+        if REAL_TIME:
+            to_sleep = dt - (time() - frame_start)
+            if to_sleep > 0:
+                sleep(to_sleep)
 
 print()

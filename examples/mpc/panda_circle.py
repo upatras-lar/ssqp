@@ -2,7 +2,7 @@ import mujoco
 import mujoco.viewer
 import ssqpy
 import numpy as np
-from math import pi, sin, cos
+from math import pi, sin, cos, sqrt
 from time import time, sleep
 
 PLOT = True
@@ -12,29 +12,29 @@ if PLOT:
 
 nq = 9
 nv = 9
-MPC_H = 10
+MPC_H = 15
 H = 200
 dt = 0.01
-T_WGT = 1.0
-R_WGT = 1.0
-A_WGT = 1e-2
-V_WGT = 1e-2
-U_WGT = 1e-3
-
-CONSTRAIN = False
-constraint_hlines = [0.1, 0.41]
-constraint_vlines = [-0.15, 0.15]
+T_WGT = 20.0
+R_WGT = 4.0
+V_WGT = 1e-4
+U_WGT = 1e-6
 
 INVERSE_MODE = True
 
 cx = 0.3
 cy = 0
 cz = 0.26
-cr = 0.22
+cr = 0.18
 
 DISTANCE = 2 * pi
 ω = DISTANCE / (H * dt)
 φ0 = 0
+
+CONSTRAIN = True
+square_side_hlf = cr / sqrt(2)
+constraint_hlines = [cz - square_side_hlf, cz + square_side_hlf]
+constraint_vlines = [cy - square_side_hlf, cy + square_side_hlf]
 
 
 traj = []
@@ -79,7 +79,6 @@ box_constraint = ssqpy.model.constraints.FramePositionBound(
     model, "panda_ee", lb, ub, nq, nv
 )
 
-a_cost = ssqpy.model.costs.SquaredJointAngleCost(nq, nv, A_WGT)
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
 
@@ -90,7 +89,6 @@ for k in range(MPC_H):
         )
     )
 
-    model.addCost(k, a_cost)
     model.addCost(k, v_cost)
     model.addCost(k, u_cost)
     model.addCost(k, pose_costs[-1])
@@ -104,7 +102,6 @@ pose_costs.append(
     )
 )
 
-model.addCost(MPC_H, a_cost)
 model.addCost(MPC_H, v_cost)
 model.addCost(MPC_H, pose_costs[-1])
 
@@ -117,7 +114,18 @@ def update_pose_costs(current_stage):
         pose_costs[k - current_stage].set_desired_translation(traj[k % H])
 
 
-mpc = ssqpy.solvers.MPC(model, sqp_iters=10, admm_iters=250)
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.tolerance = 1e-2
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.adaptive_rho_tolerance = 10
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.warm_start = False
+
+mpc = ssqpy.solvers.MPC(
+    model, ssqp_params, admm_params, sqp_iters=4, admm_iters=75
+)
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)
