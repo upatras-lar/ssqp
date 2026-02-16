@@ -15,13 +15,13 @@ nv = 9
 MPC_H = 10
 H = 200
 dt = 0.01
-T_WGT = 5.0
-R_WGT = 10.0
-A_WGT = 1e-3
+T_WGT = 1.0
+R_WGT = 1.0
+A_WGT = 1e-2
 V_WGT = 1e-2
-U_WGT = 3e-3
+U_WGT = 1e-3
 
-CONSTRAIN = True
+CONSTRAIN = False
 constraint_hlines = [0.1, 0.41]
 constraint_vlines = [-0.15, 0.15]
 
@@ -117,7 +117,7 @@ def update_pose_costs(current_stage):
         pose_costs[k - current_stage].set_desired_translation(traj[k % H])
 
 
-mpc = ssqpy.solvers.MPC(model, sqp_iters=5, admm_iters=75)
+mpc = ssqpy.solvers.MPC(model, sqp_iters=10, admm_iters=250)
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)

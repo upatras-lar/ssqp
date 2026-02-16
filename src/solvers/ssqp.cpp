@@ -87,16 +87,14 @@ SolverState ssqp::solve(Guess &guess)
 
     _params.tolerance = _tolerance_init;
 
+    _printIterationHeader();
+
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
         SolverState state = qp_solver.solve(sol);
 
         switch (state)
         {
-        case MAX_ITER_REACHED:
-            LOGLN("ADMM: Max iterations reached (" << _admm_params.max_iter
-                                                   << ")");
-            break;
         case PRIMAL_INFEASIBLE:
         case DUAL_INFEASIBLE:
             return state;
@@ -203,13 +201,11 @@ SolverState ssqp::solve(Guess &guess)
                 throw std::runtime_error("LQR: Regularization failed");
             }
 
-            LOGLN("Line search failed, increasing regularization");
+            DEBUG_LOGLN("Line search failed, increasing regularization");
             qp_solver.increaseRegularization();
             --_iter;
             continue;
         }
-
-        LOGLN("Step size: " << _iteration_convergence_data.back().step_size);
 
         _guess.x = x_n;
         _guess.u = u_n;
@@ -226,10 +222,10 @@ SolverState ssqp::solve(Guess &guess)
             }
         }
 
-        LOGLN("Current x: ");
-        LOGLN(_guess.x);
-        LOGLN("Current u: ");
-        LOGLN(_guess.u);
+        DEBUG_LOGLN("Current x: ");
+        DEBUG_LOGLN(_guess.x);
+        DEBUG_LOGLN("Current u: ");
+        DEBUG_LOGLN(_guess.u);
 
         // Lagrange multiplier update
         for (uint k = 0; k < _model.horizon(); ++k)
@@ -249,6 +245,7 @@ SolverState ssqp::solve(Guess &guess)
                 std::chrono::high_resolution_clock::now() - start)
                 .count();
 
+            _printIterationInfo();
             LOGLN("SSQP: Total runtime: " << _total_duration << "ms");
 
             guess = _guess;
@@ -269,6 +266,8 @@ SolverState ssqp::solve(Guess &guess)
                                     ? _params.max_iter
                                     : _params.tolerance_update_steps);
         }
+
+        _printIterationInfo();
 
         // Skip gradient calculation in _setup_qp, since they have been
         // calculated in _check_termination
@@ -510,20 +509,6 @@ SolverState ssqp::_check_termination()
     _iteration_convergence_data.back().norm_du =
       lagrangian_du.vec.lpNorm<Eigen::Infinity>();
 
-    LOGLN("Norm dx: " << _iteration_convergence_data.back().norm_dx);
-    LOGLN("Norm du: " << _iteration_convergence_data.back().norm_du);
-
-    // Terminal constraint violation
-    if (constraints[horizon] != nullptr &&
-        !constraints[horizon]->is_satisfied(_guess.x.stage(horizon),
-                                            VecX::Zero(1),
-                                            _params.tolerance))
-    {
-        _stale_iters = 0;
-        LOGLN("Terminal constraints violated");
-        return ONGOING;
-    }
-
     for (uint k = 0; k < horizon; ++k)
     {
         // Stage gap violation
@@ -535,26 +520,47 @@ SolverState ssqp::_check_termination()
             .lpNorm<Eigen::Infinity>();
         if (gap_norm > _params.tolerance)
         {
-            _stale_iters = 0;
-            LOGLN("Stage gap " << k << " violated at " << gap_norm);
+            _stale_iters                                             = 0;
+            _iteration_convergence_data.back().first_violation_stage = k;
+            _iteration_convergence_data.back().violation             = gap_norm;
             return ONGOING;
         }
+
         // Stage constraint violation
-        if (constraints[k] != nullptr &&
-            !constraints[k]->is_satisfied(_guess.x.stage(k),
-                                          _guess.u.stage(k),
-                                          _params.tolerance))
+        if (constraints[k] != nullptr)
         {
-            _stale_iters = 0;
-            LOGLN("Stage " << k << " constraints violated");
+            double csnorm =
+              constraints[k]->violation(_guess.x.stage(k), _guess.u.stage(k));
+            if (csnorm > _params.tolerance)
+            {
+                _stale_iters                                             = 0;
+                _iteration_convergence_data.back().first_violation_stage = k;
+                _iteration_convergence_data.back().violation = csnorm;
+                return ONGOING;
+            }
+        }
+    }
+
+    // Terminal constraint violation
+    if (constraints[horizon] != nullptr)
+    {
+        double csnorm = constraints[horizon]->violation(_guess.x.stage(horizon),
+                                                        VecX::Zero(1));
+
+        if (csnorm > _params.tolerance)
+        {
+            _stale_iters                                             = 0;
+            _iteration_convergence_data.back().first_violation_stage = horizon;
+            _iteration_convergence_data.back().violation             = csnorm;
             return ONGOING;
         }
     }
 
+    _iteration_convergence_data.back().first_violation_stage = -1;
+
     if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
-        LOGLN("SSQP: Convergence reached in " << ++_iter << " iterations");
         return SUCCESS;
     }
 
@@ -566,8 +572,6 @@ SolverState ssqp::_check_termination()
     {
         if (++_stale_iters == _params.loose_success_stale_iters)
         {
-            LOGLN("SSQP: Loose criteria satisfied after " << ++_iter
-                                                          << " iterations");
             return LOOSE_SUCCESS;
         }
     }
@@ -577,6 +581,44 @@ SolverState ssqp::_check_termination()
     }
 
     return ONGOING;
+}
+
+void ssqp::_printIterationHeader() const
+{
+    LOG(std::setw(18));
+    LOG("SQP Iteration |");
+    LOG(std::setw(18));
+    LOG("Norm/dx |");
+    LOG(std::setw(18));
+    LOG("Norm/du |");
+    LOG(std::setw(18));
+    LOG("Violation Stage |");
+    LOG(std::setw(18));
+    LOG("Violation |");
+    LOG(std::setw(18));
+    LOG("ADMM Iterations |");
+    LOG(std::setw(18));
+    LOGLN("Step Size");
+}
+
+void ssqp::_printIterationInfo() const
+{
+    const IterationConvergenceData &icd = _iteration_convergence_data.back();
+
+    LOG(std::setw(16));
+    LOG(_iter << " |");
+    LOG(std::setw(16) << std::setprecision(5));
+    LOG(icd.norm_dx << " |");
+    LOG(std::setw(16) << std::setprecision(5));
+    LOG(icd.norm_du << " |");
+    LOG(std::setw(16));
+    LOG(icd.first_violation_stage << " |");
+    LOG(std::setw(16) << std::setprecision(5));
+    LOG(icd.violation << " |");
+    LOG(std::setw(16));
+    LOG(icd.qp_iters << " |");
+    LOG(std::setw(16));
+    LOGLN(icd.step_size);
 }
 
 double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
