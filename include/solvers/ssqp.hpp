@@ -156,9 +156,21 @@ class ssqp
         double violation;
     };
 
+    struct ConvergenceData
+    {
+        std::vector<IterationConvergenceData> iteration_data;
+        double                                total_duration;
+        uint                                  iterations;
+        bool                                  loose_success;
+    };
+
     // Initialize an SSQP solver based on the given model and SSQP and ADMM
     // parameters
     ssqp(model::Model &model, const Params &params = Params::Default(),
+         const admm_qp::Params &admm_params = admm_qp::Params::Default());
+
+    // Same constructor, but assumes model is already finalized
+    ssqp(const model::Model &model, const Params &params = Params::Default(),
          const admm_qp::Params &admm_params = admm_qp::Params::Default());
 
     const model::Model &model() const;
@@ -169,12 +181,14 @@ class ssqp
     // Write the current solution to the output file with the provided name
     bool write(const std::string &filename);
 
+    const ConvergenceData convergenceData() const;
+
   protected:
-    Params          _params;
-    admm_qp::Params _admm_params;
-    model::Model   &_model;
-    Guess           _guess;
-    QPData          _qp;
+    Params              _params;
+    admm_qp::Params     _admm_params;
+    const model::Model &_model;
+    Guess               _guess;
+    QPData              _qp;
 
     FlatVec _prev_cost_dx, _prev_cost_du;
     FlatVec _cost_dx, _cost_du;
@@ -184,8 +198,7 @@ class ssqp
 
     double _tolerance_init;
 
-    double                                _total_duration;
-    std::vector<IterationConvergenceData> _iteration_convergence_data;
+    ConvergenceData _convergence_data;
 
     template<bool withGradients>
     void _setup_qp();
