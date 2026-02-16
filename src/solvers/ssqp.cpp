@@ -18,6 +18,16 @@ ssqp::Guess::Guess(const model::Dimensions &dims,
 
 ssqp::ssqp(model::Model &model, const Params &params,
            const admm_qp::Params &admm_params)
+  : ssqp(static_cast<const model::Model &>(model), params, admm_params)
+{
+    if (!model.finalized())
+    {
+        model.finalize();
+    }
+}
+
+ssqp::ssqp(const model::Model &model, const Params &params,
+           const admm_qp::Params &admm_params)
   : _params(params)
   , _admm_params(admm_params)
   , _model(model)
@@ -29,11 +39,6 @@ ssqp::ssqp(model::Model &model, const Params &params,
   , _cost_du(_guess.u, false)
   , _tolerance_init(_params.tolerance)
 {
-    if (!model.finalized())
-    {
-        model.finalize();
-    }
-
     model::Dimensions              dims     = model.dims();
     const model::DynamicsContainer dynamics = model.dynamics();
 
@@ -104,13 +109,15 @@ SolverState ssqp::solve(Guess &guess)
 
         FlatVec x_n(_guess.x, false), u_n(_guess.u, false);
 
-        _iteration_convergence_data.push_back(
+        _convergence_data.iteration_data.push_back(
           IterationConvergenceData { qp_solver.iterations() });
 
         // Guess (x, u) update
         if (_params.use_filter)
         {
-            std::tie(x_n, u_n, _iteration_convergence_data.back().step_size) =
+            std::tie(x_n,
+                     u_n,
+                     _convergence_data.iteration_data.back().step_size) =
               step::step(
                 [this](const step::Point &a,
                        const step::Point &b,
@@ -138,7 +145,9 @@ SolverState ssqp::solve(Guess &guess)
         }
         else
         {
-            std::tie(x_n, u_n, _iteration_convergence_data.back().step_size) =
+            std::tie(x_n,
+                     u_n,
+                     _convergence_data.iteration_data.back().step_size) =
               step::step(
                 [this](const step::Point &a,
                        const step::Point &b,
@@ -194,7 +203,8 @@ SolverState ssqp::solve(Guess &guess)
         }
 
         if (!_params.accept_worse_update &&
-            _iteration_convergence_data.back().step_size < _params.min_alpha)
+            _convergence_data.iteration_data.back().step_size <
+              _params.min_alpha)
         {
             if (_params.skip_regularization)
             {
@@ -240,13 +250,14 @@ SolverState ssqp::solve(Guess &guess)
         // Termination
         if ((ssqp_state = _check_termination()) != ONGOING)
         {
-            _total_duration =
+            _convergence_data.total_duration =
               std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::high_resolution_clock::now() - start)
                 .count();
 
             _printIterationInfo();
-            LOGLN("SSQP: Total runtime: " << _total_duration << "ms");
+            LOGLN("SSQP: Total runtime: " << _convergence_data.total_duration
+                                          << "ms");
 
             guess = _guess;
             return ssqp_state;
@@ -277,11 +288,12 @@ SolverState ssqp::solve(Guess &guess)
         FrameMarkNamed("SQP Iteration");
     }
 
-    _total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::high_resolution_clock::now() - start)
-                        .count();
+    _convergence_data.total_duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - start)
+        .count();
 
-    LOGLN("SSQP: Total runtime: " << _total_duration << "ms");
+    LOGLN("SSQP: Total runtime: " << _convergence_data.total_duration << "ms");
 
     guess = _guess;
     return MAX_ITER_REACHED;
@@ -305,7 +317,7 @@ bool ssqp::write(const std::string &filename)
     j["solver"]["tolerance"] = _params.tolerance;
 
     j["convergence"]                         = ordered_json({});
-    j["convergence"]["runtime"]              = _total_duration;
+    j["convergence"]["runtime"]              = _convergence_data.total_duration;
     j["convergence"]["iterations"]           = _iter + 1;
     j["convergence"]["trajectory_cost"]      = _lf(_guess.x, _guess.u);
     j["convergence"]["trajectory_stage_gap"] = _gammaf(_guess.x, _guess.u);
@@ -313,13 +325,13 @@ bool ssqp::write(const std::string &filename)
       _cf(_guess.x, _guess.u);
     j["convergence"]["iteration_data"] = ordered_json::array();
 
-    for (uint i = 0; i < _iteration_convergence_data.size(); ++i)
+    for (uint i = 0; i < _convergence_data.iteration_data.size(); ++i)
     {
         j["convergence"]["iteration_data"].push_back(ordered_json({
-          { "qp_iterations",  _iteration_convergence_data[i].qp_iters },
-          {     "step_size", _iteration_convergence_data[i].step_size },
-          {       "norm_dx",   _iteration_convergence_data[i].norm_dx },
-          {       "norm_du",   _iteration_convergence_data[i].norm_du }
+          { "qp_iterations",  _convergence_data.iteration_data[i].qp_iters },
+          {     "step_size", _convergence_data.iteration_data[i].step_size },
+          {       "norm_dx",   _convergence_data.iteration_data[i].norm_dx },
+          {       "norm_du",   _convergence_data.iteration_data[i].norm_du }
         }));
     }
 
@@ -388,6 +400,11 @@ bool ssqp::write(const std::string &filename)
     out.close();
 
     return true;
+}
+
+const ssqp::ConvergenceData ssqp::convergenceData() const
+{
+    return _convergence_data;
 }
 
 SolverState ssqp::_check_termination()
@@ -504,9 +521,9 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    _iteration_convergence_data.back().norm_dx =
+    _convergence_data.iteration_data.back().norm_dx =
       lagrangian_dx.vec.lpNorm<Eigen::Infinity>();
-    _iteration_convergence_data.back().norm_du =
+    _convergence_data.iteration_data.back().norm_du =
       lagrangian_du.vec.lpNorm<Eigen::Infinity>();
 
     for (uint k = 0; k < horizon; ++k)
@@ -520,9 +537,9 @@ SolverState ssqp::_check_termination()
             .lpNorm<Eigen::Infinity>();
         if (gap_norm > _params.tolerance)
         {
-            _stale_iters                                             = 0;
-            _iteration_convergence_data.back().first_violation_stage = k;
-            _iteration_convergence_data.back().violation             = gap_norm;
+            _stale_iters                                                  = 0;
+            _convergence_data.iteration_data.back().first_violation_stage = k;
+            _convergence_data.iteration_data.back().violation = gap_norm;
             return ONGOING;
         }
 
@@ -533,9 +550,10 @@ SolverState ssqp::_check_termination()
               constraints[k]->violation(_guess.x.stage(k), _guess.u.stage(k));
             if (csnorm > _params.tolerance)
             {
-                _stale_iters                                             = 0;
-                _iteration_convergence_data.back().first_violation_stage = k;
-                _iteration_convergence_data.back().violation = csnorm;
+                _stale_iters = 0;
+                _convergence_data.iteration_data.back().first_violation_stage =
+                  k;
+                _convergence_data.iteration_data.back().violation = csnorm;
                 return ONGOING;
             }
         }
@@ -549,18 +567,21 @@ SolverState ssqp::_check_termination()
 
         if (csnorm > _params.tolerance)
         {
-            _stale_iters                                             = 0;
-            _iteration_convergence_data.back().first_violation_stage = horizon;
-            _iteration_convergence_data.back().violation             = csnorm;
+            _stale_iters = 0;
+            _convergence_data.iteration_data.back().first_violation_stage =
+              horizon;
+            _convergence_data.iteration_data.back().violation = csnorm;
             return ONGOING;
         }
     }
 
-    _iteration_convergence_data.back().first_violation_stage = -1;
+    _convergence_data.iteration_data.back().first_violation_stage = -1;
 
     if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
+        _convergence_data.iterations    = _iter + 1;
+        _convergence_data.loose_success = false;
         return SUCCESS;
     }
 
@@ -572,6 +593,8 @@ SolverState ssqp::_check_termination()
     {
         if (++_stale_iters == _params.loose_success_stale_iters)
         {
+            _convergence_data.iterations    = _iter + 1;
+            _convergence_data.loose_success = true;
             return LOOSE_SUCCESS;
         }
     }
@@ -603,7 +626,8 @@ void ssqp::_printIterationHeader() const
 
 void ssqp::_printIterationInfo() const
 {
-    const IterationConvergenceData &icd = _iteration_convergence_data.back();
+    const IterationConvergenceData &icd =
+      _convergence_data.iteration_data.back();
 
     LOG(std::setw(16));
     LOG(_iter << " |");

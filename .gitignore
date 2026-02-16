@@ -13,3 +13,4 @@
 /examples/real-mpc/candlevenv
 __pycache__
 out.txt
+test.py
