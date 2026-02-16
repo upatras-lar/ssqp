@@ -170,11 +170,6 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         FrameMarkNamed("ADMM Iteration");
     }
 
-    if (admm_state == SUCCESS)
-    {
-        LOGLN("ADMM: Converged in " << _iter << " iterations");
-    }
-
     _solution.P = lqr_out.P;
     _solution.p = lqr_out.p;
 

@@ -130,13 +130,13 @@ for k in range(HORIZON):
             "base",
             nq,
             nv,
-            np.array((0.1, 0.1, 0.0, 0.1, 0.1, 0.1)),
+            np.array((0.2, 0.2, 0.0, 1.0, 0.2, 0.2)),
         ),
     )
 
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0
-    # init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
+    init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
     init_controls.append(np.zeros(nv))
 
 model.addCost(HORIZON, joint_vel_cost)
@@ -150,30 +150,30 @@ model.addConstraints(
     ),
 )
 
-# fl_pos = np.array((0.1934, 0.142, 0.0))
-# fr_pos = np.array((0.1934, -0.142, 0.0))
-# rl_pos = np.array((-0.1934, 0.142, 0.0))
-# rr_pos = np.array((-0.1934, -0.142, 0.0))
+fl_pos = np.array((0.1934, 0.142, 0.0))
+fr_pos = np.array((0.1934, -0.142, 0.0))
+rl_pos = np.array((-0.1934, 0.142, 0.0))
+rr_pos = np.array((-0.1934, -0.142, 0.0))
 
-# model.addConstraints(
-#     HORIZON,
-#     constraints.FramePositionBound(model, "FL_foot", fl_pos, fl_pos, nq, nv),
-# )
+model.addConstraints(
+    HORIZON,
+    constraints.FramePositionBound(model, "FL_foot", fl_pos, fl_pos, nq, nv),
+)
 
-# model.addConstraints(
-#     HORIZON,
-#     constraints.FramePositionBound(model, "FR_foot", fr_pos, fr_pos, nq, nv),
-# )
+model.addConstraints(
+    HORIZON,
+    constraints.FramePositionBound(model, "FR_foot", fr_pos, fr_pos, nq, nv),
+)
 
-# model.addConstraints(
-#     HORIZON,
-#     constraints.FramePositionBound(model, "RL_foot", rl_pos, rl_pos, nq, nv),
-# )
+model.addConstraints(
+    HORIZON,
+    constraints.FramePositionBound(model, "RL_foot", rl_pos, rl_pos, nq, nv),
+)
 
-# model.addConstraints(
-#     HORIZON,
-#     constraints.FramePositionBound(model, "RR_foot", rr_pos, rr_pos, nq, nv),
-# )
+model.addConstraints(
+    HORIZON,
+    constraints.FramePositionBound(model, "RR_foot", rr_pos, rr_pos, nq, nv),
+)
 
 init_states.append(init)
 
@@ -183,11 +183,11 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     use_filter=False,
-    merit_mu_c=2.0,
-    tolerance=1e-2,
+    merit_mu_c=4.0,
+    tolerance=1e-1,
     admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-4,
-    admm_max_iter=1000,
+    admm_rel_tolerance=1e-3,
+    admm_max_iter=500,
     admm_adaptive_rho_tolerance=15,
     admm_warm_start=False,
     # admm_reset_rho=False,
@@ -195,7 +195,7 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
-solver.write("../data/go2_sideflip_id.json")
+solver.write("../data/go2_sideflip.json")
 
 print("x:")
 x.print()

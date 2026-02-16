@@ -150,6 +150,10 @@ class ssqp
         double step_size;
         // Lagrangian norms
         double norm_dx, norm_du;
+        // First stage with a stage gap/constraint violation
+        int first_violation_stage;
+        // Violation at first violation stage
+        double violation;
     };
 
     // Initialize an SSQP solver based on the given model and SSQP and ADMM
@@ -187,6 +191,9 @@ class ssqp
     void _setup_qp();
 
     SolverState _check_termination();
+
+    void _printIterationHeader() const;
+    void _printIterationInfo() const;
 
     // Trajectory cost
     double _lf(const FlatVec &x, const FlatVec &u) const;

@@ -18,15 +18,13 @@ std::string StageConstraints::force_frame(const uint i) const
 
 void StageConstraints::set_forces(const std::vector<Force> &forces) {}
 
-bool StageConstraints::is_satisfied(const VecX &x, const VecX &u,
-                                    const double tolerance) const
+double StageConstraints::violation(const VecX &x, const VecX &u) const
 {
     VecX c = evaluate(x, u);
 
-    return right_minus(c, lower_bound()).cwiseMin(0).lpNorm<Eigen::Infinity>() <
-             tolerance &&
-           right_minus(c, upper_bound()).cwiseMax(0).lpNorm<Eigen::Infinity>() <
-             tolerance;
+    return std::max(
+      right_minus(c, lower_bound()).cwiseMin(0).lpNorm<Eigen::Infinity>(),
+      right_minus(c, upper_bound()).cwiseMax(0).lpNorm<Eigen::Infinity>());
 }
 
 VecX StageConstraints::lower_bound() const
