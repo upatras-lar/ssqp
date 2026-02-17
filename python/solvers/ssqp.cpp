@@ -3,6 +3,7 @@
 
 #include "solvers/ssqp.hpp"
 #include "solvers/admm_qp.hpp"
+#include "solvers/hpipm_qp.hpp"
 #include "model/Model.hpp"
 
 namespace ssqp
@@ -32,6 +33,16 @@ void bind_ssqp(nb::module_ &m)
       .value("DualInfeasible", SolverState::DUAL_INFEASIBLE)
       .value("MaxIterReached", SolverState::MAX_ITER_REACHED)
       .value("Ongoing", SolverState::ONGOING)
+      .export_values();
+
+    nb::enum_<ssqp::QPSolverType>(m, "QPSolverType", R"doc(
+        The solver type to use to solve the QP at each step.
+        Available solvers:
+         - ADMM: The custom ADMM implementation.
+         - HPIPM: The HPIPM interior point solver, using the HPIPM library.
+        )doc")
+      .value("ADMM", ssqp::QPSolverType::ADMM)
+      .value("HPIPM", ssqp::QPSolverType::HPIPM)
       .export_values();
 
     nb::class_<ssqp::Params>(m, "ssqpParams", "SSQP solver parameters.")
@@ -97,7 +108,16 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("skip_regularization", &ssqp::Params::skip_regularization, R"doc(
         Whether to skip regularization step if line search fails
         Will throw an exception instead
-        )doc");
+        )doc")
+      .def_rw("qp_solver_type",
+              &ssqp::Params::qp_solver_type,
+              "The type of QP solver to use.")
+      .def_rw("admm_params",
+              &ssqp::Params::admm_params,
+              "Parameters for the ADMM QP solver.")
+      .def_rw("hpipmParams",
+              &ssqp::Params::hpipm_params,
+              "Parameters for the HPIPM QP solver.");
 
     nb::class_<admm_qp::Params>(m, "admmParams")
       .def(nb::init<>())
@@ -167,6 +187,17 @@ void bind_ssqp(nb::module_ &m)
         Note: setting to false may often cause oscillations
         )doc");
 
+    nb::class_<hpipm_qp::Params>(m, "hpipmParams")
+      .def(nb::init<>())
+      .def_rw("max_iter",
+              &hpipm_qp::Params::max_iter,
+              "Maximum number of HPIPM iterations.")
+      .def_rw("tol_stat", &hpipm_qp::Params::tol_stat)
+      .def_rw("tol_eq", &hpipm_qp::Params::tol_eq)
+      .def_rw("tol_ineq", &hpipm_qp::Params::tol_ineq)
+      .def_rw("tol_comp", &hpipm_qp::Params::tol_comp)
+      .def_rw("warm_start", &hpipm_qp::Params::warm_start);
+
     nb::class_<ssqp>(m, "ssqp", R"doc(
         Defines an SSQP problem solver based on a given SSQP model and the desired
         parameters.
@@ -187,15 +218,12 @@ void bind_ssqp(nb::module_ &m)
         Termination criteria are then checked for the new SSQP guess. The process is
         repeated until convergence is reached.   
            )doc")
-      .def(nb::init<model::Model &,
-                    const ssqp::Params &,
-                    const admm_qp::Params &>(),
+      .def(nb::init<model::Model &, const ssqp::Params &>(),
            nb::keep_alive<1, 2>(),
            nb::arg("model"),
-           nb::arg("params")      = ssqp::Params::Default(),
-           nb::arg("admm_params") = admm_qp::Params::Default(),
-           "Initialize an SSQP solver based on the given model and SSQP and "
-           "ADMM parameter objects.")
+           nb::arg("params") = ssqp::Params::Default(),
+           "Initialize an SSQP solver based on the given model and SSQP "
+           "parameter objects.")
       .def(
         "__init__",
         [](ssqp *self, Model &model, nb::kwargs kwargs)
@@ -363,14 +391,52 @@ void bind_ssqp(nb::module_ &m)
                 admm_params.reset_y = nb::cast<bool>(kwargs["admm_reset_y"]);
             }
 
-            new (self) ssqp(model, params, admm_params);
+            params.admm_params = admm_params;
+
+            hpipm_qp::Params hpipm_params;
+
+            if (kwargs.contains("hpipm_max_iter"))
+            {
+                hpipm_params.max_iter =
+                  nb::cast<double>(kwargs["hpipm_max_iter"]);
+            }
+            if (kwargs.contains("hpipm_tol_stat"))
+            {
+                hpipm_params.tol_stat =
+                  nb::cast<double>(kwargs["hpipm_tol_stat"]);
+            }
+            if (kwargs.contains("hpipm_tol_eq"))
+            {
+                hpipm_params.tol_eq = nb::cast<double>(kwargs["hpipm_tol_eq"]);
+            }
+            if (kwargs.contains("hpipm_tol_ineq"))
+            {
+                hpipm_params.tol_ineq =
+                  nb::cast<double>(kwargs["hpipm_tol_ineq"]);
+            }
+            if (kwargs.contains("hpipm_tol_comp"))
+            {
+                hpipm_params.tol_comp =
+                  nb::cast<double>(kwargs["hpipm_tol_comp"]);
+            }
+            if (kwargs.contains("hpipm_warm_start"))
+            {
+                hpipm_params.warm_start =
+                  nb::cast<bool>(kwargs["hpipm_warm_start"]);
+            }
+
+            params.hpipm_params = hpipm_params;
+
+            new (self) ssqp(model, params);
         },
         nb::keep_alive<1, 2>(),
         R"doc(
-        Initialize an SSQP solver based on the given model and SSQP and ADMM 
-        parameters. Parameters, as defined in ssqpParams, can be passed as 
-        keyword arguments to this constructor. ADMM parameters, as defined in 
-        admmParams, can be passed as keyword arguments with the `admm_` prefix.
+        Initialize an SSQP solver based on the given model and SSQP parameters. 
+        Parameters, as defined in ssqpParams, can be passed as keyword arguments
+        to this constructor. ADMM parameters, as defined in admmParams, can be 
+        passed as keyword arguments with the `admm_` prefix. Similarly, HPIPM
+        parameters, as defined in hpipmParams, can be passed as keyword
+        arguments with the `hpipm_` prefix.
         )doc")
       .def(
         "solve",

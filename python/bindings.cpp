@@ -1,7 +1,5 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/vector.h>
-#include <nanobind/stl/pair.h>
-#include <nanobind/stl/tuple.h>
 
 #include "param_search/search.hpp"
 #include "solvers/ssqp.hpp"
@@ -33,8 +31,7 @@ Submodule containing classes related to the SSQP solvers.
 
     nb::class_<param_search::ParamSearch>(m, "ParamSearch")
       .def(nb::init<>())
-      .def(nb::init<const std::vector<std::pair<solvers::ssqp::Params,
-                                                solvers::admm_qp::Params>> &,
+      .def(nb::init<const std::vector<solvers::ssqp::Params> &,
                     const std::vector<model::Model> &>())
       .def("addHyperparams", &param_search::ParamSearch::addHyperparams)
       .def("addProblem", &param_search::ParamSearch::addProblem)

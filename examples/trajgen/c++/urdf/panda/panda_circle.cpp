@@ -212,7 +212,9 @@ int main()
     admm_params.reset_rho = false;
     admm_params.reset_y   = false;
 
-    ssqp::solvers::ssqp        solver(model, params, admm_params);
+    params.admm_params = admm_params;
+
+    ssqp::solvers::ssqp        solver(model, params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 

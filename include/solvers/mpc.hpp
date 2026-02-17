@@ -5,6 +5,7 @@
 #include "model/Model.hpp"
 #include "solvers/ssqp.hpp"
 #include "solvers/admm_qp.hpp"
+#include "solvers/hpipm_qp.hpp"
 
 namespace ssqp
 {
@@ -28,8 +29,8 @@ class MPC
     {
         // Upper limit on SSQP iterations
         uint sqp_iters = 10;
-        // Upper limit on ADMM iterations
-        uint admm_iters = 50;
+        // Upper limit on QP solver iterations
+        uint qp_iters = 50;
 
         static Params Default()
         {
@@ -37,13 +38,12 @@ class MPC
         }
     };
 
-    // Initialize an MPC helper for the given model, the given MPC, SSQP and
-    // ADMM parameters.
-    // Note that the max iterations used for SSQP and ADMM will be determined
-    // by the MPC parameters only.
+    // Initialize an MPC helper for the given model, the given MPC and SSQP
+    // parameters
+    // Note that the max iterations used for SSQP and the QP solver will be
+    // determined by the MPC parameters only.
     MPC(model::Model &model, const Params &params = Params::Default(),
-        const ssqp::Params &ssqp_params    = ssqp::Params::Default(),
-        const admm_qp::Params &admm_params = admm_qp::Params::Default());
+        const ssqp::Params &ssqp_params = ssqp::Params::Default());
 
     // Receding horizon initialization step.
     // Uses the provided state as feedback and the previous solution for
@@ -62,9 +62,8 @@ class MPC
     std::pair<FlatVec, FlatVec> step();
 
   protected:
-    ssqp::Params    _ssqp_params;
-    admm_qp::Params _admm_params;
-    model::Model   &_model;
+    ssqp::Params  _ssqp_params;
+    model::Model &_model;
 
     std::unique_ptr<FlatVec> _prev_states = nullptr, _prev_controls = nullptr;
 };

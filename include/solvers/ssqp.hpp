@@ -14,6 +14,7 @@
 #include "sqp_step/merit.hpp"
 #include "model/Model.hpp"
 #include "solvers/admm_qp.hpp"
+#include "solvers/hpipm_qp.hpp"
 
 #include "nlohmann/json.hpp"
 
@@ -52,6 +53,12 @@ namespace solvers
 class ssqp
 {
   public:
+    enum QPSolverType
+    {
+        ADMM,
+        HPIPM
+    };
+
     struct Params
     {
         // General SSQP parameters
@@ -118,6 +125,15 @@ class ssqp
         // Will throw an exception instead
         bool skip_regularization = false;
 
+        // Which solver to use to solve the QPs at each step
+        QPSolverType qp_solver_type = QPSolverType::ADMM;
+
+        // Parameters for ADMM (applicable when using the ADMM solver)
+        admm_qp::Params admm_params;
+
+        // Parameters for HPIPM (applicable when using the HPIPM solver)
+        hpipm_qp::Params hpipm_params;
+
         static Params Default()
         {
             return {};
@@ -166,12 +182,10 @@ class ssqp
 
     // Initialize an SSQP solver based on the given model and SSQP and ADMM
     // parameters
-    ssqp(model::Model &model, const Params &params = Params::Default(),
-         const admm_qp::Params &admm_params = admm_qp::Params::Default());
+    ssqp(model::Model &model, const Params &params = Params::Default());
 
     // Same constructor, but assumes model is already finalized
-    ssqp(const model::Model &model, const Params &params = Params::Default(),
-         const admm_qp::Params &admm_params = admm_qp::Params::Default());
+    ssqp(const model::Model &model, const Params &params = Params::Default());
 
     const model::Model &model() const;
 
@@ -185,7 +199,6 @@ class ssqp
 
   protected:
     Params              _params;
-    admm_qp::Params     _admm_params;
     const model::Model &_model;
     Guess               _guess;
     QPData              _qp;

@@ -16,9 +16,8 @@ ssqp::Guess::Guess(const model::Dimensions &dims,
 {
 }
 
-ssqp::ssqp(model::Model &model, const Params &params,
-           const admm_qp::Params &admm_params)
-  : ssqp(static_cast<const model::Model &>(model), params, admm_params)
+ssqp::ssqp(model::Model &model, const Params &params)
+  : ssqp(static_cast<const model::Model &>(model), params)
 {
     if (!model.finalized())
     {
@@ -26,10 +25,8 @@ ssqp::ssqp(model::Model &model, const Params &params,
     }
 }
 
-ssqp::ssqp(const model::Model &model, const Params &params,
-           const admm_qp::Params &admm_params)
+ssqp::ssqp(const model::Model &model, const Params &params)
   : _params(params)
-  , _admm_params(admm_params)
   , _model(model)
   , _guess(model.dims(), model.linear_dims())
   , _qp(model.linear_dims())
@@ -87,8 +84,18 @@ SolverState ssqp::solve(Guess &guess)
     auto start = std::chrono::high_resolution_clock::now();
 
     _setup_qp<true>();
-    admm_qp::Solution sol(_qp.dims);
-    admm_qp           qp_solver(_qp, _admm_params);
+    std::unique_ptr<QPSolver> qp_solver;
+    QPSolver::Solution        sol(_qp.dims);
+
+    switch (_params.qp_solver_type)
+    {
+    case ADMM:
+        qp_solver = std::make_unique<admm_qp>(_qp, _params.admm_params);
+        break;
+    case HPIPM:
+        qp_solver = std::make_unique<hpipm_qp>(_qp, _params.hpipm_params);
+        break;
+    }
 
     _params.tolerance = _tolerance_init;
 
@@ -96,7 +103,7 @@ SolverState ssqp::solve(Guess &guess)
 
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
-        SolverState state = qp_solver.solve(sol);
+        SolverState state = qp_solver->solve(sol);
 
         switch (state)
         {
@@ -110,7 +117,7 @@ SolverState ssqp::solve(Guess &guess)
         FlatVec x_n(_guess.x, false), u_n(_guess.u, false);
 
         _convergence_data.iteration_data.push_back(
-          IterationConvergenceData { qp_solver.iterations() });
+          IterationConvergenceData { qp_solver->iterations() });
 
         // Guess (x, u) update
         if (_params.use_filter)
@@ -212,7 +219,7 @@ SolverState ssqp::solve(Guess &guess)
             }
 
             DEBUG_LOGLN("Line search failed, increasing regularization");
-            qp_solver.increaseRegularization();
+            qp_solver->increaseRegularization();
             --_iter;
             continue;
         }
@@ -283,7 +290,7 @@ SolverState ssqp::solve(Guess &guess)
         // Skip gradient calculation in _setup_qp, since they have been
         // calculated in _check_termination
         _setup_qp<false>();
-        qp_solver.reset();
+        qp_solver->reset();
 
         FrameMarkNamed("SQP Iteration");
     }
