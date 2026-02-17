@@ -303,6 +303,11 @@ void bind_ssqp(nb::module_ &m)
                 params.accept_worse_update =
                   nb::cast<bool>(kwargs["accept_worse_update"]);
             }
+            if (kwargs.contains("qp_solver_type"))
+            {
+                params.qp_solver_type =
+                  nb::cast<ssqp::QPSolverType>(kwargs["qp_solver_type"]);
+            }
 
             admm_qp::Params admm_params;
 
@@ -397,8 +402,7 @@ void bind_ssqp(nb::module_ &m)
 
             if (kwargs.contains("hpipm_max_iter"))
             {
-                hpipm_params.max_iter =
-                  nb::cast<double>(kwargs["hpipm_max_iter"]);
+                hpipm_params.max_iter = nb::cast<int>(kwargs["hpipm_max_iter"]);
             }
             if (kwargs.contains("hpipm_tol_stat"))
             {

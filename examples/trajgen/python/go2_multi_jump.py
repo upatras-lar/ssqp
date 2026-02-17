@@ -285,11 +285,18 @@ solver = ssqpy.solvers.ssqp(
     tolerance_update_steps=40,
     use_filter=False,
     merit_armijo_beta=1e-3,
-    admm_abs_tolerance=1e-2,
-    admm_abs_tolerance_final=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_tolerance_update_steps=250,
-    admm_max_iter=500,
+    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    hpipm_max_iter=500,
+    hpipm_tol_stat=1e-2,
+    hpipm_tol_eq=1e-2,
+    hpipm_tol_ineq=1e-2,
+    hpipm_tol_comp=1e-2,
+    hpipm_warm_start=False,
+    # admm_abs_tolerance=1e-2,
+    # admm_abs_tolerance_final=1e-3,
+    # admm_rel_tolerance=1e-3,
+    # admm_tolerance_update_steps=250,
+    # admm_max_iter=500,
 )
 
 state, x, u = solver.solve()

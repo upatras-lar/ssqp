@@ -13,10 +13,8 @@ class QPSolver
   public:
     struct Solution
     {
-        FlatVec           dx, du;
-        std::vector<MatX> P;
-        std::vector<VecX> p;
-        FlatVec           z, y;
+        FlatVec dx, du;
+        FlatVec lambda, mu;
 
         Solution(const model::Dimensions &dims);
     };

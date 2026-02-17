@@ -88,6 +88,8 @@ class admm_qp : public QPSolver
     Params             _params;
     QPSolver::Solution _solution;
 
+    FlatVec _z, _y;
+
     FlatVec      _rho, _rho_inv;
     double       _rho_common;
     const double _rho_min = 1e-6;
