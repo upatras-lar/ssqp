@@ -13,6 +13,7 @@
 #include <limits>
 #include <unordered_map>
 #include <random>
+#include <cassert>
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

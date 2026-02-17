@@ -60,9 +60,9 @@ admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
 
-mpc = ssqpy.solvers.MPC(
-    model, ssqp_params, admm_params, sqp_iters=4, admm_iters=200
-)
+ssqp_params.admm_params = admm_params
+
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, admm_iters=200)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

@@ -228,8 +228,10 @@ int main()
     admm_params.rel_tolerance = 1e-3;
     admm_params.max_iter      = 1000;
 
+    params.admm_params = admm_params;
+
     // params.loose_success_tolerance = 1e-3;
-    ssqp::solvers::ssqp        solver(model, params, admm_params);
+    ssqp::solvers::ssqp        solver(model, params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 

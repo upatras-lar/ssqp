@@ -28,32 +28,30 @@ void bind_MPC(nb::module_ &m)
         )doc")
       .def(
         "__init__",
-        [](MPC                   *self,
-           Model                 &model,
-           const ssqp::Params    &ssqp_params,
-           const admm_qp::Params &admm_params,
-           const uint             sqp_iters,
-           const uint             admm_iters)
+        [](MPC                *self,
+           Model              &model,
+           const ssqp::Params &ssqp_params,
+           const uint          sqp_iters,
+           const uint          qp_iters)
         {
             MPC::Params params;
 
-            params.sqp_iters  = sqp_iters;
-            params.admm_iters = admm_iters;
+            params.sqp_iters = sqp_iters;
+            params.qp_iters  = qp_iters;
 
-            new (self) MPC(model, params, ssqp_params, admm_params);
+            new (self) MPC(model, params, ssqp_params);
         },
         nb::keep_alive<1, 2>(),
         nb::arg("model"),
         nb::arg("ssqp_params") = ssqp::Params::Default(),
-        nb::arg("admm_params") = admm_qp::Params::Default(),
         nb::kw_only(),
-        nb::arg("sqp_iters")  = 5,
-        nb::arg("admm_iters") = 50,
+        nb::arg("sqp_iters") = 5,
+        nb::arg("qp_iters")  = 50,
         R"doc(
         Initialize an MPC helper for the given model, the given MPC, SSQP and
-        ADMM parameters.
-        Note that the max iterations used for SSQP and ADMM will be determined
-        by the MPC parameters only.
+        QP parameters.
+        Note that the max iterations used for SSQP and the QP solver will be 
+        determined by the MPC parameters only.
         )doc")
       .def("step",
            static_cast<std::pair<FlatVec, FlatVec> (

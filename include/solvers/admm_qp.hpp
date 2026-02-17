@@ -1,18 +1,13 @@
 #ifndef SSQP_SOLVERS_ADMM_QP_HPP
 #define SSQP_SOLVERS_ADMM_QP_HPP
 
-#include <cassert>
-#include <vector>
-
-#include <Eigen/Dense>
-
-#include "types.hpp"
+#include "solvers/qp.hpp"
 
 namespace ssqp
 {
 namespace solvers
 {
-class admm_qp
+class admm_qp : public QPSolver
 {
   public:
     struct Params
@@ -78,30 +73,20 @@ class admm_qp
         }
     };
 
-    struct Solution
-    {
-        FlatVec           dx, du;
-        std::vector<MatX> P;
-        std::vector<VecX> p;
-        FlatVec           z, y;
-
-        Solution(const model::Dimensions &dims);
-    };
-
     admm_qp(const QPData &qp, const Params &params = Params::Default());
 
-    void reset();
+    void reset() override;
 
-    void increaseRegularization();
+    void increaseRegularization() override;
 
-    SolverState solve(Solution &sol);
+    SolverState solve(QPSolver::Solution &sol) override;
 
-    uint iterations() const;
+    uint iterations() const override;
 
   protected:
-    const QPData &_qp;
-    Params        _params;
-    Solution      _solution;
+    const QPData      &_qp;
+    Params             _params;
+    QPSolver::Solution _solution;
 
     FlatVec      _rho, _rho_inv;
     double       _rho_common;

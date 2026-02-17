@@ -5,6 +5,12 @@ INCLUDES := -I/usr/include/eigen3 -I./include -I.
 TEST_INCLUDES := -Itests/include
 LDFLAGS :=
 
+WITH_HPIPM ?= 1
+ifeq ($(WITH_HPIPM), 1)
+	INCLUDES += -I/opt/blasfeo/include -I/opt/hpipm/include
+	LDFLAGS += -L/opt/blasfeo/lib -L/opt/hpipm/lib -lhpipm -lblasfeo
+endif
+
 PINOCCHIO_STATIC := 0
 
 ifeq ($(PINOCCHIO_STATIC), 1)
