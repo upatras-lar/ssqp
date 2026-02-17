@@ -50,10 +50,11 @@ class lqr
     Output &unconstrained();
 
     // No rho change
-    Output &constrained(const admm_qp::Solution &current_sol);
+    Output &constrained(const admm_qp::Solution &current_sol, const FlatVec &z,
+                        const FlatVec &y);
     // Rho change
-    Output &constrained(const admm_qp::Solution &current_sol,
-                        const FlatVec           &rho);
+    Output &constrained(const admm_qp::Solution &current_sol, const FlatVec &z,
+                        const FlatVec &y, const FlatVec &rho);
 
   protected:
     QPData _qp;

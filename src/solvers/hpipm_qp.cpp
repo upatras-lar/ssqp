@@ -47,6 +47,20 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
                            &_hpipm_qp_ws,
                            _hpipm_ws_mem);
 
+    reset();
+}
+
+hpipm_qp::~hpipm_qp()
+{
+    if (_hpipm_ws_mem) free(_hpipm_ws_mem);
+    if (_hpipm_arg_mem) free(_hpipm_arg_mem);
+    if (_hpipm_sol_mem) free(_hpipm_sol_mem);
+    if (_hpipm_qp_mem) free(_hpipm_qp_mem);
+    if (_hpipm_dim_mem) free(_hpipm_dim_mem);
+}
+
+void hpipm_qp::reset()
+{
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
         d_ocp_qp_dim_set_nx(k, _qp.dims.stage_state[k], &_hpipm_qp_dim);
@@ -95,17 +109,6 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     }
 }
 
-hpipm_qp::~hpipm_qp()
-{
-    if (_hpipm_ws_mem) free(_hpipm_ws_mem);
-    if (_hpipm_arg_mem) free(_hpipm_arg_mem);
-    if (_hpipm_sol_mem) free(_hpipm_sol_mem);
-    if (_hpipm_qp_mem) free(_hpipm_qp_mem);
-    if (_hpipm_dim_mem) free(_hpipm_dim_mem);
-}
-
-void hpipm_qp::reset() {}
-
 void hpipm_qp::increaseRegularization() {}
 
 SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
@@ -115,15 +118,36 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
                        &_hpipm_qp_arg,
                        &_hpipm_qp_ws);
 
+    double *lg, *ug;
+
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
         d_ocp_qp_sol_get_x(k, &_hpipm_qp_sol, sol.dx.stage(k).data());
         d_ocp_qp_sol_get_u(k, &_hpipm_qp_sol, sol.du.stage(k).data());
+        d_ocp_qp_sol_get_pi(k, &_hpipm_qp_sol, sol.lambda.stage(k).data());
+
+        d_ocp_qp_sol_get_lam_lg(k, &_hpipm_qp_sol, lg);
+        d_ocp_qp_sol_get_lam_ug(k, &_hpipm_qp_sol, ug);
+
+        for (uint i = 0; i < sol.mu.stage(k).size(); ++i)
+        {
+            sol.mu.stage(k)[i] = ug[i] - lg[i];
+        }
     }
 
     d_ocp_qp_sol_get_x(_qp.dims.horizon,
                        &_hpipm_qp_sol,
                        sol.dx.stage(_qp.dims.horizon).data());
+    d_ocp_qp_sol_get_pi(_qp.dims.horizon,
+                        &_hpipm_qp_sol,
+                        sol.lambda.stage(_qp.dims.horizon).data());
+    d_ocp_qp_sol_get_lam_lg(_qp.dims.horizon, &_hpipm_qp_sol, lg);
+    d_ocp_qp_sol_get_lam_ug(_qp.dims.horizon, &_hpipm_qp_sol, ug);
+
+    for (uint i = 0; i < sol.mu.stage(_qp.dims.horizon).size(); ++i)
+    {
+        sol.mu.stage(_qp.dims.horizon)[i] = ug[i] - lg[i];
+    }
 
     return SUCCESS;
 }

@@ -63,7 +63,7 @@ admm_params.warm_start = False
 
 ssqp_params.admm_params = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, admm_iters=100)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=100)
 
 mjmodel = mujoco.MjModel.from_xml_path(
     "../assets/mjcf/double_pendulum/double_pendulum.xml"

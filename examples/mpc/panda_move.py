@@ -88,7 +88,7 @@ admm_params.warm_start = False
 
 ssqp_params.admm_params = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=5, admm_iters=75)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=5, qp_iters=75)
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)

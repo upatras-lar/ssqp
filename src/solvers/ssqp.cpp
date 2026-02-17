@@ -244,15 +244,8 @@ SolverState ssqp::solve(Guess &guess)
         DEBUG_LOGLN("Current u: ");
         DEBUG_LOGLN(_guess.u);
 
-        // Lagrange multiplier update
-        for (uint k = 0; k < _model.horizon(); ++k)
-        {
-            _guess.lambda.stage(k).noalias() =
-              sol.P[k + 1] * sol.dx.stage(k + 1) + sol.p[k + 1];
-        }
-        // Need a minus because the QP (ADMM) assumes the opposite sign in the
-        // Lagrangian
-        _guess.mu = -sol.y;
+        _guess.lambda = sol.lambda;
+        _guess.mu     = sol.mu;
 
         // Termination
         if ((ssqp_state = _check_termination()) != ONGOING)
@@ -626,7 +619,7 @@ void ssqp::_printIterationHeader() const
     LOG(std::setw(18));
     LOG("Violation |");
     LOG(std::setw(18));
-    LOG("ADMM Iterations |");
+    LOG("QP Iterations |");
     LOG(std::setw(18));
     LOGLN("Step Size");
 }
