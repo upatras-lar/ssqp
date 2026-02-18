@@ -61,7 +61,7 @@ model = ssqpy.model.Model(
     H,
     dt,
     urdf_path="../../assets/urdf/panda/panda.urdf",
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 # Use the following initial state
@@ -146,11 +146,13 @@ solver = ssqpy.solvers.ssqp(
     loose_success=False,
     tolerance=1e-2,
     # use_filter=False,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_adaptive_rho_tolerance=10,
-    admm_rho_update_iter_freq=25,
-    admm_max_iter=1000,
+    # admm_abs_tolerance=1e-3,
+    # admm_rel_tolerance=1e-3,
+    # admm_adaptive_rho_tolerance=10,
+    # admm_rho_update_iter_freq=25,
+    # admm_max_iter=1000,
+    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    hpipm_max_iter=100,
 )
 
 # Solve using the SSQP solver and the model we created

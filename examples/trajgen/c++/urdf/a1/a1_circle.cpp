@@ -201,12 +201,14 @@ int main()
     ssqp::solvers::ssqp::Params params;
     params.tolerance = 1e-2;
 
-    ssqp::solvers::admm_qp::Params admm_params;
-    admm_params.abs_tolerance = 1e-3;
-    admm_params.rel_tolerance = 1e-3;
-    admm_params.max_iter      = 500;
+    // ssqp::solvers::admm_qp::Params admm_params;
+    // admm_params.abs_tolerance = 1e-3;
+    // admm_params.rel_tolerance = 1e-3;
+    // admm_params.max_iter      = 500;
 
-    params.admm_params = admm_params;
+    // params.admm_params = admm_params;
+
+    params.qp_solver_type = ssqp::solvers::ssqp::QPSolverType::HPIPM;
 
     ssqp::solvers::ssqp        solver(model, params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

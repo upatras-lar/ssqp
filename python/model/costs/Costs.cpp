@@ -64,6 +64,7 @@ void bind_Costs(nb::module_ &m)
         Defines the required functions for a stage cost, while providing 
         default implementations for some
         )doc")
+      .def(nb::init())
       .def("evaluate", &StageCost::evaluate, nb::arg("x"), nb::arg("u"), R"doc(
         Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
         Returns: output vector, $n \times 1$
