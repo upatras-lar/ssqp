@@ -7,6 +7,7 @@ extern "C"
 #include <hpipm_d_ocp_qp_dim.h>
 #include <hpipm_d_ocp_qp_ipm.h>
 #include <hpipm_d_ocp_qp_sol.h>
+#include <hpipm_d_ocp_qp_utils.h>
 }
 
 #include "solvers/qp.hpp"
@@ -42,6 +43,7 @@ class hpipm_qp : public QPSolver
     hpipm_qp(const hpipm_qp &)            = delete;
     hpipm_qp &operator=(const hpipm_qp &) = delete;
 
+    void        set_stage_sizes();
     void        reset() override;
     void        increaseRegularization() override;
     SolverState solve(QPSolver::Solution &sol) override;
@@ -51,6 +53,9 @@ class hpipm_qp : public QPSolver
     const QPData &_qp;
     Params        _params;
     Solution      _solution;
+
+    int _iter;
+    int _status;
 
     // HPIPM structures
     d_ocp_qp_dim     _hpipm_qp_dim;

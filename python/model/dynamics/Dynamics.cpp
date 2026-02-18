@@ -60,10 +60,9 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
 
     VecX evaluate(const VecX &x, const VecX &u) const override
     {
+        // TODO: this cast fails!
         nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
-        return (Scalar() << nb::cast<double>(
-                  nb_trampoline.base().attr(nb_ticket.key)(x, u)))
-          .finished();
+        return nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
     }
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
