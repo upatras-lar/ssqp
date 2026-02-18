@@ -31,6 +31,8 @@ class JointAngleConstraint : public StageConstraints
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
 
+    uint output_size() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -64,6 +66,8 @@ class JointVelocityConstraint : public StageConstraints
                             const bool free_flyer = false);
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
+
+    uint output_size() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -99,6 +103,8 @@ class JointControlConstraint : public StageConstraints
                            const bool free_flyer = false);
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
+
+    uint output_size() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
