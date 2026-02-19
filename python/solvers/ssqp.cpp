@@ -45,6 +45,17 @@ void bind_ssqp(nb::module_ &m)
       .value("HPIPM", ssqp::QPSolverType::HPIPM)
       .export_values();
 
+    nb::enum_<hpipm_mode>(m, "HPIPMMode", R"doc(
+        The HPIPM solver mode.
+        Available modes:
+         - Robust
+         - Speed
+         - Balance
+        )doc")
+      .value("Robust", hpipm_mode::ROBUST)
+      .value("Speed", hpipm_mode::SPEED)
+      .value("Balance", hpipm_mode::BALANCE);
+
     nb::class_<ssqp::Params>(m, "ssqpParams", "SSQP solver parameters.")
       .def(nb::init<>())
       .def_rw("max_iter",
@@ -101,11 +112,15 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("min_alpha",
               &ssqp::Params::min_alpha,
               "Minimum α (step size) value.")
-      .def_rw("accept_worse_update", &ssqp::Params::accept_worse_update, R"doc(
+      .def_rw("accept_worse_update",
+              &ssqp::Params::accept_worse_update,
+              R"doc(
         Whether to update with min_alpha if it is reached
         Automatically also skips regularization
         )doc")
-      .def_rw("skip_regularization", &ssqp::Params::skip_regularization, R"doc(
+      .def_rw("skip_regularization",
+              &ssqp::Params::skip_regularization,
+              R"doc(
         Whether to skip regularization step if line search fails
         Will throw an exception instead
         )doc")
@@ -189,6 +204,11 @@ void bind_ssqp(nb::module_ &m)
 
     nb::class_<hpipm_qp::Params>(m, "hpipmParams")
       .def(nb::init<>())
+      .def_rw("mode", &hpipm_qp::Params::mode, "The HPIPM solver mode.")
+      .def_rw("alpha_min",
+              &hpipm_qp::Params::alpha_min,
+              "The minimum step size.")
+      .def_rw("mu0", &hpipm_qp::Params::mu0, "The initial barrier parameter.")
       .def_rw("max_iter",
               &hpipm_qp::Params::max_iter,
               "Maximum number of HPIPM iterations.")
@@ -196,7 +216,21 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("tol_eq", &hpipm_qp::Params::tol_eq)
       .def_rw("tol_ineq", &hpipm_qp::Params::tol_ineq)
       .def_rw("tol_comp", &hpipm_qp::Params::tol_comp)
-      .def_rw("warm_start", &hpipm_qp::Params::warm_start);
+      .def_rw("reg_prim",
+              &hpipm_qp::Params::reg_prim,
+              "The regularization term.")
+      .def_rw("warm_start",
+              &hpipm_qp::Params::warm_start,
+              "Whether to warm start.")
+      .def_rw("prediction_correction",
+              &hpipm_qp::Params::prediction_correction,
+              "Whether to perform prediction correction.")
+      .def_rw("square_root_riccati",
+              &hpipm_qp::Params::square_root_riccati,
+              "Whether to use the square root riccati algorithm.")
+      .def_rw("split_step",
+              &hpipm_qp::Params::split_step,
+              "Whether to use different step for primal and dual variables.");
 
     nb::class_<ssqp>(m, "ssqp", R"doc(
         Defines an SSQP problem solver based on a given SSQP model and the desired
@@ -400,9 +434,22 @@ void bind_ssqp(nb::module_ &m)
 
             hpipm_qp::Params hpipm_params;
 
+            if (kwargs.contains("hpipm_mode"))
+            {
+                hpipm_params.mode = nb::cast<hpipm_mode>(kwargs["hpipm_mode"]);
+            }
             if (kwargs.contains("hpipm_max_iter"))
             {
                 hpipm_params.max_iter = nb::cast<int>(kwargs["hpipm_max_iter"]);
+            }
+            if (kwargs.contains("hpipm_alpha_min"))
+            {
+                hpipm_params.alpha_min =
+                  nb::cast<double>(kwargs["hpipm_alpha_min"]);
+            }
+            if (kwargs.contains("hpipm_mu0"))
+            {
+                hpipm_params.mu0 = nb::cast<double>(kwargs["hpipm_mu0"]);
             }
             if (kwargs.contains("hpipm_tol_stat"))
             {
@@ -423,10 +470,30 @@ void bind_ssqp(nb::module_ &m)
                 hpipm_params.tol_comp =
                   nb::cast<double>(kwargs["hpipm_tol_comp"]);
             }
+            if (kwargs.contains("hpipm_reg_prim"))
+            {
+                hpipm_params.reg_prim =
+                  nb::cast<double>(kwargs["hpipm_reg_prim"]);
+            }
             if (kwargs.contains("hpipm_warm_start"))
             {
                 hpipm_params.warm_start =
                   nb::cast<bool>(kwargs["hpipm_warm_start"]);
+            }
+            if (kwargs.contains("hpipm_prediction_correction"))
+            {
+                hpipm_params.prediction_correction =
+                  nb::cast<bool>(kwargs["hpipm_prediction_correction"]);
+            }
+            if (kwargs.contains("hpipm_square_root_riccati"))
+            {
+                hpipm_params.square_root_riccati =
+                  nb::cast<bool>(kwargs["hpipm_square_root_riccati"]);
+            }
+            if (kwargs.contains("hpipm_split_step"))
+            {
+                hpipm_params.split_step =
+                  nb::cast<bool>(kwargs["hpipm_split_step"]);
             }
 
             params.hpipm_params = hpipm_params;

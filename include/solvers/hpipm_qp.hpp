@@ -22,14 +22,33 @@ class hpipm_qp : public QPSolver
   public:
     struct Params
     {
-        int max_iter = 1'000;
+        // HPIPM mode
+        hpipm_mode mode = ROBUST;
+        // Maximum iterations
+        int max_iter = 25;
 
-        double tol_stat = 1e-3;
-        double tol_eq   = 1e-3;
-        double tol_ineq = 1e-3;
-        double tol_comp = 1e-3;
+        // Minimum step size
+        double alpha_min = 1e-8;
+        // Initial barrier parameter
+        double mu0 = 1e+2;
 
-        bool warm_start = true;
+        // Tolerances
+        double tol_stat = 1e-8;
+        double tol_eq   = 1e-8;
+        double tol_ineq = 1e-8;
+        double tol_comp = 1e-8;
+
+        // Regularization term
+        double reg_prim = 1e-12;
+
+        // Warm start flag
+        bool warm_start = false;
+        // Prediction correction flag
+        bool prediction_correction = true;
+        // Square root riccati algorithm flag
+        bool square_root_riccati = true;
+        // Whether to use different step for primal and dual variables
+        bool split_step = false;
 
         static Params Default()
         {
@@ -53,6 +72,9 @@ class hpipm_qp : public QPSolver
     const QPData &_qp;
     Params        _params;
     Solution      _solution;
+
+    double       _reg;
+    const double _reg_max = 1e8;
 
     // Copies of lower/upper constraint vectors
     // Required since infinity bounds must be replaced, but the actual QP

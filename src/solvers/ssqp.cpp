@@ -638,8 +638,14 @@ void ssqp::_printIterationInfo() const
     LOG(std::setw(16) << std::setprecision(5));
     LOG(icd.norm_du << " |");
     LOG(std::setw(16));
-    LOG((icd.first_violation_stage == -1.0 ? '-' : icd.first_violation_stage)
-        << " |");
+    if (icd.first_violation_stage < 0.0)
+    {
+        LOG("-" << " |");
+    }
+    else
+    {
+        LOG(icd.first_violation_stage << " |");
+    }
     LOG(std::setw(16) << std::setprecision(5));
     LOG(icd.violation << " |");
     LOG(std::setw(16));
