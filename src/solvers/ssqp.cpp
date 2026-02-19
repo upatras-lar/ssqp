@@ -99,8 +99,6 @@ SolverState ssqp::solve(Guess &guess)
 
     _params.tolerance = _tolerance_init;
 
-    _printIterationHeader();
-
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
         SolverState state = qp_solver->solve(sol);
@@ -278,6 +276,10 @@ SolverState ssqp::solve(Guess &guess)
                                     : _params.tolerance_update_steps);
         }
 
+        if (_iter % 40 == 0)
+        {
+            _printIterationHeader();
+        }
         _printIterationInfo();
 
         // Skip gradient calculation in _setup_qp, since they have been
@@ -636,7 +638,8 @@ void ssqp::_printIterationInfo() const
     LOG(std::setw(16) << std::setprecision(5));
     LOG(icd.norm_du << " |");
     LOG(std::setw(16));
-    LOG(icd.first_violation_stage << " |");
+    LOG((icd.first_violation_stage == -1.0 ? '-' : icd.first_violation_stage)
+        << " |");
     LOG(std::setw(16) << std::setprecision(5));
     LOG(icd.violation << " |");
     LOG(std::setw(16));

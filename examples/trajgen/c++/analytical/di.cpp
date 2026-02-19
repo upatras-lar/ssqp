@@ -119,7 +119,7 @@ class Constraint : public ssqp::model::stagewise::StageConstraints
 
     ssqp::VecX upper_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << 20.0).finished();
+        return (Eigen::Vector<double, 1>() << 30.0).finished();
     }
 
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
@@ -185,7 +185,8 @@ int main()
     ssqp::model::Model model(HORIZON, dt, config);
 
     ssqp::solvers::ssqp::Params ssqp_params;
-    // ssqp_params.qp_solver_type = ssqp::solvers::ssqp::QPSolverType::HPIPM;
+    ssqp_params.loose_success  = true;
+    ssqp_params.qp_solver_type = ssqp::solvers::ssqp::QPSolverType::HPIPM;
 
     ssqp::solvers::ssqp        solver(model, ssqp_params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

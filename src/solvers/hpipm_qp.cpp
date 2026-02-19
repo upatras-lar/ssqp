@@ -8,7 +8,19 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
   : _qp(qp)
   , _params(params)
   , _solution(qp.dims)
+  , _cl(_qp.dims.horizon + 1)
+  , _cu(_qp.dims.horizon + 1)
+  , _cl_masks(_qp.dims.horizon + 1)
+  , _cu_masks(_qp.dims.horizon + 1)
 {
+    for (uint k = 0; k <= _qp.dims.horizon; ++k)
+    {
+        _cl[k].resize(_qp.dims.stage_constraint[k]);
+        _cu[k].resize(_qp.dims.stage_constraint[k]);
+        _cl_masks[k].resize(_qp.dims.stage_constraint[k]);
+        _cu_masks[k].resize(_qp.dims.stage_constraint[k]);
+    }
+
     int dim_size   = d_ocp_qp_dim_memsize(_qp.dims.horizon);
     _hpipm_dim_mem = malloc(dim_size);
     d_ocp_qp_dim_create(_qp.dims.horizon, &_hpipm_qp_dim, _hpipm_dim_mem);
@@ -120,8 +132,37 @@ void hpipm_qp::reset()
         {
             d_ocp_qp_set_C(k, (double *)(_qp.stages[k].D.data()), &_hpipm_qp);
             d_ocp_qp_set_D(k, (double *)(_qp.stages[k].E.data()), &_hpipm_qp);
-            d_ocp_qp_set_lg(k, (double *)(_qp.stages[k].cl.data()), &_hpipm_qp);
-            d_ocp_qp_set_ug(k, (double *)(_qp.stages[k].cu.data()), &_hpipm_qp);
+
+            _cl[k] = _qp.stages[k].cl;
+            _cu[k] = _qp.stages[k].cu;
+
+            for (uint c = 0; c < _qp.dims.stage_constraint[k]; ++c)
+            {
+                if (std::isinf(_qp.stages[k].cl[c]))
+                {
+                    _cl[k][c]       = 0.0;
+                    _cl_masks[k][c] = 0.0;
+                }
+                else
+                {
+                    _cl_masks[k][c] = 1.0;
+                }
+
+                if (std::isinf(_qp.stages[k].cu[c]))
+                {
+                    _cu[k][c]       = 0.0;
+                    _cu_masks[k][c] = 0.0;
+                }
+                else
+                {
+                    _cu_masks[k][c] = 1.0;
+                }
+            }
+
+            d_ocp_qp_set_lg(k, (double *)(_cl[k].data()), &_hpipm_qp);
+            d_ocp_qp_set_ug(k, (double *)(_cu[k].data()), &_hpipm_qp);
+            d_ocp_qp_set_lg_mask(k, _cl_masks[k].data(), &_hpipm_qp);
+            d_ocp_qp_set_ug_mask(k, _cu_masks[k].data(), &_hpipm_qp);
         }
     }
 
@@ -131,12 +172,45 @@ void hpipm_qp::reset()
     if (_qp.dims.stage_constraint[_qp.dims.horizon] > 0)
     {
         d_ocp_qp_set_C(_qp.dims.horizon, (double *)(_qp.Dt.data()), &_hpipm_qp);
+
+        _cl[_qp.dims.horizon] = _qp.cl_t;
+        _cu[_qp.dims.horizon] = _qp.cu_t;
+
+        for (uint c = 0; c < _qp.dims.stage_constraint[_qp.dims.horizon]; ++c)
+        {
+            if (std::isinf(_qp.cl_t[c]))
+            {
+                _cl[_qp.dims.horizon][c]       = 0.0;
+                _cl_masks[_qp.dims.horizon][c] = 0.0;
+            }
+            else
+            {
+                _cl_masks[_qp.dims.horizon][c] = 1.0;
+            }
+
+            if (std::isinf(_qp.cu_t[c]))
+            {
+                _cu[_qp.dims.horizon][c]       = 0.0;
+                _cu_masks[_qp.dims.horizon][c] = 0.0;
+            }
+            else
+            {
+                _cu_masks[_qp.dims.horizon][c] = 1.0;
+            }
+        }
+
         d_ocp_qp_set_lg(_qp.dims.horizon,
-                        (double *)(_qp.cl_t.data()),
+                        (double *)(_cl[_qp.dims.horizon].data()),
                         &_hpipm_qp);
         d_ocp_qp_set_ug(_qp.dims.horizon,
-                        (double *)(_qp.cu_t.data()),
+                        (double *)(_cu[_qp.dims.horizon].data()),
                         &_hpipm_qp);
+        d_ocp_qp_set_lg_mask(_qp.dims.horizon,
+                             _cl_masks[_qp.dims.horizon].data(),
+                             &_hpipm_qp);
+        d_ocp_qp_set_ug_mask(_qp.dims.horizon,
+                             _cu_masks[_qp.dims.horizon].data(),
+                             &_hpipm_qp);
     }
 }
 

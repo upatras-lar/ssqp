@@ -51,7 +51,9 @@ bool ADMMInfeasibility::run()
     admm_params.primal_infs_tolerance = 1e-4;
     admm_params.max_iter              = 1000;
 
-    ssqp::solvers::ssqp        solver(_model, params, admm_params);
+    params.admm_params = admm_params;
+
+    ssqp::solvers::ssqp        solver(_model, params);
     ssqp::solvers::ssqp::Guess solution(_model.dims(), _model.linear_dims());
     ssqp::solvers::SolverState state = solver.solve(solution);
 
