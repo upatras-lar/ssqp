@@ -8,6 +8,7 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
   : _qp(qp)
   , _params(params)
   , _solution(qp.dims)
+  , _reg(_params.reg_prim)
   , _cl(_qp.dims.horizon + 1)
   , _cu(_qp.dims.horizon + 1)
   , _cl_masks(_qp.dims.horizon + 1)
@@ -45,15 +46,30 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     d_ocp_qp_ipm_arg_create(&_hpipm_qp_dim, &_hpipm_qp_arg, _hpipm_arg_mem);
 
     // Set default IPM mode (SPEED, BALANCE, or ROBUST)
-    d_ocp_qp_ipm_arg_set_default(ROBUST, &_hpipm_qp_arg);
+    d_ocp_qp_ipm_arg_set_default(_params.mode, &_hpipm_qp_arg);
 
     d_ocp_qp_ipm_arg_set_iter_max(&_params.max_iter, &_hpipm_qp_arg);
+    d_ocp_qp_ipm_arg_set_alpha_min(&_params.alpha_min, &_hpipm_qp_arg);
+    d_ocp_qp_ipm_arg_set_mu0(&_params.mu0, &_hpipm_qp_arg);
+
     d_ocp_qp_ipm_arg_set_tol_stat(&_params.tol_stat, &_hpipm_qp_arg);
     d_ocp_qp_ipm_arg_set_tol_eq(&_params.tol_eq, &_hpipm_qp_arg);
     d_ocp_qp_ipm_arg_set_tol_ineq(&_params.tol_ineq, &_hpipm_qp_arg);
     d_ocp_qp_ipm_arg_set_tol_comp(&_params.tol_comp, &_hpipm_qp_arg);
+
+    d_ocp_qp_ipm_arg_set_reg_prim(&_reg, &_hpipm_qp_arg);
+
     int warm_start_int = _params.warm_start ? 1 : 0;
     d_ocp_qp_ipm_arg_set_warm_start(&warm_start_int, &_hpipm_qp_arg);
+
+    int pred_corr_int = _params.prediction_correction ? 1 : 0;
+    d_ocp_qp_ipm_arg_set_pred_corr(&pred_corr_int, &_hpipm_qp_arg);
+
+    int square_root_riccati_int = _params.square_root_riccati ? 1 : 0;
+    d_ocp_qp_ipm_arg_set_pred_corr(&pred_corr_int, &_hpipm_qp_arg);
+
+    int split_step_int = _params.split_step ? 1 : 0;
+    d_ocp_qp_ipm_arg_set_split_step(&split_step_int, &_hpipm_qp_arg);
 
     // Allocate workspace (size depends on arg settings)
     int ws_size   = d_ocp_qp_ipm_ws_memsize(&_hpipm_qp_dim, &_hpipm_qp_arg);
@@ -104,6 +120,9 @@ void hpipm_qp::set_stage_sizes()
 
 void hpipm_qp::reset()
 {
+    _reg = _params.reg_prim;
+    d_ocp_qp_ipm_arg_set_reg_prim(&_reg, &_hpipm_qp_arg);
+
     std::vector<int> idxbx(_qp.dims.stage_state[0]);
     for (uint i = 0; i < idxbx.size(); ++i)
     {
@@ -214,7 +233,17 @@ void hpipm_qp::reset()
     }
 }
 
-void hpipm_qp::increaseRegularization() {}
+void hpipm_qp::increaseRegularization()
+{
+    _reg *= 10;
+
+    if (_reg > _reg_max)
+    {
+        throw std::runtime_error("HPIPM: Regularization failed");
+    }
+
+    d_ocp_qp_ipm_arg_set_reg_prim(&_reg, &_hpipm_qp_arg);
+}
 
 SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
 {
@@ -232,8 +261,59 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
         d_ocp_qp_sol_get_u(k, &_hpipm_qp_sol, sol.du.stage(k).data());
         d_ocp_qp_sol_get_pi(k, &_hpipm_qp_sol, sol.lambda.stage(k).data());
 
-        uint nc = sol.mu.stage(k).size();
-        VecX lg(nc), ug(nc);
+        VecX lg(_qp.dims.stage_constraint[k]), ug(_qp.dims.stage_constraint[k]);
+
+        d_ocp_qp_sol_get_lam_lg(k, &_hpipm_qp_sol, lg.data());
+        d_ocp_qp_sol_get_lam_ug(k, &_hpipm_qp_sol, ug.data());
+
+        // LOGLN("Stage " << k);
+        // LOGLN("lg: " << lg.transpose());
+        // LOGLN("ug: " << ug.transpose());
+        // LOGLN("diff: " << (lg - ug).transpose());
+
+        sol.mu.stage(k) = lg - ug;
+    }
+
+    d_ocp_qp_sol_get_x(_qp.dims.horizon,
+                       &_hpipm_qp_sol,
+                       sol.dx.stage(_qp.dims.horizon).data());
+
+    VecX lg(_qp.dims.stage_constraint[_qp.dims.horizon]),
+      ug(_qp.dims.stage_constraint[_qp.dims.horizon]);
+
+    d_ocp_qp_sol_get_lam_lg(_qp.dims.horizon, &_hpipm_qp_sol, lg.data());
+    d_ocp_qp_sol_get_lam_ug(_qp.dims.horizon, &_hpipm_qp_sol, ug.data());
+
+    // LOGLN("Horizon");
+    // LOGLN("lg: " << lg.transpose());
+    // LOGLN("ug: " << ug.transpose());
+    // LOGLN("diff: " << (lg - ug).transpose());
+
+    sol.mu.stage(_qp.dims.horizon) = lg - ug;
+
+    /*
+    for (uint k = 0; k < _qp.dims.horizon; ++k)
+    {
+        MatX P(_qp.dims.stage_state[k + 1], _qp.dims.stage_state[k + 1]);
+        VecX p(_qp.dims.stage_state[k + 1]);
+
+        d_ocp_qp_ipm_get_ric_P(&_hpipm_qp,
+                               &_hpipm_qp_arg,
+                               &_hpipm_qp_ws,
+                               k + 1,
+                               P.data());
+        d_ocp_qp_ipm_get_ric_p(&_hpipm_qp,
+                               &_hpipm_qp_arg,
+                               &_hpipm_qp_ws,
+                               k + 1,
+                               p.data());
+
+        for (uint k = 0; k < _qp.dims.horizon; ++k)
+        {
+            sol.lambda.stage(k).noalias() = P * sol.dx.stage(k + 1) + p;
+        }
+
+        VecX lg(_qp.dims.stage_constraint[k]), ug(_qp.dims.stage_constraint[k]);
 
         d_ocp_qp_sol_get_lam_lg(k, &_hpipm_qp_sol, lg.data());
         d_ocp_qp_sol_get_lam_ug(k, &_hpipm_qp_sol, ug.data());
@@ -244,9 +324,6 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
     d_ocp_qp_sol_get_x(_qp.dims.horizon,
                        &_hpipm_qp_sol,
                        sol.dx.stage(_qp.dims.horizon).data());
-    d_ocp_qp_sol_get_pi(_qp.dims.horizon,
-                        &_hpipm_qp_sol,
-                        sol.lambda.stage(_qp.dims.horizon).data());
 
     uint nc = sol.mu.stage(_qp.dims.horizon).size();
     VecX lg(nc), ug(nc);
@@ -255,6 +332,7 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
     d_ocp_qp_sol_get_lam_ug(_qp.dims.horizon, &_hpipm_qp_sol, ug.data());
 
     sol.mu.stage(_qp.dims.horizon) = ug - lg;
+    */
 
     return SUCCESS;
 }

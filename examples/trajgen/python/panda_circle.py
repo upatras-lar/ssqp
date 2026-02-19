@@ -143,21 +143,16 @@ model.finalize(init_states=init_state)
 # ADMM-specific parameters start with "admm_"
 solver = ssqpy.solvers.ssqp(
     model,
-    loose_success=True,
-    tolerance=1e-1,
+    loose_success=False,
+    tolerance=1e-6,
     use_filter=False,
-    accept_worse_update=True,
     # admm_abs_tolerance=1e-3,
     # admm_rel_tolerance=1e-3,
     # admm_adaptive_rho_tolerance=10,
     # admm_rho_update_iter_freq=25,
     # admm_max_iter=1000,
     qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    hpipm_max_iter=100,
-    hpipm_tol_stat=1e-3,
-    hpipm_tol_comp=1e-3,
-    hpipm_tol_eq=1e-3,
-    hpipm_tol_ineq=1e-3,
+    hpipm_max_iter=250,
 )
 
 # Solve using the SSQP solver and the model we created
