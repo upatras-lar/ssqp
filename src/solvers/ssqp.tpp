@@ -98,9 +98,9 @@ void ssqp::_setup_qp()
                                _qp.stages[k].qu);
         }
 
-        // Get D and E
         if (constraints[k] != nullptr)
         {
+            // Add constraint hessprod terms to cost matrices
             constraints[k]->hessprod_xx(_guess.x.stage(k),
                                         _guess.u.stage(k),
                                         _guess.mu.stage(k),
@@ -119,6 +119,7 @@ void ssqp::_setup_qp()
                                         tmpMat);
             _qp.stages[k].Quu += tmpMat;
 
+            // Get D and E
             if constexpr (withGradients)
             {
                 constraints[k]->gradient(_guess.x.stage(k),

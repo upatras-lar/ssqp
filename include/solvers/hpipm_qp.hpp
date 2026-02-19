@@ -54,6 +54,15 @@ class hpipm_qp : public QPSolver
     Params        _params;
     Solution      _solution;
 
+    // Copies of lower/upper constraint vectors
+    // Required since infinity bounds must be replaced, but the actual QP
+    // must not be altered
+    std::vector<VecX> _cl, _cu;
+
+    // Masks to ignore open constraints
+    std::vector<std::vector<double>> _cl_masks;
+    std::vector<std::vector<double>> _cu_masks;
+
     int _iter;
     int _status;
 
