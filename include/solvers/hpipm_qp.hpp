@@ -25,7 +25,7 @@ class hpipm_qp : public QPSolver
         // HPIPM mode
         hpipm_mode mode = ROBUST;
         // Maximum iterations
-        int max_iter = 25;
+        int max_iter = 100;
 
         // Minimum step size
         double alpha_min = 1e-8;

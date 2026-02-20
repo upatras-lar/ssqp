@@ -147,6 +147,7 @@ solver = ssqpy.solvers.ssqp(
     use_filter=False,
     merit_mu_c=3.0,
     tolerance=5e-2,
+    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,
