@@ -266,11 +266,6 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
         d_ocp_qp_sol_get_lam_lg(k, &_hpipm_qp_sol, lg.data());
         d_ocp_qp_sol_get_lam_ug(k, &_hpipm_qp_sol, ug.data());
 
-        // LOGLN("Stage " << k);
-        // LOGLN("lg: " << lg.transpose());
-        // LOGLN("ug: " << ug.transpose());
-        // LOGLN("diff: " << (lg - ug).transpose());
-
         sol.mu.stage(k) = lg - ug;
     }
 
@@ -284,55 +279,7 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
     d_ocp_qp_sol_get_lam_lg(_qp.dims.horizon, &_hpipm_qp_sol, lg.data());
     d_ocp_qp_sol_get_lam_ug(_qp.dims.horizon, &_hpipm_qp_sol, ug.data());
 
-    // LOGLN("Horizon");
-    // LOGLN("lg: " << lg.transpose());
-    // LOGLN("ug: " << ug.transpose());
-    // LOGLN("diff: " << (lg - ug).transpose());
-
     sol.mu.stage(_qp.dims.horizon) = lg - ug;
-
-    /*
-    for (uint k = 0; k < _qp.dims.horizon; ++k)
-    {
-        MatX P(_qp.dims.stage_state[k + 1], _qp.dims.stage_state[k + 1]);
-        VecX p(_qp.dims.stage_state[k + 1]);
-
-        d_ocp_qp_ipm_get_ric_P(&_hpipm_qp,
-                               &_hpipm_qp_arg,
-                               &_hpipm_qp_ws,
-                               k + 1,
-                               P.data());
-        d_ocp_qp_ipm_get_ric_p(&_hpipm_qp,
-                               &_hpipm_qp_arg,
-                               &_hpipm_qp_ws,
-                               k + 1,
-                               p.data());
-
-        for (uint k = 0; k < _qp.dims.horizon; ++k)
-        {
-            sol.lambda.stage(k).noalias() = P * sol.dx.stage(k + 1) + p;
-        }
-
-        VecX lg(_qp.dims.stage_constraint[k]), ug(_qp.dims.stage_constraint[k]);
-
-        d_ocp_qp_sol_get_lam_lg(k, &_hpipm_qp_sol, lg.data());
-        d_ocp_qp_sol_get_lam_ug(k, &_hpipm_qp_sol, ug.data());
-
-        sol.mu.stage(k) = ug - lg;
-    }
-
-    d_ocp_qp_sol_get_x(_qp.dims.horizon,
-                       &_hpipm_qp_sol,
-                       sol.dx.stage(_qp.dims.horizon).data());
-
-    uint nc = sol.mu.stage(_qp.dims.horizon).size();
-    VecX lg(nc), ug(nc);
-
-    d_ocp_qp_sol_get_lam_lg(_qp.dims.horizon, &_hpipm_qp_sol, lg.data());
-    d_ocp_qp_sol_get_lam_ug(_qp.dims.horizon, &_hpipm_qp_sol, ug.data());
-
-    sol.mu.stage(_qp.dims.horizon) = ug - lg;
-    */
 
     return SUCCESS;
 }

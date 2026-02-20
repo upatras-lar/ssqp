@@ -11,7 +11,7 @@ move and remain at a vertical position in the opposite direction of gravity
 nq = 2
 nv = 2
 
-H = 500
+H = 200
 dt = 0.01
 
 V_WGT = 1e-3
@@ -45,7 +45,7 @@ model.finalize(terminal_cost=config_cost)
 solver = ssqpy.solvers.ssqp(
     model,
     tolerance=1e-2,
-    use_filter=True,
+    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     admm_adaptive_rho_tolerance=20,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,

@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0, "..")
 from socket_utils import send, recv
 
-INVERSE_MODE = True
+INVERSE_MODE = False
 
 SOCK_PATH = "/tmp/mpc_socket"
 
