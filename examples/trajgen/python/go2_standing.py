@@ -5,15 +5,14 @@ import numpy as np
 from math import pi
 
 """
-Go2 Multi-Jump example
-Performs multiple jumps with the Go2 robot, using a predefined sequence of
-steps, as well as which (combinations of) feet to land on in between the jumps
+Go2 Standing example
+Stands in place with the Go2
 """
 
 # Model Parameters
 nq = 19
 nv = 18
-HORIZON = 50
+HORIZON = 100
 dt = 0.01
 
 # Weights
@@ -26,12 +25,13 @@ RF_WGT = 3.0
 
 # Initial and final positions
 base_pos = np.array([0.0, 0.0, 0.3689])
+base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Initial configuration
 init = np.zeros(37)
 init[:3] = base_pos
 init[6] = 1.0
-init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
+init[7:19] = base_config
 
 # Initial controls for 4 forces
 init_control = np.zeros(30)
@@ -50,7 +50,8 @@ model = ssqpy.model.Model(
 )
 
 # Define regularization costs
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
+# joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
+config_cost = costs.SquaredConfigurationErrorCost(base_config, nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
@@ -80,7 +81,7 @@ init_controls = []
 
 for k in range(HORIZON):
     # Add regularization costs
-    model.addCost(k, joint_angle_cost)
+    model.addCost(k, config_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
@@ -101,8 +102,9 @@ for k in range(HORIZON):
 
     init_controls.append(init_control)
 
-model.addCost(k, joint_angle_cost)
-model.addCost(HORIZON, joint_vel_cost)
+model.addCost(k, config_cost)
+# model.addCost(HORIZON, joint_vel_cost)
+model.addCost(HORIZON, costs.SquaredJointVelocityCost(nv, 1e3, True))
 model.addCost(HORIZON, pose_cost)
 model.addConstraints(
     HORIZON,
@@ -110,6 +112,11 @@ model.addConstraints(
         model, "base", np.zeros(3), np.zeros(3), nq, nv, True
     ),
 )
+# TODO: fix crash with this constraint
+# model.addConstraints(
+# HORIZON,
+# constraints.JointControlConstraint(np.zeros(nv - 6), np.zeros(nv - 6), nv, True),
+# )
 
 # Finalize the model with our state and controls
 model.finalize(init_states=init, init_controls=init_controls)
@@ -119,20 +126,15 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-2,
-    use_filter=True,
+    use_filter=False,
     merit_mu_c=1.0,
     merit_mu_gamma=1.0,
     qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     hpipm_max_iter=500,
-    hpipm_reg_prim=1e-5,
-    hpipm_mu0=1e3,
-    hpipm_alpha_min=1e-5,
-    hpipm_prediction_correction=False,
     hpipm_tol_stat=1e-4,
     hpipm_tol_comp=1e-4,
     hpipm_tol_eq=1e-4,
     hpipm_tol_ineq=1e-4,
-    # max_iter=45,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,

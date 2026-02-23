@@ -199,6 +199,84 @@ void bind_Constraints(nb::module_ &m)
          Puu: Product, $n_u \times n_u$
         )doc");
 
+    nb::class_<JointAngleConstraint, StageConstraints>(m,
+                                                       "JointAngleConstraint")
+      .def(nb::init<const VecX &,
+                    const VecX &,
+                    const uint,
+                    const uint,
+                    const bool>(),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("free_flyer") = false,
+           R"doc(
+        Predefined joint angle constraint
+        Creates a constraint on the joint angles of the model
+        Note: this constraint is separate to any potential innate constraints
+        $\boldsymbol{q}_l \leq \boldsymbol{q} \leq \boldsymbol{q}_u$
+        where:
+         - $\boldsymbol{q}_l$, $\boldsymbol{q}_u$: Lower and upper configuration vectors
+         - $\boldsymbol{q}$: The model's joint configuration vector
+           )doc")
+      .def("set_lower_bound",
+           &JointAngleConstraint::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &JointAngleConstraint::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<JointVelocityConstraint, StageConstraints>(
+      m,
+      "JointVelocityConstraint")
+      .def(nb::init<const VecX &, const VecX &, const uint, const bool>(),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("nv"),
+           nb::arg("free_flyer") = false,
+           R"doc(
+        Predefined joint velocity constraint
+        Creates a constraint on the joint velocities of the model
+        Note: this constraint is separate to any potential innate constraints
+        $\boldsymbol{q}_{v,l} \leq \boldsymbol{q}_v \leq \boldsymbol{q}_{v, u}$
+        where:
+         - $\boldsymbol{q}_{v,l}$, $\boldsymbol{q}_{v,u}$: Lower and upper joint velocity vectors
+         - $\boldsymbol{q}_v$: The model's joint velocity vector
+           )doc")
+      .def("set_lower_bound",
+           &JointVelocityConstraint::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &JointVelocityConstraint::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<JointControlConstraint, StageConstraints>(
+      m,
+      "JointControlConstraint")
+      .def(nb::init<const VecX &, const VecX &, const uint, const bool>(),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("nv"),
+           nb::arg("free_flyer") = false,
+           R"doc(
+        Predefined joint control constraint
+        Creates a constraint on the joint part of the control vector
+        This can either act as a torque constraint (FD mode) or an acceleration
+        constraint (ID mode)
+        Note: this constraint is separate to any potential innate constraints
+        $\boldsymbol{u}_{c,l} \leq \boldsymbol{u}_c \leq \boldsymbol{u}_{c, u}$
+        where:
+         - $\boldsymbol{u}_{c,l}$, $\boldsymbol{u}_{c,u}$: Lower and upper joint control vectors
+         - $\boldsymbol{u}_c$: The joint part of the control vector
+           )doc")
+      .def("set_lower_bound",
+           &JointControlConstraint::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &JointControlConstraint::set_upper_bound,
+           nb::arg("upper_bound"));
+
     nb::class_<FramePositionBound, StageConstraints>(m, "FramePositionBound")
       .def(nb::init<const Model &,
                     const std::string &,
