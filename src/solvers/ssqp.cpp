@@ -101,7 +101,14 @@ SolverState ssqp::solve(Guess &guess)
 
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
-        SolverState state = qp_solver->solve(sol);
+        _convergence_data.iteration_data.push_back(IterationConvergenceData());
+
+        auto        start_qp = std::chrono::high_resolution_clock::now();
+        SolverState state    = qp_solver->solve(sol);
+        _convergence_data.iteration_data.back().qp_duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - start_qp)
+            .count();
 
         switch (state)
         {
@@ -114,8 +121,8 @@ SolverState ssqp::solve(Guess &guess)
 
         FlatVec x_n(_guess.x, false), u_n(_guess.u, false);
 
-        _convergence_data.iteration_data.push_back(
-          IterationConvergenceData { qp_solver->iterations() });
+        _convergence_data.iteration_data.back().qp_iters =
+          qp_solver->iterations();
 
         // Guess (x, u) update
         if (_params.use_filter)
@@ -246,7 +253,9 @@ SolverState ssqp::solve(Guess &guess)
         _guess.mu     = sol.mu;
 
         // Termination
-        if ((ssqp_state = _check_termination()) != ONGOING)
+        if ((ssqp_state =
+               _check_termination<Params::calculate_full_violations>()) !=
+            ONGOING)
         {
             _convergence_data.total_duration =
               std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -319,7 +328,7 @@ bool ssqp::write(const std::string &filename)
     j["solver"]["tolerance"] = _params.tolerance;
 
     j["convergence"]                         = ordered_json({});
-    j["convergence"]["runtime"]              = _convergence_data.total_duration;
+    j["convergence"]["runtime_ms"]           = _convergence_data.total_duration;
     j["convergence"]["iterations"]           = _iter + 1;
     j["convergence"]["trajectory_cost"]      = _lf(_guess.x, _guess.u);
     j["convergence"]["trajectory_stage_gap"] = _gammaf(_guess.x, _guess.u);
@@ -329,12 +338,37 @@ bool ssqp::write(const std::string &filename)
 
     for (uint i = 0; i < _convergence_data.iteration_data.size(); ++i)
     {
-        j["convergence"]["iteration_data"].push_back(ordered_json({
-          { "qp_iterations",  _convergence_data.iteration_data[i].qp_iters },
-          {     "step_size", _convergence_data.iteration_data[i].step_size },
-          {       "norm_dx",   _convergence_data.iteration_data[i].norm_dx },
-          {       "norm_du",   _convergence_data.iteration_data[i].norm_du }
-        }));
+        ordered_json iteration_data({
+          {         "qp_iterations",_convergence_data.iteration_data[i].qp_iters                                    },
+          {            "runtime_us", _convergence_data.iteration_data[i].qp_duration },
+          {             "step_size",   _convergence_data.iteration_data[i].step_size },
+          {               "norm_dx",     _convergence_data.iteration_data[i].norm_dx },
+          {               "norm_du",     _convergence_data.iteration_data[i].norm_du },
+          { "first_violation_stage",
+           _convergence_data.iteration_data[i].first_violation_stage                },
+          {             "violation",   _convergence_data.iteration_data[i].violation }
+        });
+
+        if (_convergence_data.iteration_data[i].gap_violations.size() ==
+            dims.horizon)
+        {
+            iteration_data["stage_gap_violations"] = ordered_json::array();
+            iteration_data["stage_constraint_violations"] =
+              ordered_json::array();
+            for (uint k = 0; k < dims.horizon; ++k)
+            {
+                iteration_data["stage_gap_violations"].push_back(
+                  _convergence_data.iteration_data[i].gap_violations[k]);
+                iteration_data["stage_constraint_violations"].push_back(
+                  _convergence_data.iteration_data[i].constraint_violations[k]);
+            }
+
+            iteration_data["stage_constraint_violations"].push_back(
+              _convergence_data.iteration_data[i]
+                .constraint_violations[dims.horizon]);
+        }
+
+        j["convergence"]["iteration_data"].push_back(iteration_data);
     }
 
     j["properties"]            = ordered_json({});
@@ -409,205 +443,6 @@ const ssqp::ConvergenceData ssqp::convergenceData() const
     return _convergence_data;
 }
 
-SolverState ssqp::_check_termination()
-{
-    ZoneScopedN("SSQP: _check_termination");
-
-    DEBUG_LOGLN("Guess " << _iter + 1);
-    DEBUG_LOGLN("=============");
-    DEBUG_LOGLN("x: " << std::endl << _guess.x);
-    DEBUG_LOGLN("u: " << std::endl << _guess.u);
-    DEBUG_LOGLN("lambda: " << std::endl << _guess.lambda);
-    DEBUG_LOGLN("mu: " << std::endl << _guess.mu);
-    DEBUG_LOGLN("=============");
-
-    static const uint                 horizon     = _model.dims().horizon;
-    const model::CostsContainer       costs       = _model.costs();
-    const model::DynamicsContainer    dynamics    = _model.dynamics();
-    const model::ConstraintsContainer constraints = _model.constraints();
-
-    // Jacobian over x and y of lagrangian at current guess
-    FlatVec lagrangian_dx(_cost_dx, false);
-    FlatVec lagrangian_du(_cost_du, false);
-
-    // Cost gradients for loose success
-    VecX tmp_vec;
-    MatX tmp_mat;
-
-    // Add terminal terms for x
-    costs[horizon]->gradient(_guess.x.stage(horizon),
-                             VecX::Zero(1),
-                             _qp.qx_t,
-                             tmp_vec);
-
-    lagrangian_dx.stage(horizon) += _qp.qx_t;
-    // Add contribution from previous integration step (λ)
-    lagrangian_dx.stage(horizon) -= _guess.lambda.stage(horizon - 1);
-
-    _cost_dx.stage(horizon) = _qp.qx_t;
-
-    // Add constraint terms for terminal x
-    if (constraints[horizon] != nullptr)
-    {
-        constraints[horizon]->gradient(_guess.x.stage(horizon),
-                                       VecX::Zero(1),
-                                       _qp.Dt,
-                                       tmp_mat);
-
-        lagrangian_dx.stage(horizon).noalias() -=
-          _qp.Dt.transpose() * _guess.mu.stage(horizon);
-    }
-
-    // Add k=0 terms for u
-    costs[0]->gradient(_guess.x.stage(0),
-                       _guess.u.stage(0),
-                       _qp.stages[0].qx,
-                       _qp.stages[0].qu);
-    lagrangian_du.stage(0) += _qp.stages[0].qu;
-
-    _cost_du.stage(0) = _qp.stages[0].qu;
-
-    dynamics[0]->gradient(_guess.x.stage(0),
-                          _guess.u.stage(0),
-                          _qp.stages[0].A,
-                          _qp.stages[0].B);
-    lagrangian_du.stage(0).noalias() +=
-      _qp.stages[0].B.transpose() * _guess.lambda.stage(0);
-
-    if (constraints[0] != nullptr)
-    {
-        constraints[0]->gradient(_guess.x.stage(0),
-                                 _guess.u.stage(0),
-                                 _qp.stages[0].D,
-                                 _qp.stages[0].E);
-        lagrangian_du.stage(0).noalias() -=
-          _qp.stages[0].E.transpose() * _guess.mu.stage(0);
-    }
-
-    // Ignore x0 terms since it is not being optimized
-    for (uint k = 1; k < horizon; ++k)
-    {
-        // Compute cost jacobian
-        costs[k]->gradient(_guess.x.stage(k),
-                           _guess.u.stage(k),
-                           _qp.stages[k].qx,
-                           _qp.stages[k].qu);
-        lagrangian_dx.stage(k) += _qp.stages[k].qx;
-        lagrangian_du.stage(k) += _qp.stages[k].qu;
-
-        _cost_dx.stage(k) = _qp.stages[k].qx;
-        _cost_du.stage(k) = _qp.stages[k].qu;
-
-        // Compute dynamics gap jacobian
-        dynamics[k]->gradient(_guess.x.stage(k),
-                              _guess.u.stage(k),
-                              _qp.stages[k].A,
-                              _qp.stages[k].B);
-        lagrangian_dx.stage(k).noalias() +=
-          _qp.stages[k].A.transpose() * _guess.lambda.stage(k);
-        lagrangian_dx.stage(k) -= _guess.lambda.stage(k - 1);
-        lagrangian_du.stage(k).noalias() +=
-          _qp.stages[k].B.transpose() * _guess.lambda.stage(k);
-
-        // Compute constraint jacobian
-        if (constraints[k] != nullptr)
-        {
-            constraints[k]->gradient(_guess.x.stage(k),
-                                     _guess.u.stage(k),
-                                     _qp.stages[k].D,
-                                     _qp.stages[k].E);
-            lagrangian_dx.stage(k).noalias() -=
-              _qp.stages[k].D.transpose() * _guess.mu.stage(k);
-            lagrangian_du.stage(k).noalias() -=
-              _qp.stages[k].E.transpose() * _guess.mu.stage(k);
-        }
-    }
-
-    _convergence_data.iteration_data.back().norm_dx =
-      lagrangian_dx.vec.lpNorm<Eigen::Infinity>();
-    _convergence_data.iteration_data.back().norm_du =
-      lagrangian_du.vec.lpNorm<Eigen::Infinity>();
-
-    for (uint k = 0; k < horizon; ++k)
-    {
-        // Stage gap violation
-        double gap_norm =
-          dynamics[k]
-            ->state_right_minus(
-              dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
-              _guess.x.stage(k + 1))
-            .lpNorm<Eigen::Infinity>();
-        if (gap_norm > _params.tolerance)
-        {
-            _stale_iters                                                  = 0;
-            _convergence_data.iteration_data.back().first_violation_stage = k;
-            _convergence_data.iteration_data.back().violation = gap_norm;
-            return ONGOING;
-        }
-
-        // Stage constraint violation
-        if (constraints[k] != nullptr)
-        {
-            double csnorm =
-              constraints[k]->violation(_guess.x.stage(k), _guess.u.stage(k));
-            if (csnorm > _params.tolerance)
-            {
-                _stale_iters = 0;
-                _convergence_data.iteration_data.back().first_violation_stage =
-                  k;
-                _convergence_data.iteration_data.back().violation = csnorm;
-                return ONGOING;
-            }
-        }
-    }
-
-    // Terminal constraint violation
-    if (constraints[horizon] != nullptr)
-    {
-        double csnorm = constraints[horizon]->violation(_guess.x.stage(horizon),
-                                                        VecX::Zero(1));
-
-        if (csnorm > _params.tolerance)
-        {
-            _stale_iters = 0;
-            _convergence_data.iteration_data.back().first_violation_stage =
-              horizon;
-            _convergence_data.iteration_data.back().violation = csnorm;
-            return ONGOING;
-        }
-    }
-
-    _convergence_data.iteration_data.back().first_violation_stage = -1;
-
-    if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
-        lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
-    {
-        _convergence_data.iterations    = _iter + 1;
-        _convergence_data.loose_success = false;
-        return SUCCESS;
-    }
-
-    if (_params.loose_success &&
-        (_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
-          _params.loose_success_tolerance &&
-        (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff() <
-          _params.loose_success_tolerance)
-    {
-        if (++_stale_iters == _params.loose_success_stale_iters)
-        {
-            _convergence_data.iterations    = _iter + 1;
-            _convergence_data.loose_success = true;
-            return LOOSE_SUCCESS;
-        }
-    }
-    else
-    {
-        _stale_iters = 0;
-    }
-
-    return ONGOING;
-}
-
 void ssqp::_printIterationHeader() const
 {
     LOG(std::setw(18));
@@ -622,6 +457,8 @@ void ssqp::_printIterationHeader() const
     LOG("Violation |");
     LOG(std::setw(18));
     LOG("QP Iterations |");
+    LOG(std::setw(18));
+    LOG("QP Runtime (us) |");
     LOG(std::setw(18));
     LOGLN("Step Size");
 }
@@ -650,6 +487,8 @@ void ssqp::_printIterationInfo() const
     LOG(icd.violation << " |");
     LOG(std::setw(16));
     LOG(icd.qp_iters << " |");
+    LOG(std::setw(16));
+    LOG(icd.qp_duration << " |");
     LOG(std::setw(16));
     LOGLN(icd.step_size);
 }
