@@ -6,42 +6,45 @@ namespace solvers
 {
 void hpipm_qp::Params::print() const
 {
-    LOGLN("HPIPM Parameters");
-    LOGLN("================");
-    LOGLN("Maximum iterations: " << max_iter);
-    LOG("Mode: ");
+    std::cout << "HPIPM Parameters" << std::endl;
+    std::cout << "================" << std::endl;
+    std::cout << "Maximum iterations: " << max_iter << std::endl;
+    std::cout << "Mode: ";
 
     switch (mode)
     {
     case ROBUST:
-        LOGLN("Robust");
+        std::cout << "Robust" << std::endl;
         break;
     case SPEED:
-        LOGLN("Speed");
+        std::cout << "Speed" << std::endl;
         break;
     case BALANCE:
-        LOGLN("Balance");
+        std::cout << "Balance" << std::endl;
         break;
     default:
         break;
     }
 
-    LOGLN("----------------");
-    LOGLN("Stationarity tolerance: " << tol_stat);
-    LOGLN("Complementarity tolerance: " << tol_comp);
-    LOGLN("Equality tolerance: " << tol_eq);
-    LOGLN("Inequality tolerance: " << tol_ineq);
+    std::cout << "----------------" << std::endl;
+    std::cout << "Stationarity tolerance: " << tol_stat << std::endl;
+    std::cout << "Complementarity tolerance: " << tol_comp << std::endl;
+    std::cout << "Equality tolerance: " << tol_eq << std::endl;
+    std::cout << "Inequality tolerance: " << tol_ineq << std::endl;
 
-    LOGLN("----------------");
-    LOGLN("Minimum alpha: " << alpha_min);
-    LOGLN("Initial barrier (mu0): " << mu0);
-    LOGLN("Regularization weight: " << reg_prim);
+    std::cout << "----------------" << std::endl;
+    std::cout << "Minimum alpha: " << alpha_min << std::endl;
+    std::cout << "Initial barrier (mu0): " << mu0 << std::endl;
+    std::cout << "Regularization weight: " << reg_prim << std::endl;
 
-    LOGLN("----------------");
-    LOGLN("Warm start enabled: " << warm_start);
-    LOGLN("Prediction correction enabled: " << prediction_correction);
-    LOGLN("Use square root riccati: " << square_root_riccati);
-    LOGLN("Split step for primal and dual variables enabled: " << split_step);
+    std::cout << "----------------" << std::endl;
+    std::cout << "Warm start enabled: " << warm_start << std::endl;
+    std::cout << "Prediction correction enabled: " << prediction_correction
+              << std::endl;
+    std::cout << "Use square root riccati: " << square_root_riccati
+              << std::endl;
+    std::cout << "Split step for primal and dual variables enabled: "
+              << split_step << std::endl;
 }
 
 hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)

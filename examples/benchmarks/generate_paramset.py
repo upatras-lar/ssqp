@@ -14,9 +14,9 @@ def generate_admm_paramset(
     rho_updates=[True, False],
     adaptive_rho_tols=[10],
     rho_update_iter_freqs=[25],
-    warm_start=[True, False],
-    reset_rho_toggle=[False],
-    reset_y_toggle=[False],
+    warm_starts=[True, False],
+    reset_rhos=[False],
+    reset_ys=[False],
 ):
     paramset = []
 
@@ -32,9 +32,9 @@ def generate_admm_paramset(
                     rho_updates,
                     adaptive_rho_tols,
                     rho_update_iter_freqs,
-                    warm_start,
-                    reset_rho_toggle,
-                    reset_y_toggle,
+                    warm_starts,
+                    reset_rhos,
+                    reset_ys,
                 )
             )
         elif lsm == ssqpy.solvers.LineSearchMethod.Merit:
@@ -49,9 +49,9 @@ def generate_admm_paramset(
                     rho_updates,
                     adaptive_rho_tols,
                     rho_update_iter_freqs,
-                    warm_start,
-                    reset_rho_toggle,
-                    reset_y_toggle,
+                    warm_starts,
+                    reset_rhos,
+                    reset_ys,
                 )
             )
 
@@ -306,14 +306,14 @@ def _generate_hpipm_filter_paramset(
         params.line_search_method = ssqpy.solvers.LineSearchMethod.Filter
         params.filter_size = filter_size
         params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
-        params.hpipm_params.mode = mode
-        params.hpipm_params.alpha_min = alpha_min
-        params.hpipm_params.mu0 = mu0
-        params.hpipm_params.reg_prim = reg_prim
-        params.hpipm_params.warm_start = warm_start
-        params.hpipm_params.prediction_correction = prediction_correction
-        params.hpipm_params.square_root_riccati = square_root_riccati
-        params.hpipm_params.split_step = split_step
+        params.hpipmParams.mode = mode
+        params.hpipmParams.alpha_min = alpha_min
+        params.hpipmParams.mu0 = mu0
+        params.hpipmParams.reg_prim = reg_prim
+        params.hpipmParams.warm_start = warm_start
+        params.hpipmParams.prediction_correction = prediction_correction
+        params.hpipmParams.square_root_riccati = square_root_riccati
+        params.hpipmParams.split_step = split_step
 
         paramset.append(params)
 
@@ -365,14 +365,14 @@ def _generate_hpipm_merit_paramset(
         params.merit_mu_c = merit_mu_c
         params.merit_mu_gamma = merit_mu_gamma
         params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
-        params.hpipm_params.mode = mode
-        params.hpipm_params.alpha_min = alpha_min
-        params.hpipm_params.mu0 = mu0
-        params.hpipm_params.reg_prim = reg_prim
-        params.hpipm_params.warm_start = warm_start
-        params.hpipm_params.prediction_correction = prediction_correction
-        params.hpipm_params.square_root_riccati = square_root_riccati
-        params.hpipm_params.split_step = split_step
+        params.hpipmParams.mode = mode
+        params.hpipmParams.alpha_min = alpha_min
+        params.hpipmParams.mu0 = mu0
+        params.hpipmParams.reg_prim = reg_prim
+        params.hpipmParams.warm_start = warm_start
+        params.hpipmParams.prediction_correction = prediction_correction
+        params.hpipmParams.square_root_riccati = square_root_riccati
+        params.hpipmParams.split_step = split_step
 
         paramset.append(params)
 

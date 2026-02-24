@@ -1,5 +1,6 @@
 /.vscode/
 /build/*
+/examples/benchmarks/data/*
 /examples/trajgen/data/*
 /examples/trajgen/visualizer/viser-venv/*
 /VARIABLES.sh

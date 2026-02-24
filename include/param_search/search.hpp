@@ -22,7 +22,7 @@ class ParamSearch
 
     void addProblem(const model::Model &model);
 
-    const std::pair<solvers::ssqp::Params, model::Model> search() const;
+    const solvers::ssqp::Params search() const;
 
   protected:
     std::vector<solvers::ssqp::Params> _hyperparams;
