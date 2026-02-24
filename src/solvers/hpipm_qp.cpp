@@ -4,6 +4,46 @@ namespace ssqp
 {
 namespace solvers
 {
+void hpipm_qp::Params::print() const
+{
+    LOGLN("HPIPM Parameters");
+    LOGLN("================");
+    LOGLN("Maximum iterations: " << max_iter);
+    LOG("Mode: ");
+
+    switch (mode)
+    {
+    case ROBUST:
+        LOGLN("Robust");
+        break;
+    case SPEED:
+        LOGLN("Speed");
+        break;
+    case BALANCE:
+        LOGLN("Balance");
+        break;
+    default:
+        break;
+    }
+
+    LOGLN("----------------");
+    LOGLN("Stationarity tolerance: " << tol_stat);
+    LOGLN("Complementarity tolerance: " << tol_comp);
+    LOGLN("Equality tolerance: " << tol_eq);
+    LOGLN("Inequality tolerance: " << tol_ineq);
+
+    LOGLN("----------------");
+    LOGLN("Minimum alpha: " << alpha_min);
+    LOGLN("Initial barrier (mu0): " << mu0);
+    LOGLN("Regularization weight: " << reg_prim);
+
+    LOGLN("----------------");
+    LOGLN("Warm start enabled: " << warm_start);
+    LOGLN("Prediction correction enabled: " << prediction_correction);
+    LOGLN("Use square root riccati: " << square_root_riccati);
+    LOGLN("Split step for primal and dual variables enabled: " << split_step);
+}
+
 hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
   : _qp(qp)
   , _params(params)

@@ -54,6 +54,8 @@ class hpipm_qp : public QPSolver
         {
             return {};
         }
+
+        void print() const;
     };
 
     hpipm_qp(const QPData &qp, const Params &params = Params::Default());

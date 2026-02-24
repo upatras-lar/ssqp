@@ -53,6 +53,12 @@ namespace solvers
 class ssqp
 {
   public:
+    enum LineSearchMethod
+    {
+        Filter,
+        Merit
+    };
+
     enum QPSolverType
     {
         ADMM,
@@ -91,10 +97,7 @@ class ssqp
         // Line search parameters
 
         // Which type of line search to use
-        // Choose between:
-        //  - Filter line search
-        //  - Merit function line search
-        bool use_filter = true;
+        LineSearchMethod line_search_method = Filter;
 
         // Filter line-search parameters
 
@@ -144,6 +147,8 @@ class ssqp
         {
             return {};
         }
+
+        void print() const;
     };
 
     /* Guess struct

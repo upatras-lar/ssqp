@@ -71,6 +71,8 @@ class admm_qp : public QPSolver
         {
             return {};
         }
+
+        void print() const;
     };
 
     admm_qp(const QPData &qp, const Params &params = Params::Default());

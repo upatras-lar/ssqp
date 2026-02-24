@@ -16,7 +16,7 @@ dt = 0.01
 
 V_WGT = 1e-3
 U_WGT = 1e-4
-C_WGT = 3.0
+C_WGT = 4.0
 
 model = ssqpy.model.Model(
     H,
@@ -46,9 +46,9 @@ solver = ssqpy.solvers.ssqp(
     model,
     tolerance=1e-2,
     qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    admm_adaptive_rho_tolerance=20,
+    admm_adaptive_rho_tolerance=25,
     admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
+    admm_rel_tolerance=1e-4,
     admm_max_iter=500,
     admm_warm_start=False,
     # admm_reset_rho=False,

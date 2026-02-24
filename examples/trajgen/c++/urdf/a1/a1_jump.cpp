@@ -206,7 +206,6 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     params.tolerance   = 1e-2;
-    params.use_filter  = true;
     params.filter_size = 100;
 
     ssqp::solvers::admm_qp::Params admm_params;
