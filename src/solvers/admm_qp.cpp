@@ -9,44 +9,48 @@ namespace solvers
 {
 void admm_qp::Params::print() const
 {
-    LOGLN("ADMM Parameters");
-    LOGLN("===============");
-    LOGLN("Maximum iterations: " << max_iter);
-    LOGLN("Absolute tolerance: " << abs_tolerance);
+    std::cout << "ADMM Parameters" << std::endl;
+    std::cout << "===============" << std::endl;
+    std::cout << "Maximum iterations: " << max_iter << std::endl;
+    std::cout << "Absolute tolerance: " << abs_tolerance << std::endl;
 
     if (abs_tolerance_final > 0.0)
     {
-        LOGLN("Final absolute tolerance: " << abs_tolerance_final);
+        std::cout << "Final absolute tolerance: " << abs_tolerance_final
+                  << std::endl;
     }
 
-    LOGLN("Relative tolerance: " << rel_tolerance);
+    std::cout << "Relative tolerance: " << rel_tolerance << std::endl;
 
     if (rel_tolerance_final > 0.0)
     {
-        LOGLN("Final relative tolerance: " << rel_tolerance_final);
+        std::cout << "Final relative tolerance: " << rel_tolerance_final
+                  << std::endl;
     }
 
     if (abs_tolerance_final > 0.0 || rel_tolerance_final > 0.0)
     {
-        LOGLN("Update steps: " << tolerance_update_steps);
+        std::cout << "Update steps: " << tolerance_update_steps << std::endl;
     }
 
-    LOGLN("---------------");
-    LOGLN("Init rho: " << init_rho);
-    LOGLN("Alpha: " << alpha);
-    LOGLN("Sigma: " << sigma);
+    std::cout << "---------------" << std::endl;
+    std::cout << "Init rho: " << init_rho << std::endl;
+    std::cout << "Alpha: " << alpha << std::endl;
+    std::cout << "Sigma: " << sigma << std::endl;
 
-    LOGLN("---------------");
-    LOGLN("Rho update enabled: " << rho_update);
-    LOGLN("Minimum rho: " << rho_min);
-    LOGLN("Maximum rho: " << rho_max);
-    LOGLN("Adaptive rho tolerance: " << adaptive_rho_tolerance);
-    LOGLN("Rho update iteration frequency: " << rho_update_iter_freq);
+    std::cout << "---------------" << std::endl;
+    std::cout << "Rho update enabled: " << rho_update << std::endl;
+    std::cout << "Minimum rho: " << rho_min << std::endl;
+    std::cout << "Maximum rho: " << rho_max << std::endl;
+    std::cout << "Adaptive rho tolerance: " << adaptive_rho_tolerance
+              << std::endl;
+    std::cout << "Rho update iteration frequency: " << rho_update_iter_freq
+              << std::endl;
 
-    LOGLN("---------------");
-    LOGLN("Warm start enabled: " << warm_start);
-    LOGLN("Reset rho enabled: " << reset_rho);
-    LOGLN("Reset y enabled: " << reset_y);
+    std::cout << "---------------" << std::endl;
+    std::cout << "Warm start enabled: " << warm_start << std::endl;
+    std::cout << "Reset rho enabled: " << reset_rho << std::endl;
+    std::cout << "Reset y enabled: " << reset_y << std::endl;
 }
 
 admm_qp::admm_qp(const QPData &qp, const Params &params)

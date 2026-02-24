@@ -9,50 +9,56 @@ namespace solvers
 {
 void ssqp::Params::print() const
 {
-    LOGLN("SSQP Parameters");
-    LOGLN("===============");
-    LOGLN("Maximum iterations: " << max_iter);
-    LOGLN("Tolerance: " << tolerance);
+    std::cout << "SSQP Parameters" << std::endl;
+    std::cout << "===============" << std::endl;
+    std::cout << "Maximum iterations: " << max_iter << std::endl;
+    std::cout << "Tolerance: " << tolerance << std::endl;
     if (tolerance_final > 0.0)
     {
-        LOGLN("Final tolerance: " << tolerance_final);
-        LOGLN("Update steps: " << tolerance_update_steps);
+        std::cout << "Final tolerance: " << tolerance_final << std::endl;
+        std::cout << "Update steps: " << tolerance_update_steps << std::endl;
     }
 
-    LOGLN("---------------");
-    LOGLN("Loose success enabled: " << loose_success);
+    std::cout << "---------------" << std::endl;
+    std::cout << "Loose success enabled: " << loose_success << std::endl;
     if (loose_success)
     {
-        LOGLN("Loose success tolerance: " << loose_success_tolerance);
-        LOGLN("Loose success stale iterations: " << loose_success_stale_iters);
+        std::cout << "Loose success tolerance: " << loose_success_tolerance
+                  << std::endl;
+        std::cout << "Loose success stale iterations: "
+                  << loose_success_stale_iters << std::endl;
     }
 
-    LOGLN("---------------");
-    LOGLN(
-      "Line search method: "
-      << (line_search_method == LineSearchMethod::Filter ? "filter" : "merit"));
+    std::cout << "---------------" << std::endl;
+    std::cout << "Line search method: "
+              << (line_search_method == LineSearchMethod::Filter ? "filter"
+                                                                 : "merit")
+              << std::endl;
     if (line_search_method == LineSearchMethod::Filter)
     {
-        LOGLN("Filter size: " << filter_size);
+        std::cout << "Filter size: " << filter_size << std::endl;
     }
     else if (line_search_method == LineSearchMethod::Merit)
     {
-        LOGLN("Merit mu (gamma): " << merit_mu_gamma);
-        LOGLN("Merit mu (c): " << merit_mu_c);
-        LOGLN("Merit armijo beta: " << merit_armijo_beta);
+        std::cout << "Merit mu (gamma): " << merit_mu_gamma << std::endl;
+        std::cout << "Merit mu (c): " << merit_mu_c << std::endl;
+        std::cout << "Merit armijo beta: " << merit_armijo_beta << std::endl;
     }
 
-    LOGLN("---------------");
-    LOGLN("Inverse alpha scaling factor: " << inv_alpha_scale_factor);
-    LOGLN("Minimum alpha: " << min_alpha);
+    std::cout << "---------------" << std::endl;
+    std::cout << "Inverse alpha scaling factor: " << inv_alpha_scale_factor
+              << std::endl;
+    std::cout << "Minimum alpha: " << min_alpha << std::endl;
 
-    LOGLN("---------------");
-    LOGLN("Accept worse update enabled: " << accept_worse_update);
-    LOGLN("Skip regularization: " << skip_regularization);
+    std::cout << "---------------" << std::endl;
+    std::cout << "Accept worse update enabled: " << accept_worse_update
+              << std::endl;
+    std::cout << "Skip regularization: " << skip_regularization << std::endl;
 
-    LOGLN("---------------");
-    LOGLN("QP Solver: " << (qp_solver_type == QPSolverType::ADMM ? "ADMM"
-                                                                 : "HPIPM"));
+    std::cout << "---------------" << std::endl;
+    std::cout << "QP Solver: "
+              << (qp_solver_type == QPSolverType::ADMM ? "ADMM" : "HPIPM")
+              << std::endl;
 
     if (qp_solver_type == QPSolverType::ADMM)
     {
