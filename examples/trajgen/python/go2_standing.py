@@ -51,7 +51,9 @@ model = ssqpy.model.Model(
 
 # Define regularization costs
 # joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
-config_cost = costs.SquaredConfigurationErrorCost(base_config, nq, nv, A_WGT, True)
+config_cost = costs.SquaredConfigurationErrorCost(
+    base_config, nq, nv, A_WGT, True
+)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
@@ -126,7 +128,7 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-2,
-    use_filter=False,
+    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
     merit_mu_c=1.0,
     merit_mu_gamma=1.0,
     qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,

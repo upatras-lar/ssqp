@@ -248,7 +248,6 @@ int main()
     ssqp::solvers::ssqp::Params params;
     params.tolerance = 2e-2;
     // Edit filter size (line search parameter)
-    params.use_filter  = true;
     params.filter_size = 100;
 
     ssqp::solvers::admm_qp::Params admm_params;

@@ -34,12 +34,22 @@ const std::pair<solvers::ssqp::Params, model::Model> ParamSearch::search() const
             solvers::ssqp        solver(problem, sqp_params);
             solvers::ssqp::Guess solution(problem.dims(),
                                           problem.linear_dims());
-            solvers::SolverState state = solver.solve(solution);
 
-            const solvers::ssqp::ConvergenceData icd = solver.convergenceData();
+            double metric = -2.0;
+            try
+            {
+                solvers::SolverState state = solver.solve(solution);
 
-            // TODO: decide metric
-            double metric = 1.0 / icd.iterations;
+                const solvers::ssqp::ConvergenceData icd =
+                  solver.convergenceData();
+
+                // TODO: decide metric
+                metric = 10.0 / icd.iterations + 1.0 / icd.total_duration;
+            }
+            catch (std::runtime_error &e)
+            {
+            }
+
             if (metric > score)
             {
                 best_sqp_params = &sqp_params;

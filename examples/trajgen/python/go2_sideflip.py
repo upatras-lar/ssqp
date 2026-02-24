@@ -144,7 +144,7 @@ model.finalize(init_states=init_states, init_controls=init_controls)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    use_filter=False,
+    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
     merit_mu_c=3.0,
     tolerance=5e-2,
     # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,

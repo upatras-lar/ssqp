@@ -145,7 +145,7 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-6,
-    use_filter=False,
+    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
     # admm_abs_tolerance=1e-3,
     # admm_rel_tolerance=1e-3,
     # admm_adaptive_rho_tolerance=10,

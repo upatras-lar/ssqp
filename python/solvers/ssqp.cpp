@@ -35,6 +35,19 @@ void bind_ssqp(nb::module_ &m)
       .value("Ongoing", SolverState::ONGOING)
       .export_values();
 
+    nb::enum_<ssqp::LineSearchMethod>(m, "LineSearchMethod", R"doc(
+        The line search method to use for the SSQP update step.
+        Available line search methods:
+         - Filter line search: Accepts an update if there is an improvement in
+           any of the three criteria functions (norm, gap or violation)
+         - Merit function line search: Uses a merit function that is a weighted
+           sum of each of the three criteria functions and its gradient to
+           determine the update step
+        )doc")
+      .value("Filter", ssqp::LineSearchMethod::Filter)
+      .value("Merit", ssqp::LineSearchMethod::Merit)
+      .export_values();
+
     nb::enum_<ssqp::QPSolverType>(m, "QPSolverType", R"doc(
         The solver type to use to solve the QP at each step.
         Available solvers:
@@ -58,6 +71,7 @@ void bind_ssqp(nb::module_ &m)
 
     nb::class_<ssqp::Params>(m, "ssqpParams", "SSQP solver parameters.")
       .def(nb::init<>())
+      .def("print", &ssqp::Params::print)
       .def_rw("max_iter",
               &ssqp::Params::max_iter,
               "Maximum number of SSQP iterations.")
@@ -88,7 +102,7 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("loose_success_stale_iters",
               &ssqp::Params::loose_success_stale_iters,
               "Number of iterations for stale cost jacobian norms.")
-      .def_rw("use_filter", &ssqp::Params::use_filter, R"doc(
+      .def_rw("line_search_method", &ssqp::Params::line_search_method, R"doc(
         Which type of line search to use
         Choose between:
          - Filter line search
@@ -136,6 +150,7 @@ void bind_ssqp(nb::module_ &m)
 
     nb::class_<admm_qp::Params>(m, "admmParams")
       .def(nb::init<>())
+      .def("print", &admm_qp::Params::print)
       .def_rw("init_rho", &admm_qp::Params::init_rho, "Initial rho value.")
       .def_rw("alpha", &admm_qp::Params::alpha, "Over-relaxation parameter.")
       .def_rw("sigma",
@@ -204,6 +219,7 @@ void bind_ssqp(nb::module_ &m)
 
     nb::class_<hpipm_qp::Params>(m, "hpipmParams")
       .def(nb::init<>())
+      .def("print", &hpipm_qp::Params::print)
       .def_rw("mode", &hpipm_qp::Params::mode, "The HPIPM solver mode.")
       .def_rw("alpha_min",
               &hpipm_qp::Params::alpha_min,
@@ -296,9 +312,10 @@ void bind_ssqp(nb::module_ &m)
                 params.loose_success_stale_iters =
                   nb::cast<uint>(kwargs["loose_success_stale_iters"]);
             }
-            if (kwargs.contains("use_filter"))
+            if (kwargs.contains("line_search_method"))
             {
-                params.use_filter = nb::cast<bool>(kwargs["use_filter"]);
+                params.line_search_method = nb::cast<ssqp::LineSearchMethod>(
+                  kwargs["line_search_method"]);
             }
             if (kwargs.contains("filter_size"))
             {

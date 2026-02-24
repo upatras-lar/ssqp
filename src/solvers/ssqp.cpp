@@ -7,6 +7,63 @@ namespace ssqp
 {
 namespace solvers
 {
+void ssqp::Params::print() const
+{
+    LOGLN("SSQP Parameters");
+    LOGLN("===============");
+    LOGLN("Maximum iterations: " << max_iter);
+    LOGLN("Tolerance: " << tolerance);
+    if (tolerance_final > 0.0)
+    {
+        LOGLN("Final tolerance: " << tolerance_final);
+        LOGLN("Update steps: " << tolerance_update_steps);
+    }
+
+    LOGLN("---------------");
+    LOGLN("Loose success enabled: " << loose_success);
+    if (loose_success)
+    {
+        LOGLN("Loose success tolerance: " << loose_success_tolerance);
+        LOGLN("Loose success stale iterations: " << loose_success_stale_iters);
+    }
+
+    LOGLN("---------------");
+    LOGLN(
+      "Line search method: "
+      << (line_search_method == LineSearchMethod::Filter ? "filter" : "merit"));
+    if (line_search_method == LineSearchMethod::Filter)
+    {
+        LOGLN("Filter size: " << filter_size);
+    }
+    else if (line_search_method == LineSearchMethod::Merit)
+    {
+        LOGLN("Merit mu (gamma): " << merit_mu_gamma);
+        LOGLN("Merit mu (c): " << merit_mu_c);
+        LOGLN("Merit armijo beta: " << merit_armijo_beta);
+    }
+
+    LOGLN("---------------");
+    LOGLN("Inverse alpha scaling factor: " << inv_alpha_scale_factor);
+    LOGLN("Minimum alpha: " << min_alpha);
+
+    LOGLN("---------------");
+    LOGLN("Accept worse update enabled: " << accept_worse_update);
+    LOGLN("Skip regularization: " << skip_regularization);
+
+    LOGLN("---------------");
+    LOGLN("QP Solver: " << (qp_solver_type == QPSolverType::ADMM ? "ADMM"
+                                                                 : "HPIPM"));
+
+    if (qp_solver_type == QPSolverType::ADMM)
+    {
+        admm_params.print();
+    }
+    else if (qp_solver_type == QPSolverType::HPIPM)
+    {
+        hpipm_params.print();
+    }
+}
+
 ssqp::Guess::Guess(const model::Dimensions &dims,
                    const model::Dimensions &lin_dims)
   : x(dims.state, dims.stage_state)
@@ -53,7 +110,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         _guess.u.stage(k) = dynamics[k]->init_control();
     }
 
-    if (_params.use_filter)
+    if (_params.line_search_method == LineSearchMethod::Filter)
     {
         _filter_memory.push_front({ _lf(_guess.x, _guess.u),
                                     _gammaf(_guess.x, _guess.u),
@@ -125,7 +182,7 @@ SolverState ssqp::solve(Guess &guess)
           qp_solver->iterations();
 
         // Guess (x, u) update
-        if (_params.use_filter)
+        if (_params.line_search_method == LineSearchMethod::Filter)
         {
             std::tie(x_n,
                      u_n,
@@ -232,7 +289,7 @@ SolverState ssqp::solve(Guess &guess)
         _guess.x = x_n;
         _guess.u = u_n;
 
-        if (_params.use_filter)
+        if (_params.line_search_method == LineSearchMethod::Filter)
         {
             _filter_memory.push_front({ _lf(_guess.x, _guess.u),
                                         _gammaf(_guess.x, _guess.u),
@@ -262,6 +319,10 @@ SolverState ssqp::solve(Guess &guess)
                 std::chrono::high_resolution_clock::now() - start)
                 .count();
 
+            if (_iter % 40 == 0)
+            {
+                _printIterationHeader();
+            }
             _printIterationInfo();
             LOGLN("SSQP: Total runtime: " << _convergence_data.total_duration
                                           << "ms");

@@ -7,6 +7,48 @@ namespace ssqp
 {
 namespace solvers
 {
+void admm_qp::Params::print() const
+{
+    LOGLN("ADMM Parameters");
+    LOGLN("===============");
+    LOGLN("Maximum iterations: " << max_iter);
+    LOGLN("Absolute tolerance: " << abs_tolerance);
+
+    if (abs_tolerance_final > 0.0)
+    {
+        LOGLN("Final absolute tolerance: " << abs_tolerance_final);
+    }
+
+    LOGLN("Relative tolerance: " << rel_tolerance);
+
+    if (rel_tolerance_final > 0.0)
+    {
+        LOGLN("Final relative tolerance: " << rel_tolerance_final);
+    }
+
+    if (abs_tolerance_final > 0.0 || rel_tolerance_final > 0.0)
+    {
+        LOGLN("Update steps: " << tolerance_update_steps);
+    }
+
+    LOGLN("---------------");
+    LOGLN("Init rho: " << init_rho);
+    LOGLN("Alpha: " << alpha);
+    LOGLN("Sigma: " << sigma);
+
+    LOGLN("---------------");
+    LOGLN("Rho update enabled: " << rho_update);
+    LOGLN("Minimum rho: " << rho_min);
+    LOGLN("Maximum rho: " << rho_max);
+    LOGLN("Adaptive rho tolerance: " << adaptive_rho_tolerance);
+    LOGLN("Rho update iteration frequency: " << rho_update_iter_freq);
+
+    LOGLN("---------------");
+    LOGLN("Warm start enabled: " << warm_start);
+    LOGLN("Reset rho enabled: " << reset_rho);
+    LOGLN("Reset y enabled: " << reset_y);
+}
+
 admm_qp::admm_qp(const QPData &qp, const Params &params)
   : _qp(qp)
   , _params(params)
