@@ -125,6 +125,12 @@ class ssqp
         // Will throw an exception instead
         bool skip_regularization = false;
 
+        // Whether to calculate full stage violations at each step
+        // This is usually skipped once a violation is detected to speed up
+        // termination criteria checking, but can be enabled for logging
+        // purposes
+        static constexpr bool calculate_full_violations = true;
+
         // Which solver to use to solve the QPs at each step
         QPSolverType qp_solver_type = QPSolverType::ADMM;
 
@@ -162,6 +168,8 @@ class ssqp
     {
         // QP iterations
         uint qp_iters;
+        // QP solver runtime
+        double qp_duration;
         // Step size
         double step_size;
         // Lagrangian norms
@@ -170,6 +178,9 @@ class ssqp
         int first_violation_stage;
         // Violation at first violation stage
         double violation;
+        // Violations per stage
+        std::vector<double> gap_violations;
+        std::vector<double> constraint_violations;
     };
 
     struct ConvergenceData
@@ -216,6 +227,7 @@ class ssqp
     template<bool withGradients>
     void _setup_qp();
 
+    template<bool fullViolations>
     SolverState _check_termination();
 
     void _printIterationHeader() const;

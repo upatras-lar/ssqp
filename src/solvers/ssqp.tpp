@@ -202,5 +202,285 @@ void ssqp::_setup_qp()
         _qp.cu_t = VecX::Zero(0);
     }
 }
+
+template<bool fullViolations>
+SolverState ssqp::_check_termination()
+{
+    ZoneScopedN("SSQP: _check_termination");
+
+    DEBUG_LOGLN("Guess " << _iter + 1);
+    DEBUG_LOGLN("=============");
+    DEBUG_LOGLN("x: " << std::endl << _guess.x);
+    DEBUG_LOGLN("u: " << std::endl << _guess.u);
+    DEBUG_LOGLN("lambda: " << std::endl << _guess.lambda);
+    DEBUG_LOGLN("mu: " << std::endl << _guess.mu);
+    DEBUG_LOGLN("=============");
+
+    static const uint                 horizon     = _model.dims().horizon;
+    const model::CostsContainer       costs       = _model.costs();
+    const model::DynamicsContainer    dynamics    = _model.dynamics();
+    const model::ConstraintsContainer constraints = _model.constraints();
+
+    // Jacobian over x and y of lagrangian at current guess
+    FlatVec lagrangian_dx(_cost_dx, false);
+    FlatVec lagrangian_du(_cost_du, false);
+
+    // Cost gradients for loose success
+    VecX tmp_vec;
+    MatX tmp_mat;
+
+    // Add terminal terms for x
+    costs[horizon]->gradient(_guess.x.stage(horizon),
+                             VecX::Zero(1),
+                             _qp.qx_t,
+                             tmp_vec);
+
+    lagrangian_dx.stage(horizon) += _qp.qx_t;
+    // Add contribution from previous integration step (λ)
+    lagrangian_dx.stage(horizon) -= _guess.lambda.stage(horizon - 1);
+
+    _cost_dx.stage(horizon) = _qp.qx_t;
+
+    // Add constraint terms for terminal x
+    if (constraints[horizon] != nullptr)
+    {
+        constraints[horizon]->gradient(_guess.x.stage(horizon),
+                                       VecX::Zero(1),
+                                       _qp.Dt,
+                                       tmp_mat);
+
+        lagrangian_dx.stage(horizon).noalias() -=
+          _qp.Dt.transpose() * _guess.mu.stage(horizon);
+    }
+
+    // Add k=0 terms for u
+    costs[0]->gradient(_guess.x.stage(0),
+                       _guess.u.stage(0),
+                       _qp.stages[0].qx,
+                       _qp.stages[0].qu);
+    lagrangian_du.stage(0) += _qp.stages[0].qu;
+
+    _cost_du.stage(0) = _qp.stages[0].qu;
+
+    dynamics[0]->gradient(_guess.x.stage(0),
+                          _guess.u.stage(0),
+                          _qp.stages[0].A,
+                          _qp.stages[0].B);
+    lagrangian_du.stage(0).noalias() +=
+      _qp.stages[0].B.transpose() * _guess.lambda.stage(0);
+
+    if (constraints[0] != nullptr)
+    {
+        constraints[0]->gradient(_guess.x.stage(0),
+                                 _guess.u.stage(0),
+                                 _qp.stages[0].D,
+                                 _qp.stages[0].E);
+        lagrangian_du.stage(0).noalias() -=
+          _qp.stages[0].E.transpose() * _guess.mu.stage(0);
+    }
+
+    // Ignore x0 terms since it is not being optimized
+    for (uint k = 1; k < horizon; ++k)
+    {
+        // Compute cost jacobian
+        costs[k]->gradient(_guess.x.stage(k),
+                           _guess.u.stage(k),
+                           _qp.stages[k].qx,
+                           _qp.stages[k].qu);
+        lagrangian_dx.stage(k) += _qp.stages[k].qx;
+        lagrangian_du.stage(k) += _qp.stages[k].qu;
+
+        _cost_dx.stage(k) = _qp.stages[k].qx;
+        _cost_du.stage(k) = _qp.stages[k].qu;
+
+        // Compute dynamics gap jacobian
+        dynamics[k]->gradient(_guess.x.stage(k),
+                              _guess.u.stage(k),
+                              _qp.stages[k].A,
+                              _qp.stages[k].B);
+        lagrangian_dx.stage(k).noalias() +=
+          _qp.stages[k].A.transpose() * _guess.lambda.stage(k);
+        lagrangian_dx.stage(k) -= _guess.lambda.stage(k - 1);
+        lagrangian_du.stage(k).noalias() +=
+          _qp.stages[k].B.transpose() * _guess.lambda.stage(k);
+
+        // Compute constraint jacobian
+        if (constraints[k] != nullptr)
+        {
+            constraints[k]->gradient(_guess.x.stage(k),
+                                     _guess.u.stage(k),
+                                     _qp.stages[k].D,
+                                     _qp.stages[k].E);
+            lagrangian_dx.stage(k).noalias() -=
+              _qp.stages[k].D.transpose() * _guess.mu.stage(k);
+            lagrangian_du.stage(k).noalias() -=
+              _qp.stages[k].E.transpose() * _guess.mu.stage(k);
+        }
+    }
+
+    _convergence_data.iteration_data.back().norm_dx =
+      lagrangian_dx.vec.lpNorm<Eigen::Infinity>();
+    _convergence_data.iteration_data.back().norm_du =
+      lagrangian_du.vec.lpNorm<Eigen::Infinity>();
+
+    _convergence_data.iteration_data.back().first_violation_stage = -1;
+
+    if constexpr (fullViolations)
+    {
+        _convergence_data.iteration_data.back().gap_violations.resize(horizon);
+        _convergence_data.iteration_data.back().constraint_violations.resize(
+          horizon + 1);
+    }
+
+    for (uint k = 0; k < horizon; ++k)
+    {
+        // Stage gap violation
+        double gap_norm =
+          dynamics[k]
+            ->state_right_minus(
+              dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
+              _guess.x.stage(k + 1))
+            .lpNorm<Eigen::Infinity>();
+        if (gap_norm > _params.tolerance)
+        {
+            if constexpr (fullViolations)
+            {
+                if (_convergence_data.iteration_data.back()
+                      .first_violation_stage == -1)
+                {
+                    _stale_iters = 0;
+                    _convergence_data.iteration_data.back()
+                      .first_violation_stage = k;
+                    _convergence_data.iteration_data.back().violation =
+                      gap_norm;
+                }
+            }
+            else
+            {
+
+                _stale_iters = 0;
+                _convergence_data.iteration_data.back().first_violation_stage =
+                  k;
+                _convergence_data.iteration_data.back().violation = gap_norm;
+                return ONGOING;
+            }
+        }
+
+        double csnorm = 0.0;
+
+        // Stage constraint violation
+        if (constraints[k] != nullptr)
+        {
+            csnorm =
+              constraints[k]->violation(_guess.x.stage(k), _guess.u.stage(k));
+            if (csnorm > _params.tolerance)
+            {
+                if constexpr (fullViolations)
+                {
+                    if (_convergence_data.iteration_data.back()
+                          .first_violation_stage == -1)
+                    {
+                        _stale_iters = 0;
+                        _convergence_data.iteration_data.back()
+                          .first_violation_stage = k;
+                        _convergence_data.iteration_data.back().violation =
+                          csnorm;
+                    }
+                }
+                else
+                {
+                    _stale_iters = 0;
+                    _convergence_data.iteration_data.back()
+                      .first_violation_stage                          = k;
+                    _convergence_data.iteration_data.back().violation = csnorm;
+
+                    return ONGOING;
+                }
+            }
+        }
+
+        if constexpr (fullViolations)
+        {
+            _convergence_data.iteration_data.back().gap_violations[k] =
+              gap_norm;
+            _convergence_data.iteration_data.back().constraint_violations[k] =
+              csnorm;
+        }
+    }
+
+    double csnorm = 0.0;
+
+    // Terminal constraint violation
+    if (constraints[horizon] != nullptr)
+    {
+        csnorm = constraints[horizon]->violation(_guess.x.stage(horizon),
+                                                 VecX::Zero(1));
+
+        if (csnorm > _params.tolerance)
+        {
+            if constexpr (fullViolations)
+            {
+                if (_convergence_data.iteration_data.back()
+                      .first_violation_stage == -1)
+                {
+                    _stale_iters = 0;
+                    _convergence_data.iteration_data.back()
+                      .first_violation_stage                          = horizon;
+                    _convergence_data.iteration_data.back().violation = csnorm;
+                }
+            }
+            else
+            {
+
+                _stale_iters = 0;
+                _convergence_data.iteration_data.back().first_violation_stage =
+                  horizon;
+                _convergence_data.iteration_data.back().violation = csnorm;
+
+                return ONGOING;
+            }
+        }
+    }
+
+    if constexpr (fullViolations)
+    {
+        _convergence_data.iteration_data.back().constraint_violations[horizon] =
+          csnorm;
+
+        if (_convergence_data.iteration_data.back().first_violation_stage != -1)
+        {
+            return ONGOING;
+        }
+    }
+
+    if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
+        lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
+    {
+        _convergence_data.iterations    = _iter + 1;
+        _convergence_data.loose_success = false;
+        return SUCCESS;
+    }
+
+    if (_params.loose_success &&
+        (_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
+          _params.loose_success_tolerance &&
+        (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff() <
+          _params.loose_success_tolerance)
+    {
+        if (++_stale_iters == _params.loose_success_stale_iters)
+        {
+            _convergence_data.iterations    = _iter + 1;
+            _convergence_data.loose_success = true;
+            return LOOSE_SUCCESS;
+        }
+    }
+    else
+    {
+        _stale_iters = 0;
+    }
+
+    return ONGOING;
+}
+
 }
 }
