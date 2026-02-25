@@ -145,8 +145,6 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-1,
-    tolerance_final=5e-2,
-    tolerance_update_steps=20,
     filter_size=100,
     admm_abs_tolerance=1e-2,
     admm_abs_tolerance_final=5e-3,

@@ -182,7 +182,7 @@ while True:
                     )
 
                     p0 = R_base @ frame_t + robot_base.position
-                    p1 = p0 + 0.005 * f_local
+                    p1 = p0 + 0.005 * R_base @ frame_R @ f_local
 
                     all_forces.append([p0, p1])
 

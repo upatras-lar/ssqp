@@ -16,12 +16,10 @@ HORIZON = 100
 dt = 0.01
 
 # Weights
-A_WGT = 1e-1
+A_WGT = 1.0
 V_WGT = 1e-3
-U_WGT = 1e-2
-F_WGT = 1e-4
-TF_WGT = 7.0
-RF_WGT = 3.0
+U_WGT = 1e-4
+F_WGT = 1e-6
 
 # Initial and final positions
 base_pos = np.array([0.0, 0.0, 0.3689])
@@ -33,13 +31,6 @@ init[:3] = base_pos
 init[6] = 1.0
 init[7:19] = base_config
 
-# Initial controls for 4 forces
-init_control = np.zeros(30)
-init_control[20] = 3.75 * 9.81
-init_control[23] = 3.75 * 9.81
-init_control[26] = 3.75 * 9.81
-init_control[29] = 3.75 * 9.81
-
 # Create an SSQP model for the Go2
 model = ssqpy.model.Model(
     HORIZON,
@@ -50,16 +41,12 @@ model = ssqpy.model.Model(
 )
 
 # Define regularization costs
-# joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 config_cost = costs.SquaredConfigurationErrorCost(
     base_config, nq, nv, A_WGT, True
 )
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
-pose_cost = costs.FrameSquaredPoseErrorCost(
-    model, base_pos, np.eye(3), "base", nq, nv, TF_WGT, RF_WGT
-)
 
 # Define velocity bounds for feet
 # Used in conjunction with contact constraints
@@ -79,15 +66,12 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
 
-init_controls = []
-
 for k in range(HORIZON):
     # Add regularization costs
     model.addCost(k, config_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
-    model.addCost(k, pose_cost)
 
     # Add a standing phase (4 feet on the ground)
     model.addContactConstraint(k, "FL_foot")
@@ -102,12 +86,7 @@ for k in range(HORIZON):
     model.addContactConstraint(k, "RR_foot")
     model.addConstraints(k, rr_foot_vel_bound)
 
-    init_controls.append(init_control)
-
-model.addCost(k, config_cost)
-# model.addCost(HORIZON, joint_vel_cost)
-model.addCost(HORIZON, costs.SquaredJointVelocityCost(nv, 1e3, True))
-model.addCost(HORIZON, pose_cost)
+model.addCost(HORIZON, config_cost)
 model.addConstraints(
     HORIZON,
     constraints.FrameLinearVelocityBound(
@@ -121,7 +100,7 @@ model.addConstraints(
 # )
 
 # Finalize the model with our state and controls
-model.finalize(init_states=init, init_controls=init_controls)
+model.finalize(init_states=init)
 
 # Create a solver with the model
 solver = ssqpy.solvers.ssqp(
@@ -133,10 +112,6 @@ solver = ssqpy.solvers.ssqp(
     merit_mu_gamma=1.0,
     qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     hpipm_max_iter=500,
-    hpipm_tol_stat=1e-4,
-    hpipm_tol_comp=1e-4,
-    hpipm_tol_eq=1e-4,
-    hpipm_tol_ineq=1e-4,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,

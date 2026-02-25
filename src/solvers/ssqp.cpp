@@ -70,6 +70,60 @@ void ssqp::Params::print() const
     }
 }
 
+bool ssqp::Params::write(const std::string &filename) const
+{
+    using namespace nlohmann;
+
+    std::ofstream out;
+    out.open(filename);
+    if (!out)
+    {
+        return false;
+    }
+
+    ordered_json j;
+    j["max_iter"]               = max_iter;
+    j["tolerance"]              = tolerance;
+    j["tolerance_final"]        = tolerance_final;
+    j["tolerance_update_steps"] = tolerance_update_steps;
+
+    j["loose_success"]             = loose_success;
+    j["loose_success_tolerance"]   = loose_success_tolerance;
+    j["loose_success_stale_iters"] = loose_success_stale_iters;
+
+    j["line_search_method"] =
+      line_search_method == LineSearchMethod::Filter ? "filter" : "merit";
+
+    j["filter_size"] = filter_size;
+
+    j["merit_mu_gamma"]          = merit_mu_gamma;
+    j["merit_mu_c"]              = merit_mu_c;
+    j["merit_armijo_beta"]       = merit_armijo_beta;
+    j["merit_grad_softmax_beta"] = merit_grad_softmax_beta;
+
+    j["inv_alpha_scale_factor"] = inv_alpha_scale_factor;
+    j["min_alpha"]              = min_alpha;
+
+    j["accept_worse_update"] = accept_worse_update;
+    j["skip_regularization"] = skip_regularization;
+
+    if (qp_solver_type == QPSolverType::ADMM)
+    {
+        j["qp_solver_type"] = "ADMM";
+        admm_params.write(j);
+    }
+    else if (qp_solver_type == QPSolverType::HPIPM)
+    {
+        j["qp_solver_type"] = "HPIPM";
+        hpipm_params.write(j);
+    }
+
+    out << std::setw(4) << j;
+    out.close();
+
+    return true;
+}
+
 ssqp::Guess::Guess(const model::Dimensions &dims,
                    const model::Dimensions &lin_dims)
   : x(dims.state, dims.stage_state)

@@ -47,6 +47,45 @@ void hpipm_qp::Params::print() const
               << split_step << std::endl;
 }
 
+void hpipm_qp::Params::write(nlohmann::ordered_json &j) const
+{
+    using namespace nlohmann;
+
+    ordered_json hpipmj;
+
+    hpipmj["max_iter"] = max_iter;
+    switch (mode)
+    {
+    case ROBUST:
+        hpipmj["mode"] = "Robust";
+        break;
+    case SPEED:
+        hpipmj["mode"] = "Speed";
+        break;
+    case BALANCE:
+        hpipmj["mode"] = "Balance";
+        break;
+    default:
+        break;
+    }
+
+    hpipmj["tol_stat"] = tol_stat;
+    hpipmj["tol_eq"]   = tol_eq;
+    hpipmj["tol_ineq"] = tol_ineq;
+    hpipmj["tol_comp"] = tol_comp;
+
+    hpipmj["alpha_min"] = alpha_min;
+    hpipmj["mu0"]       = mu0;
+    hpipmj["reg_prim"]  = reg_prim;
+
+    hpipmj["warm_start"]            = warm_start;
+    hpipmj["prediction_correction"] = prediction_correction;
+    hpipmj["square_root_riccati"]   = square_root_riccati;
+    hpipmj["split_step"]            = split_step;
+
+    j["hpipm"] = hpipmj;
+}
+
 hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
   : _qp(qp)
   , _params(params)

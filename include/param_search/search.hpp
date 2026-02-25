@@ -1,6 +1,8 @@
 #ifndef SSQP_PARAM_SEARCH_SEARCH_HPP
 #define SSQP_PARAM_SEARCH_SEARCH_HPP
 
+#include <omp.h>
+
 #include <vector>
 
 #include "solvers/ssqp.hpp"
