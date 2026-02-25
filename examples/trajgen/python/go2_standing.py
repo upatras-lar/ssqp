@@ -22,7 +22,7 @@ U_WGT = 1e-4
 F_WGT = 1e-6
 
 # Initial and final positions
-base_pos = np.array([0.0, 0.0, 0.3689])
+base_pos = np.array([0.0, 0.0, 0.3689268220122])
 base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Initial configuration
@@ -71,7 +71,7 @@ for k in range(HORIZON):
     model.addCost(k, config_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+    # model.addCost(k, force_cost)
 
     # Add a standing phase (4 feet on the ground)
     model.addContactConstraint(k, "FL_foot")
@@ -87,12 +87,12 @@ for k in range(HORIZON):
     model.addConstraints(k, rr_foot_vel_bound)
 
 model.addCost(HORIZON, config_cost)
-model.addConstraints(
-    HORIZON,
-    constraints.FrameLinearVelocityBound(
-        model, "base", np.zeros(3), np.zeros(3), nq, nv, True
-    ),
-)
+# model.addConstraints(
+#     HORIZON,
+#     constraints.FrameLinearVelocityBound(
+#         model, "base", np.zeros(3), np.zeros(3), nq, nv, True
+#     ),
+# )
 # TODO: fix crash with this constraint
 # model.addConstraints(
 # HORIZON,
@@ -110,8 +110,13 @@ solver = ssqpy.solvers.ssqp(
     line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
     merit_mu_c=1.0,
     merit_mu_gamma=1.0,
-    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     hpipm_max_iter=500,
+    hpipm_warm_start=False,
+    hpipm_tol_stat=1e-3,
+    hpipm_tol_comp=1e-3,
+    hpipm_tol_eq=1e-3,
+    hpipm_tol_ineq=1e-3,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,
@@ -120,8 +125,3 @@ solver = ssqpy.solvers.ssqp(
 state, x, u = solver.solve()
 
 solver.write("../data/go2_standing.json")
-
-print("x:")
-x.print()
-print("u:")
-u.print()

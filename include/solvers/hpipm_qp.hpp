@@ -24,6 +24,9 @@ class hpipm_qp : public QPSolver
   public:
     struct Params
     {
+        Params() = default;
+        Params(const nlohmann::ordered_json &hpipmj);
+
         // HPIPM mode
         hpipm_mode mode = ROBUST;
         // Maximum iterations

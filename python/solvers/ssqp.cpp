@@ -69,8 +69,68 @@ void bind_ssqp(nb::module_ &m)
       .value("Speed", hpipm_mode::SPEED)
       .value("Balance", hpipm_mode::BALANCE);
 
+    nb::class_<ssqp::IterationConvergenceData>(
+      m,
+      "ssqpIterationConvergenceData",
+      "SSQP iteration convergence data.")
+      .def_ro("qp_iters",
+              &ssqp::IterationConvergenceData::qp_iters,
+              "Number of QP solver iterations.")
+      .def_ro("qp_duration",
+              &ssqp::IterationConvergenceData::qp_duration,
+              "QP solver runtime.")
+      .def_ro("step_size",
+              &ssqp::IterationConvergenceData::step_size,
+              "Line search step size.")
+      .def_ro("norm_dx",
+              &ssqp::IterationConvergenceData::norm_dx,
+              "Norm of lagrangian's derivative with respect to x after update.")
+      .def_ro("norm_du",
+              &ssqp::IterationConvergenceData::norm_du,
+              "Norm of lagrangian's derivative with respect to u after update.")
+
+      .def_ro("first_violation_stage",
+              &ssqp::IterationConvergenceData::first_violation_stage,
+              "First stage where a gap/constraint is violated.")
+      .def_ro("violation",
+              &ssqp::IterationConvergenceData::violation,
+              "Violation at first violation stage.")
+      .def_ro("gap_violations",
+              &ssqp::IterationConvergenceData::gap_violations,
+              "Gap violations per stage.")
+      .def_ro("constraint_violations",
+              &ssqp::IterationConvergenceData::constraint_violations,
+              "Constraint violations per stage.");
+
+    nb::class_<ssqp::ConvergenceData>(m,
+                                      "ssqpConvergenceData",
+                                      "SSQP convergence data")
+      .def_ro("iteration_data",
+              &ssqp::ConvergenceData::iteration_data,
+              "Iteration convergence data.")
+      .def_ro("total_duration",
+              &ssqp::ConvergenceData::total_duration,
+              "SSQP solver runtime.")
+      .def_ro("iterations",
+              &ssqp::ConvergenceData::iterations,
+              "Number of SSQP solver iterations.")
+      .def_ro(
+        "loose_success",
+        &ssqp::ConvergenceData::loose_success,
+        "Whether termination occurred due to loose criteria satisfaction.")
+      .def_ro("trajectory_cost",
+              &ssqp::ConvergenceData::trajectory_cost,
+              "Total final trajectory cost")
+      .def_ro("trajectory_stage_gap",
+              &ssqp::ConvergenceData::trajectory_stage_gap,
+              "Total final trajectory stage gap.")
+      .def_ro("trajectory_constraint_violation",
+              &ssqp::ConvergenceData::trajectory_constraint_violation,
+              "Total final trajectory constraint violation.");
+
     nb::class_<ssqp::Params>(m, "ssqpParams", "SSQP solver parameters.")
       .def(nb::init<>())
+      .def(nb::init<const std::string &>())
       .def("print", &ssqp::Params::print)
       .def("write", &ssqp::Params::write)
       .def_rw("max_iter",
@@ -543,7 +603,10 @@ void bind_ssqp(nb::module_ &m)
            &ssqp::write,
            nb::arg("filename"),
            "Write the current solution to the output file with the provided "
-           "name.");
+           "name.")
+      .def("getConvergenceData",
+           &ssqp::convergenceData,
+           "Get the SSQP solver's convergence data (after solving).");
 }
 }
 }

@@ -67,6 +67,9 @@ class ssqp
 
     struct Params
     {
+        Params() = default;
+        Params(const std::string &filename);
+
         // General SSQP parameters
 
         // Maximum number of SSQP iterations
@@ -196,6 +199,9 @@ class ssqp
         double                                total_duration;
         uint                                  iterations;
         bool                                  loose_success;
+        double                                trajectory_cost;
+        double                                trajectory_stage_gap;
+        double                                trajectory_constraint_violation;
     };
 
     // Initialize an SSQP solver based on the given model and SSQP and ADMM

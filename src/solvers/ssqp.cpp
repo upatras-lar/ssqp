@@ -7,6 +7,61 @@ namespace ssqp
 {
 namespace solvers
 {
+ssqp::Params::Params(const std::string &filename)
+{
+    using namespace nlohmann;
+
+    std::ifstream in;
+    in.open(filename);
+    if (!in)
+    {
+        throw std::runtime_error("SSQP parameter file could not be opened");
+    }
+
+    ordered_json j = json::parse(in);
+
+    max_iter               = j["max_iter"];
+    tolerance              = j["tolerance"];
+    tolerance_final        = j["tolerance_final"];
+    tolerance_update_steps = j["tolerance_update_steps"];
+
+    loose_success             = j["loose_success"];
+    loose_success_tolerance   = j["loose_success_tolerance"];
+    loose_success_stale_iters = j["loose_success_stale_iters"];
+
+    if (j["line_search_method"] == "merit")
+    {
+        line_search_method = LineSearchMethod::Merit;
+    }
+    else
+    {
+        line_search_method = LineSearchMethod::Filter;
+    }
+
+    filter_size = j["filter_size"];
+
+    merit_mu_gamma    = j["merit_mu_gamma"];
+    merit_mu_c        = j["merit_mu_c"];
+    merit_armijo_beta = j["merit_armijo_beta"];
+
+    inv_alpha_scale_factor = j["inv_alpha_scale_factor"];
+    min_alpha              = j["min_alpha"];
+
+    accept_worse_update = j["accept_worse_update"];
+    skip_regularization = j["skip_regularization"];
+
+    if (j["qp_solver_type"] == "HPIPM")
+    {
+        qp_solver_type = QPSolverType::HPIPM;
+        hpipm_params   = hpipm_qp::Params(j["hpipm"]);
+    }
+    else
+    {
+        qp_solver_type = QPSolverType::ADMM;
+        admm_params    = admm_qp::Params(j["admm"]);
+    }
+}
+
 void ssqp::Params::print() const
 {
     std::cout << "SSQP Parameters" << std::endl;
@@ -59,6 +114,7 @@ void ssqp::Params::print() const
     std::cout << "QP Solver: "
               << (qp_solver_type == QPSolverType::ADMM ? "ADMM" : "HPIPM")
               << std::endl;
+    std::cout << "---------------" << std::endl;
 
     if (qp_solver_type == QPSolverType::ADMM)
     {
@@ -96,10 +152,9 @@ bool ssqp::Params::write(const std::string &filename) const
 
     j["filter_size"] = filter_size;
 
-    j["merit_mu_gamma"]          = merit_mu_gamma;
-    j["merit_mu_c"]              = merit_mu_c;
-    j["merit_armijo_beta"]       = merit_armijo_beta;
-    j["merit_grad_softmax_beta"] = merit_grad_softmax_beta;
+    j["merit_mu_gamma"]    = merit_mu_gamma;
+    j["merit_mu_c"]        = merit_mu_c;
+    j["merit_armijo_beta"] = merit_armijo_beta;
 
     j["inv_alpha_scale_factor"] = inv_alpha_scale_factor;
     j["min_alpha"]              = min_alpha;
@@ -379,6 +434,12 @@ SolverState ssqp::solve(Guess &guess)
                 std::chrono::high_resolution_clock::now() - start)
                 .count();
 
+            _convergence_data.trajectory_cost = _lf(_guess.x, _guess.u);
+            _convergence_data.trajectory_stage_gap =
+              _gammaf(_guess.x, _guess.u);
+            _convergence_data.trajectory_constraint_violation =
+              _cf(_guess.x, _guess.u);
+
             if (_iter % 40 == 0)
             {
                 _printIterationHeader();
@@ -425,6 +486,10 @@ SolverState ssqp::solve(Guess &guess)
         std::chrono::high_resolution_clock::now() - start)
         .count();
 
+    _convergence_data.trajectory_cost      = _lf(_guess.x, _guess.u);
+    _convergence_data.trajectory_stage_gap = _gammaf(_guess.x, _guess.u);
+    _convergence_data.trajectory_constraint_violation = _cf(_guess.x, _guess.u);
+
     LOGLN("SSQP: Total runtime: " << _convergence_data.total_duration << "ms");
 
     guess = _guess;
@@ -448,13 +513,14 @@ bool ssqp::write(const std::string &filename)
     j["solver"]              = ordered_json({});
     j["solver"]["tolerance"] = _params.tolerance;
 
-    j["convergence"]                         = ordered_json({});
-    j["convergence"]["runtime_ms"]           = _convergence_data.total_duration;
-    j["convergence"]["iterations"]           = _iter + 1;
-    j["convergence"]["trajectory_cost"]      = _lf(_guess.x, _guess.u);
-    j["convergence"]["trajectory_stage_gap"] = _gammaf(_guess.x, _guess.u);
+    j["convergence"]                    = ordered_json({});
+    j["convergence"]["runtime_ms"]      = _convergence_data.total_duration;
+    j["convergence"]["iterations"]      = _iter + 1;
+    j["convergence"]["trajectory_cost"] = _convergence_data.trajectory_cost;
+    j["convergence"]["trajectory_stage_gap"] =
+      _convergence_data.trajectory_stage_gap;
     j["convergence"]["trajectory_constraint_violation"] =
-      _cf(_guess.x, _guess.u);
+      _convergence_data.trajectory_constraint_violation;
     j["convergence"]["iteration_data"] = ordered_json::array();
 
     for (uint i = 0; i < _convergence_data.iteration_data.size(); ++i)

@@ -7,6 +7,32 @@ namespace ssqp
 {
 namespace solvers
 {
+admm_qp::Params::Params(const nlohmann::ordered_json &j)
+{
+    using namespace nlohmann;
+
+    max_iter               = j["max_iter"];
+    abs_tolerance          = j["abs_tolerance"];
+    abs_tolerance_final    = j["abs_tolerance_final"];
+    rel_tolerance          = j["rel_tolerance"];
+    rel_tolerance_final    = j["rel_tolerance_final"];
+    tolerance_update_steps = j["tolerance_update_steps"];
+
+    init_rho = j["init_rho"];
+    alpha    = j["alpha"];
+    sigma    = j["sigma"];
+
+    rho_update             = j["rho_update"];
+    rho_min                = j["rho_min"];
+    rho_max                = j["rho_max"];
+    adaptive_rho_tolerance = j["adaptive_rho_tolerance"];
+    rho_update_iter_freq   = j["rho_update_iter_freq"];
+
+    warm_start = j["warm_start"];
+    reset_rho  = j["reset_rho"];
+    reset_y    = j["reset_y"];
+}
+
 void admm_qp::Params::print() const
 {
     std::cout << "ADMM Parameters" << std::endl;
@@ -51,6 +77,7 @@ void admm_qp::Params::print() const
     std::cout << "Warm start enabled: " << warm_start << std::endl;
     std::cout << "Reset rho enabled: " << reset_rho << std::endl;
     std::cout << "Reset y enabled: " << reset_y << std::endl;
+    std::cout << "---------------" << std::endl;
 }
 
 void admm_qp::Params::write(nlohmann::ordered_json &j) const
