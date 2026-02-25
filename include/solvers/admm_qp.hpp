@@ -14,6 +14,9 @@ class admm_qp : public QPSolver
   public:
     struct Params
     {
+        Params() = default;
+        Params(const nlohmann::ordered_json &admmj);
+
         // Parameters
 
         // Initial rho value

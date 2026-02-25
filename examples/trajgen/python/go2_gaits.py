@@ -18,12 +18,12 @@ HORIZON = 300
 dt = 0.01
 
 # Weights
-A_WGT = 1e-1
-V_WGT = 3e-3
-U_WGT = 1e-3
-F_WGT = 1e-4
+C_WGT = 1e-3
+V_WGT = 1e-4
+U_WGT = 1e-4
+F_WGT = 1e-6
 ROT_WGT = 1.0
-TF_WGT = 10.0
+TF_WGT = 5.0
 
 # @script-parameter
 # Which gait to use
@@ -35,7 +35,7 @@ TF_WGT = 10.0
 #  - `setCanter`
 #  - `setGallop`
 #  - `setRotatoryGallop`
-GAIT = GaitManager.setWalk
+GAIT = GaitManager.setTrot
 
 # @script-parameter
 # How many steps to take per gait cycle
@@ -47,8 +47,8 @@ CYCLE_STEPS = None
 FINAL_STANDING_STEPS = 10
 
 # Initial and final positions
-base_pos = np.array([-1.0, 0.0, 0.3689])
-final_pos = np.array([1.0, 0.0, 0.3689])
+base_pos = np.array([-2.5, 0.0, 0.3689268220122])
+final_pos = np.array([2.5, 0.0, 0.3689268220122])
 
 # Initial configuration
 init = np.zeros(37)
@@ -66,14 +66,15 @@ model = ssqpy.model.Model(
 )
 
 # Create regularization costs
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
+config_cost = costs.SquaredConfigurationErrorCost(
+    init[7:19], nq, nv, C_WGT, True
+)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
 
 for k in range(HORIZON):
     # Add the regularization costs for each stage
-    model.addCost(k, joint_angle_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
@@ -87,8 +88,12 @@ for k in range(HORIZON):
         ),
     )
 
+
+for k in range(HORIZON + 1):
+    model.addCost(k, config_cost)
+
 # Add a velocity regularization cost for the final stage
-model.addCost(HORIZON, joint_vel_cost)
+model.addCost(HORIZON, costs.SquaredJointVelocityCost(nv, 1e3, True))
 
 # Add a cost for the final translation of the base to be that of the final
 # position
@@ -138,19 +143,16 @@ for k in range(HORIZON - FINAL_STANDING_STEPS, HORIZON):
     init_controls.extend(gait_manager.addStandingStage(k))
 
 # Finalize the model
-model.finalize(init_states=init, init_controls=init_controls)
+model.finalize(init_states=init)
 
 # Create an SSQP solver for the model
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-1,
-    filter_size=100,
-    admm_abs_tolerance=1e-2,
-    admm_abs_tolerance_final=5e-3,
+    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
-    admm_rel_tolerance_final=5e-4,
-    admm_tolerance_update_steps=400,
     admm_max_iter=500,
     # admm_reset_rho=False,
     # admm_reset_y=False,

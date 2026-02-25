@@ -4,6 +4,40 @@ namespace ssqp
 {
 namespace solvers
 {
+hpipm_qp::Params::Params(const nlohmann::ordered_json &hpipmj)
+{
+    using namespace nlohmann;
+
+    max_iter = hpipmj["max_iter"];
+
+    if (hpipmj["mode"] == "Speed")
+    {
+        mode = hpipm_mode::SPEED;
+    }
+    else if (hpipmj["mode"] == "Balance")
+    {
+        mode = hpipm_mode::BALANCE;
+    }
+    else
+    {
+        mode = hpipm_mode::ROBUST;
+    }
+
+    tol_stat = hpipmj["tol_stat"];
+    tol_eq   = hpipmj["tol_eq"];
+    tol_ineq = hpipmj["tol_ineq"];
+    tol_comp = hpipmj["tol_comp"];
+
+    alpha_min = hpipmj["alpha_min"];
+    mu0       = hpipmj["mu0"];
+    reg_prim  = hpipmj["reg_prim"];
+
+    warm_start            = hpipmj["warm_start"];
+    prediction_correction = hpipmj["prediction_correction"];
+    square_root_riccati   = hpipmj["square_root_riccati"];
+    split_step            = hpipmj["split_step"];
+}
+
 void hpipm_qp::Params::print() const
 {
     std::cout << "HPIPM Parameters" << std::endl;
@@ -45,6 +79,7 @@ void hpipm_qp::Params::print() const
               << std::endl;
     std::cout << "Split step for primal and dual variables enabled: "
               << split_step << std::endl;
+    std::cout << "---------------" << std::endl;
 }
 
 void hpipm_qp::Params::write(nlohmann::ordered_json &j) const
