@@ -32,29 +32,17 @@ def benchmark_pendubot(horizon, n_problems=10):
 
     result_admm.print()
 
+    result_admm.write(f"../data/admm_params_H{horizon}.json")
+
     print("Best HPIPM parameters:")
 
     result_hpipm.print()
 
-    # Solve one problem with best parameters
-
-    result_admm.max_iter = 1000
-
-    solver = ssqpy.solvers.ssqp(problems[0], result_admm)
-    state, x, u = solver.solve()
-
-    solver.write(f"../data/pendubot_admm_H{horizon}.json")
-
-    result_hpipm.max_iter = 1000
-
-    solver = ssqpy.solvers.ssqp(problems[0], result_hpipm)
-    state, x, u = solver.solve()
-
-    solver.write(f"../data/pendubot_hpipm_H{horizon}.json")
+    result_hpipm.write(f"../data/hpipm_params_H{horizon}.json")
 
 
 if __name__ == "__main__":
-    # print("Benchmarking pendubot with H=20...")
-    # benchmark_pendubot(20)
+    # print("Benchmarking pendubot with H=50...")
+    # benchmark_pendubot(50)
     print("Benchmarking pendubot with H=200...")
     benchmark_pendubot(200, 5)

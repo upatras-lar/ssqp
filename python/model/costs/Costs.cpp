@@ -420,7 +420,7 @@ void bind_Costs(nb::module_ &m)
                     uint,
                     double>(),
            nb::arg("model"),
-           nb::arg("desired_translation"),
+           nb::arg("desired_velocity"),
            nb::arg("frame"),
            nb::arg("nq"),
            nb::arg("nv"),
@@ -432,14 +432,14 @@ void bind_Costs(nb::module_ &m)
                     uint,
                     const Vec6 &>(),
            nb::arg("model"),
-           nb::arg("desired_translation"),
+           nb::arg("desired_velocity"),
            nb::arg("frame"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"))
       .def("set_desired_velocity",
            &FrameSquaredVelocityErrorCost::set_desired_velocity,
-           nb::arg("desired_translation"))
+           nb::arg("desired_velocity"))
       .def("set_weight",
            static_cast<void (FrameSquaredVelocityErrorCost::*)(const double)>(
              &FrameSquaredVelocityErrorCost::set_weight),

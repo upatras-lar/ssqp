@@ -72,6 +72,7 @@ void bind_ssqp(nb::module_ &m)
     nb::class_<ssqp::Params>(m, "ssqpParams", "SSQP solver parameters.")
       .def(nb::init<>())
       .def("print", &ssqp::Params::print)
+      .def("write", &ssqp::Params::write)
       .def_rw("max_iter",
               &ssqp::Params::max_iter,
               "Maximum number of SSQP iterations.")

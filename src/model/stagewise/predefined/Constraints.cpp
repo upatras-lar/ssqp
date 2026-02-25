@@ -443,11 +443,11 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
-    Vec3 f_local = u.segment(_nv + 3 * _forces[0].force_index, 3);
+    Vec3 f_global = R * u.segment(_nv + 3 * _forces[0].force_index, 3);
 
-    double fn  = f_local[2];
-    double ft1 = f_local[0];
-    double ft2 = f_local[1];
+    double fn  = (f_global.transpose() * tp.normal)[0];
+    double ft1 = (f_global.transpose() * tp.t1)[0];
+    double ft2 = (f_global.transpose() * tp.t2)[0];
 
     Vec6 res;
     res[0] = fn;
@@ -466,31 +466,60 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
     static std::shared_ptr<terrain::Terrain> terrain = _model->terrain();
 
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
+    Mat3 R;
+    std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame);
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
     dX       = MatX::Zero(6, 2 * _nv);
-    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame).topRows<3>();
-
-    Vec3 dhdp = (Vec3() << -tp.dhdx, -tp.dhdy, 1).finished();
-
-    dX.row(5).head(_nv) = dhdp.transpose() * Jfk;
+    MatX Jfw = _model->frameJacobian(x.head(_nq), _frame).topRows<3>();
+    MatX Jfl = _model->frameJacobian(x.head(_nq), _frame, true).bottomRows<3>();
 
     uint total_force_index = _nv + 3 * _forces[0].force_index;
 
     Vec3 f_local = u.segment(total_force_index, 3);
 
-    dU                                   = MatX::Zero(6, u.size());
-    dU.block<1, 3>(0, total_force_index) = tp.normal.transpose();
+    Mat3 f_skew;
+    f_skew << 0, -f_local[2], f_local[1], f_local[2], 0, -f_local[0],
+      -f_local[1], f_local[0], 0;
+
+    MatX dfglobal_dq = -R * f_skew * Jfl;
+
+    Vec3 dhdp = (Vec3() << -tp.dhdx, -tp.dhdy, 1).finished();
+
+    VecX dfn_dq  = dfglobal_dq.transpose() * tp.normal;
+    VecX dft1_dq = dfglobal_dq.transpose() * tp.t1;
+    VecX dft2_dq = dfglobal_dq.transpose() * tp.t2;
+
+    dX.row(0).head(_nv) = dfn_dq.transpose();
+    dX.row(1).head(_nv) = (dft1_dq - _mu * dfn_dq).transpose();
+    dX.row(2).head(_nv) = (dft1_dq + _mu * dfn_dq).transpose();
+    dX.row(3).head(_nv) = (dft2_dq - _mu * dfn_dq).transpose();
+    dX.row(4).head(_nv) = (dft2_dq + _mu * dfn_dq).transpose();
+
+    dX.row(5).head(_nv) = dhdp.transpose() * Jfw;
+
+    Vec3 f_global = R * f_local;
+
+    double fn  = (f_global.transpose() * tp.normal)[0];
+    double ft1 = (f_global.transpose() * tp.t1)[0];
+    double ft2 = (f_global.transpose() * tp.t2)[0];
+
+    dU = MatX::Zero(6, u.size());
+
+    Vec3 dfn_dflocal  = R.transpose() * tp.normal;
+    Vec3 dft1_dflocal = R.transpose() * tp.t1;
+    Vec3 dft2_dflocal = R.transpose() * tp.t2;
+
+    dU.block<1, 3>(0, total_force_index) = dfn_dflocal.transpose();
     dU.block<1, 3>(1, total_force_index) =
-      (tp.t1 - _mu * tp.normal).transpose();
+      (dft1_dflocal - _mu * dfn_dflocal).transpose();
     dU.block<1, 3>(2, total_force_index) =
-      (tp.t1 + _mu * tp.normal).transpose();
+      (dft1_dflocal + _mu * dfn_dflocal).transpose();
     dU.block<1, 3>(3, total_force_index) =
-      (tp.t2 - _mu * tp.normal).transpose();
+      (dft2_dflocal - _mu * dfn_dflocal).transpose();
     dU.block<1, 3>(4, total_force_index) =
-      (tp.t2 + _mu * tp.normal).transpose();
+      (dft2_dflocal + _mu * dfn_dflocal).transpose();
 }
 
 void ContactConstraint::hessprod_xx(const VecX &x, const VecX &u,

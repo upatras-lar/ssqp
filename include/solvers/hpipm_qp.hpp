@@ -12,6 +12,8 @@ extern "C"
 
 #include "solvers/qp.hpp"
 
+#include "nlohmann/json.hpp"
+
 namespace ssqp
 {
 namespace solvers
@@ -56,6 +58,8 @@ class hpipm_qp : public QPSolver
         }
 
         void print() const;
+
+        void write(nlohmann::ordered_json &j) const;
     };
 
     hpipm_qp(const QPData &qp, const Params &params = Params::Default());

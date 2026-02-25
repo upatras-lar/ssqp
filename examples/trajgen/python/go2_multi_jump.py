@@ -53,19 +53,19 @@ init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Initial controls for 4 forces
 init_control = np.zeros(30)
-init_control[20] = 3.75 * 9.81
-init_control[23] = 3.75 * 9.81
-init_control[26] = 3.75 * 9.81
-init_control[29] = 3.75 * 9.81
+# init_control[20] = 3.75 * 9.81
+# init_control[23] = 3.75 * 9.81
+# init_control[26] = 3.75 * 9.81
+# init_control[29] = 3.75 * 9.81
 
 # Initial controls for 2 forces
 init_control_2 = np.zeros(24)
-init_control_2[20] = 7.5 * 9.81
-init_control_2[23] = 7.5 * 9.81
+# init_control_2[20] = 7.5 * 9.81
+# init_control_2[23] = 7.5 * 9.81
 
 # Initial controls for 1 force
 init_control_1 = np.zeros(21)
-init_control_1[20] = 15 * 9.81
+# init_control_1[20] = 15 * 9.81
 
 # Create an SSQP model for the Go2
 model = ssqpy.model.Model(
@@ -73,7 +73,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 # Define regularization costs
@@ -280,6 +280,7 @@ model.finalize(init_states=init, init_controls=init_controls)
 # Create a solver with the model
 solver = ssqpy.solvers.ssqp(
     model,
+    max_iter=15,
     loose_success=False,
     tolerance=1e-1,
     tolerance_final=5e-2,

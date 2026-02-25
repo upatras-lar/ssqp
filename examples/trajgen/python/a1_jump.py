@@ -39,17 +39,14 @@ init[:3] = base_pos
 init[6] = 1.0
 init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 
-# Initial values for forces
-init_control = np.zeros(30)
-init_control[20] = 3.43525 * 9.81
-init_control[23] = 3.43525 * 9.81
-init_control[26] = 3.43525 * 9.81
-init_control[29] = 3.43525 * 9.81
-
 # Create an SSQP model
 # Since the A1 has a floating base, we must set free_flyer to True
 model = ssqpy.model.Model(
-    HORIZON, dt, urdf_path="../../assets/urdf/a1/a1.urdf", free_flyer=True
+    HORIZON,
+    dt,
+    urdf_path="../../assets/urdf/a1/a1.urdf",
+    free_flyer=True,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 # Create regularization costs for joint angles, joint velocity and control
@@ -74,8 +71,6 @@ rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
 rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
 )
-
-init_controls = []
 
 for k in range(HORIZON):
     # Add regularization costs at each time step
@@ -111,16 +106,6 @@ for k in range(HORIZON):
         model.addContactConstraint(k, "RR_foot")
         model.addConstraints(k, rr_foot_vel_bound)
 
-        # Our controls for this stage must include initial values for the 4
-        # forces we add through the contact constraints
-        # As such, we will use `init_control`
-        init_controls.append(init_control)
-    # If on the air
-    else:
-        # If there are no forces, we only need initial values for the
-        # the joint controls; we will simply initialize to 0
-        init_controls.append(np.zeros(nv))
-
 # Add joint velocity regularization cost to terminal stage
 model.addCost(k, joint_angle_cost)
 model.addCost(HORIZON, joint_vel_cost)
@@ -136,11 +121,12 @@ model.addCost(
 
 # Finalize the model using the same initial state for all stages, as well as the
 # controls we put together
-model.finalize(init_states=init, init_controls=init_controls)
+model.finalize(init_states=init)
 
 # Creare a solver based on the model
 solver = ssqpy.solvers.ssqp(
     model,
+    max_iter=40,
     loose_success=False,
     tolerance=1e-2,
     filter_size=100,

@@ -97,7 +97,7 @@ class ssqp
         // Line search parameters
 
         // Which type of line search to use
-        LineSearchMethod line_search_method = Filter;
+        LineSearchMethod line_search_method = LineSearchMethod::Filter;
 
         // Filter line-search parameters
 
@@ -149,6 +149,8 @@ class ssqp
         }
 
         void print() const;
+
+        bool write(const std::string &filename) const;
     };
 
     /* Guess struct

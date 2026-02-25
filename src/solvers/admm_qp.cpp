@@ -53,6 +53,36 @@ void admm_qp::Params::print() const
     std::cout << "Reset y enabled: " << reset_y << std::endl;
 }
 
+void admm_qp::Params::write(nlohmann::ordered_json &j) const
+{
+    using namespace nlohmann;
+
+    ordered_json admmj;
+
+    admmj["max_iter"]               = max_iter;
+    admmj["abs_tolerance"]          = abs_tolerance;
+    admmj["abs_tolerance_final"]    = abs_tolerance_final;
+    admmj["rel_tolerance"]          = rel_tolerance;
+    admmj["rel_tolerance_final"]    = rel_tolerance_final;
+    admmj["tolerance_update_steps"] = tolerance_update_steps;
+
+    admmj["init_rho"] = init_rho;
+    admmj["alpha"]    = alpha;
+    admmj["sigma"]    = sigma;
+
+    admmj["rho_update"]             = rho_update;
+    admmj["rho_min"]                = rho_min;
+    admmj["rho_max"]                = rho_max;
+    admmj["adaptive_rho_tolerance"] = adaptive_rho_tolerance;
+    admmj["rho_update_iter_freq"]   = rho_update_iter_freq;
+
+    admmj["warm_start"] = warm_start;
+    admmj["reset_rho"]  = reset_rho;
+    admmj["reset_y"]    = reset_y;
+
+    j["admm"] = admmj;
+}
+
 admm_qp::admm_qp(const QPData &qp, const Params &params)
   : _qp(qp)
   , _params(params)
