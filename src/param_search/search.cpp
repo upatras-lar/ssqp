@@ -23,7 +23,7 @@ void ParamSearch::addProblem(const model::Model &model)
 
 const solvers::ssqp::Params ParamSearch::search() const
 {
-    double                       score = -1.0;
+    double score = std::numeric_limits<double>::infinity();
     const solvers::ssqp::Params *best_params;
 
     for (const solvers::ssqp::Params &sqp_params : _hyperparams)
@@ -41,10 +41,13 @@ const solvers::ssqp::Params ParamSearch::search() const
             {
                 solvers::SolverState state = solver.solve(solution);
 
-                const solvers::ssqp::ConvergenceData icd =
+                const solvers::ssqp::ConvergenceData cd =
                   solver.convergenceData();
 
-                metric += 10.0 / icd.iterations + 1.0 / icd.total_duration;
+                metric += 5.0 * cd.iterations + 4.0 * cd.total_duration +
+                          3.0 * cd.trajectory_cost +
+                          2.0 * cd.trajectory_constraint_violation +
+                          cd.trajectory_stage_gap;
             }
             catch (std::runtime_error &e)
             {
@@ -53,7 +56,7 @@ const solvers::ssqp::Params ParamSearch::search() const
 
         metric /= _problems.size();
 
-        if (metric > score)
+        if (metric < score)
         {
             best_params = &sqp_params;
             score       = metric;

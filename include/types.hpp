@@ -203,12 +203,13 @@ std::ostream &operator<<(std::ostream &os, const FlatVec &v);
 
 enum SolverState
 {
-    SUCCESS           = 1,
-    LOOSE_SUCCESS     = 2,
-    PRIMAL_INFEASIBLE = 10,
-    DUAL_INFEASIBLE   = 11,
-    MAX_ITER_REACHED  = 13,
-    ONGOING           = 100,
+    SUCCESS            = 1,
+    LOOSE_SUCCESS      = 2,
+    CONSTRAINT_SUCCESS = 3,
+    PRIMAL_INFEASIBLE  = 10,
+    DUAL_INFEASIBLE    = 11,
+    MAX_ITER_REACHED   = 13,
+    ONGOING            = 100,
 };
 
 const std::string to_string(const SolverState &state);

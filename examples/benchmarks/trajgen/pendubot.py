@@ -1,64 +1,173 @@
 import ssqpy
+import json
 import sys
 
 sys.path.insert(0, "..")
 
-import generate_paramset
 import generate_pendubot_problems
 
 
-def benchmark_pendubot(horizon, n_problems=10):
-    problems = generate_pendubot_problems.generate_pendubot_problems(
-        n_problems, horizon
-    )
+def get_params(filepath):
+    """
+    Load parameters from provided filepath, altering tolerance and max iterations
+    to get a full run
+    """
+    sqp_params = ssqpy.solvers.ssqpParams(filepath)
+    sqp_params.tolerance = 1e-6
+    sqp_params.max_iter = 500
 
-    hyperparams_admm = generate_paramset.generate_admm_paramset(
-        max_sqp_iter=50,
-        line_search_methods=[
-            ssqpy.solvers.LineSearchMethod.Filter,
-            ssqpy.solvers.LineSearchMethod.Merit,
-        ],
-        merit_mu_cs=[0.5, 1.0, 2.0],
-        merit_mu_gammas=[0.1, 0.5, 1.0],
-        init_rhos=[0.1, 0.2, 0.6, 1.0],
-        alphas=[1.0, 1.6],
-        adaptive_rho_tols=[5, 10, 25],
-        rho_updates=[True, False],
-    )
-    param_search = ssqpy.solvers.ParamSearch(hyperparams_admm, problems)
-
-    result_admm = param_search.search()
-
-    hyperparams_hpipm = generate_paramset.generate_hpipm_paramset(
-        max_sqp_iter=50,
-        line_search_methods=[
-            ssqpy.solvers.LineSearchMethod.Filter,
-            ssqpy.solvers.LineSearchMethod.Merit,
-        ],
-        merit_mu_cs=[0.5, 1.0, 2.0],
-        merit_mu_gammas=[0.1, 0.5, 1.0],
-        square_root_riccatis=[True, False],
-    )
-    param_search = ssqpy.solvers.ParamSearch(hyperparams_hpipm, problems)
-
-    result_hpipm = param_search.search()
-
-    print("Best ADMM parameters:")
-
-    result_admm.print()
-
-    result_admm.write(f"../data/admm_params_H{horizon}.json")
-
-    print("Best HPIPM parameters:")
-
-    result_hpipm.print()
-
-    result_hpipm.write(f"../data/hpipm_params_H{horizon}.json")
+    return sqp_params
 
 
-if __name__ == "__main__":
-    # print("Benchmarking pendubot with H=25...")
-    # benchmark_pendubot(25)
+def benchmark(problems, sqp_params, save_to):
+    """
+    Benchmark given problems using the provided parameters and save all
+    results to provided filename
+    """
+    results = []
 
-    print("Benchmarking pendubot with H=200...")
-    benchmark_pendubot(200, 5)
+    for problem in problems:
+        solver = ssqpy.solvers.ssqp(problem, sqp_params)
+        solver.solve()
+        solver.write("../data/tmp.json")
+
+        with open("../data/tmp.json", "r") as f:
+            data = json.load(f)
+
+        results.append(data)
+
+    with open(save_to, "w") as f:
+        f.write(json.dumps(results, indent=4))
+
+
+# Total number of problems to generate
+N_problems = 1000
+
+# Small and large horizon values
+# Equivalent parameter files must exist for these values
+H_small = 25
+H_large = 200
+
+# ===============================
+# Small Horizon, Inverse Dynamics
+# ===============================
+inverse_problems_small = generate_pendubot_problems.generate_pendubot_problems(
+    N_problems, H_small, ssqpy.model.DynamicsMode.Inverse
+)
+
+# ====
+# ADMM
+# ====
+inverse_params_admm_H_small = get_params(
+    f"../data/parameters/pendubot_admm_params_H{H_small}_inverse.json"
+)
+benchmark(
+    inverse_problems_small,
+    inverse_params_admm_H_small,
+    f"../data/results/pendubot_admm_H{H_small}_inverse.json",
+)
+
+# =====
+# HPIPM
+# =====
+inverse_params_hpipm_H_small = get_params(
+    f"../data/parameters/pendubot_hpipm_params_H{H_small}_inverse.json"
+)
+benchmark(
+    inverse_problems_small,
+    inverse_params_hpipm_H_small,
+    f"../data/results/pendubot_hpipm_H{H_small}_inverse.json",
+)
+
+# ===============================
+# Large Horizon, Inverse Dynamics
+# ===============================
+inverse_problems_large = generate_pendubot_problems.generate_pendubot_problems(
+    N_problems, H_large, ssqpy.model.DynamicsMode.Inverse
+)
+
+# ====
+# ADMM
+# ====
+inverse_params_admm_H_large = get_params(
+    f"../data/parameters/pendubot_admm_params_H{H_large}_inverse.json"
+)
+benchmark(
+    inverse_problems_large,
+    inverse_params_admm_H_large,
+    f"../data/results/pendubot_admm_H{H_large}_inverse.json",
+)
+
+# =====
+# HPIPM
+# =====
+inverse_params_hpipm_H_large = get_params(
+    f"../data/parameters/pendubot_hpipm_params_H{H_large}_inverse.json"
+)
+benchmark(
+    inverse_problems_large,
+    inverse_params_hpipm_H_large,
+    f"../data/results/pendubot_hpipm_H{H_large}_inverse.json",
+)
+
+# ===============================
+# Small Horizon, Forward Dynamics
+# ===============================
+forward_problems_small = generate_pendubot_problems.generate_pendubot_problems(
+    N_problems, H_small, ssqpy.model.DynamicsMode.Forward
+)
+
+# ===
+# ADMM
+# ===
+forward_params_admm_H_small = get_params(
+    f"../data/parameters/pendubot_admm_params_H{H_small}_forward.json"
+)
+benchmark(
+    forward_problems_small,
+    forward_params_admm_H_small,
+    f"../data/results/pendubot_admm_H{H_small}_forward.json",
+)
+
+# =====
+# HPIPM
+# =====
+forward_params_hpipm_H_small = get_params(
+    f"../data/parameters/pendubot_hpipm_params_H{H_small}_forward.json"
+)
+benchmark(
+    forward_problems_small,
+    forward_params_hpipm_H_small,
+    f"../data/results/pendubot_hpipm_H{H_small}_forward.json",
+)
+
+# ===============================
+# Large Horizon, Forward Dynamics
+# ===============================
+forward_problems_large = generate_pendubot_problems.generate_pendubot_problems(
+    N_problems, H_large, ssqpy.model.DynamicsMode.Forward
+)
+
+# ====
+# ADMM
+# ====
+forward_params_admm_H_large = get_params(
+    f"../data/parameters/pendubot_admm_params_H{H_large}_forward.json"
+)
+benchmark(
+    forward_problems_large,
+    forward_params_admm_H_large,
+    f"../data/results/pendubot_admm_H{H_large}_forward.json",
+)
+
+# =====
+# HPIPM
+# =====
+forward_params_hpipm_H_large = get_params(
+    f"../data/parameters/pendubot_hpipm_params_H{H_large}_forward.json"
+)
+benchmark(
+    forward_problems_large,
+    forward_params_hpipm_H_large,
+    f"../data/results/pendubot_hpipm_H{H_large}_forward.json",
+)

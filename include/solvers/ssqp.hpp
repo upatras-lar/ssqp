@@ -84,6 +84,9 @@ class ssqp
         // Updates are done linearly per step
         // Ignored if `tolerance_final` is -1.0
         uint tolerance_update_steps = 0;
+        // Whether to terminate after constraints are satisfied, regardless of
+        // lagrangian jacobian norms
+        bool stop_after_constraint_satisfaction = false;
 
         // Loose success parameters
 
@@ -154,6 +157,7 @@ class ssqp
         void print() const;
 
         bool write(const std::string &filename) const;
+        void write(nlohmann::ordered_json &j) const;
     };
 
     /* Guess struct
@@ -180,10 +184,18 @@ class ssqp
         uint qp_iters;
         // QP solver runtime
         double qp_duration;
+        // SQP iteration duration
+        double iter_duration;
         // Step size
         double step_size;
         // Lagrangian norms
         double norm_dx, norm_du;
+        // Total trajectory cost
+        double trajectory_cost;
+        // Total trajectory stage gap
+        double trajectory_stage_gap;
+        // Total trajectory constraint violation
+        double trajectory_constraint_violation;
         // First stage with a stage gap/constraint violation
         int first_violation_stage;
         // Violation at first violation stage
@@ -195,13 +207,26 @@ class ssqp
 
     struct ConvergenceData
     {
+        // Data per iteration
         std::vector<IterationConvergenceData> iteration_data;
-        double                                total_duration;
-        uint                                  iterations;
-        bool                                  loose_success;
-        double                                trajectory_cost;
-        double                                trajectory_stage_gap;
-        double                                trajectory_constraint_violation;
+
+        // Final SQP data
+        // Total SSQP runtime
+        double total_duration;
+        // Total SSQP iterations
+        uint iterations;
+        // Whether termination occurred due to loose success
+        bool loose_success = false;
+        // Whether termination occurred due to constraint success
+        bool constraint_success = false;
+        // Whether termination occurred due to max iterations being reached
+        bool max_iter_reached = false;
+        // Total trajectory cost
+        double trajectory_cost;
+        // Total trajectory stage gap
+        double trajectory_stage_gap;
+        // Total trajectory constraint violation
+        double trajectory_constraint_violation;
     };
 
     // Initialize an SSQP solver based on the given model and SSQP and ADMM

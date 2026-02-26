@@ -116,12 +116,12 @@ for k in range(HORIZON):
         init_controls.append(init_control)
         continue
 
-    model.addCost(
-        k,
-        costs.FrameSquaredRotationErrorCost(
-            model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, R_WGT
-        ),
-    )
+    # model.addCost(
+    #     k,
+    #     costs.FrameSquaredRotationErrorCost(
+    #         model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, R_WGT
+    #     ),
+    # )
 
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0

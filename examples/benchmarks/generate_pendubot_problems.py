@@ -82,7 +82,7 @@ def cvt(
     return generators * span + lo
 
 
-def generate_pendubot_problems(n, horizon):
+def generate_pendubot_problems(n, horizon, dynamics_mode):
     V_WGT = 1e-3
     U_WGT = 1e-4
     C_WGT = 1.0
@@ -102,7 +102,7 @@ def generate_pendubot_problems(n, horizon):
             dt,
             urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
             actuated_joints=[0],
-            dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+            dynamics_mode=dynamics_mode,
         )
 
         vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)

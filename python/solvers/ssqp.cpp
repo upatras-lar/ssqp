@@ -22,6 +22,7 @@ void bind_ssqp(nb::module_ &m)
         States:
          - Success: Convergence was achieved.
          - Loose Success: Solver stopped after loose success tolerance was reached.
+         - Constraint Success: Solver stopped after constraints were satisfied (with relevant option enabled).
          - Primal Infeasible: The problem is primal infeasible (currently not used).
          - Dual Infeasible: The problem is dual infeasible (currently not used).
          - Max Iter Reached: Maximum number of iterations reached before convergence was achieved.
@@ -29,6 +30,7 @@ void bind_ssqp(nb::module_ &m)
         )doc")
       .value("Success", SolverState::SUCCESS)
       .value("LooseSuccess", SolverState::LOOSE_SUCCESS)
+      .value("ConstraintSuccess", SolverState::CONSTRAINT_SUCCESS)
       .value("PrimalInfeasible", SolverState::PRIMAL_INFEASIBLE)
       .value("DualInfeasible", SolverState::DUAL_INFEASIBLE)
       .value("MaxIterReached", SolverState::MAX_ITER_REACHED)
@@ -79,6 +81,9 @@ void bind_ssqp(nb::module_ &m)
       .def_ro("qp_duration",
               &ssqp::IterationConvergenceData::qp_duration,
               "QP solver runtime.")
+      .def_ro("iter_duration",
+              &ssqp::IterationConvergenceData::iter_duration,
+              "Total SSQP iteration duration.")
       .def_ro("step_size",
               &ssqp::IterationConvergenceData::step_size,
               "Line search step size.")
@@ -88,7 +93,15 @@ void bind_ssqp(nb::module_ &m)
       .def_ro("norm_du",
               &ssqp::IterationConvergenceData::norm_du,
               "Norm of lagrangian's derivative with respect to u after update.")
-
+      .def_ro("trajectory_cost",
+              &ssqp::IterationConvergenceData::trajectory_cost,
+              "Total current trajectory cost")
+      .def_ro("trajectory_stage_gap",
+              &ssqp::IterationConvergenceData::trajectory_stage_gap,
+              "Total current trajectory stage gap.")
+      .def_ro("trajectory_constraint_violation",
+              &ssqp::IterationConvergenceData::trajectory_constraint_violation,
+              "Total current trajectory constraint violation.")
       .def_ro("first_violation_stage",
               &ssqp::IterationConvergenceData::first_violation_stage,
               "First stage where a gap/constraint is violated.")
@@ -118,6 +131,14 @@ void bind_ssqp(nb::module_ &m)
         "loose_success",
         &ssqp::ConvergenceData::loose_success,
         "Whether termination occurred due to loose criteria satisfaction.")
+      .def_ro("constraint_success",
+              &ssqp::ConvergenceData::constraint_success,
+              "Whether termination occurred due to constraint success "
+              "satisfaction only.")
+      .def_ro("max_iter_reached",
+              &ssqp::ConvergenceData::max_iter_reached,
+              "Whether termination occurred due to the maximum iterations "
+              "being reached.")
       .def_ro("trajectory_cost",
               &ssqp::ConvergenceData::trajectory_cost,
               "Total final trajectory cost")
@@ -151,6 +172,12 @@ void bind_ssqp(nb::module_ &m)
         Updates are done linearly per step
         Ignored if `tolerance_final` is -1.0
         )doc")
+      .def_rw("stop_after_constraint_satisfaction",
+              &ssqp::Params::stop_after_constraint_satisfaction,
+              R"doc(
+            Whether to stop the SSQP solver after the constraints and stage gaps have been satisfied.
+            This will stop the solver regardless of the lagrangian jacobian norm values.
+            )doc")
       .def_rw("loose_success", &ssqp::Params::loose_success, R"doc(
         Whether to enable loose success
         Loose success will terminate if there are no updates for
@@ -359,6 +386,11 @@ void bind_ssqp(nb::module_ &m)
                 params.tolerance_update_steps =
                   nb::cast<uint>(kwargs["tolerance_update_steps"]);
             }
+            if (kwargs.contains("stop_after_constraint_satisfaction"))
+            {
+                params.stop_after_constraint_satisfaction =
+                  nb::cast<bool>(kwargs["stop_after_constraint_satisfaction"]);
+            }
             if (kwargs.contains("loose_success"))
             {
                 params.loose_success = nb::cast<bool>(kwargs["loose_success"]);
@@ -414,6 +446,11 @@ void bind_ssqp(nb::module_ &m)
             {
                 params.accept_worse_update =
                   nb::cast<bool>(kwargs["accept_worse_update"]);
+            }
+            if (kwargs.contains("skip_regularization"))
+            {
+                params.skip_regularization =
+                  nb::cast<bool>(kwargs["skip_regularization"]);
             }
             if (kwargs.contains("qp_solver_type"))
             {
