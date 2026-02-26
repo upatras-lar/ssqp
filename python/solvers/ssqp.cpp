@@ -153,7 +153,9 @@ void bind_ssqp(nb::module_ &m)
       .def(nb::init<>())
       .def(nb::init<const std::string &>())
       .def("print", &ssqp::Params::print)
-      .def("write", &ssqp::Params::write)
+      .def("write",
+           static_cast<bool (ssqp::Params::*)(const std::string &) const>(
+             &ssqp::Params::write))
       .def_rw("max_iter",
               &ssqp::Params::max_iter,
               "Maximum number of SSQP iterations.")
