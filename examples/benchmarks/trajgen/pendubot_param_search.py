@@ -1,4 +1,5 @@
 import ssqpy
+import multiprocessing
 import sys
 
 sys.path.insert(0, "..")
@@ -26,6 +27,7 @@ def paramsearch_pendubot(
             ssqpy.solvers.LineSearchMethod.Filter,
             ssqpy.solvers.LineSearchMethod.Merit,
         ],
+        filter_sizes=[1, 10, 100],
         merit_mu_cs=[0.5, 1.0, 2.0],
         merit_mu_gammas=[0.1, 0.5, 1.0],
         init_rhos=[0.1, 0.2, 0.6, 1.0],
@@ -51,6 +53,7 @@ def paramsearch_pendubot(
             ssqpy.solvers.LineSearchMethod.Filter,
             ssqpy.solvers.LineSearchMethod.Merit,
         ],
+        filter_sizes=[1, 10, 100],
         merit_mu_cs=[0.5, 1.0, 2.0],
         merit_mu_gammas=[0.1, 0.5, 1.0],
         square_root_riccatis=[True, False],
@@ -68,13 +71,40 @@ def paramsearch_pendubot(
     )
 
 
+H_small = 25
+H_large = 200
+
 if __name__ == "__main__":
-    print("Benchmarking pendubot with H=25...")
-    paramsearch_pendubot(
-        25, n_problems=10, dynamics_mode=ssqpy.model.DynamicsMode.Forward
+    # Small Horizon, Inverse Dynamics
+    H_small_inv = multiprocessing.Process(
+        target=paramsearch_pendubot,
+        args=(H_small, 10, ssqpy.model.DynamicsMode.Inverse),
     )
 
-    # print("Benchmarking pendubot with H=200...")
-    # paramsearch_pendubot(
-    # 200, n_problems=5, dynamics_mode=ssqpy.model.DynamicsMode.Forward
-    # )
+    # Large Horizon, Inverse Dynamics
+    H_large_inv = multiprocessing.Process(
+        target=paramsearch_pendubot,
+        args=(H_large, 10, ssqpy.model.DynamicsMode.Inverse),
+    )
+
+    # Small Horizon, Forward Dynamics
+    H_small_fwd = multiprocessing.Process(
+        target=paramsearch_pendubot,
+        args=(H_small, 10, ssqpy.model.DynamicsMode.Forward),
+    )
+
+    # Large Horizon, Forward Dynamics
+    H_large_fwd = multiprocessing.Process(
+        target=paramsearch_pendubot,
+        args=(H_large, 10, ssqpy.model.DynamicsMode.Forward),
+    )
+
+    H_small_inv.start()
+    H_large_inv.start()
+    H_small_fwd.start()
+    H_large_fwd.start()
+
+    H_small_inv.join()
+    H_large_inv.join()
+    H_small_fwd.join()
+    H_large_fwd.join()
