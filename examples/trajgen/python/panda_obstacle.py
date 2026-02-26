@@ -3,7 +3,7 @@ import numpy as np
 from math import pi, sin, cos
 
 """
-Panda Constrained example
+Panda Obstacle example
 From the starting end-effector position, move to the target end-effector
 position while avoiding the obstacle defined by the constraints
 """
