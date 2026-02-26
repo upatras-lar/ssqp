@@ -126,18 +126,8 @@ void ssqp::Params::print() const
     }
 }
 
-bool ssqp::Params::write(const std::string &filename) const
+void ssqp::Params::write(nlohmann::ordered_json &j) const
 {
-    using namespace nlohmann;
-
-    std::ofstream out;
-    out.open(filename);
-    if (!out)
-    {
-        return false;
-    }
-
-    ordered_json j;
     j["max_iter"]               = max_iter;
     j["tolerance"]              = tolerance;
     j["tolerance_final"]        = tolerance_final;
@@ -172,6 +162,22 @@ bool ssqp::Params::write(const std::string &filename) const
         j["qp_solver_type"] = "HPIPM";
         hpipm_params.write(j);
     }
+}
+
+bool ssqp::Params::write(const std::string &filename) const
+{
+    using namespace nlohmann;
+
+    std::ofstream out;
+    out.open(filename);
+    if (!out)
+    {
+        return false;
+    }
+
+    ordered_json j;
+
+    write(j);
 
     out << std::setw(4) << j;
     out.close();
@@ -253,7 +259,7 @@ SolverState ssqp::solve(Guess &guess)
     SolverState ssqp_state;
 
     DEBUG_LOGLN("Starting SSQP solver loop");
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     _setup_qp<true>();
     std::unique_ptr<QPSolver> qp_solver;
@@ -275,11 +281,11 @@ SolverState ssqp::solve(Guess &guess)
     {
         _convergence_data.iteration_data.push_back(IterationConvergenceData());
 
-        auto        start_qp = std::chrono::high_resolution_clock::now();
-        SolverState state    = qp_solver->solve(sol);
+        auto        start_iter_time = std::chrono::high_resolution_clock::now();
+        SolverState state           = qp_solver->solve(sol);
         _convergence_data.iteration_data.back().qp_duration =
           std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::high_resolution_clock::now() - start_qp)
+            std::chrono::high_resolution_clock::now() - start_iter_time)
             .count();
 
         switch (state)
@@ -429,9 +435,20 @@ SolverState ssqp::solve(Guess &guess)
                _check_termination<Params::calculate_full_violations>()) !=
             ONGOING)
         {
+            _convergence_data.iteration_data.back().iter_duration =
+              std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::high_resolution_clock::now() - start_iter_time)
+                .count();
+            _convergence_data.iteration_data.back().trajectory_cost =
+              _lf(_guess.x, _guess.u);
+            _convergence_data.iteration_data.back().trajectory_stage_gap =
+              _gammaf(_guess.x, _guess.u);
+            _convergence_data.iteration_data.back()
+              .trajectory_constraint_violation = _cf(_guess.x, _guess.u);
+
             _convergence_data.total_duration =
               std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::high_resolution_clock::now() - start)
+                std::chrono::high_resolution_clock::now() - start_time)
                 .count();
 
             _convergence_data.trajectory_cost = _lf(_guess.x, _guess.u);
@@ -478,14 +495,26 @@ SolverState ssqp::solve(Guess &guess)
         _setup_qp<false>();
         qp_solver->reset();
 
+        _convergence_data.iteration_data.back().iter_duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - start_iter_time)
+            .count();
+        _convergence_data.iteration_data.back().trajectory_cost =
+          _lf(_guess.x, _guess.u);
+        _convergence_data.iteration_data.back().trajectory_stage_gap =
+          _gammaf(_guess.x, _guess.u);
+        _convergence_data.iteration_data.back()
+          .trajectory_constraint_violation = _cf(_guess.x, _guess.u);
+
         FrameMarkNamed("SQP Iteration");
     }
 
     _convergence_data.total_duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::high_resolution_clock::now() - start)
+        std::chrono::high_resolution_clock::now() - start_time)
         .count();
 
+    _convergence_data.max_iter_reached     = true;
     _convergence_data.trajectory_cost      = _lf(_guess.x, _guess.u);
     _convergence_data.trajectory_stage_gap = _gammaf(_guess.x, _guess.u);
     _convergence_data.trajectory_constraint_violation = _cf(_guess.x, _guess.u);
@@ -510,8 +539,8 @@ bool ssqp::write(const std::string &filename)
     }
 
     ordered_json j;
-    j["solver"]              = ordered_json({});
-    j["solver"]["tolerance"] = _params.tolerance;
+    j["solver"] = ordered_json({});
+    _params.write(j["solver"]);
 
     j["convergence"]                    = ordered_json({});
     j["convergence"]["runtime_ms"]      = _convergence_data.total_duration;
@@ -526,14 +555,23 @@ bool ssqp::write(const std::string &filename)
     for (uint i = 0; i < _convergence_data.iteration_data.size(); ++i)
     {
         ordered_json iteration_data({
-          {         "qp_iterations",_convergence_data.iteration_data[i].qp_iters                                    },
-          {            "runtime_us", _convergence_data.iteration_data[i].qp_duration },
-          {             "step_size",   _convergence_data.iteration_data[i].step_size },
-          {               "norm_dx",     _convergence_data.iteration_data[i].norm_dx },
-          {               "norm_du",     _convergence_data.iteration_data[i].norm_du },
-          { "first_violation_stage",
-           _convergence_data.iteration_data[i].first_violation_stage                },
-          {             "violation",   _convergence_data.iteration_data[i].violation }
+          {                   "qp_iterations",_convergence_data.iteration_data[i].qp_iters                                              },
+          {                   "qp_runtime_us", _convergence_data.iteration_data[i].qp_duration },
+          {                "iter_duration_us",
+           _convergence_data.iteration_data[i].iter_duration                                  },
+          {                       "step_size",   _convergence_data.iteration_data[i].step_size },
+          {                         "norm_dx",     _convergence_data.iteration_data[i].norm_dx },
+          {                         "norm_du",     _convergence_data.iteration_data[i].norm_du },
+          {                 "trajectory_cost",
+           _convergence_data.iteration_data[i].trajectory_cost                                },
+          {            "trajectory_stage_gap",
+           _convergence_data.iteration_data[i].trajectory_stage_gap                           },
+          { "trajectory_constraint_violation",
+           _convergence_data.iteration_data[i]
+           .trajectory_constraint_violation                                                   },
+          {           "first_violation_stage",
+           _convergence_data.iteration_data[i].first_violation_stage                          },
+          {                       "violation",   _convergence_data.iteration_data[i].violation }
         });
 
         if (_convergence_data.iteration_data[i].gap_violations.size() ==

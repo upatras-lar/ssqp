@@ -456,9 +456,14 @@ SolverState ssqp::_check_termination()
     if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
         lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
     {
-        _convergence_data.iterations    = _iter + 1;
-        _convergence_data.loose_success = false;
+        _convergence_data.iterations = _iter + 1;
         return SUCCESS;
+    }
+    else if (_params.stop_after_constraint_satisfaction)
+    {
+        _convergence_data.iterations         = _iter + 1;
+        _convergence_data.constraint_success = true;
+        return CONSTRAINT_SUCCESS;
     }
 
     if (_params.loose_success &&
