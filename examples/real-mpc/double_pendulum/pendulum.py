@@ -1,7 +1,6 @@
 import socket
 import os
 import numpy as np
-from math import pi
 import ssqpy
 import sys
 
