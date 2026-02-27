@@ -25,16 +25,18 @@ U_WGT = 1e-4
 F_WGT = 1e-4
 TF_WGT = 1.0
 RF_WGT = 1.0
+C_WGT = 1e-3
 
 # Initial and final positions
 base_pos = np.array([0.0, 0.0, 0.3689])
+base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 final_pos = np.array([0.0, 0.0, 0.3689])
 
 # Initial configuration
 init = np.zeros(37)
 init[:3] = base_pos
 init[6] = 1.0
-init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
+init[7:19] = base_config
 
 init_control = np.zeros(30)
 init_control[20] = 3.75 * 9.81
@@ -48,13 +50,16 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
+config_cost = costs.SquaredConfigurationErrorCost(
+    base_config, nq, nv, C_WGT, True
+)
 
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
@@ -116,6 +121,7 @@ for k in range(HORIZON):
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
+    model.addCost(k, config_cost)
 
     model.addConstraints(k, fl_foot_pos_bound)
     model.addConstraints(k, fr_foot_pos_bound)
@@ -142,12 +148,6 @@ for k in range(HORIZON):
 
 model.addCost(HORIZON, joint_vel_cost)
 
-model.addCost(
-    HORIZON,
-    costs.FrameSquaredPoseErrorCost(
-        model, final_pos, np.eye(3), "base", nq, nv, TF_WGT, RF_WGT
-    ),
-)
 model.addConstraints(
     HORIZON,
     constraints.FrameLinearVelocityBound(

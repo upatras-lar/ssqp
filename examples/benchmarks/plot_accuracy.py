@@ -71,7 +71,13 @@ def collect_data(filepath, tolerances):
 
 def main():
     data_dir = Path("data/results")
-    files = sorted(data_dir.glob("panda_*.json"))
+    files = sorted(
+        [
+            file
+            for file in data_dir.glob("pendubot_*.json")
+            if "200" in file.stem
+        ]
+    )
 
     # Tolerance values to test (logarithmically spaced from 1e-1 to 1e-6)
     tolerances = np.logspace(-1, -6, 100)
@@ -80,7 +86,7 @@ def main():
     all_data = {}
     for filepath in files:
         # Create shorter label from filename
-        label = filepath.stem.replace("panda_", "").replace("_H25", "")
+        label = filepath.stem.replace("pendubot_", "").replace("_H200", "")
         all_data[label] = collect_data(filepath, tolerances)
 
     # Create figure with 2 rows, 1 column

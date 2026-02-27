@@ -62,10 +62,16 @@ def main():
     metrics_file = data_dir / "metrics_cache.json"
 
     # === COMPUTE AND SAVE METRICS (uncomment to regenerate) ===
-    files = sorted(data_dir.glob("panda_*.json"))
+    files = sorted(
+        [
+            file
+            for file in data_dir.glob("pendubot_*.json")
+            if "200" in file.stem
+        ]
+    )
     all_data = {}
     for filepath in files:
-        label = filepath.stem.replace("panda_", "").replace("_H25", "")
+        label = filepath.stem.replace("pendubot_", "").replace("_H200", "")
         all_data[label] = process_file(filepath)
     with open(metrics_file, "w") as f:
         json.dump(all_data, f, indent=2)
