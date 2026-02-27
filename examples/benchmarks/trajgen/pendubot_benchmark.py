@@ -9,7 +9,7 @@ import generate_pendubot_problems
 
 
 # Total number of problems to generate
-N_problems = 1000
+N_problems = 50
 
 # Small and large horizon values
 # Equivalent parameter files must exist for these values
@@ -86,12 +86,12 @@ H_large_fwd_p = multiprocessing.Process(
 )
 
 
-H_small_inv_p.start()
+# H_small_inv_p.start()
 H_large_inv_p.start()
-H_small_fwd_p.start()
+# H_small_fwd_p.start()
 H_large_fwd_p.start()
 
-H_small_inv_p.join()
+# H_small_inv_p.join()
 H_large_inv_p.join()
-H_small_fwd_p.join()
+# H_small_fwd_p.join()
 H_large_fwd_p.join()

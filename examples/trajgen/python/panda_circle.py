@@ -162,10 +162,7 @@ state, x, u = solver.solve()
 # The generated trajectory can be visualized using the `visualize.py` script
 solver.write("../data/panda_circle.json")
 
-print("x:")
-x.print()
-print("u:")
-u.print()
+print(f"Solver state: {state}")
 
 # Plot error and end effector position on 2D plane, compared to expected
 # unconstrained and constrained position
