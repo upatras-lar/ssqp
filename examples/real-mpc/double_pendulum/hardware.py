@@ -11,7 +11,7 @@ from socket_utils import send, recv
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Trajectory visualizer via Viser"
+        description="Hardware control script using pyCandle"
     )
 
     parser.add_argument(

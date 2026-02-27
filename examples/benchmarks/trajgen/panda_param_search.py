@@ -63,7 +63,7 @@ def paramsearch_panda(dynamics_mode=ssqpy.model.DynamicsMode.Inverse):
     result_hpipm.print()
 
     result_hpipm.write(
-        f"../data/parameters/pendubot_hpipm_params_{dynamics_mode_str}.json"
+        f"../data/parameters/panda_hpipm_params_{dynamics_mode_str}.json"
     )
 
 

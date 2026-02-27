@@ -451,11 +451,13 @@ SolverState ssqp::solve(Guess &guess)
                 std::chrono::high_resolution_clock::now() - start_time)
                 .count();
 
-            _convergence_data.trajectory_cost = _lf(_guess.x, _guess.u);
+            _convergence_data.trajectory_cost =
+              _convergence_data.iteration_data.back().trajectory_cost;
             _convergence_data.trajectory_stage_gap =
-              _gammaf(_guess.x, _guess.u);
+              _convergence_data.iteration_data.back().trajectory_stage_gap;
             _convergence_data.trajectory_constraint_violation =
-              _cf(_guess.x, _guess.u);
+              _convergence_data.iteration_data.back()
+                .trajectory_constraint_violation;
 
             if (_iter % 40 == 0)
             {

@@ -1,7 +1,7 @@
 import socket
 import os
 import numpy as np
-from math import pi, atan2, sin, cos
+from math import atan2, sin, cos
 import ssqpy
 import sys
 
@@ -9,7 +9,7 @@ sys.path.insert(0, "..")
 from socket_utils import send, recv
 
 # Use -1 to to not plot
-PLOT_STEPS = 10000
+PLOT_STEPS = -1
 
 if PLOT_STEPS > 0:
     import matplotlib.pyplot as plt
@@ -25,9 +25,9 @@ nv = 2
 dt = 0.01
 MPC_H = 45
 
-V_WGT = 1e-3
-U_WGT = 1e-3
-TIP_WGT = 3.5
+V_WGT = 7e-4
+U_WGT = 7e-4
+TIP_WGT = 4.0
 
 model = ssqpy.model.Model(
     MPC_H,
