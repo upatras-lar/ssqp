@@ -1,5 +1,6 @@
 /.vscode/
 /build/*
+/examples/data/*
 /examples/benchmarks/data/*
 /examples/benchmarks/benchmark-venv/*
 /examples/benchmarks/trajgen/pendubot_plots.py
