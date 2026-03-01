@@ -2,6 +2,36 @@ import json
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Script for plotting certain metrics from result files"
+    )
+
+    parser.add_argument(
+        "-d",
+        "--data-dir",
+        default="data/results",
+        help="Directory for result data",
+    )
+
+    parser.add_argument(
+        "-m",
+        "--model",
+        required=True,
+        help="The problem model (result data starting with `[model]_` will be used for plotting)",
+    )
+
+    parser.add_argument(
+        "-H",
+        "--horizon",
+        required=True,
+        help="The problem horizon (result data filenames will be searched for `_H[horizon]_`)",
+    )
+
+    return parser.parse_args()
 
 
 def compute_stats(values):
@@ -24,16 +54,12 @@ def process_file(filepath):
 
     # Median QP iterations per problem (median across all SQP iterations within each problem)
     median_qp_iters = [
-        np.median(
-            [it["qp_iterations"] for it in p["convergence"]["iteration_data"]]
-        )
+        np.median([it["qp_iterations"] for it in p["convergence"]["iteration_data"]])
         for p in problems
     ]
     # Median QP time (us) per problem
     median_qp_time_us = [
-        np.median(
-            [it["qp_runtime_us"] for it in p["convergence"]["iteration_data"]]
-        )
+        np.median([it["qp_runtime_us"] for it in p["convergence"]["iteration_data"]])
         for p in problems
     ]
 
@@ -42,9 +68,7 @@ def process_file(filepath):
     final_constraint_viol = [
         p["convergence"]["trajectory_constraint_violation"] for p in problems
     ]
-    final_stage_gap = [
-        p["convergence"]["trajectory_stage_gap"] for p in problems
-    ]
+    final_stage_gap = [p["convergence"]["trajectory_stage_gap"] for p in problems]
 
     return {
         "sqp_iterations": compute_stats(sqp_iterations),
@@ -58,20 +82,24 @@ def process_file(filepath):
 
 
 def main():
-    data_dir = Path("data/results")
+    args = parse_args()
+
+    data_dir = Path(args.data_dir)
     metrics_file = data_dir / "metrics_cache.json"
 
     # === COMPUTE AND SAVE METRICS (uncomment to regenerate) ===
     files = sorted(
         [
             file
-            for file in data_dir.glob("pendubot_*.json")
-            if "200" in file.stem
+            for file in data_dir.glob(f"{args.model}_*.json")
+            if f"_H{args.horizon}_" in file.stem
         ]
     )
     all_data = {}
     for filepath in files:
-        label = filepath.stem.replace("pendubot_", "").replace("_H200", "")
+        label = filepath.stem.replace(f"{args.model}_", "").replace(
+            f"_H{args.horizon}", ""
+        )
         all_data[label] = process_file(filepath)
     with open(metrics_file, "w") as f:
         json.dump(all_data, f, indent=2)
@@ -256,7 +284,7 @@ def main():
     ax1.legend(loc="upper left", fontsize=8)
 
     plt.tight_layout()
-    plt.savefig("data/plots/metrics_bars.png", dpi=150)
+    plt.savefig(f"data/plots/{args.model}_H{args.horizon}_metrics_bars.png", dpi=150)
     plt.show()
 
 

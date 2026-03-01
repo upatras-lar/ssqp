@@ -13,8 +13,8 @@ def get_params(filepath):
     sqp_params.tolerance = 1e-6
     sqp_params.max_iter = 500
 
-    sqp_params.admm_params.abs_tolerance = 1e-8
-    sqp_params.admm_params.rel_tolerance = 1e-8
+    sqp_params.admmParams.abs_tolerance = 1e-8
+    sqp_params.admmParams.rel_tolerance = 1e-8
 
     return sqp_params
 

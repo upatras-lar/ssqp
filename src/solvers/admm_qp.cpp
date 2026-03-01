@@ -162,6 +162,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 
     // Warm start with unconstrained LQR
     lqr::Params lqr_params;
+    lqr_params.sigma     = _params.sigma;
     lqr_params.reg_init *= std::pow(10, _reg_incr);
     if (lqr_params.reg_init > lqr_params.reg_max)
     {

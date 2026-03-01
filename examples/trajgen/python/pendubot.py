@@ -45,7 +45,7 @@ model.finalize(terminal_cost=config_cost)
 solver = ssqpy.solvers.ssqp(
     model,
     tolerance=1e-2,
-    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     filter_size=10,
     hpipm_warm_start=False,
     hpipm_prediction_correction=True,

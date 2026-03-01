@@ -114,15 +114,17 @@ def _generate_admm_filter_paramset(
         params.line_search_method = ssqpy.solvers.LineSearchMethod.Filter
         params.filter_size = filter_size
         params.qp_solver_type = ssqpy.solvers.QPSolverType.ADMM
-        params.admm_params.init_rho = init_rho
-        params.admm_params.alpha = alpha
-        params.admm_params.sigma = sigma
-        params.admm_params.rho_update = rho_update
-        params.admm_params.adaptive_rho_tolerance = adaptive_rho_tol
-        params.admm_params.rho_update_iter_freq = rho_update_iter_freq
-        params.admm_params.warm_start = warm_start
-        params.admm_params.reset_rho = reset_rho
-        params.admm_params.reset_y = reset_y
+        params.admmParams.abs_tolerance = 1e-8
+        params.admmParams.rel_tolerance = 1e-8
+        params.admmParams.init_rho = init_rho
+        params.admmParams.alpha = alpha
+        params.admmParams.sigma = sigma
+        params.admmParams.rho_update = rho_update
+        params.admmParams.adaptive_rho_tolerance = adaptive_rho_tol
+        params.admmParams.rho_update_iter_freq = rho_update_iter_freq
+        params.admmParams.warm_start = warm_start
+        params.admmParams.reset_rho = reset_rho
+        params.admmParams.reset_y = reset_y
 
         paramset.append(params)
 
@@ -197,15 +199,17 @@ def _generate_admm_merit_paramset(
         params.merit_mu_c = merit_mu_c
         params.merit_mu_gamma = merit_mu_gamma
         params.qp_solver_type = ssqpy.solvers.QPSolverType.ADMM
-        params.admm_params.init_rho = init_rho
-        params.admm_params.alpha = alpha
-        params.admm_params.sigma = sigma
-        params.admm_params.rho_update = rho_update
-        params.admm_params.adaptive_rho_tolerance = adaptive_rho_tol
-        params.admm_params.rho_update_iter_freq = rho_update_iter_freq
-        params.admm_params.warm_start = warm_start
-        params.admm_params.reset_rho = reset_rho
-        params.admm_params.reset_y = reset_y
+        params.admmParams.abs_tolerance = 1e-8
+        params.admmParams.rel_tolerance = 1e-8
+        params.admmParams.init_rho = init_rho
+        params.admmParams.alpha = alpha
+        params.admmParams.sigma = sigma
+        params.admmParams.rho_update = rho_update
+        params.admmParams.adaptive_rho_tolerance = adaptive_rho_tol
+        params.admmParams.rho_update_iter_freq = rho_update_iter_freq
+        params.admmParams.warm_start = warm_start
+        params.admmParams.reset_rho = reset_rho
+        params.admmParams.reset_y = reset_y
 
         paramset.append(params)
 
@@ -224,7 +228,7 @@ def generate_hpipm_paramset(
     reg_prims=[1e-12, 1e-5],
     warm_starts=[True, False],
     prediction_corrections=[True, False],
-    square_root_riccatis=[True],
+    square_root_riccatis=[True, False],
     split_steps=[True, False],
 ):
     paramset = []
