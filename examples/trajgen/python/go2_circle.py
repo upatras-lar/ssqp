@@ -173,7 +173,7 @@ solver = ssqpy.solvers.ssqp(
     merit_mu_c=2.0,
     merit_mu_gamma=0.1,
     admm_max_iter=250,
-    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     hpipm_max_iter=500,
 )
 
