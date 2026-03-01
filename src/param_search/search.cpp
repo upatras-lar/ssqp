@@ -28,7 +28,6 @@ const solvers::ssqp::Params ParamSearch::search() const
 
     for (const solvers::ssqp::Params &sqp_params : _hyperparams)
     {
-        // TODO: decide metric
         double metric = 0.0;
 
         for (const model::Model &problem : _problems)
@@ -44,9 +43,9 @@ const solvers::ssqp::Params ParamSearch::search() const
                 const solvers::ssqp::ConvergenceData cd =
                   solver.convergenceData();
 
-                metric += 5.0 * cd.iterations + 4.0 * cd.total_duration +
-                          3.0 * cd.trajectory_cost +
-                          2.0 * cd.trajectory_constraint_violation +
+                metric += cd.iterations + 2.0 * cd.total_duration +
+                          20.0 * cd.trajectory_cost +
+                          8.0 * cd.trajectory_constraint_violation +
                           cd.trajectory_stage_gap;
             }
             catch (std::runtime_error &e)

@@ -61,7 +61,7 @@ admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
 
-ssqp_params.admm_params = admm_params
+ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=100)
 
@@ -97,9 +97,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         mjdata.ctrl = control
         if NOISE:
             mjdata.ctrl[0] += (
-                np.random.uniform(0, 0.1)
-                if np.random.uniform(0, 10) > 8
-                else 0.0
+                np.random.uniform(0, 0.1) if np.random.uniform(0, 10) > 8 else 0.0
             )
 
         elapsed += time() - pre

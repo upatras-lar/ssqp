@@ -231,7 +231,7 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("qp_solver_type",
               &ssqp::Params::qp_solver_type,
               "The type of QP solver to use.")
-      .def_rw("admm_params",
+      .def_rw("admmParams",
               &ssqp::Params::admm_params,
               "Parameters for the ADMM QP solver.")
       .def_rw("hpipmParams",

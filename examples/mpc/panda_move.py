@@ -86,7 +86,7 @@ admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
 
-ssqp_params.admm_params = admm_params
+ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=5, qp_iters=75)
 

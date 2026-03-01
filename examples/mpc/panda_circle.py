@@ -123,7 +123,7 @@ admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
 admm_params.warm_start = False
 
-ssqp_params.admm_params = admm_params
+ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=75)
 
@@ -153,9 +153,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             #     f"Stage: {stage}, Mujoco: {mjdata.xpos[9]}, Ours: {model.forwardKinematics(mjdata.qpos, "panda_ee")[0]}"
             # )
             # state_data.append(mjdata.xpos[9].copy())
-            state_data.append(
-                model.forwardKinematics(mjdata.qpos, "panda_ee")[0]
-            )
+            state_data.append(model.forwardKinematics(mjdata.qpos, "panda_ee")[0])
 
             if stage == H:
                 break

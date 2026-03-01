@@ -2,6 +2,36 @@ import json
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Script for plotting accuracy from result files"
+    )
+
+    parser.add_argument(
+        "-d",
+        "--data-dir",
+        default="data/results",
+        help="Directory for result data",
+    )
+
+    parser.add_argument(
+        "-m",
+        "--model",
+        required=True,
+        help="The problem model (result data starting with `[model]_` will be used for plotting)",
+    )
+
+    parser.add_argument(
+        "-H",
+        "--horizon",
+        required=True,
+        help="The problem horizon (result data filenames will be searched for `_H[horizon]_`)",
+    )
+
+    return parser.parse_args()
 
 
 def find_convergence_point(problem, tolerance):
@@ -70,12 +100,14 @@ def collect_data(filepath, tolerances):
 
 
 def main():
-    data_dir = Path("data/results")
+    args = parse_args()
+
+    data_dir = Path(args.data_dir)
     files = sorted(
         [
             file
-            for file in data_dir.glob("pendubot_*.json")
-            if "200" in file.stem
+            for file in data_dir.glob(f"{args.model}_*.json")
+            if f"_H{args.horizon}_" in file.stem
         ]
     )
 
@@ -86,7 +118,9 @@ def main():
     all_data = {}
     for filepath in files:
         # Create shorter label from filename
-        label = filepath.stem.replace("pendubot_", "").replace("_H200", "")
+        label = filepath.stem.replace(f"{args.model}_", "").replace(
+            f"_H{args.horizon}", ""
+        )
         all_data[label] = collect_data(filepath, tolerances)
 
     # Create figure with 2 rows, 1 column
@@ -157,7 +191,9 @@ def main():
     ax_time.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("data/plots/convergence_lines.png", dpi=150)
+    plt.savefig(
+        f"data/plots/{args.model}_H{args.horizon}_convergence_lines.png", dpi=150
+    )
     plt.show()
 
 
