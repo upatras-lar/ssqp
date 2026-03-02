@@ -10,11 +10,11 @@ def get_params(filepath):
     to get a full run
     """
     sqp_params = ssqpy.solvers.ssqpParams(filepath)
-    sqp_params.tolerance = 1e-6
-    sqp_params.max_iter = 500
+    sqp_params.tolerance = 1e-3
+    sqp_params.max_iter = 1000
 
-    sqp_params.admmParams.abs_tolerance = 1e-8
-    sqp_params.admmParams.rel_tolerance = 1e-8
+    sqp_params.admmParams.abs_tolerance = 1e-4
+    sqp_params.admmParams.rel_tolerance = 1e-4
 
     return sqp_params
 
@@ -26,9 +26,11 @@ def benchmark(problems, sqp_params, save_to):
     """
     results = []
 
-    tmp_filepath = f"../data/tmp{multiprocessing.current_process().pid}.json"
+    pid = multiprocessing.current_process().pid
 
-    for problem in problems:
+    tmp_filepath = f"../data/tmp{pid}.json"
+
+    for i, problem in enumerate(problems):
         solver = ssqpy.solvers.ssqp(problem, sqp_params)
         solver.solve()
         solver.write(tmp_filepath)
@@ -37,6 +39,8 @@ def benchmark(problems, sqp_params, save_to):
             data = json.load(f)
 
         results.append(data)
+
+        print(f"Process {pid} progress: {(i + 1) / len(problems) * 100}%")
 
     remove(tmp_filepath)
 

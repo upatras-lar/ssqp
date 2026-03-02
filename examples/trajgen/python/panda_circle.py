@@ -144,14 +144,14 @@ model.finalize(init_states=init_state)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    tolerance=1e-6,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    # admm_abs_tolerance=1e-3,
-    # admm_rel_tolerance=1e-3,
-    # admm_adaptive_rho_tolerance=10,
-    # admm_rho_update_iter_freq=25,
+    tolerance=1e-3,
+    # line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
+    admm_abs_tolerance=1e-4,
+    admm_rel_tolerance=1e-4,
+    admm_adaptive_rho_tolerance=10,
+    # admm_rho_update_iter_freq=10,
     # admm_max_iter=1000,
-    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     hpipm_max_iter=250,
 )
 
