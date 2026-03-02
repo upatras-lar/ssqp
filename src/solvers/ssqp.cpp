@@ -432,7 +432,7 @@ SolverState ssqp::solve(Guess &guess)
 
         // Termination
         if ((ssqp_state =
-               _check_termination<Params::calculate_full_violations>()) !=
+               _check_termination<Params::calculate_stagewise_convergence>()) !=
             ONGOING)
         {
             _convergence_data.iteration_data.back().iter_duration =
@@ -579,17 +579,22 @@ bool ssqp::write(const std::string &filename)
         if (_convergence_data.iteration_data[i].gap_violations.size() ==
             dims.horizon)
         {
+            iteration_data["stage_costs"]          = ordered_json::array();
             iteration_data["stage_gap_violations"] = ordered_json::array();
             iteration_data["stage_constraint_violations"] =
               ordered_json::array();
             for (uint k = 0; k < dims.horizon; ++k)
             {
+                iteration_data["stage_costs"].push_back(
+                  _convergence_data.iteration_data[i].costs[k]);
                 iteration_data["stage_gap_violations"].push_back(
                   _convergence_data.iteration_data[i].gap_violations[k]);
                 iteration_data["stage_constraint_violations"].push_back(
                   _convergence_data.iteration_data[i].constraint_violations[k]);
             }
 
+            iteration_data["stage_costs"].push_back(
+              _convergence_data.iteration_data[i].costs[dims.horizon]);
             iteration_data["stage_constraint_violations"].push_back(
               _convergence_data.iteration_data[i]
                 .constraint_violations[dims.horizon]);
