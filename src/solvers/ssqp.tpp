@@ -203,7 +203,7 @@ void ssqp::_setup_qp()
     }
 }
 
-template<bool fullViolations>
+template<bool fullStagewiseConvergence>
 SolverState ssqp::_check_termination()
 {
     ZoneScopedN("SSQP: _check_termination");
@@ -325,8 +325,9 @@ SolverState ssqp::_check_termination()
 
     _convergence_data.iteration_data.back().first_violation_stage = -1;
 
-    if constexpr (fullViolations)
+    if constexpr (fullStagewiseConvergence)
     {
+        _convergence_data.iteration_data.back().costs.resize(horizon + 1);
         _convergence_data.iteration_data.back().gap_violations.resize(horizon);
         _convergence_data.iteration_data.back().constraint_violations.resize(
           horizon + 1);
@@ -343,7 +344,7 @@ SolverState ssqp::_check_termination()
             .lpNorm<Eigen::Infinity>();
         if (gap_norm > _params.tolerance)
         {
-            if constexpr (fullViolations)
+            if constexpr (fullStagewiseConvergence)
             {
                 if (_convergence_data.iteration_data.back()
                       .first_violation_stage == -1)
@@ -375,7 +376,7 @@ SolverState ssqp::_check_termination()
               constraints[k]->violation(_guess.x.stage(k), _guess.u.stage(k));
             if (csnorm > _params.tolerance)
             {
-                if constexpr (fullViolations)
+                if constexpr (fullStagewiseConvergence)
                 {
                     if (_convergence_data.iteration_data.back()
                           .first_violation_stage == -1)
@@ -399,7 +400,7 @@ SolverState ssqp::_check_termination()
             }
         }
 
-        if constexpr (fullViolations)
+        if constexpr (fullStagewiseConvergence)
         {
             _convergence_data.iteration_data.back().gap_violations[k] =
               gap_norm;
@@ -418,7 +419,7 @@ SolverState ssqp::_check_termination()
 
         if (csnorm > _params.tolerance)
         {
-            if constexpr (fullViolations)
+            if constexpr (fullStagewiseConvergence)
             {
                 if (_convergence_data.iteration_data.back()
                       .first_violation_stage == -1)
@@ -442,10 +443,19 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    if constexpr (fullViolations)
+    if constexpr (fullStagewiseConvergence)
     {
         _convergence_data.iteration_data.back().constraint_violations[horizon] =
           csnorm;
+
+        const model::CostsContainer costs = _model.costs();
+        for (uint k = 0; k < horizon; ++k)
+        {
+            _convergence_data.iteration_data.back().costs[k] =
+              costs[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k))[0];
+        }
+        _convergence_data.iteration_data.back().costs[horizon] =
+          costs[horizon]->evaluate(_guess.x.stage(horizon), VecX::Zero(1))[0];
 
         if (_convergence_data.iteration_data.back().first_violation_stage != -1)
         {

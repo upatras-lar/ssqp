@@ -38,25 +38,26 @@ model.addCost(horizon, config_cost)
 
 model.finalize(init_states=[np.array((0.0, 0.0, 0.0, 0.0))])
 
-# params = ssqpy.solvers.ssqpParams(
-#     "../../benchmarks/data/parameters/pendubot_admm_params_H200_inverse.json"
-# )
-# params.max_iter = 500
-# params.tolerance = 1e-2
-# params.admmParams.abs_tolerance = 1e-3
-# params.admmParams.rel_tolerance = 1e-4
+params = ssqpy.solvers.ssqpParams(
+    "../../benchmarks/data/parameters/pendubot_admm_params_H200_inverse.json"
+)
+params.max_iter = 10000
+params.tolerance = 1e-4
+
+params.admmParams.abs_tolerance = 1e-5
+params.admmParams.rel_tolerance = 1e-5
 
 solver = ssqpy.solvers.ssqp(
     model,
-    # params,
-    max_iter=500,
-    tolerance=1e-3,
-    admm_adaptive_rho_tolerance=1,
-    admm_rho_update_freq=1,
-    admm_abs_tolerance=1e-4,
-    admm_rel_tolerance=1e-4,
-    admm_max_iter=500,
-    admm_warm_start=False,
+    params,
+    # max_iter=500,
+    # tolerance=1e-3,
+    # admm_adaptive_rho_tolerance=1,
+    # admm_rho_update_freq=1,
+    # admm_abs_tolerance=1e-4,
+    # admm_rel_tolerance=1e-4,
+    # admm_max_iter=500,
+    # admm_warm_start=False,
     # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
 )
 

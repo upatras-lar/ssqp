@@ -38,6 +38,7 @@ def run(horizon, dynamics_mode):
         f"../data/results/pendubot_admm_H{horizon}_{dynamics_mode_str}.json",
     )
 
+    """
     # =====
     # HPIPM
     # =====
@@ -49,6 +50,7 @@ def run(horizon, dynamics_mode):
         params_hpipm,
         f"../data/results/pendubot_hpipm_H{horizon}_{dynamics_mode_str}.json",
     )
+    """
 
 
 H_small_inv_p = multiprocessing.Process(
@@ -84,12 +86,12 @@ H_large_fwd_p = multiprocessing.Process(
 )
 
 
-H_small_inv_p.start()
+# H_small_inv_p.start()
 H_large_inv_p.start()
-H_small_fwd_p.start()
+# H_small_fwd_p.start()
 H_large_fwd_p.start()
 
-H_small_inv_p.join()
+# H_small_inv_p.join()
 H_large_inv_p.join()
-H_small_fwd_p.join()
+# H_small_fwd_p.join()
 H_large_fwd_p.join()
