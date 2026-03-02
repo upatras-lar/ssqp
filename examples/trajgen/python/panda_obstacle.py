@@ -75,19 +75,28 @@ model.addCost(H, joint_vel_cost)
 
 model.finalize(init_states=init_state)
 
+params = ssqpy.solvers.ssqpParams(
+    "../../benchmarks/data/parameters/panda_admm_params_inverse.json"
+)
+params.admmParams.abs_tolerance = 1e-4
+params.admmParams.rel_tolerance = 1e-4
+
 solver = ssqpy.solvers.ssqp(
     model,
-    loose_success=False,
-    tolerance=1e-2,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    merit_mu_c=10.0,
-    merit_mu_gamma=0.1,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_adaptive_rho_tolerance=5,
-    admm_rho_update_iter_freq=25,
-    admm_max_iter=1000,
-    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    params,
+    tolerance=1e-3,
+    # loose_success=False,
+    # tolerance=1e-3,
+    # line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
+    # merit_mu_c=2.0,
+    # merit_mu_gamma=0.5,
+    # admm_init_rho=0.1,
+    # admm_abs_tolerance=1e-4,
+    # admm_rel_tolerance=1e-4,
+    # admm_adaptive_rho_tolerance=1,
+    # admm_rho_update_iter_freq=10,
+    # admm_max_iter=1000,
+    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     # hpipm_max_iter=250,
 )
 

@@ -15,10 +15,10 @@ nv = 9
 MPC_H = 15
 H = 200
 dt = 0.01
-T_WGT = 20.0
-R_WGT = 4.0
-V_WGT = 1e-4
-U_WGT = 1e-6
+T_WGT = 5.0
+R_WGT = 1.0
+V_WGT = 1e-3
+U_WGT = 1e-4
 
 INVERSE_MODE = True
 

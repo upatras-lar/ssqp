@@ -10,9 +10,7 @@ import get_panda_problems
 
 def paramsearch_panda(dynamics_mode=ssqpy.model.DynamicsMode.Inverse):
     dynamics_mode_str = (
-        "forward"
-        if dynamics_mode == ssqpy.model.DynamicsMode.Forward
-        else "inverse"
+        "forward" if dynamics_mode == ssqpy.model.DynamicsMode.Forward else "inverse"
     )
 
     problems = get_panda_problems.get_panda_problems(dynamics_mode)
@@ -39,10 +37,9 @@ def paramsearch_panda(dynamics_mode=ssqpy.model.DynamicsMode.Inverse):
 
     result_admm.print()
 
-    result_admm.write(
-        f"../data/parameters/panda_admm_params_{dynamics_mode_str}.json"
-    )
+    result_admm.write(f"../data/parameters/panda_admm_params_{dynamics_mode_str}.json")
 
+    """
     hyperparams_hpipm = generate_paramset.generate_hpipm_paramset(
         max_sqp_iter=50,
         line_search_methods=[
@@ -65,6 +62,7 @@ def paramsearch_panda(dynamics_mode=ssqpy.model.DynamicsMode.Inverse):
     result_hpipm.write(
         f"../data/parameters/panda_hpipm_params_{dynamics_mode_str}.json"
     )
+    """
 
 
 if __name__ == "__main__":

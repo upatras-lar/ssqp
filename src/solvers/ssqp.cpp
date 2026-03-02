@@ -546,7 +546,7 @@ bool ssqp::write(const std::string &filename)
 
     j["convergence"]                    = ordered_json({});
     j["convergence"]["runtime_ms"]      = _convergence_data.total_duration;
-    j["convergence"]["iterations"]      = _iter + 1;
+    j["convergence"]["iterations"]      = _iter;
     j["convergence"]["trajectory_cost"] = _convergence_data.trajectory_cost;
     j["convergence"]["trajectory_stage_gap"] =
       _convergence_data.trajectory_stage_gap;

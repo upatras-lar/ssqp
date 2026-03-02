@@ -18,10 +18,10 @@ HORIZON = 300
 dt = 0.01
 
 # Weights
-C_WGT = 1e-3
-V_WGT = 1e-4
-U_WGT = 1e-4
-F_WGT = 1e-6
+C_WGT = 1e-1
+V_WGT = 1e-2
+U_WGT = 1e-3
+F_WGT = 1e-5
 ROT_WGT = 1.0
 TF_WGT = 5.0
 
@@ -35,20 +35,20 @@ TF_WGT = 5.0
 #  - `setCanter`
 #  - `setGallop`
 #  - `setRotatoryGallop`
-GAIT = GaitManager.setTrot
+GAIT = GaitManager.setWalk
 
 # @script-parameter
 # How many steps to take per gait cycle
 # With `None`, the default cycle step value for the gait being used is used
-CYCLE_STEPS = None
+CYCLE_STEPS = 60
 
 # @script-parameter
 # The number of steps to stand on all 4 feet for at the end of the trajectory
 FINAL_STANDING_STEPS = 10
 
 # Initial and final positions
-base_pos = np.array([-2.5, 0.0, 0.3689268220122])
-final_pos = np.array([2.5, 0.0, 0.3689268220122])
+base_pos = np.array([-0.5, 0.0, 0.3689268220122])
+final_pos = np.array([0.5, 0.0, 0.3689268220122])
 
 # Initial configuration
 init = np.zeros(37)
@@ -62,7 +62,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Forward,
 )
 
 # Create regularization costs
@@ -139,7 +139,7 @@ model.finalize(init_states=init)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    tolerance=1e-1,
+    tolerance=1e-2,
     # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,

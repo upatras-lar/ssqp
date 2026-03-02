@@ -41,11 +41,11 @@ model.finalize(init_states=[np.array((0.0, 0.0, 0.0, 0.0))])
 params = ssqpy.solvers.ssqpParams(
     "../../benchmarks/data/parameters/pendubot_admm_params_H200_inverse.json"
 )
-params.max_iter = 10000
-params.tolerance = 1e-4
+params.max_iter = 1000
+params.tolerance = 1e-3
 
-params.admmParams.abs_tolerance = 1e-5
-params.admmParams.rel_tolerance = 1e-5
+params.admmParams.abs_tolerance = 1e-4
+params.admmParams.rel_tolerance = 1e-4
 
 solver = ssqpy.solvers.ssqp(
     model,

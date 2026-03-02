@@ -80,12 +80,8 @@ def get_panda_circle_problem(dynamics_mode):
             ),
         )
 
-        circle_problem.addCost(
-            k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-        )
-        circle_problem.addCost(
-            k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
-        )
+        circle_problem.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+        circle_problem.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
         circle_problem.addConstraints(k, box_constraint)
 
     circle_problem.addCost(
@@ -95,9 +91,7 @@ def get_panda_circle_problem(dynamics_mode):
         ),
     )
 
-    circle_problem.addCost(
-        H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-    )
+    circle_problem.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
     circle_problem.addConstraints(H, box_constraint)
 
@@ -177,3 +171,108 @@ def get_panda_obstacle_problem(dynamics_mode):
     obstacle_problem.finalize(init_states=init_state)
 
     return obstacle_problem
+
+
+def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
+    rng = np.random.default_rng(seed)
+
+    H = 400
+
+    T_WGT = 10.0
+    R_WGT = 10.0
+    V_WGT = 1e-1
+    U_WGT = 1e-2
+
+    Rd = np.eye(3)
+    Rd[1, 1] = -1
+    Rd[2, 2] = -1
+
+    # Start EEF position
+    start_pos = np.array([0.0, 0.0, 0.4])
+
+    init_state = np.zeros(2 * nq)
+    init_state[:nq] = [
+        -0.6155932121557595,
+        -1.0844467142837122,
+        -0.12995999754492005,
+        -2.8648662500071036,
+        -0.11678214046488461,
+        1.7779025205888452,
+        0.13315038657733308,
+        4.72139930268247e-06,
+        3.344468750010948e-05,
+    ]
+
+    problems = []
+
+    for _ in range(n_problems):
+
+        obstacle_problem = ssqpy.model.Model(
+            H,
+            dt,
+            urdf_path="../../assets/urdf/panda/panda.urdf",
+            dynamics_mode=dynamics_mode,
+        )
+
+        random_offset = np.random.uniform(-0.3, 0.3, size=3)
+        final_goal = start_pos + random_offset
+
+        pose_cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
+            obstacle_problem,
+            final_goal,
+            Rd,
+            "panda_ee",
+            nq,
+            nq,
+            T_WGT,
+            R_WGT,
+        )
+
+        rot_cost = ssqpy.model.costs.FrameSquaredRotationErrorCost(
+            obstacle_problem, Rd, "panda_ee", nq, nq, R_WGT
+        )
+
+        joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+        control_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
+
+        # -----------------------------
+        # Random obstacle along line
+        # -----------------------------
+        # Sample location along segment (avoid endpoints)
+        alpha = rng.uniform(0.3, 0.7)
+        obstacle_center = (1 - alpha) * start_pos + alpha * final_goal
+
+        # Small box half-size (5–10 cm)
+        half_size = rng.uniform(0.05, 0.1)
+
+        obstacle_lower = obstacle_center - half_size
+        obstacle_upper = obstacle_center + half_size
+
+        obstacle_box = ssqpy.model.constraints.FramePositionBound(
+            obstacle_problem,
+            "panda_ee",
+            obstacle_lower,
+            obstacle_upper,
+            nq,
+            nv,
+        )
+
+        # -----------------------------
+        # Add costs & constraints
+        # -----------------------------
+        for k in range(H):
+            obstacle_problem.addCost(k, rot_cost)
+            obstacle_problem.addCost(k, joint_vel_cost)
+            obstacle_problem.addCost(k, control_cost)
+
+            if 50 < k < H - 50:
+                obstacle_problem.addConstraints(k, obstacle_box)
+
+        obstacle_problem.addCost(H, pose_cost)
+        obstacle_problem.addCost(H, joint_vel_cost)
+
+        obstacle_problem.finalize(init_states=init_state)
+
+        problems.append(obstacle_problem)
+
+    return problems
