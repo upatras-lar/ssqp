@@ -230,6 +230,67 @@ void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
     Huu.topLeftCorner(_nv, _nv).diagonal() = _weight.array().square();
 }
 
+// SquaredIDJointTorqueCost
+SquaredIDJointTorqueCost::SquaredIDJointTorqueCost(const Model &model,
+                                                   const uint nq, const uint nv,
+                                                   const double weight)
+  : _model(std::make_shared<Model>(model))
+  , _nq(nq)
+  , _nv(nv)
+  , _weight(nv)
+{
+    _weight.setConstant(weight);
+}
+SquaredIDJointTorqueCost::SquaredIDJointTorqueCost(const Model &model,
+                                                   const uint nq, const uint nv,
+                                                   const VecX &weight)
+  : _model(std::make_shared<Model>(model))
+  , _nq(nq)
+  , _nv(nv)
+  , _weight(weight)
+{
+    assert(weight.size() == nv && "Invalid weight vector size");
+}
+
+void SquaredIDJointTorqueCost::set_weight(const double weight)
+{
+    _weight.setConstant(weight);
+}
+
+void SquaredIDJointTorqueCost::set_weight(const VecX &weight)
+{
+    assert(weight.size() == _nv && "Invalid weight vector size");
+
+    _weight = weight;
+}
+
+VecX SquaredIDJointTorqueCost::evaluate(const VecX &x, const VecX &u) const
+{
+    // TODO: joint forces?
+    return _model->inverseDynamics(x.head(_nq), x.tail(_nv), u.head(_nv));
+}
+
+// TODOs
+void SquaredIDJointTorqueCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+                                        VecX &du) const
+{
+}
+
+void SquaredIDJointTorqueCost::hessian_xx(const VecX &x, const VecX &u,
+                                          MatX &Hxx) const
+{
+}
+
+void SquaredIDJointTorqueCost::hessian_xu(const VecX &x, const VecX &u,
+                                          MatX &Hxu) const
+{
+}
+
+void SquaredIDJointTorqueCost::hessian_uu(const VecX &x, const VecX &u,
+                                          MatX &Huu) const
+{
+}
+
 // SquaredForceCost
 SquaredForceCost::SquaredForceCost(const uint nv, const double weight)
   : _nv(nv)

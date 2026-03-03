@@ -80,8 +80,12 @@ def get_panda_circle_problem(dynamics_mode):
             ),
         )
 
-        circle_problem.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
-        circle_problem.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
+        circle_problem.addCost(
+            k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+        )
+        circle_problem.addCost(
+            k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
+        )
         circle_problem.addConstraints(k, box_constraint)
 
     circle_problem.addCost(
@@ -91,7 +95,9 @@ def get_panda_circle_problem(dynamics_mode):
         ),
     )
 
-    circle_problem.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+    circle_problem.addCost(
+        H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+    )
 
     circle_problem.addConstraints(H, box_constraint)
 
@@ -181,7 +187,7 @@ def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
     T_WGT = 10.0
     R_WGT = 10.0
     V_WGT = 1e-1
-    U_WGT = 1e-2
+    U_WGT = 1e-2 if dynamics_mode == ssqpy.model.DynamicsMode.Inverse else 1e-3
 
     Rd = np.eye(3)
     Rd[1, 1] = -1

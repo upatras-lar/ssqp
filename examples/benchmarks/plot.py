@@ -24,13 +24,6 @@ def parse_args():
         help="The problem model (result data starting with `[model]_` will be used for plotting)",
     )
 
-    parser.add_argument(
-        "-H",
-        "--horizon",
-        required=True,
-        help="The problem horizon (result data filenames will be searched for `_H[horizon]_`)",
-    )
-
     return parser.parse_args()
 
 
@@ -56,41 +49,72 @@ def collect_problem_solved_statistics(filepath):
     return percentage
 
 
-def collect_qp_iteration_statistics(filepath):
+def collect_problem_solved_walltime_statistics(filepath):
     with open(filepath) as f:
         problems = json.load(f)
 
-    # Determine global max SQP iterations
-    max_sqp_iter = max(problem["solver"]["max_iter"] for problem in problems)
+    max_sqp_iter = max(
+        len(problem["convergence"]["iteration_data"]) for problem in problems
+    )
 
-    # Matrix: (num_problems, max_sqp_iter)
-    qp_matrix = []
+    sorted_walltime_problems = sorted(
+        problems, key=lambda problem: problem["convergence"]["runtime_ms"]
+    )
+
+    walltimes = [
+        problem["convergence"]["runtime_ms"] / 1000
+        for problem in sorted_walltime_problems
+    ]
+    walltimes.insert(0, 0.0)
+
+    problems_solved = 0
+    percentages = [0.0]
+
+    for problem in problems:
+        if problem["convergence"]["iterations"] < max_sqp_iter:
+            problems_solved += 1
+            percentages.append(problems_solved / len(problems) * 100)
+            continue
+
+        percentages.append(percentages[-1])
+
+    return percentages, walltimes
+
+
+def collect_violation_statistics(filepath):
+    with open(filepath) as f:
+        problems = json.load(f)
+
+    max_sqp_iter = max(
+        len(problem["convergence"]["iteration_data"]) for problem in problems
+    )
+
+    violations_matrix = []
 
     for problem in problems:
         iteration_data = problem["convergence"]["iteration_data"]
 
-        qp_values = []
+        violations = []
 
-        # Collect actual QP iterations
-        for iter_data in iteration_data:
-            qp_values.append(iter_data["qp_iterations"])
+        for iter in iteration_data:
+            stage_gap_norm = max(iter["stage_gap_violations"])
+            stage_constraint_violation_norm = max(
+                iter["stage_constraint_violations"]
+            )
+            violations.append(
+                max(stage_gap_norm, stage_constraint_violation_norm)
+            )
 
-        # Forward-fill after convergence
-        if len(qp_values) > 0:
-            last_value = qp_values[-1]
-            while len(qp_values) < max_sqp_iter:
-                qp_values.append(last_value)
-        else:
-            qp_values = [np.nan] * max_sqp_iter
+        while len(violations) < max_sqp_iter:
+            violations.append(violations[-1])
 
-        qp_matrix.append(qp_values)
+        violations_matrix.append(violations)
 
-    qp_matrix = np.array(qp_matrix)
+    violations_matrix = np.array(violations_matrix)
 
-    # Now compute percentiles across ALL problems
-    median = np.percentile(qp_matrix, 50, axis=0)
-    p25 = np.percentile(qp_matrix, 25, axis=0)
-    p75 = np.percentile(qp_matrix, 75, axis=0)
+    median = np.percentile(violations_matrix, 50, axis=0)
+    p25 = np.percentile(violations_matrix, 25, axis=0)
+    p75 = np.percentile(violations_matrix, 70, axis=0)
 
     return median, p25, p75
 
@@ -102,17 +126,17 @@ files = sorted([file for file in data_dir.glob(f"{args.model}_admm_*.json")])
 
 all_data = {}
 for filepath in files:
-    label = filepath.stem.replace(f"{args.model}_", "").replace(f"_H{args.horizon}", "")
+    label = filepath.stem.replace(f"{args.model}_admm_", "").capitalize()
     all_data[label] = collect_problem_solved_statistics(filepath)
 
 file_labels = list(all_data.keys())
 colors = plt.cm.tab10.colors
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-fig.suptitle(f"{args.model} - Horizon {args.horizon}")
+fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+fig.suptitle(f"{args.model}")
 
 # =========================
-# First Plot (Problems Solved)
+# First Plot (Problems Solved /w SQP iterations)
 # =========================
 ax1 = axes[0]
 
@@ -126,27 +150,51 @@ for i, label in enumerate(file_labels):
         color=colors[i % len(colors)],
     )
 
-ax1.set_xlabel("Iterations")
+ax1.set_xlabel("SQP Iteration")
 ax1.set_ylabel("Converged Problems [%]")
 ax1.grid(True)
 ax1.legend()
 
-
 # =========================
-# Second Plot (QP Statistics)
+# Second Plot (Problems Solved /w Wall time)
 # =========================
 ax2 = axes[1]
 
 for i, filepath in enumerate(files):
-    label = filepath.stem.replace(f"{args.model}_", "").replace(f"_H{args.horizon}", "")
+    label = filepath.stem.replace(f"{args.model}_admm_", "").capitalize()
 
-    median, p25, p75 = collect_qp_iteration_statistics(filepath)
+    percentages, walltimes = collect_problem_solved_walltime_statistics(
+        filepath
+    )
+    color = colors[i % len(colors)]
+
+    ax2.plot(
+        walltimes,
+        percentages,
+        label=label,
+        color=color,
+    )
+
+ax2.set_xlabel("Walltime (s)")
+ax2.set_ylabel("Converged Problems [%]")
+ax2.grid(True)
+ax2.legend()
+
+# =========================
+# Third Plot (Violations)
+# =========================
+ax3 = axes[2]
+
+for i, filepath in enumerate(files):
+    label = filepath.stem.replace(f"{args.model}_admm_", "").capitalize()
+
+    median, p25, p75 = collect_violation_statistics(filepath)
 
     x = np.arange(1, len(median) + 1)
     color = colors[i % len(colors)]
 
     # Median line
-    ax2.plot(
+    ax3.plot(
         x,
         median,
         label=f"{label} (median)",
@@ -154,7 +202,7 @@ for i, filepath in enumerate(files):
     )
 
     # Interquartile band (25–75%)
-    ax2.fill_between(
+    ax3.fill_between(
         x,
         p25,
         p75,
@@ -162,12 +210,12 @@ for i, filepath in enumerate(files):
         color=color,
     )
 
-ax2.set_xlabel("QP Iteration")
-ax2.set_ylabel("QP Solver Iterations")
-ax2.grid(True)
-ax2.legend()
-
+ax3.set_xlabel("SQP Iteration")
+ax3.set_ylabel("Constraint Violations")
+ax3.set_yscale("log")
+ax3.grid(True)
+ax3.legend()
 
 plt.tight_layout()
-plt.savefig(f"data/plots/plot_{args.model}_H{args.horizon}.pdf")
+plt.savefig(f"data/plots/plot_{args.model}.pdf")
 plt.show()

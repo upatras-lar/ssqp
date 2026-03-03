@@ -66,11 +66,15 @@ def cvt(
         new_generators[nonempty] /= counts[nonempty, np.newaxis]
         new_generators[~nonempty] = generators[~nonempty]
 
-        displacement = np.max(np.linalg.norm(new_generators - generators, axis=-1))
+        displacement = np.max(
+            np.linalg.norm(new_generators - generators, axis=-1)
+        )
         generators = new_generators
 
         if displacement < tol:
-            print(f"Converged at iteration {iteration + 1} (disp={displacement:.2e})")
+            print(
+                f"Converged at iteration {iteration + 1} (disp={displacement:.2e})"
+            )
             break
     else:
         print(f"Max iterations ({n_iterations}), disp={displacement:.2e}")

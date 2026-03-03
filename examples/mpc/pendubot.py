@@ -7,16 +7,16 @@ from time import time, sleep
 
 nq = 2
 nv = 2
-MPC_H = 60
+MPC_H = 45
 dt = 0.01
 
-TIP_WGT = 5.0
-LINK_WGT = 1.4
 V_WGT = 1e-3
-U_WGT = 1e-4
+U_WGT = 1e-3
+TIP_WGT = 5.0
 
 REAL_TIME = True
-NOISE = True
+NOISE = False
+INVERSE_MODE = True
 
 
 model = ssqpy.model.Model(
@@ -24,14 +24,15 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=(
+        ssqpy.model.DynamicsMode.Inverse
+        if INVERSE_MODE
+        else ssqpy.model.DynamicsMode.Forward
+    ),
 )
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
-link2_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, np.array((0.0, 0.0, 0.05)), "link2", nq, nv, LINK_WGT
-)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
 )
@@ -39,7 +40,7 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((pi, 0.0)),
     nq,
     nv,
-    np.array((1e-5, 0.0)),
+    np.array((1.0, 0.0)),
     False,
 )
 
@@ -48,7 +49,6 @@ for k in range(MPC_H):
     model.addCost(k, u_cost)
     model.addCost(k, tip_cost)
 
-model.addCost(MPC_H, link2_cost)
 model.addCost(MPC_H, tip_cost)
 model.addCost(MPC_H, config_cost)
 
@@ -56,14 +56,13 @@ ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.adaptive_rho_tolerance = 20
 admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=100)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
 
 mjmodel = mujoco.MjModel.from_xml_path(
     "../assets/mjcf/double_pendulum/double_pendulum.xml"
@@ -91,13 +90,17 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             reg_fails += 1
             control = np.zeros(nv)
 
-        # torques = model.inverseDynamics(mjdata.qpos, mjdata.qvel, control)
-        # mjdata.ctrl[0] = torques[0]
+        if INVERSE_MODE:
+            torques = model.inverseDynamics(mjdata.qpos, mjdata.qvel, control)
+            mjdata.ctrl[0] = torques[0]
+        else:
+            mjdata.ctrl[0] = control[0]
 
-        mjdata.ctrl = control
         if NOISE:
             mjdata.ctrl[0] += (
-                np.random.uniform(0, 0.1) if np.random.uniform(0, 10) > 8 else 0.0
+                np.random.uniform(0, 0.1)
+                if np.random.uniform(0, 10) > 8
+                else 0.0
             )
 
         elapsed += time() - pre

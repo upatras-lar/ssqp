@@ -7,12 +7,14 @@ sys.path.insert(0, "..")
 import benchmark
 import get_panda_problems
 
-N_problems = 10
+N_problems = 50
 
 
 def run(dynamics_mode):
     dynamics_mode_str = (
-        "forward" if dynamics_mode == ssqpy.model.DynamicsMode.Forward else "inverse"
+        "forward"
+        if dynamics_mode == ssqpy.model.DynamicsMode.Forward
+        else "inverse"
     )
 
     problems = get_panda_problems.generate_panda_obstacle_problems(
@@ -20,7 +22,8 @@ def run(dynamics_mode):
     )
 
     params_admm = benchmark.get_params(
-        f"../data/parameters/panda_admm_params_{dynamics_mode_str}.json"
+        f"../data/parameters/panda_admm_params_{dynamics_mode_str}.json",
+        max_iter=200,
     )
     benchmark.benchmark(
         problems,
@@ -40,9 +43,13 @@ def run(dynamics_mode):
     """
 
 
-inv = multiprocessing.Process(target=run, args=(ssqpy.model.DynamicsMode.Inverse,))
+inv = multiprocessing.Process(
+    target=run, args=(ssqpy.model.DynamicsMode.Inverse,)
+)
 
-fwd = multiprocessing.Process(target=run, args=(ssqpy.model.DynamicsMode.Forward,))
+fwd = multiprocessing.Process(
+    target=run, args=(ssqpy.model.DynamicsMode.Forward,)
+)
 
 inv.start()
 fwd.start()

@@ -699,6 +699,40 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
     return { dVdq, dVdv };
 }
 
+const VecX Model::forwardDynamics(const VecX &q, const VecX &v,
+                                  const VecX &tau) const
+{
+    return pinocchio_wrapper::aba(_impl, q, v, tau);
+}
+
+const VecX Model::forwardDynamics(
+  const VecX &q, const VecX &v, const VecX &tau,
+  const std::unordered_map<std::string, std::vector<Vec3>> &forces) const
+{
+    pinocchio_wrapper::computeJointJacobians(_impl, q);
+    std::vector<Vec6> joint_forces(_total_joints, Vec6::Zero());
+
+    for (const std::pair<std::string, std::vector<Vec3>> &pair : forces)
+    {
+        for (uint i = 0; i < pair.second.size(); ++i)
+        {
+            Vec3 f = pair.second[i];
+            uint joint_id;
+
+            Vec6 F = framejMfAct(_impl, pair.first, f, joint_id);
+            joint_forces[joint_id] += F;
+        }
+    }
+
+    return pinocchio_wrapper::aba(_impl, q, v, tau, joint_forces);
+}
+
+const VecX Model::forwardDynamics(const VecX &q, const VecX &v, const VecX &tau,
+                                  const std::vector<Vec6> &joint_forces) const
+{
+    return pinocchio_wrapper::aba(_impl, q, v, tau, joint_forces);
+}
+
 const VecX Model::inverseDynamics(const VecX &q, const VecX &v,
                                   const VecX &a) const
 {
@@ -731,6 +765,36 @@ const VecX Model::inverseDynamics(const VecX &q, const VecX &v, const VecX &a,
                                   const std::vector<Vec6> &joint_forces) const
 {
     return pinocchio_wrapper::rnea(_impl, q, v, a, joint_forces);
+}
+
+const void Model::inverseDynamicsDerivatives(
+  const Eigen::VectorXd &q, const Eigen::VectorXd &v, const Eigen::VectorXd &a,
+  Eigen::MatrixXd &rnea_partial_dq, Eigen::MatrixXd &rnea_partial_dv,
+  Eigen::MatrixXd &rnea_partial_da) const
+{
+    pinocchio_wrapper::computeRNEADerivatives(_impl,
+                                              q,
+                                              v,
+                                              a,
+                                              rnea_partial_dq,
+                                              rnea_partial_dv,
+                                              rnea_partial_da);
+}
+
+const void Model::inverseDynamicsDerivatives(
+  const Eigen::VectorXd &q, const Eigen::VectorXd &v, const Eigen::VectorXd &a,
+  const std::vector<Eigen::Vector<double, 6>> &fext,
+  Eigen::MatrixXd &rnea_partial_dq, Eigen::MatrixXd &rnea_partial_dv,
+  Eigen::MatrixXd &rnea_partial_da) const
+{
+    pinocchio_wrapper::computeRNEADerivatives(_impl,
+                                              q,
+                                              v,
+                                              a,
+                                              fext,
+                                              rnea_partial_dq,
+                                              rnea_partial_dv,
+                                              rnea_partial_da);
 }
 
 const MatX Model::frameJacobian(const VecX &x, const std::string &frame,

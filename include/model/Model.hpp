@@ -290,6 +290,16 @@ class Model
                                  const MatX        &desired_rotation,
                                  const std::string &joint);
 
+    const VecX forwardDynamics(const VecX &q, const VecX &v,
+                               const VecX &tau) const;
+
+    const VecX forwardDynamics(
+      const VecX &q, const VecX &v, const VecX &tau,
+      const std::unordered_map<std::string, std::vector<Vec3>> &forces) const;
+
+    const VecX forwardDynamics(const VecX &q, const VecX &v, const VecX &tau,
+                               const std::vector<Vec6> &joint_forces) const;
+
     const VecX inverseDynamics(const VecX &q, const VecX &v,
                                const VecX &a) const;
 
@@ -299,6 +309,18 @@ class Model
 
     const VecX inverseDynamics(const VecX &q, const VecX &v, const VecX &a,
                                const std::vector<Vec6> &joint_forces) const;
+
+    const void inverseDynamicsDerivatives(
+      const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+      const Eigen::VectorXd &a, Eigen::MatrixXd &rnea_partial_dq,
+      Eigen::MatrixXd &rnea_partial_dv, Eigen::MatrixXd &rnea_partial_da) const;
+
+    const void inverseDynamicsDerivatives(
+      const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+      const Eigen::VectorXd                       &a,
+      const std::vector<Eigen::Vector<double, 6>> &fext,
+      Eigen::MatrixXd &rnea_partial_dq, Eigen::MatrixXd &rnea_partial_dv,
+      Eigen::MatrixXd &rnea_partial_da) const;
 
     // Get a frame jacobian based on the URDF model dynamics
     const MatX frameJacobian(const VecX &x, const std::string &frame,

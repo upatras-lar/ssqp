@@ -32,8 +32,8 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
     V_WGT = 1e-2
     U_WGT = 1e-3
     F_WGT = 1e-5
-    ROT_WGT = 1.0
     TF_WGT = 5.0
+    ROT_WGT = 5.0
 
     GAIT = GaitManager.setWalk
     CYCLE_STEPS = 60
@@ -63,6 +63,13 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
 
         base_pos = np.array([x0, y0, z_height])
         final_pos = np.array([xf, yf, z_height])
+        final_R = np.array(
+            [
+                [np.cos(yawf), -np.sin(yawf), 0],
+                [np.sin(yawf), np.cos(yawf), 0],
+                [0, 0, 1],
+            ]
+        )
 
         # -------------------------
         # Initial state
@@ -98,22 +105,6 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
             model.addCost(k, control_cost)
             model.addCost(k, force_cost)
 
-            # Track final yaw orientation gradually
-            R_target = np.array(
-                [
-                    [np.cos(yawf), -np.sin(yawf), 0],
-                    [np.sin(yawf), np.cos(yawf), 0],
-                    [0, 0, 1],
-                ]
-            )
-
-            model.addCost(
-                k,
-                costs.FrameSquaredRotationErrorCost(
-                    model, R_target, "base", nq, nv, ROT_WGT
-                ),
-            )
-
         for k in range(HORIZON + 1):
             model.addCost(k, config_cost)
 
@@ -126,8 +117,8 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         # Final translation target
         model.addCost(
             HORIZON,
-            costs.FrameSquaredTranslationErrorCost(
-                model, final_pos, "base", nq, nv, TF_WGT
+            costs.FrameSquaredPoseErrorCost(
+                model, final_pos, final_R, "base", nq, nv, TF_WGT, ROT_WGT
             ),
         )
 
