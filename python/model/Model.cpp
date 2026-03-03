@@ -538,6 +538,46 @@ void bind_Model(nb::module_ &m)
         Only defined if the model was initialized using a URDF file.
         )doc")
       .def(
+        "forwardDynamics",
+        [](Model &self, const VecX &q, const VecX &v, const VecX &tau)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            return self.forwardDynamics(q, v, tau);
+        },
+        nb::arg("q"),
+        nb::arg("v"),
+        nb::arg("a"),
+        R"doc(
+        Perform forward dynamics on the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
+      .def(
+        "forwardDynamics",
+        [](Model &self,
+           const VecX &q,
+           const VecX &v,
+           const VecX &tau,
+           const std::unordered_map<std::string, std::vector<Vec3>> &forces)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            return self.forwardDynamics(q, v, tau, forces);
+        },
+        nb::arg("q"),
+        nb::arg("v"),
+        nb::arg("tau"),
+        nb::arg("forces"),
+        R"doc(
+        Perform forward dynamics on the model with forces.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
+
+      .def(
         "inverseDynamics",
         [](Model &self, const VecX &q, const VecX &v, const VecX &a)
         {
@@ -547,6 +587,9 @@ void bind_Model(nb::module_ &m)
             }
             return self.inverseDynamics(q, v, a);
         },
+        nb::arg("q"),
+        nb::arg("v"),
+        nb::arg("a"),
         R"doc(
         Perform inverse dynamics on the model.
         Only defined if the model was initialized using a URDF file.

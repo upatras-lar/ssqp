@@ -4,14 +4,14 @@ import json
 from os import remove
 
 
-def get_params(filepath):
+def get_params(filepath, max_iter=1000):
     """
     Load parameters from provided filepath, altering tolerance and max iterations
     to get a full run
     """
     sqp_params = ssqpy.solvers.ssqpParams(filepath)
     sqp_params.tolerance = 1e-3
-    sqp_params.max_iter = 1000
+    sqp_params.max_iter = max_iter
 
     sqp_params.admmParams.abs_tolerance = 1e-4
     sqp_params.admmParams.rel_tolerance = 1e-4

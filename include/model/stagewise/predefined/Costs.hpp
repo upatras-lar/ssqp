@@ -108,6 +108,38 @@ class SquaredControlCost : public StageCost
     VecX       _weight;
 };
 
+/* Predefined squared inverse dynamics joint torque cost
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
+ * Note that this cost assumes inverse dynamics is being used (i.e. treats
+ * controls as accelerations)
+ * where:
+ *  - $\boldsymbol{\tau}$ is the joint torque
+ *  - $\boldsymbol{w}$ is the weight on the torque term
+ */
+class SquaredIDJointTorqueCost : public StageCost
+{
+  public:
+    SquaredIDJointTorqueCost(const Model &model, const uint nq, const uint nv,
+                             const double weight);
+    SquaredIDJointTorqueCost(const Model &model, const uint nq, const uint nv,
+                             const VecX &weight);
+
+    void set_weight(const double weight);
+    void set_weight(const VecX &weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv;
+    VecX                         _weight;
+};
+
 /* Predefined squared force cost
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{f} \rVert_2^2$
  * where:
