@@ -486,6 +486,40 @@ std::shared_ptr<Test> get_squared_control_cost_grad_test()
     return cost_test;
 }
 
+std::shared_ptr<Test> get_squared_ID_torque_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
+    model_structure.free_flyer    = false;
+    model_structure.dynamics_mode = model::DynamicsMode::Inverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k < model->dims().horizon; ++k)
+    {
+        model
+          ->addCost<model::stagewise::predefined::costs::SquaredIDTorqueCost>(
+            k,
+            *model,
+            9,
+            9,
+            0.74);
+    }
+
+    model
+      ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+        2,
+        1,
+        1.0);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("SquaredIDTorqueCostGradTest", model, 0);
+
+    return cost_test;
+}
+
 std::shared_ptr<Test> get_squared_force_cost_grad_test()
 {
     model::Model::Structure model_structure;

@@ -33,6 +33,7 @@ model = ssqpy.model.Model(
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
+# tau_cost = ssqpy.model.costs.SquaredIDTorqueCost(model, nq, nv, np.array((0.0, 0.1)))
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
 )
@@ -53,9 +54,12 @@ model.addCost(MPC_H, tip_cost)
 model.addCost(MPC_H, config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-1
+ssqp_params.tolerance = 1e-2
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
+admm_params.adaptive_rho_tolerance = 0.1
+admm_params.rho_update_iter_freq = 25
 admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
@@ -98,9 +102,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         if NOISE:
             mjdata.ctrl[0] += (
-                np.random.uniform(0, 0.1)
-                if np.random.uniform(0, 10) > 8
-                else 0.0
+                np.random.uniform(0, 0.1) if np.random.uniform(0, 10) > 8 else 0.0
             )
 
         elapsed += time() - pre

@@ -212,6 +212,34 @@ void bind_Costs(nb::module_ &m)
              &SquaredControlCost::set_weight),
            nb::arg("weight"));
 
+    nb::class_<SquaredIDTorqueCost, StageCost>(m, "SquaredIDTorqueCost", R"doc(
+        Predefined squared inverse dynamics torque cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
+        Note that this cost assumes inverse dynamics is being used (i.e. treats
+        controls as accelerations)
+        where:
+         - $\boldsymbol{\tau}$ is the torque caused by the controls
+         - $\boldsymbol{w}$ is the weight on the torque term
+        )doc")
+      .def(nb::init<const Model &, const uint, const uint, const double>(),
+           nb::arg("model"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"))
+      .def(nb::init<const Model &, const uint, const uint, const VecX &>(),
+           nb::arg("model"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredIDTorqueCost::*)(const double)>(
+             &SquaredIDTorqueCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (SquaredIDTorqueCost::*)(const VecX &)>(
+             &SquaredIDTorqueCost::set_weight),
+           nb::arg("weight"));
+
     nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost", R"doc(
         Predefined squared force cost
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u})=w_f \boldsymbol{u}_f$

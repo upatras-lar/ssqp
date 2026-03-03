@@ -42,6 +42,7 @@ std::shared_ptr<Test> get_squared_joint_angle_cost_floating_base_grad_test();
 std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test();
 std::shared_ptr<Test> get_squared_joint_velocity_cost_floating_base_grad_test();
 std::shared_ptr<Test> get_squared_control_cost_grad_test();
+std::shared_ptr<Test> get_squared_ID_torque_cost_grad_test();
 std::shared_ptr<Test> get_squared_force_cost_grad_test();
 std::shared_ptr<Test> get_squared_configuration_difference_cost_grad_test();
 std::shared_ptr<Test>

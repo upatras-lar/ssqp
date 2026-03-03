@@ -108,21 +108,21 @@ class SquaredControlCost : public StageCost
     VecX       _weight;
 };
 
-/* Predefined squared inverse dynamics joint torque cost
+/* Predefined squared inverse dynamics torque cost
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
  * Note that this cost assumes inverse dynamics is being used (i.e. treats
  * controls as accelerations)
  * where:
- *  - $\boldsymbol{\tau}$ is the joint torque
+ *  - $\boldsymbol{\tau}$ is the torque caused by the controls
  *  - $\boldsymbol{w}$ is the weight on the torque term
  */
-class SquaredIDJointTorqueCost : public StageCost
+class SquaredIDTorqueCost : public StageCost
 {
   public:
-    SquaredIDJointTorqueCost(const Model &model, const uint nq, const uint nv,
-                             const double weight);
-    SquaredIDJointTorqueCost(const Model &model, const uint nq, const uint nv,
-                             const VecX &weight);
+    SquaredIDTorqueCost(const Model &model, const uint nq, const uint nv,
+                        const double weight);
+    SquaredIDTorqueCost(const Model &model, const uint nq, const uint nv,
+                        const VecX &weight);
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);

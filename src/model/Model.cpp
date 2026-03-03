@@ -779,6 +779,8 @@ const void Model::inverseDynamicsDerivatives(
                                               rnea_partial_dq,
                                               rnea_partial_dv,
                                               rnea_partial_da);
+
+    rnea_partial_da = rnea_partial_da.selfadjointView<Eigen::Upper>();
 }
 
 const void Model::inverseDynamicsDerivatives(
@@ -795,6 +797,8 @@ const void Model::inverseDynamicsDerivatives(
                                               rnea_partial_dq,
                                               rnea_partial_dv,
                                               rnea_partial_da);
+
+    rnea_partial_da = rnea_partial_da.selfadjointView<Eigen::Upper>();
 }
 
 const MatX Model::frameJacobian(const VecX &x, const std::string &frame,
