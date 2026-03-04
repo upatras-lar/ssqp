@@ -634,8 +634,6 @@ Model::_makeStageIDTorqueConstraints(
                                                       M);
         }
 
-        M = M.selfadjointView<Eigen::Upper>();
-
         dX.block(0, 0, _dims.nv[0], _dims.nv[0])           = dtau_dq;
         dX.block(0, _dims.nv[0], _dims.nv[0], _dims.nv[0]) = dtau_dv;
         dU.block(0, 0, _dims.nv[0], _dims.nv[0])           = M;

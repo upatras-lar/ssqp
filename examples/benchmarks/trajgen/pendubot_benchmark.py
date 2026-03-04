@@ -1,9 +1,5 @@
 import ssqpy
 import multiprocessing
-import sys
-
-sys.path.insert(0, "..")
-
 import benchmark
 import generate_pendubot_problems
 
@@ -29,13 +25,13 @@ def run(horizon, dynamics_mode):
     # ADMM
     # ====
     params_admm = benchmark.get_params(
-        f"../data/parameters/pendubot_admm_params_{dynamics_mode_str}.json",
+        f"data/parameters/pendubot_admm_params_{dynamics_mode_str}.json",
         max_iter=1000,
     )
     benchmark.benchmark(
         problems,
         params_admm,
-        f"../data/results/pendubot_admm_{dynamics_mode_str}.json",
+        f"data/results/pendubot_admm_{dynamics_mode_str}.json",
     )
 
     """
@@ -43,12 +39,12 @@ def run(horizon, dynamics_mode):
     # HPIPM
     # =====
     params_hpipm = benchmark.get_params(
-        f"../data/parameters/pendubot_hpipm_params_{dynamics_mode_str}.json"
+        f"data/parameters/pendubot_hpipm_params_{dynamics_mode_str}.json"
     )
     benchmark.benchmark(
         problems,
         params_hpipm,
-        f"../data/results/pendubot_hpipm_{dynamics_mode_str}.json",
+        f"data/results/pendubot_hpipm_{dynamics_mode_str}.json",
     )
     """
 

@@ -162,6 +162,13 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("tolerance",
               &ssqp::Params::tolerance,
               "(Initial) Tolerance for lagrangian jacobian norms.")
+      .def_rw("constraint_tolerance",
+              &ssqp::Params::constraint_tolerance,
+              R"doc(
+        Constraint satisfaction tolerance
+        If positive, defines a separate tolerance for constraints than the
+        general tolerance used for dx/du norms
+        )doc")
       .def_rw("tolerance_final", &ssqp::Params::tolerance_final, R"doc(
         Final tolerance for lagrangian jacobian norms
         This value will be reached after `tolerance_update_steps` SSQP steps
@@ -377,6 +384,11 @@ void bind_ssqp(nb::module_ &m)
             if (kwargs.contains("tolerance"))
             {
                 params.tolerance = nb::cast<double>(kwargs["tolerance"]);
+            }
+            if (kwargs.contains("constraint_tolerance"))
+            {
+                params.constraint_tolerance =
+                  nb::cast<double>(kwargs["constraint_tolerance"]);
             }
             if (kwargs.contains("tolerance_final"))
             {

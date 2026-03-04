@@ -238,6 +238,11 @@ ssqp::ssqp(const model::Model &model, const Params &params)
                                     _cf(_guess.x, _guess.u) });
     }
 
+    if (_params.constraint_tolerance < 0.0)
+    {
+        _params.constraint_tolerance = _params.tolerance;
+    }
+
     DEBUG_LOGLN("SSQP initial guess:");
     DEBUG_LOGLN("x:");
     DEBUG_LOGLN(_guess.x);

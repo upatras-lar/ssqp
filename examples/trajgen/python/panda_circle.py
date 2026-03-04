@@ -10,7 +10,7 @@ Optionally, constrain the movement within a rectangle inside the circle
 
 # @script-parameter
 # Whether to plot error and trajectory
-PLOT = False
+PLOT = True
 # @script-parameter
 # Whether to add a box constraint within the circle for the end effector
 CONSTRAIN = True
@@ -144,10 +144,10 @@ model.finalize(init_states=init_state)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    tolerance=1e-3,
+    tolerance=1e-2,
     # line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    admm_abs_tolerance=1e-4,
-    admm_rel_tolerance=1e-4,
+    admm_abs_tolerance=1e-3,
+    admm_rel_tolerance=1e-3,
     admm_adaptive_rho_tolerance=10,
     # admm_rho_update_iter_freq=10,
     # admm_max_iter=1000,

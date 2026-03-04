@@ -1,9 +1,5 @@
 import ssqpy
 import multiprocessing
-import sys
-
-sys.path.insert(0, "..")
-
 import benchmark
 import generate_go2_problems
 
@@ -33,7 +29,7 @@ def run(dynamics_mode):
     benchmark.benchmark(
         problems,
         params,
-        f"../data/results/go2_admm_{dynamics_mode_str}.json",
+        f"data/results/go2_admm_{dynamics_mode_str}.json",
     )
 
 

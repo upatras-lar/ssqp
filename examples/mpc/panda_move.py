@@ -35,9 +35,11 @@ Rd = np.eye(3)
 Rd[1, 1] = -1
 Rd[2, 2] = -1
 
+target_pos = get_random_pd()
+
 desired_pose = np.zeros((4, 4))
 desired_pose[:3, :3] = Rd
-desired_pose[:3, 3] = get_random_pd()
+desired_pose[:3, 3] = target_pos
 desired_pose[3, 3] = 1
 
 model = ssqpy.model.Model(
@@ -64,26 +66,52 @@ init_state[:nq] = [
     0.0,
 ]
 
+start_pos = model.forwardKinematics(init_state[:nq], "panda_ee")[0]
+
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
 pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
     model, desired_pose, "panda_ee", nq, nq, T_WGT, R_WGT
 )
 
+
+def get_constraint_bounds(current_pos, current_target):
+    alpha = np.random.uniform(0.3, 0.7)
+    obstacle_center = (1 - alpha) * current_pos + alpha * current_target
+
+    half_size = np.random.uniform(0.05, 0.1)
+
+    obstacle_lower = obstacle_center - half_size
+    obstacle_upper = obstacle_center + half_size
+
+    return obstacle_lower, obstacle_upper
+
+
+obstacle_box = ssqpy.model.constraints.FramePositionBound(
+    model,
+    "panda_ee",
+    *get_constraint_bounds(start_pos, target_pos),
+    nq,
+    nv,
+)
+
+
 for k in range(MPC_H):
     model.addCost(k, v_cost)
     model.addCost(k, u_cost)
     model.addCost(k, pose_error)
 
+    # model.addConstraints(k, obstacle_box)
+
 model.addCost(MPC_H, pose_error)
 model.addCost(MPC_H, v_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-1
+ssqp_params.tolerance = 1e-2
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.abs_tolerance = 1e-2
-admm_params.rel_tolerance = 1e-2
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
 admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
@@ -101,6 +129,8 @@ total_steps = PD_CHANGE_FREQ * int(1 / dt)
 
 states = np.tile(init_state, (MPC_H + 1, 1))
 controls = np.zeros((MPC_H, nv))
+
+current_target = target_pos
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
@@ -123,11 +153,19 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             elapsed = 0
             steps = 0
 
-            new_pd = get_random_pd()
+            current_pos = current_target
+            current_target = get_random_pd()
             print()
-            print("Setting new goal:", new_pd)
+            print("Setting new goal:", current_target)
 
-            pose_error.set_desired_translation(new_pd)
+            pose_error.set_desired_translation(current_target)
+            lb, ub = get_constraint_bounds(current_pos, current_target)
+            obstacle_box.set_lower_bound(lb)
+            obstacle_box.set_upper_bound(ub)
+
+            print("Setting box:")
+            print("Lower:", lb)
+            print("Upper:", ub)
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()

@@ -16,7 +16,8 @@ TIP_WGT = 5.0
 
 REAL_TIME = True
 NOISE = False
-INVERSE_MODE = True
+INVERSE_MODE = False
+CONTROL_DELAY = 1
 
 
 model = ssqpy.model.Model(
@@ -33,7 +34,9 @@ model = ssqpy.model.Model(
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
-# tau_cost = ssqpy.model.costs.SquaredIDTorqueCost(model, nq, nv, np.array((0.0, 0.1)))
+# tau_cost = ssqpy.model.costs.SquaredIDTorqueCost(
+#     model, nq, nv, np.array((0.0, 1.0))
+# )
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
 )
@@ -48,25 +51,34 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
 for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
+    # model.addCost(k, tau_cost)
     model.addCost(k, tip_cost)
 
 model.addCost(MPC_H, tip_cost)
 model.addCost(MPC_H, config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-2
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
-admm_params = ssqpy.solvers.admmParams()
-admm_params.adaptive_rho_tolerance = 0.1
-admm_params.rho_update_iter_freq = 25
-admm_params.abs_tolerance = 1e-2
-admm_params.rel_tolerance = 1e-2
-admm_params.warm_start = False
+mpc = None
 
-ssqp_params.admmParams = admm_params
+if INVERSE_MODE:
+    ssqp_params.tolerance = 1e-3
+    ssqp_params.admmParams.init_rho = 5.0
+    ssqp_params.admmParams.adaptive_rho_tolerance = 5.0
+    ssqp_params.admmParams.rho_update_iter_freq = 25
+    ssqp_params.admmParams.abs_tolerance = 1e-3
+    ssqp_params.admmParams.rel_tolerance = 1e-3
+    ssqp_params.admmParams.warm_start = False
+    # ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
+    mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
+else:
+    ssqp_params.tolerance = 1e-2
+    ssqp_params.admmParams.abs_tolerance = 1e-3
+    ssqp_params.admmParams.rel_tolerance = 1e-3
+    ssqp_params.admmParams.warm_start = False
+
+    mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=100)
 
 mjmodel = mujoco.MjModel.from_xml_path(
     "../assets/mjcf/double_pendulum/double_pendulum.xml"
@@ -80,6 +92,10 @@ total_steps = int(1 / dt)
 reg_fails = 0
 
 np.set_printoptions(suppress=True)
+
+delayed_control = []
+
+i = 0
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
@@ -96,13 +112,20 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         if INVERSE_MODE:
             torques = model.inverseDynamics(mjdata.qpos, mjdata.qvel, control)
-            mjdata.ctrl[0] = torques[0]
+            delayed_control.append(torques[0])
+            if len(delayed_control) == CONTROL_DELAY:
+                mjdata.ctrl[0] = delayed_control.pop(0)
+
         else:
-            mjdata.ctrl[0] = control[0]
+            delayed_control.append(control[0])
+            if len(delayed_control) == CONTROL_DELAY:
+                mjdata.ctrl[0] = delayed_control.pop(0)
 
         if NOISE:
             mjdata.ctrl[0] += (
-                np.random.uniform(0, 0.1) if np.random.uniform(0, 10) > 8 else 0.0
+                np.random.uniform(0, 0.1)
+                if np.random.uniform(0, 10) > 8
+                else 0.0
             )
 
         elapsed += time() - pre
@@ -116,6 +139,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             elapsed = 0
             steps = 0
 
+        mjdata.ctrl = np.clip(mjdata.ctrl, -0.15, 0.15)
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 

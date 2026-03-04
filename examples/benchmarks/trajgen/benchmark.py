@@ -28,7 +28,7 @@ def benchmark(problems, sqp_params, save_to):
 
     pid = multiprocessing.current_process().pid
 
-    tmp_filepath = f"../data/tmp{pid}.json"
+    tmp_filepath = f"data/tmp{pid}.json"
 
     for i, problem in enumerate(problems):
         solver = ssqpy.solvers.ssqp(problem, sqp_params)

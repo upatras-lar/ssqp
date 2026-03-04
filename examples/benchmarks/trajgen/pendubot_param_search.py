@@ -1,9 +1,5 @@
 import ssqpy
 import multiprocessing
-import sys
-
-sys.path.insert(0, "..")
-
 import generate_paramset
 import generate_pendubot_problems
 
@@ -12,7 +8,9 @@ def paramsearch_pendubot(
     horizon, n_problems=10, dynamics_mode=ssqpy.model.DynamicsMode.Inverse
 ):
     dynamics_mode_str = (
-        "forward" if dynamics_mode == ssqpy.model.DynamicsMode.Forward else "inverse"
+        "forward"
+        if dynamics_mode == ssqpy.model.DynamicsMode.Forward
+        else "inverse"
     )
 
     problems = generate_pendubot_problems.generate_pendubot_problems(
@@ -43,7 +41,7 @@ def paramsearch_pendubot(
     result_admm.print()
 
     result_admm.write(
-        f"../data/parameters/pendubot_admm_params_H{horizon}_{dynamics_mode_str}.json"
+        f"data/parameters/pendubot_admm_params_H{horizon}_{dynamics_mode_str}.json"
     )
 
     """
@@ -67,7 +65,7 @@ def paramsearch_pendubot(
     result_hpipm.print()
 
     result_hpipm.write(
-        f"../data/parameters/pendubot_hpipm_params_H{horizon}_{dynamics_mode_str}.json"
+        f"data/parameters/pendubot_hpipm_params_H{horizon}_{dynamics_mode_str}.json"
     )
     """
 
