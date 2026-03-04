@@ -342,7 +342,7 @@ SolverState ssqp::_check_termination()
               dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
               _guess.x.stage(k + 1))
             .lpNorm<Eigen::Infinity>();
-        if (gap_norm > _params.tolerance)
+        if (gap_norm > _params.constraint_tolerance)
         {
             if constexpr (fullStagewiseConvergence)
             {
@@ -374,7 +374,7 @@ SolverState ssqp::_check_termination()
         {
             csnorm =
               constraints[k]->violation(_guess.x.stage(k), _guess.u.stage(k));
-            if (csnorm > _params.tolerance)
+            if (csnorm > _params.constraint_tolerance)
             {
                 if constexpr (fullStagewiseConvergence)
                 {
@@ -417,7 +417,7 @@ SolverState ssqp::_check_termination()
         csnorm = constraints[horizon]->violation(_guess.x.stage(horizon),
                                                  VecX::Zero(1));
 
-        if (csnorm > _params.tolerance)
+        if (csnorm > _params.constraint_tolerance)
         {
             if constexpr (fullStagewiseConvergence)
             {

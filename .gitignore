@@ -1,9 +1,10 @@
 /.vscode/
 /build/*
 /examples/data/*
-/examples/benchmarks/data/*
+/examples/benchmarks/trajgen/data/*
 /examples/benchmarks/benchmark-venv/*
 /examples/benchmarks/trajgen/pendubot_plots.py
+/examples/benchmarks/mpc/data/*
 /examples/trajgen/data/*
 /examples/trajgen/visualizer/viser-venv/*
 /VARIABLES.sh

@@ -12,20 +12,25 @@ if PLOT:
 
 nq = 9
 nv = 9
-MPC_H = 15
-H = 200
-dt = 0.01
-T_WGT = 5.0
-R_WGT = 1.0
-V_WGT = 1e-3
-U_WGT = 1e-4
 
-INVERSE_MODE = True
+H = 400
+dt = 0.01
+mpc_H = 10
+mpc_dt = 0.05
+dt_ratio = int(mpc_dt / dt)
+
+T_WGT = 10.0
+R_WGT = 1.0
+V_WGT = 1e-1
+U_WGT = 5e-3
+C_WGT = 0.18
+
+INVERSE_MODE = False
 
 cx = 0.3
 cy = 0
 cz = 0.26
-cr = 0.18
+cr = 0.22
 
 DISTANCE = 2 * pi
 ω = DISTANCE / (H * dt)
@@ -48,8 +53,8 @@ Rd[1, 1] = -1
 Rd[2, 2] = -1
 
 model = ssqpy.model.Model(
-    MPC_H,
-    dt,
+    mpc_H,
+    mpc_dt,
     urdf_path="../assets/urdf/panda/panda.urdf",
     dynamics_mode=(
         ssqpy.model.DynamicsMode.Inverse
@@ -79,10 +84,13 @@ box_constraint = ssqpy.model.constraints.FramePositionBound(
     model, "panda_ee", lb, ub, nq, nv
 )
 
+config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
+    init_state[:nq], nq, nv, C_WGT, False
+)
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
 
-for k in range(MPC_H):
+for k in range(mpc_H):
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
             model, traj[k], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
@@ -91,6 +99,7 @@ for k in range(MPC_H):
 
     model.addCost(k, v_cost)
     model.addCost(k, u_cost)
+    model.addCost(k, config_cost)
     model.addCost(k, pose_costs[-1])
 
     if CONSTRAIN:
@@ -98,19 +107,19 @@ for k in range(MPC_H):
 
 pose_costs.append(
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, traj[MPC_H], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
+        model, traj[mpc_H], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
     )
 )
 
-model.addCost(MPC_H, v_cost)
-model.addCost(MPC_H, pose_costs[-1])
+model.addCost(mpc_H, v_cost)
+model.addCost(mpc_H, pose_costs[-1])
 
 if CONSTRAIN:
-    model.addConstraints(MPC_H, box_constraint)
+    model.addConstraints(mpc_H, box_constraint)
 
 
 def update_pose_costs(current_stage):
-    for k in range(current_stage, current_stage + MPC_H):
+    for k in range(current_stage, current_stage + mpc_H):
         pose_costs[k - current_stage].set_desired_translation(traj[k % H])
 
 
@@ -118,14 +127,16 @@ ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.adaptive_rho_tolerance = 10
+# admm_params.init_rho = 0.5
+admm_params.adaptive_rho_tolerance = 1.0
+admm_params.rho_update_iter_freq = 15
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
 admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=75)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)
@@ -153,7 +164,9 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             #     f"Stage: {stage}, Mujoco: {mjdata.xpos[9]}, Ours: {model.forwardKinematics(mjdata.qpos, "panda_ee")[0]}"
             # )
             # state_data.append(mjdata.xpos[9].copy())
-            state_data.append(model.forwardKinematics(mjdata.qpos, "panda_ee")[0])
+            state_data.append(
+                model.forwardKinematics(mjdata.qpos, "panda_ee")[0]
+            )
 
             if stage == H:
                 break

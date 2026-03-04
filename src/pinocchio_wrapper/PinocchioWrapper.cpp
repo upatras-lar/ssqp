@@ -282,6 +282,8 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
     rnea_partial_dq = impl->data.dtau_dq;
     rnea_partial_dv = impl->data.dtau_dv;
     rnea_partial_da = impl->data.M;
+
+    rnea_partial_da = rnea_partial_da.selfadjointView<Eigen::Upper>();
 }
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
@@ -307,6 +309,8 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
     rnea_partial_dq = impl->data.dtau_dq;
     rnea_partial_dv = impl->data.dtau_dv;
     rnea_partial_da = impl->data.M;
+
+    rnea_partial_da = rnea_partial_da.selfadjointView<Eigen::Upper>();
 }
 
 bool hasFrame(const std::shared_ptr<ModelImpl> &impl, const std::string &frame)

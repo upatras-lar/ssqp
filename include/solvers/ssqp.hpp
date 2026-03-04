@@ -76,6 +76,10 @@ class ssqp
         uint max_iter = 10'000;
         // (Initial) Tolerance for lagrangian jacobian norms
         double tolerance = 1e-3;
+        // Constraint satisfaction tolerance
+        // If positive, defines a separate tolerance for constraints than the
+        // general tolerance used for dx/du norms
+        double constraint_tolerance = -1.0;
         // Final tolerance for lagrangian jacobian norms
         // This value will be reached after `tolerance_update_steps` SSQP steps
         // Use -1.0 to ignore
