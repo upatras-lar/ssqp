@@ -26,7 +26,7 @@ def run(horizon, dynamics_mode):
     # ====
     params_admm = benchmark.get_params(
         f"data/parameters/pendubot_admm_params_{dynamics_mode_str}.json",
-        max_iter=1000,
+        max_iter=2000,
     )
     benchmark.benchmark(
         problems,

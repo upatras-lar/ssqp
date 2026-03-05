@@ -79,6 +79,22 @@ def parse_args():
         help="Whether to visualize forces",
     )
 
+    parser.add_argument(
+        "--goal",
+        nargs=3,
+        type=float,
+        default=None,
+        help="A goal 3D point to visualize",
+    )
+
+    parser.add_argument(
+        "--box-region",
+        nargs=6,
+        type=float,
+        default=None,
+        help="A feasible region box (xyzxyz, 3 lower followed by 3 upper)",
+    )
+
     return parser.parse_args()
 
 
@@ -118,6 +134,72 @@ if args.forces:
         colors=np.array([225, 165, 60]),
         line_width=4.0,
     )
+
+if args.goal:
+    server.scene.add_point_cloud(
+        name="/goal",
+        points=np.array((args.goal,)),
+        colors=(1.0, 0.0, 0.0),
+        point_size=0.02,
+    )
+
+if args.box_region:
+    lower = args.box_region[:3]
+    upper = args.box_region[3:]
+
+    # Create the 8 corners of the box
+    corners = np.array(
+        [
+            [lower[0], lower[1], lower[2]],
+            [upper[0], lower[1], lower[2]],
+            [upper[0], upper[1], lower[2]],
+            [lower[0], upper[1], lower[2]],
+            [lower[0], lower[1], upper[2]],
+            [upper[0], lower[1], upper[2]],
+            [upper[0], upper[1], upper[2]],
+            [lower[0], upper[1], upper[2]],
+        ]
+    )
+
+    # Define the 12 edges of the cuboid
+    edges = np.array(
+        [
+            [corners[0], corners[1]],
+            [corners[1], corners[2]],
+            [corners[2], corners[3]],
+            [corners[3], corners[0]],  # bottom
+            [corners[4], corners[5]],
+            [corners[5], corners[6]],
+            [corners[6], corners[7]],
+            [corners[7], corners[4]],  # top
+            [corners[0], corners[4]],
+            [corners[1], corners[5]],
+            [corners[2], corners[6]],
+            [corners[3], corners[7]],  # verticals
+        ]
+    )
+
+    server.scene.add_line_segments(
+        name="/feasible_region",
+        points=edges,
+        colors=(0.0, 1.0, 0.0),  # green
+        line_width=2.0,
+    )
+
+## TMP
+# robot_base_2 = server.scene.add_frame("/robot2", show_axes=False)
+
+# urdf2 = viser.extras.ViserUrdf(
+#     server,
+#     urdf_or_path=Path(args.urdf_path),
+#     root_node_name="/robot2",
+#     mesh_color_override=(0.0, 0.0, 0.5, 0.3),
+# )
+
+# robot_base_2.position = np.array((-0.16398156, -0.14152308, 0.36892682))
+# robot_base_2.wxyz = np.array((0.2280501, 0, 0, 0.9736494))
+# urdf2.update_cfg(np.array([0.0, 0.5235987755982988, -1.0471975511965976] * 4))
+###
 
 
 # Move client camera to initial position
