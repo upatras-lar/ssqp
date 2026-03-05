@@ -41,7 +41,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
 
     z_height = 0.3689268220122
 
-    for _ in range(n_problems):
+    for i in range(n_problems):
 
         # -------------------------
         # Random initial / final pose
@@ -70,6 +70,10 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
                 [0, 0, 1],
             ]
         )
+
+        print("Problem:", i)
+        print(final_pos)
+        print(final_R)
 
         # -------------------------
         # Initial state

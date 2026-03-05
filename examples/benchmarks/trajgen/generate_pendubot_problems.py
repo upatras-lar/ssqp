@@ -83,10 +83,9 @@ def cvt(
 
 
 def generate_pendubot_problems(n, horizon, dynamics_mode):
-    V_WGT = 1e-3
+    V_WGT = 1e-2
     U_WGT = 1e-3 if dynamics_mode == ssqpy.model.DynamicsMode.Inverse else 1e-4
-    C_WGT = 1.0 if dynamics_mode == ssqpy.model.DynamicsMode.Inverse else 0.01
-    TIP_WGT = 10.0
+    TIP_WGT = 5.0
 
     nq = 2
     nv = 2
@@ -110,16 +109,14 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
         tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
             model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
         )
-        config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-            np.array((np.pi, 0.0)), nq, nv, C_WGT, False
-        )
 
         for k in range(horizon):
             model.addCost(k, vel_cost)
             model.addCost(k, u_cost)
             model.addCost(k, tip_cost)
 
-        model.addCost(horizon, config_cost)
+        model.addCost(horizon, vel_cost)
+        model.addCost(horizon, tip_cost)
 
         model.finalize(init_states=init_states[i])
 

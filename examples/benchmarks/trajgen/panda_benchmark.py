@@ -1,7 +1,7 @@
 import ssqpy
 import multiprocessing
 import benchmark
-import get_panda_problems
+import generate_panda_problems
 
 N_problems = 50
 
@@ -13,7 +13,7 @@ def run(dynamics_mode):
         else "inverse"
     )
 
-    problems = get_panda_problems.generate_panda_obstacle_problems(
+    problems = generate_panda_problems.generate_panda_obstacle_problems(
         N_problems, dynamics_mode
     )
 

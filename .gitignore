@@ -7,11 +7,13 @@
 /examples/benchmarks/mpc/data/*
 /examples/trajgen/data/*
 /examples/trajgen/visualizer/viser-venv/*
+/examples/real-mpc/plots/*
 /VARIABLES.sh
 /tests/logs/*
 /out.txt
 /nbvenv/*
 /TODO.md
+/TODO-paper.md
 /examples/python/*.json
 /perf*
 /examples/mpc/mpcvenv

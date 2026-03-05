@@ -49,7 +49,7 @@ def collect_problem_solved_statistics(filepath):
     return percentage
 
 
-def collect_problem_solved_walltime_statistics(filepath):
+def collect_cost_statistics(filepath):
     with open(filepath) as f:
         problems = json.load(f)
 
@@ -57,28 +57,28 @@ def collect_problem_solved_walltime_statistics(filepath):
         len(problem["convergence"]["iteration_data"]) for problem in problems
     )
 
-    sorted_walltime_problems = sorted(
-        problems, key=lambda problem: problem["convergence"]["runtime_ms"]
-    )
-
-    walltimes = [
-        problem["convergence"]["runtime_ms"] / 1000
-        for problem in sorted_walltime_problems
-    ]
-    walltimes.insert(0, 0.0)
-
-    problems_solved = 0
-    percentages = [0.0]
+    cost_matrix = []
 
     for problem in problems:
-        if problem["convergence"]["iterations"] < max_sqp_iter:
-            problems_solved += 1
-            percentages.append(problems_solved / len(problems) * 100)
-            continue
+        iteration_data = problem["convergence"]["iteration_data"]
 
-        percentages.append(percentages[-1])
+        costs = []
 
-    return percentages, walltimes
+        for iter in iteration_data:
+            costs.append(max(iter["stage_costs"]))
+
+        while len(costs) < max_sqp_iter:
+            costs.append(costs[-1])
+
+        cost_matrix.append(costs)
+
+    cost_matrix = np.array(cost_matrix)
+
+    median = np.nanpercentile(cost_matrix, 50, axis=0)
+    p25 = np.nanpercentile(cost_matrix, 25, axis=0)
+    p75 = np.nanpercentile(cost_matrix, 70, axis=0)
+
+    return median, p25, p75
 
 
 def collect_violation_statistics(filepath):
@@ -112,9 +112,62 @@ def collect_violation_statistics(filepath):
 
     violations_matrix = np.array(violations_matrix)
 
-    median = np.percentile(violations_matrix, 50, axis=0)
-    p25 = np.percentile(violations_matrix, 25, axis=0)
-    p75 = np.percentile(violations_matrix, 70, axis=0)
+    median = np.nanpercentile(violations_matrix, 50, axis=0)
+    p25 = np.nanpercentile(violations_matrix, 25, axis=0)
+    p75 = np.nanpercentile(violations_matrix, 70, axis=0)
+
+    return median, p25, p75
+
+
+import json
+import numpy as np
+
+
+def collect_time_to_satisfaction(filepath, include_cost=False):
+    """
+    Computes median, 25th, and 75th percentiles of walltime
+    to reach constraint satisfaction given solver tolerance.
+    """
+    with open(filepath) as f:
+        problems = json.load(f)
+
+    times_to_satisfy = []
+
+    for problem in problems:
+        tolerance = problem["solver"]["tolerance"]
+        iteration_data = problem["convergence"]["iteration_data"]
+        runtime_ms_cumulative = 0.0
+
+        for iter_data in iteration_data:
+            # max of constraint violations at this iteration
+            stage_gap_norm = max(iter_data["stage_gap_violations"])
+            stage_constraint_violation_norm = max(
+                iter_data["stage_constraint_violations"]
+            )
+            total = max(stage_gap_norm, stage_constraint_violation_norm)
+
+            if include_cost:
+                stage_cost_norm = max(iter_data["stage_costs"])
+                total = max(total, stage_cost_norm)
+
+            # accumulate runtime
+            runtime_ms_cumulative += iter_data["qp_runtime_us"] / 1000.0
+
+            # check if satisfied
+            if total <= tolerance:
+                times_to_satisfy.append(
+                    runtime_ms_cumulative / 1000.0
+                )  # seconds
+                break
+        else:
+            # if never satisfied, take total runtime
+            times_to_satisfy.append(runtime_ms_cumulative / 1000.0)
+
+    times_to_satisfy = np.array(times_to_satisfy)
+
+    median = np.nanpercentile(times_to_satisfy, 50)
+    p25 = np.nanpercentile(times_to_satisfy, 25)
+    p75 = np.nanpercentile(times_to_satisfy, 75)
 
     return median, p25, p75
 
@@ -156,27 +209,38 @@ ax1.grid(True)
 ax1.legend()
 
 # =========================
-# Second Plot (Problems Solved /w Wall time)
+# Second Plot (Costs)
 # =========================
 ax2 = axes[1]
 
 for i, filepath in enumerate(files):
     label = filepath.stem.replace(f"{args.model}_admm_", "").capitalize()
 
-    percentages, walltimes = collect_problem_solved_walltime_statistics(
-        filepath
-    )
+    median, p25, p75 = collect_cost_statistics(filepath)
+
+    x = np.arange(1, len(median) + 1)
     color = colors[i % len(colors)]
 
+    # Median line
     ax2.plot(
-        walltimes,
-        percentages,
-        label=label,
+        x,
+        median,
+        label=f"{label} (median)",
         color=color,
     )
 
-ax2.set_xlabel("Walltime (s)")
-ax2.set_ylabel("Converged Problems [%]")
+    # Interquartile band (25–75%)
+    ax2.fill_between(
+        x,
+        p25,
+        p75,
+        alpha=0.2,
+        color=color,
+    )
+
+ax2.set_xlabel("SQP Iteration")
+ax2.set_ylabel("Cost")
+ax2.set_yscale("log")
 ax2.grid(True)
 ax2.legend()
 
@@ -219,3 +283,6 @@ ax3.legend()
 plt.tight_layout()
 plt.savefig(f"data/plots/plot_{args.model}.pdf")
 plt.show()
+
+print(collect_time_to_satisfaction(filepath))
+print(collect_time_to_satisfaction(filepath, include_cost=True))

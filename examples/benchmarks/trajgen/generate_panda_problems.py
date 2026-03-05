@@ -184,7 +184,7 @@ def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
 
     H = 400
 
-    T_WGT = 10.0
+    T_WGT = 20.0
     R_WGT = 10.0
     V_WGT = 1e-1
     U_WGT = 1e-2 if dynamics_mode == ssqpy.model.DynamicsMode.Inverse else 1e-3
@@ -211,7 +211,7 @@ def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
 
     problems = []
 
-    for _ in range(n_problems):
+    for i in range(n_problems):
 
         obstacle_problem = ssqpy.model.Model(
             H,
@@ -220,8 +220,10 @@ def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
             dynamics_mode=dynamics_mode,
         )
 
-        random_offset = np.random.uniform(-0.3, 0.3, size=3)
+        random_offset = rng.uniform(-0.3, 0.3, size=3)
         final_goal = start_pos + random_offset
+
+        # print("Problem:", i)
 
         pose_cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
             obstacle_problem,
@@ -253,6 +255,11 @@ def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
 
         obstacle_lower = obstacle_center - half_size
         obstacle_upper = obstacle_center + half_size
+
+        # print("Goal:", final_goal)
+        # print("Lower:", obstacle_lower)
+        # print("Upper:", obstacle_upper)
+        # print()
 
         obstacle_box = ssqpy.model.constraints.FramePositionBound(
             obstacle_problem,

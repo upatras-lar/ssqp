@@ -1,15 +1,15 @@
 import socket
 import os
 import numpy as np
-from math import atan2, sin, cos
 import ssqpy
 import sys
+from time import time
 
 sys.path.insert(0, "..")
 from socket_utils import send, recv
 
 # Use -1 to to not plot
-PLOT_STEPS = -1
+PLOT_STEPS = 20000
 
 if PLOT_STEPS > 0:
     import matplotlib.pyplot as plt
@@ -27,7 +27,7 @@ MPC_H = 45
 
 V_WGT = 7e-4
 U_WGT = 7e-4
-TIP_WGT = 4.0
+TIP_WGT = 3.7
 
 model = ssqpy.model.Model(
     MPC_H,
@@ -53,7 +53,6 @@ model.addCost(MPC_H, tip_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.adaptive_rho_tolerance = 10
@@ -61,7 +60,7 @@ admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
 
-ssqp_params.admm_params = admm_params
+ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
 
@@ -77,7 +76,16 @@ print("Hardware connected")
 
 data = []
 
-normalize_angle = lambda a: atan2(sin(a), cos(a))
+
+def wrap_to_reference(theta, reference=np.pi):
+    return reference + np.arctan2(
+        np.sin(theta - reference), np.cos(theta - reference)
+    )
+
+
+t0 = time()
+timestamps = []
+frequencies = []
 
 i = 0
 while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
@@ -88,6 +96,7 @@ while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
     pos = state[:nq]
     vel = state[nq:]
 
+    start = time()
     try:
         u = mpc.step(state)
     except RuntimeError:
@@ -96,14 +105,20 @@ while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
     tau = model.inverseDynamics(pos, vel, u)
     tau[1] = 0.0
 
+    elapsed = time() - start
+
     if PLOT_STEPS > 0:
+        timestamps.append(time() - t0)
         data.append(
             (
-                np.array(list(map(normalize_angle, pos))),
+                np.array(
+                    (wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))
+                ),
                 vel,
                 np.clip(tau, -0.15, 0.15),
             )
         )
+        frequencies.append(1 / elapsed)
         i += 1
 
     send(conn, tau)
@@ -114,43 +129,55 @@ if PLOT_STEPS > 0:
     # Unpack data
     positions = np.array([item[0] for item in data])  # (N, 2)
     velocities = np.array([item[1] for item in data])  # (N, 2)
-    torques = np.array([item[2] for item in data])  # (N, 2)
+    torques = np.array([item[2] for item in data])[:, 0]  # (N, 2)
+    frequencies = np.array(frequencies)
 
-    # Time axis (sample index)
-    t = np.arange(len(data))
-
-    # Torque first component
-    torque_0 = torques[:, 0]
-
-    # Create figure with GridSpec
     fig = plt.figure(figsize=(10, 8))
-    gs = fig.add_gridspec(3, 1, height_ratios=[1, 1, 1])
+    gs = fig.add_gridspec(4, 1, height_ratios=[1, 1, 1, 1])
 
-    # --- Position (x & y together) ---
     ax_pos = fig.add_subplot(gs[0, 0])
-    ax_pos.plot(t, positions[:, 0], label="q₀")
-    ax_pos.plot(t, positions[:, 1], label="q₁")
+    ax_vel = fig.add_subplot(gs[1, 0], sharex=ax_pos)
+    ax_tau = fig.add_subplot(gs[2, 0], sharex=ax_pos)
+    ax_freq = fig.add_subplot(gs[3, 0], sharex=ax_pos)
+
+    t = np.array(timestamps)
+
+    # --- Position ---
+    for i, label in enumerate(["q₀", "q₁"]):
+        ax_pos.plot(t, positions[:, i], label=label)
+
     ax_pos.set_title("Position")
     ax_pos.set_ylabel("Position")
     ax_pos.legend()
     ax_pos.grid(True)
 
-    # --- Velocity (vx & vy together) ---
-    ax_vel = fig.add_subplot(gs[1, 0], sharex=ax_pos)
-    ax_vel.plot(t, velocities[:, 0], label="v₀")
-    ax_vel.plot(t, velocities[:, 1], label="v₁")
+    # --- Velocity ---
+    for i, label in enumerate(["v₀", "v₁"]):
+        ax_vel.plot(t, velocities[:, i], label=label)
+
     ax_vel.set_title("Velocity")
     ax_vel.set_ylabel("Velocity")
     ax_vel.legend()
     ax_vel.grid(True)
 
-    # --- Torque (first component) ---
-    ax_tau = fig.add_subplot(gs[2, 0], sharex=ax_pos)
-    ax_tau.plot(t, torque_0, label="τ₀")
+    # --- Torque (τ₀) ---
+    ax_tau.plot(t, torques, label="τ₀")
+
     ax_tau.set_title("Torque")
-    ax_tau.set_xlabel("Time")
     ax_tau.set_ylabel("τ₀")
     ax_tau.grid(True)
 
+    # --- Frequency ---
+    ax_freq.plot(t, frequencies, label=f"f")
+
+    ax_freq.set_title("Control Frequency")
+    ax_freq.set_xlabel("Time (s)")
+    ax_freq.set_ylabel("Frequency (Hz)")
+    ax_freq.set_yscale("log")
+
+    ax_freq.legend()
+    ax_freq.grid(True)
+
     plt.tight_layout()
+    plt.savefig(f"../plots/real_pendubot_{PLOT_STEPS}.pdf")
     plt.show()
