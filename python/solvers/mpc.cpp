@@ -60,11 +60,15 @@ void bind_MPC(nb::module_ &m)
            nb::arg("states"),
            nb::arg("controls"),
            "Uses the provided states and controls for warm-starting.")
-      .def("step", static_cast<VecX (MPC::*)(const VecX &)>(&MPC::step), R"doc(
+      .def("step",
+           static_cast<VecX (MPC::*)(const VecX &, bool)>(&MPC::step),
+           R"doc(
         Receding horizon initialization step.
         Uses the provided state as feedback and the previous solution for
         warm-starting.
-           )doc");
+           )doc",
+           nb::arg("state"),
+           nb::arg("return_state") = false);
 }
 
 }

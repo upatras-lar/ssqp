@@ -1,8 +1,8 @@
 import socket
 import os
+import sys
 import numpy as np
 import ssqpy
-import sys
 from time import time
 
 sys.path.insert(0, "..")
