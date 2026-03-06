@@ -40,7 +40,6 @@ def parse_args():
     parser.add_argument(
         "--disturbance-step",
         type=int,
-        default=None,
         help="Step number at which to apply a disturbance",
     )
 
@@ -240,8 +239,8 @@ def add_plots(positions, velocities, torques, frequencies, legend_pref=""):
         ax_pos.plot(t, pos_med[:, i], label=label)
         ax_pos.fill_between(t, pos_25[:, i], pos_75[:, i], alpha=0.3)
 
-    ax_pos.set_title("Position")
-    ax_pos.set_ylabel("Position")
+    ax_pos.set_title("Error from Reference Position")
+    ax_pos.set_ylabel("Position Error")
     ax_pos.legend()
     ax_pos.grid(True)
 

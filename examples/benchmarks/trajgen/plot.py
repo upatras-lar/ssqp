@@ -186,7 +186,7 @@ file_labels = list(all_data.keys())
 colors = plt.cm.tab10.colors
 
 fig, axes = plt.subplots(1, 3, figsize=(14, 5))
-fig.suptitle(f"{args.model}")
+fig.suptitle(f"{args.model.capitalize()} Task")
 
 # =========================
 # First Plot (Problems Solved /w SQP iterations)
@@ -225,7 +225,7 @@ for i, filepath in enumerate(files):
     ax2.plot(
         x,
         median,
-        label=f"{label} (median)",
+        label=f"{label}",
         color=color,
     )
 
@@ -261,7 +261,7 @@ for i, filepath in enumerate(files):
     ax3.plot(
         x,
         median,
-        label=f"{label} (median)",
+        label=f"{label}",
         color=color,
     )
 
@@ -284,5 +284,14 @@ plt.tight_layout()
 plt.savefig(f"data/plots/plot_{args.model}.pdf")
 plt.show()
 
-print(collect_time_to_satisfaction(filepath))
-print(collect_time_to_satisfaction(filepath, include_cost=True))
+np.set_printoptions(suppress=True)
+constr = collect_time_to_satisfaction(filepath)
+for val in constr:
+    print(f"{val:.4f}", end=" ")
+
+print()
+cost = collect_time_to_satisfaction(filepath, include_cost=True)
+for val in cost:
+    print(f"{val:.4f}", end=" ")
+
+print()
