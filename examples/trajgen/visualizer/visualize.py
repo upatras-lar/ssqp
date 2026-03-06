@@ -83,7 +83,6 @@ def parse_args():
         "--goal",
         nargs=3,
         type=float,
-        default=None,
         help="A goal 3D point to visualize",
     )
 
@@ -91,8 +90,24 @@ def parse_args():
         "--box-region",
         nargs=6,
         type=float,
-        default=None,
         help="A feasible region box (xyzxyz, 3 lower followed by 3 upper)",
+    )
+
+    parser.add_argument(
+        "--shaded-model-base",
+        nargs=7,
+        type=float,
+        help="Position (xyz) and quaternion (wxyz) for a shaded model of the "
+        "provided robot; if not passed, the position (0, 0, 0) and quaternion"
+        "(1 0 0 0) are used",
+    )
+
+    parser.add_argument(
+        "--shaded-model-configuration",
+        nargs="+",
+        type=float,
+        help="Configuration for the shaded model of the provided robot; if no "
+        "configuration is passed, the robot's first actual configuration is used",
     )
 
     return parser.parse_args()
@@ -186,20 +201,34 @@ if args.box_region:
         line_width=2.0,
     )
 
-## TMP
-# robot_base_2 = server.scene.add_frame("/robot2", show_axes=False)
+shaded_urdf = None
+updated_cfg = False
+if args.shaded_model_base or args.shaded_model_configuration:
+    if args.shaded_model_base is None:
+        args.shaded_model_base = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
-# urdf2 = viser.extras.ViserUrdf(
-#     server,
-#     urdf_or_path=Path(args.urdf_path),
-#     root_node_name="/robot2",
-#     mesh_color_override=(0.0, 0.0, 0.5, 0.3),
-# )
+    shaded_base = server.scene.add_frame("/shaded-model", show_axes=False)
 
-# robot_base_2.position = np.array((-0.16398156, -0.14152308, 0.36892682))
-# robot_base_2.wxyz = np.array((0.2280501, 0, 0, 0.9736494))
-# urdf2.update_cfg(np.array([0.0, 0.5235987755982988, -1.0471975511965976] * 4))
-###
+    shaded_urdf = viser.extras.ViserUrdf(
+        server,
+        urdf_or_path=Path(args.urdf_path),
+        root_node_name="/shaded-model",
+        mesh_color_override=(0.0, 0.0, 0.5, 0.3),
+    )
+
+    shaded_base.position = np.array(args.shaded_model_base[:3])
+    shaded_base.wxyz = np.array(args.shaded_model_base[3:])
+
+    if args.shaded_model_configuration:
+        actuated_joints = shaded_urdf.get_actuated_joint_names()
+        if len(args.shaded_model_configuration) != len(actuated_joints):
+            print(
+                f"Shaded model configuration size ({len(args.shaded_model_configuration)}) does not match the required ({len(actuated_joints)})"
+            )
+            exit(12)
+
+        shaded_urdf.update_cfg(args.shaded_model_configuration)
+        updated_cfg = True
 
 
 # Move client camera to initial position
@@ -235,6 +264,10 @@ while True:
 
         joint_positions = [state[i] for i in indices]
         urdf.update_cfg(joint_positions)
+
+        if shaded_urdf and not updated_cfg:
+            shaded_urdf.update_cfg(joint_positions)
+            updated_cfg = True
 
         # Move floating base if free flyer
         if data["properties"]["stages"][k]["floating_base"]:
