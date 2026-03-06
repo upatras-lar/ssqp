@@ -45,10 +45,10 @@ class MPC
     MPC(model::Model &model, const Params &params = Params::Default(),
         const ssqp::Params &ssqp_params = ssqp::Params::Default());
 
-    // Receding horizon initialization step.
+    // Receding horizon initialization step
     // Uses the provided state as feedback and the previous solution for
-    // warm-starting.
-    VecX step(const VecX &state);
+    // warm-starting
+    VecX step(const VecX &state, bool return_state = false);
 
     // Uses the provided states and controls for warm-starting
     std::pair<FlatVec, FlatVec> step(const FlatVec &states,
