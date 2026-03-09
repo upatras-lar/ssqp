@@ -14,6 +14,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        "-r",
+        "--robot-ip",
+        type=str,
+        required=True,
+        help="The robot IP",
+    )
+
+    parser.add_argument(
         "-i",
         "--ip",
         type=str,
@@ -46,7 +54,7 @@ sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 sock.connect((args.ip, args.port))
 
 # Initialize hardware
-robot = Robot(args.ip, RealtimeConfig.kIgnore)
+robot = Robot(args.robot_ip, RealtimeConfig.kIgnore)
 
 lower_torque_thresholds = [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]
 upper_torque_thresholds = [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]

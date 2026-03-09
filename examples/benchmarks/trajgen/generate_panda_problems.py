@@ -80,12 +80,8 @@ def get_panda_circle_problem(dynamics_mode):
             ),
         )
 
-        circle_problem.addCost(
-            k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-        )
-        circle_problem.addCost(
-            k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
-        )
+        circle_problem.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+        circle_problem.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
         circle_problem.addConstraints(k, box_constraint)
 
     circle_problem.addCost(
@@ -95,9 +91,7 @@ def get_panda_circle_problem(dynamics_mode):
         ),
     )
 
-    circle_problem.addCost(
-        H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-    )
+    circle_problem.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
 
     circle_problem.addConstraints(H, box_constraint)
 
@@ -179,7 +173,7 @@ def get_panda_obstacle_problem(dynamics_mode):
     return obstacle_problem
 
 
-def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
+def generate_panda_feasible_region_problems(n_problems, dynamics_mode, seed=42):
     rng = np.random.default_rng(seed)
 
     H = 400
@@ -223,8 +217,6 @@ def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
         random_offset = rng.uniform(-0.3, 0.3, size=3)
         final_goal = start_pos + random_offset
 
-        # print("Problem:", i)
-
         pose_cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
             obstacle_problem,
             final_goal,
@@ -256,10 +248,8 @@ def generate_panda_obstacle_problems(n_problems, dynamics_mode, seed=42):
         obstacle_lower = obstacle_center - half_size
         obstacle_upper = obstacle_center + half_size
 
-        # print("Goal:", final_goal)
-        # print("Lower:", obstacle_lower)
-        # print("Upper:", obstacle_upper)
-        # print()
+        # print("Problem:", i)
+        # print("--goal", *final_goal, "--box-region", *obstacle_lower, *obstacle_upper)
 
         obstacle_box = ssqpy.model.constraints.FramePositionBound(
             obstacle_problem,
