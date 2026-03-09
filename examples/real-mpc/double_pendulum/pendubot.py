@@ -9,7 +9,7 @@ sys.path.insert(0, "..")
 from socket_utils import send, recv
 
 # Use -1 to to not plot
-PLOT_STEPS = 20000
+PLOT_STEPS = -1
 
 if PLOT_STEPS > 0:
     import matplotlib.pyplot as plt
@@ -27,7 +27,8 @@ MPC_H = 45
 
 V_WGT = 7e-4
 U_WGT = 7e-4
-TIP_WGT = 3.7
+T_WGT = 0.
+TIP_WGT = 4.2
 
 model = ssqpy.model.Model(
     MPC_H,
@@ -39,6 +40,7 @@ model = ssqpy.model.Model(
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
+t_cost = ssqpy.model.costs.SquaredIDTorqueCost(model, nq, nv, T_WGT)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
 )
@@ -62,7 +64,7 @@ admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=8, qp_iters=200)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

@@ -13,7 +13,7 @@ def run(dynamics_mode):
         else "inverse"
     )
 
-    problems = generate_panda_problems.generate_panda_obstacle_problems(
+    problems = generate_panda_problems.generate_panda_feasible_region_problems(
         N_problems, dynamics_mode
     )
 

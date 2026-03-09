@@ -37,10 +37,10 @@ mpc_H = 8
 mpc_dt = 0.1
 
 T_WGT = 10.0
-R_WGT = 1.0
+R_WGT = 4.0
 V_WGT = 1e-2
 U_WGT = 1e-3
-C_WGT = 0.1
+C_WGT = 0.5
 
 INVERSE_MODE = True if args.dynamics_mode == "inverse" else False
 
@@ -174,9 +174,7 @@ def run(dynamics_mode, constrain):
 
         elapsed = time() - pre
 
-        state_data.append(
-            model.forwardKinematics(simulator.state[:nq], "panda_ee")[0]
-        )
+        state_data.append(model.forwardKinematics(simulator.state[:nq], "panda_ee")[0])
         frequency_data.append(1 / elapsed)
 
         simulator.step(sim_ctrl)
@@ -261,9 +259,7 @@ def add_plots(state_data, frequency_data, ref_traj, legend_pref=""):
     ax_top.legend()
     ax_top.grid(True)
 
-    ax_bottom.plot(
-        np.arange(H), np.array(frequency_data), label=f"{legend_pref} - f"
-    )
+    ax_bottom.plot(np.arange(H), np.array(frequency_data), label=f"{legend_pref} - f")
     ax_bottom.set_title("Frequency")
     ax_bottom.set_xlabel("Time (s)")
     ax_bottom.set_ylabel("Frequency (Hz)")
