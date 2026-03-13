@@ -37,10 +37,10 @@ mpc_H = 8
 mpc_dt = 0.1
 
 T_WGT = 10.0
-R_WGT = 4.0
+R_WGT = 1.0
 V_WGT = 1e-2
 U_WGT = 1e-3
-C_WGT = 0.5
+C_WGT = 0.1
 
 INVERSE_MODE = True if args.dynamics_mode == "inverse" else False
 

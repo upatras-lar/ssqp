@@ -12,9 +12,7 @@ H = 200
 
 def run(horizon, dynamics_mode):
     dynamics_mode_str = (
-        "forward"
-        if dynamics_mode == ssqpy.model.DynamicsMode.Forward
-        else "inverse"
+        "forward" if dynamics_mode == ssqpy.model.DynamicsMode.Forward else "inverse"
     )
 
     problems = generate_pendubot_problems.generate_pendubot_problems(
@@ -66,8 +64,8 @@ H_fwd_p = multiprocessing.Process(
 )
 
 
-H_inv_p.start()
+# H_inv_p.start()
 H_fwd_p.start()
 
-H_inv_p.join()
+# H_inv_p.join()
 H_fwd_p.join()
