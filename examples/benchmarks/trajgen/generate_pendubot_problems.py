@@ -66,15 +66,11 @@ def cvt(
         new_generators[nonempty] /= counts[nonempty, np.newaxis]
         new_generators[~nonempty] = generators[~nonempty]
 
-        displacement = np.max(
-            np.linalg.norm(new_generators - generators, axis=-1)
-        )
+        displacement = np.max(np.linalg.norm(new_generators - generators, axis=-1))
         generators = new_generators
 
         if displacement < tol:
-            print(
-                f"Converged at iteration {iteration + 1} (disp={displacement:.2e})"
-            )
+            print(f"Converged at iteration {iteration + 1} (disp={displacement:.2e})")
             break
     else:
         print(f"Max iterations ({n_iterations}), disp={displacement:.2e}")
@@ -83,9 +79,10 @@ def cvt(
 
 
 def generate_pendubot_problems(n, horizon, dynamics_mode):
-    V_WGT = 1e-2
+    V_WGT = 1e-3
     U_WGT = 1e-3 if dynamics_mode == ssqpy.model.DynamicsMode.Inverse else 1e-4
     TIP_WGT = 5.0
+    C_WGT = 4.0
 
     nq = 2
     nv = 2
@@ -109,14 +106,21 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
         tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
             model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
         )
+        config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
+            np.array((np.pi, 0.0)), nq, nv, C_WGT, False
+        )
 
         for k in range(horizon):
             model.addCost(k, vel_cost)
             model.addCost(k, u_cost)
-            model.addCost(k, tip_cost)
+            # model.addCost(k, tip_cost)
+
+            if k > 100:
+                model.addCost(k, config_cost)
 
         model.addCost(horizon, vel_cost)
-        model.addCost(horizon, tip_cost)
+        # model.addCost(horizon, tip_cost)
+        model.addCost(horizon, config_cost)
 
         model.finalize(init_states=init_states[i])
 

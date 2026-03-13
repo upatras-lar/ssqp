@@ -1,12 +1,14 @@
 /.vscode/
 /build/*
 /examples/data/*
-/examples/benchmarks/trajgen/data/*
+/examples/benchmarks/trajgen/data/plots/*
+/examples/benchmarks/trajgen/data/results/*
+/examples/benchmarks/trajgen/data/parameters/*_hpipm_*.json
 /examples/benchmarks/benchmark-venv/*
 /examples/benchmarks/trajgen/pendubot_plots.py
 /examples/benchmarks/mpc/data/*
 /examples/trajgen/data/*
-/examples/trajgen/visualizer/viser-venv/*
+/examples/visualizer/viser-venv/*
 /examples/real-mpc/plots/*
 /VARIABLES.sh
 /tests/logs/*
