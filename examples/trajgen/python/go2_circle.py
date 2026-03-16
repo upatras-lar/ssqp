@@ -103,9 +103,9 @@ for k in range(HORIZON):
     # Trunk pose tracking
     trunk_cost = costs.FrameSquaredPoseErrorCost(
         model,
+        "base",  # Go2 trunk frame name
         traj[k],
         np.eye(3),
-        "base",  # Go2 trunk frame name
         nq,
         nv,
         T_WGT,
@@ -142,9 +142,9 @@ for k in range(HORIZON):
 # Terminal trunk tracking cost
 terminal_cost = costs.FrameSquaredPoseErrorCost(
     model,
+    "base",
     traj[-1],
     np.eye(3),
-    "base",
     nq,
     nv,
     T_WGT,

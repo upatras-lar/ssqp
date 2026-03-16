@@ -27,7 +27,7 @@ MPC_H = 45
 
 V_WGT = 7e-4
 U_WGT = 7e-4
-T_WGT = 0.
+T_WGT = 0.0
 TIP_WGT = 4.2
 
 model = ssqpy.model.Model(
@@ -42,7 +42,7 @@ vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
 t_cost = ssqpy.model.costs.SquaredIDTorqueCost(model, nq, nv, T_WGT)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
+    model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
 )
 
 for k in range(MPC_H):

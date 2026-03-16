@@ -139,7 +139,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         # model.addCost(
         #     HORIZON,
         #     costs.FrameSquaredPoseErrorCost(
-        #         model, final_pos, final_R, "base", nq, nv, TF_WGT, ROT_WGT
+        #         model, "base", final_pos, final_R, nq, nv, TF_WGT, ROT_WGT
         #     ),
         # )
 

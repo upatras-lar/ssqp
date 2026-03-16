@@ -93,7 +93,7 @@ u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
 for k in range(mpc_H):
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, traj[k], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
+            model, "panda_ee", traj[k], Rd, nq, nv, T_WGT, R_WGT
         )
     )
 
@@ -107,7 +107,7 @@ for k in range(mpc_H):
 
 pose_costs.append(
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, traj[mpc_H], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
+        model, "panda_ee", traj[mpc_H], Rd, nq, nv, T_WGT, R_WGT
     )
 )
 

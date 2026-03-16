@@ -71,7 +71,7 @@ start_pos = model.forwardKinematics(init_state[:nq], "panda_ee")[0]
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
 pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
-    model, desired_pose, "panda_ee", nq, nq, T_WGT, R_WGT
+    model, "panda_ee", desired_pose, nq, nq, T_WGT, R_WGT
 )
 
 

@@ -322,9 +322,9 @@ int main()
         model.addCost<costs::FrameSquaredPoseErrorCost>(
           k,
           model,
+          "trunk",
           base_pos,
           Eigen::Matrix3d::Identity(),
-          "trunk",
           STATE_SIZE,
           CONTROL_SIZE,
           T_WGT,

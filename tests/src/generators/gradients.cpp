@@ -625,8 +625,8 @@ std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test()
         model->addCost<model::stagewise::predefined::costs::
                          FrameSquaredTranslationErrorCost>(k,
                                                            *model,
-                                                           Vec3::Zero(),
                                                            "trunk",
+                                                           Vec3::Zero(),
                                                            19,
                                                            18,
                                                            3.58);
@@ -656,8 +656,8 @@ std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test()
           model::stagewise::predefined::costs::FrameSquaredRotationErrorCost>(
           k,
           *model,
-          Mat3::Identity(),
           "trunk",
+          Mat3::Identity(),
           19,
           18,
           6.59);
@@ -687,9 +687,9 @@ std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test()
           model::stagewise::predefined::costs::FrameSquaredPoseErrorCost>(
           k,
           *model,
+          "trunk",
           Vec3::Zero(),
           Mat3::Identity(),
-          "trunk",
           19,
           18,
           9.41,
@@ -722,8 +722,8 @@ std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test()
           model::stagewise::predefined::costs::FrameSquaredVelocityErrorCost>(
           k,
           *model,
-          vd,
           "FR_foot",
+          vd,
           19,
           18,
           5.87);

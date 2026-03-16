@@ -76,22 +76,28 @@ def get_panda_circle_problem(dynamics_mode):
         circle_problem.addCost(
             k,
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
-                circle_problem, traj[k], Rd, "panda_ee", nq, nq, T_WGT, R_WGT
+                circle_problem, "panda_ee", traj[k], Rd, nq, nq, T_WGT, R_WGT
             ),
         )
 
-        circle_problem.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
-        circle_problem.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
+        circle_problem.addCost(
+            k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+        )
+        circle_problem.addCost(
+            k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
+        )
         circle_problem.addConstraints(k, box_constraint)
 
     circle_problem.addCost(
         H,
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            circle_problem, traj[H], Rd, "panda_ee", nq, nq, T_WGT, R_WGT
+            circle_problem, "panda_ee", traj[H], Rd, nq, nq, T_WGT, R_WGT
         ),
     )
 
-    circle_problem.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+    circle_problem.addCost(
+        H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+    )
 
     circle_problem.addConstraints(H, box_constraint)
 
@@ -135,13 +141,13 @@ def get_panda_obstacle_problem(dynamics_mode):
     joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
     control_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
     rot_cost = ssqpy.model.costs.FrameSquaredRotationErrorCost(
-        obstacle_problem, Rd, "panda_ee", nq, nq, R_WGT
+        obstacle_problem, "panda_ee", Rd, nq, nq, R_WGT
     )
     pose_cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
         obstacle_problem,
+        "panda_ee",
         np.array((0.3, 0.3, 0.1)),
         Rd,
-        "panda_ee",
         nq,
         nq,
         T_WGT,
@@ -173,7 +179,9 @@ def get_panda_obstacle_problem(dynamics_mode):
     return obstacle_problem
 
 
-def generate_panda_feasible_region_problems(n_problems, dynamics_mode, seed=42):
+def generate_panda_feasible_region_problems(
+    n_problems, dynamics_mode, seed=42
+):
     rng = np.random.default_rng(seed)
 
     H = 400
@@ -219,9 +227,9 @@ def generate_panda_feasible_region_problems(n_problems, dynamics_mode, seed=42):
 
         pose_cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
             obstacle_problem,
+            "panda_ee",
             final_goal,
             Rd,
-            "panda_ee",
             nq,
             nq,
             T_WGT,
@@ -229,7 +237,7 @@ def generate_panda_feasible_region_problems(n_problems, dynamics_mode, seed=42):
         )
 
         rot_cost = ssqpy.model.costs.FrameSquaredRotationErrorCost(
-            obstacle_problem, Rd, "panda_ee", nq, nq, R_WGT
+            obstacle_problem, "panda_ee", Rd, nq, nq, R_WGT
         )
 
         joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)

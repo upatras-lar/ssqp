@@ -106,7 +106,7 @@ def run(dynamics_mode, constrain):
     for k in range(mpc_H):
         pose_costs.append(
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
-                model, traj[k], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
+                model, "panda_ee", traj[k], Rd, nq, nv, T_WGT, R_WGT
             )
         )
 
@@ -120,7 +120,7 @@ def run(dynamics_mode, constrain):
 
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, traj[mpc_H], Rd, "panda_ee", nq, nv, T_WGT, R_WGT
+            model, "panda_ee", traj[mpc_H], Rd, nq, nv, T_WGT, R_WGT
         )
     )
 
@@ -174,7 +174,9 @@ def run(dynamics_mode, constrain):
 
         elapsed = time() - pre
 
-        state_data.append(model.forwardKinematics(simulator.state[:nq], "panda_ee")[0])
+        state_data.append(
+            model.forwardKinematics(simulator.state[:nq], "panda_ee")[0]
+        )
         frequency_data.append(1 / elapsed)
 
         simulator.step(sim_ctrl)
@@ -259,7 +261,9 @@ def add_plots(state_data, frequency_data, ref_traj, legend_pref=""):
     ax_top.legend()
     ax_top.grid(True)
 
-    ax_bottom.plot(np.arange(H), np.array(frequency_data), label=f"{legend_pref} - f")
+    ax_bottom.plot(
+        np.arange(H), np.array(frequency_data), label=f"{legend_pref} - f"
+    )
     ax_bottom.set_title("Frequency")
     ax_bottom.set_xlabel("Time (s)")
     ax_bottom.set_ylabel("Frequency (Hz)")

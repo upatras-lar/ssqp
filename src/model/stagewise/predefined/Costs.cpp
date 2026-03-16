@@ -547,11 +547,11 @@ void SquaredConfigurationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 
 // FrameSquaredTranslationErrorCost
 FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
-  const Model &model, const Vec3 &desired_translation, const std::string &frame,
+  const Model &model, const std::string &frame, const Vec3 &desired_translation,
   const uint nq, const uint nv, const double weight)
   : _model(std::make_shared<Model>(model))
-  , _desired_translation(desired_translation)
   , _frame(frame)
+  , _desired_translation(desired_translation)
   , _nq(nq)
   , _nv(nv)
 {
@@ -559,11 +559,11 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
 }
 
 FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
-  const Model &model, const Vec3 &desired_translation, const std::string &frame,
+  const Model &model, const std::string &frame, const Vec3 &desired_translation,
   const uint nq, const uint nv, const Vec3 &weight)
   : _model(std::make_shared<Model>(model))
-  , _desired_translation(desired_translation)
   , _frame(frame)
+  , _desired_translation(desired_translation)
   , _nq(nq)
   , _nv(nv)
   , _weight(weight)
@@ -642,11 +642,11 @@ void FrameSquaredTranslationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 
 // FrameSquaredRotationErrorCost
 FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
-  const Model &model, const Mat3 &desired_rotation, const std::string &frame,
+  const Model &model, const std::string &frame, const Mat3 &desired_rotation,
   const uint nq, const uint nv, const double weight)
   : _model(std::make_shared<Model>(model))
-  , _desired_rotation(desired_rotation)
   , _frame(frame)
+  , _desired_rotation(desired_rotation)
   , _nq(nq)
   , _nv(nv)
   , _weight(weight)
@@ -725,12 +725,12 @@ void FrameSquaredRotationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 
 // FrameSquaredPoseErrorCost
 FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
-  const Model &model, const Mat4 &desired_pose, const std::string &frame,
+  const Model &model, const std::string &frame, const Mat4 &desired_pose,
   const uint nq, const uint nv, const double translation_weight,
   const double rotation_weight)
   : _model(std::make_shared<Model>(model))
-  , _desired_pose(desired_pose)
   , _frame(frame)
+  , _desired_pose(desired_pose)
   , _nq(nq)
   , _nv(nv)
   , _weight(Mat6::Zero())
@@ -740,10 +740,10 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
 }
 
 FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
-  const Model &model, const Vec3 &desired_translation,
-  const Mat3 &desired_rotation, const std::string &frame, const uint nq,
-  const uint nv, const double translation_weight, const double rotation_weight)
-  : FrameSquaredPoseErrorCost(model,
+  const Model &model, const std::string &frame, const Vec3 &desired_translation,
+  const Mat3 &desired_rotation, const uint nq, const uint nv,
+  const double translation_weight, const double rotation_weight)
+  : FrameSquaredPoseErrorCost(model, frame,
                               Mat4 {
                                 { desired_rotation(0, 0),
                                  desired_rotation(0, 1),
@@ -759,8 +759,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
                                  desired_translation(2) },
                                 { 0.0, 0.0, 0.0, 1.0 }
 },
-                              frame, nq, nv, translation_weight,
-                              rotation_weight)
+                              nq, nv, translation_weight, rotation_weight)
 {
 }
 
@@ -867,11 +866,11 @@ void FrameSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
 
 // FrameSquaredVelocityErrorCost
 FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
-  const Model &model, const Vec6 &desired_velocity, const std::string &frame,
+  const Model &model, const std::string &frame, const Vec6 &desired_velocity,
   const uint nq, const uint nv, const double weight)
   : _model(std::make_shared<Model>(model))
-  , _desired_velocity(desired_velocity)
   , _frame(frame)
+  , _desired_velocity(desired_velocity)
   , _nq(nq)
   , _nv(nv)
 {
@@ -879,11 +878,11 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
 }
 
 FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
-  const Model &model, const Vec6 &desired_velocity, const std::string &frame,
+  const Model &model, const std::string &frame, const Vec6 &desired_velocity,
   const uint nq, const uint nv, const Vec6 &weight)
   : _model(std::make_shared<Model>(model))
-  , _desired_velocity(desired_velocity)
   , _frame(frame)
+  , _desired_velocity(desired_velocity)
   , _nq(nq)
   , _nv(nv)
   , _weight(weight)

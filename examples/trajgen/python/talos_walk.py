@@ -142,9 +142,9 @@ model = ssqpy.model.Model(
 # Create cost to move robot to final position
 pose_cost = costs.FrameSquaredPoseErrorCost(
     model,
+    "torso_1_link",
     final_pos,
     np.eye(3),
-    "torso_1_link",
     nq,
     nv,
     TF_WGT,

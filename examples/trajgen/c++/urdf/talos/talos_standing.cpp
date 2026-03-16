@@ -54,9 +54,9 @@ int main()
         model.addCost<costs::FrameSquaredPoseErrorCost>(
           k,
           model,
+          "torso_1_link",
           base_pos,
           Eigen::Matrix3d::Identity(),
-          "torso_1_link",
           STATE_SIZE,
           CONTROL_SIZE,
           T_WGT,
@@ -206,9 +206,9 @@ int main()
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
+                                                    "torso_1_link",
                                                     base_pos,
                                                     Eigen::Matrix3d::Identity(),
-                                                    "torso_1_link",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
                                                     T_WGT,

@@ -86,7 +86,9 @@ INVERSE_MODE = True if args.dynamics_mode == "inverse" else False
 
 
 def wrap_to_reference(theta, reference=np.pi):
-    return reference + np.arctan2(np.sin(theta - reference), np.cos(theta - reference))
+    return reference + np.arctan2(
+        np.sin(theta - reference), np.cos(theta - reference)
+    )
 
 
 def run(dynamics_mode):
@@ -103,7 +105,7 @@ def run(dynamics_mode):
     vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
     u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
     tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-        model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
+        model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
     )
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
         np.array((pi, 0.0)),
@@ -297,8 +299,12 @@ def get_data(dynamics_mode):
 
 
 if BOTH_MODES:
-    add_plots(*get_data(ssqpy.model.DynamicsMode.Forward), legend_pref="Forward")
-    add_plots(*get_data(ssqpy.model.DynamicsMode.Inverse), legend_pref="Inverse")
+    add_plots(
+        *get_data(ssqpy.model.DynamicsMode.Forward), legend_pref="Forward"
+    )
+    add_plots(
+        *get_data(ssqpy.model.DynamicsMode.Inverse), legend_pref="Inverse"
+    )
 elif INVERSE_MODE:
     add_plots(*get_data(ssqpy.model.DynamicsMode.Inverse))
 else:

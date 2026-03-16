@@ -118,9 +118,9 @@ int main()
         model.addCost<costs::FrameSquaredPoseErrorCost>(
           k,
           model,
+          "trunk",
           traj[k],
           Eigen::Matrix3d::Identity(),
-          "trunk",
           STATE_SIZE,
           CONTROL_SIZE,
           T_WGT,
@@ -222,9 +222,9 @@ int main()
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
+                                                    "trunk",
                                                     traj[HORIZON],
                                                     Eigen::Matrix3d::Identity(),
-                                                    "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
                                                     T_WGT,

@@ -48,7 +48,7 @@ joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
 pose_cost = costs.FrameSquaredPoseErrorCost(
-    model, base_pos, np.eye(3), "base", nq, nv, T_WGT, R_WGT
+    model, "base", base_pos, np.eye(3), nq, nv, T_WGT, R_WGT
 )
 config_cost = costs.SquaredConfigurationErrorCost(
     base_config, nq, nv, C_WGT, True
@@ -126,8 +126,8 @@ for k in range(HORIZON):
         k,
         costs.FrameSquaredVelocityErrorCost(
             model,
-            omega_traj[k - STEPS_BEFORE],
             "base",
+            omega_traj[k - STEPS_BEFORE],
             nq,
             nv,
             np.array((0.2, 0.2, 0.0, 1.0, 0.2, 0.2)),
