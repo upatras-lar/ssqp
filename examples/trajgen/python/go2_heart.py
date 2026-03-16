@@ -157,10 +157,10 @@ for k in range(HORIZON):
             k,
             costs.FrameSquaredTranslationErrorCost(
                 model,
+                "FL_foot",
                 np.array(
                     (TRACE_X_COORD, traj_l[trace_k][0], traj_l[trace_k][1])
                 ),
-                "FL_foot",
                 nq,
                 nv,
                 TRACE_ARM_WGT,
@@ -171,10 +171,10 @@ for k in range(HORIZON):
             k,
             costs.FrameSquaredTranslationErrorCost(
                 model,
+                "FR_foot",
                 np.array(
                     (TRACE_X_COORD, traj_r[trace_k][0], traj_r[trace_k][1])
                 ),
-                "FR_foot",
                 nq,
                 nv,
                 TRACE_ARM_WGT,
@@ -192,7 +192,7 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredTranslationErrorCost(
-        model, base_pos, "base", nq, nv, TF_WGT
+        model, "base", base_pos, nq, nv, TF_WGT
     ),
 )
 

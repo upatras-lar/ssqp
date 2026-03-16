@@ -217,13 +217,15 @@ class FrameSquaredTranslationErrorCost : public StageCost
 {
   public:
     FrameSquaredTranslationErrorCost(const Model       &model,
+                                     const std::string &frame,
                                      const Vec3        &desired_translation,
-                                     const std::string &frame, const uint nq,
-                                     const uint nv, const double weight);
+                                     const uint nq, const uint nv,
+                                     const double weight);
     FrameSquaredTranslationErrorCost(const Model       &model,
+                                     const std::string &frame,
                                      const Vec3        &desired_translation,
-                                     const std::string &frame, const uint nq,
-                                     const uint nv, const Vec3 &weight);
+                                     const uint nq, const uint nv,
+                                     const Vec3 &weight);
 
     void set_desired_translation(const Vec3 &desired_translation);
     void set_weight(const double weight);
@@ -255,9 +257,8 @@ class FrameSquaredTranslationErrorCost : public StageCost
 class FrameSquaredRotationErrorCost : public StageCost
 {
   public:
-    FrameSquaredRotationErrorCost(const Model       &model,
-                                  const Mat3        &desired_rotation,
-                                  const std::string &frame, const uint nq,
+    FrameSquaredRotationErrorCost(const Model &model, const std::string &frame,
+                                  const Mat3 &desired_rotation, const uint nq,
                                   const uint nv, const double weight);
 
     void set_desired_rotation(const Mat3 &desired_rotation);
@@ -292,15 +293,14 @@ class FrameSquaredRotationErrorCost : public StageCost
 class FrameSquaredPoseErrorCost : public StageCost
 {
   public:
-    FrameSquaredPoseErrorCost(const Model &model, const Mat4 &desired_pose,
-                              const std::string &frame, const uint nq,
+    FrameSquaredPoseErrorCost(const Model &model, const std::string &frame,
+                              const Mat4 &desired_pose, const uint nq,
                               const uint nv, const double translation_weight,
                               const double rotation_weight);
 
-    FrameSquaredPoseErrorCost(const Model       &model,
-                              const Vec3        &desired_translation,
-                              const Mat3        &desired_rotation,
-                              const std::string &frame, const uint nq,
+    FrameSquaredPoseErrorCost(const Model &model, const std::string &frame,
+                              const Vec3 &desired_translation,
+                              const Mat3 &desired_rotation, const uint nq,
                               const uint nv, const double translation_weight,
                               const double rotation_weight);
 
@@ -337,13 +337,11 @@ class FrameSquaredPoseErrorCost : public StageCost
 class FrameSquaredVelocityErrorCost : public StageCost
 {
   public:
-    FrameSquaredVelocityErrorCost(const Model       &model,
-                                  const Vec6        &desired_velocity,
-                                  const std::string &frame, const uint nq,
+    FrameSquaredVelocityErrorCost(const Model &model, const std::string &frame,
+                                  const Vec6 &desired_velocity, const uint nq,
                                   const uint nv, const double weight);
-    FrameSquaredVelocityErrorCost(const Model       &model,
-                                  const Vec6        &desired_velocity,
-                                  const std::string &frame, const uint nq,
+    FrameSquaredVelocityErrorCost(const Model &model, const std::string &frame,
+                                  const Vec6 &desired_velocity, const uint nq,
                                   const uint nv, const Vec6 &weight);
 
     void set_desired_velocity(const Vec6 &desired_velocity);

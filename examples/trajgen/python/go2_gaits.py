@@ -66,7 +66,9 @@ model = ssqpy.model.Model(
 )
 
 # Create regularization costs
-config_cost = costs.SquaredConfigurationErrorCost(init[7:19], nq, nv, C_WGT, True)
+config_cost = costs.SquaredConfigurationErrorCost(
+    init[7:19], nq, nv, C_WGT, True
+)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
@@ -81,7 +83,9 @@ for k in range(HORIZON):
     # orientation
     model.addCost(
         k,
-        costs.FrameSquaredRotationErrorCost(model, np.eye(3), "base", nq, nv, ROT_WGT),
+        costs.FrameSquaredRotationErrorCost(
+            model, "base", np.eye(3), nq, nv, ROT_WGT
+        ),
     )
 
 
@@ -95,7 +99,9 @@ model.addCost(HORIZON, costs.SquaredJointVelocityCost(nv, 1e3, True))
 # position
 model.addCost(
     HORIZON,
-    costs.FrameSquaredTranslationErrorCost(model, final_pos, "base", nq, nv, TF_WGT),
+    costs.FrameSquaredTranslationErrorCost(
+        model, "base", final_pos, nq, nv, TF_WGT
+    ),
 )
 
 # Add a bound such that the base has no velocity at the end of the trajectory
@@ -111,13 +117,17 @@ init_controls = []
 
 # Create a `GaitManager`, passing the model, the configuration and velocity
 # sizes and the ordered frames for each of the 4 feet
-gait_manager = GaitManager(model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"])
+gait_manager = GaitManager(
+    model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
+)
 
 # Add a gait of the specified type for the range [0, H - FSS - 1]
 # Gait methods will return the initial controls as a list, so we extend
 # `init_controls` by their return value
 if CYCLE_STEPS is None:
-    init_controls.extend(GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1))
+    init_controls.extend(
+        GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1)
+    )
 else:
     init_controls.extend(
         GAIT(

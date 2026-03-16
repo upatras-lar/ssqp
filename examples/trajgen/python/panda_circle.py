@@ -104,7 +104,7 @@ for k in range(H):
     model.addCost(
         k,
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, traj[k], Rd, "panda_ee", nq, nq, T_WGT, R_WGT
+            model, "panda_ee", traj[k], Rd, nq, nq, T_WGT, R_WGT
         ),
     )
 
@@ -120,7 +120,7 @@ for k in range(H):
 model.addCost(
     H,
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, traj[H], Rd, "panda_ee", nq, nq, T_WGT, R_WGT
+        model, "panda_ee", traj[H], Rd, nq, nq, T_WGT, R_WGT
     ),
 )
 

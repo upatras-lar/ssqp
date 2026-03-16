@@ -38,7 +38,7 @@ u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
 #     model, nq, nv, np.array((0.0, 1.0))
 # )
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
+    model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
 )
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((pi, 0.0)),

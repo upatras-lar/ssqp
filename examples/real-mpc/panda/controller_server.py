@@ -160,10 +160,12 @@ try:
         v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
         u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
         pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, desired_pose, "panda_ee", nq, nq, T_WGT, R_WGT
+            model, "panda_ee", desired_pose, nq, nq, T_WGT, R_WGT
         )
         qq = init_state[:nq]
-        c_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(qq, nq, nv, 1.0, False)
+        c_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
+            qq, nq, nv, 1.0, False
+        )
 
         for k in range(MPC_H):
             model.addCost(k, v_cost)

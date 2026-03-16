@@ -66,11 +66,15 @@ def cvt(
         new_generators[nonempty] /= counts[nonempty, np.newaxis]
         new_generators[~nonempty] = generators[~nonempty]
 
-        displacement = np.max(np.linalg.norm(new_generators - generators, axis=-1))
+        displacement = np.max(
+            np.linalg.norm(new_generators - generators, axis=-1)
+        )
         generators = new_generators
 
         if displacement < tol:
-            print(f"Converged at iteration {iteration + 1} (disp={displacement:.2e})")
+            print(
+                f"Converged at iteration {iteration + 1} (disp={displacement:.2e})"
+            )
             break
     else:
         print(f"Max iterations ({n_iterations}), disp={displacement:.2e}")
@@ -104,7 +108,7 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
         vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
         u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
         tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-            model, np.array((0.0, 0.0, 0.1)), "tip", nq, nv, TIP_WGT
+            model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
         )
         config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
             np.array((np.pi, 0.0)), nq, nv, C_WGT, False

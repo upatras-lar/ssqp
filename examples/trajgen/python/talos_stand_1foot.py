@@ -86,9 +86,9 @@ for k in range(H):
         k,
         costs.FrameSquaredPoseErrorCost(
             model,
+            "torso_1_link",
             np.array((0.0, 0.15, 1.072)),
             np.eye(3),
-            "torso_1_link",
             nq,
             nv,
             T_BASE_WGT,
@@ -103,8 +103,8 @@ for k in range(H):
             k,
             costs.FrameSquaredTranslationErrorCost(
                 model,
-                np.array((0.4, -0.25, 0.65)),
                 "leg_right_4_link",
+                np.array((0.4, -0.25, 0.65)),
                 nq,
                 nv,
                 T_KNEE_RAISE_WGT,
@@ -116,8 +116,8 @@ for k in range(H):
             k,
             costs.FrameSquaredTranslationErrorCost(
                 model,
-                np.array((0.0, 0.6, 1.0)),
                 "arm_left_4_link",
+                np.array((0.0, 0.6, 1.0)),
                 nq,
                 nv,
                 T_ARM_RAISE_WGT,
@@ -128,8 +128,8 @@ for k in range(H):
             k,
             costs.FrameSquaredTranslationErrorCost(
                 model,
-                np.array((0.0, -0.6, 1.0)),
                 "arm_right_4_link",
+                np.array((0.0, -0.6, 1.0)),
                 nq,
                 nv,
                 T_ARM_RAISE_WGT,

@@ -46,7 +46,7 @@ joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, U_WGT)
 force_cost = costs.SquaredForceCost(nv, F_WGT)
 pose_cost = costs.FrameSquaredPoseErrorCost(
-    model, base_pos, np.eye(3), "base", nq, nv, T_WGT, R_WGT
+    model, "base", base_pos, np.eye(3), nq, nv, T_WGT, R_WGT
 )
 
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
@@ -119,7 +119,7 @@ for k in range(HORIZON):
     # model.addCost(
     #     k,
     #     costs.FrameSquaredRotationErrorCost(
-    #         model, rotation_traj[k - STEPS_BEFORE], "base", nq, nv, R_WGT
+    #         model, "base", rotation_traj[k - STEPS_BEFORE], nq, nv, R_WGT
     #     ),
     # )
 

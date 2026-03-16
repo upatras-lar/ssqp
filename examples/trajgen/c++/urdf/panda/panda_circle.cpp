@@ -130,8 +130,8 @@ int main()
         // the current translation for stage k and the normal rotation matrix
         model.addCost<costs::FrameSquaredPoseErrorCost>(k,
                                                         model,
-                                                        desired_pose,
                                                         "panda_ee",
+                                                        desired_pose,
                                                         STATE_SIZE,
                                                         STATE_SIZE,
                                                         T_WGT,
@@ -166,8 +166,8 @@ int main()
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
-                                                    desired_pose,
                                                     "panda_ee",
+                                                    desired_pose,
                                                     STATE_SIZE,
                                                     STATE_SIZE,
                                                     T_WGT,

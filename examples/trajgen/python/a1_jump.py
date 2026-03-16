@@ -115,7 +115,7 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredPoseErrorCost(
-        model, base_pos, np.eye(3), "trunk", nq, nv, TF_WGT, RF_WGT
+        model, "trunk", base_pos, np.eye(3), nq, nv, TF_WGT, RF_WGT
     ),
 )
 

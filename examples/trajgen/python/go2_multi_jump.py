@@ -263,7 +263,7 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredPoseErrorCost(
-        model, final_pos, np.eye(3), "base", nq, nv, TF_WGT, RF_WGT
+        model, "base", final_pos, np.eye(3), nq, nv, TF_WGT, RF_WGT
     ),
 )
 # Add constraint for the final velocity of the base to be 0

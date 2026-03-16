@@ -133,9 +133,9 @@ model = ssqpy.model.Model(
 # Create a cost for the torso to remain at the base position
 pose_cost = costs.FrameSquaredPoseErrorCost(
     model,
+    "torso_1_link",
     base_pos,
     np.eye(3),
-    "torso_1_link",
     nq,
     nv,
     T_WGT,

@@ -180,9 +180,9 @@ int main()
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
+                                                    "trunk",
                                                     base_pos,
                                                     Eigen::Matrix3d::Identity(),
-                                                    "trunk",
                                                     STATE_SIZE,
                                                     CONTROL_SIZE,
                                                     TF_WGT,
