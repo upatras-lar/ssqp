@@ -40,6 +40,7 @@ params.admmParams.abs_tolerance = 1e-3
 params.admmParams.rel_tolerance = 1e-3
 params.admmParams.adaptive_rho_tolerance = 10.0
 params.admmParams.max_iter = 500
+params.admmParams.init_rho = 1.0
 
 solver = ssqpy.solvers.ssqp(problem, params)
 

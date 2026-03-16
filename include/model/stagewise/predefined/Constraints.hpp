@@ -136,11 +136,11 @@ class FramePositionBound : public StageConstraints
   public:
     // Regular constructor
     FramePositionBound(const Model &model, const std::string &frame,
-                       const VecX &lb, const VecX &ub, const uint nq,
+                       const Vec3 &lb, const Vec3 &ub, const uint nq,
                        const uint nv);
 
-    void set_lower_bound(const VecX &lb);
-    void set_upper_bound(const VecX &ub);
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
 
     uint output_size() const override;
 
@@ -162,7 +162,50 @@ class FramePositionBound : public StageConstraints
   protected:
     const std::shared_ptr<Model> _model;
     const std::string            _frame;
-    VecX                         _lb, _ub;
+    Vec3                         _lb, _ub;
+    const uint                   _nq, _nv;
+};
+
+/* Predefined 3D orientation bound for a given frame
+ * Creates a nonlinear bound constraint on the orientation of a frame:
+ * $\boldsymbol{b}_l \leq \log_{SO3}R_{ref}^\top R_f \leq \boldsymbol{b}_u$
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the orientation error (in $\mathcal{R}^3$)
+ *  - $R_f$: Frame rotation matrix
+ *  - $R_{ref}$: Reference rotation matrix
+ */
+class FrameRotationBound : public StageConstraints
+{
+  public:
+    FrameRotationBound(const Model &model, const std::string &frame,
+                       const Mat3 &Rref, const Vec3 &lb, const Vec3 &ub,
+                       const uint nq, const uint nv);
+
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const std::string            _frame;
+    Mat3                         _Rref;
+    Vec3                         _lb, _ub;
     const uint                   _nq, _nv;
 };
 
@@ -178,11 +221,11 @@ class FrameLinearVelocityBound : public StageConstraints
   public:
     // Regular constructor
     FrameLinearVelocityBound(const Model &model, const std::string &frame,
-                             const VecX &lb, const VecX &ub, const uint nq,
+                             const Vec3 &lb, const Vec3 &ub, const uint nq,
                              const uint nv, const bool terminal = false);
 
-    void set_lower_bound(const VecX &lb);
-    void set_upper_bound(const VecX &ub);
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
 
     uint output_size() const override;
 
@@ -204,7 +247,7 @@ class FrameLinearVelocityBound : public StageConstraints
   protected:
     const std::shared_ptr<Model> _model;
     const std::string            _frame;
-    VecX                         _lb, _ub;
+    Vec3                         _lb, _ub;
     const uint                   _nq, _nv;
     const bool                   _terminal;
 };
