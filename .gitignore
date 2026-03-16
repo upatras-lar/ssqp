@@ -15,7 +15,6 @@
 /out.txt
 /nbvenv/*
 /TODO.md
-/TODO-paper.md
 /examples/python/*.json
 /perf*
 /examples/mpc/mpcvenv

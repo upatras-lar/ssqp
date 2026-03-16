@@ -1,15 +1,6 @@
 #ifndef SSQP_SOLVERS_HPIPM_QP_HPP
 #define SSQP_SOLVERS_HPIPM_QP_HPP
 
-extern "C"
-{
-#include <hpipm_d_ocp_qp.h>
-#include <hpipm_d_ocp_qp_dim.h>
-#include <hpipm_d_ocp_qp_ipm.h>
-#include <hpipm_d_ocp_qp_sol.h>
-#include <hpipm_d_ocp_qp_utils.h>
-}
-
 #include "solvers/qp.hpp"
 
 #include "nlohmann/json.hpp"
@@ -18,6 +9,15 @@ namespace ssqp
 {
 namespace solvers
 {
+
+class hpipm_data;
+
+enum HPIPMMode
+{
+    ROBUST,
+    SPEED,
+    BALANCE
+};
 
 class hpipm_qp : public QPSolver
 {
@@ -28,7 +28,7 @@ class hpipm_qp : public QPSolver
         Params(const nlohmann::ordered_json &hpipmj);
 
         // HPIPM mode
-        hpipm_mode mode = ROBUST;
+        HPIPMMode mode = ROBUST;
         // Maximum iterations
         int max_iter = 100;
 
@@ -98,11 +98,7 @@ class hpipm_qp : public QPSolver
     int _status;
 
     // HPIPM structures
-    d_ocp_qp_dim     _hpipm_qp_dim;
-    d_ocp_qp         _hpipm_qp;
-    d_ocp_qp_sol     _hpipm_qp_sol;
-    d_ocp_qp_ipm_arg _hpipm_qp_arg;
-    d_ocp_qp_ipm_ws  _hpipm_qp_ws;
+    std::shared_ptr<hpipm_data> _hpipm_data;
 
     // Memory arenas (HPIPM uses custom allocators)
     void *_hpipm_dim_mem;

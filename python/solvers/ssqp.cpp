@@ -60,16 +60,16 @@ void bind_ssqp(nb::module_ &m)
       .value("HPIPM", ssqp::QPSolverType::HPIPM)
       .export_values();
 
-    nb::enum_<hpipm_mode>(m, "HPIPMMode", R"doc(
+    nb::enum_<HPIPMMode>(m, "HPIPMMode", R"doc(
         The HPIPM solver mode.
         Available modes:
          - Robust
          - Speed
          - Balance
         )doc")
-      .value("Robust", hpipm_mode::ROBUST)
-      .value("Speed", hpipm_mode::SPEED)
-      .value("Balance", hpipm_mode::BALANCE);
+      .value("Robust", HPIPMMode::ROBUST)
+      .value("Speed", HPIPMMode::SPEED)
+      .value("Balance", HPIPMMode::BALANCE);
 
     nb::class_<ssqp::IterationConvergenceData>(
       m,
@@ -565,7 +565,7 @@ void bind_ssqp(nb::module_ &m)
 
             if (kwargs.contains("hpipm_mode"))
             {
-                hpipm_params.mode = nb::cast<hpipm_mode>(kwargs["hpipm_mode"]);
+                hpipm_params.mode = nb::cast<HPIPMMode>(kwargs["hpipm_mode"]);
             }
             if (kwargs.contains("hpipm_max_iter"))
             {
