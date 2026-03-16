@@ -32,7 +32,9 @@ def quaternion_to_rotation_matrix(q):
 
 # Parse command-line arguments
 def parse_args():
-    parser = argparse.ArgumentParser(description="Trajectory visualizer via Viser")
+    parser = argparse.ArgumentParser(
+        description="Trajectory visualizer via Viser"
+    )
     parser.add_argument(
         "-u",
         "--urdf-path",
@@ -253,7 +255,9 @@ while True:
         indices = []
         for joint in joints:
             if joint not in data_joints:
-                print(f"Joint {joint} expected, but not found in stage {k} data")
+                print(
+                    f"Joint {joint} expected, but not found in stage {k} data"
+                )
                 exit(11)
 
             indices.append(data_joints.index(joint))

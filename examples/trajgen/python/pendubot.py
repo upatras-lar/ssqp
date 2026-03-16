@@ -30,7 +30,7 @@ model = ssqpy.model.Model(
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
 tau_cost = ssqpy.model.costs.SquaredIDTorqueCost(
-    model, nq, nv, np.array((0.0, 0.1))
+    model, nq, nv, np.array((1e-1, 0.0))
 )
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((pi, 0.0)), nq, nv, C_WGT, False
@@ -39,7 +39,7 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
 for k in range(H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
-    model.addCost(k, tau_cost)
+    # model.addCost(k, tau_cost)
 
     if k > 100:
         model.addCost(k, config_cost)
