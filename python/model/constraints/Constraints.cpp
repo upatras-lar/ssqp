@@ -280,8 +280,8 @@ void bind_Constraints(nb::module_ &m)
     nb::class_<FramePositionBound, StageConstraints>(m, "FramePositionBound")
       .def(nb::init<const Model &,
                     const std::string &,
-                    const VecX &,
-                    const VecX &,
+                    const Vec3 &,
+                    const Vec3 &,
                     uint,
                     uint>(),
            nb::arg("model"),
@@ -305,13 +305,44 @@ void bind_Constraints(nb::module_ &m)
            &FramePositionBound::set_upper_bound,
            nb::arg("upper_bound"));
 
+    nb::class_<FrameRotationBound, StageConstraints>(m, "FrameRotationBound")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Mat3 &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    uint,
+                    uint>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("Rref"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           R"doc(
+        Predefined 3D orientation bound for a given frame
+        Creates a nonlinear bound constraint on the orientation of a frame:
+        $\boldsymbol{b}_l \leq \log_{SO3}R_{ref}^\top R_f \leq \boldsymbol{b}_u$
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the orientation error (in $\mathcal{R}^3$)
+         - $R_f$: Frame rotation matrix
+         - $R_{ref}$: Reference rotation matrix
+           )doc")
+      .def("set_lower_bound",
+           &FrameRotationBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FrameRotationBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
     nb::class_<FrameLinearVelocityBound, StageConstraints>(
       m,
       "FrameLinearVelocityBound")
       .def(nb::init<const Model &,
                     const std::string &,
-                    const VecX &,
-                    const VecX &,
+                    const Vec3 &,
+                    const Vec3 &,
                     uint,
                     uint,
                     bool>(),

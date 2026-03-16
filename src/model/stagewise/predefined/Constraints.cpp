@@ -1,4 +1,5 @@
 #include "model/stagewise/predefined/Constraints.hpp"
+#include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 namespace ssqp
 {
@@ -207,8 +208,8 @@ void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
 
 // FramePositionBound
 FramePositionBound::FramePositionBound(const Model       &model,
-                                       const std::string &frame, const VecX &lb,
-                                       const VecX &ub, const uint nq,
+                                       const std::string &frame, const Vec3 &lb,
+                                       const Vec3 &ub, const uint nq,
                                        const uint nv)
   : _model(std::make_shared<Model>(model))
   , _frame(frame)
@@ -220,15 +221,13 @@ FramePositionBound::FramePositionBound(const Model       &model,
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
 }
 
-void FramePositionBound::set_lower_bound(const VecX &lb)
+void FramePositionBound::set_lower_bound(const Vec3 &lb)
 {
-    assert(lb.size() == 3 && "Bound vector size must be 3");
     _lb = lb;
 }
 
-void FramePositionBound::set_upper_bound(const VecX &ub)
+void FramePositionBound::set_upper_bound(const Vec3 &ub)
 {
-    assert(ub.size() == 3 && "Bound vector size must be 3");
     _ub = ub;
 }
 
@@ -256,10 +255,7 @@ VecX FramePositionBound::evaluate(const VecX &x, const VecX &u) const
 void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                   MatX &dU) const
 {
-    Vec3 pos;
-    Mat3 rot;
-    std::tie(pos, rot) = _model->forwardKinematics(x.head(_nq), _frame);
-    MatX Jfk           = _model->frameJacobian(x.head(_nq), _frame);
+    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
     dX               = MatX::Zero(3, 2 * _nv);
     dX.leftCols(_nv) = Jfk.topRows(3);
@@ -283,9 +279,87 @@ void FramePositionBound::hessprod_uu(const VecX &x, const VecX &u,
     Puu = MatX::Zero(u.size(), u.size());
 }
 
+// FrameRotationBound
+FrameRotationBound::FrameRotationBound(const Model       &model,
+                                       const std::string &frame,
+                                       const Mat3 &Rref, const Vec3 &lb,
+                                       const Vec3 &ub, const uint nq,
+                                       const uint nv)
+  : _model(std::make_shared<Model>(model))
+  , _frame(frame)
+  , _Rref(Rref)
+  , _lb(lb)
+  , _ub(ub)
+  , _nq(nq)
+  , _nv(nv)
+{
+}
+
+void FrameRotationBound::set_lower_bound(const Vec3 &lb)
+{
+    _lb = lb;
+}
+void FrameRotationBound::set_upper_bound(const Vec3 &ub)
+{
+    _ub = ub;
+}
+
+uint FrameRotationBound::output_size() const
+{
+    return 3;
+}
+
+VecX FrameRotationBound::lower_bound() const
+{
+    return _lb;
+}
+VecX FrameRotationBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FrameRotationBound::evaluate(const VecX &x, const VecX &u) const
+{
+    Mat3 Rf;
+    std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame);
+
+    return pinocchio_wrapper::logSO3(_Rref.transpose() * Rf);
+}
+
+void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                  MatX &dU) const
+{
+    Mat3 Rf;
+    std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame);
+
+    MatX Jw   = _model->frameJacobian(x.head(_nq), _frame, true).bottomRows(3);
+    Mat3 Jlog = pinocchio_wrapper::JlogSO3(_Rref.transpose() * Rf);
+
+    dX               = MatX::Zero(3, 2 * _nv);
+    dX.leftCols(_nv) = Jlog * Jw;
+
+    dU = MatX::Zero(3, u.size());
+}
+
+void FrameRotationBound::hessprod_xx(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+}
+void FrameRotationBound::hessprod_xu(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(2 * _nv, u.size());
+}
+void FrameRotationBound::hessprod_uu(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
 // FrameLinearVelocityBound
 FrameLinearVelocityBound::FrameLinearVelocityBound(
-  const Model &model, const std::string &frame, const VecX &lb, const VecX &ub,
+  const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
   const uint nq, const uint nv, const bool terminal)
   : _model(std::make_shared<Model>(model))
   , _frame(frame)
@@ -295,18 +369,15 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(
   , _nv(nv)
   , _terminal(terminal)
 {
-    assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
 }
 
-void FrameLinearVelocityBound::set_lower_bound(const VecX &lb)
+void FrameLinearVelocityBound::set_lower_bound(const Vec3 &lb)
 {
-    assert(lb.size() == 3 && "Bound vector size must be 3");
     _lb = lb;
 }
 
-void FrameLinearVelocityBound::set_upper_bound(const VecX &ub)
+void FrameLinearVelocityBound::set_upper_bound(const Vec3 &ub)
 {
-    assert(ub.size() == 3 && "Bound vector size must be 3");
     _ub = ub;
 }
 

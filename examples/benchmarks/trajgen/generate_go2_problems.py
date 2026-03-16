@@ -85,8 +85,12 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
             ]
         )
 
-        # print("Problem:", i)
-        # print("--shaded-model-base", *final_pos, *rotation_matrix_to_quaternion(final_R))
+        print("Problem:", i)
+        print(
+            "--shaded-model-base",
+            *final_pos,
+            *rotation_matrix_to_quaternion(final_R)
+        )
 
         # -------------------------
         # Initial state
@@ -132,10 +136,32 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         )
 
         # Final translation target
-        model.addCost(
+        # model.addCost(
+        #     HORIZON,
+        #     costs.FrameSquaredPoseErrorCost(
+        #         model, final_pos, final_R, "base", nq, nv, TF_WGT, ROT_WGT
+        #     ),
+        # )
+
+        tol = np.array((1e-3, 1e-3, 1e-3))
+
+        model.addConstraints(
             HORIZON,
-            costs.FrameSquaredPoseErrorCost(
-                model, final_pos, final_R, "base", nq, nv, TF_WGT, ROT_WGT
+            constraints.FramePositionBound(
+                model, "base", final_pos - tol, final_pos + tol, nq, nv
+            ),
+        )
+
+        model.addConstraints(
+            HORIZON,
+            constraints.FrameRotationBound(
+                model,
+                "base",
+                final_R,
+                -tol,
+                tol,
+                nq,
+                nv,
             ),
         )
 
