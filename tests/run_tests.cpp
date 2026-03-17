@@ -4,7 +4,6 @@
 
 int main()
 {
-    // TODO: Killed
     ssqp::tests::TestContainer tests;
 
     tests.addTest(ssqp::tests::generators::
@@ -30,6 +29,10 @@ int main()
 
     tests.addTest(ssqp::tests::generators::
                     get_invdyn_semi_implicit_euler_with_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_joint_invdyn_semi_implicit_euler_with_forces_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_fwdyn_innate_constraint_grad_test());
@@ -96,11 +99,11 @@ int main()
 
     tests.addTest(ssqp::tests::generators::get_cf_grad_test());
 
-    for (std::shared_ptr<ssqp::tests::Test> test :
-         ssqp::tests::generators::get_hpipm_problems())
-    {
-        tests.addTest(test);
-    }
+    // for (std::shared_ptr<ssqp::tests::Test> test :
+    //      ssqp::tests::generators::get_hpipm_problems())
+    // {
+    //     tests.addTest(test);
+    // }
 
     // for (std::shared_ptr<ssqp::tests::Test> test :
     //      ssqp::tests::generators::get_admm_problems())

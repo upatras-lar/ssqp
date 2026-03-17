@@ -246,7 +246,7 @@ void Model::_addURDFInnateConstraints()
                   _makeStageInnateConstraints<false, false>(ctx);
             }
         }
-        else
+        else // Inverse, JointInverse
         {
             uint nf        = _forces[k].size();
             ctx.force_data = _forces[k];
@@ -404,7 +404,14 @@ void Model::_buildURDFDynamics(const Config &config)
 
     for (uint k = 0; k < _dynamics.size(); ++k)
     {
-        uint nf        = _forces[k].size();
+        uint nf = _forces[k].size();
+        uint nu = _dims.nv[0] + 3 * nf;
+
+        if (_dynamics_mode == DynamicsMode::JointInverse)
+        {
+            nu -= 6;
+        }
+
         ctx.force_data = _forces[k];
 
         ctx.init_state =
@@ -414,7 +421,7 @@ void Model::_buildURDFDynamics(const Config &config)
                                               : config.init_states[k]);
         ctx.init_control =
           (config.init_controls.size() == 0 || k == _dims.horizon)
-            ? VecX::Zero(_dims.nv[0] + 3 * nf)
+            ? VecX::Zero(nu)
             : (config.init_controls.size() == 1 ? config.init_controls[0]
                                                 : config.init_controls[k]);
 
@@ -430,7 +437,7 @@ void Model::_buildURDFDynamics(const Config &config)
                                          DynamicsMode::Forward,
                                          IntegrationScheme::ExplicitEuler>(ctx);
                 }
-                else
+                else if (_integration == SemiImplicitEuler)
                 {
                     _dynamics[k] =
                       _makeStageDynamics<false,
@@ -439,7 +446,7 @@ void Model::_buildURDFDynamics(const Config &config)
                         ctx);
                 }
             }
-            else
+            else if (_dynamics_mode == DynamicsMode::Inverse)
             {
                 if (_integration == ExplicitEuler)
                 {
@@ -448,11 +455,29 @@ void Model::_buildURDFDynamics(const Config &config)
                                          DynamicsMode::Inverse,
                                          IntegrationScheme::ExplicitEuler>(ctx);
                 }
-                else
+                else if (_integration == SemiImplicitEuler)
                 {
                     _dynamics[k] =
                       _makeStageDynamics<false,
                                          DynamicsMode::Inverse,
+                                         IntegrationScheme::SemiImplicitEuler>(
+                        ctx);
+                }
+            }
+            else if (_dynamics_mode == JointInverse)
+            {
+                if (_integration == ExplicitEuler)
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<false,
+                                         DynamicsMode::JointInverse,
+                                         IntegrationScheme::ExplicitEuler>(ctx);
+                }
+                else if (_integration == SemiImplicitEuler)
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<false,
+                                         DynamicsMode::JointInverse,
                                          IntegrationScheme::SemiImplicitEuler>(
                         ctx);
                 }
@@ -469,7 +494,7 @@ void Model::_buildURDFDynamics(const Config &config)
                                          DynamicsMode::Forward,
                                          IntegrationScheme::ExplicitEuler>(ctx);
                 }
-                else
+                else if (_integration == SemiImplicitEuler)
                 {
                     _dynamics[k] =
                       _makeStageDynamics<true,
@@ -478,7 +503,7 @@ void Model::_buildURDFDynamics(const Config &config)
                         ctx);
                 }
             }
-            else
+            else if (_dynamics_mode == DynamicsMode::Inverse)
             {
                 if (_integration == ExplicitEuler)
                 {
@@ -487,11 +512,29 @@ void Model::_buildURDFDynamics(const Config &config)
                                          DynamicsMode::Inverse,
                                          IntegrationScheme::ExplicitEuler>(ctx);
                 }
-                else
+                else if (_integration == SemiImplicitEuler)
                 {
                     _dynamics[k] =
                       _makeStageDynamics<true,
                                          DynamicsMode::Inverse,
+                                         IntegrationScheme::SemiImplicitEuler>(
+                        ctx);
+                }
+            }
+            else if (_dynamics_mode == JointInverse)
+            {
+                if (_integration == ExplicitEuler)
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<true,
+                                         DynamicsMode::JointInverse,
+                                         IntegrationScheme::ExplicitEuler>(ctx);
+                }
+                else if (_integration == SemiImplicitEuler)
+                {
+                    _dynamics[k] =
+                      _makeStageDynamics<true,
+                                         DynamicsMode::JointInverse,
                                          IntegrationScheme::SemiImplicitEuler>(
                         ctx);
                 }
@@ -851,7 +894,13 @@ VecX Model::randomState(const uint stage) const
 VecX Model::randomControls(const uint stage) const
 {
     // TODO: Effort limit
-    VecX ru = _randomVector(_dims.nv[stage] + 3 * _forces[stage].size());
+    uint nu = _dims.nv[stage] + 3 * _forces[stage].size();
+    if (_dynamics_mode == DynamicsMode::JointInverse)
+    {
+        nu -= 6;
+    }
+
+    VecX ru = _randomVector(nu);
     return ru;
 }
 

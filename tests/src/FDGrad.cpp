@@ -67,13 +67,37 @@ bool FDGradCost::run()
         if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
             dudiff > _h)
         {
+            double max_diff = 0.0;
+            int    idx_dx   = -1;
+            for (uint j = 0; j < dx.size(); ++j)
+            {
+                double diff = std::abs(dx[j] - dxfd[j]);
+                if (diff > max_diff)
+                {
+                    max_diff = diff;
+                    idx_dx   = j;
+                }
+            }
+
+            max_diff   = 0.0;
+            int idx_du = -1;
+            for (uint j = 0; j < du.size(); ++j)
+            {
+                double diff = std::abs(du[j] - dufd[j]);
+                if (diff > max_diff)
+                {
+                    max_diff = diff;
+                    idx_du   = j;
+                }
+            }
+
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << (dx - dxfd).lpNorm<Eigen::Infinity>()
-               << std::endl
+               << " at index: " << idx_dx << std::endl
                << "Norm dU: " << (du - dufd).lpNorm<Eigen::Infinity>()
-               << std::endl
+               << " at index: " << idx_du << std::endl
                << "x: " << x.transpose() << std::endl
                << "u: " << u.transpose() << std::endl
                << "Gradient dx: " << dx.transpose() << std::endl
@@ -153,12 +177,47 @@ bool FDGradDynamics::run()
         if (std::isnan(dXdiff) || std::isnan(dUdiff) || dXdiff > _h ||
             dUdiff > _h)
         {
+            double max_diff   = 0.0;
+            int    idx_dx_row = -1, idx_dx_col = -1;
+
+            for (uint r = 0; r < dX.rows(); ++r)
+            {
+                for (uint c = 0; c < dX.cols(); ++c)
+                {
+                    double diff = std::abs(dX(r, c) - dXfd(r, c));
+                    if (diff > max_diff)
+                    {
+                        max_diff   = diff;
+                        idx_dx_row = r;
+                        idx_dx_col = c;
+                    }
+                }
+            }
+
+            max_diff       = 0.0;
+            int idx_du_row = -1, idx_du_col = -1;
+
+            for (uint r = 0; r < dU.rows(); ++r)
+            {
+                for (uint c = 0; c < dU.cols(); ++c)
+                {
+                    double diff = std::abs(dU(r, c) - dUfd(r, c));
+                    if (diff > max_diff)
+                    {
+                        max_diff   = diff;
+                        idx_du_row = r;
+                        idx_du_col = c;
+                    }
+                }
+            }
+
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << (dX - dXfd).lpNorm<Eigen::Infinity>()
-               << std::endl
+               << " at index: " << idx_dx_row << ", " << idx_dx_col << std::endl
                << "Norm dU: " << (dU - dUfd).lpNorm<Eigen::Infinity>()
+               << " at index: " << idx_du_row << ", " << idx_du_col << std::endl
                << std::endl
                << "x: " << x.transpose() << std::endl
                << "u: " << u.transpose() << std::endl
@@ -244,12 +303,48 @@ bool FDGradConstraints::run()
         if (std::isnan(dXdiff) || std::isnan(dUdiff) || dXdiff > _h ||
             dUdiff > _h)
         {
+            double max_diff   = 0.0;
+            int    idx_dx_row = -1, idx_dx_col = -1;
+
+            for (uint r = 0; r < dX.rows(); ++r)
+            {
+                for (uint c = 0; c < dX.cols(); ++c)
+                {
+                    double diff = std::abs(dX(r, c) - dXfd(r, c));
+                    if (diff > max_diff)
+                    {
+                        max_diff   = diff;
+                        idx_dx_row = r;
+                        idx_dx_col = c;
+                    }
+                }
+            }
+
+            max_diff       = 0.0;
+            int idx_du_row = -1, idx_du_col = -1;
+
+            for (uint r = 0; r < dU.rows(); ++r)
+            {
+                for (uint c = 0; c < dU.cols(); ++c)
+                {
+                    double diff = std::abs(dU(r, c) - dUfd(r, c));
+                    if (diff > max_diff)
+                    {
+                        max_diff   = diff;
+                        idx_du_row = r;
+                        idx_du_col = c;
+                    }
+                }
+            }
+
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << (dX - dXfd).lpNorm<Eigen::Infinity>()
+               << " at index: " << idx_dx_row << ", " << idx_dx_col << std::endl
                << std::endl
                << "Norm dU: " << (dU - dUfd).lpNorm<Eigen::Infinity>()
+               << " at index: " << idx_du_row << ", " << idx_du_col << std::endl
                << std::endl
                << "x: " << x.transpose() << std::endl
                << "u: " << u.transpose() << std::endl
