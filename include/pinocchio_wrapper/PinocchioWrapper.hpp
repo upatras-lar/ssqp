@@ -66,6 +66,9 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
                                      const Eigen::Vector3d            &force,
                                      uint &joint_id);
 
+Eigen::MatrixXd crba(const std::shared_ptr<ModelImpl> &impl,
+                     const Eigen::VectorXd &q, bool local = false);
+
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
                     const Eigen::VectorXd &tau);

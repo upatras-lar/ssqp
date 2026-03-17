@@ -4,6 +4,7 @@
 #include <pinocchio/multibody/model.hpp>
 #include <pinocchio/multibody/data.hpp>
 #include <pinocchio/algorithm/joint-configuration.hpp>
+#include <pinocchio/algorithm/crba.hpp>
 #include <pinocchio/algorithm/aba.hpp>
 #include <pinocchio/algorithm/aba-derivatives.hpp>
 #include <pinocchio/algorithm/jacobian.hpp>
@@ -177,6 +178,20 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
     joint_id             = impl->model.frames[frame_id].parentJoint;
 
     return res.toVector();
+}
+
+Eigen::MatrixXd crba(const std::shared_ptr<ModelImpl> &impl,
+                     const Eigen::VectorXd &q, bool local)
+{
+    pinocchio::crba(impl->model,
+                    impl->data,
+                    q,
+                    local ? pinocchio::Convention::LOCAL
+                          : pinocchio::Convention::WORLD);
+
+    impl->data.M = impl->data.M.selfadjointView<Eigen::Upper>();
+
+    return impl->data.M;
 }
 
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,

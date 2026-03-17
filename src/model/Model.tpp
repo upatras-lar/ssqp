@@ -76,36 +76,80 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
     auto dyn_eval = [this, ctx](const VecX &x, const VecX &u)
     {
+        VecX q = x.head(_dims.nq[0]);
+        VecX v = x.tail(_dims.nv[0]);
+
+        VecX ctrl, f;
+        if constexpr (DM == DynamicsMode::Forward)
+        {
+            ctrl = ctx.S * u.head(_dims.nv[0]);
+            f    = u.tail(u.size() - _dims.nv[0]);
+        }
+        else if constexpr (DM == DynamicsMode::Inverse)
+        {
+            ctrl = u.head(_dims.nv[0]);
+            f    = u.tail(u.size() - _dims.nv[0]);
+        }
+        else if constexpr (DM == DynamicsMode::JointInverse)
+        {
+            ctrl = u.head(_dims.nv[0] - 6);
+            f    = u.tail(u.size() - (_dims.nv[0] - 6));
+        }
+
         VecX ddq;
 
         if constexpr (DM == DynamicsMode::Forward)
         {
-            VecX tau = ctx.S * u.head(_dims.nv[0]);
-
             if constexpr (WithForces)
             {
                 std::vector<Vec6> joint_forces =
-                  _calculateJointForces(x.head(_dims.nq[0]),
-                                        u.tail(u.size() - _dims.nv[0]),
-                                        ctx.force_data);
+                  _calculateJointForces(q, f, ctx.force_data);
 
-                ddq = pinocchio_wrapper::aba(_impl,
-                                             x.head(_dims.nq[0]),
-                                             x.tail(_dims.nv[0]),
-                                             tau,
-                                             joint_forces);
+                ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl, joint_forces);
             }
             else
             {
-                ddq = pinocchio_wrapper::aba(_impl,
-                                             x.head(_dims.nq[0]),
-                                             x.tail(_dims.nv[0]),
-                                             tau);
+                ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl);
             }
         }
         else if constexpr (DM == DynamicsMode::Inverse)
         {
-            ddq = u.head(_dims.nv[0]);
+            ddq = ctrl;
+        }
+        else if constexpr (DM == DynamicsMode::JointInverse)
+        {
+            ddq                       = VecX::Zero(_dims.nv[0]);
+            ddq.tail(_dims.nv[0] - 6) = ctrl;
+
+            MatX M = pinocchio_wrapper::crba(_impl, q, true);
+
+            VecX bias;
+
+            if constexpr (WithForces)
+            {
+                std::vector<Vec6> joint_forces =
+                  _calculateJointForces(q, f, ctx.force_data);
+
+                bias = pinocchio_wrapper::rnea(_impl,
+                                               q,
+                                               v,
+                                               VecX::Zero(_dims.nv[0]),
+                                               joint_forces);
+            }
+            else
+            {
+                bias =
+                  pinocchio_wrapper::rnea(_impl, q, v, VecX::Zero(_dims.nv[0]));
+            }
+
+            Mat6 Mbb = M.topLeftCorner<6, 6>();
+            MatX Mbj = M.block(0, 6, 6, _dims.nv[0] - 6);
+
+            Vec6 rhs = Mbj * ctrl + bias.head(6);
+
+            Eigen::LDLT<Mat6> ldlt(Mbb);
+
+            ddq.head(6) = -ldlt.solve(rhs);
         }
 
         VecX out(_dims.nq[0] + _dims.nv[0]);
@@ -113,17 +157,15 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         if constexpr (IS == IntegrationScheme::ExplicitEuler)
         {
             out.head(_dims.nq[0]) =
-              pinocchio_wrapper::integrate(_impl,
-                                           x.head(_dims.nq[0]),
-                                           x.tail(_dims.nv[0]) * _dt);
-            out.tail(_dims.nv[0]) = x.tail(_dims.nv[0]) + ddq * _dt;
+              pinocchio_wrapper::integrate(_impl, q, v * _dt);
+            out.tail(_dims.nv[0]) = v + ddq * _dt;
         }
         else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
         {
-            out.tail(_dims.nv[0]) = x.tail(_dims.nv[0]) + ddq * _dt;
+            out.tail(_dims.nv[0]) = v + ddq * _dt;
             out.head(_dims.nq[0]) =
               pinocchio_wrapper::integrate(_impl,
-                                           x.head(_dims.nq[0]),
+                                           q,
                                            out.tail(_dims.nv[0]) * _dt);
         }
 
@@ -133,14 +175,35 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
     auto dyn_grad =
       [this, ctx](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        VecX q   = x.head(_dims.nq[0]);
-        VecX v   = x.tail(_dims.nv[0]);
-        VecX tau = ctx.S * u.head(_dims.nv[0]);
+        VecX q = x.head(_dims.nq[0]);
+        VecX v = x.tail(_dims.nv[0]);
+
+        VecX ctrl, f;
+        if constexpr (DM == DynamicsMode::Forward)
+        {
+            ctrl = ctx.S * u.head(_dims.nv[0]);
+            f    = u.tail(u.size() - _dims.nv[0]);
+        }
+        else if constexpr (DM == DynamicsMode::Inverse)
+        {
+            ctrl = u.head(_dims.nv[0]);
+            f    = u.tail(u.size() - _dims.nv[0]);
+        }
+        else if constexpr (DM == DynamicsMode::JointInverse)
+        {
+            ctrl = u.head(_dims.nv[0] - 6);
+            f    = u.tail(u.size() - (_dims.nv[0] - 6));
+        }
 
         MatX ddq_dq, ddq_dv, Minv;
         VecX vn;
 
         MatX Jf_full;
+
+        VecX              ddq;
+        MatX              M, Mbj;
+        Mat6              Mbb;
+        Eigen::LDLT<Mat6> Mbb_ldlt;
 
         if constexpr (DM == DynamicsMode::Forward)
         {
@@ -148,10 +211,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             {
                 std::vector<Vec6> joint_forces;
                 std::tie(joint_forces, Jf_full) =
-                  _calculateJointForcesAndJacobian(
-                    q,
-                    u.tail(u.size() - _dims.nv[0]),
-                    ctx.force_data);
+                  _calculateJointForcesAndJacobian(q, f, ctx.force_data);
 
                 if constexpr (IS == IntegrationScheme::ExplicitEuler)
                 {
@@ -160,14 +220,14 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
                 {
                     VecX ddq =
-                      pinocchio_wrapper::aba(_impl, q, v, tau, joint_forces);
+                      pinocchio_wrapper::aba(_impl, q, v, ctrl, joint_forces);
                     vn = v + ddq * _dt;
                 }
 
                 pinocchio_wrapper::computeABADerivatives(_impl,
                                                          q,
                                                          v,
-                                                         tau,
+                                                         ctrl,
                                                          joint_forces,
                                                          ddq_dq,
                                                          ddq_dv,
@@ -181,14 +241,14 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 }
                 else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
                 {
-                    VecX ddq = pinocchio_wrapper::aba(_impl, q, v, tau);
+                    VecX ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl);
                     vn       = v + ddq * _dt;
                 }
 
                 pinocchio_wrapper::computeABADerivatives(_impl,
                                                          q,
                                                          v,
-                                                         tau,
+                                                         ctrl,
                                                          ddq_dq,
                                                          ddq_dv,
                                                          Minv);
@@ -202,7 +262,53 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             }
             else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
             {
-                vn = v + u.head(_dims.nv[0]) * _dt;
+                vn = v + ctrl * _dt;
+            }
+        }
+        else if constexpr (DM == DynamicsMode::JointInverse)
+        {
+            if constexpr (IS == IntegrationScheme::ExplicitEuler)
+            {
+                vn = v;
+            }
+            else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
+            {
+                ddq                       = VecX::Zero(_dims.nv[0]);
+                ddq.tail(_dims.nv[0] - 6) = ctrl;
+
+                M = pinocchio_wrapper::crba(_impl, q, true);
+
+                VecX bias;
+
+                if constexpr (WithForces)
+                {
+                    std::vector<Vec6> joint_forces =
+                      _calculateJointForces(q, f, ctx.force_data);
+
+                    bias = pinocchio_wrapper::rnea(_impl,
+                                                   q,
+                                                   v,
+                                                   VecX::Zero(_dims.nv[0]),
+                                                   joint_forces);
+                }
+                else
+                {
+                    bias = pinocchio_wrapper::rnea(_impl,
+                                                   q,
+                                                   v,
+                                                   VecX::Zero(_dims.nv[0]));
+                }
+
+                Mbb = M.topLeftCorner<6, 6>();
+                Mbj = M.block(0, 6, 6, _dims.nv[0] - 6);
+
+                Vec6 rhs = Mbj * ctrl + bias.head(6);
+
+                Mbb_ldlt.compute(Mbb);
+
+                ddq.head(6) = -Mbb_ldlt.solve(rhs);
+
+                vn = v + ddq * _dt;
             }
         }
 
@@ -257,6 +363,9 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 dU.bottomLeftCorner(_dims.nv[0], _dims.nv[0])
                   .diagonal()
                   .setConstant(_dt);
+            }
+            else if constexpr (DM == DynamicsMode::JointInverse)
+            {
             }
         }
         else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
@@ -316,6 +425,68 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                   .diagonal()
                   .setConstant(_dt);
             }
+            else if constexpr (DM == DynamicsMode::JointInverse)
+            {
+                // TODO: WithForces ignored
+                // TODO: actuated joints, no free flyer, etc
+                std::vector<Vec6> joint_forces;
+                std::tie(joint_forces, Jf_full) =
+                  _calculateJointForcesAndJacobian(q, f, ctx.force_data);
+
+                MatX Jb = Jf_full.leftCols<6>();
+
+                MatX dtau_dq, dtau_dv, M;
+
+                pinocchio_wrapper::computeRNEADerivatives(_impl,
+                                                          q,
+                                                          v,
+                                                          ddq,
+                                                          joint_forces,
+                                                          dtau_dq,
+                                                          dtau_dv,
+                                                          M);
+
+                MatX dak_dqk  = MatX::Zero(_dims.nv[0], _dims.nv[0]);
+                MatX dak_dvk  = MatX::Zero(_dims.nv[0], _dims.nv[0]);
+                MatX dak_dakj = MatX::Zero(_dims.nv[0], _dims.nv[0] - 6);
+                MatX dak_dfk =
+                  MatX::Zero(_dims.nv[0], 3 * ctx.force_data.size());
+
+                dak_dqk.topLeftCorner(6, _dims.nv[0]) =
+                  -Mbb_ldlt.solve(dtau_dq.topRows<6>());
+                dak_dvk.topLeftCorner(6, _dims.nv[0]) =
+                  -Mbb_ldlt.solve(dtau_dv.topRows<6>());
+                dak_dakj.topRows<6>() = -Mbb_ldlt.solve(Mbj);
+                dak_dakj.bottomRows(_dims.nv[0] - 6).setIdentity();
+                dak_dfk.topRows<6>() = Mbb_ldlt.solve(Jb.transpose());
+
+                dX.topLeftCorner(_dims.nv[0], _dims.nv[0]) =
+                  Jint_q * (MatX::Identity(_dims.nv[0], _dims.nv[0]) +
+                            dak_dqk * _dt * _dt);
+
+                dX.topRightCorner(_dims.nv[0], _dims.nv[0]) =
+                  Jint_v *
+                  (MatX::Identity(_dims.nv[0], _dims.nv[0]) + dak_dvk * _dt) *
+                  _dt;
+                dX.bottomLeftCorner(_dims.nv[0], _dims.nv[0]) = dak_dqk * _dt;
+                dX.bottomRightCorner(_dims.nv[0], _dims.nv[0]) =
+                  MatX::Identity(_dims.nv[0], _dims.nv[0]) + dak_dvk * _dt;
+
+                dU = MatX::Zero(2 * _dims.nv[0],
+                                _dims.nv[0] - 6 + 3 * ctx.force_data.size());
+
+                dU.bottomLeftCorner(_dims.nv[0], _dims.nv[0] - 6) =
+                  dak_dakj * _dt;
+                dU.bottomRightCorner(_dims.nv[0], 3 * ctx.force_data.size()) =
+                  dak_dfk * _dt;
+                dU.topLeftCorner(_dims.nv[0], _dims.nv[0] - 6) =
+                  Jint_v * dU.bottomLeftCorner(_dims.nv[0], _dims.nv[0] - 6) *
+                  _dt;
+                dU.topRightCorner(_dims.nv[0], 3 * ctx.force_data.size()) =
+                  Jint_v *
+                  dU.bottomRightCorner(_dims.nv[0], 3 * ctx.force_data.size()) *
+                  _dt;
+            }
         }
     };
 
@@ -351,19 +522,39 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         }
     };
 
-    return stagewise::factory::make_dynamics(_dims.nq[0] + _dims.nv[0],
-                                             _dims.nv[0] +
-                                               3 * ctx.force_data.size(),
-                                             _dims.nq[0] + _dims.nv[0],
-                                             2 * _dims.nv[0],
-                                             ctx.init_state,
-                                             ctx.init_control,
-                                             ops,
-                                             dyn_eval,
-                                             dyn_grad,
-                                             dyn_hessprod_xx,
-                                             dyn_hessprod_xu,
-                                             dyn_hessprod_uu);
+    if constexpr (DM == DynamicsMode::JointInverse)
+    {
+        return stagewise::factory::make_dynamics(_dims.nq[0] + _dims.nv[0],
+                                                 _dims.nv[0] - 6 +
+                                                   3 * ctx.force_data.size(),
+                                                 _dims.nq[0] + _dims.nv[0],
+                                                 2 * _dims.nv[0],
+                                                 ctx.init_state,
+                                                 ctx.init_control,
+                                                 ops,
+                                                 dyn_eval,
+                                                 dyn_grad,
+                                                 dyn_hessprod_xx,
+                                                 dyn_hessprod_xu,
+                                                 dyn_hessprod_uu);
+    }
+    else if constexpr (DM == DynamicsMode::Forward ||
+                       DM == DynamicsMode::Inverse)
+    {
+        return stagewise::factory::make_dynamics(_dims.nq[0] + _dims.nv[0],
+                                                 _dims.nv[0] +
+                                                   3 * ctx.force_data.size(),
+                                                 _dims.nq[0] + _dims.nv[0],
+                                                 2 * _dims.nv[0],
+                                                 ctx.init_state,
+                                                 ctx.init_control,
+                                                 ops,
+                                                 dyn_eval,
+                                                 dyn_grad,
+                                                 dyn_hessprod_xx,
+                                                 dyn_hessprod_xu,
+                                                 dyn_hessprod_uu);
+    }
 }
 
 template<bool FloatingBase, bool IsTerminal, DynamicsMode DM, bool WithForces>

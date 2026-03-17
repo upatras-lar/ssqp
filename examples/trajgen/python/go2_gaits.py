@@ -151,6 +151,7 @@ solver = ssqpy.solvers.ssqp(
     loose_success=False,
     tolerance=1e-2,
     # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    # accept_worse_update=True,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,

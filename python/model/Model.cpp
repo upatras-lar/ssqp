@@ -93,6 +93,7 @@ void bind_Model(nb::module_ &m)
         )doc")
       .value("Forward", DynamicsMode::Forward)
       .value("Inverse", DynamicsMode::Inverse)
+      .value("JointInverse", DynamicsMode::JointInverse)
       .export_values();
 
     nb::enum_<IntegrationScheme>(m, "Integration", R"doc(

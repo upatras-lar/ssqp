@@ -139,8 +139,9 @@ enum IntegrationScheme
  */
 enum DynamicsMode
 {
-    Forward = 0,
-    Inverse = 1
+    Forward      = 0,
+    Inverse      = 1,
+    JointInverse = 2,
 };
 
 }
