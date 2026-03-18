@@ -15,6 +15,8 @@ void ssqp::_setup_qp()
     const model::CostsContainer       costs       = _model.costs();
     const model::DynamicsContainer    dynamics    = _model.dynamics();
     const model::ConstraintsContainer constraints = _model.constraints();
+    const uint                        nq          = _model.nq();
+    const uint                        nv          = _model.nv();
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
@@ -36,19 +38,17 @@ void ssqp::_setup_qp()
         _qp.stages[k].gamma =
           dynamics[k]->state_right_minus(f, _guess.x.stage(k + 1));
 
-        MatX Jx = _qp.stages[k].A.topLeftCorner(_model.nv(k), _model.nv(k));
-        MatX Ju = _qp.stages[k].B.topLeftCorner(_model.nv(k), _model.nv(k));
+        MatX Jx = _qp.stages[k].A.topLeftCorner(nv, nv);
+        MatX Ju = _qp.stages[k].B.topLeftCorner(nv, nv);
 
-        MatX Jr_inv = MatX::Zero(_model.nv(k), _model.nv(k));
-        _model.dDifference(f.head(_model.nq(k)),
-                           _guess.x.stage(k + 1).head(_model.nq(k)),
+        MatX Jr_inv = MatX::Zero(nv, nv);
+        _model.dDifference(f.head(nq),
+                           _guess.x.stage(k + 1).head(nq),
                            Jr_inv,
                            0);
 
-        _qp.stages[k].A.topLeftCorner(_model.nv(k), _model.nv(k)).noalias() =
-          Jr_inv * Jx;
-        _qp.stages[k].B.topLeftCorner(_model.nv(k), _model.nv(k)).noalias() =
-          Jr_inv * Ju;
+        _qp.stages[k].A.topLeftCorner(nv, nv).noalias() = Jr_inv * Jx;
+        _qp.stages[k].B.topLeftCorner(nv, nv).noalias() = Jr_inv * Ju;
 
         DEBUG_LOGLN("A: " << std::endl << _qp.stages[k].A);
         DEBUG_LOGLN("B: " << std::endl << _qp.stages[k].B);
