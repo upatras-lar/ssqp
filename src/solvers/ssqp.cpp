@@ -611,39 +611,46 @@ bool ssqp::write(const std::string &filename)
     j["properties"]            = ordered_json({});
     j["properties"]["horizon"] = dims.horizon;
     j["properties"]["dt"]      = dt;
-    j["properties"]["stages"]  = ordered_json::array();
-    j["stage_data"]            = ordered_json::array();
 
-    // TODO: Assuming floatingBase is the same every stage
+    bool loaded_from_urdf   = _model.urdf();
+    j["properties"]["urdf"] = loaded_from_urdf;
+    bool floating_base;
+    uint nv, njoints;
+    if (loaded_from_urdf)
+    {
+        floating_base = _model.floatingBase();
+        nv            = _model.nv();
+        njoints       = _model.njoints();
+
+        j["properties"]["nq"]            = _model.nq();
+        j["properties"]["nv"]            = nv;
+        j["properties"]["njoints"]       = njoints;
+        j["properties"]["total_joints"]  = _model.total_joints();
+        j["properties"]["floating_base"] = floating_base;
+        j["properties"]["state_joints"]  = _model.orderedActuatedJoints();
+    }
+
+    j["properties"]["stages"] = ordered_json::array();
+    j["stage_data"]           = ordered_json::array();
+
     for (uint k = 0; k < dims.horizon; ++k)
     {
-        uint                     nq      = _model.nq(k);
-        uint                     nv      = _model.nv(k);
-        uint                     njoints = _model.njoints(k);
         uint                     nforces = _model.nforces(k);
         std::vector<std::string> ordered_force_frames =
           _model.orderedForceFrames(k);
-        bool                     floating_base = _model.floatingBase();
-        std::vector<std::string> actuated_joints =
-          _model.orderedActuatedJoints();
 
         j["properties"]["stages"].push_back(ordered_json({
           {                 "size",   dims.stage_state[k] },
           {              "control", dims.stage_control[k] },
-          {                   "nq",                    nq },
-          {                   "nv",                    nv },
-          {              "njoints",               njoints },
           {              "nforces",               nforces },
-          { "ordered_force_frames",  ordered_force_frames },
-          {        "floating_base",         floating_base },
-          {         "state_joints",       actuated_joints }
+          { "ordered_force_frames",  ordered_force_frames }
         }));
 
         ordered_json stage_data;
 
         VecX u;
 
-        if (floating_base)
+        if (loaded_from_urdf && floating_base)
         {
             VecX x = _guess.x.stage(k);
             u      = _guess.u.stage(k);
@@ -658,7 +665,7 @@ bool ssqp::write(const std::string &filename)
             u = _guess.u.stage(k);
 
             stage_data["state"]   = _guess.x.stage(k);
-            stage_data["control"] = u.head(nv);
+            stage_data["control"] = u.head(u.size() - 3 * nforces);
         }
 
         if (nforces > 0)
@@ -824,8 +831,8 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         VecX a = (_params.merit_grad_softmax_beta * r_k.array().abs()).exp();
         r_k    = (r_k.array().sign() * a.array()) / a.sum();
 
-        const uint nq = _model.nq(k);
-        const uint nv = _model.nv(k);
+        const uint nq = _model.nq();
+        const uint nv = _model.nv();
 
         MatX Jr_inv_wrt_x = MatX::Zero(nv, nv);
         _model.dDifference(x.stage(k + 1).head(nq),

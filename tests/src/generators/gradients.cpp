@@ -14,7 +14,7 @@ void setup_model(std::shared_ptr<model::Model> &model)
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(
           k,
-          dims.nv[k],
+          dims.nv,
           1,
           model->floatingBase());
     }
@@ -207,7 +207,7 @@ get_joint_invdyn_semi_implicit_euler_with_forces_grad_test()
     model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
     model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer    = true;
-    model_structure.dynamics_mode = model::DynamicsMode::JointInverse;
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
 

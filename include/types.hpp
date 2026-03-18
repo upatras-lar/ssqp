@@ -96,7 +96,13 @@ struct Dimensions
     std::vector<uint> stage_state;
     std::vector<uint> stage_control;
     std::vector<uint> stage_constraint;
-    std::vector<uint> nq, nv, njoints;
+
+    // URDF-specific values
+    uint nq;           // Configuration size
+    uint nv;           // Velocity size
+    uint nu;           // Non-force control size
+    uint njoints;      // Number of actuated joints
+    uint total_joints; // Number of total joints
 };
 
 // An external force on some frame
@@ -136,12 +142,17 @@ enum IntegrationScheme
  *    LQR formulation, generally leading to more robust solutions. Inverse
  *    dynamics is used as a constraint, ensuring the torques producing the
  *    generated acceleration controls are within the required effort limits.
+ *  - ReducedInverse: This mode is similar to the Inverse dynamics mode. In this
+ *    mode, the floating base (if present) and/or some subset of the model's
+ *    joints are unactuated. While regular Inverse mode enforces this via
+ *    equality constraints, this mode instead enforces this implicitly through
+ *    state propagation.
  */
 enum DynamicsMode
 {
-    Forward      = 0,
-    Inverse      = 1,
-    JointInverse = 2,
+    Forward        = 0,
+    Inverse        = 1,
+    ReducedInverse = 2,
 };
 
 }

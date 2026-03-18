@@ -255,11 +255,13 @@ class Model
     // Below functions are undefined if no URDF was used for initialization
     bool floatingBase() const;
     // Robot state size
-    uint nq(const uint k) const;
+    uint nq() const;
     // Robot control size
-    uint nv(const uint k) const;
+    uint nv() const;
     // Number of actual joints in robot (ignores universe, root)
-    uint njoints(const uint k) const;
+    uint njoints() const;
+    // Number of total joints in robot
+    uint total_joints() const;
     // Optimization time step
     // If the user passed custom dynamics that integrate this value internally,
     // this might be undefined
@@ -346,7 +348,8 @@ class Model
     const DynamicsMode                            _dynamics_mode;
     const IntegrationScheme                       _integration;
     const bool                                    _ignore_innate;
-    const std::vector<uint>                       _actuated_joints;
+    std::vector<uint>                             _actuated_joints;
+    std::vector<uint>                             _unactuated_joints;
 
     // Configuration properties
     bool                            _finalized = false;
@@ -355,9 +358,6 @@ class Model
     DynamicsContainer               _dynamics;
     ConstraintsContainer            _constraints;
     std::vector<std::vector<Force>> _forces;
-
-    // Total joints (including non-actuated)
-    uint _total_joints;
 
     // Helper functions
 
@@ -383,6 +383,86 @@ class Model
     std::pair<std::vector<Vec6>, MatX> _calculateJointForcesAndJacobian(
       const VecX &q, const VecX &f, const std::vector<Force> &force_data) const;
 
+    /* Calculates the full acceleration vector for reduced inverse mode
+     * Input:
+     *  - `q`: The configuration vector
+     *  - `v`: The velocity vector
+     *  - `ctrl`: The non-force part of the control vector; this is assumed to
+     *     be the accelerations for each of the actuated joints
+     *  - `f`: The force part of the control vector
+     *  - `force_data`: Vector of data about each force in `f`
+     *  - `actuated_joints`: Vector of indices of joints that are actuated
+     *  - `unactuated_joints`: Complement vector of `actuated_joints
+     * 
+     * Output:
+     *  - `Muu`: The unactuated part of the mass matrix (reordered)
+     *  - `Muj`: The top-right part of the reordered mass matrix 
+     *     (unactuated-actuated)
+     *  - `Muu_ldlt`: Eigen LDLT object for LDLT decomposition of `Muu`
+     *  - `joint_forces`: The forces on each joint
+     *  - `Jf_full`: The full force jacobian
+     * 
+     * Returns:
+     *  - `ddq`: The full acceleration vector
+     */
+    template<bool FloatingBase, bool WithForces>
+    VecX _calculateReducedInverseFullAcceleration(
+      const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
+      const std::vector<Force> &force_data,
+      const std::vector<uint>  &actuated_joints,
+      const std::vector<uint> &unactuated_joints, MatX &Muu, MatX &Muj,
+      Eigen::LDLT<MatX> &Muu_ldlt, std::vector<Vec6> &joint_forces,
+      MatX &Jf_full) const;
+
+    /* Helper that calls `_calculateReducedInverseFullAcceleration` and ignores
+     * output arguments
+     */
+    template<bool FloatingBase, bool WithForces>
+    VecX _calculateReducedInverseFullAcceleration(
+      const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
+      const std::vector<Force> &force_data,
+      const std::vector<uint>  &actuated_joints,
+      const std::vector<uint>  &unactuated_joints) const;
+
+    /* Calculates the derivatives of the acceleration vector for reduced inverse
+     * mode, with respect to q, v, aj (the actual actuated controls) and f
+     * Input:
+     *  - `q`: The configuration vector
+     *  - `v`: The velocity vector
+     *  - `ctrl`: The non-force part of the control vector; this is assumed to
+     *     be the accelerations for each of the actuated joints
+     *  - `f`: The force part of the control vector
+     *  - `force_data`: Vector of data about each force in `f`
+     *  - `unactuated_joints`: Complement vector of `actuated_joints
+     * 
+     * Inputs from `_calculateReducedInverseFullAcceleration`'s output:
+     *  - `ddq`: The full acceleration vector
+     *  - `Muu`: The unactuated part of the mass matrix (reordered)
+     *  - `Muj`: The top-right part of the reordered mass matrix 
+     *     (unactuated-actuated)
+     *  - `Muu_ldlt`: Eigen LDLT object for LDLT decomposition of `Muu`
+     *  - `joint_forces`: The forces on each joint
+     *  - `Jf_full`: The full force jacobian
+     * 
+     * Output:
+     *  - `dak_dqk`: The derivative of the full acceleration vector with respect
+     *     to the configuration (qk)
+     *  - `dak_dvk`: The derivative of the full acceleration vector with respect
+     *     to the velocity (vk)
+     *  - `dak_dakj`: The derivative of the full acceleration vector with
+     *     respect to the actuated part of the acceleration
+     *  - `dak_dfk`: The derivative of the full acceleration vector with respect
+     *     to the forces
+     */
+    template<bool FloatingBase, bool WithForces>
+    void _calculateReducedInverseFullAccelerationDerivatives(
+      const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
+      const std::vector<Force> &force_data,
+      const std::vector<uint> &unactuated_joints, const VecX &ddq,
+      const MatX &Muu, const MatX &Muj, const Eigen::LDLT<MatX> &Muu_ldlt,
+      const std::vector<Vec6> &joint_forces, const MatX &Jf_full, MatX &dak_dqk,
+      MatX &dak_dvk, MatX &dak_dakj, MatX &dak_dfk) const;
+
     // Functionality functions
 
     // Adds all joint angle, velocity and effort limits from URDF as constraints
@@ -403,6 +483,13 @@ class Model
      *  - `force_data`: Vector containing a Force object for each force
      *  - `init_state`: Initial state for stage
      *  - `init_control`: Initial controls for stage
+     *  - `nq`: The configuration size for this stage
+     *  - `nv`: The velocity size for this stage
+     *  - `nu`: The size of the non-force part of the controls for this stage
+     *  - `nf`: The size of the force part of the controls for this stage
+     *  - `actuated_joints`: Vector of indices of joints that are actuated
+     *  - `unactuated_joints`: Complement vector of `actuated_joints`
+     *  - `floating_base`: Whether the model has a floating base for this stage
      */
     struct _StageDynamicsContext
     {
@@ -410,18 +497,22 @@ class Model
         std::vector<Force> force_data;
         VecX               init_state;
         VecX               init_control;
+        uint               nq, nv, nu, nf;
+        std::vector<uint>  actuated_joints, unactuated_joints;
     };
 
     /* Makes the dynamics for a given stage with context `ctx` based on the
      * URDF, according to the passed templated options
      * Options:
+     *  - `FloatingBase`: Whether the model has a floating base
      *  - `WithForces`: Whether there are additional external forces for this
      *     stage
      *  - `DM`: The dynamics mode that should be used (Forward or Inverse),
      *     determining whether controls represent torques or accelerations
      *  - `IS`: The integration scheme to be used for deriving the next state
      */
-    template<bool WithForces, DynamicsMode DM, IntegrationScheme IS>
+    template<bool FloatingBase, bool WithForces, DynamicsMode DM,
+             IntegrationScheme IS>
     std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
       const _StageDynamicsContext &ctx) const;
 
@@ -432,6 +523,8 @@ class Model
     struct _StageInnateConstraintsContext
     {
         std::vector<Force> force_data;
+        uint               nq, nv, nu, nf, njoints;
+        std::vector<uint>  actuated_joints, unactuated_joints;
     };
 
     /* Makes the innate constraints for a given stage with context `ctx` based
@@ -457,6 +550,8 @@ class Model
      * dynamics mode, based on the URDF effort limits.
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
+     *  - `ReducedInverse`: Whether the dynamics mode is reduced inverse, such
+     *     that zero equality constraints are not added
      *  - `WithForces`: Whether there are additional external forces for this
      *     stage
      * 
@@ -466,7 +561,8 @@ class Model
      * called regardless of the value of the `ignore_innate_constraints` option,
      * since Inverse mode always requires these constraints.
      */
-    template<bool FloatingBase, bool WithForces = false>
+    template<bool FloatingBase, bool ReducedInverse = false,
+             bool WithForces = false>
     std::shared_ptr<stagewise::StageConstraints> _makeStageIDTorqueConstraints(
       const _StageInnateConstraintsContext &ctx) const;
 };
