@@ -201,7 +201,31 @@ std::shared_ptr<Test> get_invdyn_semi_implicit_euler_with_forces_grad_test()
 }
 
 std::shared_ptr<Test>
-get_joint_invdyn_semi_implicit_euler_with_forces_grad_test()
+get_reduced_invdyn_semi_implicit_euler_floating_base_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "ReducedInvdynSemiImplicitEulerFloatingBaseWithoutForcesGradTest",
+      model,
+      0,
+      100,
+      1e-4);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_semi_implicit_euler_floating_base_with_forces_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
@@ -220,11 +244,68 @@ get_joint_invdyn_semi_implicit_euler_with_forces_grad_test()
     model->finalize();
 
     std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
-      "JointInvdynSemiImplicitEulerWithForcesGradTest",
+      "ReducedInvdynSemiImplicitEulerFloatingBaseWithForcesGradTest",
       model,
       0,
       100,
       1e-4);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_semi_implicit_euler_floating_base_unactuated_joints_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    model_structure.actuated_joints = { 0, 1, 3, 5, 6, 7, 9, 10, 11 };
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "ReducedInvdynSemiImplicitEulerFloatingBaseUnactuatedJointsWithoutForcesG"
+      "radTest",
+      model,
+      0,
+      100,
+      1e-4);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_semi_implicit_euler_floating_base_unactuated_joints_with_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    model_structure.actuated_joints = { 0, 1, 3, 5, 6, 7, 9, 10, 11 };
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+
+    model->addForce(0, "FL_foot");
+    model->addForce(0, "FR_foot");
+    model->addForce(0, "RL_foot");
+    model->addForce(0, "RR_foot");
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test =
+      std::make_shared<FDGradDynamics>("ReducedInvdynSemiImplicitEulerFloatingB"
+                                       "aseUnactuatedJointsWithForcesGradTest",
+                                       model,
+                                       0,
+                                       100,
+                                       1e-4);
 
     return dyn_test;
 }
@@ -285,6 +366,102 @@ std::shared_ptr<Test> get_invdyn_innate_constraint_with_forces_grad_test()
     std::shared_ptr<FDGradConstraints> constraints_test =
       std::make_shared<FDGradConstraints>(
         "InvdynInnateConstraintWithForcesGradTest",
+        model,
+        0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_innate_constraint_floating_base_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>(
+        "ReducedInvdynInnateConstraintFloatingBaseWithoutForcesGradTest",
+        model,
+        0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_innate_constraint_floating_base_with_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path     = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer    = true;
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    model->addForce(0, "FL_foot");
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>(
+        "ReducedInvdynInnateConstraintFloatingBaseWithForcesGradTest",
+        model,
+        0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_innate_constraint_floating_base_unactuated_joints_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path       = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer      = true;
+    model_structure.dynamics_mode   = model::DynamicsMode::ReducedInverse;
+    model_structure.actuated_joints = { 0, 1, 3, 5, 6, 7, 9, 10, 11 };
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>(
+        "ReducedInvdynInnateConstraintFloatingBaseUnactuatedJointsWithoutForces"
+        "GradTest",
+        model,
+        0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_innate_constraint_floating_base_unactuated_joints_with_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path       = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer      = true;
+    model_structure.dynamics_mode   = model::DynamicsMode::ReducedInverse;
+    model_structure.actuated_joints = { 0, 1, 3, 5, 6, 7, 9, 10, 11 };
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    model->addForce(0, "FL_foot");
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>(
+        "ReducedInvdynInnateConstraintFloatingBaseUnactuatedJointsWithForcesGra"
+        "dTest",
         model,
         0);
 

@@ -27,16 +27,22 @@ void TestContainer::runAll()
 
     for (uint i = 0; i < _tests.size(); ++i)
     {
+        std::cout << _tests[i]->name() << ": " << std::flush;
+
         bool passed = _tests[i]->run();
 
         if (passed)
         {
+            std::cout << "\033[32m" << "PASSED\033[39m" << std::endl;
             ++npassed;
             continue;
         }
+
+        std::cout << "\033[31m" << "FAILED\033[39m" << std::endl;
     }
 
-    std::cout << "Passed: " << npassed << "/" << _tests.size() << std::endl;
+    std::cout << "Passed: \033[32m" << npassed << "\033[39m/" << _tests.size()
+              << std::endl;
 
     for (const auto &entry : std::filesystem::directory_iterator("tests/logs"))
     {
@@ -72,7 +78,8 @@ void TestContainer::runAll()
             of.close();
 
             std::cout << "Failed test " << _tests[i]->name()
-                      << ": Logs written to " << fname << std::endl;
+                      << ": Logs written to \033[31m" << fname << "\033[39m"
+                      << std::endl;
         }
     }
 }

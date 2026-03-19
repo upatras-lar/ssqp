@@ -230,7 +230,6 @@ ssqp::ssqp(const model::Model &model, const Params &params)
                "Initial controls of incorrect size passed");
         _guess.u.stage(k) = dynamics[k]->init_control();
     }
-
     if (_params.line_search_method == LineSearchMethod::Filter)
     {
         _filter_memory.push_front({ _lf(_guess.x, _guess.u),

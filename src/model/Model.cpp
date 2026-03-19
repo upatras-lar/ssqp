@@ -75,7 +75,10 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
 
     if (_actuated_joints.empty())
     {
-        for (uint j = 0; j < _dims.nu; ++j)
+        for (uint j = 0; j < (_dynamics_mode == DynamicsMode::ReducedInverse
+                                ? _dims.nu
+                                : _dims.njoints);
+             ++j)
         {
             _actuated_joints.push_back(j);
         }
@@ -85,14 +88,14 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
         std::sort(_actuated_joints.begin(), _actuated_joints.end());
     }
 
-    std::vector<bool> is_actuated(_dims.nv, false);
+    std::vector<bool> is_actuated(_dims.njoints, false);
 
     for (uint i = 0; i < _actuated_joints.size(); ++i)
     {
         is_actuated[_actuated_joints[i]] = true;
     }
 
-    for (uint j = 0; j < _dims.nv; ++j)
+    for (uint j = 0; j < _dims.njoints; ++j)
     {
         if (!is_actuated[j])
         {
@@ -270,9 +273,15 @@ void Model::finalize(const Config &config)
 void Model::_addURDFInnateConstraints()
 {
     _StageInnateConstraintsContext ctx;
+    ctx.nq      = _dims.nq;
+    ctx.nv      = _dims.nv;
+    ctx.nu      = _dims.nu;
+    ctx.njoints = _dims.njoints;
 
     for (uint k = 0; k < _dims.horizon; ++k)
     {
+        ctx.nf = _forces[k].size();
+
         std::shared_ptr<stagewise::StageConstraints> innate_constraints;
         if (_dynamics_mode == DynamicsMode::Forward)
         {
@@ -289,46 +298,19 @@ void Model::_addURDFInnateConstraints()
         }
         else // Inverse, ReducedInverse
         {
-            uint nf        = _forces[k].size();
-            ctx.force_data = _forces[k];
-
-            if (nf == 0)
+            if (_free_flyer)
             {
-                if (_free_flyer)
-                {
-                    innate_constraints =
-                      _makeStageInnateConstraints<true,
-                                                  false,
-                                                  DynamicsMode::Inverse,
-                                                  false>(ctx);
-                }
-                else
-                {
-                    innate_constraints =
-                      _makeStageInnateConstraints<false,
-                                                  false,
-                                                  DynamicsMode::Inverse,
-                                                  false>(ctx);
-                }
+                innate_constraints =
+                  _makeStageInnateConstraints<true,
+                                              false,
+                                              DynamicsMode::Inverse>(ctx);
             }
             else
             {
-                if (_free_flyer)
-                {
-                    innate_constraints =
-                      _makeStageInnateConstraints<true,
-                                                  false,
-                                                  DynamicsMode::Inverse,
-                                                  true>(ctx);
-                }
-                else
-                {
-                    innate_constraints =
-                      _makeStageInnateConstraints<false,
-                                                  false,
-                                                  DynamicsMode::Inverse,
-                                                  true>(ctx);
-                }
+                innate_constraints =
+                  _makeStageInnateConstraints<false,
+                                              false,
+                                              DynamicsMode::Inverse>(ctx);
             }
         }
 
@@ -362,7 +344,6 @@ void Model::_addURDFInnateConstraints()
 void Model::_addIDTorqueConstraints()
 {
     _StageInnateConstraintsContext ctx;
-
     ctx.nq                = _dims.nq;
     ctx.nv                = _dims.nv;
     ctx.nu                = _dims.nu;
@@ -911,6 +892,11 @@ uint Model::nv() const
     return _dims.nv;
 }
 
+uint Model::nu() const
+{
+    return _dims.nu;
+}
+
 uint Model::njoints() const
 {
     return _dims.njoints;
@@ -1123,14 +1109,7 @@ VecX Model::randomState(const uint stage) const
 VecX Model::randomControls(const uint stage) const
 {
     // TODO: Effort limit
-    uint nu = _dims.nv + 3 * _forces[stage].size();
-    // TODO: Reduced inverse
-    if (_dynamics_mode == DynamicsMode::ReducedInverse)
-    {
-        nu -= 6;
-    }
-
-    VecX ru = _randomVector(nu);
+    VecX ru = _randomVector(_dims.nu + 3 * _forces[stage].size());
     return ru;
 }
 

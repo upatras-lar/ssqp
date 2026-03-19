@@ -256,8 +256,10 @@ class Model
     bool floatingBase() const;
     // Robot state size
     uint nq() const;
-    // Robot control size
+    // Robot velocity size
     uint nv() const;
+    // Robot control size
+    uint nu() const;
     // Number of actual joints in robot (ignores universe, root)
     uint njoints() const;
     // Number of total joints in robot
@@ -392,7 +394,7 @@ class Model
      *  - `f`: The force part of the control vector
      *  - `force_data`: Vector of data about each force in `f`
      *  - `actuated_joints`: Vector of indices of joints that are actuated
-     *  - `unactuated_joints`: Complement vector of `actuated_joints
+     *  - `unactuated_joints`: Complement vector of `actuated_joints`
      * 
      * Output:
      *  - `Muu`: The unactuated part of the mass matrix (reordered)
@@ -433,7 +435,8 @@ class Model
      *     be the accelerations for each of the actuated joints
      *  - `f`: The force part of the control vector
      *  - `force_data`: Vector of data about each force in `f`
-     *  - `unactuated_joints`: Complement vector of `actuated_joints
+     *  - `actuated_joints`: Vector of indices of joints that are actuated
+     *  - `unactuated_joints`: Complement vector of `actuated_joints`
      * 
      * Inputs from `_calculateReducedInverseFullAcceleration`'s output:
      *  - `ddq`: The full acceleration vector
@@ -445,11 +448,17 @@ class Model
      *  - `Jf_full`: The full force jacobian
      * 
      * Output:
+     *  - `dtau_dq`: The RNEA derivative with respect to the configuration (qk)
+     *  - `dtau_dv`: The RNEA derivative with respect to the velocity (vk)
+     *  - `dtau_da`: The RNEA derivative with respect to the full acceleration
+     *     (ak)
+     *  - `dtau_daj`: The RNEA derivative with respect to the actuated part of
+     *     the acceleration (ajk)
      *  - `dak_dqk`: The derivative of the full acceleration vector with respect
      *     to the configuration (qk)
      *  - `dak_dvk`: The derivative of the full acceleration vector with respect
      *     to the velocity (vk)
-     *  - `dak_dakj`: The derivative of the full acceleration vector with
+     *  - `dak_dajk`: The derivative of the full acceleration vector with
      *     respect to the actuated part of the acceleration
      *  - `dak_dfk`: The derivative of the full acceleration vector with respect
      *     to the forces
@@ -458,10 +467,12 @@ class Model
     void _calculateReducedInverseFullAccelerationDerivatives(
       const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
       const std::vector<Force> &force_data,
+      const std::vector<uint>  &actuated_joints,
       const std::vector<uint> &unactuated_joints, const VecX &ddq,
       const MatX &Muu, const MatX &Muj, const Eigen::LDLT<MatX> &Muu_ldlt,
-      const std::vector<Vec6> &joint_forces, const MatX &Jf_full, MatX &dak_dqk,
-      MatX &dak_dvk, MatX &dak_dakj, MatX &dak_dfk) const;
+      const std::vector<Vec6> &joint_forces, const MatX &Jf_full, MatX &dtau_dq,
+      MatX &dtau_dv, MatX &dtau_da, MatX &dtau_daj, MatX &dak_dqk,
+      MatX &dak_dvk, MatX &dak_dajk, MatX &dak_dfk) const;
 
     // Functionality functions
 
@@ -533,8 +544,6 @@ class Model
      *  - `FloatingBase`: Whether the system includes a floating base or not
      *  - `IsTerminal`: Whether the stage is the terminal stage (no controls)
      *  - `DM`: The dynamics mode that should be used
-     *  - `WithForces`: Whether there are additional external forces for this
-     *     stage
      * 
      * ### Note
      * If the selected dynamics mode is Inverse, this function does not generate
@@ -542,7 +551,7 @@ class Model
      * `_makeStageIDTorqueConstraints` needs to also be called.
      */
     template<bool FloatingBase, bool IsTerminal,
-             DynamicsMode DM = DynamicsMode::Forward, bool WithForces = false>
+             DynamicsMode DM = DynamicsMode::Forward>
     std::shared_ptr<stagewise::StageConstraints> _makeStageInnateConstraints(
       const _StageInnateConstraintsContext &ctx) const;
 
