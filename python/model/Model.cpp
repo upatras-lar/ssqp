@@ -291,8 +291,8 @@ void bind_Model(nb::module_ &m)
             return self.addConstraints<ContactConstraint>(k,
                                                           self,
                                                           frame,
-                                                          self.nq(k),
-                                                          self.nv(k),
+                                                          self.nq(),
+                                                          self.nv(),
                                                           mu);
         },
         nb::arg("k"),
@@ -379,48 +379,60 @@ void bind_Model(nb::module_ &m)
         "Get the constraint size of the model after linearization.")
       .def(
         "getnq",
-        [](Model &self, const uint k)
+        [](Model &self)
         {
             if (!self.urdf())
             {
                 throw std::runtime_error("Model was not loaded from URDF");
             }
 
-            return self.nq(k);
+            return self.nq();
         },
-        nb::arg("k"),
         R"doc(
         Get the configuration size of the model.
         Only defined if the model was initialized using a URDF file.
         )doc")
       .def(
         "getnv",
-        [](Model &self, const uint k)
+        [](Model &self)
         {
             if (!self.urdf())
             {
                 throw std::runtime_error("Model was not loaded from URDF");
             }
 
-            return self.nv(k);
+            return self.nv();
         },
-        nb::arg("k"),
         R"doc(
         Get the velocity size of the model.
         Only defined if the model was initialized using a URDF file.
         )doc")
       .def(
-        "getnjoints",
-        [](Model &self, const uint k)
+        "getnu",
+        [](Model &self)
         {
             if (!self.urdf())
             {
                 throw std::runtime_error("Model was not loaded from URDF");
             }
 
-            return self.njoints(k);
+            return self.nu();
         },
-        nb::arg("k"),
+        R"doc(
+        Get the non-force control size of the model.
+        Only defined if the model was initialized using a URDF file.
+        )doc")
+      .def(
+        "getnjoints",
+        [](Model &self)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+
+            return self.njoints();
+        },
         R"doc(
         Get the number of actuated joints of the model.
         Only defined if the model was initialized using a URDF file.

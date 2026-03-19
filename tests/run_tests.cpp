@@ -32,7 +32,19 @@ int main()
 
     tests.addTest(
       ssqp::tests::generators::
-        get_joint_invdyn_semi_implicit_euler_with_forces_grad_test());
+        get_reduced_invdyn_semi_implicit_euler_floating_base_without_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_semi_implicit_euler_floating_base_with_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_semi_implicit_euler_floating_base_unactuated_joints_without_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_semi_implicit_euler_floating_base_unactuated_joints_with_forces_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_fwdyn_innate_constraint_grad_test());
@@ -42,6 +54,22 @@ int main()
 
     tests.addTest(ssqp::tests::generators::
                     get_invdyn_innate_constraint_with_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_innate_constraint_floating_base_without_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_innate_constraint_floating_base_with_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_innate_constraint_floating_base_unactuated_joints_without_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_innate_constraint_floating_base_unactuated_joints_with_forces_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_frame_position_bound_grad_test());
