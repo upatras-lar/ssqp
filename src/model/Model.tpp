@@ -167,7 +167,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 }
                 else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
                 {
-                    VecX ddq =
+                    ddq =
                       pinocchio_wrapper::aba(_impl, q, v, ctrl, joint_forces);
                     vn = v + ddq * _dt;
                 }
@@ -275,7 +275,58 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             }
             else if constexpr (DM == DynamicsMode::ReducedInverse)
             {
-                // TODO: reduced inverse explicit euler grad
+                ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
+                                                               WithForces>(
+                  q,
+                  v,
+                  ctrl,
+                  f,
+                  ctx.force_data,
+                  ctx.actuated_joints,
+                  ctx.unactuated_joints,
+                  Muu,
+                  Muj,
+                  Muu_ldlt,
+                  joint_forces,
+                  Jf_full);
+
+                MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
+                MatX da_dq, da_dv, da_daj, da_df;
+
+                _calculateReducedInverseFullAccelerationDerivatives<
+                  FloatingBase,
+                  WithForces>(q,
+                              v,
+                              ctrl,
+                              f,
+                              ctx.force_data,
+                              ctx.actuated_joints,
+                              ctx.unactuated_joints,
+                              ddq,
+                              Muu,
+                              Muj,
+                              Muu_ldlt,
+                              joint_forces,
+                              Jf_full,
+                              dtau_dq,
+                              dtau_dv,
+                              dtau_da,
+                              dtau_daj,
+                              da_dq,
+                              da_dv,
+                              da_daj,
+                              da_df);
+
+                dX.bottomLeftCorner(ctx.nv, ctx.nv) = da_dq * _dt;
+                dX.bottomRightCorner(ctx.nv, ctx.nv) =
+                  MatX::Identity(ctx.nv, ctx.nv) + da_dv * _dt;
+
+                dU.bottomLeftCorner(ctx.nv, ctx.nu) = da_daj * _dt;
+
+                if constexpr (WithForces)
+                {
+                    dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) = da_df * _dt;
+                }
             }
         }
         else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)

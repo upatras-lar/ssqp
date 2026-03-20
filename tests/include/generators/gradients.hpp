@@ -30,6 +30,22 @@ std::shared_ptr<Test> get_invdyn_semi_implicit_euler_without_forces_grad_test();
 std::shared_ptr<Test> get_invdyn_semi_implicit_euler_with_forces_grad_test();
 
 std::shared_ptr<Test>
+get_reduced_invdyn_explicit_euler_without_forces_grad_test();
+std::shared_ptr<Test> get_reduced_invdyn_explicit_euler_with_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_explicit_euler_unactuated_joints_without_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_explicit_euler_unactuated_joints_with_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_explicit_euler_floating_base_without_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_explicit_euler_floating_base_with_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_explicit_euler_floating_base_unactuated_joints_without_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_explicit_euler_floating_base_unactuated_joints_with_forces_grad_test();
+
+std::shared_ptr<Test>
 get_reduced_invdyn_semi_implicit_euler_without_forces_grad_test();
 std::shared_ptr<Test>
 get_reduced_invdyn_semi_implicit_euler_with_forces_grad_test();
