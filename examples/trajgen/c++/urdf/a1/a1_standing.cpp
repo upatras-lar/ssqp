@@ -11,10 +11,11 @@
 // ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
 
-#define STATE_SIZE   19
-#define CONTROL_SIZE 18
-#define HORIZON      400
-#define dt           0.01
+#define STATE_SIZE    19
+#define VELOCITY_SIZE 18
+#define CONTROL_SIZE  18
+#define HORIZON       400
+#define dt            0.01
 // Trunk position weight
 #define TF_WGT 3.0
 // Orientation weight
@@ -73,8 +74,8 @@ int main()
         init_control.segment(6, 12) =
           model
             .inverseDynamics(init.head(STATE_SIZE),
-                             init.tail(CONTROL_SIZE),
-                             Eigen::VectorXd::Zero(CONTROL_SIZE),
+                             init.tail(VELOCITY_SIZE),
+                             Eigen::VectorXd::Zero(VELOCITY_SIZE),
                              forces)
             .tail(12);
     }
@@ -95,11 +96,17 @@ int main()
     {
         // Add regularization cost for velocity, controls and forces
         model.addCost<costs::SquaredJointVelocityCost>(k,
-                                                       CONTROL_SIZE,
+                                                       VELOCITY_SIZE,
                                                        V_WGT,
                                                        true);
-        model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
-        model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
+        model.addCost<costs::SquaredControlCost>(k,
+                                                 VELOCITY_SIZE,
+                                                 CONTROL_SIZE,
+                                                 U_WGT);
+        model.addCost<costs::SquaredForceCost>(k,
+                                               VELOCITY_SIZE,
+                                               CONTROL_SIZE,
+                                               F_WGT);
 
         // Add contact constraints for front left and rear right feet
         // We also add velocity bounds to each contact constraint frame to
@@ -109,6 +116,7 @@ int main()
                                                              model,
                                                              "FL_foot",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -119,12 +127,13 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "RR_foot",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -135,7 +144,7 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         if (!TWO_FEET)
         {
@@ -146,6 +155,7 @@ int main()
                                                                  model,
                                                                  "FR_foot",
                                                                  STATE_SIZE,
+                                                                 VELOCITY_SIZE,
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
@@ -156,12 +166,13 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
 
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RL_foot",
                                                                  STATE_SIZE,
+                                                                 VELOCITY_SIZE,
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
@@ -172,28 +183,30 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
         }
         else
         {
             // If the remaining two feet are on the air, add position bounds
             // to keep them above ground
 
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "FR_foot",
-                                                                  l,
-                                                                  u,
-                                                                  STATE_SIZE,
-                                                                  CONTROL_SIZE);
+            model.addConstraints<constraints::FramePositionBound>(
+              k,
+              model,
+              "FR_foot",
+              l,
+              u,
+              STATE_SIZE,
+              VELOCITY_SIZE);
 
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "RL_foot",
-                                                                  l,
-                                                                  u,
-                                                                  STATE_SIZE,
-                                                                  CONTROL_SIZE);
+            model.addConstraints<constraints::FramePositionBound>(
+              k,
+              model,
+              "RL_foot",
+              l,
+              u,
+              STATE_SIZE,
+              VELOCITY_SIZE);
         }
     }
 
@@ -204,7 +217,7 @@ int main()
                                                     base_pos,
                                                     Eigen::Matrix3d::Identity(),
                                                     STATE_SIZE,
-                                                    CONTROL_SIZE,
+                                                    VELOCITY_SIZE,
                                                     TF_WGT,
                                                     RF_WGT);
 

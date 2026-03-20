@@ -167,7 +167,7 @@ std::shared_ptr<Test> get_invdyn_semi_implicit_euler_without_forces_grad_test()
     model->finalize();
 
     std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
-      "InvdynExplicitEulerWithoutForcesGradTest",
+      "InvdynSemiImplicitEulerWithoutForcesGradTest",
       model,
       0);
 
@@ -194,6 +194,96 @@ std::shared_ptr<Test> get_invdyn_semi_implicit_euler_with_forces_grad_test()
 
     std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
       "InvdynSemiImplicitEulerWithForcesGradTest",
+      model,
+      0);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_semi_implicit_euler_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "ReducedInvdynSemiImplicitEulerWithoutForcesGradTest",
+      model,
+      0);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_semi_implicit_euler_with_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+
+    model->addForce(0, "panda_ee");
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "ReducedInvdynSemiImplicitEulerWithForcesGradTest",
+      model,
+      0);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_semi_implicit_euler_unactuated_joints_without_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    model_structure.actuated_joints = { 0, 1, 3, 5, 6, 7 };
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "ReducedInvdynSemiImplicitEulerUnactuatedJointsWithoutForcesGradTest",
+      model,
+      0);
+
+    return dyn_test;
+}
+
+std::shared_ptr<Test>
+get_reduced_invdyn_semi_implicit_euler_unactuated_joints_with_forces_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.integration   = model::IntegrationScheme::SemiImplicitEuler;
+    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
+    model_structure.dynamics_mode = model::DynamicsMode::ReducedInverse;
+    model_structure.actuated_joints = { 0, 1, 3, 5, 6, 7 };
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+
+    model->addForce(0, "panda_ee");
+    model->finalize();
+
+    std::shared_ptr<FDGradDynamics> dyn_test = std::make_shared<FDGradDynamics>(
+      "ReducedInvdynSemiImplicitEulerUnactuatedJointsWithForcesGradTest",
       model,
       0);
 
@@ -544,6 +634,7 @@ std::shared_ptr<Test> get_contact_constraint_grad_test()
                                                                     "FL_foot",
                                                                     19,
                                                                     18,
+                                                                    18,
                                                                     0.6);
 
     model->finalize();
@@ -675,6 +766,7 @@ std::shared_ptr<Test> get_squared_control_cost_grad_test()
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
           18,
+          18,
           0.47);
     }
 
@@ -709,6 +801,7 @@ std::shared_ptr<Test> get_squared_ID_torque_cost_grad_test()
             *model,
             9,
             9,
+            9,
             0.74);
     }
 
@@ -740,6 +833,7 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test()
     {
         model->addCost<model::stagewise::predefined::costs::SquaredForceCost>(
           k,
+          18,
           18,
           9.78);
     }
@@ -994,6 +1088,7 @@ std::shared_ptr<Test> get_lf_grad_test()
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
           18,
+          18,
           7.07);
     }
 
@@ -1035,6 +1130,7 @@ std::shared_ptr<Test> get_gammaf_grad_test()
                                                                          true);
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
+          18,
           18,
           0.66);
     }
@@ -1082,6 +1178,7 @@ std::shared_ptr<Test> get_cf_grad_test()
                                                                          true);
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
+          18,
           18,
           7.53);
 

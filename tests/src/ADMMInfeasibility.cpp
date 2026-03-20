@@ -17,6 +17,7 @@ ADMMInfeasibility::ADMMInfeasibility(const std::string &name)
         _model.addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
           9,
+          9,
           1e-3);
 
         _model.addConstraints<

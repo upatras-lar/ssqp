@@ -293,6 +293,7 @@ void bind_Model(nb::module_ &m)
                                                           frame,
                                                           self.nq(),
                                                           self.nv(),
+                                                          self.nu(),
                                                           mu);
         },
         nb::arg("k"),

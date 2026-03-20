@@ -139,7 +139,10 @@ int main()
 
         // Add regularization costs
         model.addCost<costs::SquaredJointVelocityCost>(k, STATE_SIZE, V_WGT);
-        model.addCost<costs::SquaredControlCost>(k, STATE_SIZE, U_WGT);
+        model.addCost<costs::SquaredControlCost>(k,
+                                                 STATE_SIZE,
+                                                 STATE_SIZE,
+                                                 U_WGT);
 
         if (CONSTRAIN)
         {

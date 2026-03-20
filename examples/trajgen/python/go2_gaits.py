@@ -14,6 +14,7 @@ The `GaitManager` class is used to handle gait creation
 # Model Parameters
 nq = 19
 nv = 18
+nu = 18
 HORIZON = 300
 dt = 0.01
 
@@ -62,7 +63,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Forward,
+    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
 )
 
 # Create regularization costs
@@ -70,8 +71,8 @@ config_cost = costs.SquaredConfigurationErrorCost(
     init[7:19], nq, nv, C_WGT, True
 )
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, U_WGT)
-force_cost = costs.SquaredForceCost(nv, F_WGT)
+control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
+force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
 
 for k in range(HORIZON):
     # Add the regularization costs for each stage

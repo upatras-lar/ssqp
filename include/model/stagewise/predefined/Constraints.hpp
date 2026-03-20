@@ -100,7 +100,7 @@ class JointControlConstraint : public StageConstraints
 {
   public:
     JointControlConstraint(const VecX &lb, const VecX &ub, const uint nv,
-                           const bool free_flyer = false);
+                           const uint nu, const bool free_flyer = false);
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
 
@@ -120,7 +120,7 @@ class JointControlConstraint : public StageConstraints
 
   protected:
     VecX       _lb, _ub;
-    const uint _nv, _njoints;
+    const uint _nv, _nu;
     const bool _free_flyer;
 };
 
@@ -282,7 +282,8 @@ class ContactConstraint : public StageConstraints
 {
   public:
     ContactConstraint(const Model &model, const std::string &frame,
-                      const uint nq, const uint nv, const double mu = 0.6);
+                      const uint nq, const uint nv, const uint nu,
+                      const double mu = 0.6);
 
     void set_mu(const double mu);
 
@@ -318,7 +319,7 @@ class ContactConstraint : public StageConstraints
     const std::shared_ptr<Model> _model;
     const std::string            _frame;
     std::vector<Force>           _forces;
-    const uint                   _nq, _nv;
+    const uint                   _nq, _nv, _nu;
     double                       _mu;
 };
 

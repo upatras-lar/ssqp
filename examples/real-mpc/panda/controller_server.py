@@ -90,6 +90,7 @@ try:
 
         nq = 9
         nv = 9
+        nu = 9
         MPC_H = 10
         dt = 0.1
 
@@ -158,7 +159,7 @@ try:
         )
 
         v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-        u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
+        u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
         pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
             model, "panda_ee", desired_pose, nq, nq, T_WGT, R_WGT
         )

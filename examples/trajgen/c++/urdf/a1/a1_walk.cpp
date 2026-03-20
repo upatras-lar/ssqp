@@ -12,10 +12,11 @@
 // ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
 
-#define STATE_SIZE   19
-#define CONTROL_SIZE 18
-#define HORIZON      400
-#define dt           0.01
+#define STATE_SIZE    19
+#define VELOCITY_SIZE 18
+#define CONTROL_SIZE  18
+#define HORIZON       400
+#define dt            0.01
 // Velocity regularization weight
 #define V_WGT 1e-2
 // Control regularization weight
@@ -81,8 +82,8 @@ int main()
     init_control.segment(6, 12) =
       model
         .inverseDynamics(init.head(STATE_SIZE),
-                         init.tail(CONTROL_SIZE),
-                         Eigen::VectorXd::Zero(CONTROL_SIZE),
+                         init.tail(VELOCITY_SIZE),
+                         Eigen::VectorXd::Zero(VELOCITY_SIZE),
                          forces)
         .tail(12);
 
@@ -108,11 +109,17 @@ int main()
     {
         // Add regularization cost for velocity, controls and forces
         model.addCost<costs::SquaredJointVelocityCost>(k,
-                                                       CONTROL_SIZE,
+                                                       VELOCITY_SIZE,
                                                        V_WGT,
                                                        true);
-        model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
-        model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
+        model.addCost<costs::SquaredControlCost>(k,
+                                                 VELOCITY_SIZE,
+                                                 CONTROL_SIZE,
+                                                 U_WGT);
+        model.addCost<costs::SquaredForceCost>(k,
+                                               VELOCITY_SIZE,
+                                               CONTROL_SIZE,
+                                               F_WGT);
 
         // Add cost for trunk to follow the desired trajectory
         model.addCost<costs::FrameSquaredPoseErrorCost>(
@@ -122,7 +129,7 @@ int main()
           traj[k],
           Eigen::Matrix3d::Identity(),
           STATE_SIZE,
-          CONTROL_SIZE,
+          VELOCITY_SIZE,
           T_WGT,
           T_WGT);
 
@@ -137,6 +144,7 @@ int main()
               model,
               ls1 ? "RR_foot" : "RL_foot",
               STATE_SIZE,
+              VELOCITY_SIZE,
               CONTROL_SIZE,
               0.6);
 
@@ -147,13 +155,14 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
 
             model.addConstraints<constraints::ContactConstraint>(
               k,
               model,
               ls1 ? "FR_foot" : "FL_foot",
               STATE_SIZE,
+              VELOCITY_SIZE,
               CONTROL_SIZE,
               0.6);
 
@@ -164,7 +173,7 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
         }
         else
         {
@@ -184,6 +193,7 @@ int main()
                                                              ls1 ? "FR_foot"
                                                                  : "FL_foot",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -194,13 +204,14 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              ls1 ? "RL_foot"
                                                                  : "RR_foot",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -211,12 +222,12 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
     }
 
     // Add terminal costs
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
-                                                   CONTROL_SIZE,
+                                                   VELOCITY_SIZE,
                                                    V_WGT,
                                                    true);
 
@@ -226,7 +237,7 @@ int main()
                                                     traj[HORIZON],
                                                     Eigen::Matrix3d::Identity(),
                                                     STATE_SIZE,
-                                                    CONTROL_SIZE,
+                                                    VELOCITY_SIZE,
                                                     T_WGT,
                                                     T_WGT);
 
@@ -237,7 +248,7 @@ int main()
       -1e-3 * Eigen::Vector3d::Ones(),
       1e-3 * Eigen::Vector3d::Ones(),
       STATE_SIZE,
-      CONTROL_SIZE,
+      VELOCITY_SIZE,
       true);
 
     ssqp::model::Model::Config model_config;

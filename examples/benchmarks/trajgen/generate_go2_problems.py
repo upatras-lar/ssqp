@@ -38,6 +38,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
     # Model Parameters
     nq = 19
     nv = 18
+    nu = 18
     HORIZON = 300
     dt = 0.01
 
@@ -118,8 +119,8 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
             init[7:19], nq, nv, C_WGT, True
         )
         joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-        control_cost = costs.SquaredControlCost(nv, U_WGT)
-        force_cost = costs.SquaredForceCost(nv, F_WGT)
+        control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
+        force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
 
         for k in range(HORIZON):
             model.addCost(k, joint_vel_cost)

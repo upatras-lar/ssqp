@@ -9,10 +9,11 @@
 #include "model/stagewise/predefined/Constraints.hpp"
 #include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
-#define STATE_SIZE   51
-#define CONTROL_SIZE 50
-#define HORIZON      20
-#define dt           0.025
+#define STATE_SIZE    51
+#define VELOCITY_SIZE 50
+#define CONTROL_SIZE  50
+#define HORIZON       20
+#define dt            0.025
 // Trunk position weight
 #define T_WGT 3.0
 // Orientation weight
@@ -41,7 +42,7 @@ int main()
     Eigen::Vector3d base_pos;
     base_pos << 0, 0, 1.072;
 
-    Eigen::VectorXd init = Eigen::VectorXd::Zero(STATE_SIZE + CONTROL_SIZE);
+    Eigen::VectorXd init = Eigen::VectorXd::Zero(STATE_SIZE + VELOCITY_SIZE);
     init.segment(0, 3)   = base_pos;
     init[6]              = 1.0;
 
@@ -58,22 +59,29 @@ int main()
           base_pos,
           Eigen::Matrix3d::Identity(),
           STATE_SIZE,
-          CONTROL_SIZE,
+          VELOCITY_SIZE,
           T_WGT,
           R_WGT);
 
         // Add regularization cost for velocity, controls and forces
         model.addCost<costs::SquaredJointVelocityCost>(k,
-                                                       CONTROL_SIZE,
+                                                       VELOCITY_SIZE,
                                                        V_WGT,
                                                        true);
-        model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
-        model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
+        model.addCost<costs::SquaredControlCost>(k,
+                                                 VELOCITY_SIZE,
+                                                 CONTROL_SIZE,
+                                                 U_WGT);
+        model.addCost<costs::SquaredForceCost>(k,
+                                               VELOCITY_SIZE,
+                                               CONTROL_SIZE,
+                                               F_WGT);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_mm",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -84,12 +92,13 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_mp",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -100,12 +109,13 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_pp",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -116,12 +126,13 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_pm",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -132,12 +143,13 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_mm",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -148,12 +160,13 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_mp",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -164,12 +177,13 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_pp",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -180,12 +194,13 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_pm",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -196,11 +211,11 @@ int main()
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
     }
 
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
-                                                   CONTROL_SIZE,
+                                                   VELOCITY_SIZE,
                                                    V_WGT,
                                                    true);
 
@@ -210,7 +225,7 @@ int main()
                                                     base_pos,
                                                     Eigen::Matrix3d::Identity(),
                                                     STATE_SIZE,
-                                                    CONTROL_SIZE,
+                                                    VELOCITY_SIZE,
                                                     T_WGT,
                                                     R_WGT);
 

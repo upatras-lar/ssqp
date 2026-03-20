@@ -72,6 +72,7 @@ args = parse_args()
 
 nq = 2
 nv = 2
+nu = 2
 mpc_H = 45
 dt = 0.01
 
@@ -103,7 +104,7 @@ def run(dynamics_mode):
     )
 
     vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
     tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
         model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
     )

@@ -12,6 +12,7 @@ Performs a simple jump with the Go2 robot
 # Model Parameters
 nq = 19
 nv = 18
+nu = 18
 HORIZON = 150
 dt = 0.01
 
@@ -55,8 +56,8 @@ model = ssqpy.model.Model(
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, U_WGT)
-force_cost = costs.SquaredForceCost(nv, F_WGT)
+control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
+force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
 config_cost = costs.SquaredConfigurationErrorCost(
     base_config, nq, nv, C_WGT, True
 )

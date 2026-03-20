@@ -254,10 +254,15 @@ void bind_Constraints(nb::module_ &m)
     nb::class_<JointControlConstraint, StageConstraints>(
       m,
       "JointControlConstraint")
-      .def(nb::init<const VecX &, const VecX &, const uint, const bool>(),
+      .def(nb::init<const VecX &,
+                    const VecX &,
+                    const uint,
+                    const uint,
+                    const bool>(),
            nb::arg("lb"),
            nb::arg("ub"),
            nb::arg("nv"),
+           nb::arg("nu"),
            nb::arg("free_flyer") = false,
            R"doc(
         Predefined joint control constraint

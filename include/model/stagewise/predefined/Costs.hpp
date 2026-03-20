@@ -90,8 +90,8 @@ class SquaredJointVelocityCost : public StageCost
 class SquaredControlCost : public StageCost
 {
   public:
-    SquaredControlCost(const uint nv, const double weight);
-    SquaredControlCost(const uint nv, const VecX &weight);
+    SquaredControlCost(const uint nv, const uint nu, const double weight);
+    SquaredControlCost(const uint nv, const uint nu, const VecX &weight);
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -104,7 +104,7 @@ class SquaredControlCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const uint _nv;
+    const uint _nv, _nu;
     VecX       _weight;
 };
 
@@ -120,9 +120,9 @@ class SquaredIDTorqueCost : public StageCost
 {
   public:
     SquaredIDTorqueCost(const Model &model, const uint nq, const uint nv,
-                        const double weight);
+                        const uint nu, const double weight);
     SquaredIDTorqueCost(const Model &model, const uint nq, const uint nv,
-                        const VecX &weight);
+                        const uint nu, const VecX &weight);
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -136,7 +136,7 @@ class SquaredIDTorqueCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
-    const uint                   _nq, _nv;
+    const uint                   _nq, _nv, _nu;
     VecX                         _weight;
 };
 
@@ -149,8 +149,8 @@ class SquaredIDTorqueCost : public StageCost
 class SquaredForceCost : public StageCost
 {
   public:
-    SquaredForceCost(const uint nv, const double weight);
-    SquaredForceCost(const uint nv, const VecX &weight);
+    SquaredForceCost(const uint nv, const uint nu, const double weight);
+    SquaredForceCost(const uint nv, const uint nu, const VecX &weight);
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -163,7 +163,7 @@ class SquaredForceCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const uint _nv;
+    const uint _nv, _nu;
     double     _weight;
     VecX       _weight_vec;
     bool       _single_weight;

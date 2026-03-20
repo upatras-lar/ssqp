@@ -15,6 +15,7 @@ in the middle
 # Model parameters
 nq = 19
 nv = 18
+nu = 18
 HORIZON = 150
 dt = 0.01
 
@@ -52,7 +53,7 @@ model = ssqpy.model.Model(
 # Create regularization costs for joint angles, joint velocity and control
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, U_WGT)
+control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
 
 # Velocity bounds for feet frames
 # These add constraints, such that the feet have no velocity
@@ -82,13 +83,13 @@ for k in range(HORIZON):
     if k < STEPS_BEFORE:
         # Add an increasing weight to the forces as we move closer to the jump
         force_cost_k = costs.SquaredForceCost(
-            nv, F_WGT_START + k * (F_WGT_END - F_WGT_START) / STEPS_BEFORE
+            nv, nu, F_WGT_START + k * (F_WGT_END - F_WGT_START) / STEPS_BEFORE
         )
         model.addCost(k, force_cost_k)
     # If after jump
     elif k > HORIZON - STEPS_AFTER:
         # Add the regular force weight
-        force_cost_k = costs.SquaredForceCost(nv, F_WGT_START)
+        force_cost_k = costs.SquaredForceCost(nv, nu, F_WGT_START)
         model.addCost(k, force_cost_k)
 
     # If not on the air

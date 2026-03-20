@@ -12,6 +12,7 @@ Traces a heart with the Go2's front feet
 # Model Parameters
 nq = 19
 nv = 18
+nu = 18
 HORIZON = 200
 dt = 0.01
 
@@ -101,8 +102,8 @@ model = ssqpy.model.Model(
 # Create regularization costs
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, U_WGT)
-force_cost = costs.SquaredForceCost(nv, F_WGT)
+control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
+force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
 
 # Define velocity bounds for feet
 # Used in conjunction with contact constraints

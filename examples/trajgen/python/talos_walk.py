@@ -11,6 +11,7 @@ Performs a walk with the Talos humanoid robot
 # Model Parameters
 nq = 51
 nv = 50
+nu = 50
 H = 160
 dt = 0.01
 
@@ -153,8 +154,8 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
 
 # Create regularization costs
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, U_WGT)
-force_cost = costs.SquaredForceCost(nv, F_WGT)
+control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
+force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
 
 # For each contact frame, create a zero velocity bound
 left_mm_vel_bound = constraints.FrameLinearVelocityBound(

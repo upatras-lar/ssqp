@@ -131,7 +131,8 @@ void Model::finalize(const Config &config)
             _addURDFInnateConstraints();
         }
 
-        if (_dynamics_mode == DynamicsMode::Inverse)
+        if (_dynamics_mode == DynamicsMode::Inverse ||
+            _dynamics_mode == DynamicsMode::ReducedInverse)
         {
             _addIDTorqueConstraints();
         }

@@ -14,6 +14,7 @@ Go2 circular trunk motion example
 
 nq = 19
 nv = 18
+nu = 18
 HORIZON = 400
 dt = 0.01
 
@@ -115,8 +116,8 @@ for k in range(HORIZON):
 
     # Regularization
     joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-    control_cost = costs.SquaredControlCost(nv, U_WGT)
-    force_cost = costs.SquaredForceCost(nv, F_WGT)
+    control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
+    force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
 
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)

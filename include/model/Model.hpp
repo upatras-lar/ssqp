@@ -448,19 +448,19 @@ class Model
      *  - `Jf_full`: The full force jacobian
      * 
      * Output:
-     *  - `dtau_dq`: The RNEA derivative with respect to the configuration (qk)
-     *  - `dtau_dv`: The RNEA derivative with respect to the velocity (vk)
+     *  - `dtau_dq`: The RNEA derivative with respect to the configuration (q)
+     *  - `dtau_dv`: The RNEA derivative with respect to the velocity (v)
      *  - `dtau_da`: The RNEA derivative with respect to the full acceleration
-     *     (ak)
+     *     (a)
      *  - `dtau_daj`: The RNEA derivative with respect to the actuated part of
-     *     the acceleration (ajk)
-     *  - `dak_dqk`: The derivative of the full acceleration vector with respect
-     *     to the configuration (qk)
-     *  - `dak_dvk`: The derivative of the full acceleration vector with respect
-     *     to the velocity (vk)
-     *  - `dak_dajk`: The derivative of the full acceleration vector with
-     *     respect to the actuated part of the acceleration
-     *  - `dak_dfk`: The derivative of the full acceleration vector with respect
+     *     the acceleration (aj)
+     *  - `da_dq`: The derivative of the full acceleration vector with respect
+     *     to the configuration (q)
+     *  - `da_dv`: The derivative of the full acceleration vector with respect
+     *     to the velocity (v)
+     *  - `da_daj`: The derivative of the full acceleration vector with respect
+     *     to the actuated part of the acceleration
+     *  - `da_df`: The derivative of the full acceleration vector with respect
      *     to the forces
      */
     template<bool FloatingBase, bool WithForces>
@@ -471,8 +471,8 @@ class Model
       const std::vector<uint> &unactuated_joints, const VecX &ddq,
       const MatX &Muu, const MatX &Muj, const Eigen::LDLT<MatX> &Muu_ldlt,
       const std::vector<Vec6> &joint_forces, const MatX &Jf_full, MatX &dtau_dq,
-      MatX &dtau_dv, MatX &dtau_da, MatX &dtau_daj, MatX &dak_dqk,
-      MatX &dak_dvk, MatX &dak_dajk, MatX &dak_dfk) const;
+      MatX &dtau_dv, MatX &dtau_da, MatX &dtau_daj, MatX &da_dq, MatX &da_dv,
+      MatX &da_daj, MatX &da_df) const;
 
     // Functionality functions
 

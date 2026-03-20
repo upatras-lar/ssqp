@@ -12,10 +12,11 @@
 // ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
 
-#define STATE_SIZE   19
-#define CONTROL_SIZE 18
-#define HORIZON      325
-#define dt           0.01
+#define STATE_SIZE    19
+#define VELOCITY_SIZE 18
+#define CONTROL_SIZE  18
+#define HORIZON       325
+#define dt            0.01
 // Angle regularization weight
 #define A_WGT 1e-3
 // Velocity regularization weight
@@ -74,11 +75,17 @@ int main()
     {
         // Add regularization cost for velocity, controls and forces
         model.addCost<costs::SquaredJointVelocityCost>(k,
-                                                       CONTROL_SIZE,
+                                                       VELOCITY_SIZE,
                                                        V_WGT,
                                                        true);
-        model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
-        model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
+        model.addCost<costs::SquaredControlCost>(k,
+                                                 VELOCITY_SIZE,
+                                                 CONTROL_SIZE,
+                                                 U_WGT);
+        model.addCost<costs::SquaredForceCost>(k,
+                                               VELOCITY_SIZE,
+                                               CONTROL_SIZE,
+                                               F_WGT);
 
         // Get stage index relative to jumps
         uint rel_k = k % JUMP_STAGES;
@@ -96,6 +103,7 @@ int main()
                   model,
                   "FL_foot",
                   STATE_SIZE,
+                  VELOCITY_SIZE,
                   CONTROL_SIZE,
                   0.6);
 
@@ -106,13 +114,14 @@ int main()
                   Eigen::Vector3d::Zero(),
                   Eigen::Vector3d::Zero(),
                   STATE_SIZE,
-                  CONTROL_SIZE);
+                  VELOCITY_SIZE);
 
                 model.addConstraints<constraints::ContactConstraint>(
                   k,
                   model,
                   "FR_foot",
                   STATE_SIZE,
+                  VELOCITY_SIZE,
                   CONTROL_SIZE,
                   0.6);
 
@@ -123,7 +132,7 @@ int main()
                   Eigen::Vector3d::Zero(),
                   Eigen::Vector3d::Zero(),
                   STATE_SIZE,
-                  CONTROL_SIZE);
+                  VELOCITY_SIZE);
             }
             // If we are not at the start or end, only back feet should touch
             // the ground
@@ -137,6 +146,7 @@ int main()
                                                                  model,
                                                                  "RL_foot",
                                                                  STATE_SIZE,
+                                                                 VELOCITY_SIZE,
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
@@ -147,12 +157,13 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
 
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RR_foot",
                                                                  STATE_SIZE,
+                                                                 VELOCITY_SIZE,
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
@@ -163,7 +174,7 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
         }
         // If we are on air, do not add constraints
         else
@@ -174,7 +185,7 @@ int main()
 
     // Add regularization costs for the terminal stage
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
-                                                   CONTROL_SIZE,
+                                                   VELOCITY_SIZE,
                                                    V_WGT,
                                                    true);
 
@@ -184,7 +195,7 @@ int main()
                                                     base_pos,
                                                     Eigen::Matrix3d::Identity(),
                                                     STATE_SIZE,
-                                                    CONTROL_SIZE,
+                                                    VELOCITY_SIZE,
                                                     TF_WGT,
                                                     RF_WGT);
 
@@ -196,7 +207,7 @@ int main()
       -1e-3 * Eigen::Vector3d::Ones(),
       1e-3 * Eigen::Vector3d::Ones(),
       STATE_SIZE,
-      CONTROL_SIZE,
+      VELOCITY_SIZE,
       true);
 
     ssqp::model::Model::Config model_config;

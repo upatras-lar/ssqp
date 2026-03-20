@@ -12,9 +12,10 @@
 // ssqp::stagewise::predefined::constraints namespace
 #include "model/stagewise/predefined/Constraints.hpp"
 
-#define STATE_SIZE   19
-#define CONTROL_SIZE 18
-#define dt           0.02
+#define STATE_SIZE    19
+#define VELOCITY_SIZE 18
+#define CONTROL_SIZE  18
+#define dt            0.02
 // Position weight
 #define T_WGT 3.0
 // Orientation weight
@@ -51,6 +52,7 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
                                                              model,
                                                              "FL_foot",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -61,12 +63,13 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "FR_foot",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -77,12 +80,13 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "RL_foot",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -93,12 +97,13 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "RR_foot",
                                                              STATE_SIZE,
+                                                             VELOCITY_SIZE,
                                                              CONTROL_SIZE,
                                                              0.6);
 
@@ -109,7 +114,7 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
           Eigen::Vector3d::Zero(),
           Eigen::Vector3d::Zero(),
           STATE_SIZE,
-          CONTROL_SIZE);
+          VELOCITY_SIZE);
 
         init_controls.push_back(init_control_4);
     }
@@ -169,6 +174,7 @@ int main()
                                                                  model,
                                                                  "FL_foot",
                                                                  STATE_SIZE,
+                                                                 VELOCITY_SIZE,
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
@@ -179,12 +185,13 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
 
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RR_foot",
                                                                  STATE_SIZE,
+                                                                 VELOCITY_SIZE,
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
@@ -195,7 +202,7 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
 
             // If at the right part of cycle (first or last fourth), place
             // remaining feet on the ground
@@ -209,7 +216,7 @@ int main()
                   l,
                   u,
                   STATE_SIZE,
-                  CONTROL_SIZE);
+                  VELOCITY_SIZE);
 
                 model.addConstraints<constraints::FramePositionBound>(
                   k,
@@ -218,7 +225,7 @@ int main()
                   l,
                   u,
                   STATE_SIZE,
-                  CONTROL_SIZE);
+                  VELOCITY_SIZE);
             }
 
             init_controls.push_back(init_control_2);
@@ -243,6 +250,7 @@ int main()
                                                                  model,
                                                                  "FR_foot",
                                                                  STATE_SIZE,
+                                                                 VELOCITY_SIZE,
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
@@ -253,12 +261,13 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
 
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RL_foot",
                                                                  STATE_SIZE,
+                                                                 VELOCITY_SIZE,
                                                                  CONTROL_SIZE,
                                                                  0.6);
 
@@ -269,7 +278,7 @@ int main()
               Eigen::Vector3d::Zero(),
               Eigen::Vector3d::Zero(),
               STATE_SIZE,
-              CONTROL_SIZE);
+              VELOCITY_SIZE);
 
             // If at the right part of cycle (first or last fourth), place
             // remaining feet on the ground
@@ -283,7 +292,7 @@ int main()
                   l,
                   u,
                   STATE_SIZE,
-                  CONTROL_SIZE);
+                  VELOCITY_SIZE);
 
                 model.addConstraints<constraints::FramePositionBound>(
                   k,
@@ -292,7 +301,7 @@ int main()
                   l,
                   u,
                   STATE_SIZE,
-                  CONTROL_SIZE);
+                  VELOCITY_SIZE);
             }
 
             init_controls.push_back(init_control_2);
@@ -326,24 +335,30 @@ int main()
           base_pos,
           Eigen::Matrix3d::Identity(),
           STATE_SIZE,
-          CONTROL_SIZE,
+          VELOCITY_SIZE,
           T_WGT,
           R_WGT);
 
         model.addCost<costs::SquaredJointAngleCost>(k,
                                                     STATE_SIZE,
-                                                    CONTROL_SIZE,
+                                                    VELOCITY_SIZE,
                                                     A_WGT,
                                                     true);
         model.addCost<costs::SquaredJointVelocityCost>(k,
-                                                       CONTROL_SIZE,
+                                                       VELOCITY_SIZE,
                                                        V_WGT,
                                                        true);
 
         if (k != HORIZON)
         {
-            model.addCost<costs::SquaredControlCost>(k, CONTROL_SIZE, U_WGT);
-            model.addCost<costs::SquaredForceCost>(k, CONTROL_SIZE, F_WGT);
+            model.addCost<costs::SquaredControlCost>(k,
+                                                     VELOCITY_SIZE,
+                                                     CONTROL_SIZE,
+                                                     U_WGT);
+            model.addCost<costs::SquaredForceCost>(k,
+                                                   VELOCITY_SIZE,
+                                                   CONTROL_SIZE,
+                                                   F_WGT);
         }
     }
 
