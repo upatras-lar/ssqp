@@ -12,7 +12,7 @@ Performs a simple jump with the Go2 robot
 # Model Parameters
 nq = 19
 nv = 18
-nu = 18
+nu = 12
 HORIZON = 150
 dt = 0.01
 
@@ -34,16 +34,16 @@ base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 final_pos = np.array([0.0, 0.0, 0.3689])
 
 # Initial configuration
-init = np.zeros(37)
+init = np.zeros(nq + nv)
 init[:3] = base_pos
 init[6] = 1.0
 init[7:19] = base_config
 
-init_control = np.zeros(30)
-init_control[20] = 3.75 * 9.81
-init_control[23] = 3.75 * 9.81
-init_control[26] = 3.75 * 9.81
-init_control[29] = 3.75 * 9.81
+init_control = np.zeros(nu + 12)
+init_control[-10] = 3.75 * 9.81
+init_control[-7] = 3.75 * 9.81
+init_control[-4] = 3.75 * 9.81
+init_control[-1] = 3.75 * 9.81
 
 # Create an SSQP model for the Go2
 model = ssqpy.model.Model(
@@ -51,7 +51,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -145,7 +145,7 @@ for k in range(HORIZON):
         init_controls.append(init_control)
         continue
 
-    init_controls.append(np.zeros(nv))
+    init_controls.append(np.zeros(nu))
 
 model.addCost(HORIZON, joint_vel_cost)
 

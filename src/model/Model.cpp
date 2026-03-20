@@ -913,6 +913,11 @@ double Model::dt() const
     return _dt;
 }
 
+DynamicsMode Model::dynamicsMode() const
+{
+    return _dynamics_mode;
+}
+
 const VecX Model::neutralPose() const
 {
     return pinocchio_wrapper::neutralPose(_impl);
@@ -1089,6 +1094,32 @@ void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
     }
 
     J.diagonal().setConstant(1.0);
+}
+
+MatX Model::getMatrixActuatedPart(const MatX &M) const
+{
+    assert(M.rows() == _dims.nv && M.cols() == _dims.nv &&
+           "Model::getMatrixActuatedPart: Incorrect matrix size");
+
+    if (_dims.nu == _dims.nv)
+    {
+        return M;
+    }
+
+    uint offset = _free_flyer ? 6 : 0;
+
+    MatX M_act(_dims.nu, _dims.nu);
+
+    for (uint i = 0; i < _dims.nu; ++i)
+    {
+        for (uint j = 0; j < _dims.nu; ++j)
+        {
+            M_act(i, j) =
+              M(offset + _actuated_joints[i], offset + _actuated_joints[j]);
+        }
+    }
+
+    return M_act;
 }
 
 VecX Model::randomState(const uint stage) const

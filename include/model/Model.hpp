@@ -268,6 +268,8 @@ class Model
     // If the user passed custom dynamics that integrate this value internally,
     // this might be undefined
     double dt() const;
+    // The dynamics mode formulation
+    DynamicsMode dynamicsMode() const;
 
     // Algorithms defined if URDF was used to initialize model
 
@@ -336,6 +338,9 @@ class Model
 
     void dDifference(const VecX &q0, const VecX &q1, MatX &J,
                      const uint arg_pos) const;
+
+    // Return the actuated part (nu x nu) of a matrix (nv x nv)
+    MatX getMatrixActuatedPart(const MatX &M) const;
 
     VecX randomState(const uint stage) const;
     VecX randomControls(const uint stage) const;

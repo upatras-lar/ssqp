@@ -611,18 +611,21 @@ bool ssqp::write(const std::string &filename)
     j["properties"]["horizon"] = dims.horizon;
     j["properties"]["dt"]      = dt;
 
-    bool loaded_from_urdf   = _model.urdf();
-    j["properties"]["urdf"] = loaded_from_urdf;
+    model::DynamicsMode dynamics_mode    = _model.dynamicsMode();
+    bool                loaded_from_urdf = _model.urdf();
+    j["properties"]["urdf"]              = loaded_from_urdf;
     bool floating_base;
-    uint nv, njoints;
+    uint nv, nu, njoints;
     if (loaded_from_urdf)
     {
         floating_base = _model.floatingBase();
         nv            = _model.nv();
+        nu            = _model.nu();
         njoints       = _model.njoints();
 
         j["properties"]["nq"]            = _model.nq();
         j["properties"]["nv"]            = nv;
+        j["properties"]["nu"]            = nu;
         j["properties"]["njoints"]       = njoints;
         j["properties"]["total_joints"]  = _model.total_joints();
         j["properties"]["floating_base"] = floating_base;
@@ -657,14 +660,21 @@ bool ssqp::write(const std::string &filename)
             stage_data["position"]    = x.head(3);
             stage_data["orientation"] = x.segment(3, 4);
             stage_data["state"]       = x.segment(7, njoints);
-            stage_data["control"]     = u.segment(6, njoints);
+            if (dynamics_mode == model::DynamicsMode::ReducedInverse)
+            {
+                stage_data["control"] = u.head(nu);
+            }
+            else
+            {
+                stage_data["control"] = u.segment(6, njoints);
+            }
         }
         else
         {
             u = _guess.u.stage(k);
 
             stage_data["state"]   = _guess.x.stage(k);
-            stage_data["control"] = u.head(u.size() - 3 * nforces);
+            stage_data["control"] = u.head(nu);
         }
 
         if (nforces > 0)
