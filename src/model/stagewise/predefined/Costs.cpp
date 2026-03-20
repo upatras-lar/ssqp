@@ -173,7 +173,7 @@ SquaredControlCost::SquaredControlCost(const uint nv, const uint nu,
                                        const double weight)
   : _nv(nv)
   , _nu(nu)
-  , _weight(nv)
+  , _weight(nu)
 {
     _weight.setConstant(weight);
 }
@@ -242,7 +242,7 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const uint nq,
   , _nq(nq)
   , _nv(nv)
   , _nu(nu)
-  , _weight(nv)
+  , _weight(nu)
 {
     _weight.setConstant(weight);
 }
@@ -357,6 +357,8 @@ void SquaredIDTorqueCost::hessian_uu(const VecX &x, const VecX &u,
                                        ddq_dq,
                                        ddq_dv,
                                        M);
+
+    Huu.resize(u.size(), u.size());
 
     Huu = M.transpose() * _weight.array().square().matrix().asDiagonal() * M;
 }
