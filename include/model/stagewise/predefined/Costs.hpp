@@ -116,6 +116,9 @@ class SquaredControlCost : public StageCost
  *  - $\boldsymbol{\tau}$ is the torque caused by the controls
  *  - $\boldsymbol{w}$ is the weight on the torque term
  */
+// TODO: Take into account any joint forces
+// TODO: Potential bug
+// TODO: Fix for ReducedInverse
 class SquaredIDTorqueCost : public StageCost
 {
   public:
