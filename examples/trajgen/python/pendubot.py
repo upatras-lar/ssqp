@@ -10,6 +10,7 @@ move and remain at a vertical position in the opposite direction of gravity
 
 nq = 2
 nv = 2
+nu = 2
 
 H = 200
 dt = 0.01
@@ -28,9 +29,9 @@ model = ssqpy.model.Model(
 )
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, U_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 tau_cost = ssqpy.model.costs.SquaredIDTorqueCost(
-    model, nq, nv, np.array((1e-1, 0.0))
+    model, nq, nv, nu, np.array((1e-1, 0.0))
 )
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((pi, 0.0)), nq, nv, C_WGT, False

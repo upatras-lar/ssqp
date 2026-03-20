@@ -141,52 +141,51 @@ void JointVelocityConstraint::hessprod_uu(const VecX &x, const VecX &u,
 
 // JointControlConstraint
 JointControlConstraint::JointControlConstraint(const VecX &lb, const VecX &ub,
-                                               const uint nv,
+                                               const uint nv, const uint nu,
                                                const bool free_flyer)
   : _lb(lb)
   , _ub(ub)
   , _nv(nv)
-  , _njoints(free_flyer ? nv - 6 : nv)
+  , _nu(nu)
   , _free_flyer(free_flyer)
 {
-    assert(lb.size() == ub.size() && lb.size() == _njoints &&
-           "Invalid bound size");
+    assert(lb.size() == ub.size() && lb.size() == _nu && "Invalid bound size");
 }
 
 void JointControlConstraint::set_lower_bound(const VecX &lb)
 {
-    assert(lb.size() == _njoints && "Invalid bound size");
+    assert(lb.size() == _nu && "Invalid bound size");
     _lb = lb;
 }
 
 void JointControlConstraint::set_upper_bound(const VecX &ub)
 {
-    assert(ub.size() == _njoints && "Invalid bound size");
+    assert(ub.size() == _nu && "Invalid bound size");
     _ub = ub;
 }
 
 uint JointControlConstraint::output_size() const
 {
-    return _njoints;
+    return _nu;
 }
 
 VecX JointControlConstraint::evaluate(const VecX &x, const VecX &u) const
 {
-    return _free_flyer ? u.segment(6, _njoints) : u.head(_njoints);
+    return _free_flyer ? u.segment(6, _nu) : u.head(_nu);
 }
 
 void JointControlConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                       MatX &dU) const
 {
-    dX = MatX::Zero(_njoints, 2 * _nv);
-    dU = MatX::Zero(_njoints, u.size());
+    dX = MatX::Zero(_nu, 2 * _nv);
+    dU = MatX::Zero(_nu, u.size());
     if (_free_flyer)
     {
-        dU.block(0, 6, _njoints, _njoints).setIdentity();
+        dU.block(0, 6, _nu, _nu).setIdentity();
     }
     else
     {
-        dU.topLeftCorner(_njoints, _njoints).setIdentity();
+        dU.topLeftCorner(_nu, _nu).setIdentity();
     }
 }
 
@@ -448,11 +447,13 @@ void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 // ContactConstraint
 ContactConstraint::ContactConstraint(const Model       &model,
                                      const std::string &frame, const uint nq,
-                                     const uint nv, const double mu)
+                                     const uint nv, const uint nu,
+                                     const double mu)
   : _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _nq(nq)
   , _nv(nv)
+  , _nu(nu)
   , _mu(mu)
 {
 }
@@ -514,7 +515,7 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
-    Vec3 f_global = R * u.segment(_nv + 3 * _forces[0].force_index, 3);
+    Vec3 f_global = R * u.segment(_nu + 3 * _forces[0].force_index, 3);
 
     double fn  = (f_global.transpose() * tp.normal)[0];
     double ft1 = (f_global.transpose() * tp.t1)[0];
@@ -546,7 +547,7 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
     MatX Jfw = _model->frameJacobian(x.head(_nq), _frame).topRows<3>();
     MatX Jfl = _model->frameJacobian(x.head(_nq), _frame, true).bottomRows<3>();
 
-    uint total_force_index = _nv + 3 * _forces[0].force_index;
+    uint total_force_index = _nu + 3 * _forces[0].force_index;
 
     Vec3 f_local = u.segment(total_force_index, 3);
 

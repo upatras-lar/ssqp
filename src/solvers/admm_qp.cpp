@@ -223,9 +223,9 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         DEBUG_LOGLN("u:");
         DEBUG_LOGLN(_solution.du);
         DEBUG_LOGLN("z:");
-        DEBUG_LOGLN(_solution.z);
+        DEBUG_LOGLN(_z);
         DEBUG_LOGLN("y:");
-        DEBUG_LOGLN(_solution.y);
+        DEBUG_LOGLN(_y);
         DEBUG_LOGLN("=============");
         DEBUG_WAIT();
 

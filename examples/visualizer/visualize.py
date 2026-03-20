@@ -238,12 +238,13 @@ def _(client):
     client.camera.look_at = (0, 0, 0)
 
 
+data_joints = data["properties"]["state_joints"]
+
 # Main loop
 while True:
     # Animate each stage
     for k in range(data["properties"]["horizon"]):
         state = np.array(data["stage_data"][k]["state"])
-        data_joints = data["properties"]["stages"][k]["state_joints"]
 
         joints = urdf.get_actuated_joint_names()
         if len(state) < len(joints):
@@ -270,7 +271,7 @@ while True:
             updated_cfg = True
 
         # Move floating base if free flyer
-        if data["properties"]["stages"][k]["floating_base"]:
+        if data["properties"]["floating_base"]:
             robot_base.position = np.array(data["stage_data"][k]["position"])
             q = data["stage_data"][k]["orientation"].copy()
             q.insert(0, q.pop())

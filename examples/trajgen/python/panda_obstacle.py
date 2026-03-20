@@ -10,6 +10,7 @@ position while avoiding the obstacle defined by the constraints
 
 nq = 9
 nv = 9
+nu = 9
 H = 400
 dt = 0.01
 
@@ -44,8 +45,8 @@ init_state[:nq] = [
     0.0,
 ]
 
-joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-control_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
+joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
+control_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 rot_cost = ssqpy.model.costs.FrameSquaredRotationErrorCost(
     model, "panda_ee", Rd, nq, nq, R_WGT
 )

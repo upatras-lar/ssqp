@@ -30,6 +30,7 @@ args = parse_args()
 
 nq = 9
 nv = 9
+nu = 9
 
 H = 400
 dt = 0.01
@@ -101,7 +102,7 @@ def run(dynamics_mode, constrain):
         init_state[:nq], nq, nv, C_WGT, False
     )
     v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nq, U_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 
     for k in range(mpc_H):
         pose_costs.append(

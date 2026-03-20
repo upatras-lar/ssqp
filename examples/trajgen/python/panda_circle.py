@@ -20,6 +20,7 @@ if PLOT:
 
 nq = 9
 nv = 9
+nu = 9
 H = 400
 dt = 0.01
 
@@ -109,8 +110,8 @@ for k in range(H):
     )
 
     # Add regularization costs for joint velocity (v) and control (u)
-    model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
-    model.addCost(k, ssqpy.model.costs.SquaredControlCost(nq, U_WGT))
+    model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT))
+    model.addCost(k, ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT))
 
     if CONSTRAIN:
         # Add the previously created box constraint to stage k

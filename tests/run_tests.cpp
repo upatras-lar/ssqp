@@ -32,6 +32,22 @@ int main()
 
     tests.addTest(
       ssqp::tests::generators::
+        get_reduced_invdyn_semi_implicit_euler_without_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_semi_implicit_euler_with_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_semi_implicit_euler_unactuated_joints_without_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
+        get_reduced_invdyn_semi_implicit_euler_unactuated_joints_with_forces_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::
         get_reduced_invdyn_semi_implicit_euler_floating_base_without_forces_grad_test());
 
     tests.addTest(

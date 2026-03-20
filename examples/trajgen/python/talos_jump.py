@@ -11,6 +11,7 @@ Performs an in-place jump with the Talos robot
 # Model Parameters
 nq = 51
 nv = 50
+nu = 50
 H = 70
 dt = 0.01
 
@@ -145,8 +146,8 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
 # Create regularization costs
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, U_WGT)
-force_cost = costs.SquaredForceCost(nv, F_WGT)
+control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
+force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
 
 # Create velocity bounds for feet frames that are in contact
 left_mm_vel_bound = constraints.FrameLinearVelocityBound(

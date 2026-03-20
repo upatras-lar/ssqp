@@ -317,7 +317,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             else if constexpr (DM == DynamicsMode::ReducedInverse)
             {
                 MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
-                MatX dak_dqk, dak_dvk, dak_dajk, dak_dfk;
+                MatX da_dq, da_dv, da_daj, da_df;
 
                 _calculateReducedInverseFullAccelerationDerivatives<
                   FloatingBase,
@@ -338,14 +338,14 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                               dtau_dv,
                               dtau_da,
                               dtau_daj,
-                              dak_dqk,
-                              dak_dvk,
-                              dak_dajk,
-                              dak_dfk);
+                              da_dq,
+                              da_dv,
+                              da_daj,
+                              da_df);
 
-                dX.bottomLeftCorner(ctx.nv, ctx.nv) = dak_dqk * _dt;
+                dX.bottomLeftCorner(ctx.nv, ctx.nv) = da_dq * _dt;
                 dX.bottomRightCorner(ctx.nv, ctx.nv) =
-                  MatX::Identity(ctx.nv, ctx.nv) + dak_dvk * _dt;
+                  MatX::Identity(ctx.nv, ctx.nv) + da_dv * _dt;
 
                 dX.topLeftCorner(ctx.nv, ctx.nv) =
                   Jint_q * (MatX::Identity(ctx.nv, ctx.nv) +
@@ -353,13 +353,13 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 dX.topRightCorner(ctx.nv, ctx.nv) =
                   Jint_v * dX.bottomRightCorner(ctx.nv, ctx.nv) * _dt;
 
-                dU.bottomLeftCorner(ctx.nv, ctx.nu) = dak_dajk * _dt;
+                dU.bottomLeftCorner(ctx.nv, ctx.nu) = da_daj * _dt;
                 dU.topLeftCorner(ctx.nv, ctx.nu) =
                   Jint_v * dU.bottomLeftCorner(ctx.nv, ctx.nu) * _dt;
 
                 if constexpr (WithForces)
                 {
-                    dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) = dak_dfk * _dt;
+                    dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) = da_df * _dt;
                     dU.topRightCorner(ctx.nv, 3 * ctx.nf) =
                       Jint_v * dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) * _dt;
                 }
@@ -377,7 +377,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
     auto dyn_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu = MatX::Zero(ctx.nv + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
+    { Puu = MatX::Zero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
 
     return stagewise::factory::make_dynamics(ctx.nq + ctx.nv,
                                              ctx.nu + 3 * ctx.nf,
@@ -414,18 +414,14 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     {
         VecX c;
 
-        if constexpr (IsTerminal)
+        if constexpr (IsTerminal || DM == DynamicsMode::Inverse ||
+                      DM == DynamicsMode::ReducedInverse)
         {
             c.resize(2 * ctx.njoints);
         }
         else if constexpr (DM == DynamicsMode::Forward)
         {
             c.resize(3 * ctx.njoints);
-        }
-        else if constexpr (DM == DynamicsMode::Inverse ||
-                           DM == DynamicsMode::ReducedInverse)
-        {
-            c.resize(2 * ctx.njoints);
         }
 
         if constexpr (FloatingBase)
@@ -537,7 +533,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           innate_constraint_hessprod_xu,
           innate_constraint_hessprod_uu);
     }
-    else if constexpr (DM == DynamicsMode::Inverse)
+    else if constexpr (DM == DynamicsMode::Inverse ||
+                       DM == DynamicsMode::ReducedInverse)
     {
         return stagewise::factory::make_constraints(
           2 * ctx.njoints,
@@ -571,10 +568,12 @@ Model::_makeStageIDTorqueConstraints(
             if constexpr (FloatingBase)
             {
                 lb_n[i] = lb[6 + ctx.actuated_joints[i]];
+                ub_n[i] = ub[6 + ctx.actuated_joints[i]];
             }
             else
             {
                 lb_n[i] = lb[ctx.actuated_joints[i]];
+                ub_n[i] = ub[ctx.actuated_joints[i]];
             }
         }
 
@@ -611,8 +610,8 @@ Model::_makeStageIDTorqueConstraints(
 
         if constexpr (ReducedInverse)
         {
-            VecX ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
-                                                                WithForces>(
+            ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
+                                                           WithForces>(
               q,
               v,
               ctrl,
@@ -626,16 +625,36 @@ Model::_makeStageIDTorqueConstraints(
             ddq = ctrl;
         }
 
+        VecX tau;
+
         if constexpr (WithForces)
         {
             std::vector<Vec6> joint_forces =
               _calculateJointForces(q, f, ctx.force_data);
 
-            c = inverseDynamics(q, v, ddq, joint_forces);
+            tau = inverseDynamics(q, v, ddq, joint_forces);
         }
         else
         {
-            c = inverseDynamics(q, v, ddq);
+            tau = inverseDynamics(q, v, ddq);
+        }
+
+        if constexpr (ReducedInverse)
+        {
+            uint offset = 0;
+            if constexpr (FloatingBase)
+            {
+                offset = 6;
+            }
+
+            for (uint i = 0; i < ctx.nu; ++i)
+            {
+                c[i] = tau[offset + ctx.actuated_joints[i]];
+            }
+        }
+        else
+        {
+            c = tau;
         }
 
         return c;
@@ -649,21 +668,18 @@ Model::_makeStageIDTorqueConstraints(
         VecX ctrl = u.head(ctx.nu);
         VecX f    = u.tail(3 * ctx.nf);
 
-        dX = MatX::Zero(ctx.nv, 2 * ctx.nv);
-        dU = MatX::Zero(ctx.nv, ctx.nu + 3 * ctx.nf);
+        dX = MatX::Zero(ctx.nu, 2 * ctx.nv);
+        dU = MatX::Zero(ctx.nu, ctx.nu + 3 * ctx.nf);
 
-        MatX dtau_dq, dtau_dv, M;
         MatX Jf_full;
 
         std::vector<Vec6> joint_forces;
 
-        VecX ddq;
-
-        MatX              Muu, Muj;
-        Eigen::LDLT<MatX> Muu_ldlt;
-
         if constexpr (ReducedInverse)
         {
+            MatX              Muu, Muj;
+            Eigen::LDLT<MatX> Muu_ldlt;
+
             VecX ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
                                                                 WithForces>(
               q,
@@ -678,16 +694,9 @@ Model::_makeStageIDTorqueConstraints(
               Muu_ldlt,
               joint_forces,
               Jf_full);
-        }
-        else
-        {
-            ddq = ctrl;
-        }
 
-        if constexpr (ReducedInverse)
-        {
             MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
-            MatX dak_dqk, dak_dvk, dak_dajk, dak_dfk;
+            MatX da_dq, da_dv, da_daj, da_df;
 
             _calculateReducedInverseFullAccelerationDerivatives<FloatingBase,
                                                                 WithForces>(
@@ -708,33 +717,50 @@ Model::_makeStageIDTorqueConstraints(
               dtau_dv,
               dtau_da,
               dtau_daj,
-              dak_dqk,
-              dak_dvk,
-              dak_dajk,
-              dak_dfk);
+              da_dq,
+              da_dv,
+              da_daj,
+              da_df);
 
-            dX.leftCols(ctx.nv)  = dtau_dq + dtau_da * dak_dqk;
-            dX.rightCols(ctx.nv) = dtau_dv + dtau_da * dak_dvk;
-            dU.leftCols(ctx.nu)  = dtau_daj + dtau_da * dak_dajk;
+            MatX dX_full(ctx.nv, 2 * ctx.nv);
+            MatX dU_full(ctx.nv, ctx.nu + 3 * ctx.nf);
+
+            dX_full.leftCols(ctx.nv)  = dtau_dq + dtau_da * da_dq;
+            dX_full.rightCols(ctx.nv) = dtau_dv + dtau_da * da_dv;
+            dU_full.leftCols(ctx.nu)  = dtau_da * da_daj;
 
             if constexpr (WithForces)
             {
-                dU.rightCols(3 * ctx.nf) =
-                  -Jf_full.transpose() + dtau_da * dak_dfk;
+                dU_full.rightCols(3 * ctx.nf) =
+                  -Jf_full.transpose() + dtau_da * da_df;
+            }
+
+            uint offset = 0;
+            if constexpr (FloatingBase)
+            {
+                offset = 6;
+            }
+
+            for (uint i = 0; i < ctx.nu; ++i)
+            {
+                uint true_i = offset + ctx.actuated_joints[i];
+                dX.row(i)   = dX_full.row(true_i);
+                dU.row(i)   = dU_full.row(true_i);
             }
         }
         else
         {
+            MatX dtau_dq, dtau_dv, M;
+
             if constexpr (WithForces)
             {
-                std::vector<Vec6> joint_forces;
                 std::tie(joint_forces, Jf_full) =
                   _calculateJointForcesAndJacobian(q, f, ctx.force_data);
 
                 pinocchio_wrapper::computeRNEADerivatives(_impl,
                                                           q,
                                                           v,
-                                                          ddq,
+                                                          ctrl,
                                                           joint_forces,
                                                           dtau_dq,
                                                           dtau_dv,
@@ -745,7 +771,7 @@ Model::_makeStageIDTorqueConstraints(
                 pinocchio_wrapper::computeRNEADerivatives(_impl,
                                                           q,
                                                           v,
-                                                          ddq,
+                                                          ctrl,
                                                           dtau_dq,
                                                           dtau_dv,
                                                           M);
@@ -915,8 +941,8 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
   const std::vector<uint> &unactuated_joints, const VecX &ddq, const MatX &Muu,
   const MatX &Muj, const Eigen::LDLT<MatX> &Muu_ldlt,
   const std::vector<Vec6> &joint_forces, const MatX &Jf_full, MatX &dtau_dq,
-  MatX &dtau_dv, MatX &dtau_da, MatX &dtau_daj, MatX &dak_dqk, MatX &dak_dvk,
-  MatX &dak_dajk, MatX &dak_dfk) const
+  MatX &dtau_dv, MatX &dtau_da, MatX &dtau_daj, MatX &da_dq, MatX &da_dv,
+  MatX &da_daj, MatX &da_df) const
 {
     const uint nv = v.size();
     const uint nu = ctrl.size();
@@ -978,59 +1004,57 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
           dtau_dv.row(offset + unactuated_joints[i]);
     }
 
-    MatX dak_dqk_reordered  = MatX::Zero(nv, nv);
-    MatX dak_dvk_reordered  = MatX::Zero(nv, nv);
-    MatX dak_dajk_reordered = MatX::Zero(nv, nu);
-    MatX dak_dfk_reordered;
+    MatX da_dq_reordered  = MatX::Zero(nv, nv);
+    MatX da_dv_reordered  = MatX::Zero(nv, nv);
+    MatX da_daj_reordered = MatX::Zero(nv, nu);
+    MatX da_df_reordered;
 
-    dak_dqk_reordered.topLeftCorner(n_unact, nv) =
-      -Muu_ldlt.solve(dtau_dq_unact);
-    dak_dvk_reordered.topLeftCorner(n_unact, nv) =
-      -Muu_ldlt.solve(dtau_dv_unact);
-    dak_dajk_reordered.topRows(n_unact) = -Muu_ldlt.solve(Muj);
-    dak_dajk_reordered.bottomRows(nu).setIdentity();
+    da_dq_reordered.topLeftCorner(n_unact, nv) = -Muu_ldlt.solve(dtau_dq_unact);
+    da_dv_reordered.topLeftCorner(n_unact, nv) = -Muu_ldlt.solve(dtau_dv_unact);
+    da_daj_reordered.topRows(n_unact)          = -Muu_ldlt.solve(Muj);
+    da_daj_reordered.bottomRows(nu).setIdentity();
 
     if constexpr (WithForces)
     {
-        dak_dfk_reordered = MatX::Zero(nv, 3 * nf);
+        da_df_reordered = MatX::Zero(nv, 3 * nf);
 
-        dak_dfk_reordered.topRows(n_unact) = Muu_ldlt.solve(Ju.transpose());
+        da_df_reordered.topRows(n_unact) = Muu_ldlt.solve(Ju.transpose());
     }
 
-    dak_dqk  = MatX::Zero(nv, nv);
-    dak_dvk  = MatX::Zero(nv, nv);
-    dak_dajk = MatX::Zero(nv, nu);
+    da_dq  = MatX::Zero(nv, nv);
+    da_dv  = MatX::Zero(nv, nv);
+    da_daj = MatX::Zero(nv, nu);
 
     if constexpr (WithForces)
     {
-        dak_dfk = MatX::Zero(nv, 3 * nf);
+        da_df = MatX::Zero(nv, 3 * nf);
     }
 
     if constexpr (FloatingBase)
     {
-        dak_dqk.topRows<6>()  = dak_dqk_reordered.topRows<6>();
-        dak_dvk.topRows<6>()  = dak_dvk_reordered.topRows<6>();
-        dak_dajk.topRows<6>() = dak_dajk_reordered.topRows<6>();
+        da_dq.topRows<6>()  = da_dq_reordered.topRows<6>();
+        da_dv.topRows<6>()  = da_dv_reordered.topRows<6>();
+        da_daj.topRows<6>() = da_daj_reordered.topRows<6>();
 
         if constexpr (WithForces)
         {
-            dak_dfk.topRows<6>() = dak_dfk_reordered.topRows<6>();
+            da_df.topRows<6>() = da_df_reordered.topRows<6>();
         }
     }
 
     for (uint i = 0; i < unactuated_joints.size(); ++i)
     {
-        dak_dqk.row(offset + unactuated_joints[i]) =
-          dak_dqk_reordered.row(offset + i);
-        dak_dvk.row(offset + unactuated_joints[i]) =
-          dak_dvk_reordered.row(offset + i);
-        dak_dajk.row(offset + unactuated_joints[i]) =
-          dak_dajk_reordered.row(offset + i);
+        da_dq.row(offset + unactuated_joints[i]) =
+          da_dq_reordered.row(offset + i);
+        da_dv.row(offset + unactuated_joints[i]) =
+          da_dv_reordered.row(offset + i);
+        da_daj.row(offset + unactuated_joints[i]) =
+          da_daj_reordered.row(offset + i);
 
         if constexpr (WithForces)
         {
-            dak_dfk.row(offset + unactuated_joints[i]) =
-              dak_dfk_reordered.row(offset + i);
+            da_df.row(offset + unactuated_joints[i]) =
+              da_df_reordered.row(offset + i);
         }
     }
 
@@ -1038,17 +1062,17 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
 
     for (uint i = 0; i < actuated_joints.size(); ++i)
     {
-        dak_dqk.row(offset + actuated_joints[i]) =
-          dak_dqk_reordered.row(n_unact + i);
-        dak_dvk.row(offset + actuated_joints[i]) =
-          dak_dvk_reordered.row(n_unact + i);
-        dak_dajk.row(offset + actuated_joints[i]) =
-          dak_dajk_reordered.row(n_unact + i);
+        da_dq.row(offset + actuated_joints[i]) =
+          da_dq_reordered.row(n_unact + i);
+        da_dv.row(offset + actuated_joints[i]) =
+          da_dv_reordered.row(n_unact + i);
+        da_daj.row(offset + actuated_joints[i]) =
+          da_daj_reordered.row(n_unact + i);
 
         if constexpr (WithForces)
         {
-            dak_dfk.row(offset + actuated_joints[i]) =
-              dak_dfk_reordered.row(n_unact + i);
+            da_df.row(offset + actuated_joints[i]) =
+              da_df_reordered.row(n_unact + i);
         }
 
         dtau_daj.col(i) = dtau_da.col(offset + actuated_joints[i]);
