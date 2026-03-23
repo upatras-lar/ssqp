@@ -941,11 +941,8 @@ void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
                   .array();
 
     MatX dVdq, dVdv;
-    std::tie(dVdq, dVdv) = _model->frameVelocityDerivatives(x.head(_nq),
-                                                            x.tail(_nv),
-                                                            u.head(_nv),
-                                                            _frame,
-                                                            true);
+    std::tie(dVdq, dVdv) =
+      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame, true);
 
     dx = VecX::Zero(2 * _nv);
 
@@ -1030,11 +1027,8 @@ void FrameSquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
       _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true).array();
 
     MatX dVdq, dVdv;
-    std::tie(dVdq, dVdv) = _model->frameVelocityDerivatives(x.head(_nq),
-                                                            x.tail(_nv),
-                                                            u.head(_nv),
-                                                            _frame,
-                                                            true);
+    std::tie(dVdq, dVdv) =
+      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame, true);
 
     dx = VecX::Zero(2 * _nv);
 

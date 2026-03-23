@@ -6,7 +6,7 @@ from math import pi, sin, cos
 
 nq = 19
 nv = 18
-nu = 18
+nu = 12
 HORIZON = 180
 dt = 0.01
 
@@ -41,7 +41,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -178,7 +178,7 @@ model.addConstraints(
 
 init_states.append(init)
 
-model.finalize(init_states=init_states, init_controls=init_controls)
+model.finalize(init_states=init_states)  # , init_controls=init_controls)
 
 solver = ssqpy.solvers.ssqp(
     model,

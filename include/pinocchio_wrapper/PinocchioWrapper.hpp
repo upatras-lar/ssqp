@@ -147,8 +147,7 @@ Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const Eigen::VectorXd            &q,
-                              const Eigen::VectorXd            &v,
-                              const Eigen::VectorXd &a, const std::string frame,
+                              const Eigen::VectorXd &v, const std::string frame,
                               Eigen::MatrixXd &dVdq, Eigen::MatrixXd &dVdv,
                               bool local = false);
 
