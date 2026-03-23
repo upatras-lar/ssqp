@@ -945,7 +945,6 @@ const Vec6 Model::frameVelocity(const VecX &q, const VecX &v,
 
 std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
                                                       const VecX        &v,
-                                                      const VecX        &a,
                                                       const std::string &frame,
                                                       bool local) const
 {
@@ -954,7 +953,6 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
     pinocchio_wrapper::frameVelocityDerivatives(_impl,
                                                 q,
                                                 v,
-                                                a,
                                                 frame,
                                                 dVdq,
                                                 dVdv,

@@ -288,7 +288,6 @@ class Model
                              bool               local = false) const;
 
     std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &q, const VecX &v,
-                                                   const VecX        &a,
                                                    const std::string &frame,
                                                    bool local = false) const;
 

@@ -15,7 +15,7 @@ in the middle
 # Model parameters
 nq = 19
 nv = 18
-nu = 18
+nu = 12
 HORIZON = 150
 dt = 0.01
 
@@ -47,7 +47,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/a1/a1.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
 )
 
 # Create regularization costs for joint angles, joint velocity and control
@@ -127,10 +127,10 @@ model.finalize(init_states=init)
 # Creare a solver based on the model
 solver = ssqpy.solvers.ssqp(
     model,
-    max_iter=40,
     loose_success=False,
     tolerance=1e-2,
     filter_size=100,
+    stop_after_constraint_satisfaction=True,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-4,
     admm_max_iter=750,
