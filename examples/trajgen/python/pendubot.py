@@ -24,15 +24,11 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
-    # integration=ssqpy.model.Integration.ExplicitEuler,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
-tau_cost = ssqpy.model.costs.SquaredIDTorqueCost(
-    model, nq, nv, nu, np.array((1e-1, 0.0))
-)
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((pi, 0.0)), nq, nv, C_WGT, False
 )
@@ -40,10 +36,7 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
 for k in range(H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
-    # model.addCost(k, tau_cost)
-
-    if k > 100:
-        model.addCost(k, config_cost)
+    model.addCost(k, config_cost)
 
 model.finalize(terminal_cost=config_cost)
 

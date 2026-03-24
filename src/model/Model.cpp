@@ -1120,6 +1120,76 @@ MatX Model::getMatrixActuatedPart(const MatX &M) const
     return M_act;
 }
 
+VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,
+                                      const uint k) const
+{
+    switch (_dynamics_mode)
+    {
+    default:
+    case DynamicsMode::Forward:
+        return forwardDynamics(x.head(_dims.nq),
+                               x.tail(_dims.nv),
+                               u.head(_dims.nv));
+    case DynamicsMode::Inverse:
+        return u.head(_dims.nv);
+    case DynamicsMode::ReducedInverse:
+        VecX a;
+
+        if (_free_flyer)
+        {
+            if (_forces[k].empty())
+            {
+                a = _calculateReducedInverseFullAcceleration<true, false>(
+                  x.head(_dims.nq),
+                  x.tail(_dims.nv),
+                  u.head(_dims.nu),
+                  u.tail(3 * _forces[k].size()),
+                  _forces[k],
+                  _actuated_joints,
+                  _unactuated_joints);
+            }
+            else
+            {
+                a = _calculateReducedInverseFullAcceleration<true, true>(
+                  x.head(_dims.nq),
+                  x.tail(_dims.nv),
+                  u.head(_dims.nu),
+                  u.tail(3 * _forces[k].size()),
+                  _forces[k],
+                  _actuated_joints,
+                  _unactuated_joints);
+            }
+        }
+        else
+        {
+            if (_forces[k].empty())
+            {
+                a = _calculateReducedInverseFullAcceleration<false, false>(
+                  x.head(_dims.nq),
+                  x.tail(_dims.nv),
+                  u.head(_dims.nu),
+                  u.tail(3 * _forces[k].size()),
+                  _forces[k],
+                  _actuated_joints,
+                  _unactuated_joints);
+            }
+            else
+            {
+                a = _calculateReducedInverseFullAcceleration<false, true>(
+                  x.head(_dims.nq),
+                  x.tail(_dims.nv),
+                  u.head(_dims.nu),
+                  u.tail(3 * _forces[k].size()),
+                  _forces[k],
+                  _actuated_joints,
+                  _unactuated_joints);
+            }
+        }
+
+        return a;
+    }
+}
+
 VecX Model::randomState(const uint stage) const
 {
     // TODO: Velocity limit

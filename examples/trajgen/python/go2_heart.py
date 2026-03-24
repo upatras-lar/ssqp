@@ -12,7 +12,7 @@ Traces a heart with the Go2's front feet
 # Model Parameters
 nq = 19
 nv = 18
-nu = 18
+nu = 12
 HORIZON = 200
 dt = 0.01
 
@@ -61,16 +61,16 @@ init[6] = 1.0
 init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Initial controls for 4 forces
-init_control = np.zeros(30)
-init_control[20] = 3.75 * 9.81
-init_control[23] = 3.75 * 9.81
-init_control[26] = 3.75 * 9.81
-init_control[29] = 3.75 * 9.81
+init_control = np.zeros(nu + 12)
+init_control[-10] = 3.75 * 9.81
+init_control[-7] = 3.75 * 9.81
+init_control[-4] = 3.75 * 9.81
+init_control[-1] = 3.75 * 9.81
 
 # Initial controls for 2 forces
-init_control_2 = np.zeros(24)
-init_control_2[20] = 7.5 * 9.81
-init_control_2[23] = 7.5 * 9.81
+init_control_2 = np.zeros(nu + 6)
+init_control_2[-4] = 7.5 * 9.81
+init_control_2[-1] = 7.5 * 9.81
 
 # Create an SSQP model for the Go2
 model = ssqpy.model.Model(
@@ -78,7 +78,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
 )
 
 # forces = {}
@@ -212,7 +212,7 @@ model.finalize(init_states=init, init_controls=init_controls)
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    tolerance=1e-2,
+    tolerance=5e-2,
     filter_size=10,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
