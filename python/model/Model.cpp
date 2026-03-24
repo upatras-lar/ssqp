@@ -631,6 +631,31 @@ void bind_Model(nb::module_ &m)
         Only defined if the model was initialized using a URDF file.
         )doc")
       .def(
+        "getFullAccelerationVector",
+        [](Model &self, const VecX &x, const VecX &u, const uint k)
+        {
+            if (!self.urdf())
+            {
+                throw std::runtime_error("Model was not loaded from URDF");
+            }
+            return self.getFullAccelerationVector(x, u, k);
+        },
+        nb::arg("x"),
+        nb::arg("u"),
+        nb::arg("k") = 0,
+        R"doc(
+        Returns the full acceleration vector for a given stage
+        Input:
+         - `x`: The model state
+         - `u`: The model controls
+         - `k`: The model stage (only required if model is in Reduced Inverse
+            mode and there are present forces)
+            
+        Note: For Inverse dynamics mode, this function is trivial, since it only
+        returns the non-force part of the control vector
+        Note: URDF-based function
+        )doc")
+      .def(
         "neutralPose",
         [](Model &self)
         {

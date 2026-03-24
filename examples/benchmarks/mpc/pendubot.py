@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument(
         "-m",
         "--dynamics-mode",
-        choices=["inverse", "forward", "both"],
+        choices=["reducedinverse", "inverse", "forward", "all"],
         default="forward",
         help="The dynamics mode to use",
     )
@@ -72,7 +72,6 @@ args = parse_args()
 
 nq = 2
 nv = 2
-nu = 2
 mpc_H = 45
 dt = 0.01
 
@@ -82,8 +81,18 @@ TIP_WGT = 5.0
 C_WGT_INV = 1.0
 C_WGT_FWD = 0.1
 
-BOTH_MODES = args.dynamics_mode == "both"
-INVERSE_MODE = True if args.dynamics_mode == "inverse" else False
+mode_map = {
+    "reducedinverse": ssqpy.model.DynamicsMode.ReducedInverse,
+    "inverse": ssqpy.model.DynamicsMode.Inverse,
+    "forward": ssqpy.model.DynamicsMode.Forward,
+}
+
+ALL_MODES = args.dynamics_mode == "all"
+nu = {
+    ssqpy.model.DynamicsMode.Forward: 2,
+    ssqpy.model.DynamicsMode.Inverse: 2,
+    ssqpy.model.DynamicsMode.ReducedInverse: 1,
+}
 
 
 def wrap_to_reference(theta, reference=np.pi):
@@ -93,7 +102,10 @@ def wrap_to_reference(theta, reference=np.pi):
 
 
 def run(dynamics_mode):
-    inverse_mode = dynamics_mode == ssqpy.model.DynamicsMode.Inverse
+    inverse_mode = (
+        dynamics_mode == ssqpy.model.DynamicsMode.Inverse
+        or dynamics_mode == ssqpy.model.DynamicsMode.ReducedInverse
+    )
 
     model = ssqpy.model.Model(
         mpc_H,
@@ -103,8 +115,8 @@ def run(dynamics_mode):
         dynamics_mode=dynamics_mode,
     )
 
-    vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu[dynamics_mode], U_WGT)
     tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
         model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
     )
@@ -160,12 +172,14 @@ def run(dynamics_mode):
         try:
             control = mpc.step(simulator.state)
         except RuntimeError:
-            control = np.zeros(nv)
+            control = np.zeros(nu[dynamics_mode])
 
         sim_ctrl = np.zeros(2)
         if inverse_mode:
             torques = model.inverseDynamics(
-                simulator.state[:2], simulator.state[2:], control
+                simulator.state[:2],
+                simulator.state[2:],
+                model.getFullAccelerationVector(simulator.state, control),
             )
             delayed_control.append(torques[0])
 
@@ -299,17 +313,19 @@ def get_data(dynamics_mode):
     return positions, velocities, torques, frequencies
 
 
-if BOTH_MODES:
+if ALL_MODES:
     add_plots(
         *get_data(ssqpy.model.DynamicsMode.Forward), legend_pref="Forward"
     )
     add_plots(
         *get_data(ssqpy.model.DynamicsMode.Inverse), legend_pref="Inverse"
     )
-elif INVERSE_MODE:
-    add_plots(*get_data(ssqpy.model.DynamicsMode.Inverse))
+    add_plots(
+        *get_data(ssqpy.model.DynamicsMode.ReducedInverse),
+        legend_pref="ReducedInverse",
+    )
 else:
-    add_plots(*get_data(ssqpy.model.DynamicsMode.Forward))
+    add_plots(*get_data(mode_map[args.dynamics_mode]))
 
 if args.disturbance_step is not None:
     start = args.disturbance_step * dt

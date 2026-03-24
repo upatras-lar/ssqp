@@ -69,6 +69,14 @@ std::shared_ptr<Test> get_invdyn_innate_constraint_without_forces_grad_test();
 std::shared_ptr<Test> get_invdyn_innate_constraint_with_forces_grad_test();
 
 std::shared_ptr<Test>
+get_reduced_invdyn_innate_constraint_without_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_innate_constraint_with_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_innate_constraint_unactuated_joints_without_forces_grad_test();
+std::shared_ptr<Test>
+get_reduced_invdyn_innate_constraint_unactuated_joints_with_forces_grad_test();
+std::shared_ptr<Test>
 get_reduced_invdyn_innate_constraint_floating_base_without_forces_grad_test();
 std::shared_ptr<Test>
 get_reduced_invdyn_innate_constraint_floating_base_with_forces_grad_test();

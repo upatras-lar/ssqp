@@ -533,7 +533,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         }
         else
         {
-            dX.leftCols(2 * ctx.njoints) =
+            dX.topRows(2 * ctx.njoints) =
               MatX::Identity(2 * ctx.njoints, 2 * ctx.njoints);
 
             if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
@@ -917,8 +917,9 @@ VecX Model::_calculateReducedInverseFullAcceleration(
         {
             Muu.block<1, 6>(i, 0) = M.block<1, 6>(true_i, 0);
             Muu.block<6, 1>(0, i) = M.block<6, 1>(0, true_i);
-            Muu(i, i)             = M(true_i, true_i);
         }
+
+        Muu(i, i) = M(true_i, true_i);
 
         for (uint j = offset; j < i; ++j)
         {

@@ -341,6 +341,20 @@ class Model
     // Return the actuated part (nu x nu) of a matrix (nv x nv)
     MatX getMatrixActuatedPart(const MatX &M) const;
 
+    /* Returns the full acceleration vector for a given stage
+     * Input:
+     *  - `x`: The model state
+     *  - `u`: The model controls
+     *  - `k`: The model stage (only required if model is in Reduced Inverse
+     *     mode and there are present forces)
+     * 
+     * Note: For Inverse dynamics mode, this function is trivial, since it only
+     * returns the non-force part of the control vector
+     * Note: URDF-based function
+     */
+    VecX getFullAccelerationVector(const VecX &x, const VecX &u,
+                                   const uint k = 0) const;
+
     VecX randomState(const uint stage) const;
     VecX randomControls(const uint stage) const;
 
