@@ -1082,6 +1082,16 @@ const MatX Model::frameJacobian(const std::string &frame, bool local) const
     return J6;
 }
 
+VecX Model::difference(const VecX &q0, const VecX &q1) const
+{
+    if (_urdf)
+    {
+        return pinocchio_wrapper::difference(_impl, q1, q0);
+    }
+
+    return q0 - q1;
+}
+
 void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
                         const uint arg_pos) const
 {

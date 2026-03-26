@@ -335,6 +335,8 @@ class Model
     const MatX frameJacobian(const std::string &frame,
                              bool               local = false) const;
 
+    VecX difference(const VecX &q0, const VecX &q1) const;
+
     void dDifference(const VecX &q0, const VecX &q1, MatX &J,
                      const uint arg_pos) const;
 

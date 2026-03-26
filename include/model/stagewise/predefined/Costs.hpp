@@ -182,11 +182,13 @@ class SquaredForceCost : public StageCost
 class SquaredConfigurationErrorCost : public StageCost
 {
   public:
-    SquaredConfigurationErrorCost(const VecX &desired_configuration,
+    SquaredConfigurationErrorCost(const Model &model,
+                                  const VecX  &desired_configuration,
                                   const uint nq, const uint nv,
                                   const double weight,
                                   const bool   free_flyer = false);
-    SquaredConfigurationErrorCost(const VecX &desired_configuration,
+    SquaredConfigurationErrorCost(const Model &model,
+                                  const VecX  &desired_configuration,
                                   const uint nq, const uint nv,
                                   const VecX &weight,
                                   const bool  free_flyer = false);
@@ -203,10 +205,12 @@ class SquaredConfigurationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    VecX       _desired_configuration;
-    const uint _nq, _nv;
-    VecX       _weight;
-    const bool _free_flyer;
+    const std::shared_ptr<Model> _model;
+    VecX                         _desired_configuration;
+    VecX                         _full_desired_configuration;
+    const uint                   _nq, _nv;
+    VecX                         _weight;
+    const bool                   _free_flyer;
 };
 
 /* Predefined squared frame translation error cost

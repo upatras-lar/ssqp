@@ -30,11 +30,11 @@ init[6] = 1.0
 
 init[7:19] = base_config
 
-init_control = np.zeros(30)
-init_control[20] = 3.75 * 9.81
-init_control[23] = 3.75 * 9.81
-init_control[26] = 3.75 * 9.81
-init_control[29] = 3.75 * 9.81
+init_control = np.zeros(nu + 12)
+init_control[-10] = 3.75 * 9.81
+init_control[-7] = 3.75 * 9.81
+init_control[-4] = 3.75 * 9.81
+init_control[-1] = 3.75 * 9.81
 
 model = ssqpy.model.Model(
     HORIZON,
@@ -138,7 +138,7 @@ for k in range(HORIZON):
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0
     init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
-    init_controls.append(np.zeros(nv))
+    init_controls.append(np.zeros(nu))
 
 model.addCost(HORIZON, joint_vel_cost)
 model.addCost(HORIZON, pose_cost)
@@ -178,12 +178,12 @@ model.addConstraints(
 
 init_states.append(init)
 
-model.finalize(init_states=init_states)  # , init_controls=init_controls)
+model.finalize(init_states=init_states, init_controls=init_controls)
 
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
+    line_search_method=ssqpy.solvers.LineSearchMethod.Filter,
     merit_mu_c=4.0,
     tolerance=1e-1,
     admm_abs_tolerance=1e-3,

@@ -62,7 +62,6 @@ void ssqp::_setup_qp()
         costs[k]->hessian_xx(_guess.x.stage(k),
                              _guess.u.stage(k),
                              _qp.stages[k].Qxx);
-
         dynamics[k]->hessprod_xx(_guess.x.stage(k),
                                  _guess.u.stage(k),
                                  _guess.lambda.stage(k),

@@ -461,37 +461,46 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           pinocchio_wrapper::modelBounds(_impl, _free_flyer, true);
     }
 
-    auto innate_constraint_eval = [this, ctx](const VecX &x, const VecX &u)
+    uint nq_reduced = ctx.nq;
+    uint nv_reduced = ctx.nv;
+    if constexpr (FloatingBase)
+    {
+        nq_reduced -= 7;
+        nv_reduced -= 6;
+    }
+
+    auto innate_constraint_eval =
+      [this, nq_reduced, nv_reduced](const VecX &x, const VecX &u)
     {
         VecX c;
 
         if constexpr (IsTerminal || DM == DynamicsMode::Inverse ||
                       DM == DynamicsMode::ReducedInverse)
         {
-            c.resize(2 * ctx.njoints);
+            c.resize(nq_reduced + nv_reduced);
         }
         else if constexpr (DM == DynamicsMode::Forward)
         {
-            c.resize(3 * ctx.njoints);
+            c.resize(nq_reduced + 2 * nv_reduced);
         }
 
         if constexpr (FloatingBase)
         {
-            c.head(ctx.njoints)                 = x.segment(7, ctx.njoints);
-            c.segment(ctx.njoints, ctx.njoints) = x.tail(ctx.njoints);
+            c.head(nq_reduced)                = x.segment(7, nq_reduced);
+            c.segment(nq_reduced, nv_reduced) = x.tail(nv_reduced);
 
             if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
             {
-                c.tail(ctx.njoints) = u.segment(6, ctx.njoints);
+                c.tail(nv_reduced) = u.segment(6, nv_reduced);
             }
         }
         else
         {
-            c.head(2 * ctx.njoints) = x;
+            c.head(nq_reduced + nv_reduced) = x;
 
             if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
             {
-                c.tail(ctx.njoints) = u.head(ctx.njoints);
+                c.tail(nv_reduced) = u.head(nv_reduced);
             }
         }
 
@@ -499,47 +508,47 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     };
 
     auto innate_constraint_grad =
-      [this, ctx](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+      [this, ctx, nq_reduced, nv_reduced](const VecX &x,
+                                          const VecX &u,
+                                          MatX &dX,
+                                          MatX &dU)
     {
         if constexpr (IsTerminal)
         {
-            dX = MatX::Zero(2 * ctx.njoints, 2 * ctx.nv);
-            dU = MatX::Zero(2 * ctx.njoints, 1);
+            dX = MatX::Zero(nq_reduced + nv_reduced, 2 * ctx.nv);
+            dU = MatX::Zero(nq_reduced + nv_reduced, 1);
         }
         else if constexpr (DM == DynamicsMode::Forward)
         {
-            dX = MatX::Zero(3 * ctx.njoints, 2 * ctx.nv);
-            dU = MatX::Zero(3 * ctx.njoints, ctx.nu + 3 * ctx.nf);
+            dX = MatX::Zero(nq_reduced + 2 * nv_reduced, 2 * ctx.nv);
+            dU = MatX::Zero(nq_reduced + 2 * nv_reduced, ctx.nu + 3 * ctx.nf);
         }
         else if constexpr (DM == DynamicsMode::Inverse ||
                            DM == DynamicsMode::ReducedInverse)
         {
-            dX = MatX::Zero(2 * ctx.njoints, 2 * ctx.nv);
-            dU = MatX::Zero(2 * ctx.njoints, ctx.nu + 3 * ctx.nf);
+            dX = MatX::Zero(nq_reduced + nv_reduced, 2 * ctx.nv);
+            dU = MatX::Zero(nq_reduced + nv_reduced, ctx.nu + 3 * ctx.nf);
         }
 
         if constexpr (FloatingBase)
         {
-            dX.block(0, 6, ctx.njoints, ctx.njoints) =
-              MatX::Identity(ctx.njoints, ctx.njoints);
-            dX.block(ctx.njoints, ctx.nv + 6, ctx.njoints, ctx.njoints) =
-              MatX::Identity(ctx.njoints, ctx.njoints);
+            dX.block(0, 6, nq_reduced, nv_reduced).setIdentity();
+            dX.block(nq_reduced, ctx.nv + 6, nv_reduced, nv_reduced)
+              .setIdentity();
 
             if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
             {
-                dU.block(2 * ctx.njoints, 6, ctx.njoints, ctx.njoints) =
-                  MatX::Identity(ctx.njoints, ctx.njoints);
+                dU.block(nq_reduced + nv_reduced, 6, nv_reduced, ctx.nu - 6)
+                  .setIdentity();
             }
         }
         else
         {
-            dX.topRows(2 * ctx.njoints) =
-              MatX::Identity(2 * ctx.njoints, 2 * ctx.njoints);
+            dX.topRows(nq_reduced + nv_reduced).setIdentity();
 
             if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
             {
-                dU.bottomLeftCorner(ctx.njoints, ctx.njoints) =
-                  MatX::Identity(ctx.njoints, ctx.njoints);
+                dU.bottomLeftCorner(nv_reduced, ctx.nu).setIdentity();
             }
         }
     };
@@ -559,10 +568,10 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     if constexpr (IsTerminal)
     {
         return stagewise::factory::make_constraints(
-          2 * ctx.njoints,
-          2 * ctx.njoints,
-          lb.head(2 * ctx.njoints),
-          ub.head(2 * ctx.njoints),
+          nq_reduced + nv_reduced,
+          nq_reduced + nv_reduced,
+          lb.head(nq_reduced + nv_reduced),
+          ub.head(nq_reduced + nv_reduced),
           innate_constraint_eval,
           innate_constraint_grad,
           DefaultRightMinus,
@@ -573,8 +582,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     else if constexpr (DM == DynamicsMode::Forward)
     {
         return stagewise::factory::make_constraints(
-          3 * ctx.njoints,
-          3 * ctx.njoints,
+          nq_reduced + 2 * nv_reduced,
+          nq_reduced + 2 * nv_reduced,
           lb,
           ub,
           innate_constraint_eval,
@@ -588,8 +597,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                        DM == DynamicsMode::ReducedInverse)
     {
         return stagewise::factory::make_constraints(
-          2 * ctx.njoints,
-          2 * ctx.njoints,
+          nq_reduced + nv_reduced,
+          nq_reduced + nv_reduced,
           lb,
           ub,
           innate_constraint_eval,

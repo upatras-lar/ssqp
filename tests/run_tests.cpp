@@ -163,11 +163,11 @@ int main()
     tests.addTest(ssqp::tests::generators::get_squared_force_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::
-                    get_squared_configuration_difference_cost_grad_test());
+                    get_squared_configuration_error_cost_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::
-        get_squared_configuration_difference_cost_floating_base_grad_test());
+        get_squared_configuration_error_cost_floating_base_grad_test());
 
     tests.addTest(ssqp::tests::generators::
                     get_frame_squared_position_error_cost_grad_test());

@@ -1150,7 +1150,7 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test()
     return cost_test;
 }
 
-std::shared_ptr<Test> get_squared_configuration_difference_cost_grad_test()
+std::shared_ptr<Test> get_squared_configuration_error_cost_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
@@ -1162,6 +1162,7 @@ std::shared_ptr<Test> get_squared_configuration_difference_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredConfigurationErrorCost>(
           k,
+          *model,
           VecX::Zero(9),
           9,
           9,
@@ -1180,7 +1181,7 @@ std::shared_ptr<Test> get_squared_configuration_difference_cost_grad_test()
 }
 
 std::shared_ptr<Test>
-get_squared_configuration_difference_cost_floating_base_grad_test()
+get_squared_configuration_error_cost_floating_base_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
@@ -1193,6 +1194,7 @@ get_squared_configuration_difference_cost_floating_base_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredConfigurationErrorCost>(
           k,
+          *model,
           VecX::Zero(12),
           19,
           18,

@@ -290,21 +290,25 @@ void bind_Costs(nb::module_ &m)
          - $\boldsymbol{q}_d$ is the desired configuration
          - $\boldsymbol{w}$ is the weight for the configuration error
       )doc")
-      .def(nb::init<const VecX &,
+      .def(nb::init<const Model &,
+                    const VecX &,
                     const uint,
                     const uint,
                     const double,
                     const bool>(),
+           nb::arg("model"),
            nb::arg("desired_configuration"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("free_flyer"))
-      .def(nb::init<const VecX &,
+      .def(nb::init<const Model &,
+                    const VecX &,
                     const uint,
                     const uint,
                     const VecX &,
                     const bool>(),
+           nb::arg("model"),
            nb::arg("desired_configuration"),
            nb::arg("nq"),
            nb::arg("nv"),

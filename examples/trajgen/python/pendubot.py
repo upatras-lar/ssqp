@@ -1,16 +1,11 @@
 import ssqpy
 import numpy as np
-from math import pi
 
 """
 Pendubot example
 Using the pendubot (double pendulum with only the shoulder joint actuated),
 move and remain at a vertical position in the opposite direction of gravity
 """
-
-nq = 2
-nv = 2
-nu = 2
 
 H = 200
 dt = 0.01
@@ -19,26 +14,38 @@ V_WGT = 1e-3
 U_WGT = 1e-4
 C_WGT = 4.0
 
+INIT_STATE = np.array((0.0, 0.0, 0.0, 0.0))
+DESIRED_CONFIG = np.array((np.pi, 0.0))
+
 model = ssqpy.model.Model(
     H,
     dt,
     urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Forward,
 )
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
+
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    np.array((pi, 0.0)), nq, nv, C_WGT, False
+    model, DESIRED_CONFIG, nq, nv, C_WGT, False
 )
 
 for k in range(H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
-    model.addCost(k, config_cost)
 
-model.finalize(terminal_cost=config_cost)
+    # if k > 100:
+    #     model.addCost(k, config_cost)
+
+model.finalize(
+    terminal_cost=config_cost,
+    init_states=[INIT_STATE],
+)
 
 solver = ssqpy.solvers.ssqp(
     model,
