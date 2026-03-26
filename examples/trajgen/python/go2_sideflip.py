@@ -28,18 +28,18 @@ init[6] = 1.0
 
 init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 
-init_control = np.zeros(30)
-init_control[20] = 3.75 * 9.81
-init_control[23] = 3.75 * 9.81
-init_control[26] = 3.75 * 9.81
-init_control[29] = 3.75 * 9.81
+init_control = np.zeros(nu + 12)
+init_control[-10] = 3.75 * 9.81
+init_control[-7] = 3.75 * 9.81
+init_control[-4] = 3.75 * 9.81
+init_control[-1] = 3.75 * 9.81
 
 model = ssqpy.model.Model(
     HORIZON,
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    dynamics_mode=ssqpy.model.DynamicsMode.Forward,
 )
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
@@ -127,7 +127,7 @@ for k in range(HORIZON):
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0
     init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
-    init_controls.append(np.zeros(nv))
+    init_controls.append(np.zeros(nu))
 
 model.addCost(HORIZON, pose_cost)
 model.addCost(HORIZON, joint_vel_cost)
@@ -148,7 +148,7 @@ solver = ssqpy.solvers.ssqp(
     line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
     merit_mu_c=3.0,
     tolerance=5e-2,
-    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     hpipm_tol_comp=1e-3,
     hpipm_tol_stat=1e-3,
     hpipm_tol_eq=1e-3,

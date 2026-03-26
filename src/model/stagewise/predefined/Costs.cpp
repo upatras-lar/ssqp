@@ -457,34 +457,74 @@ void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
 
 // SquaredConfigurationErrorCost
 SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
-  const VecX &desired_configuration, const uint nq, const uint nv,
-  const double weight, const bool free_flyer)
-  : _desired_configuration(desired_configuration)
+  const Model &model, const VecX &desired_configuration, const uint nq,
+  const uint nv, const double weight, const bool free_flyer)
+  : _model(std::make_shared<Model>(model))
+  , _desired_configuration(desired_configuration)
+  , _full_desired_configuration(nq)
   , _nq(nq)
   , _nv(nv)
-  , _weight(free_flyer ? nq - 7 : nq)
+  , _weight(model.njoints())
   , _free_flyer(free_flyer)
 {
+    assert(desired_configuration.size() == (free_flyer ? nq - 7 : nq) &&
+           "Invalid desired configuration");
     _weight.setConstant(weight);
+
+    if (_free_flyer)
+    {
+        _full_desired_configuration.head<7>().setZero();
+        _full_desired_configuration[3]            = 1.0;
+        _full_desired_configuration.tail(_nq - 7) = _desired_configuration;
+    }
+    else
+    {
+        _full_desired_configuration = _desired_configuration;
+    }
 }
 
 SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
-  const VecX &desired_configuration, const uint nq, const uint nv,
-  const VecX &weight, const bool free_flyer)
-  : _desired_configuration(desired_configuration)
+  const Model &model, const VecX &desired_configuration, const uint nq,
+  const uint nv, const VecX &weight, const bool free_flyer)
+  : _model(std::make_shared<Model>(model))
+  , _desired_configuration(desired_configuration)
+  , _full_desired_configuration(nq)
   , _nq(nq)
   , _nv(nv)
   , _weight(weight)
   , _free_flyer(free_flyer)
 {
-    assert(weight.size() == (free_flyer ? nq - 7 : nq) &&
-           "Invalid weight vector size");
+    assert(desired_configuration.size() == (free_flyer ? nq - 7 : nq) &&
+           "Invalid desired configuration");
+    assert(weight.size() == model.njoints() && "Invalid weight vector size");
+
+    if (_free_flyer)
+    {
+        _full_desired_configuration.head<7>().setZero();
+        _full_desired_configuration.tail(_nq - 7) = _desired_configuration;
+        _full_desired_configuration[3]            = 1.0;
+    }
+    else
+    {
+        _full_desired_configuration = _desired_configuration;
+    }
 }
 
 void SquaredConfigurationErrorCost::set_desired_configuration(
   const VecX &desired_configuration)
 {
     _desired_configuration = desired_configuration;
+
+    if (_free_flyer)
+    {
+        _full_desired_configuration.head<7>().setZero();
+        _full_desired_configuration[3]            = 1.0;
+        _full_desired_configuration.tail(_nq - 7) = _desired_configuration;
+    }
+    else
+    {
+        _full_desired_configuration = _desired_configuration;
+    }
 }
 
 void SquaredConfigurationErrorCost::set_weight(const double weight)
@@ -502,13 +542,13 @@ void SquaredConfigurationErrorCost::set_weight(const VecX &weight)
 
 VecX SquaredConfigurationErrorCost::evaluate(const VecX &x, const VecX &u) const
 {
-    return (Scalar() << 0.5 * (_weight.array() *
-                               ((_free_flyer ? x.segment(7, _nq - 7)
-                                             : x.head(_nq)) -
-                                _desired_configuration)
-                                 .array())
-                                .matrix()
-                                .squaredNorm())
+    VecX diff = _model->difference(x.head(_nq), _full_desired_configuration);
+
+    return (Scalar()
+            << 0.5 * (_weight.array() *
+                      (_free_flyer ? diff.segment(6, _nv - 6) : diff).array())
+                       .matrix()
+                       .squaredNorm())
       .finished();
 }
 
@@ -516,16 +556,23 @@ void SquaredConfigurationErrorCost::gradient(const VecX &x, const VecX &u,
                                              VecX &dx, VecX &du) const
 {
     dx = VecX::Zero(2 * _nv);
+
+    VecX diff = _model->difference(x.head(_nq), _full_desired_configuration);
+    VecX weighted_diff =
+      _weight.array().square() *
+      (_free_flyer ? diff.segment(6, _nv - 6) : diff).array();
+
+    MatX J = MatX::Zero(_nv, _nv);
+    _model->dDifference(x.head(_nq), _full_desired_configuration, J, 0);
+
     if (_free_flyer)
     {
         dx.segment(6, _nv - 6) =
-          _weight.array().square() *
-          (x.segment(7, _nq - 7) - _desired_configuration).array();
+          J.bottomRightCorner(_nv - 6, _nv - 6).transpose() * weighted_diff;
     }
     else
     {
-        dx.head(_nv) = _weight.array().square() *
-                       (x.head(_nv) - _desired_configuration).array();
+        dx.head(_nv) = J.transpose() * weighted_diff;
     }
 
     du = VecX::Zero(u.size());
@@ -536,13 +583,20 @@ void SquaredConfigurationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 {
     Hxx = MatX::Zero(2 * _nv, 2 * _nv);
 
+    MatX J = MatX::Zero(_nv, _nv);
+    _model->dDifference(x.head(_nq), _full_desired_configuration, J, 0);
+
     if (_free_flyer)
     {
-        Hxx.block(7, 7, _nq - 7, _nq - 7).diagonal() = _weight.array().square();
+        Hxx.block(6, 6, _nv - 6, _nv - 6) =
+          J.bottomRightCorner(_nv - 6, _nv - 6).transpose() *
+          _weight.array().square().matrix().asDiagonal() *
+          J.bottomRightCorner(_nv - 6, _nv - 6);
     }
     else
     {
-        Hxx.topLeftCorner(_nv, _nv).diagonal() = _weight.array().square();
+        Hxx.topLeftCorner(_nv, _nv) =
+          J.transpose() * _weight.array().square().matrix().asDiagonal() * J;
     }
 }
 

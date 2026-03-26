@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<robot name="double_pendulum" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <!-- Base link -->
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <box size="0.015 0.015 0.015" />
+            </geometry>
+            <material name="gray">
+                <color rgba="0.5 0.5 0.5 0.5" />
+            </material>
+        </visual>
+    </link>
+
+    <!-- Joint 1 -->
+    <joint name="joint1" type="continuous">
+        <parent link="base_link" />
+        <child link="joint1_sphere" />
+        <origin xyz="0 0 0" />
+        <axis xyz="1 0 0" />
+        <limit effort="0.15" velocity="25" />
+        <dynamics damping="7.634058385430087e-12" friction="0.00305" />
+    </joint>
+
+    <link name="joint1_sphere">
+        <visual>
+            <geometry>
+                <sphere radius="0.01" />
+            </geometry>
+        </visual>
+    </link>
+
+    <joint name="joint1_link" type="fixed">
+        <parent link="joint1_sphere" />
+        <child link="link1" />
+    </joint>
+
+    <!-- Link 1 -->
+    <link name="link1">
+        <visual>
+            <geometry>
+                <cylinder length="0.05" radius="0.005" />
+            </geometry>
+            <origin xyz="0 0 -0.025" />
+        </visual>
+
+        <inertial>
+            <origin xyz="0 0 -0.05" />
+            <mass value="0.10548177618443695" />
+            <inertia
+                ixx="0.00046166221821039165"
+                iyy="0.00046166221821039165"
+                izz="0.00046166221821039165"
+                ixy="0" ixz="0" iyz="0" />
+        </inertial>
+    </link>
+
+    <!-- Joint 2 -->
+    <joint name="joint2" type="continuous">
+        <parent link="link1" />
+        <child link="joint2_sphere" />
+        <origin xyz="0 0 -0.05" />
+        <axis xyz="1 0 0" />
+        <limit effort="0.0" velocity="35" />
+        <dynamics damping="0.0005106535523065844" friction="0.0007777" />
+    </joint>
+
+    <link name="joint2_sphere">
+        <visual>
+            <geometry>
+                <sphere radius="0.006" />
+            </geometry>
+        </visual>
+    </link>
+
+    <joint name="joint2_link" type="fixed">
+        <parent link="joint2_sphere" />
+        <child link="link2" />
+    </joint>
+
+    <!-- Link 2 -->
+    <link name="link2">
+        <visual>
+            <geometry>
+                <cylinder length="0.05" radius="0.005" />
+            </geometry>
+            <origin xyz="0 0 -0.025" />
+        </visual>
+
+        <inertial>
+            <origin xyz="0 0 -0.03670036749567022" />
+            <mass value="0.07619744360415454" />
+            <inertia
+                ixx="0.00023702395072092597"
+                iyy="0.00023702395072092597"
+                izz="0.00023702395072092597"
+                ixy="0" ixz="0" iyz="0" />
+        </inertial>
+    </link>
+
+    <joint name="tip_link" type="fixed">
+        <parent link="link2" />
+        <child link="tip" />
+        <origin xyz="0 0 -0.05" />
+    </joint>
+
+    <!-- Tip -->
+    <link name="tip">
+        <visual>
+            <geometry>
+                <sphere radius="0.006"></sphere>
+            </geometry>
+        </visual>
+    </link>
+
+</robot>
