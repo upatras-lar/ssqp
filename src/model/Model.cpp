@@ -17,7 +17,6 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
   , _dynamics_mode(structure.dynamics_mode)
   , _integration(structure.integration)
   , _ignore_innate(structure.ignore_innate_constraints)
-  , _actuated_joints(structure.actuated_joints)
 {
     _dims.horizon     = horizon;
     _lin_dims.horizon = horizon;
@@ -49,59 +48,17 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
 
         std::tie(_dims.nq, _dims.nv) =
           pinocchio_wrapper::modelDimensions(_impl);
-        if (_dynamics_mode == DynamicsMode::ReducedInverse)
+        _dims.nu = _dims.nv;
+        if (_dynamics_mode == DynamicsMode::ReducedInverse && _free_flyer)
         {
-            if (!_actuated_joints.empty())
-            {
-                _dims.nu = _actuated_joints.size();
-            }
-            else if (_free_flyer)
-            {
-                _dims.nu = _dims.nv - 6;
-            }
-            else
-            {
-                _dims.nu = _dims.nv;
-            }
-        }
-        else
-        {
-            _dims.nu = _dims.nv;
+            _dims.nu -= 6;
         }
 
         _dims.njoints      = pinocchio_wrapper::getTotalActuatedJoints(_impl);
         _dims.total_joints = pinocchio_wrapper::modelJoints(_impl);
     }
 
-    if (_actuated_joints.empty())
-    {
-        for (uint j = 0; j < (_dynamics_mode == DynamicsMode::ReducedInverse
-                                ? _dims.nu
-                                : _dims.njoints);
-             ++j)
-        {
-            _actuated_joints.push_back(j);
-        }
-    }
-    else
-    {
-        std::sort(_actuated_joints.begin(), _actuated_joints.end());
-    }
-
-    std::vector<bool> is_actuated(_dims.njoints, false);
-
-    for (uint i = 0; i < _actuated_joints.size(); ++i)
-    {
-        is_actuated[_actuated_joints[i]] = true;
-    }
-
-    for (uint j = 0; j < _dims.njoints; ++j)
-    {
-        if (!is_actuated[j])
-        {
-            _unactuated_joints.push_back(j);
-        }
-    }
+    setActuatedJoints(structure.actuated_joints);
 }
 
 Model::Model(uint horizon, double dt, const Config &config) : Model(horizon, dt)
@@ -868,6 +825,16 @@ void Model::printFramesAndJoints() const
     pinocchio_wrapper::printFramesAndJoints(_impl);
 }
 
+std::vector<std::string> Model::orderedBodyFrames() const
+{
+    if (_impl == nullptr)
+    {
+        return {};
+    }
+
+    return pinocchio_wrapper::getOrderedBodyFrames(_impl);
+}
+
 std::vector<std::string> Model::orderedActuatedJoints() const
 {
     if (_impl == nullptr)
@@ -875,7 +842,46 @@ std::vector<std::string> Model::orderedActuatedJoints() const
         return {};
     }
 
-    return pinocchio_wrapper::getOrderedActuatedJoints(_impl);
+    return pinocchio_wrapper::getOrderedActuatedJoints(_impl, _actuated_joints);
+}
+
+void Model::setActuatedJoints(const std::vector<uint> &actuated_joints)
+{
+    if (actuated_joints.empty())
+    {
+        for (uint j = 0; j < (_dynamics_mode == DynamicsMode::ReducedInverse
+                                ? _dims.nu
+                                : _dims.njoints);
+             ++j)
+        {
+            _actuated_joints.push_back(j);
+        }
+    }
+    else
+    {
+        _actuated_joints = actuated_joints;
+        std::sort(_actuated_joints.begin(), _actuated_joints.end());
+    }
+
+    if (_dynamics_mode == ReducedInverse && !_actuated_joints.empty())
+    {
+        _dims.nu = _actuated_joints.size();
+    }
+
+    std::vector<bool> is_actuated(_dims.njoints, false);
+
+    for (uint i = 0; i < _actuated_joints.size(); ++i)
+    {
+        is_actuated[_actuated_joints[i]] = true;
+    }
+
+    for (uint j = 0; j < _dims.njoints; ++j)
+    {
+        if (!is_actuated[j])
+        {
+            _unactuated_joints.push_back(j);
+        }
+    }
 }
 
 bool Model::floatingBase() const

@@ -359,12 +359,35 @@ void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl)
     }
 }
 
-std::vector<std::string> getOrderedActuatedJoints(
+std::vector<std::string> getOrderedBodyFrames(
   const std::shared_ptr<ModelImpl> &impl)
+{
+    std::vector<std::string> names;
+    names.reserve(impl->model.frames.size());
+
+    for (pinocchio::FrameIndex i = 0; i < impl->model.nframes; ++i)
+    {
+        const pinocchio::Frame &frame = impl->model.frames[i];
+
+        if (frame.type == pinocchio::FrameType::OP_FRAME ||
+            frame.type == pinocchio::FrameType::BODY)
+        {
+            names.push_back(frame.name);
+        }
+    }
+
+    return names;
+}
+
+std::vector<std::string> getOrderedActuatedJoints(
+  const std::shared_ptr<ModelImpl> &impl,
+  const std::vector<uint>          &actuated_joints)
 {
     std::vector<std::string> names;
     names.reserve(impl->model.joints.size());
 
+    uint pin_joint_idx = 0;
+    uint act_joint_idx = 0;
     for (pinocchio::JointIndex jid = 1; jid < impl->model.joints.size(); ++jid)
     {
         const auto &j = impl->model.joints[jid];
@@ -379,7 +402,19 @@ std::vector<std::string> getOrderedActuatedJoints(
             continue;
         }
 
-        names.push_back(impl->model.names[jid]);
+        if (actuated_joints.empty() ||
+            actuated_joints[act_joint_idx] == pin_joint_idx)
+        {
+            names.push_back(impl->model.names[jid]);
+            if (++act_joint_idx == actuated_joints.size())
+            {
+                break;
+            }
+            ++pin_joint_idx;
+            continue;
+        }
+
+        ++pin_joint_idx;
     }
 
     return names;

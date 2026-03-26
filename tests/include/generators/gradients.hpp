@@ -2,6 +2,7 @@
 #define SSQP_TESTS_GENERATORS_GRADIENTS_HPP
 
 #include <random>
+#include <filesystem>
 
 #include "Test.hpp"
 #include "FDGrad.hpp"
@@ -16,75 +17,26 @@ namespace tests
 {
 namespace generators
 {
+// Helper functions
 void setup_model(std::shared_ptr<model::Model> &model);
+void add_forces_to_model(std::shared_ptr<model::Model> &model,
+                         std::mt19937                  &rng);
+void set_model_unactuated_joints(std::shared_ptr<model::Model> &model,
+                                 std::mt19937                  &rng);
 
 // Dynamics gradients
-std::shared_ptr<Test> get_fwdyn_explicit_euler_without_forces_grad_test();
-std::shared_ptr<Test> get_fwdyn_explicit_euler_with_forces_grad_test();
-std::shared_ptr<Test> get_fwdyn_semi_implicit_euler_without_forces_grad_test();
-std::shared_ptr<Test> get_fwdyn_semi_implicit_euler_with_forces_grad_test();
+std::shared_ptr<Test> generate_dynamics_gradient_test(
+  const std::string &urdf_path, const bool floating_base,
+  const model::DynamicsMode &dm, const model::IntegrationScheme &is,
+  const bool forces, const bool unactuated_joints, const uint seed = 42);
 
-std::shared_ptr<Test> get_invdyn_explicit_euler_without_forces_grad_test();
-std::shared_ptr<Test> get_invdyn_explicit_euler_with_forces_grad_test();
-std::shared_ptr<Test> get_invdyn_semi_implicit_euler_without_forces_grad_test();
-std::shared_ptr<Test> get_invdyn_semi_implicit_euler_with_forces_grad_test();
+// Innate Constraint gradients
+std::shared_ptr<Test> generate_innate_constraint_gradient_test(
+  const std::string &urdf_path, const bool floating_base,
+  const model::DynamicsMode &dm, const bool forces,
+  const bool unactuated_joints, const uint seed = 42);
 
-std::shared_ptr<Test>
-get_reduced_invdyn_explicit_euler_without_forces_grad_test();
-std::shared_ptr<Test> get_reduced_invdyn_explicit_euler_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_explicit_euler_unactuated_joints_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_explicit_euler_unactuated_joints_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_explicit_euler_floating_base_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_explicit_euler_floating_base_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_explicit_euler_floating_base_unactuated_joints_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_explicit_euler_floating_base_unactuated_joints_with_forces_grad_test();
-
-std::shared_ptr<Test>
-get_reduced_invdyn_semi_implicit_euler_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_semi_implicit_euler_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_semi_implicit_euler_unactuated_joints_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_semi_implicit_euler_unactuated_joints_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_semi_implicit_euler_floating_base_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_semi_implicit_euler_floating_base_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_semi_implicit_euler_floating_base_unactuated_joints_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_semi_implicit_euler_floating_base_unactuated_joints_with_forces_grad_test();
-
-// Constraints gradients
-std::shared_ptr<Test> get_fwdyn_innate_constraint_grad_test();
-
-std::shared_ptr<Test> get_invdyn_innate_constraint_without_forces_grad_test();
-std::shared_ptr<Test> get_invdyn_innate_constraint_with_forces_grad_test();
-
-std::shared_ptr<Test>
-get_reduced_invdyn_innate_constraint_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_innate_constraint_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_innate_constraint_unactuated_joints_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_innate_constraint_unactuated_joints_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_innate_constraint_floating_base_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_innate_constraint_floating_base_with_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_innate_constraint_floating_base_unactuated_joints_without_forces_grad_test();
-std::shared_ptr<Test>
-get_reduced_invdyn_innate_constraint_floating_base_unactuated_joints_with_forces_grad_test();
-
+// Predefined Constraint gradients
 std::shared_ptr<Test> get_frame_position_bound_grad_test();
 std::shared_ptr<Test> get_frame_velocity_bound_grad_test();
 std::shared_ptr<Test> get_contact_constraint_grad_test();
