@@ -10,17 +10,17 @@ move and remain at a vertical position in the opposite direction of gravity
 H = 200
 dt = 0.01
 
-V_WGT = 1e-3
-U_WGT = 1e-4
-C_WGT = 4.0
+V_WGT = 1e-2
+U_WGT = 1e-3
+C_WGT = 5.0
 
-INIT_STATE = np.array((0.0, 0.0, 0.0, 0.0))
-DESIRED_CONFIG = np.array((np.pi, 0.0))
+INIT_STATE = np.array((1.0, 0.0, 1.0, 0.0, 0.0, 0.0))
+DESIRED_CONFIG = np.array((-1.0, 0.0, 1.0, 0.0))
 
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
+    urdf_path="../../assets/urdf/double_pendulum/pendubot_cont.urdf",
     actuated_joints=[0],
     dynamics_mode=ssqpy.model.DynamicsMode.Forward,
 )
@@ -39,8 +39,8 @@ for k in range(H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
 
-    # if k > 100:
-    #     model.addCost(k, config_cost)
+    if k > 150:
+        model.addCost(k, config_cost)
 
 model.finalize(
     terminal_cost=config_cost,

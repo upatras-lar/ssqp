@@ -250,7 +250,11 @@ class Model
 
     void printFramesAndJoints() const;
 
+    std::vector<std::string> orderedBodyFrames() const;
+
     std::vector<std::string> orderedActuatedJoints() const;
+
+    void setActuatedJoints(const std::vector<uint> &actuated_joints);
 
     // Below functions are undefined if no URDF was used for initialization
     bool floatingBase() const;

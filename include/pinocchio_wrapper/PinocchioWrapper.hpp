@@ -32,8 +32,12 @@ bool hasFrame(const std::shared_ptr<ModelImpl> &impl, const std::string &frame);
 
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
 
-std::vector<std::string> getOrderedActuatedJoints(
+std::vector<std::string> getOrderedBodyFrames(
   const std::shared_ptr<ModelImpl> &impl);
+
+std::vector<std::string> getOrderedActuatedJoints(
+  const std::shared_ptr<ModelImpl> &impl,
+  const std::vector<uint>          &actuated_joints = {});
 
 uint getTotalActuatedJoints(const std::shared_ptr<ModelImpl> &impl);
 

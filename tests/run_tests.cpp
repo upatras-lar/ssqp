@@ -6,133 +6,70 @@ int main()
 {
     ssqp::tests::TestContainer tests;
 
-    tests.addTest(ssqp::tests::generators::
-                    get_fwdyn_explicit_euler_without_forces_grad_test());
+    const std::vector<std::pair<std::string, bool>> urdfs = {
+        { "examples/assets/urdf/double_pendulum/double_pendulum.urdf", false },
+        {        "examples/assets/urdf/double_pendulum/pendubot.urdf", false },
+        {   "examples/assets/urdf/double_pendulum/pendubot_cont.urdf", false },
+        {                     "examples/assets/urdf/panda/panda.urdf", false },
+        {                         "examples/assets/urdf/go2/go2.urdf",  true }
+    };
 
-    tests.addTest(ssqp::tests::generators::
-                    get_fwdyn_explicit_euler_with_forces_grad_test());
+    const std::vector<ssqp::model::DynamicsMode> dms = {
+        ssqp::model::DynamicsMode::Forward,
+        ssqp::model::DynamicsMode::Inverse,
+        ssqp::model::DynamicsMode::ReducedInverse
+    };
 
-    tests.addTest(ssqp::tests::generators::
-                    get_fwdyn_semi_implicit_euler_without_forces_grad_test());
+    const std::vector<ssqp::model::IntegrationScheme> iss = {
+        ssqp::model::IntegrationScheme::ExplicitEuler,
+        ssqp::model::IntegrationScheme::SemiImplicitEuler
+    };
 
-    tests.addTest(ssqp::tests::generators::
-                    get_fwdyn_semi_implicit_euler_with_forces_grad_test());
+    const std::vector<bool> opts = { false, true };
 
-    tests.addTest(ssqp::tests::generators::
-                    get_invdyn_explicit_euler_without_forces_grad_test());
+    for (const auto &urdf_pair : urdfs)
+    {
+        for (const auto &dm : dms)
+        {
+            for (const auto &is : iss)
+            {
+                for (const auto &forces : opts)
+                {
+                    for (const auto &unactuated_joints : opts)
+                    {
+                        tests.addTest(
+                          ssqp::tests::generators::
+                            generate_dynamics_gradient_test(urdf_pair.first,
+                                                            urdf_pair.second,
+                                                            dm,
+                                                            is,
+                                                            forces,
+                                                            unactuated_joints));
+                    }
+                }
+            }
+        }
+    }
 
-    tests.addTest(ssqp::tests::generators::
-                    get_invdyn_explicit_euler_with_forces_grad_test());
-
-    tests.addTest(ssqp::tests::generators::
-                    get_invdyn_semi_implicit_euler_without_forces_grad_test());
-
-    tests.addTest(ssqp::tests::generators::
-                    get_invdyn_semi_implicit_euler_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_explicit_euler_without_forces_grad_test());
-
-    tests.addTest(ssqp::tests::generators::
-                    get_reduced_invdyn_explicit_euler_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_explicit_euler_unactuated_joints_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_explicit_euler_unactuated_joints_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_explicit_euler_floating_base_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_explicit_euler_floating_base_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_explicit_euler_floating_base_unactuated_joints_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_explicit_euler_floating_base_unactuated_joints_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_semi_implicit_euler_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_semi_implicit_euler_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_semi_implicit_euler_unactuated_joints_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_semi_implicit_euler_unactuated_joints_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_semi_implicit_euler_floating_base_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_semi_implicit_euler_floating_base_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_semi_implicit_euler_floating_base_unactuated_joints_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_semi_implicit_euler_floating_base_unactuated_joints_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::get_fwdyn_innate_constraint_grad_test());
-
-    tests.addTest(ssqp::tests::generators::
-                    get_invdyn_innate_constraint_without_forces_grad_test());
-
-    tests.addTest(ssqp::tests::generators::
-                    get_invdyn_innate_constraint_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_innate_constraint_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_innate_constraint_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_innate_constraint_unactuated_joints_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_innate_constraint_unactuated_joints_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_innate_constraint_floating_base_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_innate_constraint_floating_base_with_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_innate_constraint_floating_base_unactuated_joints_without_forces_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::
-        get_reduced_invdyn_innate_constraint_floating_base_unactuated_joints_with_forces_grad_test());
+    for (const auto &urdf_pair : urdfs)
+    {
+        for (const auto &dm : dms)
+        {
+            for (const auto &forces : opts)
+            {
+                for (const auto &unactuated_joints : opts)
+                {
+                    tests.addTest(ssqp::tests::generators::
+                                    generate_innate_constraint_gradient_test(
+                                      urdf_pair.first,
+                                      urdf_pair.second,
+                                      dm,
+                                      forces,
+                                      unactuated_joints));
+                }
+            }
+        }
+    }
 
     tests.addTest(
       ssqp::tests::generators::get_frame_position_bound_grad_test());
