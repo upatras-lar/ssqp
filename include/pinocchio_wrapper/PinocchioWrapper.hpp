@@ -47,9 +47,17 @@ std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl);
 
 uint modelJoints(const std::shared_ptr<ModelImpl> &impl);
 
+std::vector<uint> modelBoundedJointIndices(
+  const std::shared_ptr<ModelImpl> &impl,
+  std::unordered_map<uint, uint>   &indices_to_config,
+  std::unordered_map<uint, uint>   &indices_to_tangent,
+  const bool                        free_flyer = false);
+
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
-  const std::shared_ptr<ModelImpl> &impl, const bool free_flyer = false,
-  const bool skip_torques = false);
+  const std::shared_ptr<ModelImpl>     &impl,
+  const std::vector<uint>              &bounded_joint_indices,
+  const std::unordered_map<uint, uint> &indices_to_config,
+  const bool free_flyer = false, const bool skip_torques = false);
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelEffortLimits(
   const std::shared_ptr<ModelImpl> &impl);

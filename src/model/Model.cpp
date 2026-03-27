@@ -56,6 +56,12 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
 
         _dims.njoints      = pinocchio_wrapper::getTotalActuatedJoints(_impl);
         _dims.total_joints = pinocchio_wrapper::modelJoints(_impl);
+
+        pinocchio_wrapper::modelBoundedJointIndices(
+          _impl,
+          _bounded_joint_indices_to_config,
+          _bounded_joint_indices_to_tangent,
+          _free_flyer);
     }
 
     setActuatedJoints(structure.actuated_joints);
@@ -849,6 +855,7 @@ void Model::setActuatedJoints(const std::vector<uint> &actuated_joints)
 {
     if (actuated_joints.empty())
     {
+        _actuated_joints.clear();
         for (uint j = 0; j < (_dynamics_mode == DynamicsMode::ReducedInverse
                                 ? _dims.nu
                                 : _dims.njoints);
