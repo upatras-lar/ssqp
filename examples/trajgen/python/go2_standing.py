@@ -10,9 +10,6 @@ Stands in place with the Go2
 """
 
 # Model Parameters
-nq = 19
-nv = 18
-nu = 18
 HORIZON = 100
 dt = 0.01
 
@@ -41,9 +38,13 @@ model = ssqpy.model.Model(
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
+
 # Define regularization costs
 config_cost = costs.SquaredConfigurationErrorCost(
-    base_config, nq, nv, A_WGT, True
+    model, base_config, nq, nv, A_WGT, True
 )
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, nu, U_WGT)

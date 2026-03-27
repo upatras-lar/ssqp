@@ -376,6 +376,9 @@ class Model
     const bool                                    _ignore_innate;
     std::vector<uint>                             _actuated_joints;
     std::vector<uint>                             _unactuated_joints;
+    std::vector<uint>                             _bounded_joint_indices;
+    std::unordered_map<uint, uint> _bounded_joint_indices_to_config;
+    std::unordered_map<uint, uint> _bounded_joint_indices_to_tangent;
 
     // Configuration properties
     bool                            _finalized = false;

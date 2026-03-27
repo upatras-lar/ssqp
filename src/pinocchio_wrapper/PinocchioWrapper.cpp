@@ -15,6 +15,8 @@
 #include <pinocchio/algorithm/rnea.hpp>
 #include <pinocchio/algorithm/rnea-derivatives.hpp>
 
+#include <boost/variant.hpp>
+
 namespace ssqp
 {
 namespace pinocchio_wrapper
@@ -23,6 +25,18 @@ struct ModelImpl
 {
     pinocchio::Model model;
     pinocchio::Data  data;
+};
+
+struct JointTypeIdentifier : public boost::static_visitor<void>
+{
+    const pinocchio::Model &model;
+    pinocchio::JointIndex   joint_id;
+
+    JointTypeIdentifier(const pinocchio::Model &model, pinocchio::JointIndex id)
+      : model(model)
+      , joint_id(id)
+    {
+    }
 };
 
 Eigen::Vector3d logSO3(const Eigen::Matrix3d &mat)
@@ -87,47 +101,81 @@ uint modelJoints(const std::shared_ptr<ModelImpl> &impl)
     return impl->model.njoints;
 }
 
-std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
-  const std::shared_ptr<ModelImpl> &impl, const bool free_flyer,
-  const bool skip_torques)
+std::vector<uint> modelBoundedJointIndices(
+  const std::shared_ptr<ModelImpl> &impl,
+  std::unordered_map<uint, uint>   &indices_to_config,
+  std::unordered_map<uint, uint> &indices_to_tangent, const bool free_flyer)
 {
-    uint            nbounds = impl->model.nq + 2 * impl->model.nv;
-    Eigen::VectorXd lb, ub;
-
-    uint nq, nv;
-
+    uint offset = 1;
     if (free_flyer)
     {
-        nq = impl->model.nq - 7;
-        nv = impl->model.nv - 6;
-    }
-    else
-    {
-        nq = impl->model.nq;
-        nv = impl->model.nv;
+        offset += 1;
     }
 
-    if (skip_torques)
+    std::vector<uint> indices;
+
+    uint acc_config  = 0;
+    uint acc_tangent = 0;
+
+    for (pinocchio::JointIndex i = 1; i < impl->model.njoints; ++i)
     {
-        lb.resize(nq + nv);
-        ub.resize(nq + nv);
-    }
-    else
-    {
-        lb.resize(nq + 2 * nv);
-        ub.resize(nq + 2 * nv);
+        const std::string jname = impl->model.joints[i].shortname();
+
+        if ((jname.find("JointModelR") != std::string::npos &&
+             impl->model.joints[i].nq() == 1) // Revolute Joint with bounds
+            || (jname.find("JointModelP") != std::string::npos &&
+                impl->model.joints[i].nq() == 1)) // Prismatic Joint
+
+        {
+            indices.push_back(i - offset);
+            indices_to_config[i - offset]  = acc_config;
+            indices_to_tangent[i - offset] = acc_tangent;
+        }
+
+        acc_config  += impl->model.joints[i].nq();
+        acc_tangent += impl->model.joints[i].nv();
     }
 
-    lb.head(nq)        = impl->model.lowerPositionLimit.tail(nq);
-    lb.segment(nq, nv) = -impl->model.velocityLimit.tail(nv);
+    return indices;
+}
 
-    ub.head(nq)        = impl->model.upperPositionLimit.tail(nq);
-    ub.segment(nq, nv) = impl->model.velocityLimit.tail(nv);
+std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
+  const std::shared_ptr<ModelImpl>     &impl,
+  const std::vector<uint>              &bounded_joint_indices,
+  const std::unordered_map<uint, uint> &indices_to_config,
+  const bool free_flyer, const bool skip_torques)
+{
+    uint nv_reduced = impl->model.nv;
+    if (free_flyer)
+    {
+        nv_reduced -= 6;
+    }
+
+    uint nbounds =
+      bounded_joint_indices.size() + (1 + !skip_torques) * nv_reduced;
+    Eigen::VectorXd lb(nbounds), ub(nbounds);
+
+    for (uint i = 0; i < bounded_joint_indices.size(); ++i)
+    {
+        lb[i] =
+          impl->model
+            .lowerPositionLimit[indices_to_config.at(bounded_joint_indices[i])];
+        ub[i] =
+          impl->model
+            .upperPositionLimit[indices_to_config.at(bounded_joint_indices[i])];
+    }
+
+    lb.segment(bounded_joint_indices.size(), nv_reduced) =
+      -impl->model.velocityLimit.tail(nv_reduced);
+    ub.segment(bounded_joint_indices.size(), nv_reduced) =
+      impl->model.velocityLimit.tail(nv_reduced);
 
     if (!skip_torques)
     {
-        lb.tail(nv) = -impl->model.effortLimit.tail(nv);
-        ub.tail(nv) = impl->model.effortLimit.tail(nv);
+        lb.segment(bounded_joint_indices.size() + nv_reduced, nv_reduced) =
+          -impl->model.effortLimit.tail(nv_reduced);
+        ub.segment(bounded_joint_indices.size() + nv_reduced, nv_reduced) =
+          impl->model.effortLimit.tail(nv_reduced);
     }
 
     return { lb, ub };
@@ -136,10 +184,7 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelEffortLimits(
   const std::shared_ptr<ModelImpl> &impl)
 {
-    Eigen::VectorXd lb = -impl->model.effortLimit;
-    Eigen::VectorXd ub = impl->model.effortLimit;
-
-    return { lb, ub };
+    return { -impl->model.effortLimit, impl->model.effortLimit };
 }
 
 Eigen::VectorXd integrate(const std::shared_ptr<ModelImpl> &impl,

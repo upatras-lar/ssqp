@@ -452,53 +452,60 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
 
     if constexpr (DM == DynamicsMode::Forward)
     {
-        std::tie(lb, ub) = pinocchio_wrapper::modelBounds(_impl, _free_flyer);
+        std::tie(lb, ub) =
+          pinocchio_wrapper::modelBounds(_impl,
+                                         _bounded_joint_indices,
+                                         _bounded_joint_indices_to_config,
+                                         _free_flyer);
     }
     else if constexpr (DM == DynamicsMode::Inverse ||
                        DM == DynamicsMode::ReducedInverse)
     {
         std::tie(lb, ub) =
-          pinocchio_wrapper::modelBounds(_impl, _free_flyer, true);
+          pinocchio_wrapper::modelBounds(_impl,
+                                         _bounded_joint_indices,
+                                         _bounded_joint_indices_to_config,
+                                         _free_flyer,
+                                         true);
     }
 
-    uint nq_reduced = ctx.nq;
-    uint nv_reduced = ctx.nv;
+    uint nv_reduced = _dims.nv;
     if constexpr (FloatingBase)
     {
-        nq_reduced -= 7;
         nv_reduced -= 6;
     }
 
     auto innate_constraint_eval =
-      [this, nq_reduced, nv_reduced](const VecX &x, const VecX &u)
+      [this, ctx, nv_reduced](const VecX &x, const VecX &u)
     {
         VecX c;
 
         if constexpr (IsTerminal || DM == DynamicsMode::Inverse ||
                       DM == DynamicsMode::ReducedInverse)
         {
-            c.resize(nq_reduced + nv_reduced);
+            c.resize(_bounded_joint_indices.size() + nv_reduced);
         }
         else if constexpr (DM == DynamicsMode::Forward)
         {
-            c.resize(nq_reduced + 2 * nv_reduced);
+            c.resize(_bounded_joint_indices.size() + 2 * nv_reduced);
         }
 
-        if constexpr (FloatingBase)
+        for (uint i = 0; i < _bounded_joint_indices.size(); ++i)
         {
-            c.head(nq_reduced)                = x.segment(7, nq_reduced);
-            c.segment(nq_reduced, nv_reduced) = x.tail(nv_reduced);
+            c[i] =
+              x[_bounded_joint_indices_to_config.at(_bounded_joint_indices[i])];
+        }
 
-            if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
+        c.segment(_bounded_joint_indices.size(), nv_reduced) =
+          x.tail(nv_reduced);
+
+        if (!IsTerminal && DM == DynamicsMode::Forward)
+        {
+            if constexpr (FloatingBase)
             {
                 c.tail(nv_reduced) = u.segment(6, nv_reduced);
             }
-        }
-        else
-        {
-            c.head(nq_reduced + nv_reduced) = x;
-
-            if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
+            else
             {
                 c.tail(nv_reduced) = u.head(nv_reduced);
             }
@@ -508,47 +515,71 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     };
 
     auto innate_constraint_grad =
-      [this, ctx, nq_reduced, nv_reduced](const VecX &x,
-                                          const VecX &u,
-                                          MatX &dX,
-                                          MatX &dU)
+      [this, ctx, nv_reduced](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         if constexpr (IsTerminal)
         {
-            dX = MatX::Zero(nq_reduced + nv_reduced, 2 * ctx.nv);
-            dU = MatX::Zero(nq_reduced + nv_reduced, 1);
+            dX = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
+                            2 * ctx.nv);
+            dU = MatX::Zero(_bounded_joint_indices.size() + nv_reduced, 1);
         }
         else if constexpr (DM == DynamicsMode::Forward)
         {
-            dX = MatX::Zero(nq_reduced + 2 * nv_reduced, 2 * ctx.nv);
-            dU = MatX::Zero(nq_reduced + 2 * nv_reduced, ctx.nu + 3 * ctx.nf);
+            dX = MatX::Zero(_bounded_joint_indices.size() + 2 * nv_reduced,
+                            2 * ctx.nv);
+            dU = MatX::Zero(_bounded_joint_indices.size() + 2 * nv_reduced,
+                            ctx.nu + 3 * ctx.nf);
         }
         else if constexpr (DM == DynamicsMode::Inverse ||
                            DM == DynamicsMode::ReducedInverse)
         {
-            dX = MatX::Zero(nq_reduced + nv_reduced, 2 * ctx.nv);
-            dU = MatX::Zero(nq_reduced + nv_reduced, ctx.nu + 3 * ctx.nf);
+            dX = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
+                            2 * ctx.nv);
+            dU = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
+                            ctx.nu + 3 * ctx.nf);
+        }
+
+        for (uint i = 0; i < _bounded_joint_indices.size(); ++i)
+        {
+            dX(i,
+               _bounded_joint_indices_to_tangent.at(
+                 _bounded_joint_indices[i])) = 1.0;
         }
 
         if constexpr (FloatingBase)
         {
-            dX.block(0, 6, nq_reduced, nv_reduced).setIdentity();
-            dX.block(nq_reduced, ctx.nv + 6, nv_reduced, nv_reduced)
+            dX.block(_bounded_joint_indices.size(),
+                     ctx.nv + 6,
+                     nv_reduced,
+                     nv_reduced)
               .setIdentity();
-
-            if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
-            {
-                dU.block(nq_reduced + nv_reduced, 6, nv_reduced, ctx.nu - 6)
-                  .setIdentity();
-            }
         }
         else
         {
-            dX.topRows(nq_reduced + nv_reduced).setIdentity();
+            dX.block(_bounded_joint_indices.size(),
+                     ctx.nv,
+                     nv_reduced,
+                     nv_reduced)
+              .setIdentity();
+        }
 
-            if constexpr (!IsTerminal && DM == DynamicsMode::Forward)
+        if (!IsTerminal && DM == DynamicsMode::Forward)
+        {
+            if constexpr (FloatingBase)
             {
-                dU.bottomLeftCorner(nv_reduced, ctx.nu).setIdentity();
+                dU.block(_bounded_joint_indices.size() + nv_reduced,
+                         6,
+                         nv_reduced,
+                         nv_reduced)
+                  .setIdentity();
+            }
+            else
+            {
+                dU.block(_bounded_joint_indices.size() + nv_reduced,
+                         0,
+                         nv_reduced,
+                         nv_reduced)
+                  .setIdentity();
             }
         }
     };
@@ -568,10 +599,10 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     if constexpr (IsTerminal)
     {
         return stagewise::factory::make_constraints(
-          nq_reduced + nv_reduced,
-          nq_reduced + nv_reduced,
-          lb.head(nq_reduced + nv_reduced),
-          ub.head(nq_reduced + nv_reduced),
+          _bounded_joint_indices.size() + nv_reduced,
+          _bounded_joint_indices.size() + nv_reduced,
+          lb.head(_bounded_joint_indices.size() + nv_reduced),
+          ub.head(_bounded_joint_indices.size() + nv_reduced),
           innate_constraint_eval,
           innate_constraint_grad,
           DefaultRightMinus,
@@ -582,8 +613,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     else if constexpr (DM == DynamicsMode::Forward)
     {
         return stagewise::factory::make_constraints(
-          nq_reduced + 2 * nv_reduced,
-          nq_reduced + 2 * nv_reduced,
+          _bounded_joint_indices.size() + 2 * nv_reduced,
+          _bounded_joint_indices.size() + 2 * nv_reduced,
           lb,
           ub,
           innate_constraint_eval,
@@ -597,8 +628,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                        DM == DynamicsMode::ReducedInverse)
     {
         return stagewise::factory::make_constraints(
-          nq_reduced + nv_reduced,
-          nq_reduced + nv_reduced,
+          _bounded_joint_indices.size() + nv_reduced,
+          _bounded_joint_indices.size() + nv_reduced,
           lb,
           ub,
           innate_constraint_eval,

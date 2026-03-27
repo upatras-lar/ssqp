@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<robot name="floating_robot">
+
+    <!-- Base link -->
+    <link name="base_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <box size="0.4 0.4 0.2" />
+            </geometry>
+            <material name="blue">
+                <color rgba="0 0 1 1" />
+            </material>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" />
+            <geometry>
+                <box size="0.4 0.4 0.2" />
+            </geometry>
+        </collision>
+
+        <inertial>
+            <mass value="2.0" />
+            <origin xyz="0 0 0" />
+            <inertia ixx="0.2" iyy="0.2" izz="0.2"
+                ixy="0.0" ixz="0.0" iyz="0.0" />
+        </inertial>
+    </link>
+
+    <!-- Second link -->
+    <link name="link1">
+        <visual>
+            <origin xyz="0 0 0.5" rpy="0 0 0" />
+            <geometry>
+                <cylinder radius="0.05" length="1.0" />
+            </geometry>
+            <material name="green">
+                <color rgba="0 1 0 1" />
+            </material>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0.5" />
+            <geometry>
+                <cylinder radius="0.05" length="1.0" />
+            </geometry>
+        </collision>
+
+        <inertial>
+            <mass value="1.0" />
+            <origin xyz="0 0 0.5" />
+            <inertia ixx="0.1" iyy="0.1" izz="0.01"
+                ixy="0.0" ixz="0.0" iyz="0.0" />
+        </inertial>
+    </link>
+
+    <!-- Continuous joint -->
+    <joint name="joint1" type="continuous">
+        <parent link="base_link" />
+        <child link="link1" />
+        <origin xyz="0 0 0.1" />
+        <axis xyz="0 0 1" />
+        <limit effort="1.0" velocity="25" />
+    </joint>
+
+</robot>

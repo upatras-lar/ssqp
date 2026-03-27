@@ -11,7 +11,8 @@ int main()
         {        "examples/assets/urdf/double_pendulum/pendubot.urdf", false },
         {   "examples/assets/urdf/double_pendulum/pendubot_cont.urdf", false },
         {                     "examples/assets/urdf/panda/panda.urdf", false },
-        {                         "examples/assets/urdf/go2/go2.urdf",  true }
+        {                         "examples/assets/urdf/go2/go2.urdf",  true },
+        {       "examples/assets/urdf/cont_floater/cont_floater.urdf",  true }
     };
 
     const std::vector<ssqp::model::DynamicsMode> dms = {
