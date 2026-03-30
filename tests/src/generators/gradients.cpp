@@ -219,6 +219,85 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
                                                1e-4);
 }
 
+std::shared_ptr<Test> get_joint_angle_constraint_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::JointAngleConstraint>(
+      0,
+      VecX::Zero(9),
+      VecX::Zero(9),
+      9,
+      9);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("JointAngleConstraintGradTest",
+                                          model,
+                                          0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test> get_joint_velocity_constraint_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::JointVelocityConstraint>(
+      0,
+      VecX::Zero(9),
+      VecX::Zero(9),
+      9);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("JointVelocityConstraintGradTest",
+                                          model,
+                                          0);
+
+    return constraints_test;
+}
+std::shared_ptr<Test> get_joint_control_constraint_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::JointControlConstraint>(
+      0,
+      VecX::Zero(9),
+      VecX::Zero(9),
+      9,
+      9);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("JointControlConstraintGradTest",
+                                          model,
+                                          0);
+
+    return constraints_test;
+}
+
 std::shared_ptr<Test> get_frame_position_bound_grad_test()
 {
     model::Model::Structure model_structure;
@@ -249,7 +328,40 @@ std::shared_ptr<Test> get_frame_position_bound_grad_test()
     return constraints_test;
 }
 
-std::shared_ptr<Test> get_frame_velocity_bound_grad_test()
+std::shared_ptr<Test> get_frame_rotation_bound_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::FrameRotationBound>(
+      0,
+      *model,
+      "trunk",
+      MatX::Identity(3, 3),
+      Vec3::Zero(),
+      Vec3::Zero(),
+      19,
+      18);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("FrameRotationBoundGradTest",
+                                          model,
+                                          0,
+                                          100,
+                                          1e-5);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.ignore_innate_constraints = true;
@@ -478,7 +590,8 @@ std::shared_ptr<Test> get_squared_ID_torque_cost_grad_test()
       std::make_shared<FDGradCost>("SquaredIDTorqueCostGradTest",
                                    model,
                                    0,
-                                   100);
+                                   100,
+                                   1e-5);
 
     return cost_test;
 }

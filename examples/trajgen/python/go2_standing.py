@@ -95,11 +95,6 @@ model.addCost(HORIZON, config_cost)
 #         model, "base", np.zeros(3), np.zeros(3), nq, nv, True
 #     ),
 # )
-# TODO: fix crash with this constraint
-# model.addConstraints(
-# HORIZON,
-# constraints.JointControlConstraint(np.zeros(nv - 6), np.zeros(nv - 6), nv, nv, True),
-# )
 
 # Finalize the model with our state and controls
 model.finalize(init_states=init)
