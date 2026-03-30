@@ -424,10 +424,10 @@ std::vector<std::string> getOrderedBodyFrames(
     return names;
 }
 
-std::vector<std::string> getOrderedJointTypes(
+std::vector<JointType> getOrderedJointTypes(
   const std::shared_ptr<ModelImpl> &impl)
 {
-    std::vector<std::string> types;
+    std::vector<JointType> types;
     types.reserve(impl->model.joints.size());
 
     for (pinocchio::JointIndex jid = 1; jid < impl->model.joints.size(); ++jid)
@@ -448,35 +448,35 @@ std::vector<std::string> getOrderedJointTypes(
 
         if (shortname.find("JointModelRUB") != std::string::npos)
         {
-            types.push_back("continuous");
+            types.push_back(JointType::Continuous);
             continue;
         }
 
         if (shortname.find("JointModelR") != std::string::npos)
         {
-            types.push_back("revolute");
+            types.push_back(JointType::Revolute);
             continue;
         }
 
         if (shortname == "JointModelSpherical")
         {
-            types.push_back("spherical");
+            types.push_back(JointType::Spherical);
             continue;
         }
 
         if (shortname == "JointModelSphericalZYX")
         {
-            types.push_back("spherical-euler");
+            types.push_back(JointType::SphericalEuler);
             continue;
         }
 
         if (shortname.find("JointModelP") != std::string::npos)
         {
-            types.push_back("prismatic");
+            types.push_back(JointType::Prismatic);
             continue;
         }
 
-        types.push_back("unknown");
+        types.push_back(JointType::Unknown);
     }
 
     return types;

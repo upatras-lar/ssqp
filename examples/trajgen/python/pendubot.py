@@ -14,9 +14,7 @@ V_WGT = 1e-2
 U_WGT = 1e-3
 C_WGT = 5.0
 
-INIT_STATE = np.array((1.0, 0.0, 1.0, 0.0, 0.0, 0.0))
 DESIRED_CONFIG = np.array((-1.0, 0.0, 1.0, 0.0))
-# INIT_STATE = np.array((0.0, 0.0, 0.0, 0.0))
 # DESIRED_CONFIG = np.array((np.pi, 0.0))
 
 model = ssqpy.model.Model(
@@ -44,10 +42,7 @@ for k in range(H):
     if k > 150:
         model.addCost(k, config_cost)
 
-model.finalize(
-    terminal_cost=config_cost,
-    init_states=[INIT_STATE],
-)
+model.finalize(terminal_cost=config_cost)
 
 solver = ssqpy.solvers.ssqp(
     model,
