@@ -7,10 +7,6 @@ Panda Obstacle example
 From the starting end-effector position, move to the target end-effector
 position while avoiding the obstacle defined by the constraints
 """
-
-nq = 9
-nv = 9
-nu = 9
 H = 400
 dt = 0.01
 
@@ -31,6 +27,10 @@ model = ssqpy.model.Model(
     urdf_path="../../assets/urdf/panda/panda.urdf",
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 init_state = np.zeros(2 * nq)
 init_state[:nq] = [

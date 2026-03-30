@@ -11,9 +11,6 @@ steps, as well as which (combinations of) feet to land on in between the jumps
 """
 
 # Model Parameters
-nq = 19
-nv = 18
-nu = 18
 HORIZON = 300
 dt = 0.01
 
@@ -76,6 +73,10 @@ model = ssqpy.model.Model(
     free_flyer=True,
     # dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 # Define regularization costs
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)

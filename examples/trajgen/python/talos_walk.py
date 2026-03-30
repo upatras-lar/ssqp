@@ -9,9 +9,6 @@ Performs a walk with the Talos humanoid robot
 """
 
 # Model Parameters
-nq = 51
-nv = 50
-nu = 50
 H = 160
 dt = 0.01
 
@@ -27,6 +24,19 @@ FINAL_STANDING_STEPS = 20
 
 # Number of steps for each swing
 FOOT_SWING_STEPS = 20
+
+# Create an SSQP model for Talos
+model = ssqpy.model.Model(
+    H,
+    dt,
+    urdf_path="../../assets/urdf/talos/talos.urdf",
+    free_flyer=True,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+)
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 # Initial position
 base_pos = np.array((0, 0, 1.0611))
@@ -105,15 +115,6 @@ init_control_right = np.zeros(nv + 12)
 for f in range(1, 5):
     init_control_left[nv + 3 * f - 1] = 232
     init_control_right[nv + 3 * f - 1] = 232
-
-# Create an SSQP model for Talos
-model = ssqpy.model.Model(
-    H,
-    dt,
-    urdf_path="../../assets/urdf/talos/talos.urdf",
-    free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
-)
 
 # forces_left = {}
 # forces_left["left_mm"] = [init_control_left[nv : nv + 3]]

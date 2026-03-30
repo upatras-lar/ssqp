@@ -12,9 +12,6 @@ The `GaitManager` class is used to handle gait creation
 """
 
 # Model Parameters
-nq = 19
-nv = 18
-nu = 18
 HORIZON = 300
 dt = 0.01
 
@@ -65,6 +62,10 @@ model = ssqpy.model.Model(
     free_flyer=True,
     dynamics_mode=ssqpy.model.DynamicsMode.Forward,
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 # Create regularization costs
 config_cost = costs.SquaredConfigurationErrorCost(

@@ -5,9 +5,6 @@ import numpy as np
 from math import pi
 from time import time, sleep
 
-nq = 2
-nv = 2
-nu = 2
 MPC_H = 45
 dt = 0.01
 
@@ -32,6 +29,10 @@ model = ssqpy.model.Model(
         else ssqpy.model.DynamicsMode.Forward
     ),
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)

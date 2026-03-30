@@ -17,9 +17,6 @@ def get_random_pd():
     )
 
 
-nq = 9
-nv = 9
-nu = 9
 MPC_H = 20
 dt = 0.01
 
@@ -53,6 +50,10 @@ model = ssqpy.model.Model(
         else ssqpy.model.DynamicsMode.Forward
     ),
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 init_state = np.zeros(2 * nq)
 init_state[:nq] = [

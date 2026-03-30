@@ -12,9 +12,6 @@ Go2 circular trunk motion example
 # Dimensions and parameters
 # ----------------------------
 
-nq = 19
-nv = 18
-nu = 18
 HORIZON = 400
 dt = 0.01
 
@@ -93,6 +90,10 @@ model = ssqpy.model.Model(
     free_flyer=True,
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 
 # ----------------------------

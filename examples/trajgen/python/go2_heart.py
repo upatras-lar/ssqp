@@ -10,9 +10,6 @@ Traces a heart with the Go2's front feet
 """
 
 # Model Parameters
-nq = 19
-nv = 18
-nu = 12
 HORIZON = 200
 dt = 0.01
 
@@ -50,6 +47,18 @@ for t in np.arange(0, pi, pi / trace_steps):
     traj_l.append((x(t), y(t)))
     traj_r.append((x(2 * pi - t), y(2 * pi - t)))
 
+# Create an SSQP model for the Go2
+model = ssqpy.model.Model(
+    HORIZON,
+    dt,
+    urdf_path="../../assets/urdf/go2/go2.urdf",
+    free_flyer=True,
+    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
+)
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 # Initial and final positions
 base_pos = np.array([0.0, 0.0, 0.3689])
@@ -71,15 +80,6 @@ init_control[-1] = 3.75 * 9.81
 init_control_2 = np.zeros(nu + 6)
 init_control_2[-4] = 7.5 * 9.81
 init_control_2[-1] = 7.5 * 9.81
-
-# Create an SSQP model for the Go2
-model = ssqpy.model.Model(
-    HORIZON,
-    dt,
-    urdf_path="../../assets/urdf/go2/go2.urdf",
-    free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
-)
 
 # forces = {}
 # forces["FR_foot"] = [init_control[nv : nv + 3]]
