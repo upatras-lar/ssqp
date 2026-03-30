@@ -73,10 +73,22 @@ int main()
     }
 
     tests.addTest(
+      ssqp::tests::generators::get_joint_angle_constraint_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_joint_velocity_constraint_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_joint_control_constraint_grad_test());
+
+    tests.addTest(
       ssqp::tests::generators::get_frame_position_bound_grad_test());
 
     tests.addTest(
-      ssqp::tests::generators::get_frame_velocity_bound_grad_test());
+      ssqp::tests::generators::get_frame_rotation_bound_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_frame_linear_velocity_bound_grad_test());
 
     tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test());
 

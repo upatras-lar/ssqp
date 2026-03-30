@@ -37,8 +37,12 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
   const bool unactuated_joints, const uint seed = 42);
 
 // Predefined Constraint gradients
+std::shared_ptr<Test> get_joint_angle_constraint_grad_test();
+std::shared_ptr<Test> get_joint_velocity_constraint_grad_test();
+std::shared_ptr<Test> get_joint_control_constraint_grad_test();
 std::shared_ptr<Test> get_frame_position_bound_grad_test();
-std::shared_ptr<Test> get_frame_velocity_bound_grad_test();
+std::shared_ptr<Test> get_frame_rotation_bound_grad_test();
+std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test();
 std::shared_ptr<Test> get_contact_constraint_grad_test();
 
 // Cost gradients
