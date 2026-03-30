@@ -629,7 +629,8 @@ bool ssqp::write(const std::string &filename)
         j["properties"]["njoints"]       = njoints;
         j["properties"]["total_joints"]  = _model.total_joints();
         j["properties"]["floating_base"] = floating_base;
-        j["properties"]["state_joints"]  = _model.orderedActuatedJoints();
+        j["properties"]["state_joints"]  = _model.orderedJoints();
+        j["properties"]["joint_types"]   = _model.jointTypes();
     }
 
     j["properties"]["stages"] = ordered_json::array();

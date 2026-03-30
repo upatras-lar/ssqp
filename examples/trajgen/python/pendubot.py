@@ -16,6 +16,8 @@ C_WGT = 5.0
 
 INIT_STATE = np.array((1.0, 0.0, 1.0, 0.0, 0.0, 0.0))
 DESIRED_CONFIG = np.array((-1.0, 0.0, 1.0, 0.0))
+# INIT_STATE = np.array((0.0, 0.0, 0.0, 0.0))
+# DESIRED_CONFIG = np.array((np.pi, 0.0))
 
 model = ssqpy.model.Model(
     H,

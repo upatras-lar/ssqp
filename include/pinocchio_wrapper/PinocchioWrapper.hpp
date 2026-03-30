@@ -35,6 +35,9 @@ void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
 std::vector<std::string> getOrderedBodyFrames(
   const std::shared_ptr<ModelImpl> &impl);
 
+std::vector<std::string> getOrderedJointTypes(
+  const std::shared_ptr<ModelImpl> &impl);
+
 std::vector<std::string> getOrderedActuatedJoints(
   const std::shared_ptr<ModelImpl> &impl,
   const std::vector<uint>          &actuated_joints = {});

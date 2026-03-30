@@ -424,6 +424,64 @@ std::vector<std::string> getOrderedBodyFrames(
     return names;
 }
 
+std::vector<std::string> getOrderedJointTypes(
+  const std::shared_ptr<ModelImpl> &impl)
+{
+    std::vector<std::string> types;
+    types.reserve(impl->model.joints.size());
+
+    for (pinocchio::JointIndex jid = 1; jid < impl->model.joints.size(); ++jid)
+    {
+        const auto &j = impl->model.joints[jid];
+
+        if (j.nv() == 0) continue;
+
+        std::string shortname = j.shortname();
+
+        // Skip floating-base joints
+        if (shortname == "JointModelFreeFlyer" ||
+            shortname == "JointModelPlanar" ||
+            shortname == "JointModelTranslation")
+        {
+            continue;
+        }
+
+        if (shortname.find("JointModelRUB") != std::string::npos)
+        {
+            types.push_back("continuous");
+            continue;
+        }
+
+        if (shortname.find("JointModelR") != std::string::npos)
+        {
+            types.push_back("revolute");
+            continue;
+        }
+
+        if (shortname == "JointModelSpherical")
+        {
+            types.push_back("spherical");
+            continue;
+        }
+
+        if (shortname == "JointModelSphericalZYX")
+        {
+            types.push_back("spherical-euler");
+            continue;
+        }
+
+        if (shortname.find("JointModelP") != std::string::npos)
+        {
+            types.push_back("prismatic");
+            continue;
+        }
+
+        types.push_back("unknown");
+    }
+
+    return types;
+}
+
 std::vector<std::string> getOrderedActuatedJoints(
   const std::shared_ptr<ModelImpl> &impl,
   const std::vector<uint>          &actuated_joints)
@@ -439,10 +497,12 @@ std::vector<std::string> getOrderedActuatedJoints(
 
         if (j.nv() == 0) continue;
 
+        std::string shortname = j.shortname();
+
         // Skip floating-base joints
-        if (j.shortname() == "JointModelFreeFlyer" ||
-            j.shortname() == "JointModelPlanar" ||
-            j.shortname() == "JointModelTranslation")
+        if (shortname == "JointModelFreeFlyer" ||
+            shortname == "JointModelPlanar" ||
+            shortname == "JointModelTranslation")
         {
             continue;
         }
