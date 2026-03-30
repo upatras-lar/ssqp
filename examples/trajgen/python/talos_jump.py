@@ -9,9 +9,6 @@ Performs an in-place jump with the Talos robot
 """
 
 # Model Parameters
-nq = 51
-nv = 50
-nu = 50
 H = 70
 dt = 0.01
 
@@ -26,6 +23,19 @@ U_WGT = 1e-3
 F_WGT = 1e-4
 T_WGT = 4.4
 R_WGT = 3.0
+
+# Create an SSQP model for Talos
+model = ssqpy.model.Model(
+    H,
+    dt,
+    urdf_path="../../assets/urdf/talos/talos.urdf",
+    free_flyer=True,
+    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+)
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 # Initial position
 base_pos = np.array((0, 0, 0.96))
@@ -93,15 +103,6 @@ init[7:51] = [
 init_control = np.zeros(nv + 24)
 for f in range(1, 9):
     init_control[nv + 3 * f - 1] = 116
-
-# Create an SSQP model for Talos
-model = ssqpy.model.Model(
-    H,
-    dt,
-    urdf_path="../../assets/urdf/talos/talos.urdf",
-    free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
-)
 
 # To make convergence easier, we would like to provide more initialization for
 # the controls than just initial force values

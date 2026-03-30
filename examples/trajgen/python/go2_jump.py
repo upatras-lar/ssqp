@@ -10,9 +10,6 @@ Performs a simple jump with the Go2 robot
 """
 
 # Model Parameters
-nq = 19
-nv = 18
-nu = 12
 HORIZON = 150
 dt = 0.01
 
@@ -27,6 +24,19 @@ F_WGT = 1e-4
 TF_WGT = 1.0
 RF_WGT = 1.0
 C_WGT = 1e-3
+
+# Create an SSQP model for the Go2
+model = ssqpy.model.Model(
+    HORIZON,
+    dt,
+    urdf_path="../../assets/urdf/go2/go2.urdf",
+    free_flyer=True,
+    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
+)
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 # Initial and final positions
 base_pos = np.array([0.0, 0.0, 0.3689])
@@ -44,15 +54,6 @@ init_control[-10] = 3.75 * 9.81
 init_control[-7] = 3.75 * 9.81
 init_control[-4] = 3.75 * 9.81
 init_control[-1] = 3.75 * 9.81
-
-# Create an SSQP model for the Go2
-model = ssqpy.model.Model(
-    HORIZON,
-    dt,
-    urdf_path="../../assets/urdf/go2/go2.urdf",
-    free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
-)
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)

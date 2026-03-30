@@ -18,9 +18,6 @@ CONSTRAIN = True
 if PLOT:
     import matplotlib.pyplot as plt
 
-nq = 9
-nv = 9
-nu = 9
 H = 400
 dt = 0.01
 
@@ -64,6 +61,10 @@ model = ssqpy.model.Model(
     urdf_path="../../assets/urdf/panda/panda.urdf",
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 # Use the following initial state
 # This will act as:

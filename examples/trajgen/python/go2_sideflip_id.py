@@ -4,9 +4,6 @@ import ssqpy.model.constraints as constraints
 import numpy as np
 from math import pi, sin, cos
 
-nq = 19
-nv = 18
-nu = 12
 HORIZON = 180
 dt = 0.01
 
@@ -20,6 +17,18 @@ C_WGT = 4.0
 
 STEPS_BEFORE = 60
 STEPS_AFTER = 60
+
+model = ssqpy.model.Model(
+    HORIZON,
+    dt,
+    urdf_path="../../assets/urdf/go2/go2.urdf",
+    free_flyer=True,
+    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
+)
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 base_pos = np.array([0, 0, 0.3689])
 base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
@@ -35,14 +44,6 @@ init_control[-10] = 3.75 * 9.81
 init_control[-7] = 3.75 * 9.81
 init_control[-4] = 3.75 * 9.81
 init_control[-1] = 3.75 * 9.81
-
-model = ssqpy.model.Model(
-    HORIZON,
-    dt,
-    urdf_path="../../assets/urdf/go2/go2.urdf",
-    free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
-)
 
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
 joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)

@@ -9,9 +9,6 @@ Balances the Talos humanoid robot on 1 foot
 """
 
 # Model Parameters
-nq = 51
-nv = 50
-nu = 50
 H = 40
 dt = 0.01
 
@@ -24,6 +21,22 @@ T_BASE_WGT = 3.0
 R_BASE_WGT = 1.0
 T_KNEE_RAISE_WGT = 3.0
 T_ARM_RAISE_WGT = 1.4
+
+# For Talos, we must apply 4 forces per foot
+# As such, we create a rectangle (in the URDF) around the foot and apply forces
+# to each of the rectangle's corners
+
+# Create an SSQP model for Talos
+model = ssqpy.model.Model(
+    H,
+    dt,
+    urdf_path="../../assets/urdf/talos/talos.urdf",
+    free_flyer=True,
+)
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 # Initial position for the torso
 base_pos = np.array((0, 0, 1.072))
@@ -38,17 +51,6 @@ init_control = np.zeros(nv + 12)
 for f in range(1, 5):
     init_control[nv + 3 * f - 1] = 2 * 116
 
-# For Talos, we must apply 4 forces per foot
-# As such, we create a rectangle (in the URDF) around the foot and apply forces
-# to each of the rectangle's corners
-
-# Create an SSQP model for Talos
-model = ssqpy.model.Model(
-    H,
-    dt,
-    urdf_path="../../assets/urdf/talos/talos.urdf",
-    free_flyer=True,
-)
 
 # Create regularization costs
 joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)

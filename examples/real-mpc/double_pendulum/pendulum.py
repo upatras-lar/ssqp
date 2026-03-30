@@ -15,9 +15,6 @@ if os.path.exists(SOCK_PATH):
     os.unlink(SOCK_PATH)
 
 # Build MPC
-nq = 2
-nv = 2
-nu = 2
 dt = 0.01
 MPC_H = 50
 
@@ -35,6 +32,10 @@ model = ssqpy.model.Model(
         else ssqpy.model.DynamicsMode.Forward
     ),
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)

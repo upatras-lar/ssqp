@@ -10,10 +10,6 @@ PLOT = True
 if PLOT:
     import matplotlib.pyplot as plt
 
-nq = 9
-nv = 9
-nu = 9
-
 H = 400
 dt = 0.01
 mpc_H = 10
@@ -63,6 +59,10 @@ model = ssqpy.model.Model(
         else ssqpy.model.DynamicsMode.Forward
     ),
 )
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
 
 init_state = np.zeros(2 * nq)
 init_state[:nq] = [

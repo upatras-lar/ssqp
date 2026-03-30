@@ -88,9 +88,6 @@ try:
         # Start receiver thread
         threading.Thread(target=recv_thread, args=(conn,), daemon=True).start()
 
-        nq = 9
-        nv = 9
-        nu = 9
         MPC_H = 10
         dt = 0.1
 
@@ -128,6 +125,10 @@ try:
             urdf_path="../../assets/urdf/panda/panda.urdf",
             dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
         )
+
+        nq = model.getnq()
+        nv = model.getnv()
+        nu = model.getnu()
 
         #####
         # (1): Get initial state from real
