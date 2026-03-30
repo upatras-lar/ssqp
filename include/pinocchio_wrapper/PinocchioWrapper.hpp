@@ -35,7 +35,17 @@ void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
 std::vector<std::string> getOrderedBodyFrames(
   const std::shared_ptr<ModelImpl> &impl);
 
-std::vector<std::string> getOrderedJointTypes(
+enum JointType
+{
+    Revolute,
+    Continuous,
+    Prismatic,
+    Spherical,
+    SphericalEuler,
+    Unknown
+};
+
+std::vector<JointType> getOrderedJointTypes(
   const std::shared_ptr<ModelImpl> &impl);
 
 std::vector<std::string> getOrderedActuatedJoints(

@@ -426,6 +426,44 @@ void Model::_buildURDFDynamics(const Config &config)
         }
     }
 
+    VecX init_state;
+
+    if (config.init_states.empty())
+    {
+        const std::vector<pinocchio_wrapper::JointType> joint_types =
+          pinocchio_wrapper::getOrderedJointTypes(_impl);
+
+        init_state = VecX::Zero(_dims.nq + _dims.nv);
+
+        uint offset = 0;
+        for (uint i = 0; i < joint_types.size(); ++i)
+        {
+            switch (joint_types[i])
+            {
+            case pinocchio_wrapper::JointType::Revolute:
+            case pinocchio_wrapper::JointType::Prismatic:
+            default:
+                ++offset;
+                break;
+            case pinocchio_wrapper::JointType::Continuous:
+                init_state[offset]  = 1.0;
+                offset             += 2;
+                break;
+            case pinocchio_wrapper::JointType::Spherical:
+                init_state[offset]  = 1.0;
+                offset             += 4;
+                break;
+            case pinocchio_wrapper::JointType::SphericalEuler:
+                offset += 3;
+                break;
+            }
+        }
+    }
+    else if (config.init_states.size() == 1)
+    {
+        init_state = config.init_states[0];
+    }
+
     _StageDynamicsContext ctx { S };
     ctx.nq                = _dims.nq;
     ctx.nv                = _dims.nv;
@@ -440,10 +478,8 @@ void Model::_buildURDFDynamics(const Config &config)
         ctx.force_data = _forces[k];
 
         ctx.init_state =
-          config.init_states.size() == 0
-            ? VecX::Zero(_dims.nq + _dims.nv)
-            : (config.init_states.size() == 1 ? config.init_states[0]
-                                              : config.init_states[k]);
+          init_state.size() != 0 ? init_state : config.init_states[k];
+
         ctx.init_control =
           (config.init_controls.size() == 0 || k == _dims.horizon)
             ? VecX::Zero(ctx.nu + 3 * ctx.nf)
@@ -848,7 +884,37 @@ std::vector<std::string> Model::jointTypes() const
         return {};
     }
 
-    return pinocchio_wrapper::getOrderedJointTypes(_impl);
+    std::vector<pinocchio_wrapper::JointType> types =
+      pinocchio_wrapper::getOrderedJointTypes(_impl);
+    std::vector<std::string> types_str(types.size());
+
+    for (uint i = 0; i < types.size(); ++i)
+    {
+        switch (types[i])
+        {
+        case pinocchio_wrapper::JointType::Revolute:
+            types_str[i] = "revolute";
+            break;
+        case pinocchio_wrapper::JointType::Continuous:
+            types_str[i] = "continuous";
+            break;
+        case pinocchio_wrapper::JointType::Prismatic:
+            types_str[i] = "prismatic";
+            break;
+        case pinocchio_wrapper::JointType::Spherical:
+            types_str[i] = "spherical";
+            break;
+        case pinocchio_wrapper::JointType::SphericalEuler:
+            types_str[i] = "spherical-euler";
+            break;
+        default:
+        case pinocchio_wrapper::JointType::Unknown:
+            types_str[i] = "unknown";
+            break;
+        }
+    }
+
+    return types_str;
 }
 
 std::vector<std::string> Model::orderedJoints() const
