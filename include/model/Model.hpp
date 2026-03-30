@@ -1,6 +1,10 @@
 #ifndef SSQP_MODEL_MODEL_HPP
 #define SSQP_MODEL_MODEL_HPP
 
+#include <variant>
+#include <type_traits>
+#include <stdexcept>
+
 #include "types.hpp"
 #include "pinocchio_wrapper/PinocchioWrapper.hpp"
 #include "model/Container.hpp"
@@ -18,6 +22,10 @@ namespace model
 using CostsContainer       = Container<stagewise::StageCost>;
 using DynamicsContainer    = Container<stagewise::StageDynamics>;
 using ConstraintsContainer = Container<stagewise::StageConstraints>;
+
+auto to_compile_time(bool b);
+auto to_compile_time(DynamicsMode dm);
+auto to_compile_time(IntegrationScheme is);
 
 // TODO: optimize calls to pinocchio algorithms (avoid recomputations)
 /* Defines an SSQP model
