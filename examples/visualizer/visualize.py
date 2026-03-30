@@ -238,36 +238,83 @@ def _(client):
     client.camera.look_at = (0, 0, 0)
 
 
+JOINT_TYPE_NVALS = {
+    "revolute": 1,
+    "continuous": 2,
+    "prismatic": 1,
+    "spherical": 4,
+    "spherical-euler": 3,
+}
+
 data_joints = data["properties"]["state_joints"]
+
+vis_to_data_indices = []
+joints = urdf.get_actuated_joint_names()
+for joint in joints:
+    if joint not in data_joints:
+        print(f"Joint {joint} expected, but not found in data")
+        exit(11)
+
+    vis_to_data_indices.append(data_joints.index(joint))
+
+joint_types = data["properties"]["joint_types"]
+
+if len(joint_types) != len(data_joints):
+    print(
+        f"Length of joint types array ({len(joint_types)}) does not match that of state joints ({len(data_joints)})"
+    )
+    exit(13)
+
+joint_to_state_indices = {}
+
+state_offset = 0
+for joint, joint_type in zip(data_joints, joint_types):
+    joint_to_state_indices[joint] = state_offset
+    state_offset += JOINT_TYPE_NVALS[joint_type]
+
+expected_config_size = state_offset
+
+
+def process_state(state):
+    if len(state) <= expected_config_size:
+        print(
+            f"Stage {k} state data size ({len(state)}) smaller than expected configuration size ({expected_config_size})"
+        )
+        exit(10)
+
+    angles = []
+
+    for index in vis_to_data_indices:
+        joint = data_joints[index]
+        joint_type = joint_types[index]
+
+        state_index = joint_to_state_indices[joint]
+
+        if joint_type == "revolute" or joint_type == "prismatic":
+            angles.append(state[state_index])
+        elif joint_type == "continuous":
+            angles.append(
+                np.arctan2(state[state_index + 1], state[state_index])
+            )
+        # TODO: figure out spherical (cannot via URDF)
+        elif joint_type == "spherical":
+            angles.append(0.0)
+        elif joint_type == "spherical-euler":
+            angles.append(0.0)
+
+    return np.array(angles)
+
 
 # Main loop
 while True:
     # Animate each stage
     for k in range(data["properties"]["horizon"]):
-        state = np.array(data["stage_data"][k]["state"])
+        configuration = process_state(data["stage_data"][k]["state"])
 
-        joints = urdf.get_actuated_joint_names()
-        if len(state) < len(joints):
-            print(
-                f"State data size ({len(state)}) smaller than required ({len(joints)}) (stage {k})"
-            )
-            exit(10)
-
-        indices = []
-        for joint in joints:
-            if joint not in data_joints:
-                print(
-                    f"Joint {joint} expected, but not found in stage {k} data"
-                )
-                exit(11)
-
-            indices.append(data_joints.index(joint))
-
-        joint_positions = [state[i] for i in indices]
-        urdf.update_cfg(joint_positions)
+        urdf.update_cfg(configuration)
 
         if shaded_urdf and not updated_cfg:
-            shaded_urdf.update_cfg(joint_positions)
+            shaded_urdf.update_cfg(configuration)
             updated_cfg = True
 
         # Move floating base if free flyer

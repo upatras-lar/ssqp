@@ -841,6 +841,26 @@ std::vector<std::string> Model::orderedBodyFrames() const
     return pinocchio_wrapper::getOrderedBodyFrames(_impl);
 }
 
+std::vector<std::string> Model::jointTypes() const
+{
+    if (_impl == nullptr)
+    {
+        return {};
+    }
+
+    return pinocchio_wrapper::getOrderedJointTypes(_impl);
+}
+
+std::vector<std::string> Model::orderedJoints() const
+{
+    if (_impl == nullptr)
+    {
+        return {};
+    }
+
+    return pinocchio_wrapper::getOrderedActuatedJoints(_impl);
+}
+
 std::vector<std::string> Model::orderedActuatedJoints() const
 {
     if (_impl == nullptr)

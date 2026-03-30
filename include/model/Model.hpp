@@ -244,16 +244,28 @@ class Model
     // Returns the number of external forces added for a given stage
     uint nforces(const uint k) const;
 
+    // Vector containing frame names, ordered 1-1 with forces for stage k
     std::vector<std::string> orderedForceFrames(const uint k) const;
 
+    // Whether the model has a frame with the given name
     bool hasFrame(const std::string &frame) const;
 
+    // Output all frames and joints of the model
     void printFramesAndJoints() const;
 
+    // Ordered frames that are part of type BODY or OP_FRAME
     std::vector<std::string> orderedBodyFrames() const;
 
+    // Types for each joint that is part of the state (including unactuated)
+    std::vector<std::string> jointTypes() const;
+
+    // Ordered joints that are part of the state (including unactuated)
+    std::vector<std::string> orderedJoints() const;
+
+    // Ordered joints that are part of the state (excluding unactuated)
     std::vector<std::string> orderedActuatedJoints() const;
 
+    // Set the actuated joint indices vector
     void setActuatedJoints(const std::vector<uint> &actuated_joints);
 
     // Below functions are undefined if no URDF was used for initialization
@@ -277,6 +289,7 @@ class Model
 
     // Algorithms defined if URDF was used to initialize model
 
+    // Return the neutral pose for the model
     const VecX neutralPose() const;
 
     // Perform forward kinematics with the URDF model dynamics
