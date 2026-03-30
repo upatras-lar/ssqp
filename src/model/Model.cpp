@@ -4,6 +4,54 @@ namespace ssqp
 {
 namespace model
 {
+auto to_compile_time(bool b)
+{
+    using T = std::integral_constant<bool, true>;
+    using F = std::integral_constant<bool, false>;
+    using V = std::variant<T, F>;
+    return b ? V { T {} } : V { F {} };
+}
+
+auto to_compile_time(DynamicsMode dm)
+{
+    using DMF = std::integral_constant<DynamicsMode, DynamicsMode::Forward>;
+    using DMI = std::integral_constant<DynamicsMode, DynamicsMode::Inverse>;
+    using DMRI =
+      std::integral_constant<DynamicsMode, DynamicsMode::ReducedInverse>;
+    using V = std::variant<DMF, DMI, DMRI>;
+
+    switch (dm)
+    {
+    case DynamicsMode::Forward:
+        return V { DMF {} };
+    case DynamicsMode::Inverse:
+        return V { DMI {} };
+    case DynamicsMode::ReducedInverse:
+        return V { DMRI {} };
+    default:
+        throw std::invalid_argument("Unknown dynamics mode");
+    }
+}
+
+auto to_compile_time(IntegrationScheme is)
+{
+    using ISEE  = std::integral_constant<IntegrationScheme,
+                                         IntegrationScheme::ExplicitEuler>;
+    using ISSIE = std::integral_constant<IntegrationScheme,
+                                         IntegrationScheme::SemiImplicitEuler>;
+    using V     = std::variant<ISEE, ISSIE>;
+
+    switch (is)
+    {
+    case IntegrationScheme::ExplicitEuler:
+        return V { ISEE {} };
+    case IntegrationScheme::SemiImplicitEuler:
+        return V { ISSIE {} };
+    default:
+        throw std::invalid_argument("Unknown integration scheme");
+    }
+}
+
 Model::Model(uint horizon, double dt, const Model::Structure &structure)
   : _dt(dt)
   , _terrain(structure.terrain == nullptr
@@ -242,41 +290,25 @@ void Model::_addURDFInnateConstraints()
     ctx.nu      = _dims.nu;
     ctx.njoints = _dims.njoints;
 
+    auto ct_floating_base = to_compile_time(_free_flyer);
+    auto ct_true          = to_compile_time(true);
+    auto ct_false         = to_compile_time(false);
+    auto ct_dm            = to_compile_time(_dynamics_mode);
+
     for (uint k = 0; k < _dims.horizon; ++k)
     {
         ctx.nf = _forces[k].size();
-
-        std::shared_ptr<stagewise::StageConstraints> innate_constraints;
-        if (_dynamics_mode == DynamicsMode::Forward)
-        {
-            if (_free_flyer)
+        std::shared_ptr<stagewise::StageConstraints> innate_constraints =
+          std::visit(
+            [this, ctx](auto fb, auto it, auto dm)
             {
-                innate_constraints =
-                  _makeStageInnateConstraints<true, false>(ctx);
-            }
-            else
-            {
-                innate_constraints =
-                  _makeStageInnateConstraints<false, false>(ctx);
-            }
-        }
-        else // Inverse, ReducedInverse
-        {
-            if (_free_flyer)
-            {
-                innate_constraints =
-                  _makeStageInnateConstraints<true,
-                                              false,
-                                              DynamicsMode::Inverse>(ctx);
-            }
-            else
-            {
-                innate_constraints =
-                  _makeStageInnateConstraints<false,
-                                              false,
-                                              DynamicsMode::Inverse>(ctx);
-            }
-        }
+                return _makeStageInnateConstraints<fb.value,
+                                                   it.value,
+                                                   dm.value>(ctx);
+            },
+            ct_floating_base,
+            ct_false,
+            ct_dm);
 
         _constraints[k] =
           _constraints[k] == nullptr
@@ -285,18 +317,16 @@ void Model::_addURDFInnateConstraints()
                                                     innate_constraints);
     }
 
-    std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints;
-
-    if (_free_flyer)
-    {
-        terminal_innate_constraints =
-          _makeStageInnateConstraints<true, true>(ctx);
-    }
-    else
-    {
-        terminal_innate_constraints =
-          _makeStageInnateConstraints<false, true>(ctx);
-    }
+    std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints =
+      std::visit(
+        [this, ctx](auto fb, auto it, auto dm)
+        {
+            return _makeStageInnateConstraints<fb.value, it.value, dm.value>(
+              ctx);
+        },
+        ct_floating_base,
+        ct_true,
+        ct_dm);
 
     _constraints[_dims.horizon] =
       _constraints[_dims.horizon] == nullptr
@@ -315,72 +345,26 @@ void Model::_addIDTorqueConstraints()
     ctx.actuated_joints   = _actuated_joints;
     ctx.unactuated_joints = _unactuated_joints;
 
+    auto ct_floating_base = to_compile_time(_free_flyer);
+    auto ct_true          = to_compile_time(true);
+    auto ct_false         = to_compile_time(false);
+
     for (uint k = 0; k < _dims.horizon; ++k)
     {
-        std::shared_ptr<stagewise::StageConstraints> innate_constraints;
-
         ctx.nf         = _forces[k].size();
         ctx.force_data = _forces[k];
 
-        // TODO: replace ifs
-        if (_free_flyer)
-        {
-            if (_dynamics_mode == DynamicsMode::ReducedInverse)
+        std::shared_ptr<stagewise::StageConstraints> innate_constraints =
+          std::visit(
+            [this, ctx](auto fb, auto ri, auto wf)
             {
-                if (ctx.nf == 0)
-                {
-                    innate_constraints =
-                      _makeStageIDTorqueConstraints<true, true, false>(ctx);
-                }
-                else
-                {
-                    innate_constraints =
-                      _makeStageIDTorqueConstraints<true, true, true>(ctx);
-                }
-            }
-            else
-            {
-                if (ctx.nf == 0)
-                {
-                    innate_constraints =
-                      _makeStageIDTorqueConstraints<true, false, false>(ctx);
-                }
-                else
-                {
-                    innate_constraints =
-                      _makeStageIDTorqueConstraints<true, false, true>(ctx);
-                }
-            }
-        }
-        else
-        {
-            if (_dynamics_mode == DynamicsMode::ReducedInverse)
-            {
-                if (ctx.nf == 0)
-                {
-                    innate_constraints =
-                      _makeStageIDTorqueConstraints<false, true, false>(ctx);
-                }
-                else
-                {
-                    innate_constraints =
-                      _makeStageIDTorqueConstraints<false, true, true>(ctx);
-                }
-            }
-            else
-            {
-                if (ctx.nf == 0)
-                {
-                    innate_constraints =
-                      _makeStageIDTorqueConstraints<false, false, false>(ctx);
-                }
-                else
-                {
-                    innate_constraints =
-                      _makeStageIDTorqueConstraints<false, false, true>(ctx);
-                }
-            }
-        }
+                return _makeStageIDTorqueConstraints<fb.value,
+                                                     ri.value,
+                                                     wf.value>(ctx);
+            },
+            ct_floating_base,
+            _dynamics_mode == DynamicsMode::ReducedInverse ? ct_true : ct_false,
+            ctx.nf == 0 ? ct_false : ct_true);
 
         _constraints[k] =
           _constraints[k] == nullptr
@@ -471,10 +455,15 @@ void Model::_buildURDFDynamics(const Config &config)
     ctx.actuated_joints   = _actuated_joints;
     ctx.unactuated_joints = _unactuated_joints;
 
+    auto ct_floating_base = to_compile_time(_free_flyer);
+    auto ct_true          = to_compile_time(true);
+    auto ct_false         = to_compile_time(false);
+    auto ct_dm            = to_compile_time(_dynamics_mode);
+    auto ct_is            = to_compile_time(_integration);
+
     for (uint k = 0; k < _dynamics.size(); ++k)
     {
-        ctx.nf = _forces[k].size();
-
+        ctx.nf         = _forces[k].size();
         ctx.force_data = _forces[k];
 
         ctx.init_state =
@@ -486,265 +475,16 @@ void Model::_buildURDFDynamics(const Config &config)
             : (config.init_controls.size() == 1 ? config.init_controls[0]
                                                 : config.init_controls[k]);
 
-        // TODO: Replace ifs
-        if (_free_flyer)
-        {
-            if (ctx.nf == 0)
-            {
-                if (_dynamics_mode == DynamicsMode::Forward)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<true,
-                                             false,
-                                             DynamicsMode::Forward,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          true,
-                          false,
-                          DynamicsMode::Forward,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-                else if (_dynamics_mode == DynamicsMode::Inverse)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<true,
-                                             false,
-                                             DynamicsMode::Inverse,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          true,
-                          false,
-                          DynamicsMode::Inverse,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-                else if (_dynamics_mode == ReducedInverse)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<true,
-                                             false,
-                                             DynamicsMode::ReducedInverse,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          true,
-                          false,
-                          DynamicsMode::ReducedInverse,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-            }
-            else
-            {
-                if (_dynamics_mode == DynamicsMode::Forward)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<true,
-                                             true,
-                                             DynamicsMode::Forward,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          true,
-                          true,
-                          DynamicsMode::Forward,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-                else if (_dynamics_mode == DynamicsMode::Inverse)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<true,
-                                             true,
-                                             DynamicsMode::Inverse,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          true,
-                          true,
-                          DynamicsMode::Inverse,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-                else if (_dynamics_mode == ReducedInverse)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<true,
-                                             true,
-                                             DynamicsMode::ReducedInverse,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          true,
-                          true,
-                          DynamicsMode::ReducedInverse,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-            }
-        }
-        else
-        {
-            if (ctx.nf == 0)
-            {
-                if (_dynamics_mode == DynamicsMode::Forward)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<false,
-                                             false,
-                                             DynamicsMode::Forward,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          false,
-                          false,
-                          DynamicsMode::Forward,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-                else if (_dynamics_mode == DynamicsMode::Inverse)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<false,
-                                             false,
-                                             DynamicsMode::Inverse,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          false,
-                          false,
-                          DynamicsMode::Inverse,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-                else if (_dynamics_mode == ReducedInverse)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<false,
-                                             false,
-                                             DynamicsMode::ReducedInverse,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          false,
-                          false,
-                          DynamicsMode::ReducedInverse,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-            }
-            else
-            {
-                if (_dynamics_mode == DynamicsMode::Forward)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<false,
-                                             true,
-                                             DynamicsMode::Forward,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          false,
-                          true,
-                          DynamicsMode::Forward,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-                else if (_dynamics_mode == DynamicsMode::Inverse)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<false,
-                                             true,
-                                             DynamicsMode::Inverse,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          false,
-                          true,
-                          DynamicsMode::Inverse,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-                else if (_dynamics_mode == ReducedInverse)
-                {
-                    if (_integration == ExplicitEuler)
-                    {
-                        _dynamics[k] =
-                          _makeStageDynamics<false,
-                                             true,
-                                             DynamicsMode::ReducedInverse,
-                                             IntegrationScheme::ExplicitEuler>(
-                            ctx);
-                    }
-                    else if (_integration == SemiImplicitEuler)
-                    {
-                        _dynamics[k] = _makeStageDynamics<
-                          false,
-                          true,
-                          DynamicsMode::ReducedInverse,
-                          IntegrationScheme::SemiImplicitEuler>(ctx);
-                    }
-                }
-            }
-        }
+        _dynamics[k] = std::visit(
+          [this, ctx](auto fb, auto wf, auto dm, auto is)
+          {
+              return _makeStageDynamics<fb.value, wf.value, dm.value, is.value>(
+                ctx);
+          },
+          ct_floating_base,
+          ctx.nf == 0 ? ct_false : ct_true,
+          ct_dm,
+          ct_is);
     }
 }
 

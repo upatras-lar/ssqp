@@ -276,7 +276,7 @@ expected_config_size = state_offset
 
 
 def process_state(state):
-    if len(state) <= expected_config_size:
+    if len(state) < expected_config_size:
         print(
             f"Stage {k} state data size ({len(state)}) smaller than expected configuration size ({expected_config_size})"
         )
