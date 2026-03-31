@@ -11,7 +11,7 @@ from simulators.simulator import SSQPYSimulator
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Benchmarking MPC script for Pendubot problem"
+        description="Benchmarking MPC script for the Panda circle problem"
     )
 
     parser.add_argument(
@@ -99,7 +99,7 @@ def run(dynamics_mode, constrain):
     )
 
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-        init_state[:nq], nq, nv, C_WGT, False
+        model, init_state[:nq], nq, nv, C_WGT, False
     )
     v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
     u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)

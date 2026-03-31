@@ -10,13 +10,13 @@ from simulators.simulator import SSQPYSimulator
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Benchmarking MPC script for Pendubot problem"
+        description="Benchmarking MPC script for the Pendubot problem"
     )
 
     parser.add_argument(
         "-m",
         "--dynamics-mode",
-        choices=["reducedinverse", "inverse", "forward", "all"],
+        choices=["reduced-inverse", "inverse", "forward", "all"],
         default="forward",
         help="The dynamics mode to use",
     )
@@ -82,7 +82,7 @@ C_WGT_INV = 1.0
 C_WGT_FWD = 0.1
 
 mode_map = {
-    "reducedinverse": ssqpy.model.DynamicsMode.ReducedInverse,
+    "reduced-inverse": ssqpy.model.DynamicsMode.ReducedInverse,
     "inverse": ssqpy.model.DynamicsMode.Inverse,
     "forward": ssqpy.model.DynamicsMode.Forward,
 }
@@ -121,6 +121,7 @@ def run(dynamics_mode):
         model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
     )
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
+        model,
         np.array((pi, 0.0)),
         nq,
         nv,
@@ -151,17 +152,15 @@ def run(dynamics_mode):
         ssqp_params.admmParams.abs_tolerance = 1e-3
         ssqp_params.admmParams.rel_tolerance = 1e-3
         ssqp_params.admmParams.warm_start = False
-
-        mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
     else:
         ssqp_params.tolerance = 1e-2
         ssqp_params.admmParams.abs_tolerance = 1e-3
         ssqp_params.admmParams.rel_tolerance = 1e-3
         ssqp_params.admmParams.warm_start = False
 
-        mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
-
+    mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
     simulator = SSQPYSimulator(model, dt, np.zeros(4))
+
     delayed_control = []
 
     state_data = []

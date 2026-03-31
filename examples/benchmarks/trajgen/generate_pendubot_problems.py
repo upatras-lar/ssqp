@@ -112,7 +112,7 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
             model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
         )
         config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-            np.array((np.pi, 0.0)), nq, nv, C_WGT, False
+            model, np.array((np.pi, 0.0)), nq, nv, C_WGT, False
         )
 
         for k in range(horizon):

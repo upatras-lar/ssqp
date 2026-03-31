@@ -47,12 +47,12 @@ auto to_compile_time(IntegrationScheme is);
  * ignore them. Predefined functions all have constructors to account for this.
  * 
  * Models may be defined either by passing custom function implementations, or
- * by using URDF files. Some constructors allow for defining a model using a
- * URDF file, but without passing the required cost functions. This is done to
- * allow access to robot-related algorithms such as forward dynamics, which may
- * be used to define model costs. Note that, if such constructors are used, the
- * `finalize` method must be called before attempting to use the model for
- * optimization. The user is responsible for either manually assigning all
+ * by using XML descrtiption files. Some constructors allow for defining a model
+ * using an XML file, but without passing the required cost functions. This is 
+ * done to allow access to robot-related algorithms such as forward dynamics,
+ * which may be used to define model costs. Note that, if such constructors are
+ * used, the `finalize` method must be called before attempting to use the model
+ * for optimization. The user is responsible for either manually assigning all
  * required costs, or passing them to the `finalize` method.
  */
 class Model
@@ -66,22 +66,25 @@ class Model
      * a model with a structure only, without necessarily finalizing the model
      * 
      * Parameters:
-     *  - `urdf_path`: Path to URDF describing robot (may be left empty if
-     *     custom dynamics is to be used)
+     *  - `urdf_path`: Path to URDF describing robot (may be left empty if other
+     *     description is used)
+     *  - `mjcf_path`: Path to MJCF describing robot (may be left empty if other
+     *     description is used)
      *  - `free_flyer`: Whether the model has a floating base (only relevant
-     *     if initialized through URDF)
+     *     if initialized through XML)
      *  - `terrain`: The ground terrain (default flat at z=0)
      *  - `dynamics_mode`: The dynamics mode to use (default Forward Dynamics)
      *  - `integration`: The integration scheme to use (default Semi-Implicit
      *     Euler)
      *  - `ignore_innate_constraints`: Whether to ignore innate constraints from
-     *     the URDF (i.e joint position, velocity and torque limits)
+     *     the XML (i.e joint position, velocity and torque limits)
      *  - `actuated_joints`: Indices of the actuated joints (default empty ->
      *     all joints actuated)
      */
     struct Structure
     {
         std::string                       urdf_path;
+        std::string                       mjcf_path;
         bool                              free_flyer    = false;
         std::shared_ptr<terrain::Terrain> terrain       = nullptr;
         DynamicsMode                      dynamics_mode = Forward;
@@ -109,7 +112,7 @@ class Model
      *     existing costs)
      *  - `terminal_cost`: Stage cost for terminal stage
      *  - `constraints`: (empty / size $H + 1$) Vector of stage constraints
-     *  - `dynamics`: (empty -> URDF dynamics / size 1 -> same dynamics for
+     *  - `dynamics`: (empty -> XML dynamics / size 1 -> same dynamics for
      *     every stage / size $H + 1$) Vector of stage dynamics
      *  - `init_states`: (empty / size $1$ / size $H + 1$) Vector of initial states
      *     (empty -> $\boldsymbol{0}$ initial states / size $1$ -> same initial state for 
@@ -205,8 +208,8 @@ class Model
     // Whether the model is finalized
     bool finalized() const;
 
-    // Whether the model has been loaded from a URDF file
-    bool urdf() const;
+    // Whether the model has been loaded from an XML file
+    bool xml() const;
 
     const uint       horizon() const;
     const Dimensions dims() const;
@@ -276,7 +279,7 @@ class Model
     // Set the actuated joint indices vector
     void setActuatedJoints(const std::vector<uint> &actuated_joints);
 
-    // Below functions are undefined if no URDF was used for initialization
+    // Below functions are undefined if no XML was used for initialization
     bool floatingBase() const;
     // Robot state size
     uint nq() const;
@@ -295,12 +298,12 @@ class Model
     // The dynamics mode formulation
     DynamicsMode dynamicsMode() const;
 
-    // Algorithms defined if URDF was used to initialize model
+    // Algorithms defined if XML was used to initialize model
 
     // Return the neutral pose for the model
     const VecX neutralPose() const;
 
-    // Perform forward kinematics with the URDF model dynamics
+    // Perform forward kinematics with the XML model dynamics
     const std::pair<VecX, MatX> forwardKinematics(
       const VecX &q, const std::string &frame) const;
 
@@ -352,7 +355,7 @@ class Model
       Eigen::MatrixXd &rnea_partial_dq, Eigen::MatrixXd &rnea_partial_dv,
       Eigen::MatrixXd &rnea_partial_da) const;
 
-    // Get a frame jacobian based on the URDF model dynamics
+    // Get a frame jacobian based on the XML model dynamics
     const MatX frameJacobian(const VecX &x, const std::string &frame,
                              bool local = false) const;
 
@@ -377,7 +380,7 @@ class Model
      * 
      * Note: For Inverse dynamics mode, this function is trivial, since it only
      * returns the non-force part of the control vector
-     * Note: URDF-based function
+     * Note: XML-based function
      */
     VecX getFullAccelerationVector(const VecX &x, const VecX &u,
                                    const uint k = 0) const;
@@ -403,7 +406,7 @@ class Model
 
     // Configuration properties
     bool                            _finalized = false;
-    bool                            _urdf;
+    bool                            _xml;
     CostsContainer                  _costs;
     DynamicsContainer               _dynamics;
     ConstraintsContainer            _constraints;
@@ -524,14 +527,14 @@ class Model
 
     // Functionality functions
 
-    // Adds all joint angle, velocity and effort limits from URDF as constraints
-    void _addURDFInnateConstraints();
+    // Adds all joint angle, velocity and effort limits from XML as constraints
+    void _buildXMLInnateConstraints();
 
     // Adds inverse dynamics torque constraints
-    void _addIDTorqueConstraints();
+    void _buildXMLIDTorqueConstraints();
 
-    // Builds system dynamics from URDF
-    void _buildURDFDynamics(const Config &config);
+    // Builds system dynamics from XML
+    void _buildXMLDynamics(const Config &config);
 
     VecX _randomVector(const uint size, const double start = -5,
                        const double end = 5) const;
@@ -561,7 +564,7 @@ class Model
     };
 
     /* Makes the dynamics for a given stage with context `ctx` based on the
-     * URDF, according to the passed templated options
+     * XML, according to the passed templated options
      * Options:
      *  - `FloatingBase`: Whether the model has a floating base
      *  - `WithForces`: Whether there are additional external forces for this
@@ -587,7 +590,7 @@ class Model
     };
 
     /* Makes the innate constraints for a given stage with context `ctx` based
-     * based on the URDF, according to the passed templated options
+     * based on the XML, according to the passed templated options
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
      *  - `IsTerminal`: Whether the stage is the terminal stage (no controls)
@@ -604,7 +607,7 @@ class Model
       const _StageInnateConstraintsContext &ctx) const;
 
     /* Makes the inverse dynamics torque constraints required by the Inverse
-     * dynamics mode, based on the URDF effort limits.
+     * dynamics mode, based on the XML effort limits.
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
      *  - `ReducedInverse`: Whether the dynamics mode is reduced inverse, such

@@ -60,7 +60,7 @@ joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
 control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
 force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
 config_cost = costs.SquaredConfigurationErrorCost(
-    base_config, nq, nv, C_WGT, True
+    model, base_config, nq, nv, C_WGT, True
 )
 
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(

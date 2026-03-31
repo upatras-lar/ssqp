@@ -118,24 +118,24 @@ void bind_Model(nb::module_ &m)
          - A cost function for each stage of the horizon, $\ell_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}$, $0 \leq k \leq H$
          - Dynamics functions for each stage of the horizon, $\boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^n$, $0 \leq k \leq H$
          - Constraint functions for each stage of the horizon, $\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^c$, $0 \leq k \leq H$
-            
+
         Of the above, all stage cost and dynamics functions must be defined, but
         constraints may be left empty.
-            
+
         Note that models optimize for $H$ total steps while considering the initial
         state to be constant, whereas the initial controls can be altered. This means
         that there are $H$ total controls ($\boldsymbol{u}_0$ to $\boldsymbol{u}_{H-1}$) and $H + 1$ total states ($\boldsymbol{x}_0$ to 
         $\boldsymbol{x}_H$), with $\boldsymbol{x}_0$ being constant. At the terminal stage (stage $H$), there are no
         controls and, as such, stagewise functions must be appropriately defined to
         ignore them. Predefined functions all have constructors to account for this.
-            
+
         Models may be defined either by passing custom function implementations, or
-        by using URDF files. Some constructors allow for defining a model using a
-        URDF file, but without passing the required cost functions. This is done to
-        allow access to robot-related algorithms such as forward dynamics, which may
-        be used to define model costs. Note that, if such constructors are used, the
-        `finalize` method must be called before attempting to use the model for
-        optimization. The user is responsible for either manually assigning all
+        by using XML descrtiption files. Some constructors allow for defining a model
+        using an XML file, but without passing the required cost functions. This is 
+        done to allow access to robot-related algorithms such as forward dynamics,
+        which may be used to define model costs. Note that, if such constructors are
+        used, the `finalize` method must be called before attempting to use the model
+        for optimization. The user is responsible for either manually assigning all
         required costs, or passing them to the `finalize` method.
         )doc")
       .def(
@@ -148,6 +148,11 @@ void bind_Model(nb::module_ &m)
             {
                 structure.urdf_path =
                   nb::cast<std::string>(kwargs["urdf_path"]);
+            }
+            if (kwargs.contains("mjcf_path"))
+            {
+                structure.mjcf_path =
+                  nb::cast<std::string>(kwargs["mjcf_path"]);
             }
             if (kwargs.contains("free_flyer"))
             {
@@ -185,10 +190,11 @@ void bind_Model(nb::module_ &m)
 
         Keyword arguments (optional):
             urdf_path (str): Path to URDF file to use for the system dynamics
+            mjcf_path (str): Path to MJCF file to use for the system dynamics
             free_flyer (bool): Whether the model has a floating base
             dynamics_mode (ssqpy.model.DynamicsMode): The dynamics mode to solve in
             integration (ssqpy.model.Integration): The integration method to use
-            ignore_innate_constraints (bool): Whether to ignore URDF constraints
+            ignore_innate_constraints (bool): Whether to ignore XML constraints
             actuated_joints (list of int): List of joints to apply controls to;
                 if non-empty, all joints whose indices are not included will not be
                 actuated
@@ -382,76 +388,76 @@ void bind_Model(nb::module_ &m)
         "getnq",
         [](Model &self)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
 
             return self.nq();
         },
         R"doc(
         Get the configuration size of the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "getnv",
         [](Model &self)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
 
             return self.nv();
         },
         R"doc(
         Get the velocity size of the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "getnu",
         [](Model &self)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
 
             return self.nu();
         },
         R"doc(
         Get the non-force control size of the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "getnjoints",
         [](Model &self)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
 
             return self.njoints();
         },
         R"doc(
         Get the number of actuated joints of the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "hasFloatingBase",
         [](Model &self, const uint k)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
 
             return self.floatingBase();
         },
         R"doc(
         Whether the model has a floating base.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "getCost",
@@ -480,9 +486,9 @@ void bind_Model(nb::module_ &m)
             {
                 throw std::runtime_error("Model is finalized");
             }
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             if (!self.hasFrame(frame))
             {
@@ -496,28 +502,28 @@ void bind_Model(nb::module_ &m)
         nb::arg("frame"),
         R"doc(
         Add a force on a frame at a stage.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         For this method to be called, the model must not be finalized.
         )doc")
       .def("getTotalForces", &Model::nforces, nb::arg("k"), R"doc(
         Get the current number of forces for a stage.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def("printFramesAndJoints", &Model::printFramesAndJoints, R"doc(
         Print the frames and joints of the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def("getOrderedActuatedJoints", &Model::orderedActuatedJoints, R"doc(
         Get an ordered list of the actuated joints of the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "forwardKinematics",
         [](Model &self, const VecX &q, const std::string &frame)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             if (!self.hasFrame(frame))
             {
@@ -529,15 +535,15 @@ void bind_Model(nb::module_ &m)
         nb::arg("frame"),
         R"doc(
         Perform forward kinematics on the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "forwardKinematicsSE3",
         [](Model &self, const VecX &q, const std::string &frame)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             if (!self.hasFrame(frame))
             {
@@ -549,15 +555,15 @@ void bind_Model(nb::module_ &m)
         nb::arg("frame"),
         R"doc(
         Perform forward kinematics on the model and return a transformation matrix.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "forwardDynamics",
         [](Model &self, const VecX &q, const VecX &v, const VecX &tau)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             return self.forwardDynamics(q, v, tau);
         },
@@ -566,7 +572,7 @@ void bind_Model(nb::module_ &m)
         nb::arg("a"),
         R"doc(
         Perform forward dynamics on the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "forwardDynamics",
@@ -576,9 +582,9 @@ void bind_Model(nb::module_ &m)
            const VecX &tau,
            const std::unordered_map<std::string, std::vector<Vec3>> &forces)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             return self.forwardDynamics(q, v, tau, forces);
         },
@@ -588,16 +594,16 @@ void bind_Model(nb::module_ &m)
         nb::arg("forces"),
         R"doc(
         Perform forward dynamics on the model with forces.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
 
       .def(
         "inverseDynamics",
         [](Model &self, const VecX &q, const VecX &v, const VecX &a)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             return self.inverseDynamics(q, v, a);
         },
@@ -606,7 +612,7 @@ void bind_Model(nb::module_ &m)
         nb::arg("a"),
         R"doc(
         Perform inverse dynamics on the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "inverseDynamics",
@@ -616,9 +622,9 @@ void bind_Model(nb::module_ &m)
            const VecX &a,
            const std::unordered_map<std::string, std::vector<Vec3>> &forces)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             return self.inverseDynamics(q, v, a, forces);
         },
@@ -628,15 +634,15 @@ void bind_Model(nb::module_ &m)
         nb::arg("forces"),
         R"doc(
         Perform inverse dynamics on the model with forces.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc")
       .def(
         "getFullAccelerationVector",
         [](Model &self, const VecX &x, const VecX &u, const uint k)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             return self.getFullAccelerationVector(x, u, k);
         },
@@ -653,21 +659,21 @@ void bind_Model(nb::module_ &m)
             
         Note: For Inverse dynamics mode, this function is trivial, since it only
         returns the non-force part of the control vector
-        Note: URDF-based function
+        Note: XML-based function
         )doc")
       .def(
         "neutralPose",
         [](Model &self)
         {
-            if (!self.urdf())
+            if (!self.xml())
             {
-                throw std::runtime_error("Model was not loaded from URDF");
+                throw std::runtime_error("Model was not loaded from XML");
             }
             return self.neutralPose();
         },
         R"doc(
         Get a configuration for the model.
-        Only defined if the model was initialized using a URDF file.
+        Only defined if the model was initialized using an XML file.
         )doc");
 }
 }
