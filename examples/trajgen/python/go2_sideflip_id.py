@@ -53,7 +53,7 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
     model, "base", base_pos, np.eye(3), nq, nv, T_WGT, R_WGT
 )
 config_cost = costs.SquaredConfigurationErrorCost(
-    base_config, nq, nv, C_WGT, True
+    model, base_config, nq, nv, C_WGT, True
 )
 
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(

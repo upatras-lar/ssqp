@@ -238,10 +238,6 @@
         </body>
     </worldbody>
 
-    <equality>
-        <joint joint1="finger_joint1" joint2="finger_joint2" />
-    </equality>
-
     <actuator>
         <motor joint="joint1" forcerange="-87 87" />
         <motor joint="joint2" forcerange="-87 87" />

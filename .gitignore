@@ -17,9 +17,11 @@
 /TODO.md
 /examples/python/*.json
 /perf*
-/examples/mpc/mpcvenv
+/examples/mujoco-mpc/mujoco-venv
 /examples/real-mpc/candlevenv
+
 __pycache__
 out.txt
 test.py
 test.json
+MUJOCO_LOG.TXT

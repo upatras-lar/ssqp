@@ -1,6 +1,7 @@
 #include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
 #include <pinocchio/parsers/urdf.hpp>
+#include <pinocchio/parsers/mjcf.hpp>
 #include <pinocchio/multibody/model.hpp>
 #include <pinocchio/multibody/data.hpp>
 #include <pinocchio/algorithm/joint-configuration.hpp>
@@ -87,6 +88,22 @@ void buildModelFromUrdf(const std::string         &urdf,
     else
     {
         pinocchio::urdf::buildModel(urdf, impl->model);
+    }
+    impl->data = pinocchio::Data(impl->model);
+}
+
+void buildModelFromMjcf(const std::string         &mjcf,
+                        std::shared_ptr<ModelImpl> impl, bool free_flyer)
+{
+    if (free_flyer)
+    {
+        pinocchio::mjcf::buildModel(mjcf,
+                                    pinocchio::JointModelFreeFlyer(),
+                                    impl->model);
+    }
+    else
+    {
+        pinocchio::mjcf::buildModel(mjcf, impl->model);
     }
     impl->data = pinocchio::Data(impl->model);
 }

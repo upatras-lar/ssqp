@@ -116,7 +116,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         # Costs
         # -------------------------
         config_cost = costs.SquaredConfigurationErrorCost(
-            init[7:19], nq, nv, C_WGT, True
+            model, init[7:19], nq, nv, C_WGT, True
         )
         joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
         control_cost = costs.SquaredControlCost(nv, nu, U_WGT)

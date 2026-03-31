@@ -85,14 +85,24 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
     _lin_dims.stage_control.resize(_lin_dims.horizon);
     _lin_dims.stage_constraint.resize(_lin_dims.horizon + 1);
 
-    _urdf = !structure.urdf_path.empty();
+    _xml = !structure.urdf_path.empty() || !structure.mjcf_path.empty();
 
-    if (_urdf)
+    if (_xml)
     {
         _impl = pinocchio_wrapper::makeImpl();
-        pinocchio_wrapper::buildModelFromUrdf(structure.urdf_path,
-                                              _impl,
-                                              _free_flyer);
+
+        if (!structure.urdf_path.empty())
+        {
+            pinocchio_wrapper::buildModelFromUrdf(structure.urdf_path,
+                                                  _impl,
+                                                  _free_flyer);
+        }
+        else
+        {
+            pinocchio_wrapper::buildModelFromMjcf(structure.mjcf_path,
+                                                  _impl,
+                                                  _free_flyer);
+        }
 
         std::tie(_dims.nq, _dims.nv) =
           pinocchio_wrapper::modelDimensions(_impl);
@@ -134,29 +144,29 @@ void Model::finalize(const Config &config)
         throw std::runtime_error("Model is already finalized");
     }
 
-    // Add innate constraints if model comes from URDF
-    if (_urdf)
+    // Add innate constraints if model comes from XML
+    if (_xml)
     {
         if (!_ignore_innate)
         {
-            _addURDFInnateConstraints();
+            _buildXMLInnateConstraints();
         }
 
         if (_dynamics_mode == DynamicsMode::Inverse ||
             _dynamics_mode == DynamicsMode::ReducedInverse)
         {
-            _addIDTorqueConstraints();
+            _buildXMLIDTorqueConstraints();
         }
     }
 
     // Setup dynamics
-    assert(!_urdf ^ config.dynamics.empty() &&
-           "Expected either a URDF or custom dynamics");
+    assert(!_xml ^ config.dynamics.empty() &&
+           "Expected either an XML description or custom dynamics");
 
-    // Build dynamics from URDF
+    // Build dynamics from XML
     if (config.dynamics.empty())
     {
-        _buildURDFDynamics(config);
+        _buildXMLDynamics(config);
     }
     // Use custom dynamics
     else
@@ -282,7 +292,7 @@ void Model::finalize(const Config &config)
     _finalized = true;
 }
 
-void Model::_addURDFInnateConstraints()
+void Model::_buildXMLInnateConstraints()
 {
     _StageInnateConstraintsContext ctx;
     ctx.nq      = _dims.nq;
@@ -335,7 +345,7 @@ void Model::_addURDFInnateConstraints()
                                                 terminal_innate_constraints);
 }
 
-void Model::_addIDTorqueConstraints()
+void Model::_buildXMLIDTorqueConstraints()
 {
     _StageInnateConstraintsContext ctx;
     ctx.nq                = _dims.nq;
@@ -374,7 +384,7 @@ void Model::_addIDTorqueConstraints()
     }
 }
 
-void Model::_buildURDFDynamics(const Config &config)
+void Model::_buildXMLDynamics(const Config &config)
 {
     assert((config.init_states.empty() || config.init_states.size() == 1 ||
             config.init_states.size() == _dims.horizon + 1) &&
@@ -420,6 +430,12 @@ void Model::_buildURDFDynamics(const Config &config)
         init_state = VecX::Zero(_dims.nq + _dims.nv);
 
         uint offset = 0;
+        if (_free_flyer)
+        {
+            init_state[3] = 1.0;
+            offset        = 7;
+        }
+
         for (uint i = 0; i < joint_types.size(); ++i)
         {
             switch (joint_types[i])
@@ -493,9 +509,9 @@ bool Model::finalized() const
     return _finalized;
 }
 
-bool Model::urdf() const
+bool Model::xml() const
 {
-    return _urdf;
+    return _xml;
 }
 
 const uint Model::horizon() const
@@ -923,7 +939,7 @@ const MatX Model::frameJacobian(const std::string &frame, bool local) const
 
 VecX Model::difference(const VecX &q0, const VecX &q1) const
 {
-    if (_urdf)
+    if (_xml)
     {
         return pinocchio_wrapper::difference(_impl, q1, q0);
     }
@@ -934,7 +950,7 @@ VecX Model::difference(const VecX &q0, const VecX &q1) const
 void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
                         const uint arg_pos) const
 {
-    if (_urdf)
+    if (_xml)
     {
         pinocchio_wrapper::dDifference(_impl, q1, q0, J, !arg_pos);
         return;

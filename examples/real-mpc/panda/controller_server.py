@@ -166,7 +166,7 @@ try:
         )
         qq = init_state[:nq]
         c_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-            qq, nq, nv, 1.0, False
+            model, qq, nq, nv, 1.0, False
         )
 
         for k in range(MPC_H):

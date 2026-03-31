@@ -43,6 +43,7 @@ tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
 )
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
+    model,
     np.array((pi, 0.0)),
     nq,
     nv,

@@ -230,6 +230,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
                "Initial controls of incorrect size passed");
         _guess.u.stage(k) = dynamics[k]->init_control();
     }
+
     if (_params.line_search_method == LineSearchMethod::Filter)
     {
         _filter_memory.push_front({ _lf(_guess.x, _guess.u),
@@ -611,12 +612,12 @@ bool ssqp::write(const std::string &filename)
     j["properties"]["horizon"] = dims.horizon;
     j["properties"]["dt"]      = dt;
 
-    model::DynamicsMode dynamics_mode    = _model.dynamicsMode();
-    bool                loaded_from_urdf = _model.urdf();
-    j["properties"]["urdf"]              = loaded_from_urdf;
+    model::DynamicsMode dynamics_mode   = _model.dynamicsMode();
+    bool                loaded_from_xml = _model.xml();
+    j["properties"]["xml"]              = loaded_from_xml;
     bool floating_base;
     uint nv, nu, njoints;
-    if (loaded_from_urdf)
+    if (loaded_from_xml)
     {
         floating_base = _model.floatingBase();
         nv            = _model.nv();
@@ -653,7 +654,7 @@ bool ssqp::write(const std::string &filename)
 
         VecX u;
 
-        if (loaded_from_urdf && floating_base)
+        if (loaded_from_xml && floating_base)
         {
             VecX x = _guess.x.stage(k);
             u      = _guess.u.stage(k);

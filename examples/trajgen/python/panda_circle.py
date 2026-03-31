@@ -59,6 +59,7 @@ model = ssqpy.model.Model(
     H,
     dt,
     urdf_path="../../assets/urdf/panda/panda.urdf",
+    # mjcf_path="../../assets/mjcf/panda/panda.xml",
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 

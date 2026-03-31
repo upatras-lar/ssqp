@@ -14,7 +14,6 @@ H = 400
 dt = 0.01
 mpc_H = 10
 mpc_dt = 0.05
-dt_ratio = int(mpc_dt / dt)
 
 T_WGT = 10.0
 R_WGT = 1.0
@@ -86,7 +85,7 @@ box_constraint = ssqpy.model.constraints.FramePositionBound(
 )
 
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    init_state[:nq], nq, nv, C_WGT, False
+    model, init_state[:nq], nq, nv, C_WGT, False
 )
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
