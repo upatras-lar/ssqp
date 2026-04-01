@@ -92,6 +92,7 @@ void buildModelFromUrdf(const std::string         &urdf,
     impl->data = pinocchio::Data(impl->model);
 }
 
+// TODO: This always segfaults
 void buildModelFromMjcf(const std::string         &mjcf,
                         std::shared_ptr<ModelImpl> impl, bool free_flyer)
 {

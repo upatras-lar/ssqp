@@ -43,8 +43,15 @@ def parse_args():
         help="Whether to enable torque control",
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "-m",
+        "--dynamics-mode",
+        choices=["inverse", "forward"],
+        default="forward",
+        help="The dynamics mode to use",
+    )
 
+    return parser.parse_args()
 
 args = parse_args()
 
@@ -65,6 +72,11 @@ server.listen(1)
 latest_data = None
 data_lock = threading.Lock()
 running = True
+
+mode_map = {
+    "inverse": ssqpy.model.DynamicsMode.Inverse,
+    "forward": ssqpy.model.DynamicsMode.Forward,
+}
 
 
 # TODO: Improve
@@ -104,7 +116,7 @@ try:
 
         ####
         # (0): Determine target position
-        target_pos = np.array((0.46, 0.35, -0.05))
+        target_pos = np.array((0.46, 0.35, 0.0))
         # 0.4634960889816284, -0.008664117194712162, 0.6517822742462158
         ####
 
@@ -123,7 +135,7 @@ try:
             MPC_H,
             dt,
             urdf_path="../../assets/urdf/panda/panda.urdf",
-            dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+            dynamics_mod=mode_map[args.dynamics_mode],
         )
 
         nq = model.getnq()
@@ -140,7 +152,7 @@ try:
         init_state = np.zeros(2 * nq)
         init_state[:7] = data[:7]
         init_state[9:16] = data[7:]
-        print("Init state:", init_state)
+        print("Initial state:", init_state)
         #####
 
         start_pos, R = model.forwardKinematics(init_state[:nq], "panda_ee")
@@ -219,21 +231,27 @@ try:
 
             # pre = time()
             if args.torque:
-                controls = model.inverseDynamics(
-                    state[:nq], state[nq:], mpc.step(state)
-                )
+                if args.dynamics_mode == "inverse":
+                    controls = model.inverseDynamics(
+                        state[:nq], state[nq:], model.getFullAccelerationVector(state, mpc.step(state))
+                    )
+                elif args.dynamics_mode == "forward":
+                    controls = mpc.step(state)
             else:
                 controls = mpc.step(state, True)
             # elapsed += time() - pre
             # controls = data[:7]
-            print("Control:", controls)
+            # print("Control:", controls)
 
             ####
             # (3): Send torques to real
-            send(conn, controls)
+            try:
+                send(conn, controls)
+            except BlockingIOError:
+                pass
             ###
             Dt = time.time() - t0
-            print("freq:", 1 / Dt)
+            # print("freq:", 1 / Dt)
 except KeyboardInterrupt:
     running = False
     server.close()
