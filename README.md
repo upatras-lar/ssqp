@@ -33,4 +33,4 @@ Within the SSQP repository, the following subdirectories can be found:
 Currently, the project is built using the provided `Makefile`. Use `make` to build the C++ examples and `make python` to build the Python library. A Dockerfile is also provided in the `.ci` directory. Note that the SSQP building process is a work in progress (and relatively ad hoc as of now).
 
 ### Benchmarking
-To execute the benchmarking scripts used to compare the performance of the forward and inverse dynamics formulations for our solver, once the _ssqpy_ (the Python bindings for our library) is built, follow the instructions found in the _README_ in `examples/`, as well as in `examples/benchmarks`.
+To execute the benchmarking scripts used to compare the performance of the forward and inverse dynamics formulations for our solver, once _ssqpy_ (the Python bindings for our library) is built, follow the instructions found in the _README_ in `examples/`, as well as in `examples/benchmarks`.
