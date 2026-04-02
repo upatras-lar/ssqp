@@ -998,60 +998,24 @@ VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,
     case DynamicsMode::Inverse:
         return u.head(_dims.nv);
     case DynamicsMode::ReducedInverse:
-        VecX a;
+        auto ct_floating_base = to_compile_time(_free_flyer);
+        auto ct_with_forces   = to_compile_time(!_forces[k].empty());
 
-        if (_free_flyer)
-        {
-            if (_forces[k].empty())
-            {
-                a = _calculateReducedInverseFullAcceleration<true, false>(
-                  x.head(_dims.nq),
-                  x.tail(_dims.nv),
-                  u.head(_dims.nu),
-                  u.tail(3 * _forces[k].size()),
-                  _forces[k],
-                  _actuated_joints,
-                  _unactuated_joints);
-            }
-            else
-            {
-                a = _calculateReducedInverseFullAcceleration<true, true>(
-                  x.head(_dims.nq),
-                  x.tail(_dims.nv),
-                  u.head(_dims.nu),
-                  u.tail(3 * _forces[k].size()),
-                  _forces[k],
-                  _actuated_joints,
-                  _unactuated_joints);
-            }
-        }
-        else
-        {
-            if (_forces[k].empty())
-            {
-                a = _calculateReducedInverseFullAcceleration<false, false>(
-                  x.head(_dims.nq),
-                  x.tail(_dims.nv),
-                  u.head(_dims.nu),
-                  u.tail(3 * _forces[k].size()),
-                  _forces[k],
-                  _actuated_joints,
-                  _unactuated_joints);
-            }
-            else
-            {
-                a = _calculateReducedInverseFullAcceleration<false, true>(
-                  x.head(_dims.nq),
-                  x.tail(_dims.nv),
-                  u.head(_dims.nu),
-                  u.tail(3 * _forces[k].size()),
-                  _forces[k],
-                  _actuated_joints,
-                  _unactuated_joints);
-            }
-        }
-
-        return a;
+        return std::visit(
+          [this, x, u, k](auto fb, auto wf)
+          {
+              return _calculateReducedInverseFullAcceleration<fb.value,
+                                                              wf.value>(
+                x.head(_dims.nq),
+                x.tail(_dims.nv),
+                u.head(_dims.nu),
+                u.tail(3 * _forces[k].size()),
+                _forces[k],
+                _actuated_joints,
+                _unactuated_joints);
+          },
+          ct_floating_base,
+          ct_with_forces);
     }
 }
 

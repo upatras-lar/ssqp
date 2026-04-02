@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX := g++
-CXXFLAGS := -std=c++17 -fPIC -march=native -DEIGEN_RUNTIME_NO_MALLOC
+CXXFLAGS := -std=c++17 -fPIC -march=native
 INCLUDES := -I/usr/include/eigen3 -I./include -I.
 TEST_INCLUDES := -Itests/include
 LDFLAGS :=
