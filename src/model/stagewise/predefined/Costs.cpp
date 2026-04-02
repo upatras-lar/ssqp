@@ -464,7 +464,7 @@ SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   , _full_desired_configuration(nq)
   , _nq(nq)
   , _nv(nv)
-  , _weight(model.njoints())
+  , _weight(free_flyer ? nv - 6 : nv)
   , _free_flyer(free_flyer)
 {
     assert(desired_configuration.size() == (free_flyer ? nq - 7 : nq) &&
@@ -496,7 +496,8 @@ SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
 {
     assert(desired_configuration.size() == (free_flyer ? nq - 7 : nq) &&
            "Invalid desired configuration");
-    assert(weight.size() == model.njoints() && "Invalid weight vector size");
+    assert(weight.size() == (_free_flyer ? nv - 6 : nv) &&
+           "Invalid weight vector size");
 
     if (_free_flyer)
     {
@@ -534,7 +535,7 @@ void SquaredConfigurationErrorCost::set_weight(const double weight)
 
 void SquaredConfigurationErrorCost::set_weight(const VecX &weight)
 {
-    assert(weight.size() == (_free_flyer ? _nq - 7 : _nq) &&
+    assert(weight.size() == (_free_flyer ? _nv - 7 : _nv) &&
            "Invalid weight vector size");
 
     _weight = weight;
