@@ -1,0 +1,28 @@
+<mujoco model="spherical_joint_example">
+    <compiler angle="degree" coordinate="local"/>
+    <option gravity="0 0 -9.81" timestep="0.002"/>
+
+    <worldbody>
+        <!-- Ground -->
+        <geom name="ground" type="plane" size="5 5 0.1" rgba="0.8 0.9 0.8 1"/>
+
+        <!-- Base body -->
+        <body name="base" pos="0 0 0.5">
+            <geom type="sphere" size="0.1" rgba="0.2 0.2 0.8 1"/>
+
+            <!-- Child body with spherical joint -->
+            <body name="link" pos="0 0 0.2">
+                <joint name="ball_joint" type="ball"/>
+
+                <geom type="capsule" fromto="0 0 0  0 0 0.5" size="0.05" rgba="0.8 0.2 0.2 1"/>
+
+                <!-- Small mass for dynamics -->
+                <inertial pos="0 0 0.25" mass="1" diaginertia="0.01 0.01 0.01"/>
+            </body>
+        </body>
+    </worldbody>
+
+    <actuator>
+        <general joint="ball_joint" gainprm="1 0 0" biasprm="0 0 0"/>
+    </actuator>
+</mujoco>
