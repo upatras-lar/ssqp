@@ -40,7 +40,7 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 t_cost = ssqpy.model.costs.SquaredIDTorqueCost(model, nq, nv, nu, T_WGT)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(

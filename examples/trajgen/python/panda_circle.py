@@ -129,7 +129,7 @@ model.addCost(
 
 # There are no controls (u) at the terminal stage, so we cannot add a control
 # regularization cost; thus, we only add the joint velocity regularization cost
-model.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT))
+model.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT))
 
 if CONSTRAIN:
     # Add box constraint to terminal stage as well

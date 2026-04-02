@@ -90,11 +90,6 @@ robot.set_collision_behavior(
     [100.0, 100.0, 100.0, 100.0, 100.0, 100.0],
 )
 
-init_robot_state = robot.read_once()
-init_solver_state = np.hstack((init_robot_state.q, init_robot_state.dq))
-
-send(sock, init_solver_state)
-
 # Create a model instance from robot
 model = robot.load_model()
 
