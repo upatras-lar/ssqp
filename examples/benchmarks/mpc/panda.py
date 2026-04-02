@@ -101,7 +101,7 @@ def run(dynamics_mode, constrain):
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
         model, init_state[:nq], nq, nv, C_WGT, False
     )
-    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
     u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 
     for k in range(mpc_H):

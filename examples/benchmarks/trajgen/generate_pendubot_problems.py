@@ -106,7 +106,7 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
             dynamics_mode=dynamics_mode,
         )
 
-        vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+        vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
         u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
         tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
             model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT

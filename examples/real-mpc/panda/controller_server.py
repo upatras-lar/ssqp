@@ -7,6 +7,8 @@ import socket
 import threading
 import time
 
+import models
+
 sys.path.insert(0, "..")
 from socket_utils import send, recv
 
@@ -19,11 +21,38 @@ def parse_args():
         "robot to a certain location"
     )
 
+    subparsers = parser.add_subparsers(dest="model", help="The model to execute")
+
+    parser_reset = subparsers.add_parser(
+        "reset", help="Resets the Panda's configuration to the initial"
+    )
+
+    parser_target = subparsers.add_parser(
+        "target", help="Moves the Panda's end-effector to a target position"
+    )
+    parser_target.add_argument(
+        "--pos",
+        nargs=3,
+        type=float,
+        default=(0.46, 0.35, 0.0),
+        help="The target end-effector position",
+    )
+
+    parser_circle = subparsers.add_parser(
+        "circle", help="Performs a circle in the yz-plane with the Panda's end-effector"
+    )
+    parser_circle.add_argument(
+        "--constrain",
+        type=bool,
+        default=False,
+        help="Whether to add the inscribed square constraints",
+    )
+
     parser.add_argument(
         "-i",
         "--ip",
         type=str,
-        required=True,
+        default="localhost",
         help="The IP to bind the control server to",
     )
 
@@ -31,7 +60,7 @@ def parse_args():
         "-p",
         "--port",
         type=int,
-        required=True,
+        default="11880",
         help="The port to bind the control server to",
     )
 
@@ -53,7 +82,13 @@ def parse_args():
 
     return parser.parse_args()
 
+
 args = parse_args()
+
+if args.model is None:
+    args.model = "reset"
+
+print(f"Setting model as: {args.model}")
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -66,6 +101,7 @@ server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, recv_buf_size)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, send_buf_size)
 
 server.bind((args.ip, args.port))
+print(f"Started server on {args.ip}:{args.port}")
 server.listen(1)
 
 # Shared variable for latest data
@@ -78,12 +114,26 @@ mode_map = {
     "forward": ssqpy.model.DynamicsMode.Forward,
 }
 
+get_model_func = None
+model_func_params = []
+if args.model == "target":
+    get_model_func = models.get_target_model
+    model_func_params.append(args.pos)
+elif args.model == "reset":
+    get_model_func = models.get_reset_model
+elif args.model == "circle":
+    get_model_func = models.get_circle_model
+    model_func_params.append(args.constrain)
+
 
 # TODO: Improve
 def recv_thread(conn):
     global latest_data, running
     while running:
-        data = recv(conn)
+        try:
+            data = recv(conn)
+        except:
+            continue
         if data is None:
             running = False
             break
@@ -93,106 +143,20 @@ def recv_thread(conn):
 
 try:
     while True:
-        print("Waiting for controller device...")
+        print("Waiting for hardware controller...")
         conn, _ = server.accept()
-        print("Controller device connected")
+        print("Hardware controller connected")
 
         # Start receiver thread
+        running = True
         threading.Thread(target=recv_thread, args=(conn,), daemon=True).start()
 
-        MPC_H = 10
-        dt = 0.1
-
-        T_WGT = 4.0
-        R_WGT = 2.0
-        V_WGT = 0.05
-        U_WGT = 1e-3
-
-        Rd = np.eye(3)
-        Rd[1, 1] = -1
-        Rd[2, 2] = -1
-
-        # Rd = np.array([[0.73061795, 0.68194389, -0.0339109], [0.68206378, -0.73122844, -0.00969386], [-0.03140728, -0.0160469, -0.99937785]])
-
-        ####
-        # (0): Determine target position
-        target_pos = np.array((0.46, 0.35, 0.0))
-        # 0.4634960889816284, -0.008664117194712162, 0.6517822742462158
-        ####
-
-        # Tf = np.array([[0.9991192817687988, -0.007720937021076679, -0.0412437878549099, 0.0], [-0.007166385184973478, -0.999882161617279, 0.013576673343777657, 0.0], [-0.041343752294778824, -0.013269146904349327, -0.999056875705719, 0.0], [0.4624573290348053, 0.0001711864460958168, 0.6479776501655579, 1.0]]).T
-
-        # print(Tf)
-        # print(Rd)
-        # exit(1)
-
-        desired_pose = np.zeros((4, 4))
-        desired_pose[:3, :3] = Rd
-        desired_pose[:3, 3] = target_pos
-        desired_pose[3, 3] = 1
-
-        model = ssqpy.model.Model(
-            MPC_H,
-            dt,
-            urdf_path="../../assets/urdf/panda/panda.urdf",
-            dynamics_mod=mode_map[args.dynamics_mode],
+        model, callback = get_model_func(
+            mode_map[args.dynamics_mode], *model_func_params
         )
 
         nq = model.getnq()
         nv = model.getnv()
-        nu = model.getnu()
-
-        #####
-        # (1): Get initial state from real
-        data = recv(conn)
-
-        if data is None:
-            continue
-
-        init_state = np.zeros(2 * nq)
-        init_state[:7] = data[:7]
-        init_state[9:16] = data[7:]
-        print("Initial state:", init_state)
-        #####
-
-        start_pos, R = model.forwardKinematics(init_state[:nq], "panda_ee")
-
-        # print(R)
-        # print(Rd)
-
-        # # print(start_pos)
-        # exit(1)
-
-        constraint_vlines = [-np.inf, 0.1]
-
-        lb = np.array((-np.inf, constraint_vlines[0], -np.inf))
-        ub = np.array((np.inf, constraint_vlines[1], np.inf))
-        box_constraint = ssqpy.model.constraints.FramePositionBound(
-            model, "panda_ee", lb, ub, nq, nv
-        )
-
-        v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
-        u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
-        pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, "panda_ee", desired_pose, nq, nq, T_WGT, R_WGT
-        )
-        qq = init_state[:nq]
-        c_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-            model, qq, nq, nv, 1.0, False
-        )
-
-        for k in range(MPC_H):
-            model.addCost(k, v_cost)
-            model.addCost(k, u_cost)
-            model.addCost(k, pose_error)
-            # model.addCost(k, c_cost)
-
-            model.addConstraints(k, box_constraint)
-
-        model.addCost(MPC_H, pose_error)
-        model.addCost(MPC_H, v_cost)
-        # model.addCost(MPC_H, c_cost)
-        model.addConstraints(MPC_H, box_constraint)
 
         ssqp_params = ssqpy.solvers.ssqpParams()
         ssqp_params.tolerance = 1e-2
@@ -200,58 +164,48 @@ try:
         admm_params = ssqpy.solvers.admmParams()
         admm_params.abs_tolerance = 1e-3
         admm_params.rel_tolerance = 1e-3
-        admm_params.init_rho = 5.0
+        admm_params.init_rho = 0.1
         admm_params.warm_start = False
 
         ssqp_params.admmParams = admm_params
 
         mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=125)
 
-        while running:
-            t0 = time.time()
-            # frame_start = time()
+        stage = 0
 
-            ####
-            # # (2): Get state from real
-            # data = recv(conn)
-            # if data is None:
-            #     break
-            # ####
+        while running:
             # Get the latest data
             with data_lock:
                 data = latest_data
-                latest_data = None  # optional: clear after reading
+                latest_data = None
 
             if data is None:
-                time.sleep(0.001)  # avoid busy wait
+                time.sleep(0.001)
                 continue
+
             state = np.zeros(nq + nv)
             state[:7] = data[:7]
             state[9:16] = data[7:]
 
-            # pre = time()
             if args.torque:
                 if args.dynamics_mode == "inverse":
                     controls = model.inverseDynamics(
-                        state[:nq], state[nq:], model.getFullAccelerationVector(state, mpc.step(state))
+                        state[:nq],
+                        state[nq:],
+                        model.getFullAccelerationVector(state, mpc.step(state)),
                     )
                 elif args.dynamics_mode == "forward":
                     controls = mpc.step(state)
             else:
                 controls = mpc.step(state, True)
-            # elapsed += time() - pre
-            # controls = data[:7]
-            # print("Control:", controls)
 
-            ####
-            # (3): Send torques to real
             try:
                 send(conn, controls)
+                stage += 1
+                callback(stage)
+
             except BlockingIOError:
                 pass
-            ###
-            Dt = time.time() - t0
-            # print("freq:", 1 / Dt)
 except KeyboardInterrupt:
     running = False
     server.close()

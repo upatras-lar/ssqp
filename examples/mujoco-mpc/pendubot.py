@@ -34,7 +34,7 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nq, V_WGT)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 # tau_cost = ssqpy.model.costs.SquaredIDTorqueCost(
 #     model, nq, nv, nu, np.array((0.0, 1.0))
