@@ -7,21 +7,22 @@ from time import time, sleep
 
 dt = 0.01
 mpc_H = 10
-mpc_dt = 0.05
+mpc_dt = 0.1
 
+C_WGT = 10.0
 V_WGT = 1e-3
 U_WGT = 1e-4
-C_WGT = 1.0
 
 CONTACT_MU = 0.6
+
+dynamics_mode = ssqpy.model.DynamicsMode.ReducedInverse
 
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
-    # urdf_path="../assets/urdf/go2/go2.urdf",
     mjcf_path="../assets/mjcf/go2/go2.xml",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
+    dynamics_mode=dynamics_mode,
 )
 
 nq = model.getnq()
@@ -44,20 +45,23 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT, True)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 
+lin_vel_lb = np.array((-1e-1, -1e-1, -1e-1))
+lin_vel_ub = np.array((1e-1, 1e-1, 1e-1))
+
 fl_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FL_foot", lin_vel_lb, lin_vel_ub, nq, nv
 )
 
 fr_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FR_foot", lin_vel_lb, lin_vel_ub, nq, nv
 )
 
 rl_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RL_foot", lin_vel_lb, lin_vel_ub, nq, nv
 )
 
 rr_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RR_foot", lin_vel_lb, lin_vel_ub, nq, nv
 )
 
 for k in range(mpc_H):
@@ -86,15 +90,14 @@ ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
 
 admm_params = ssqpy.solvers.admmParams()
-# admm_params.adaptive_rho_tolerance = 1.0
-# admm_params.rho_update_iter_freq = 15
-# admm_params.abs_tolerance = 1e-3
-# admm_params.rel_tolerance = 1e-3
-admm_params.warm_start = False
+admm_params.init_rho = 10.0
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.warm_start = True
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=5, qp_iters=200)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/go2.xml")
 mjdata = mujoco.MjData(mjmodel)
@@ -114,12 +117,18 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         state = np.hstack((mjdata.qpos, mjdata.qvel))
 
         pre = time()
-        # mjdata.ctrl = mpc.step(state)[6:nv]
-        mjdata.ctrl = model.inverseDynamics(
-            mjdata.qpos,
-            mjdata.qvel,
-            model.getFullAccelerationVector(state, mpc.step(state), 0),
-        )[6:]
+
+        u = mpc.step(state)
+
+        if dynamics_mode == ssqpy.model.DynamicsMode.Forward:
+            mjdata.ctrl = mpc.step(state)[6:18]
+        else:
+            mjdata.ctrl = model.inverseDynamics(
+                mjdata.qpos,
+                mjdata.qvel,
+                model.getFullAccelerationVector(state, mpc.step(state), 0),
+            )[6:]
+
         elapsed += time() - pre
         steps += 1
 

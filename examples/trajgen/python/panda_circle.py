@@ -59,7 +59,6 @@ model = ssqpy.model.Model(
     H,
     dt,
     urdf_path="../../assets/urdf/panda/panda.urdf",
-    # mjcf_path="../../assets/mjcf/test.xml",
     dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
 )
 
@@ -75,7 +74,7 @@ nu = model.getnu()
 #     solver to minimize the cost and satisfy the constraints
 # If we wanted to help the solver converge faster, we could also choose to
 # provide a more accurate initial guess
-init_state = np.zeros(2 * nq)
+init_state = np.zeros(nq + nv)
 init_state[:nq] = [
     0.0013,
     -0.9115,
