@@ -25,11 +25,10 @@ source benchmark-venv/bin/activate
 Once activated, you can now install the required dependencies using PIP:
 
 ```
-pip install matplotlib
-pip install numpy
+pip install numpy matplotlib PyQt6
 ```
 
-Obviously, you will also need to have built _ssqpy_, the library's Python bindings, and have them available to Python.
+Obviously, you will also need to have built _ssqpy_, the library's Python bindings, and have them available to Python. We suggest that logging be disabled for the build, such that outputs to the terminal do not slow down the solver.
 
 Following this, you can execute benchmarking scripts for trajectory generation or MPC.
 
@@ -38,7 +37,7 @@ In the `trajgen/` directory, you will find various scripts used for benchmarking
 
 For the former two (Pendubot and Panda), you will require a parameter file in order to benchmark. In the `trajgen/data/params` repository, we already provide some sample parameter files for these systems, for both forward and inverse dynamics. If you'd instead like to perform parameter search on your own, you can use the `panda_param_search` and `pendubot_param_search` scripts. If you'd further like to customize which parameters are included in the parameter set to search through, look through these scripts and add these parameter values to the appropriate parameter set generation functions.
 
-To actually perform the benchmarks, you can use the following scripts:
+To actually perform the benchmarks, move to the `trajgen/` directory and use the following scripts:
 
 * `pendubot_benchmark`
 * `panda_benchmark`
@@ -53,12 +52,12 @@ To generate plots using these files, you can use the `plot` script. Run `python 
 #### MPC
 The MPC benchmarking scripts are located in the `mpc/` directory. For MPC, we utilize a predefined task for each model and assess the solver's capability to perform that task in real time.
 
-As a simulator, we use our own model's dynamics, but perform _RK4 _ integration (instead of the Euler integration used by the solver).
+As a simulator, we use our own model's dynamics, but perform _RK4_ integration (instead of the Euler integration used by the solver).
 
 ##### Pendubot
 For the Pendubot, we start at the hanging (downward) configuration and the task is to perform a swing and reach the upward configuration, as well as remain at that configuration. There is also the ability to apply a certain perturbation at some step.
 
-The Pendubot benchmarking script, `pendubot`, is located in the `mpc/` directory. Run `python pendubot.py -h` for a list of options for the script.
+The Pendubot benchmarking script, `pendubot`, is located in the `mpc/` directory. After moving to that directory, run `python pendubot.py -h` for a list of options for the script.
 
 A sample execution of the script is the following:
 
