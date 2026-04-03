@@ -283,15 +283,3 @@ ax3.legend()
 plt.tight_layout()
 plt.savefig(f"data/plots/plot_{args.model}.pdf")
 plt.show()
-
-np.set_printoptions(suppress=True)
-constr = collect_time_to_satisfaction(filepath)
-for val in constr:
-    print(f"{val:.4f}", end=" ")
-
-print()
-cost = collect_time_to_satisfaction(filepath, include_cost=True)
-for val in cost:
-    print(f"{val:.4f}", end=" ")
-
-print()
