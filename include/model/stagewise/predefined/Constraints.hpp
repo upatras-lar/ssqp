@@ -283,7 +283,7 @@ class ContactConstraint : public StageConstraints
   public:
     ContactConstraint(const Model &model, const std::string &frame,
                       const uint nq, const uint nv, const uint nu,
-                      const double mu = 0.6);
+                      const double mu = 0.6, const double eq_tol = 0.0);
 
     void set_mu(const double mu);
 
@@ -321,6 +321,7 @@ class ContactConstraint : public StageConstraints
     std::vector<Force>           _forces;
     const uint                   _nq, _nv, _nu;
     double                       _mu;
+    const double                 _eq_tol;
 };
 
 }

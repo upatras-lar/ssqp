@@ -15,7 +15,7 @@ U_WGT = 1e-4
 
 CONTACT_MU = 0.6
 
-dynamics_mode = ssqpy.model.DynamicsMode.ReducedInverse
+dynamics_mode = ssqpy.model.DynamicsMode.Forward
 
 model = ssqpy.model.Model(
     mpc_H,
@@ -29,7 +29,7 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-base_pos = np.array([0.0, 0.0, 0.3689268220122])
+base_pos = np.array([0.0, 0.0, 0.389268220122])
 base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Initial configuration
@@ -37,7 +37,6 @@ init_state = np.zeros(37)
 init_state[:3] = base_pos
 init_state[6] = 1.0
 init_state[7:19] = base_config
-
 
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     model, init_state[7:nq], nq, nv, C_WGT, True
@@ -69,17 +68,17 @@ for k in range(mpc_H):
     model.addCost(k, v_cost)
     model.addCost(k, u_cost)
 
-    model.addContactConstraint(k, "FL_foot", CONTACT_MU)
-    model.addConstraints(k, fl_foot_vel_bound)
+    model.addContactConstraint(k, "FL_foot", CONTACT_MU, 0.05)
+    # model.addConstraints(k, fl_foot_vel_bound)
 
-    model.addContactConstraint(k, "FR_foot", CONTACT_MU)
-    model.addConstraints(k, fr_foot_vel_bound)
+    model.addContactConstraint(k, "FR_foot", CONTACT_MU, 0.05)
+    # model.addConstraints(k, fr_foot_vel_bound)
 
-    model.addContactConstraint(k, "RL_foot", CONTACT_MU)
-    model.addConstraints(k, rl_foot_vel_bound)
+    model.addContactConstraint(k, "RL_foot", CONTACT_MU, 0.05)
+    # model.addConstraints(k, rl_foot_vel_bound)
 
-    model.addContactConstraint(k, "RR_foot", CONTACT_MU)
-    model.addConstraints(k, rr_foot_vel_bound)
+    model.addContactConstraint(k, "RR_foot", CONTACT_MU, 0.05)
+    # model.addConstraints(k, rr_foot_vel_bound)
 
 model.addCost(mpc_H, v_cost)
 
@@ -88,16 +87,16 @@ model.finalize(init_states=[init_state])
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
+ssqp_params.line_search_method = ssqpy.solvers.LineSearchMethod.Merit
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.init_rho = 10.0
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
-admm_params.warm_start = True
+admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/go2.xml")
 mjdata = mujoco.MjData(mjmodel)
@@ -117,8 +116,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         state = np.hstack((mjdata.qpos, mjdata.qvel))
 
         pre = time()
-
-        u = mpc.step(state)
 
         if dynamics_mode == ssqpy.model.DynamicsMode.Forward:
             mjdata.ctrl = mpc.step(state)[6:18]
