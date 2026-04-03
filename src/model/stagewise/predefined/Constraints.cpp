@@ -434,13 +434,14 @@ void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 ContactConstraint::ContactConstraint(const Model       &model,
                                      const std::string &frame, const uint nq,
                                      const uint nv, const uint nu,
-                                     const double mu)
+                                     const double mu, const double eq_tol)
   : _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _nq(nq)
   , _nv(nv)
   , _nu(nu)
   , _mu(mu)
+  , _eq_tol(eq_tol)
 {
 }
 
@@ -476,7 +477,7 @@ VecX ContactConstraint::lower_bound() const
             0.0,
             -std::numeric_limits<double>::infinity(),
             0.0,
-            0.0)
+            -_eq_tol)
       .finished();
 }
 
@@ -487,7 +488,7 @@ VecX ContactConstraint::upper_bound() const
             std::numeric_limits<double>::infinity(),
             0.0,
             std::numeric_limits<double>::infinity(),
-            0.0)
+            _eq_tol)
       .finished();
 }
 

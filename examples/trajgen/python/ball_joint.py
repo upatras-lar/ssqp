@@ -8,11 +8,11 @@ Ball joint example
 H = 200
 dt = 0.01
 
-V_WGT = 1e-2
-U_WGT = 1e-3
+V_WGT = 1.0
+U_WGT = 1.0
 C_WGT = 5.0
 
-DESIRED_CONFIG = np.array((0.0, 1.0, 0.0, 0.0))
+DESIRED_CONFIG = np.array((0.0, 0.0, 0.0, 1.0))
 
 model = ssqpy.model.Model(
     H,

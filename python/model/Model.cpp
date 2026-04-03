@@ -292,7 +292,11 @@ void bind_Model(nb::module_ &m)
            "Add constraints to a stage.")
       .def(
         "addContactConstraint",
-        [](Model &self, const uint k, const std::string &frame, const double mu)
+        [](Model             &self,
+           const uint         k,
+           const std::string &frame,
+           const double       mu,
+           const double       eq_tol)
         {
             return self.addConstraints<ContactConstraint>(k,
                                                           self,
@@ -300,11 +304,13 @@ void bind_Model(nb::module_ &m)
                                                           self.nq(),
                                                           self.nv(),
                                                           self.nu(),
-                                                          mu);
+                                                          mu,
+                                                          eq_tol);
         },
         nb::arg("k"),
         nb::arg("frame"),
-        nb::arg("mu") = 0.6,
+        nb::arg("mu")     = 0.6,
+        nb::arg("eq_tol") = 0.0,
         R"doc(
         Add a contact constraint for a frame to a stage.
         This includes adding a force for the contact constraint at that stage.
