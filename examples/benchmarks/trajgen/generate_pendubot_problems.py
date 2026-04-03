@@ -84,13 +84,10 @@ def cvt(
 
 def generate_pendubot_problems(n, horizon, dynamics_mode):
     V_WGT = 1e-3
-    U_WGT = 1e-3 if dynamics_mode == ssqpy.model.DynamicsMode.Inverse else 1e-4
+    U_WGT = 1e-4 if dynamics_mode == ssqpy.model.DynamicsMode.Forward else 1e-3
     TIP_WGT = 5.0
     C_WGT = 4.0
 
-    nq = 2
-    nv = 2
-    nu = 2
     dt = 0.01
 
     problems = []
@@ -105,6 +102,10 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
             actuated_joints=[0],
             dynamics_mode=dynamics_mode,
         )
+
+        nq = model.getnq()
+        nv = model.getnv()
+        nu = model.getnu()
 
         vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
         u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)

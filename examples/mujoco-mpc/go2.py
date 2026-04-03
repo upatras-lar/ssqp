@@ -6,7 +6,7 @@ from math import pi, sin, cos, sqrt
 from time import time, sleep
 
 dt = 0.01
-mpc_H = 10
+mpc_H = 5
 mpc_dt = 0.1
 
 C_WGT = 10.0
@@ -44,52 +44,29 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT, True)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
 
-lin_vel_lb = np.array((-1e-1, -1e-1, -1e-1))
-lin_vel_ub = np.array((1e-1, 1e-1, 1e-1))
-
-fl_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-    model, "FL_foot", lin_vel_lb, lin_vel_ub, nq, nv
-)
-
-fr_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-    model, "FR_foot", lin_vel_lb, lin_vel_ub, nq, nv
-)
-
-rl_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-    model, "RL_foot", lin_vel_lb, lin_vel_ub, nq, nv
-)
-
-rr_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-    model, "RR_foot", lin_vel_lb, lin_vel_ub, nq, nv
-)
-
 for k in range(mpc_H):
     model.addCost(k, config_cost)
     model.addCost(k, v_cost)
     model.addCost(k, u_cost)
 
-    model.addContactConstraint(k, "FL_foot", CONTACT_MU, 0.05)
-    # model.addConstraints(k, fl_foot_vel_bound)
-
-    model.addContactConstraint(k, "FR_foot", CONTACT_MU, 0.05)
-    # model.addConstraints(k, fr_foot_vel_bound)
-
-    model.addContactConstraint(k, "RL_foot", CONTACT_MU, 0.05)
-    # model.addConstraints(k, rl_foot_vel_bound)
-
-    model.addContactConstraint(k, "RR_foot", CONTACT_MU, 0.05)
-    # model.addConstraints(k, rr_foot_vel_bound)
+    model.addContactConstraint(k, "FL_foot", CONTACT_MU)
+    model.addContactConstraint(k, "FR_foot", CONTACT_MU)
+    model.addContactConstraint(k, "RL_foot", CONTACT_MU)
+    model.addContactConstraint(k, "RR_foot", CONTACT_MU)
 
 model.addCost(mpc_H, v_cost)
 
 model.finalize(init_states=[init_state])
 
-
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
-ssqp_params.line_search_method = ssqpy.solvers.LineSearchMethod.Merit
+# ssqp_params.line_search_method = ssqpy.solvers.LineSearchMethod.Merit
+# ssqp_params.stop_after_constraint_satisfaction = True
+# ssqp_params.skip_regularization = True
 
 admm_params = ssqpy.solvers.admmParams()
+admm_params.adaptive_rho_tolerance = 25.0
+admm_params.init_rho = 1.0
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
 admm_params.warm_start = False
@@ -98,19 +75,15 @@ ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
 
-mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/go2.xml")
+mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = init_state[:nq]
 
-elapsed = 0
-steps = 0
-total_steps = int(1 / dt)
-
-stage = 0
-
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
+        # print(model.forwardKinematics(init_state[:19], "FL_foot")[0])
+        print(f"\rSimulation time: {mjdata.time:.2f}s")
         frame_start = time()
 
         state = np.hstack((mjdata.qpos, mjdata.qvel))
@@ -126,18 +99,12 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
                 model.getFullAccelerationVector(state, mpc.step(state), 0),
             )[6:]
 
-        elapsed += time() - pre
-        steps += 1
+        elapsed = time() - pre
 
-        if steps == total_steps:
-            print(f"\rControl frequency: {(1 / (elapsed*dt)):.2f}Hz\t", end="")
-            elapsed = 0
-            steps = 0
+        print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t")
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
-
-        stage += 1
 
         to_sleep = dt - (time() - frame_start)
         if to_sleep > 0:

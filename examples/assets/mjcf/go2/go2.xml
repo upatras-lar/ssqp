@@ -61,14 +61,6 @@
     </asset>
 
     <worldbody>
-        <geom name="ground"
-            type="plane"
-            size="10 10 0.1"
-            pos="0 0 0"
-            rgba="1 1 1 1"
-            contype="1"
-            conaffinity="1" />
-
         <body name="base_link" pos="0 0 0.0" childclass="go2">
             <inertial pos="0.021112 0 -0.005366" quat="-0.000543471 0.713435 -0.00173769 0.700719"
                 mass="6.921"
@@ -115,7 +107,7 @@
                             type="cylinder" class="collision" />
                         <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black" />
                         <geom name="FL" class="foot" />
-                        <body name="FL_foot" pos="0 0 -0.213" />
+                        <body name="FL_foot" pos="0 0 -0.23648" />
                     </body>
                 </body>
             </body>
@@ -152,7 +144,7 @@
                             type="cylinder" class="collision" />
                         <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black" />
                         <geom name="FR" class="foot" />
-                        <body name="FR_foot" pos="0 0 -0.213" />
+                        <body name="FR_foot" pos="0 0 -0.23648" />
                     </body>
                 </body>
             </body>
@@ -188,7 +180,7 @@
                             type="cylinder" class="collision" />
                         <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black" />
                         <geom name="RL" class="foot" />
-                        <body name="RL_foot" pos="0 0 -0.213" />
+                        <body name="RL_foot" pos="0 0 -0.23648" />
                     </body>
                 </body>
             </body>
@@ -226,7 +218,7 @@
                             type="cylinder" class="collision" />
                         <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black" />
                         <geom name="RR" class="foot" />
-                        <body name="RR_foot" pos="0 0 -0.213" />
+                        <body name="RR_foot" pos="0 0 -0.23648" />
                     </body>
                 </body>
             </body>
