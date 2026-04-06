@@ -943,8 +943,19 @@ VecX Model::_calculateReducedInverseFullAcceleration(
     uint offset = 0;
     if constexpr (FloatingBase)
     {
-        Muu.topRows<6>()     = M.topLeftCorner(6, n_unact);
-        Muj.topRows<6>()     = M.topRightCorner(6, nu);
+        Muu.topLeftCorner<6, 6>() = M.topLeftCorner(6, 6);
+
+        for (uint i = 0; i < unactuated_joints.size(); ++i)
+        {
+            Muu.block<6, 1>(0, 6 + i) =
+              M.block<6, 1>(0, 6 + unactuated_joints[i]);
+        }
+
+        for (uint i = 0; i < actuated_joints.size(); ++i)
+        {
+            Muj.block<6, 1>(0, i) = M.block<6, 1>(0, 6 + actuated_joints[i]);
+        }
+
         bias_unact.head<6>() = bias.head<6>();
         offset               = 6;
     }
