@@ -432,7 +432,7 @@ void Model::_buildXMLDynamics(const Config &config)
         uint offset = 0;
         if (_free_flyer)
         {
-            init_state[3] = 1.0;
+            init_state[6] = 1.0;
             offset        = 7;
         }
 
@@ -450,8 +450,8 @@ void Model::_buildXMLDynamics(const Config &config)
                 offset             += 2;
                 break;
             case pinocchio_wrapper::JointType::Spherical:
-                init_state[offset]  = 1.0;
-                offset             += 4;
+                init_state[offset + 3]  = 1.0;
+                offset                 += 4;
                 break;
             case pinocchio_wrapper::JointType::SphericalEuler:
                 offset += 3;
