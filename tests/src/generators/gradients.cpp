@@ -878,8 +878,8 @@ std::shared_ptr<Test> get_lf_grad_test()
         6.33,
         true);
 
-    VecX init_state(37);
-    init_state[6] = 1.0;
+    VecX init_state = VecX::Zero(37);
+    init_state[6]   = 1.0;
 
     model::Model::Config config;
     config.init_states = { init_state };
@@ -921,8 +921,8 @@ std::shared_ptr<Test> get_gammaf_grad_test()
         8.72,
         true);
 
-    VecX init_state(37);
-    init_state[6] = 1.0;
+    VecX init_state = VecX::Zero(37);
+    init_state[6]   = 1.0;
 
     model::Model::Config config;
     config.init_states = { init_state };
@@ -989,8 +989,8 @@ std::shared_ptr<Test> get_cf_grad_test()
       19,
       18);
 
-    VecX init_state(37);
-    init_state[6] = 1.0;
+    VecX init_state = VecX::Zero(37);
+    init_state[6]   = 1.0;
 
     model::Model::Config config;
     config.init_states = { init_state };
