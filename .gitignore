@@ -25,3 +25,4 @@ out.txt
 test.py
 test.json
 MUJOCO_LOG.TXT
+.env

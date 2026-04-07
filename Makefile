@@ -87,11 +87,15 @@ BINDINGS_OBJ := $(patsubst $(PYTHON_DIR)/%.cpp,$(BINDINGS_OBJ_DIR)/%.o,$(BINDING
 
 # Default target
 all: $(EXE_FILES)
+	@echo "Built C++ executables"
 
 tests: $(TEST_RUNNER)
 	@echo "Built tests"
 
 python: $(BUILD_DIR)/bindings/ssqpy$(PYTHON_EXT)
+	PYTHONPATH=~/Documents/ssqp/build/bindings \
+	python -m nanobind.stubgen -m ssqpy -M ~/Documents/ssqp/build/bindings/py.typed -r
+	@echo "Built Python library"
 
 $(TEST_RUNNER): $(TEST_RUNNER_OBJ) $(TESTS_OBJ) $(LIB_OBJ)
 	@mkdir -p $(dir $@)
