@@ -108,7 +108,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         pre = time()
         try:
-            control = mpc.step(state)
+            control = mpc.step(state)[1].stage(0)
         except RuntimeError:
             reg_fails += 1
             control = np.zeros(nv)

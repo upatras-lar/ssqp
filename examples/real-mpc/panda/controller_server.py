@@ -21,7 +21,9 @@ def parse_args():
         "robot to a certain location"
     )
 
-    subparsers = parser.add_subparsers(dest="model", help="The model to execute")
+    subparsers = parser.add_subparsers(
+        dest="model", help="The model to execute"
+    )
 
     parser_reset = subparsers.add_parser(
         "reset", help="Resets the Panda's configuration to the initial"
@@ -39,7 +41,8 @@ def parse_args():
     )
 
     parser_circle = subparsers.add_parser(
-        "circle", help="Performs a circle in the yz-plane with the Panda's end-effector"
+        "circle",
+        help="Performs a circle in the yz-plane with the Panda's end-effector",
     )
     parser_circle.add_argument(
         "--constrain",
@@ -192,12 +195,14 @@ try:
                     controls = model.inverseDynamics(
                         state[:nq],
                         state[nq:],
-                        model.getFullAccelerationVector(state, mpc.step(state)),
+                        model.getFullAccelerationVector(
+                            state, mpc.step(state)[1].stage(0)
+                        ),
                     )
                 elif args.dynamics_mode == "forward":
-                    controls = mpc.step(state)
+                    controls = mpc.step(state)[1].stage(0)
             else:
-                controls = mpc.step(state, True)
+                controls = mpc.step(state)[0].stage(0)
 
             try:
                 send(conn, controls)

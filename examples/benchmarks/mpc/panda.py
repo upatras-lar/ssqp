@@ -168,10 +168,10 @@ def run(dynamics_mode, constrain):
             sim_ctrl = model.inverseDynamics(
                 simulator.state[:nq],
                 simulator.state[nq:],
-                mpc.step(simulator.state),
+                mpc.step(simulator.state)[1].stage(0),
             )
         else:
-            sim_ctrl = mpc.step(simulator.state)
+            sim_ctrl = mpc.step(simulator.state)[1].stage(0)
 
         elapsed = time() - pre
 

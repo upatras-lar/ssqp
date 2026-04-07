@@ -143,10 +143,10 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         pre = time()
         if INVERSE_MODE:
             mjdata.ctrl = model.inverseDynamics(
-                mjdata.qpos, mjdata.qvel, mpc.step(state)
+                mjdata.qpos, mjdata.qvel, mpc.step(state)[1].stage(0)
             )[:8]
         else:
-            mjdata.ctrl = mpc.step(state)[:8]
+            mjdata.ctrl = mpc.step(state)[1].stage(0)[:8]
         elapsed += time() - pre
         steps += 1
 

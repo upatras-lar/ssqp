@@ -148,7 +148,7 @@ def run(dynamics_mode):
         pre = time()
 
         try:
-            control = mpc.step(simulator.state)[:nu]
+            control = mpc.step(simulator.state)[1].stage(0)[:nu]
         except RuntimeError:
             control = np.zeros(nu)
 
