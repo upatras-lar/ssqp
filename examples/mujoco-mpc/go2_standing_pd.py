@@ -24,7 +24,7 @@ dt = 0.002
 mpc_H = 10
 mpc_dt = 0.1
 
-C_WGT = 1.0
+C_WGT = 10.0
 V_WGT = 1e-2
 U_WGT = 1e-4
 
@@ -44,7 +44,7 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-base_pos = np.array([0.0, 0.0, 0.389])
+base_pos = np.array([0.0, 0.0, 0.392])
 base_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
 
 # Initial configuration
@@ -90,7 +90,7 @@ ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
 
-joint_space_pd_controller = JointSpacePD(mpc, init_state, Kp=2.0, Kd=0.1)
+joint_space_pd_controller = JointSpacePD(mpc, init_state, Kp=2.0, Kd=0.05)
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
