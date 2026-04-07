@@ -110,10 +110,10 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         pre = time()
 
         if dynamics_mode == ssqpy.model.DynamicsMode.Forward:
-            u = mpc.step(state)
+            u = mpc.step(state)[1].stage(0)
             mjdata.ctrl = u[6:18]
         else:
-            u = mpc.step(state)
+            u = mpc.step(state)[1].stage(0)
 
             forces = {
                 "FL_foot": [u[nu : nu + 3]],

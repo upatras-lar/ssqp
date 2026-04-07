@@ -102,7 +102,7 @@ while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
 
     start = time()
     try:
-        u = mpc.step(state)
+        u = mpc.step(state)[1].stage(0)
     except RuntimeError:
         u = np.zeros(nv)
 

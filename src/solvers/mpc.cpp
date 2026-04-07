@@ -27,7 +27,7 @@ MPC::MPC(model::Model &model, const Params &params,
     }
 }
 
-VecX MPC::step(const VecX &state, bool return_state)
+std::pair<FlatVec, FlatVec> MPC::step(const VecX &state)
 {
     if (_prev_states != nullptr)
     {
@@ -52,7 +52,7 @@ VecX MPC::step(const VecX &state, bool return_state)
     _prev_states                  = std::make_unique<FlatVec>(p.first);
     _prev_controls                = std::make_unique<FlatVec>(p.second);
 
-    return return_state ? _prev_states->stage(1) : _prev_controls->stage(0);
+    return { p.first, p.second };
 }
 
 std::pair<FlatVec, FlatVec> MPC::step(const std::vector<VecX> &states,
