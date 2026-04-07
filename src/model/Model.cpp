@@ -305,7 +305,7 @@ void Model::_buildXMLInnateConstraints()
     auto ct_false         = to_compile_time(false);
     auto ct_dm            = to_compile_time(_dynamics_mode);
 
-    for (uint k = 0; k < _dims.horizon; ++k)
+    for (uint k = 0; k <= _dims.horizon; ++k)
     {
         ctx.nf = _forces[k].size();
         std::shared_ptr<stagewise::StageConstraints> innate_constraints =
@@ -317,7 +317,7 @@ void Model::_buildXMLInnateConstraints()
                                                    dm.value>(ctx);
             },
             ct_floating_base,
-            ct_false,
+            k == _dims.horizon ? ct_true : ct_false,
             ct_dm);
 
         _constraints[k] =
@@ -326,23 +326,6 @@ void Model::_buildXMLInnateConstraints()
             : stagewise::factory::merge_constraints(_constraints[k],
                                                     innate_constraints);
     }
-
-    std::shared_ptr<stagewise::StageConstraints> terminal_innate_constraints =
-      std::visit(
-        [this, ctx](auto fb, auto it, auto dm)
-        {
-            return _makeStageInnateConstraints<fb.value, it.value, dm.value>(
-              ctx);
-        },
-        ct_floating_base,
-        ct_true,
-        ct_dm);
-
-    _constraints[_dims.horizon] =
-      _constraints[_dims.horizon] == nullptr
-        ? terminal_innate_constraints
-        : stagewise::factory::merge_constraints(_constraints[_dims.horizon],
-                                                terminal_innate_constraints);
 }
 
 void Model::_buildXMLIDTorqueConstraints()
