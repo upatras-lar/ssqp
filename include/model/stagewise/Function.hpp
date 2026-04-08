@@ -13,6 +13,14 @@ namespace stagewise
 class Function
 {
   public:
+    // Set enabled status for Function
+    // Note that this will only be considered if disabling is valid,
+    // meaning this Function is a merged cost or a constraint
+    void set_enabled(const bool enabled);
+
+    // Whether this function is enabled
+    bool enabled() const;
+
     // Get function output size (if $f: R^m \to R^n$, this returns $n$)
     virtual uint output_size() const = 0;
 
@@ -27,6 +35,9 @@ class Function
     // Hessians
     // Derived classes should either implement hessians (if $n = 1$) or
     // hessprods (if $n > 1$)
+
+  protected:
+    bool _enabled = true;
 };
 }
 }

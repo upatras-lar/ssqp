@@ -40,13 +40,14 @@ inline std::shared_ptr<StageDynamics> make_dynamics(
   HessprodFunction2 hess_xu = ZeroHessprod_xu,
   HessprodFunction3 hess_uu = ZeroHessprod_uu);
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator  = decltype(DefaultRightMinus),
          typename HessprodFunction1 = decltype(ZeroHessprod_xx),
          typename HessprodFunction2 = decltype(ZeroHessprod_xu),
          typename HessprodFunction3 = decltype(ZeroHessprod_uu)>
 inline std::shared_ptr<StageConstraints> make_constraints(
-  const uint nout, const uint ndc, const VecX &lb, const VecX &ub,
+  const uint nout, const uint ndc, LowerBoundFunction lb, UpperBoundFunction ub,
   EvaluationFunction eval, multiGradientFunction grad,
   ManifoldOperator op       = DefaultRightMinus,
   HessprodFunction1 hess_xx = ZeroHessprod_xx,
@@ -151,36 +152,38 @@ class FunctionStageDynamics : public FunctionStageDynamicsBase
     const HessprodFunction3                                       _hess_uu;
 };
 
+// TODO: nout, ndc are not constant if enabling is a thing!
 class FunctionStageConstraintsBase : public StageConstraints
 {
   public:
-    inline FunctionStageConstraintsBase(const uint nout, const uint ndc,
-                                        const VecX &lb, const VecX &ub);
+    inline FunctionStageConstraintsBase(const uint nout, const uint ndc);
 
     inline uint output_size() const override;
-    inline VecX lower_bound() const override;
-    inline VecX upper_bound() const override;
 
   protected:
     const uint _nout, _ndc;
-    const VecX _lb, _ub;
 };
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
 class FunctionStageConstraints : public FunctionStageConstraintsBase
 {
   public:
     inline FunctionStageConstraints(
-      const uint nout, const uint ndc, const VecX &lb, const VecX &ub,
-      const EvaluationFunction eval, const multiGradientFunction grad,
-      const ManifoldOperator op, const HessprodFunction1 hess_xx,
-      const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu);
+      const uint nout, const uint ndc, const LowerBoundFunction lb,
+      const UpperBoundFunction ub, const EvaluationFunction eval,
+      const multiGradientFunction grad, const ManifoldOperator op,
+      const HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
+      const HessprodFunction3 hess_uu);
 
     inline uint constraint_diff_size() const override;
 
     inline VecX right_minus(const VecX &x, const VecX &y) const override;
+
+    inline VecX lower_bound() const override;
+    inline VecX upper_bound() const override;
 
     inline VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -197,6 +200,8 @@ class FunctionStageConstraints : public FunctionStageConstraintsBase
                             MatX &Puu) const override;
 
   protected:
+    const LowerBoundFunction    _lb;
+    const UpperBoundFunction    _ub;
     const EvaluationFunction    _eval;
     const multiGradientFunction _grad;
     const ManifoldOperator      _op;
