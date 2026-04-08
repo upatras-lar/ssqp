@@ -62,16 +62,19 @@ std::shared_ptr<StageDynamics> make_dynamics(
       std::move(hess_uu));
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
 std::shared_ptr<StageConstraints> make_constraints(
-  const uint nout, const uint ndc, const VecX &lb, const VecX &ub,
-  EvaluationFunction eval, multiGradientFunction grad, ManifoldOperator op,
-  HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
-  HessprodFunction3 hess_uu)
+  const uint nout, const uint ndc, const LowerBoundFunction lb,
+  const UpperBoundFunction ub, EvaluationFunction eval,
+  multiGradientFunction grad, ManifoldOperator op, HessprodFunction1 hess_xx,
+  HessprodFunction2 hess_xu, HessprodFunction3 hess_uu)
 {
-    return std::make_shared<FunctionStageConstraints<EvaluationFunction,
+    return std::make_shared<FunctionStageConstraints<LowerBoundFunction,
+                                                     UpperBoundFunction,
+                                                     EvaluationFunction,
                                                      multiGradientFunction,
                                                      ManifoldOperator,
                                                      HessprodFunction1,
@@ -79,8 +82,8 @@ std::shared_ptr<StageConstraints> make_constraints(
                                                      HessprodFunction3>>(
       nout,
       ndc,
-      lb,
-      ub,
+      std::move(lb),
+      std::move(ub),
       std::move(eval),
       std::move(grad),
       std::move(op),
@@ -94,44 +97,100 @@ std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
 {
     auto eval = [l1, l2](const VecX &x, const VecX &u)
     {
+        Scalar out;
+
+        if (l1->enabled())
+        {
+            out += l1->evaluate(x, u);
+
+            if (l2->enabled())
+            {
+                out += l2->evaluate(x, u);
+            }
+        }
+        else
+        {
+            out += l2->evaluate(x, u);
+        }
+
         return (Scalar() << l1->evaluate(x, u) + l2->evaluate(x, u)).finished();
     };
 
     auto grad = [l1, l2](const VecX &x, const VecX &u, VecX &dx, VecX &du)
     {
-        VecX tmp_x, tmp_u;
-        l1->gradient(x, u, dx, du);
-        l2->gradient(x, u, tmp_x, tmp_u);
+        if (l1->enabled())
+        {
+            l1->gradient(x, u, dx, du);
 
-        dx += tmp_x;
-        du += tmp_u;
+            if (l2->enabled())
+            {
+                VecX tmp_x, tmp_u;
+                l2->gradient(x, u, tmp_x, tmp_u);
+                dx += tmp_x;
+                du += tmp_u;
+            }
+        }
+        else
+        {
+            l2->gradient(x, u, dx, du);
+        }
     };
 
     auto hess_xx = [l1, l2](const VecX &x, const VecX &u, MatX &Hxx)
     {
-        MatX tmp_Hxx;
-        l1->hessian_xx(x, u, Hxx);
-        l2->hessian_xx(x, u, tmp_Hxx);
+        if (l1->enabled())
+        {
+            l1->hessian_xx(x, u, Hxx);
 
-        Hxx += tmp_Hxx;
+            if (l2->enabled())
+            {
+                MatX tmp_Hxx;
+                l2->hessian_xx(x, u, tmp_Hxx);
+                Hxx += tmp_Hxx;
+            }
+        }
+        else
+        {
+            l2->hessian_xx(x, u, Hxx);
+        }
     };
 
     auto hess_xu = [l1, l2](const VecX &x, const VecX &u, MatX &Hxu)
     {
-        MatX tmp_Hxu;
-        l1->hessian_xu(x, u, Hxu);
-        l2->hessian_xu(x, u, tmp_Hxu);
+        if (l1->enabled())
+        {
+            l1->hessian_xu(x, u, Hxu);
 
-        Hxu += tmp_Hxu;
+            if (l2->enabled())
+            {
+                MatX tmp_Hxu;
+                l2->hessian_xu(x, u, tmp_Hxu);
+                Hxu += tmp_Hxu;
+            }
+        }
+        else
+        {
+            l2->hessian_xu(x, u, Hxu);
+        }
     };
 
     auto hess_uu = [l1, l2](const VecX &x, const VecX &u, MatX &Huu)
     {
-        MatX tmp_Huu;
-        l1->hessian_uu(x, u, Huu);
-        l2->hessian_uu(x, u, tmp_Huu);
+        if (l1->enabled())
+        {
+            l1->hessian_uu(x, u, Huu);
 
-        Huu += tmp_Huu;
+            if (l2->enabled())
+            {
+                MatX tmp_Huu;
+                l2->hessian_uu(x, u, tmp_Huu);
+                Huu += tmp_Huu;
+            }
+        }
+        else
+        {
+            l2->hessian_uu(x, u, Huu);
+        }
     };
 
     return make_cost(eval, grad, hess_xx, hess_xu, hess_uu);
@@ -141,88 +200,240 @@ std::shared_ptr<StageConstraints> merge_constraints(
   const std::shared_ptr<StageConstraints> &c1,
   const std::shared_ptr<StageConstraints> &c2)
 {
-    uint nc  = c1->output_size() + c2->output_size();
-    uint ndc = c1->constraint_diff_size() + c2->constraint_diff_size();
-
-    VecX lb(nc), ub(nc);
-    lb << c1->lower_bound(), c2->lower_bound();
-    ub << c1->upper_bound(), c2->upper_bound();
-
-    auto op = [nc, ndc, c1, c2](const VecX &x, const VecX &y)
+    auto lb = [c1, c2]()
     {
+        uint nc = 0;
+
+        if (c1->enabled())
+        {
+            nc += c1->output_size();
+        }
+
+        if (c2->enabled())
+        {
+            nc += c2->output_size();
+        }
+
+        VecX lb(nc);
+
+        if (c1->enabled())
+        {
+            lb.head(c1->output_size()) = c1->lower_bound();
+        }
+
+        if (c2->enabled())
+        {
+            lb.tail(c2->output_size()) = c2->lower_bound();
+        }
+
+        return lb;
+    };
+
+    auto ub = [c1, c2]()
+    {
+        uint nc = 0;
+
+        if (c1->enabled())
+        {
+            nc += c1->output_size();
+        }
+
+        if (c2->enabled())
+        {
+            nc += c2->output_size();
+        }
+
+        VecX ub(nc);
+
+        if (c1->enabled())
+        {
+            ub.head(c1->output_size()) = c1->upper_bound();
+        }
+
+        if (c2->enabled())
+        {
+            ub.tail(c2->output_size()) = c2->upper_bound();
+        }
+
+        return ub;
+    };
+
+    auto op = [c1, c2](const VecX &x, const VecX &y)
+    {
+        uint ndc = 0;
+
+        if (c1->enabled())
+        {
+            ndc += c1->constraint_diff_size();
+        }
+
+        if (c2->enabled())
+        {
+            ndc += c2->constraint_diff_size();
+        }
+
         VecX c(ndc);
-        c.head(c1->constraint_diff_size()) =
-          c1->right_minus(x.head(c1->output_size()), y.head(c1->output_size()));
-        c.tail(c2->constraint_diff_size()) =
-          c2->right_minus(x.tail(c2->output_size()), y.tail(c2->output_size()));
+
+        if (c1->enabled())
+        {
+            c.head(c1->constraint_diff_size()) =
+              c1->right_minus(x.head(c1->output_size()),
+                              y.head(c1->output_size()));
+        }
+
+        if (c2->enabled())
+        {
+            c.tail(c2->constraint_diff_size()) =
+              c2->right_minus(x.tail(c2->output_size()),
+                              y.tail(c2->output_size()));
+        }
 
         return c;
     };
 
-    auto eval = [nc, c1, c2](const VecX &x, const VecX &u)
+    auto eval = [c1, c2](const VecX &x, const VecX &u)
     {
+        uint nc = 0;
+
+        if (c1->enabled())
+        {
+            nc += c1->output_size();
+        }
+
+        if (c2->enabled())
+        {
+            nc += c2->output_size();
+        }
+
         VecX c(nc);
-        c.head(c1->output_size()) = c1->evaluate(x, u);
-        c.tail(c2->output_size()) = c2->evaluate(x, u);
+
+        if (c1->enabled())
+        {
+            c.head(c1->output_size()) = c1->evaluate(x, u);
+        }
+
+        if (c2->enabled())
+        {
+            c.tail(c2->output_size()) = c2->evaluate(x, u);
+        }
 
         return c;
     };
 
-    auto grad = [ndc, c1, c2](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+    auto grad = [c1, c2](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        MatX dX1, dU1;
-        c1->gradient(x, u, dX1, dU1);
+        uint ndc = 0;
 
-        uint ndx = dX1.cols();
-        dX       = MatX::Zero(ndc, ndx);
-        dU       = MatX::Zero(ndc, u.size());
+        if (c1->enabled())
+        {
+            ndc += c1->constraint_diff_size();
+        }
 
-        dX.block(0, 0, c1->constraint_diff_size(), ndx)      = dX1;
-        dU.block(0, 0, c1->constraint_diff_size(), u.size()) = dU1;
+        if (c2->enabled())
+        {
+            ndc += c2->constraint_diff_size();
+        }
 
-        MatX dX2, dU2;
-        c2->gradient(x, u, dX2, dU2);
-        dX.block(c1->constraint_diff_size(),
-                 0,
-                 c2->constraint_diff_size(),
-                 ndx)      = dX2;
-        dU.block(c1->constraint_diff_size(),
-                 0,
-                 c2->constraint_diff_size(),
-                 u.size()) = dU2;
+        if (c1->enabled())
+        {
+            MatX tmp_dX, tmp_dU;
+            c1->gradient(x, u, tmp_dX, tmp_dU);
+
+            uint ndx = tmp_dX.cols();
+            dX       = MatX::Zero(ndc, ndx);
+            dU       = MatX::Zero(ndc, u.size());
+
+            dX.block(0, 0, c1->constraint_diff_size(), ndx)      = tmp_dX;
+            dU.block(0, 0, c1->constraint_diff_size(), u.size()) = tmp_dU;
+
+            if (c2->enabled())
+            {
+                c2->gradient(x, u, tmp_dX, tmp_dU);
+                dX.block(c1->constraint_diff_size(),
+                         0,
+                         c2->constraint_diff_size(),
+                         ndx)      = tmp_dX;
+                dU.block(c1->constraint_diff_size(),
+                         0,
+                         c2->constraint_diff_size(),
+                         u.size()) = tmp_dU;
+            }
+        }
+        else
+        {
+            c2->gradient(x, u, dX, dU);
+        }
     };
 
     auto hessprod_xx =
       [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Pxx)
     {
-        MatX tmp;
-        c1->hessprod_xx(x, u, mu.head(c1->constraint_diff_size()), Pxx);
-        c2->hessprod_xx(x, u, mu.tail(c2->constraint_diff_size()), tmp);
-        Pxx += tmp;
+        if (c1->enabled())
+        {
+            c1->hessprod_xx(x, u, mu.head(c1->constraint_diff_size()), Pxx);
+            if (c2->enabled())
+            {
+                MatX tmp_Pxx;
+                c2->hessprod_xx(x,
+                                u,
+                                mu.tail(c2->constraint_diff_size()),
+                                tmp_Pxx);
+                Pxx += tmp_Pxx;
+            }
+        }
+        else
+        {
+            c2->hessprod_xx(x, u, mu, Pxx);
+        }
     };
 
     auto hessprod_xu =
       [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Pxu)
     {
-        MatX tmp;
-        c1->hessprod_xu(x, u, mu.head(c1->constraint_diff_size()), Pxu);
-        c2->hessprod_xu(x, u, mu.tail(c2->constraint_diff_size()), tmp);
-
-        Pxu += tmp;
+        if (c1->enabled())
+        {
+            c1->hessprod_xu(x, u, mu.head(c1->constraint_diff_size()), Pxu);
+            if (c2->enabled())
+            {
+                MatX tmp_Pxu;
+                c2->hessprod_xu(x,
+                                u,
+                                mu.tail(c2->constraint_diff_size()),
+                                tmp_Pxu);
+                Pxu += tmp_Pxu;
+            }
+        }
+        else
+        {
+            c2->hessprod_xu(x, u, mu, Pxu);
+        }
     };
 
     auto hessprod_uu =
       [c1, c2](const VecX &x, const VecX &u, const VecX &mu, MatX &Puu)
     {
-        MatX tmp;
-        c1->hessprod_uu(x, u, mu.head(c1->constraint_diff_size()), Puu);
-        c2->hessprod_uu(x, u, mu.tail(c2->constraint_diff_size()), tmp);
-
-        Puu += tmp;
+        if (c1->enabled())
+        {
+            c1->hessprod_uu(x, u, mu.head(c1->constraint_diff_size()), Puu);
+            if (c2->enabled())
+            {
+                MatX tmp_Puu;
+                c2->hessprod_uu(x,
+                                u,
+                                mu.tail(c2->constraint_diff_size()),
+                                tmp_Puu);
+                Puu += tmp_Puu;
+            }
+        }
+        else
+        {
+            c2->hessprod_uu(x, u, mu, Puu);
+        }
     };
 
-    return make_constraints(nc,
-                            ndc,
+    return make_constraints(c1->output_size() + c2->output_size(),
+                            c1->constraint_diff_size() +
+                              c2->constraint_diff_size(),
                             lb,
                             ub,
                             eval,
@@ -487,32 +698,32 @@ void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
     _hess_uu(x, u, lambda, Puu);
 }
 
-FunctionStageConstraintsBase::FunctionStageConstraintsBase(const uint  nout,
-                                                           const uint  ndc,
-                                                           const VecX &lb,
-                                                           const VecX &ub)
+FunctionStageConstraintsBase::FunctionStageConstraintsBase(const uint nout,
+                                                           const uint ndc)
   : _nout(nout)
   , _ndc(ndc)
-  , _lb(lb)
-  , _ub(ub)
 {
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
 FunctionStageConstraints<
-  EvaluationFunction, multiGradientFunction, ManifoldOperator,
-  HessprodFunction1, HessprodFunction2,
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
   HessprodFunction3>::FunctionStageConstraints(const uint nout, const uint ndc,
-                                               const VecX &lb, const VecX &ub,
+                                               const LowerBoundFunction    lb,
+                                               const UpperBoundFunction    ub,
                                                const EvaluationFunction    eval,
                                                const multiGradientFunction grad,
                                                const ManifoldOperator      op,
                                                const HessprodFunction1 hess_xx,
                                                const HessprodFunction2 hess_xu,
                                                const HessprodFunction3 hess_uu)
-  : FunctionStageConstraintsBase(nout, ndc, lb, ub)
+  : FunctionStageConstraintsBase(nout, ndc)
+  , _lb(std::move(lb))
+  , _ub(std::move(ub))
   , _eval(std::move(eval))
   , _grad(std::move(grad))
   , _op(std::move(op))
@@ -520,8 +731,6 @@ FunctionStageConstraints<
   , _hess_xu(std::move(hess_xu))
   , _hess_uu(std::move(hess_uu))
 {
-    assert(lb.size() == ub.size() && ub.size() == nout &&
-           "FunctionStageConstraints: nout must match lb.size() and ub.size()");
 }
 
 uint FunctionStageConstraintsBase::output_size() const
@@ -529,102 +738,114 @@ uint FunctionStageConstraintsBase::output_size() const
     return _nout;
 }
 
-VecX FunctionStageConstraintsBase::lower_bound() const
-{
-    return _lb;
-}
-
-VecX FunctionStageConstraintsBase::upper_bound() const
-{
-    return _ub;
-}
-
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-uint
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         ManifoldOperator, HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::constraint_diff_size() const
+uint FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::constraint_diff_size() const
 {
     return _ndc;
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-VecX
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         ManifoldOperator, HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::right_minus(const VecX &x,
-                                                         const VecX &y) const
+VecX FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::lower_bound() const
+{
+    return _lb();
+}
+
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+VecX FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::upper_bound() const
+{
+    return _ub();
+}
+
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+VecX FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::right_minus(const VecX &x, const VecX &y) const
 {
     return _op(x, y);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-VecX
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         ManifoldOperator, HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::evaluate(const VecX &x,
-                                                      const VecX &u) const
+VecX FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::evaluate(const VecX &x, const VecX &u) const
 {
     return _eval(x, u);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-void
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         ManifoldOperator, HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::gradient(const VecX &x,
-                                                      const VecX &u, MatX &dX,
-                                                      MatX &dU) const
+void FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::gradient(const VecX &x, const VecX &u, MatX &dX,
+                               MatX &dU) const
 {
     _grad(x, u, dX, dU);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-void
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         ManifoldOperator, HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::hessprod_xx(const VecX &x,
-                                                         const VecX &u,
-                                                         const VecX &lambda,
-                                                         MatX       &Pxx) const
+void FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::hessprod_xx(const VecX &x, const VecX &u,
+                                  const VecX &lambda, MatX &Pxx) const
 {
     _hess_xx(x, u, lambda, Pxx);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-void
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         ManifoldOperator, HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::hessprod_xu(const VecX &x,
-                                                         const VecX &u,
-                                                         const VecX &lambda,
-                                                         MatX       &Pxu) const
+void FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::hessprod_xu(const VecX &x, const VecX &u,
+                                  const VecX &lambda, MatX &Pxu) const
 {
     _hess_xu(x, u, lambda, Pxu);
 }
 
-template<typename EvaluationFunction, typename multiGradientFunction,
+template<typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-void
-FunctionStageConstraints<EvaluationFunction, multiGradientFunction,
-                         ManifoldOperator, HessprodFunction1, HessprodFunction2,
-                         HessprodFunction3>::hessprod_uu(const VecX &x,
-                                                         const VecX &u,
-                                                         const VecX &lambda,
-                                                         MatX       &Puu) const
+void FunctionStageConstraints<
+  LowerBoundFunction, UpperBoundFunction, EvaluationFunction,
+  multiGradientFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::hessprod_uu(const VecX &x, const VecX &u,
+                                  const VecX &lambda, MatX &Puu) const
 {
     _hess_uu(x, u, lambda, Puu);
 }
