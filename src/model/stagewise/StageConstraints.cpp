@@ -6,6 +6,16 @@ namespace model
 {
 namespace stagewise
 {
+void StageConstraints::set_enabled(const bool enabled)
+{
+    _enabled = enabled;
+}
+
+bool StageConstraints::enabled() const
+{
+    return _enabled;
+}
+
 uint StageConstraints::required_forces() const
 {
     return 0;

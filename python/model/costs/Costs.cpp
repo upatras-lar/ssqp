@@ -20,7 +20,17 @@ using namespace model::stagewise::predefined::costs;
 
 struct __attribute__((visibility("default"))) PyStageCost : StageCost
 {
-    NB_TRAMPOLINE(StageCost, 5);
+    NB_TRAMPOLINE(StageCost, 7);
+
+    void set_enabled(const bool enabled) override
+    {
+        NB_OVERRIDE(set_enabled, enabled);
+    }
+
+    bool enabled() const override
+    {
+        NB_OVERRIDE(enabled);
+    }
 
     VecX evaluate(const VecX &x, const VecX &u) const override
     {
@@ -65,6 +75,12 @@ void bind_Costs(nb::module_ &m)
         default implementations for some
         )doc")
       .def(nb::init())
+      .def("set_enabled", &StageCost::set_enabled, nb::arg("enabled"), R"doc(
+        Set enabled status for StageCost
+        Note that this will only be considered if disabling is valid,
+        meaning this cost is part of a merged cost and the other cost is enabled
+      )doc")
+      .def("enabled", &StageCost::enabled, "Whether this cost is enabled")
       .def("evaluate", &StageCost::evaluate, nb::arg("x"), nb::arg("u"), R"doc(
         Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
         Returns: output vector, $n \times 1$

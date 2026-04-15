@@ -18,6 +18,12 @@ namespace stagewise
 class StageConstraints : public Function
 {
   public:
+    // Set enabled status for StageConstraints
+    virtual void set_enabled(const bool enabled);
+
+    // Whether this constraint is enabled
+    virtual bool enabled() const;
+
     // Number of external forces involved in the constraint (default 0)
     virtual uint required_forces() const;
 
@@ -71,6 +77,9 @@ class StageConstraints : public Function
     //  Puu: Product, $n_u \times n_u$
     virtual void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                              MatX &Puu) const = 0;
+
+  protected:
+    bool _enabled = true;
 };
 }
 }
