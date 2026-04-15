@@ -16,6 +16,14 @@ namespace stagewise
 class StageCost : public Function
 {
   public:
+    // Set enabled status for StageCost
+    // Note that this will only be considered if disabling is valid,
+    // meaning this cost is part of a merged cost and the other cost is enabled
+    virtual void set_enabled(const bool enabled);
+
+    // Whether this cost is enabled
+    virtual bool enabled() const;
+
     // Cost function output size, always $1$
     uint output_size() const final
     {
@@ -50,6 +58,9 @@ class StageCost : public Function
     // Returns:
     //  Huu: Hessian matrix, $n_u \times n_u$
     virtual void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const = 0;
+
+  protected:
+    bool _enabled = true;
 };
 }
 }

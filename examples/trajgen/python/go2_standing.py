@@ -33,8 +33,8 @@ init[7:19] = base_config
 model = ssqpy.model.Model(
     HORIZON,
     dt,
-    # urdf_path="../../assets/urdf/go2/go2.urdf",
-    mjcf_path="../../assets/mjcf/go2/go2.xml",
+    urdf_path="../../assets/urdf/go2/go2.urdf",
+    # mjcf_path="../../assets/mjcf/go2/go2.xml",
     free_flyer=True,
     dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
 )
@@ -74,7 +74,7 @@ for k in range(HORIZON):
     model.addCost(k, config_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
-    # model.addCost(k, force_cost)
+    model.addCost(k, force_cost)
 
     # Add a standing phase (4 feet on the ground)
     model.addContactConstraint(k, "FL_foot")
@@ -105,7 +105,7 @@ solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-2,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
+    # line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
     merit_mu_c=1.0,
     merit_mu_gamma=1.0,
     # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,

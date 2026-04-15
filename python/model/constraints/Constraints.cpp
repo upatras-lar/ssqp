@@ -20,7 +20,17 @@ using namespace model::stagewise::predefined::constraints;
 struct __attribute__((visibility("default"))) PyStageConstraints
   : StageConstraints
 {
-    NB_TRAMPOLINE(StageConstraints, 10);
+    NB_TRAMPOLINE(StageConstraints, 12);
+
+    void set_enabled(const bool enabled) override
+    {
+        NB_OVERRIDE(set_enabled, enabled);
+    }
+
+    bool enabled() const override
+    {
+        NB_OVERRIDE(enabled);
+    }
 
     uint output_size() const override
     {
@@ -93,6 +103,13 @@ void bind_Constraints(nb::module_ &m)
         default implementations for some
         )doc")
       .def(nb::init())
+      .def("set_enabled",
+           &StageConstraints::set_enabled,
+           nb::arg("enabled"),
+           "Set enabled status for StageConstraints")
+      .def("enabled",
+           &StageConstraints::enabled,
+           "Whether this constraint is enabled")
       .def("output_size",
            &StageConstraints::output_size,
            "Get the constraints function output size.")

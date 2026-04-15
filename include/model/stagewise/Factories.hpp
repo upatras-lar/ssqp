@@ -40,16 +40,17 @@ inline std::shared_ptr<StageDynamics> make_dynamics(
   HessprodFunction2 hess_xu = ZeroHessprod_xu,
   HessprodFunction3 hess_uu = ZeroHessprod_uu);
 
-template<typename LowerBoundFunction, typename UpperBoundFunction,
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
          typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator  = decltype(DefaultRightMinus),
          typename HessprodFunction1 = decltype(ZeroHessprod_xx),
          typename HessprodFunction2 = decltype(ZeroHessprod_xu),
          typename HessprodFunction3 = decltype(ZeroHessprod_uu)>
 inline std::shared_ptr<StageConstraints> make_constraints(
-  const uint nout, const uint ndc, LowerBoundFunction lb, UpperBoundFunction ub,
-  EvaluationFunction eval, multiGradientFunction grad,
-  ManifoldOperator op       = DefaultRightMinus,
+  NOutFunction nout, NdcFunction ndc, LowerBoundFunction lb,
+  UpperBoundFunction ub, EvaluationFunction eval, multiGradientFunction grad,
+  ManifoldOperator  op      = DefaultRightMinus,
   HessprodFunction1 hess_xx = ZeroHessprod_xx,
   HessprodFunction2 hess_xu = ZeroHessprod_xu,
   HessprodFunction3 hess_uu = ZeroHessprod_uu);
@@ -152,31 +153,22 @@ class FunctionStageDynamics : public FunctionStageDynamicsBase
     const HessprodFunction3                                       _hess_uu;
 };
 
-// TODO: nout, ndc are not constant if enabling is a thing!
-class FunctionStageConstraintsBase : public StageConstraints
-{
-  public:
-    inline FunctionStageConstraintsBase(const uint nout, const uint ndc);
-
-    inline uint output_size() const override;
-
-  protected:
-    const uint _nout, _ndc;
-};
-
-template<typename LowerBoundFunction, typename UpperBoundFunction,
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
          typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-class FunctionStageConstraints : public FunctionStageConstraintsBase
+class FunctionStageConstraints : public StageConstraints
 {
   public:
     inline FunctionStageConstraints(
-      const uint nout, const uint ndc, const LowerBoundFunction lb,
+      NOutFunction nout, NdcFunction ndc, const LowerBoundFunction lb,
       const UpperBoundFunction ub, const EvaluationFunction eval,
       const multiGradientFunction grad, const ManifoldOperator op,
       const HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
       const HessprodFunction3 hess_uu);
+
+    inline uint output_size() const override;
 
     inline uint constraint_diff_size() const override;
 
@@ -200,6 +192,8 @@ class FunctionStageConstraints : public FunctionStageConstraintsBase
                             MatX &Puu) const override;
 
   protected:
+    const NOutFunction          _nout;
+    const NdcFunction           _ndc;
     const LowerBoundFunction    _lb;
     const UpperBoundFunction    _ub;
     const EvaluationFunction    _eval;

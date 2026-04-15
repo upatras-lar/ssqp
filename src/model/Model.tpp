@@ -599,8 +599,10 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     if constexpr (IsTerminal)
     {
         return stagewise::factory::make_constraints(
-          _bounded_joint_indices.size() + nv_reduced,
-          _bounded_joint_indices.size() + nv_reduced,
+          [this, nv_reduced]()
+          { return _bounded_joint_indices.size() + nv_reduced; },
+          [this, nv_reduced]()
+          { return _bounded_joint_indices.size() + nv_reduced; },
           [this, lb, nv_reduced]()
           { return lb.head(_bounded_joint_indices.size() + nv_reduced); },
           [this, ub, nv_reduced]()
@@ -615,8 +617,10 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     else if constexpr (DM == DynamicsMode::Forward)
     {
         return stagewise::factory::make_constraints(
-          _bounded_joint_indices.size() + 2 * nv_reduced,
-          _bounded_joint_indices.size() + 2 * nv_reduced,
+          [this, nv_reduced]()
+          { return _bounded_joint_indices.size() + 2 * nv_reduced; },
+          [this, nv_reduced]()
+          { return _bounded_joint_indices.size() + 2 * nv_reduced; },
           [lb]() { return lb; },
           [ub]() { return ub; },
           innate_constraint_eval,
@@ -630,8 +634,10 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                        DM == DynamicsMode::ReducedInverse)
     {
         return stagewise::factory::make_constraints(
-          _bounded_joint_indices.size() + nv_reduced,
-          _bounded_joint_indices.size() + nv_reduced,
+          [this, nv_reduced]()
+          { return _bounded_joint_indices.size() + nv_reduced; },
+          [this, nv_reduced]()
+          { return _bounded_joint_indices.size() + nv_reduced; },
           [lb]() { return lb; },
           [ub]() { return ub; },
           innate_constraint_eval,
@@ -893,17 +899,16 @@ Model::_makeStageIDTorqueConstraints(
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
     { Puu = MatX::Zero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
 
-    return stagewise::factory::make_constraints(
-      ctx.nu,
-      ctx.nu,
-      [lb]() { return lb; },
-      [ub]() { return ub; },
-      innate_constraint_eval,
-      innate_constraint_grad,
-      DefaultRightMinus,
-      innate_constraint_hessprod_xx,
-      innate_constraint_hessprod_xu,
-      innate_constraint_hessprod_uu);
+    return stagewise::factory::make_constraints([ctx]() { return ctx.nu; },
+                                                [ctx]() { return ctx.nu; },
+                                                [lb]() { return lb; },
+                                                [ub]() { return ub; },
+                                                innate_constraint_eval,
+                                                innate_constraint_grad,
+                                                DefaultRightMinus,
+                                                innate_constraint_hessprod_xx,
+                                                innate_constraint_hessprod_xu,
+                                                innate_constraint_hessprod_uu);
 }
 
 template<bool FloatingBase, bool WithForces>
