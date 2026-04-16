@@ -13,6 +13,11 @@ namespace stagewise
 class Function
 {
   public:
+    Function(const std::string &name);
+
+    // Get function name
+    const std::string name() const;
+
     // Get function output size (if $f: R^m \to R^n$, this returns $n$)
     virtual uint output_size() const = 0;
 
@@ -27,6 +32,9 @@ class Function
     // Hessians
     // Derived classes should either implement hessians (if $n = 1$) or
     // hessprods (if $n > 1$)
+
+  protected:
+    const std::string _name;
 };
 }
 }

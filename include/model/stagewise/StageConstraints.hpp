@@ -18,6 +18,9 @@ namespace stagewise
 class StageConstraints : public Function
 {
   public:
+    StageConstraints();
+    StageConstraints(const std::string &name);
+
     // Set enabled status for StageConstraints
     virtual void set_enabled(const bool enabled);
 
@@ -79,7 +82,8 @@ class StageConstraints : public Function
                              MatX &Puu) const = 0;
 
   protected:
-    bool _enabled = true;
+    bool        _enabled = true;
+    static uint TOTAL;
 };
 }
 }

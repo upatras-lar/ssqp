@@ -103,6 +103,8 @@ void bind_Dynamics(nb::module_ &m)
         default implementations for some
         )doc")
       .def(nb::init())
+      .def(nb::init<const std::string &>(), nb::arg("name") = "")
+      .def("name", &StageDynamics::name, "Get dynamics' name")
       .def("output_size",
            &StageDynamics::output_size,
            "Get the dynamics function output size.")

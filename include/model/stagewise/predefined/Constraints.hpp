@@ -27,7 +27,8 @@ class JointAngleConstraint : public StageConstraints
 {
   public:
     JointAngleConstraint(const VecX &lb, const VecX &ub, const uint nq,
-                         const uint nv, const bool free_flyer = false);
+                         const uint nv, const bool free_flyer = false,
+                         const std::string &name = "");
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
 
@@ -63,7 +64,8 @@ class JointVelocityConstraint : public StageConstraints
 {
   public:
     JointVelocityConstraint(const VecX &lb, const VecX &ub, const uint nv,
-                            const bool free_flyer = false);
+                            const bool         free_flyer = false,
+                            const std::string &name       = "");
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
 
@@ -100,7 +102,8 @@ class JointControlConstraint : public StageConstraints
 {
   public:
     JointControlConstraint(const VecX &lb, const VecX &ub, const uint nv,
-                           const uint nu, const bool free_flyer = false);
+                           const uint nu, const bool free_flyer = false,
+                           const std::string &name = "");
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
 
@@ -137,7 +140,7 @@ class FramePositionBound : public StageConstraints
     // Regular constructor
     FramePositionBound(const Model &model, const std::string &frame,
                        const Vec3 &lb, const Vec3 &ub, const uint nq,
-                       const uint nv);
+                       const uint nv, const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
@@ -179,7 +182,8 @@ class FrameRotationBound : public StageConstraints
   public:
     FrameRotationBound(const Model &model, const std::string &frame,
                        const Mat3 &Rref, const Vec3 &lb, const Vec3 &ub,
-                       const uint nq, const uint nv);
+                       const uint nq, const uint nv,
+                       const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
@@ -222,7 +226,8 @@ class FrameLinearVelocityBound : public StageConstraints
     // Regular constructor
     FrameLinearVelocityBound(const Model &model, const std::string &frame,
                              const Vec3 &lb, const Vec3 &ub, const uint nq,
-                             const uint nv, const bool terminal = false);
+                             const uint nv, const bool terminal = false,
+                             const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
@@ -283,7 +288,8 @@ class ContactConstraint : public StageConstraints
   public:
     ContactConstraint(const Model &model, const std::string &frame,
                       const uint nq, const uint nv, const uint nu,
-                      const double mu = 0.6, const double eq_tol = 0.0);
+                      const double mu = 0.6, const double eq_tol = 0.0,
+                      const std::string &name = "");
 
     void set_mu(const double mu);
 

@@ -164,9 +164,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             #     f"Stage: {stage}, Mujoco: {mjdata.xpos[9]}, Ours: {model.forwardKinematics(mjdata.qpos, "panda_ee")[0]}"
             # )
             # state_data.append(mjdata.xpos[9].copy())
-            state_data.append(
-                model.forwardKinematics(mjdata.qpos, "panda_ee")[0]
-            )
+            state_data.append(model.forwardKinematics(mjdata.qpos, "panda_ee")[0])
 
             if stage == H:
                 break
@@ -187,7 +185,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             steps = 0
 
         mujoco.mj_step(mjmodel, mjdata)
-        viewer.sync()
+        # viewer.sync()
 
         stage += 1
         update_pose_costs(stage)

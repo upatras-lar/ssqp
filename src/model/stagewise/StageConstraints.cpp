@@ -6,6 +6,20 @@ namespace model
 {
 namespace stagewise
 {
+uint StageConstraints::TOTAL = 0;
+
+StageConstraints::StageConstraints()
+  : Function("Constraints" + std::to_string(StageConstraints::TOTAL++))
+{
+}
+
+StageConstraints::StageConstraints(const std::string &name)
+  : Function(name.empty()
+               ? "Constraints" + std::to_string(StageConstraints::TOTAL++)
+               : name)
+{
+}
+
 void StageConstraints::set_enabled(const bool enabled)
 {
     _enabled = enabled;
