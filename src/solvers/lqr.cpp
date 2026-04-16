@@ -243,8 +243,9 @@ void lqr::_solve()
     ZoneScopedN("LQR: _solve");
     bool backward_fail = false;
 
-    do {
-        DEBUG_LOGLN("Qt:" << std::endl << _Qt);
+    do
+    {
+        logln_at(LogLevel::Debug, "Qt:" << std::endl << _Qt);
         _output.P[_qp.dims.horizon] = _Qt;
         _output.p[_qp.dims.horizon] = _qt;
 
@@ -266,8 +267,12 @@ void lqr::_solve()
                                           _output.P[k + 1] * _qp.stages[k].A;
             }
 
-            DEBUG_LOGLN("Quu[" << k << "]:" << std::endl << _Quu[k]);
-            DEBUG_LOGLN("P[" << k + 1 << "]:" << std::endl << _output.P[k + 1]);
+            logln_at(LogLevel::Debug,
+                     "Quu[" << k << "]:" << std::endl
+                            << _Quu[k]);
+            logln_at(LogLevel::Debug,
+                     "P[" << k + 1 << "]:" << std::endl
+                          << _output.P[k + 1]);
 
             MatX H_k;
             {
@@ -282,9 +287,9 @@ void lqr::_solve()
                                                     _qp.dims.stage_control[k]);
             }
 
-            DEBUG_LOGLN("G[" << k << "]:" << std::endl << _G[k]);
-            DEBUG_LOGLN("H[" << k << "]:" << std::endl << H_k);
-            DEBUG_LOGLN("h[" << k << "]: " << h.transpose());
+            logln_at(LogLevel::Debug, "G[" << k << "]:" << std::endl << _G[k]);
+            logln_at(LogLevel::Debug, "H[" << k << "]:" << std::endl << H_k);
+            logln_at(LogLevel::Debug, "h[" << k << "]: " << h.transpose());
 
             {
                 ZoneScopedN("llt_create");
@@ -302,7 +307,7 @@ void lqr::_solve()
 
             if (!_solve_successes.front())
             {
-                DEBUG_LOGLN("Backward pass failed");
+                logln_at(LogLevel::Debug, "Backward pass failed");
                 backward_fail = true;
                 break;
             }
@@ -339,10 +344,12 @@ void lqr::_solve()
 
         if (backward_fail)
         {
-            DEBUG_LOGLN("Increasing LQR regularization");
+            logln_at(LogLevel::Debug, "Increasing LQR regularization");
             _reg *= _reg_factor;
             if (_reg > _reg_max)
             {
+                logln_at(LogLevel::Error,
+                         "LQR: Runtime LQR regularization failed");
                 throw std::runtime_error("LQR: Regularization failed");
             }
         }
@@ -360,14 +367,19 @@ void lqr::_solve()
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        DEBUG_LOGLN("Setting x[" << k << "]:");
-        DEBUG_LOGLN("A:" << std::endl << _qp.stages[k].A);
-        DEBUG_LOGLN("B:" << std::endl << _qp.stages[k].B);
-        DEBUG_LOGLN("K:" << std::endl << _output.K[k]);
-        DEBUG_LOGLN("Previous x:" << std::endl
-                                  << _output.x.stage(k).transpose());
-        DEBUG_LOGLN("k:" << std::endl << _output.k[k].transpose());
-        DEBUG_LOGLN("gamma:" << std::endl << _qp.stages[k].gamma.transpose());
+        logln_at(LogLevel::Debug, "Setting x[" << k << "]:");
+        logln_at(LogLevel::Debug, "A:" << std::endl << _qp.stages[k].A);
+        logln_at(LogLevel::Debug, "B:" << std::endl << _qp.stages[k].B);
+        logln_at(LogLevel::Debug, "K:" << std::endl << _output.K[k]);
+        logln_at(LogLevel::Debug,
+                 "Previous x:" << std::endl
+                               << _output.x.stage(k).transpose());
+        logln_at(LogLevel::Debug,
+                 "k:" << std::endl
+                      << _output.k[k].transpose());
+        logln_at(LogLevel::Debug,
+                 "gamma:" << std::endl
+                          << _qp.stages[k].gamma.transpose());
         _output.x.stage(k + 1) =
           (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
             _output.x.stage(k) +

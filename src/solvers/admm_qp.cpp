@@ -155,8 +155,8 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
 {
     ZoneScopedN("ADMM: solve");
 
-    DEBUG_LOGLN("Solving with ADMM");
-    DEBUG_LOGLN("=============");
+    logln_at(LogLevel::Debug, "Solving with ADMM");
+    logln_at(LogLevel::Debug, "=============");
 
     SolverState admm_state;
 
@@ -166,6 +166,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     lqr_params.reg_init *= std::pow(10, _reg_incr);
     if (lqr_params.reg_init > lqr_params.reg_max)
     {
+        logln_at(LogLevel::Error, "ADMM: Initial LQR regularization failed");
         throw std::runtime_error("LQR: Regularization failed");
     }
 
@@ -178,13 +179,13 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         lqr_out      = lqr_solver.unconstrained();
         _solution.dx = lqr_out.x;
         _solution.du = lqr_out.u;
-        DEBUG_LOGLN("LQR unconstrained solution");
-        DEBUG_LOGLN("=============");
-        DEBUG_LOGLN("x:");
-        DEBUG_LOGLN(lqr_out.x);
-        DEBUG_LOGLN("u:");
-        DEBUG_LOGLN(lqr_out.u);
-        DEBUG_LOGLN("=============");
+        logln_at(LogLevel::Debug, "LQR unconstrained solution");
+        logln_at(LogLevel::Debug, "=============");
+        logln_at(LogLevel::Debug, "x:");
+        logln_at(LogLevel::Debug, lqr_out.x);
+        logln_at(LogLevel::Debug, "u:");
+        logln_at(LogLevel::Debug, lqr_out.u);
+        logln_at(LogLevel::Debug, "=============");
     }
 
     _params.abs_tolerance = _abs_tolerance_init;
@@ -203,31 +204,31 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
             lqr_out = lqr_solver.constrained(_solution, _z, _y);
         }
 
-        DEBUG_LOGLN("LQR solution, iteration " << _iter + 1);
-        DEBUG_LOGLN("=============");
-        DEBUG_LOGLN("x:");
-        DEBUG_LOGLN(lqr_out.x);
-        DEBUG_LOGLN("u:");
-        DEBUG_LOGLN(lqr_out.u);
-        DEBUG_LOGLN("=============");
+        logln_at(LogLevel::Debug, "LQR solution, iteration " << _iter + 1);
+        logln_at(LogLevel::Debug, "=============");
+        logln_at(LogLevel::Debug, "x:");
+        logln_at(LogLevel::Debug, lqr_out.x);
+        logln_at(LogLevel::Debug, "u:");
+        logln_at(LogLevel::Debug, lqr_out.u);
+        logln_at(LogLevel::Debug, "=============");
 
         FlatVec x_prev = _solution.dx, u_prev = _solution.du, z_prev = _z,
                 y_prev = _y;
 
         _step(lqr_out.x, lqr_out.u);
 
-        DEBUG_LOGLN("Update step, iteration " << _iter + 1);
-        DEBUG_LOGLN("=============");
-        DEBUG_LOGLN("x:");
-        DEBUG_LOGLN(_solution.dx);
-        DEBUG_LOGLN("u:");
-        DEBUG_LOGLN(_solution.du);
-        DEBUG_LOGLN("z:");
-        DEBUG_LOGLN(_z);
-        DEBUG_LOGLN("y:");
-        DEBUG_LOGLN(_y);
-        DEBUG_LOGLN("=============");
-        DEBUG_WAIT();
+        logln_at(LogLevel::Debug, "Update step, iteration " << _iter + 1);
+        logln_at(LogLevel::Debug, "=============");
+        logln_at(LogLevel::Debug, "x:");
+        logln_at(LogLevel::Debug, _solution.dx);
+        logln_at(LogLevel::Debug, "u:");
+        logln_at(LogLevel::Debug, _solution.du);
+        logln_at(LogLevel::Debug, "z:");
+        logln_at(LogLevel::Debug, _z);
+        logln_at(LogLevel::Debug, "y:");
+        logln_at(LogLevel::Debug, _y);
+        logln_at(LogLevel::Debug, "=============");
+        log_wait_at(LogLevel::Debug);
 
         if (!((_iter) % _params.rho_update_iter_freq))
         {
@@ -423,9 +424,9 @@ SolverState admm_qp::_check_termination() const
         return MAX_ITER_REACHED;
     }
 
-    // LOGLN("Primal infeasibility norm vs tolerance: "
+    // logln_at(LogLevel::Info, "Primal infeasibility norm vs tolerance: "
     //       << _primal_infs_norm << " vs " << _primal_infs_tol_scaled);
-    // LOGLN("Primal infeasibility support vs tolerance: "
+    // logln_at(LogLevel::Info, "Primal infeasibility support vs tolerance: "
     //       << _primal_infs_support << " vs " << _primal_infs_tol_scaled);
 
     // TODO: Primal infeasibility detection doesn't work yet
@@ -435,7 +436,7 @@ SolverState admm_qp::_check_termination() const
     //     return PRIMAL_INFEASIBLE;
     // }
 
-    DEBUG_LOGLN("rho:" << std::endl << _rho);
+    logln_at(LogLevel::Debug, "rho:" << std::endl << _rho);
 
     double tolerance_prim =
       _params.abs_tolerance + _params.rel_tolerance * _norm_primal_rel;
@@ -443,13 +444,14 @@ SolverState admm_qp::_check_termination() const
     double tolerance_dual =
       _params.abs_tolerance + _params.rel_tolerance * _norm_dual_rel;
 
-    DEBUG_LOGLN("Tolerances");
-    DEBUG_LOGLN("=============");
-    DEBUG_LOGLN("Primal (tol vs norm): " << tolerance_prim << " vs "
-                                         << _norm_primal);
-    DEBUG_LOGLN("Dual (tol vs norm): " << tolerance_dual << " vs "
-                                       << _norm_dual);
-    DEBUG_LOGLN("=============");
+    logln_at(LogLevel::Debug, "Tolerances");
+    logln_at(LogLevel::Debug, "=============");
+    logln_at(LogLevel::Debug,
+             "Primal (tol vs norm): " << tolerance_prim << " vs "
+                                      << _norm_primal);
+    logln_at(LogLevel::Debug,
+             "Dual (tol vs norm): " << tolerance_dual << " vs " << _norm_dual);
+    logln_at(LogLevel::Debug, "=============");
 
     if (_norm_primal > tolerance_prim || _norm_dual > tolerance_dual)
     {

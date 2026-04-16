@@ -20,22 +20,57 @@
 
 namespace ssqp
 {
-#ifdef INFO
-#define LOG(...)   (std::cout << __VA_ARGS__)
-#define LOGLN(...) (std::cout << __VA_ARGS__ << std::endl)
-#else
-#define LOG(...)   ((void)0)
-#define LOGLN(...) ((void)0)
-#endif
 
-#ifdef DEBUG
-#define DEBUG_LOG(...)   (std::cout << __VA_ARGS__)
-#define DEBUG_LOGLN(...) (std::cout << __VA_ARGS__ << std::endl)
-#define DEBUG_WAIT()     std::cin.get()
+/* The available log levels
+ * Each is used for a different class of output, and is independent of the 
+ * others
+ */
+enum LogLevel : int
+{
+    Info    = 1 << 0,
+    Debug   = 1 << 1,
+    Warning = 1 << 2,
+    Error   = 1 << 3,
+};
+
+inline uint GlobalLogMask = 1;
+
+inline void set_silent_mode()
+{
+    GlobalLogMask = 0;
+}
+
+inline void set_log_level(const LogLevel &log_level)
+{
+    GlobalLogMask |= log_level;
+}
+
+inline void set_log_level(const uint log_level_mask)
+{
+    GlobalLogMask |= log_level_mask;
+}
+
+inline void unset_log_level(const LogLevel &log_level)
+{
+    GlobalLogMask &= ~log_level;
+}
+
+inline void unset_log_level(const uint log_level_mask)
+{
+    GlobalLogMask &= ~log_level_mask;
+}
+
+#ifndef DISABLE_LOGGING
+#define log_at(level, ...)                                                 \
+    (level & GlobalLogMask ? (void)(std::cout << __VA_ARGS__) : ((void)0))
+#define logln_at(level, ...)                                               \
+    (level & GlobalLogMask ? (void)(std::cout << __VA_ARGS__ << std::endl) \
+                           : ((void)0))
+#define log_wait_at(level)                                       \
+    (level & GlobalLogMask ? (void)(std::cin.get()) : ((void)0))
 #else
-#define DEBUG_LOG(...)   ((void)0)
-#define DEBUG_LOGLN(...) ((void)0)
-#define DEBUG_WAIT()     ((void)0)
+#define log(level, ...)      ((void)0)
+#define logln_at(level, ...) ((void)0)
 #endif
 
 using Scalar = Eigen::Vector<double, 1>;
