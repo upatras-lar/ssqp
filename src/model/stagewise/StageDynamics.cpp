@@ -6,6 +6,19 @@ namespace model
 {
 namespace stagewise
 {
+uint StageDynamics::TOTAL = 0;
+
+StageDynamics::StageDynamics()
+  : Function("Dynamics" + std::to_string(StageDynamics::TOTAL++))
+{
+}
+
+StageDynamics::StageDynamics(const std::string &name)
+  : Function(name.empty() ? "Dynamics" + std::to_string(StageDynamics::TOTAL++)
+                          : name)
+{
+}
+
 uint StageDynamics::state_diff_size() const
 {
     return state_size();

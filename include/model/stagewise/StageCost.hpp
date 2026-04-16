@@ -16,6 +16,9 @@ namespace stagewise
 class StageCost : public Function
 {
   public:
+    StageCost();
+    StageCost(const std::string &name);
+
     // Set enabled status for StageCost
     // Note that this will only be considered if disabling is valid,
     // meaning this cost is part of a merged cost and the other cost is enabled
@@ -60,7 +63,8 @@ class StageCost : public Function
     virtual void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const = 0;
 
   protected:
-    bool _enabled = true;
+    bool        _enabled = true;
+    static uint TOTAL;
 };
 }
 }

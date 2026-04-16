@@ -100,7 +100,6 @@ mjdata.qpos[3:7] = quat_xyzw_to_wxyz(mjdata.qpos[3:7])
 
 np.set_printoptions(suppress=True)
 
-start = True
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         print(f"\rSimulation time: {mjdata.time:.2f}s")

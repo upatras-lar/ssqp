@@ -32,9 +32,11 @@ class SquaredJointAngleCost : public StageCost
 {
   public:
     SquaredJointAngleCost(const uint nq, const uint nv, const double weight,
-                          const bool free_flyer = false);
+                          const bool         free_flyer = false,
+                          const std::string &name       = "");
     SquaredJointAngleCost(const uint nq, const uint nv, const VecX &weight,
-                          const bool free_flyer = false);
+                          const bool         free_flyer = false,
+                          const std::string &name       = "");
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -62,9 +64,11 @@ class SquaredJointVelocityCost : public StageCost
 {
   public:
     SquaredJointVelocityCost(const uint nv, const double weight,
-                             const bool free_flyer = false);
+                             const bool         free_flyer = false,
+                             const std::string &name       = "");
     SquaredJointVelocityCost(const uint nv, const VecX &weight,
-                             const bool free_flyer = false);
+                             const bool         free_flyer = false,
+                             const std::string &name       = "");
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -90,8 +94,10 @@ class SquaredJointVelocityCost : public StageCost
 class SquaredControlCost : public StageCost
 {
   public:
-    SquaredControlCost(const uint nv, const uint nu, const double weight);
-    SquaredControlCost(const uint nv, const uint nu, const VecX &weight);
+    SquaredControlCost(const uint nv, const uint nu, const double weight,
+                       const std::string &name = "");
+    SquaredControlCost(const uint nv, const uint nu, const VecX &weight,
+                       const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -123,9 +129,11 @@ class SquaredIDTorqueCost : public StageCost
 {
   public:
     SquaredIDTorqueCost(const Model &model, const uint nq, const uint nv,
-                        const uint nu, const double weight);
+                        const uint nu, const double weight,
+                        const std::string &name = "");
     SquaredIDTorqueCost(const Model &model, const uint nq, const uint nv,
-                        const uint nu, const VecX &weight);
+                        const uint nu, const VecX &weight,
+                        const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -152,8 +160,10 @@ class SquaredIDTorqueCost : public StageCost
 class SquaredForceCost : public StageCost
 {
   public:
-    SquaredForceCost(const uint nv, const uint nu, const double weight);
-    SquaredForceCost(const uint nv, const uint nu, const VecX &weight);
+    SquaredForceCost(const uint nv, const uint nu, const double weight,
+                     const std::string &name = "");
+    SquaredForceCost(const uint nv, const uint nu, const VecX &weight,
+                     const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -185,13 +195,15 @@ class SquaredConfigurationErrorCost : public StageCost
     SquaredConfigurationErrorCost(const Model &model,
                                   const VecX  &desired_configuration,
                                   const uint nq, const uint nv,
-                                  const double weight,
-                                  const bool   free_flyer = false);
+                                  const double       weight,
+                                  const bool         free_flyer = false,
+                                  const std::string &name       = "");
     SquaredConfigurationErrorCost(const Model &model,
                                   const VecX  &desired_configuration,
                                   const uint nq, const uint nv,
-                                  const VecX &weight,
-                                  const bool  free_flyer = false);
+                                  const VecX        &weight,
+                                  const bool         free_flyer = false,
+                                  const std::string &name       = "");
 
     void set_desired_configuration(const VecX &desired_configuration);
     void set_weight(const double weight);
@@ -227,12 +239,14 @@ class FrameSquaredTranslationErrorCost : public StageCost
                                      const std::string &frame,
                                      const Vec3        &desired_translation,
                                      const uint nq, const uint nv,
-                                     const double weight);
+                                     const double       weight,
+                                     const std::string &name = "");
     FrameSquaredTranslationErrorCost(const Model       &model,
                                      const std::string &frame,
                                      const Vec3        &desired_translation,
                                      const uint nq, const uint nv,
-                                     const Vec3 &weight);
+                                     const Vec3        &weight,
+                                     const std::string &name = "");
 
     void set_desired_translation(const Vec3 &desired_translation);
     void set_weight(const double weight);
@@ -266,7 +280,8 @@ class FrameSquaredRotationErrorCost : public StageCost
   public:
     FrameSquaredRotationErrorCost(const Model &model, const std::string &frame,
                                   const Mat3 &desired_rotation, const uint nq,
-                                  const uint nv, const double weight);
+                                  const uint nv, const double weight,
+                                  const std::string &name = "");
 
     void set_desired_rotation(const Mat3 &desired_rotation);
     void set_weight(const double weight);
@@ -303,13 +318,15 @@ class FrameSquaredPoseErrorCost : public StageCost
     FrameSquaredPoseErrorCost(const Model &model, const std::string &frame,
                               const Mat4 &desired_pose, const uint nq,
                               const uint nv, const double translation_weight,
-                              const double rotation_weight);
+                              const double       rotation_weight,
+                              const std::string &name = "");
 
     FrameSquaredPoseErrorCost(const Model &model, const std::string &frame,
                               const Vec3 &desired_translation,
                               const Mat3 &desired_rotation, const uint nq,
                               const uint nv, const double translation_weight,
-                              const double rotation_weight);
+                              const double       rotation_weight,
+                              const std::string &name = "");
 
     void set_desired_pose(const Mat4 &desired_pose);
     void set_desired_translation(const Vec3 &desired_translation);
@@ -346,10 +363,12 @@ class FrameSquaredVelocityErrorCost : public StageCost
   public:
     FrameSquaredVelocityErrorCost(const Model &model, const std::string &frame,
                                   const Vec6 &desired_velocity, const uint nq,
-                                  const uint nv, const double weight);
+                                  const uint nv, const double weight,
+                                  const std::string &name = "");
     FrameSquaredVelocityErrorCost(const Model &model, const std::string &frame,
                                   const Vec6 &desired_velocity, const uint nq,
-                                  const uint nv, const Vec6 &weight);
+                                  const uint nv, const Vec6 &weight,
+                                  const std::string &name = "");
 
     void set_desired_velocity(const Vec6 &desired_velocity);
     void set_weight(const double weight);
@@ -381,9 +400,11 @@ class FrameSquaredVelocityCost : public StageCost
 {
   public:
     FrameSquaredVelocityCost(const Model &model, const std::string &frame,
-                             const uint nq, const uint nv, const double weight);
+                             const uint nq, const uint nv, const double weight,
+                             const std::string &name = "");
     FrameSquaredVelocityCost(const Model &model, const std::string &frame,
-                             const uint nq, const uint nv, const Vec6 &weight);
+                             const uint nq, const uint nv, const Vec6 &weight,
+                             const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const Vec6 &weight);

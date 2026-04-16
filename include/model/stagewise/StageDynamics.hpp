@@ -19,6 +19,9 @@ namespace stagewise
 class StageDynamics : public Function
 {
   public:
+    StageDynamics();
+    StageDynamics(const std::string &name);
+
     // Size of state vector $\boldsymbol{x}$
     virtual uint state_size() const = 0;
 
@@ -87,6 +90,9 @@ class StageDynamics : public Function
     //  Puu: Product, $n_u \times n_u$
     virtual void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
                              MatX &Puu) const = 0;
+
+  protected:
+    static uint TOTAL;
 };
 }
 }

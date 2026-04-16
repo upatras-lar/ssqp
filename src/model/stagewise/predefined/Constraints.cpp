@@ -14,8 +14,10 @@ namespace constraints
 // JointAngleConstraint
 JointAngleConstraint::JointAngleConstraint(const VecX &lb, const VecX &ub,
                                            const uint nq, const uint nv,
-                                           const bool free_flyer)
-  : _lb(lb)
+                                           const bool         free_flyer,
+                                           const std::string &name)
+  : StageConstraints(name)
+  , _lb(lb)
   , _ub(ub)
   , _nv(nv)
   , _njoints(free_flyer ? nq - 7 : nq)
@@ -81,9 +83,11 @@ void JointAngleConstraint::hessprod_uu(const VecX &x, const VecX &u,
 
 // JointVelocityConstraint
 JointVelocityConstraint::JointVelocityConstraint(const VecX &lb, const VecX &ub,
-                                                 const uint nv,
-                                                 const bool free_flyer)
-  : _lb(lb)
+                                                 const uint         nv,
+                                                 const bool         free_flyer,
+                                                 const std::string &name)
+  : StageConstraints(name)
+  , _lb(lb)
   , _ub(ub)
   , _nv(nv)
   , _njoints(free_flyer ? nv - 6 : nv)
@@ -142,8 +146,10 @@ void JointVelocityConstraint::hessprod_uu(const VecX &x, const VecX &u,
 // JointControlConstraint
 JointControlConstraint::JointControlConstraint(const VecX &lb, const VecX &ub,
                                                const uint nv, const uint nu,
-                                               const bool free_flyer)
-  : _lb(lb)
+                                               const bool         free_flyer,
+                                               const std::string &name)
+  : StageConstraints(name)
+  , _lb(lb)
   , _ub(ub)
   , _nv(nv)
   , _nu(nu)
@@ -209,8 +215,9 @@ void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
 FramePositionBound::FramePositionBound(const Model       &model,
                                        const std::string &frame, const Vec3 &lb,
                                        const Vec3 &ub, const uint nq,
-                                       const uint nv)
-  : _model(std::make_shared<Model>(model))
+                                       const uint nv, const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _lb(lb)
   , _ub(ub)
@@ -283,8 +290,9 @@ FrameRotationBound::FrameRotationBound(const Model       &model,
                                        const std::string &frame,
                                        const Mat3 &Rref, const Vec3 &lb,
                                        const Vec3 &ub, const uint nq,
-                                       const uint nv)
-  : _model(std::make_shared<Model>(model))
+                                       const uint nv, const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _Rref(Rref)
   , _lb(lb)
@@ -359,8 +367,9 @@ void FrameRotationBound::hessprod_uu(const VecX &x, const VecX &u,
 // FrameLinearVelocityBound
 FrameLinearVelocityBound::FrameLinearVelocityBound(
   const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
-  const uint nq, const uint nv, const bool terminal)
-  : _model(std::make_shared<Model>(model))
+  const uint nq, const uint nv, const bool terminal, const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _lb(lb)
   , _ub(ub)
@@ -434,8 +443,10 @@ void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 ContactConstraint::ContactConstraint(const Model       &model,
                                      const std::string &frame, const uint nq,
                                      const uint nv, const uint nu,
-                                     const double mu, const double eq_tol)
-  : _model(std::make_shared<Model>(model))
+                                     const double mu, const double eq_tol,
+                                     const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _nq(nq)
   , _nv(nv)

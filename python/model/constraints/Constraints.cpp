@@ -20,17 +20,7 @@ using namespace model::stagewise::predefined::constraints;
 struct __attribute__((visibility("default"))) PyStageConstraints
   : StageConstraints
 {
-    NB_TRAMPOLINE(StageConstraints, 12);
-
-    void set_enabled(const bool enabled) override
-    {
-        NB_OVERRIDE(set_enabled, enabled);
-    }
-
-    bool enabled() const override
-    {
-        NB_OVERRIDE(enabled);
-    }
+    NB_TRAMPOLINE(StageConstraints, 10);
 
     uint output_size() const override
     {
@@ -103,6 +93,8 @@ void bind_Constraints(nb::module_ &m)
         default implementations for some
         )doc")
       .def(nb::init())
+      .def(nb::init<const std::string &>(), nb::arg("name") = "")
+      .def("name", &StageConstraints::name, "Get constraints' name")
       .def("set_enabled",
            &StageConstraints::set_enabled,
            nb::arg("enabled"),
@@ -222,12 +214,14 @@ void bind_Constraints(nb::module_ &m)
                     const VecX &,
                     const uint,
                     const uint,
-                    const bool>(),
+                    const bool,
+                    const std::string &>(),
            nb::arg("lb"),
            nb::arg("ub"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("free_flyer") = false,
+           nb::arg("name")       = "",
            R"doc(
         Predefined joint angle constraint
         Creates a constraint on the joint angles of the model
@@ -247,11 +241,16 @@ void bind_Constraints(nb::module_ &m)
     nb::class_<JointVelocityConstraint, StageConstraints>(
       m,
       "JointVelocityConstraint")
-      .def(nb::init<const VecX &, const VecX &, const uint, const bool>(),
+      .def(nb::init<const VecX &,
+                    const VecX &,
+                    const uint,
+                    const bool,
+                    const std::string &>(),
            nb::arg("lb"),
            nb::arg("ub"),
            nb::arg("nv"),
            nb::arg("free_flyer") = false,
+           nb::arg("name")       = "",
            R"doc(
         Predefined joint velocity constraint
         Creates a constraint on the joint velocities of the model
@@ -275,12 +274,14 @@ void bind_Constraints(nb::module_ &m)
                     const VecX &,
                     const uint,
                     const uint,
-                    const bool>(),
+                    const bool,
+                    const std::string &>(),
            nb::arg("lb"),
            nb::arg("ub"),
            nb::arg("nv"),
            nb::arg("nu"),
            nb::arg("free_flyer") = false,
+           nb::arg("name")       = "",
            R"doc(
         Predefined joint control constraint
         Creates a constraint on the joint part of the control vector
@@ -305,13 +306,15 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     uint,
-                    uint>(),
+                    uint,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
            nb::arg("ub"),
            nb::arg("nq"),
            nb::arg("nv"),
+           nb::arg("name") = "",
            R"doc(
         Predefined 3D position bound for a given frame
         Creates a linear bound constraint on the position of a frame of the given
@@ -334,7 +337,8 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     uint,
-                    uint>(),
+                    uint,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("Rref"),
@@ -342,6 +346,7 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("ub"),
            nb::arg("nq"),
            nb::arg("nv"),
+           nb::arg("name") = "",
            R"doc(
         Predefined 3D orientation bound for a given frame
         Creates a nonlinear bound constraint on the orientation of a frame:
@@ -367,7 +372,8 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     uint,
                     uint,
-                    bool>(),
+                    bool,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
@@ -375,6 +381,7 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("terminal") = false,
+           nb::arg("name")     = "",
            R"doc(
         Predefined 3D velocity bound for a given frame
         Creates a linear bound constraint on the velocity of a frame of the given

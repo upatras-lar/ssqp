@@ -20,17 +20,7 @@ using namespace model::stagewise::predefined::costs;
 
 struct __attribute__((visibility("default"))) PyStageCost : StageCost
 {
-    NB_TRAMPOLINE(StageCost, 7);
-
-    void set_enabled(const bool enabled) override
-    {
-        NB_OVERRIDE(set_enabled, enabled);
-    }
-
-    bool enabled() const override
-    {
-        NB_OVERRIDE(enabled);
-    }
+    NB_TRAMPOLINE(StageCost, 5);
 
     VecX evaluate(const VecX &x, const VecX &u) const override
     {
@@ -75,6 +65,8 @@ void bind_Costs(nb::module_ &m)
         default implementations for some
         )doc")
       .def(nb::init())
+      .def(nb::init<const std::string &>(), nb::arg("name") = "")
+      .def("name", &StageCost::name, "Get cost's name")
       .def("set_enabled", &StageCost::set_enabled, nb::arg("enabled"), R"doc(
         Set enabled status for StageCost
         Note that this will only be considered if disabling is valid,
@@ -165,16 +157,26 @@ void bind_Costs(nb::module_ &m)
            floating base
          - $\boldsymbol{w}$ is the weight on the angular term
             )doc")
-      .def(nb::init<const uint, const uint, const double, const bool>(),
+      .def(nb::init<const uint,
+                    const uint,
+                    const double,
+                    const bool,
+                    const std::string &>(),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"),
-           nb::arg("free_flyer") = false)
-      .def(nb::init<const uint, const uint, const VecX &, const bool>(),
+           nb::arg("free_flyer") = false,
+           nb::arg("name")       = "")
+      .def(nb::init<const uint,
+                    const uint,
+                    const VecX &,
+                    const bool,
+                    const std::string &>(),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"),
-           nb::arg("free_flyer") = false)
+           nb::arg("free_flyer") = false,
+           nb::arg("name")       = "")
       .def("set_weight",
            static_cast<void (SquaredJointAngleCost::*)(const double)>(
              &SquaredJointAngleCost::set_weight),
@@ -193,14 +195,18 @@ void bind_Costs(nb::module_ &m)
          - $\boldsymbol{x}_{vel}$ is the velocity part of the state
          - $\boldsymbol{w}$ is the weight on the velocity term
                                                     )doc")
-      .def(nb::init<const uint, const double, const bool>(),
-           nb::arg("nv"),
-           nb::arg("weight"),
-           nb::arg("free_flyer") = false)
-      .def(nb::init<const uint, const VecX &, const bool>(),
-           nb::arg("nv"),
-           nb::arg("weight"),
-           nb::arg("free_flyer") = false)
+      .def(
+        nb::init<const uint, const double, const bool, const std::string &>(),
+        nb::arg("nv"),
+        nb::arg("weight"),
+        nb::arg("free_flyer") = false,
+        nb::arg("name")       = "")
+      .def(
+        nb::init<const uint, const VecX &, const bool, const std::string &>(),
+        nb::arg("nv"),
+        nb::arg("weight"),
+        nb::arg("free_flyer") = false,
+        nb::arg("name")       = "")
       .def("set_weight",
            static_cast<void (SquaredJointVelocityCost::*)(const double)>(
              &SquaredJointVelocityCost::set_weight),
@@ -217,14 +223,18 @@ void bind_Costs(nb::module_ &m)
          - $\boldsymbol{u}_{ctrl}$ is the control part of the controls
          - $\boldsymbol{w}$ is the weight on the control term
         )doc")
-      .def(nb::init<const uint, const uint, const double>(),
-           nb::arg("nv"),
-           nb::arg("nu"),
-           nb::arg("weight"))
-      .def(nb::init<const uint, const uint, const VecX &>(),
-           nb::arg("nv"),
-           nb::arg("nu"),
-           nb::arg("weight"))
+      .def(
+        nb::init<const uint, const uint, const double, const std::string &>(),
+        nb::arg("nv"),
+        nb::arg("nu"),
+        nb::arg("weight"),
+        nb::arg("name") = "")
+      .def(
+        nb::init<const uint, const uint, const VecX &, const std::string &>(),
+        nb::arg("nv"),
+        nb::arg("nu"),
+        nb::arg("weight"),
+        nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (SquaredControlCost::*)(const double)>(
              &SquaredControlCost::set_weight),
@@ -247,22 +257,26 @@ void bind_Costs(nb::module_ &m)
                     const uint,
                     const uint,
                     const uint,
-                    const double>(),
+                    const double,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("nu"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const uint,
                     const uint,
                     const uint,
-                    const VecX &>(),
+                    const VecX &,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("nu"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (SquaredIDTorqueCost::*)(const double)>(
              &SquaredIDTorqueCost::set_weight),
@@ -278,14 +292,18 @@ void bind_Costs(nb::module_ &m)
         where $\boldsymbol{u}_f$ is the force part of the controls
         and $w_f$ is the weight on the term
         )doc")
-      .def(nb::init<const uint, const uint, const double>(),
-           nb::arg("nv"),
-           nb::arg("nu"),
-           nb::arg("weight"))
-      .def(nb::init<const uint, const uint, const VecX &>(),
-           nb::arg("nv"),
-           nb::arg("nu"),
-           nb::arg("weight"))
+      .def(
+        nb::init<const uint, const uint, const double, const std::string &>(),
+        nb::arg("nv"),
+        nb::arg("nu"),
+        nb::arg("weight"),
+        nb::arg("name") = "")
+      .def(
+        nb::init<const uint, const uint, const VecX &, const std::string &>(),
+        nb::arg("nv"),
+        nb::arg("nu"),
+        nb::arg("weight"),
+        nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (SquaredForceCost::*)(const double)>(
              &SquaredForceCost::set_weight),
@@ -311,25 +329,29 @@ void bind_Costs(nb::module_ &m)
                     const uint,
                     const uint,
                     const double,
-                    const bool>(),
+                    const bool,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("desired_configuration"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"),
-           nb::arg("free_flyer"))
+           nb::arg("free_flyer"),
+           nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const VecX &,
                     const uint,
                     const uint,
                     const VecX &,
-                    const bool>(),
+                    const bool,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("desired_configuration"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("weight"),
-           nb::arg("free_flyer"))
+           nb::arg("free_flyer"),
+           nb::arg("name") = "")
       .def("set_desired_configuration",
            &SquaredConfigurationErrorCost::set_desired_configuration,
            nb::arg("desired_configuration"))
@@ -358,25 +380,29 @@ void bind_Costs(nb::module_ &m)
                     const Vec3 &,
                     const uint,
                     const uint,
-                    const double>(),
+                    const double,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
                     const uint,
                     const uint,
-                    const Vec3 &>(),
+                    const Vec3 &,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_desired_translation",
            &FrameSquaredTranslationErrorCost::set_desired_translation,
            nb::arg("desired_translation"))
@@ -407,13 +433,15 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const uint,
                     const uint,
-                    const double>(),
+                    const double,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_rotation"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_desired_rotation",
            &FrameSquaredRotationErrorCost::set_desired_rotation,
            nb::arg("desired_rotation"))
@@ -440,14 +468,16 @@ void bind_Costs(nb::module_ &m)
                     const uint,
                     const uint,
                     const double,
-                    const double>(),
+                    const double,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_pose"),
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("position_weight"),
-           nb::arg("rotation_weight"))
+           nb::arg("rotation_weight"),
+           nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
@@ -455,7 +485,8 @@ void bind_Costs(nb::module_ &m)
                     const uint,
                     const uint,
                     const double,
-                    const double>(),
+                    const double,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_position"),
@@ -463,7 +494,8 @@ void bind_Costs(nb::module_ &m)
            nb::arg("nq"),
            nb::arg("nv"),
            nb::arg("position_weight"),
-           nb::arg("rotation_weight"))
+           nb::arg("rotation_weight"),
+           nb::arg("name") = "")
       .def("set_desired_pose",
            &FrameSquaredPoseErrorCost::set_desired_pose,
            nb::arg("desired_pose"))
@@ -496,25 +528,29 @@ void bind_Costs(nb::module_ &m)
                     const Vec6 &,
                     const uint,
                     const uint,
-                    const double>(),
+                    const double,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_velocity"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec6 &,
                     const uint,
                     const uint,
-                    const Vec6 &>(),
+                    const Vec6 &,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_velocity"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_desired_velocity",
            &FrameSquaredVelocityErrorCost::set_desired_velocity,
            nb::arg("desired_velocity"))
@@ -540,22 +576,26 @@ void bind_Costs(nb::module_ &m)
                     const std::string &,
                     const uint,
                     const uint,
-                    const double>(),
+                    const double,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const std::string &,
                     const uint,
                     const uint,
-                    const Vec6 &>(),
+                    const Vec6 &,
+                    const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("nq"),
            nb::arg("nv"),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (FrameSquaredVelocityCost::*)(const double)>(
              &FrameSquaredVelocityCost::set_weight),

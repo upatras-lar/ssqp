@@ -12,9 +12,11 @@ namespace costs
 {
 // SquaredJointAngleCost
 SquaredJointAngleCost::SquaredJointAngleCost(const uint nq, const uint nv,
-                                             const double weight,
-                                             const bool   free_flyer)
-  : _nq(nq)
+                                             const double       weight,
+                                             const bool         free_flyer,
+                                             const std::string &name)
+  : StageCost(name)
+  , _nq(nq)
   , _nv(nv)
   , _weight(free_flyer ? nq - 7 : nq)
   , _free_flyer(free_flyer)
@@ -23,9 +25,11 @@ SquaredJointAngleCost::SquaredJointAngleCost(const uint nq, const uint nv,
 }
 
 SquaredJointAngleCost::SquaredJointAngleCost(const uint nq, const uint nv,
-                                             const VecX &weight,
-                                             const bool  free_flyer)
-  : _nq(nq)
+                                             const VecX        &weight,
+                                             const bool         free_flyer,
+                                             const std::string &name)
+  : StageCost(name)
+  , _nq(nq)
   , _nv(nv)
   , _weight(weight)
   , _free_flyer(free_flyer)
@@ -101,8 +105,10 @@ void SquaredJointAngleCost::hessian_uu(const VecX &x, const VecX &u,
 // SquaredJointVelocityCost
 SquaredJointVelocityCost::SquaredJointVelocityCost(const uint   nv,
                                                    const double weight,
-                                                   const bool   free_flyer)
-  : _nv(nv)
+                                                   const bool   free_flyer,
+                                                   const std::string &name)
+  : StageCost(name)
+  , _nv(nv)
   , _weight(free_flyer ? nv - 6 : nv)
   , _njoints(free_flyer ? nv - 6 : nv)
 {
@@ -111,8 +117,10 @@ SquaredJointVelocityCost::SquaredJointVelocityCost(const uint   nv,
 
 SquaredJointVelocityCost::SquaredJointVelocityCost(const uint  nv,
                                                    const VecX &weight,
-                                                   const bool  free_flyer)
-  : _nv(nv)
+                                                   const bool  free_flyer,
+                                                   const std::string &name)
+  : StageCost(name)
+  , _nv(nv)
   , _weight(weight)
   , _njoints(free_flyer ? nv - 6 : nv)
 {
@@ -170,8 +178,10 @@ void SquaredJointVelocityCost::hessian_uu(const VecX &x, const VecX &u,
 
 // SquaredControlCost
 SquaredControlCost::SquaredControlCost(const uint nv, const uint nu,
-                                       const double weight)
-  : _nv(nv)
+                                       const double       weight,
+                                       const std::string &name)
+  : StageCost(name)
+  , _nv(nv)
   , _nu(nu)
   , _weight(nu)
 {
@@ -179,8 +189,10 @@ SquaredControlCost::SquaredControlCost(const uint nv, const uint nu,
 }
 
 SquaredControlCost::SquaredControlCost(const uint nv, const uint nu,
-                                       const VecX &weight)
-  : _nv(nv)
+                                       const VecX        &weight,
+                                       const std::string &name)
+  : StageCost(name)
+  , _nv(nv)
   , _nu(nu)
   , _weight(weight)
 {
@@ -237,8 +249,10 @@ void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
 // SquaredIDTorqueCost
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const uint nq,
                                          const uint nu, const uint nv,
-                                         const double weight)
-  : _model(std::make_shared<Model>(model))
+                                         const double       weight,
+                                         const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _nq(nq)
   , _nv(nv)
   , _nu(nu)
@@ -248,8 +262,10 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const uint nq,
 }
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const uint nq,
                                          const uint nu, const uint nv,
-                                         const VecX &weight)
-  : _model(std::make_shared<Model>(model))
+                                         const VecX        &weight,
+                                         const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _nq(nq)
   , _nv(nv)
   , _nu(nu)
@@ -365,8 +381,9 @@ void SquaredIDTorqueCost::hessian_uu(const VecX &x, const VecX &u,
 
 // SquaredForceCost
 SquaredForceCost::SquaredForceCost(const uint nv, const uint nu,
-                                   const double weight)
-  : _nv(nv)
+                                   const double weight, const std::string &name)
+  : StageCost(name)
+  , _nv(nv)
   , _nu(nu)
   , _weight(weight)
   , _single_weight(true)
@@ -374,8 +391,9 @@ SquaredForceCost::SquaredForceCost(const uint nv, const uint nu,
 }
 
 SquaredForceCost::SquaredForceCost(const uint nv, const uint nu,
-                                   const VecX &weight)
-  : _nv(nv)
+                                   const VecX &weight, const std::string &name)
+  : StageCost(name)
+  , _nv(nv)
   , _nu(nu)
   , _weight_vec(weight)
   , _single_weight(false)
@@ -458,8 +476,10 @@ void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
 // SquaredConfigurationErrorCost
 SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   const Model &model, const VecX &desired_configuration, const uint nq,
-  const uint nv, const double weight, const bool free_flyer)
-  : _model(std::make_shared<Model>(model))
+  const uint nv, const double weight, const bool free_flyer,
+  const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _desired_configuration(desired_configuration)
   , _full_desired_configuration(nq)
   , _nq(nq)
@@ -485,8 +505,10 @@ SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
 
 SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   const Model &model, const VecX &desired_configuration, const uint nq,
-  const uint nv, const VecX &weight, const bool free_flyer)
-  : _model(std::make_shared<Model>(model))
+  const uint nv, const VecX &weight, const bool free_flyer,
+  const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _desired_configuration(desired_configuration)
   , _full_desired_configuration(nq)
   , _nq(nq)
@@ -616,8 +638,9 @@ void SquaredConfigurationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 // FrameSquaredTranslationErrorCost
 FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
-  const uint nq, const uint nv, const double weight)
-  : _model(std::make_shared<Model>(model))
+  const uint nq, const uint nv, const double weight, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _desired_translation(desired_translation)
   , _nq(nq)
@@ -628,8 +651,9 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
 
 FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
-  const uint nq, const uint nv, const Vec3 &weight)
-  : _model(std::make_shared<Model>(model))
+  const uint nq, const uint nv, const Vec3 &weight, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _desired_translation(desired_translation)
   , _nq(nq)
@@ -711,8 +735,9 @@ void FrameSquaredTranslationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 // FrameSquaredRotationErrorCost
 FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   const Model &model, const std::string &frame, const Mat3 &desired_rotation,
-  const uint nq, const uint nv, const double weight)
-  : _model(std::make_shared<Model>(model))
+  const uint nq, const uint nv, const double weight, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _desired_rotation(desired_rotation)
   , _nq(nq)
@@ -795,8 +820,9 @@ void FrameSquaredRotationErrorCost::hessian_uu(const VecX &x, const VecX &u,
 FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   const Model &model, const std::string &frame, const Mat4 &desired_pose,
   const uint nq, const uint nv, const double translation_weight,
-  const double rotation_weight)
-  : _model(std::make_shared<Model>(model))
+  const double rotation_weight, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _desired_pose(desired_pose)
   , _nq(nq)
@@ -810,7 +836,8 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
 FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
   const Mat3 &desired_rotation, const uint nq, const uint nv,
-  const double translation_weight, const double rotation_weight)
+  const double translation_weight, const double rotation_weight,
+  const std::string &name)
   : FrameSquaredPoseErrorCost(model, frame,
                               Mat4 {
                                 { desired_rotation(0, 0),
@@ -827,7 +854,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
                                  desired_translation(2) },
                                 { 0.0, 0.0, 0.0, 1.0 }
 },
-                              nq, nv, translation_weight, rotation_weight)
+                              nq, nv, translation_weight, rotation_weight, name)
 {
 }
 
@@ -935,8 +962,9 @@ void FrameSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
 // FrameSquaredVelocityErrorCost
 FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   const Model &model, const std::string &frame, const Vec6 &desired_velocity,
-  const uint nq, const uint nv, const double weight)
-  : _model(std::make_shared<Model>(model))
+  const uint nq, const uint nv, const double weight, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _desired_velocity(desired_velocity)
   , _nq(nq)
@@ -947,8 +975,9 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
 
 FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   const Model &model, const std::string &frame, const Vec6 &desired_velocity,
-  const uint nq, const uint nv, const Vec6 &weight)
-  : _model(std::make_shared<Model>(model))
+  const uint nq, const uint nv, const Vec6 &weight, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _desired_velocity(desired_velocity)
   , _nq(nq)
@@ -1031,8 +1060,10 @@ void FrameSquaredVelocityErrorCost::hessian_uu(const VecX &x, const VecX &u,
 FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
                                                    const std::string &frame,
                                                    const uint nq, const uint nv,
-                                                   const double weight)
-  : _model(std::make_shared<Model>(model))
+                                                   const double       weight,
+                                                   const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _nq(nq)
   , _nv(nv)
@@ -1043,8 +1074,10 @@ FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
 FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
                                                    const std::string &frame,
                                                    const uint nq, const uint nv,
-                                                   const Vec6 &weight)
-  : _model(std::make_shared<Model>(model))
+                                                   const Vec6        &weight,
+                                                   const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
   , _frame(frame)
   , _nq(nq)
   , _nv(nv)
