@@ -4,6 +4,8 @@ import ssqpy
 import numpy as np
 from time import time, sleep
 
+ssqpy.setSilentMode()
+
 
 def quat_wxyz_to_xyzw(wxyz):
     xyzw = np.zeros(4)

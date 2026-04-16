@@ -646,6 +646,7 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   , _nq(nq)
   , _nv(nv)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
 
@@ -660,6 +661,7 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   , _nv(nv)
   , _weight(weight)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FrameSquaredTranslationErrorCost::set_desired_translation(
@@ -744,6 +746,7 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   , _nv(nv)
   , _weight(weight)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FrameSquaredRotationErrorCost::set_desired_rotation(
@@ -829,6 +832,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   , _nv(nv)
   , _weight(Mat6::Zero())
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.topLeftCorner<3, 3>()     = translation_weight * Mat3::Identity();
     _weight.bottomRightCorner<3, 3>() = rotation_weight * Mat3::Identity();
 }
@@ -856,6 +860,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
 },
                               nq, nv, translation_weight, rotation_weight, name)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FrameSquaredPoseErrorCost::set_desired_pose(const Mat4 &desired_pose)
@@ -970,6 +975,7 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _nq(nq)
   , _nv(nv)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
 
@@ -984,6 +990,7 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _nv(nv)
   , _weight(weight)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FrameSquaredVelocityErrorCost::set_desired_velocity(
@@ -1068,6 +1075,7 @@ FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
   , _nq(nq)
   , _nv(nv)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
 
@@ -1083,6 +1091,7 @@ FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
   , _nv(nv)
   , _weight(weight)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FrameSquaredVelocityCost::set_weight(const double weight)

@@ -5,6 +5,8 @@ import numpy as np
 from time import time, sleep
 from go2_controllers.JointSpacePD import JointSpacePD
 
+ssqpy.setSilentMode()
+
 
 def quat_wxyz_to_xyzw(wxyz):
     xyzw = np.zeros(4)

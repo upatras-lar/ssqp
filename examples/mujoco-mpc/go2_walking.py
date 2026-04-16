@@ -5,6 +5,8 @@ import numpy as np
 from time import time, sleep
 from go2_controllers.JointSpacePD import JointSpacePD
 
+ssqpy.setSilentMode()
+
 
 def quat_wxyz_to_xyzw(wxyz):
     xyzw = np.zeros(4)
@@ -21,16 +23,16 @@ def quat_xyzw_to_wxyz(xyzw):
 
 
 dt = 0.002
-mpc_H = 10
+mpc_H = 50
 mpc_dt = 0.1
 
 T_WGT = 1.0
-C_WGT = 1e-1
+C_WGT = 0.1
 V_WGT = 1e-2
 U_WGT = 1e-4
 
 CONTACT_MU = 0.6
-GAIT_SWAP_FREQ = 25
+GAIT_SWAP_FREQ = 10
 
 dynamics_mode = ssqpy.model.DynamicsMode.Forward
 
@@ -58,7 +60,7 @@ init_state[5] = 1.0
 init_state[7:19] = base_config
 
 
-H = 100
+H = 500
 traj = []
 for i in range(H + 1):
     traj.append(base_pos + i * (target_pos - base_pos) / H)
@@ -98,11 +100,11 @@ for k in range(mpc_H):
     stage_contact_constraints.append(
         model.addContactConstraint(k, "RL_foot", CONTACT_MU)
     )
+    stage_contact_constraints[-1].set_enabled(False)
 
     stage_contact_constraints.append(
         model.addContactConstraint(k, "RR_foot", CONTACT_MU)
     )
-    stage_contact_constraints[-1].set_enabled(False)
 
     contact_constraints.append(stage_contact_constraints)
 
@@ -118,15 +120,17 @@ def update_model(current_stage):
         )
         stage_contact_constraints = contact_constraints[k - current_stage]
         if (k // GAIT_SWAP_FREQ) % 2:
+            # print(f"Stage {k}: Enabling 1,2")
             stage_contact_constraints[0].set_enabled(False)
             stage_contact_constraints[1].set_enabled(True)
-            stage_contact_constraints[2].set_enabled(False)
-            stage_contact_constraints[3].set_enabled(True)
-        else:
-            stage_contact_constraints[0].set_enabled(True)
-            stage_contact_constraints[1].set_enabled(False)
             stage_contact_constraints[2].set_enabled(True)
             stage_contact_constraints[3].set_enabled(False)
+        else:
+            # print(f"Stage {k}: Enabling 0,3")
+            stage_contact_constraints[0].set_enabled(True)
+            stage_contact_constraints[1].set_enabled(False)
+            stage_contact_constraints[2].set_enabled(False)
+            stage_contact_constraints[3].set_enabled(True)
 
 
 ssqp_params = ssqpy.solvers.ssqpParams()
@@ -160,46 +164,56 @@ states = []
 
 STEPS = 125
 stage = 0
-for _ in range(STEPS):
-    print(f"\rSimulation time: {mjdata.time:.2f}s")
-    frame_start = time()
+with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
+    while viewer.is_running():
+        print(f"\rSimulation time: {mjdata.time:.2f}s")
+        frame_start = time()
 
-    pos = mjdata.qpos.copy()
-    pos[3:7] = quat_wxyz_to_xyzw(pos[3:7])
-    state = np.hstack((pos, mjdata.qvel))
+        pos = mjdata.qpos.copy()
+        pos[3:7] = quat_wxyz_to_xyzw(pos[3:7])
+        state = np.hstack((pos, mjdata.qvel))
 
-    states.append(state)
+        states.append(state)
 
-    pre = time()
+        pre = time()
 
-    # mjdata.ctrl = joint_space_pd_controller.step(state)
-    u = mpc.step(state)[1].stage(0)
-    mjdata.ctrl = u[6:18]
+        try:
+            mjdata.ctrl = joint_space_pd_controller.step(state)
+        except RuntimeError:
+            print("Exiting after regularization failure")
+            break
+        # try:
+        #     u = mpc.step(state)[1].stage(0)
+        # except RuntimeError:
+        #     print("Exiting after regularization failure")
+        #     break
 
-    elapsed = time() - pre
+        # mjdata.ctrl = u[6:18]
 
-    print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t")
+        elapsed = time() - pre
 
-    mujoco.mj_step(mjmodel, mjdata)
-    # viewer.sync()
+        print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t")
 
-    stage += 1
-    update_model(stage)
+        mujoco.mj_step(mjmodel, mjdata)
+        viewer.sync()
 
-    to_sleep = dt - (time() - frame_start)
-    if to_sleep > 0:
-        sleep(to_sleep)
+        stage += 1
+        update_model(stage)
+
+        to_sleep = dt - (time() - frame_start)
+        if to_sleep > 0:
+            sleep(to_sleep)
 
 print()
 
 model = ssqpy.model.Model(
-    STEPS - 1,
+    len(states) - 1,
     mpc_dt,
     mjcf_path="../assets/mjcf/go2/go2.xml",
     free_flyer=True,
     dynamics_mode=dynamics_mode,
 )
-for k in range(STEPS):
+for k in range(len(states)):
     model.addCost(k, v_cost)
 
 model.finalize(init_states=states)

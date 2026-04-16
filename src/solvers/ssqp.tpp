@@ -21,7 +21,7 @@ void ssqp::_setup_qp()
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
-        DEBUG_LOGLN("Stage " << k << ":");
+        logln_at(LogLevel::Debug, "Stage " << k << ":");
 
         if constexpr (withGradients)
         {
@@ -49,14 +49,13 @@ void ssqp::_setup_qp()
                            0);
 
         _qp.stages[k].A.topLeftCorner(nv, nv).noalias() = Jr_inv * Jx;
-        // TODO: check this!
         _qp.stages[k].B.topLeftCorner(nu, nu).noalias() =
           _model.getMatrixActuatedPart(Jr_inv) * Ju;
 
-        DEBUG_LOGLN("A: " << std::endl << _qp.stages[k].A);
-        DEBUG_LOGLN("B: " << std::endl << _qp.stages[k].B);
-        DEBUG_LOGLN("Jr_inv: " << std::endl << Jr_inv);
-        DEBUG_LOGLN("gamma: " << _qp.stages[k].gamma.transpose());
+        logln_at(LogLevel::Debug, "A: " << std::endl << _qp.stages[k].A);
+        logln_at(LogLevel::Debug, "B: " << std::endl << _qp.stages[k].B);
+        logln_at(LogLevel::Debug, "Jr_inv: " << std::endl << Jr_inv);
+        logln_at(LogLevel::Debug, "gamma: " << _qp.stages[k].gamma.transpose());
 
         // Calculate Q_k
         costs[k]->hessian_xx(_guess.x.stage(k),
@@ -143,15 +142,15 @@ void ssqp::_setup_qp()
             _qp.stages[k].cu = VecX::Zero(0);
         }
 
-        DEBUG_LOGLN("Qxx: " << std::endl << _qp.stages[k].Qxx);
-        DEBUG_LOGLN("Qxu: " << std::endl << _qp.stages[k].Qxu);
-        DEBUG_LOGLN("Quu: " << std::endl << _qp.stages[k].Quu);
-        DEBUG_LOGLN("qx: " << _qp.stages[k].qx.transpose());
-        DEBUG_LOGLN("qu: " << _qp.stages[k].qu.transpose());
-        DEBUG_LOGLN("D: " << std::endl << _qp.stages[k].D);
-        DEBUG_LOGLN("E: " << std::endl << _qp.stages[k].E);
-        DEBUG_LOGLN("cl: " << _qp.stages[k].cl.transpose());
-        DEBUG_LOGLN("cu: " << _qp.stages[k].cu.transpose());
+        logln_at(LogLevel::Debug, "Qxx: " << std::endl << _qp.stages[k].Qxx);
+        logln_at(LogLevel::Debug, "Qxu: " << std::endl << _qp.stages[k].Qxu);
+        logln_at(LogLevel::Debug, "Quu: " << std::endl << _qp.stages[k].Quu);
+        logln_at(LogLevel::Debug, "qx: " << _qp.stages[k].qx.transpose());
+        logln_at(LogLevel::Debug, "qu: " << _qp.stages[k].qu.transpose());
+        logln_at(LogLevel::Debug, "D: " << std::endl << _qp.stages[k].D);
+        logln_at(LogLevel::Debug, "E: " << std::endl << _qp.stages[k].E);
+        logln_at(LogLevel::Debug, "cl: " << _qp.stages[k].cl.transpose());
+        logln_at(LogLevel::Debug, "cu: " << _qp.stages[k].cu.transpose());
     }
 
     // Terminal values for Q, q, D and c
@@ -207,13 +206,13 @@ SolverState ssqp::_check_termination()
 {
     ZoneScopedN("SSQP: _check_termination");
 
-    DEBUG_LOGLN("Guess " << _iter + 1);
-    DEBUG_LOGLN("=============");
-    DEBUG_LOGLN("x: " << std::endl << _guess.x);
-    DEBUG_LOGLN("u: " << std::endl << _guess.u);
-    DEBUG_LOGLN("lambda: " << std::endl << _guess.lambda);
-    DEBUG_LOGLN("mu: " << std::endl << _guess.mu);
-    DEBUG_LOGLN("=============");
+    logln_at(LogLevel::Debug, "Guess " << _iter + 1);
+    logln_at(LogLevel::Debug, "=============");
+    logln_at(LogLevel::Debug, "x: " << std::endl << _guess.x);
+    logln_at(LogLevel::Debug, "u: " << std::endl << _guess.u);
+    logln_at(LogLevel::Debug, "lambda: " << std::endl << _guess.lambda);
+    logln_at(LogLevel::Debug, "mu: " << std::endl << _guess.mu);
+    logln_at(LogLevel::Debug, "=============");
 
     static const uint                 horizon     = _model.dims().horizon;
     const model::CostsContainer       costs       = _model.costs();

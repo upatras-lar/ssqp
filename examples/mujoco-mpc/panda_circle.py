@@ -5,6 +5,8 @@ import numpy as np
 from math import pi, sin, cos, sqrt
 from time import time, sleep
 
+ssqpy.setSilentMode()
+
 PLOT = True
 
 if PLOT:

@@ -243,11 +243,11 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         _params.constraint_tolerance = _params.tolerance;
     }
 
-    DEBUG_LOGLN("SSQP initial guess:");
-    DEBUG_LOGLN("x:");
-    DEBUG_LOGLN(_guess.x);
-    DEBUG_LOGLN("u:");
-    DEBUG_LOGLN(_guess.u);
+    logln_at(LogLevel::Debug, "SSQP initial guess:");
+    logln_at(LogLevel::Debug, "x:");
+    logln_at(LogLevel::Debug, _guess.x);
+    logln_at(LogLevel::Debug, "u:");
+    logln_at(LogLevel::Debug, _guess.u);
 }
 
 const model::Model &ssqp::model() const
@@ -263,7 +263,7 @@ SolverState ssqp::solve(Guess &guess)
 
     SolverState ssqp_state;
 
-    DEBUG_LOGLN("Starting SSQP solver loop");
+    logln_at(LogLevel::Debug, "Starting SSQP solver loop");
     auto start_time = std::chrono::high_resolution_clock::now();
 
     _setup_qp<true>();
@@ -317,7 +317,7 @@ SolverState ssqp::solve(Guess &guess)
                 [this](const step::Point &a,
                        const step::Point &b,
                        const step::Point &offset,
-                       const double alpha)
+                       const double       alpha)
                 {
                     return step::filter(
                       a,
@@ -347,7 +347,7 @@ SolverState ssqp::solve(Guess &guess)
                 [this](const step::Point &a,
                        const step::Point &b,
                        const step::Point &offset,
-                       const double alpha)
+                       const double       alpha)
                 {
                     return step::merit(
                       a,
@@ -403,10 +403,14 @@ SolverState ssqp::solve(Guess &guess)
         {
             if (_params.skip_regularization)
             {
-                throw std::runtime_error("LQR: Regularization failed");
+                logln_at(
+                  LogLevel::Error,
+                  "SSQP: Line search failed (regularization not enabled)");
+                throw std::runtime_error("SSQP: Line search failed");
             }
 
-            DEBUG_LOGLN("Line search failed, increasing regularization");
+            logln_at(LogLevel::Debug,
+                     "Line search failed, increasing regularization");
             qp_solver->increaseRegularization();
             --_iter;
             continue;
@@ -427,10 +431,10 @@ SolverState ssqp::solve(Guess &guess)
             }
         }
 
-        DEBUG_LOGLN("Current x: ");
-        DEBUG_LOGLN(_guess.x);
-        DEBUG_LOGLN("Current u: ");
-        DEBUG_LOGLN(_guess.u);
+        logln_at(LogLevel::Debug, "Current x: ");
+        logln_at(LogLevel::Debug, _guess.x);
+        logln_at(LogLevel::Debug, "Current u: ");
+        logln_at(LogLevel::Debug, _guess.u);
 
         _guess.lambda = sol.lambda;
         _guess.mu     = sol.mu;
@@ -469,8 +473,9 @@ SolverState ssqp::solve(Guess &guess)
                 _printIterationHeader();
             }
             _printIterationInfo();
-            LOGLN("SSQP: Total runtime: " << _convergence_data.total_duration
-                                          << "ms");
+            logln_at(LogLevel::Info,
+                     "SSQP: Total runtime: " << _convergence_data.total_duration
+                                             << "ms");
 
             guess = _guess;
             return ssqp_state;
@@ -526,7 +531,9 @@ SolverState ssqp::solve(Guess &guess)
     _convergence_data.trajectory_stage_gap = _gammaf(_guess.x, _guess.u);
     _convergence_data.trajectory_constraint_violation = _cf(_guess.x, _guess.u);
 
-    LOGLN("SSQP: Total runtime: " << _convergence_data.total_duration << "ms");
+    logln_at(LogLevel::Info,
+             "SSQP: Total runtime: " << _convergence_data.total_duration
+                                     << "ms");
 
     guess = _guess;
     return MAX_ITER_REACHED;
@@ -700,22 +707,22 @@ const ssqp::ConvergenceData ssqp::convergenceData() const
 
 void ssqp::_printIterationHeader() const
 {
-    LOG(std::setw(18));
-    LOG("SQP Iteration |");
-    LOG(std::setw(18));
-    LOG("Norm/dx |");
-    LOG(std::setw(18));
-    LOG("Norm/du |");
-    LOG(std::setw(18));
-    LOG("Violation Stage |");
-    LOG(std::setw(18));
-    LOG("Violation |");
-    LOG(std::setw(18));
-    LOG("QP Iterations |");
-    LOG(std::setw(18));
-    LOG("QP Runtime (us) |");
-    LOG(std::setw(18));
-    LOGLN("Step Size");
+    log_at(LogLevel::Info, std::setw(18));
+    log_at(LogLevel::Info, "SQP Iteration |");
+    log_at(LogLevel::Info, std::setw(18));
+    log_at(LogLevel::Info, "Norm/dx |");
+    log_at(LogLevel::Info, std::setw(18));
+    log_at(LogLevel::Info, "Norm/du |");
+    log_at(LogLevel::Info, std::setw(18));
+    log_at(LogLevel::Info, "Violation Stage |");
+    log_at(LogLevel::Info, std::setw(18));
+    log_at(LogLevel::Info, "Violation |");
+    log_at(LogLevel::Info, std::setw(18));
+    log_at(LogLevel::Info, "QP Iterations |");
+    log_at(LogLevel::Info, std::setw(18));
+    log_at(LogLevel::Info, "QP Runtime (us) |");
+    log_at(LogLevel::Info, std::setw(18));
+    logln_at(LogLevel::Info, "Step Size");
 }
 
 void ssqp::_printIterationInfo() const
@@ -723,29 +730,29 @@ void ssqp::_printIterationInfo() const
     const IterationConvergenceData &icd =
       _convergence_data.iteration_data.back();
 
-    LOG(std::setw(16));
-    LOG(_iter << " |");
-    LOG(std::setw(16) << std::setprecision(5));
-    LOG(icd.norm_dx << " |");
-    LOG(std::setw(16) << std::setprecision(5));
-    LOG(icd.norm_du << " |");
-    LOG(std::setw(16));
+    log_at(LogLevel::Info, std::setw(16));
+    log_at(LogLevel::Info, _iter << " |");
+    log_at(LogLevel::Info, std::setw(16) << std::setprecision(5));
+    log_at(LogLevel::Info, icd.norm_dx << " |");
+    log_at(LogLevel::Info, std::setw(16) << std::setprecision(5));
+    log_at(LogLevel::Info, icd.norm_du << " |");
+    log_at(LogLevel::Info, std::setw(16));
     if (icd.first_violation_stage < 0.0)
     {
-        LOG("-" << " |");
+        log_at(LogLevel::Info, "-" << " |");
     }
     else
     {
-        LOG(icd.first_violation_stage << " |");
+        log_at(LogLevel::Info, icd.first_violation_stage << " |");
     }
-    LOG(std::setw(16) << std::setprecision(5));
-    LOG(icd.violation << " |");
-    LOG(std::setw(16));
-    LOG(icd.qp_iters << " |");
-    LOG(std::setw(16));
-    LOG(icd.qp_duration << " |");
-    LOG(std::setw(16));
-    LOGLN(icd.step_size);
+    log_at(LogLevel::Info, std::setw(16) << std::setprecision(5));
+    log_at(LogLevel::Info, icd.violation << " |");
+    log_at(LogLevel::Info, std::setw(16));
+    log_at(LogLevel::Info, icd.qp_iters << " |");
+    log_at(LogLevel::Info, std::setw(16));
+    log_at(LogLevel::Info, icd.qp_duration << " |");
+    log_at(LogLevel::Info, std::setw(16));
+    logln_at(LogLevel::Info, icd.step_size);
 }
 
 double ssqp::_lf(const FlatVec &x, const FlatVec &u) const

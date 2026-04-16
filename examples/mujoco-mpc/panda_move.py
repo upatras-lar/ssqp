@@ -4,6 +4,8 @@ import ssqpy
 import numpy as np
 from time import time, sleep
 
+ssqpy.setSilentMode()
+
 np.random.seed(int(time()))
 
 

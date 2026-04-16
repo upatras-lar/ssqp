@@ -225,6 +225,7 @@ FramePositionBound::FramePositionBound(const Model       &model,
   , _nv(nv)
 {
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FramePositionBound::set_lower_bound(const Vec3 &lb)
@@ -300,6 +301,7 @@ FrameRotationBound::FrameRotationBound(const Model       &model,
   , _nq(nq)
   , _nv(nv)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FrameRotationBound::set_lower_bound(const Vec3 &lb)
@@ -377,6 +379,7 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(
   , _nv(nv)
   , _terminal(terminal)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FrameLinearVelocityBound::set_lower_bound(const Vec3 &lb)
@@ -454,6 +457,7 @@ ContactConstraint::ContactConstraint(const Model       &model,
   , _mu(mu)
   , _eq_tol(eq_tol)
 {
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void ContactConstraint::set_mu(const double mu)
