@@ -69,10 +69,12 @@ class lqr
 
     std::vector<MatX>             _G, _H;
     std::vector<Eigen::LLT<MatX>> _H_llt;
-    const uint                    _solve_success_sma_k;
-    const double                  _solve_success_sma_ratio;
-    uint                          _solve_success_sum;
-    std::deque<bool>              _solve_successes;
+    std::vector<MatX>             _cache_A_BK;
+
+    const uint       _solve_success_sma_k;
+    const double     _solve_success_sma_ratio;
+    uint             _solve_success_sum;
+    std::deque<bool> _solve_successes;
 
     const double _reg_init;
     const double _reg_factor;
@@ -84,9 +86,16 @@ class lqr
     void _solve();
     void _solve_cache_rho();
 
-    // Temporaries
-    // VecX _tmp_nx_1, _tmp_nx_2, _tmp_nx_3;
-    // MatX _tmp_nx_nx_1;
+    // Temporaries to prevent aliasing for Eigen operations
+    struct Temporaries
+    {
+        VecX x1, x2, x3;
+        VecX u1;
+        MatX XX1, XX2, XX3;
+        MatX UU1;
+        MatX XU1;
+        MatX UX1;
+    } _tmp;
 };
 }
 }

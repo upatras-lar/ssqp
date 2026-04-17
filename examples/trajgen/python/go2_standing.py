@@ -118,6 +118,7 @@ solver = ssqpy.solvers.ssqp(
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,
     admm_max_iter=500,
+    admm_warm_start=False,
 )
 
 state, x, u = solver.solve()
