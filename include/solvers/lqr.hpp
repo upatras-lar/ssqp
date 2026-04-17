@@ -87,10 +87,13 @@ class lqr
     void _solve_cache_rho();
 
     // Temporaries to prevent aliasing for Eigen operations
-    struct Temporaries
+    struct
     {
+        VecX c1, c2;
+        MatX CX1;
+        MatX CU1;
         VecX x1, x2, x3;
-        VecX u1;
+        VecX u1, u2;
         MatX XX1, XX2, XX3;
         MatX UU1;
         MatX XU1;
