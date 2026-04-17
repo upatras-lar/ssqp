@@ -34,15 +34,28 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
               std::vector<VecX>(qp.dims.horizon + 1),
               std::vector<VecX>(qp.dims.horizon) })
 {
-    /*
     uint max_x =
       *std::max_element(qp.dims.stage_state.begin(), qp.dims.stage_state.end());
+    uint max_u = *std::max_element(qp.dims.stage_control.begin(),
+                                   qp.dims.stage_control.end());
 
-    _tmp_nx_1.resize(max_x);
-    _tmp_nx_2.resize(max_x);
-    _tmp_nx_3.resize(max_x);
-    _tmp_nx_nx_1.resize(max_x, max_x);
-    */
+    _tmp.x1.resize(max_x);
+    _tmp.x2.resize(max_x);
+    _tmp.x3.resize(max_x);
+    _tmp.u1.resize(max_u);
+
+    _tmp.XX1.resize(max_x, max_x);
+    _tmp.XX2.resize(max_x, max_x);
+    _tmp.XX3.resize(max_x, max_x);
+    _tmp.UU1.resize(max_u, max_u);
+    _tmp.XU1.resize(max_x, max_u);
+    _tmp.UX1.resize(max_u, max_x);
+
+    _cache_A_BK.resize(_qp.dims.horizon);
+    for (uint k = 0; k < _qp.dims.horizon; ++k)
+    {
+        _cache_A_BK[k].resize(_qp.dims.stage_state[k], _qp.dims.stage_state[k]);
+    }
 }
 
 lqr::Output &lqr::output_structure()
@@ -172,130 +185,168 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
 void lqr::_solve_cache_rho()
 {
     ZoneScopedN("LQR: _solve_cache_rho");
-    _output.p[_qp.dims.horizon] = _qt;
+
+    const int H = _qp.dims.horizon;
+
+    _output.p[H] = _qt;
 
     // Backward pass
-    for (int k = _qp.dims.horizon - 1; k >= 0; --k)
+    for (int k = H - 1; k >= 0; --k)
     {
-        VecX h;
-        {
-            ZoneScopedN("h");
-            h = _qu[k] +
-                _qp.stages[k].B.transpose() *
-                  (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
-        }
+        const int nx = _qp.dims.stage_state[k];
+        const int nu = _qp.dims.stage_control[k];
 
-        {
-            ZoneScopedN("k");
-            _output.k[k].noalias() = -_H_llt[k].solve(h);
-        }
+        const auto &A     = _qp.stages[k].A;     // nx x nx
+        const auto &B     = _qp.stages[k].B;     // nx x nu
+        const auto &gamma = _qp.stages[k].gamma; // nx
 
-        {
-            ZoneScopedN("p");
+        auto x1 = _tmp.x1.head(nx);
+        auto x2 = _tmp.x2.head(nx);
+        auto x3 = _tmp.x3.head(nx);
 
-            /*
-            _tmp_nx_1.head(_qp.dims.stage_state[k]).noalias() =
-              _output.K[k].transpose() * _qu[k];
+        auto u1 = _tmp.u1.head(nu);
 
-            _tmp_nx_2.head(_qp.dims.stage_state[k]).noalias() =
-              _output.P[k + 1] * _qp.stages[k].gamma;
+        // x1 = P_next * gamma
+        x1.noalias() = _output.P[k + 1] * gamma;
 
-            _tmp_nx_3.head(_qp.dims.stage_state[k]) =
-              _output.p[k + 1] + _tmp_nx_2;
+        // x2 = p_next + x1
+        x2  = _output.p[k + 1];
+        x2 += x1;
 
-            _tmp_nx_nx_1 = _qp.stages[k].A;
+        // h = qu + B^T * x2
+        u1.noalias()  = B.transpose() * x2;
+        u1           += _qu[k];
 
-            _tmp_nx_nx_1.noalias() += _qp.stages[k].B * _output.K[k];
+        // k = -H^{-1} h
+        _output.k[k].noalias() = -_H_llt[k].solve(u1);
 
-            _output.p[k].noalias() =
-              _qx[k] + _tmp_nx_1 + _tmp_nx_nx_1.transpose() * _tmp_nx_3;
-            */
+        // Cache M = A + B*K
+        auto &M      = _cache_A_BK[k];
+        M.noalias()  = B * _output.K[k];
+        M           += A;
 
-            _output.p[k].noalias() =
-              _qx[k] + _output.K[k].transpose() * _qu[k] +
-              (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]).transpose() *
-                (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
-        }
+        // x1 = K^T * qu
+        x1.noalias() = _output.K[k].transpose() * _qu[k];
+
+        // x2 = P_next * gamma
+        x2.noalias() = _output.P[k + 1] * gamma;
+
+        // x3 = p_next + x2
+        x3  = _output.p[k + 1];
+        x3 += x2;
+
+        // x2 = M^T * x3
+        x2.noalias() = M.transpose() * x3;
+
+        // p[k] = qx + x1 + x2
+        _output.p[k]  = _qx[k];
+        _output.p[k] += x1;
+        _output.p[k] += x2;
     }
 
     // Forward pass
-    _output.x.stage(0) = VecX::Zero(_qp.dims.stage_state[0]);
+    _output.x.stage(0).setZero();
 
-    for (uint k = 0; k < _qp.dims.horizon; ++k)
+    for (int k = 0; k < H; ++k)
     {
-        {
-            ZoneScopedN("x");
-            _output.x.stage(k + 1).noalias() =
-              (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
-                _output.x.stage(k) +
-              _qp.stages[k].B * _output.k[k] + _qp.stages[k].gamma;
-        }
-        {
-            ZoneScopedN("u");
-            _output.u.stage(k).noalias() =
-              _output.K[k] * _output.x.stage(k) + _output.k[k];
-        }
+        const int nx = _qp.dims.stage_state[k];
+        const int nu = _qp.dims.stage_control[k];
+
+        const auto &B     = _qp.stages[k].B;     // nx x nu
+        const auto &gamma = _qp.stages[k].gamma; // nx
+        const auto &M     = _cache_A_BK[k];      // nx x nx
+
+        auto x1 = _tmp.x1.head(nx);
+        auto x2 = _tmp.x2.head(nx);
+
+        // x1 = M * x_k
+        x1.noalias() = M * _output.x.stage(k);
+
+        // x2 = B * k
+        x2.noalias() = B * _output.k[k];
+
+        // x_{k+1}
+        _output.x.stage(k + 1)  = x1;
+        _output.x.stage(k + 1) += x2;
+        _output.x.stage(k + 1) += gamma;
+
+        // u_k = K*x_k + k
+        _output.u.stage(k).noalias()  = _output.K[k] * _output.x.stage(k);
+        _output.u.stage(k)           += _output.k[k];
     }
 }
 
 void lqr::_solve()
 {
     ZoneScopedN("LQR: _solve");
-    bool backward_fail = false;
+
+    const int H             = _qp.dims.horizon;
+    bool      backward_fail = false;
 
     do
     {
-        logln_at(LogLevel::Debug, "Qt:" << std::endl << _Qt);
-        _output.P[_qp.dims.horizon] = _Qt;
-        _output.p[_qp.dims.horizon] = _qt;
+        _output.P[H] = _Qt;
+        _output.p[H] = _qt;
 
         // Backward pass
-        for (int k = _qp.dims.horizon - 1; k >= 0; --k)
+        for (int k = H - 1; k >= 0; --k)
         {
-            VecX h;
-            {
-                ZoneScopedN("h");
-                h = _qu[k] + _qp.stages[k].B.transpose() *
-                               (_output.p[k + 1] +
-                                _output.P[k + 1] * _qp.stages[k].gamma);
-            }
+            const int nx = _qp.dims.stage_state[k];
+            const int nu = _qp.dims.stage_control[k];
 
-            {
-                ZoneScopedN("G");
-                _G[k].noalias() =
-                  _Qxu[k].transpose() + _qp.stages[k].B.transpose() *
-                                          _output.P[k + 1] * _qp.stages[k].A;
-            }
+            const auto &A     = _qp.stages[k].A; // nx x nx
+            const auto &B     = _qp.stages[k].B; // nx x nu
+            const auto &gamma = _qp.stages[k].gamma;
 
-            logln_at(LogLevel::Debug,
-                     "Quu[" << k << "]:" << std::endl
-                            << _Quu[k]);
-            logln_at(LogLevel::Debug,
-                     "P[" << k + 1 << "]:" << std::endl
-                          << _output.P[k + 1]);
+            auto x1 = _tmp.x1.head(nx);
+            auto x2 = _tmp.x2.head(nx);
+            auto x3 = _tmp.x3.head(nx);
 
-            MatX H_k;
-            {
-                ZoneScopedN("H");
-                _H[k].noalias() = _Quu[k] + _qp.stages[k].B.transpose() *
-                                              _output.P[k + 1] *
-                                              _qp.stages[k].B;
+            auto u1 = _tmp.u1.head(nu);
 
-                _H[k] = _H[k].selfadjointView<Eigen::Upper>();
+            auto XX1 = _tmp.XX1.topLeftCorner(nx, nx);
+            auto XX2 = _tmp.XX2.topLeftCorner(nx, nx);
+            auto XX3 = _tmp.XX3.topLeftCorner(nx, nx);
 
-                H_k = _H[k] + _reg * MatX::Identity(_qp.dims.stage_control[k],
-                                                    _qp.dims.stage_control[k]);
-            }
+            auto XU1 = _tmp.XU1.topLeftCorner(nx, nu);
+            auto UX1 = _tmp.UX1.topLeftCorner(nu, nx);
 
-            logln_at(LogLevel::Debug, "G[" << k << "]:" << std::endl << _G[k]);
-            logln_at(LogLevel::Debug, "H[" << k << "]:" << std::endl << H_k);
-            logln_at(LogLevel::Debug, "h[" << k << "]: " << h.transpose());
+            auto UU1 = _tmp.UU1.topLeftCorner(nu, nu);
 
-            {
-                ZoneScopedN("llt_create");
+            // x1 = P_next * gamma
+            x1.noalias() = _output.P[k + 1] * gamma;
 
-                _H_llt[k] = H_k.llt();
-            }
+            // x2 = p_next + x1
+            x2  = _output.p[k + 1];
+            x2 += x1;
+
+            // h = qu + B^T * x2
+            u1.noalias()  = B.transpose() * x2;
+            u1           += _qu[k];
+
+            // G = Qxu^T + B^T * P_next * A
+            auto &Gk = _G[k]; // nu x nx
+
+            XX1.noalias()  = _output.P[k + 1] * A;
+            Gk.noalias()   = B.transpose() * XX1;
+            Gk            += _Qxu[k].transpose();
+
+            // H = Quu + B^T * P_next * B
+            auto &Hk      = _H[k];
+            XU1.noalias() = _output.P[k + 1] * B; // nx x nu
+
+            Hk.noalias()  = B.transpose() * XU1; // nu x nu
+            Hk           += _Quu[k];
+
+            Hk = Hk.selfadjointView<Eigen::Upper>();
+
+            // regularization
+            UU1                     = Hk;
+            UU1.diagonal().array() += _reg;
+
+            // LLT
+            _H_llt[k].compute(UU1);
+
             _solve_successes.push_front(_H_llt[k].info() == Eigen::Success);
             _solve_success_sum += _solve_successes.front();
 
@@ -307,52 +358,65 @@ void lqr::_solve()
 
             if (!_solve_successes.front())
             {
-                logln_at(LogLevel::Debug, "Backward pass failed");
                 backward_fail = true;
                 break;
             }
 
-            {
-                ZoneScopedN("Solve1");
-                _output.K[k] = -_H_llt[k].solve(_G[k]);
-            }
-            {
-                ZoneScopedN("Solve2");
-                _output.k[k] = -_H_llt[k].solve(h);
-            }
+            // K = -H^{-1} G
+            _output.K[k].noalias() = -_H_llt[k].solve(_G[k]);
 
-            {
-                ZoneScopedN("P");
-                _output.P[k] = _Qxx[k] +
-                               _qp.stages[k].A.transpose() * _output.P[k + 1] *
-                                 _qp.stages[k].A -
-                               _output.K[k].transpose() * _H[k] * _output.K[k];
+            // k = -H^{-1} h
+            _output.k[k].noalias() = -_H_llt[k].solve(u1);
 
-                _output.P[k] = _output.P[k].selfadjointView<Eigen::Upper>();
-            }
+            // Cache M = A + B*K
+            auto &M      = _cache_A_BK[k];
+            M.noalias()  = B * _output.K[k];
+            M           += A;
 
-            {
-                ZoneScopedN("p");
+            // P[k]
+            // x1 = P_next * A
+            XX1.noalias() = _output.P[k + 1] * A;
 
-                _output.p[k] =
-                  _qx[k] + _output.K[k].transpose() * _qu[k] +
-                  (_qp.stages[k].A + _qp.stages[k].B * _output.K[k])
-                      .transpose() *
-                    (_output.p[k + 1] + _output.P[k + 1] * _qp.stages[k].gamma);
-            }
+            // tmp_xx = A^T * x1
+            XX2.noalias() = A.transpose() * XX1;
+
+            // tmp_xx = M1 - K^T * H * K
+            UX1.noalias() = Hk * _output.K[k]; // nu x nx
+
+            XX3.noalias() = _output.K[k].transpose() * UX1;
+
+            _output.P[k]  = _Qxx[k];
+            _output.P[k] += XX2;
+            _output.P[k] -= XX3;
+
+            _output.P[k] = _output.P[k].selfadjointView<Eigen::Upper>();
+
+            // p[k]
+            // x1 = K^T * qu
+            x1.noalias() = _output.K[k].transpose() * _qu[k];
+
+            // x2 = P_next * gamma
+            x2.noalias() = _output.P[k + 1] * gamma;
+
+            // x3 = p_next + x2
+            x3  = _output.p[k + 1];
+            x3 += x2;
+
+            // x2 = M^T * x3
+            x2.noalias() = M.transpose() * x3;
+
+            _output.p[k]  = _qx[k];
+            _output.p[k] += x1;
+            _output.p[k] += x2;
         }
 
         if (backward_fail)
         {
-            logln_at(LogLevel::Debug, "Increasing LQR regularization");
             _reg *= _reg_factor;
             if (_reg > _reg_max)
-            {
-                logln_at(LogLevel::Error,
-                         "LQR: Runtime LQR regularization failed");
                 throw std::runtime_error("LQR: Regularization failed");
-            }
         }
+
     } while (backward_fail);
 
     if (_reg > _reg_init &&
@@ -363,29 +427,31 @@ void lqr::_solve()
     }
 
     // Forward pass
-    _output.x.stage(0) = VecX::Zero(_qp.dims.stage_state[0]);
+    _output.x.stage(0).setZero();
 
-    for (uint k = 0; k < _qp.dims.horizon; ++k)
+    for (int k = 0; k < H; ++k)
     {
-        logln_at(LogLevel::Debug, "Setting x[" << k << "]:");
-        logln_at(LogLevel::Debug, "A:" << std::endl << _qp.stages[k].A);
-        logln_at(LogLevel::Debug, "B:" << std::endl << _qp.stages[k].B);
-        logln_at(LogLevel::Debug, "K:" << std::endl << _output.K[k]);
-        logln_at(LogLevel::Debug,
-                 "Previous x:" << std::endl
-                               << _output.x.stage(k).transpose());
-        logln_at(LogLevel::Debug,
-                 "k:" << std::endl
-                      << _output.k[k].transpose());
-        logln_at(LogLevel::Debug,
-                 "gamma:" << std::endl
-                          << _qp.stages[k].gamma.transpose());
-        _output.x.stage(k + 1) =
-          (_qp.stages[k].A + _qp.stages[k].B * _output.K[k]) *
-            _output.x.stage(k) +
-          _qp.stages[k].B * _output.k[k] + _qp.stages[k].gamma;
-        _output.u.stage(k).noalias() =
-          _output.K[k] * _output.x.stage(k) + _output.k[k];
+        const int nx = _qp.dims.stage_state[k];
+        const int nu = _qp.dims.stage_control[k];
+
+        const auto &B     = _qp.stages[k].B;
+        const auto &gamma = _qp.stages[k].gamma;
+        const auto &M     = _cache_A_BK[k];
+
+        auto x1 = _tmp.x1.head(nx);
+        auto x2 = _tmp.x2.head(nx);
+
+        // x_{k+1}
+        x1.noalias() = M * _output.x.stage(k);
+        x2.noalias() = B * _output.k[k];
+
+        _output.x.stage(k + 1)  = x1;
+        _output.x.stage(k + 1) += x2;
+        _output.x.stage(k + 1) += gamma;
+
+        // u_k
+        _output.u.stage(k).noalias()  = _output.K[k] * _output.x.stage(k);
+        _output.u.stage(k)           += _output.k[k];
     }
 }
 }
