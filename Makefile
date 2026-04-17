@@ -33,21 +33,13 @@ ENABLE_PROFILING ?= 0
 ifeq ($(ENABLE_PROFILING), 1)
 	CXXFLAGS += -g -O2 -pthread -fno-omit-frame-pointer -DTRACY_ENABLE -DTRACY_MEMORY
 	LDFLAGS += -pthread
-endif
-
-DEBUG ?= 0
-ifeq ($(DEBUG), 1)
-	CXXFLAGS += -DDEBUG
-	ifeq ($(ENABLE_PROFILING), 0)
-		CXXFLAGS += -O0
-	endif
-else ifeq ($(ENABLE_PROFILING), 0)
+else
 	CXXFLAGS += -O3
 endif
 
-INFO ?= 1
-ifeq ($(INFO), 1)
-	CXXFLAGS += -DINFO
+DISABLE_LOGGING ?= 0
+ifeq ($(DISABLE_LOGGING), 1)
+	CXXFLAGS += -DDISABLE_LOGGING
 endif
 
 # Directories
