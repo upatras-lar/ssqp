@@ -20,7 +20,6 @@
 
 namespace ssqp
 {
-
 /* The available log levels
  * Each is used for a different class of output, and is independent of the 
  * others
@@ -69,8 +68,9 @@ inline void unset_log_level(const uint log_level_mask)
 #define log_wait_at(level)                                       \
     (level & GlobalLogMask ? (void)(std::cin.get()) : ((void)0))
 #else
-#define log(level, ...)      ((void)0)
+#define log_at(level, ...)   ((void)0)
 #define logln_at(level, ...) ((void)0)
+#define log_wait_at(level)   ((void)0)
 #endif
 
 using Scalar = Eigen::Vector<double, 1>;
