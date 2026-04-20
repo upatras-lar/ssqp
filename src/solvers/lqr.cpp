@@ -97,15 +97,15 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
 {
     ZoneScopedN("LQR: constrained (cached)");
 
-    const int H = _qp.dims.horizon;
+    const uint H = _qp.dims.horizon;
 
     for (int k = 0; k < H; ++k)
     {
         const auto &stage = _qp.stages[k];
 
-        const int nx = _qp.dims.stage_state[k];
-        const int nu = _qp.dims.stage_control[k];
-        const int nc = stage.D.rows();
+        const uint nx = _qp.dims.stage_state[k];
+        const uint nu = _qp.dims.stage_control[k];
+        const uint nc = stage.D.rows();
 
         if (nc == 0) continue;
 
@@ -151,23 +151,22 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
     // Terminal stage
     if (_qp.Dt.rows() != 0)
     {
-        const int k  = H;
-        const int nx = _qp.dims.stage_state[k];
-        const int nc = _qp.Dt.rows();
+        const uint nx = _qp.dims.stage_state[H];
+        const uint nc = _qp.Dt.rows();
 
         const auto &Dt = _qp.Dt;
 
         auto c1 = _tmp.c1.head(nc);
 
         // c1 = rho ∘ z
-        c1          = _rho.stage(k);
-        c1.array() *= z.stage(k).array();
+        c1          = _rho.stage(H);
+        c1.array() *= z.stage(H).array();
 
         auto x1 = _tmp.x1.head(nx);
         auto x2 = _tmp.x2.head(nx);
 
         // x1 = Dt^T * y
-        x1.noalias() = Dt.transpose() * y.stage(k);
+        x1.noalias() = Dt.transpose() * y.stage(H);
 
         // x2 = Dt^T * (rho ∘ z)
         x2.noalias() = Dt.transpose() * c1;
@@ -175,7 +174,7 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         _qt  = _qp.qx_t;
         _qt += x1;
         _qt -= x2;
-        _qt += _sigma * current_sol.dx.stage(k);
+        _qt += _sigma * current_sol.dx.stage(H);
     }
 
     _solve_cache_rho();
@@ -191,15 +190,15 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
 
     _rho = rho;
 
-    const int H = _qp.dims.horizon;
+    const uint H = _qp.dims.horizon;
 
     for (int k = 0; k < H; ++k)
     {
         const auto &stage = _qp.stages[k];
 
-        const int nx = _qp.dims.stage_state[k];
-        const int nu = _qp.dims.stage_control[k];
-        const int nc = stage.D.rows();
+        const uint nx = _qp.dims.stage_state[k];
+        const uint nu = _qp.dims.stage_control[k];
+        const uint nc = stage.D.rows();
 
         if (nc == 0) continue;
 
@@ -273,9 +272,8 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
     // Terminal stage
     if (_qp.Dt.rows() != 0)
     {
-        const int k  = H;
-        const int nx = _qp.dims.stage_state[k];
-        const int nc = _qp.Dt.rows();
+        const uint nx = _qp.dims.stage_state[H];
+        const uint nc = _qp.Dt.rows();
 
         const auto &Dt = _qp.Dt;
 
@@ -283,12 +281,12 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         auto CX = _tmp.CX1.topLeftCorner(nc, nx);
 
         // rho ∘ z
-        c1          = rho.stage(k);
-        c1.array() *= z.stage(k).array();
+        c1          = rho.stage(H);
+        c1.array() *= z.stage(H).array();
 
         // rho ∘ Dt
         CX                    = Dt;
-        CX.array().colwise() *= rho.stage(k).array();
+        CX.array().colwise() *= rho.stage(H).array();
 
         // Qt
         _Qt = _qp.Qxx_t;
@@ -303,13 +301,13 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         auto x1 = _tmp.x1.head(nx);
         auto x2 = _tmp.x2.head(nx);
 
-        x1.noalias() = Dt.transpose() * y.stage(k);
+        x1.noalias() = Dt.transpose() * y.stage(H);
         x2.noalias() = Dt.transpose() * c1;
 
         _qt  = _qp.qx_t;
         _qt += x1;
         _qt -= x2;
-        _qt -= _sigma * current_sol.dx.stage(k);
+        _qt -= _sigma * current_sol.dx.stage(H);
     }
 
     _solve();
@@ -321,15 +319,15 @@ void lqr::_solve_cache_rho()
 {
     ZoneScopedN("LQR: _solve_cache_rho");
 
-    const int H = _qp.dims.horizon;
+    const uint H = _qp.dims.horizon;
 
     _output.p[H] = _qt;
 
     // Backward pass
     for (int k = H - 1; k >= 0; --k)
     {
-        const int nx = _qp.dims.stage_state[k];
-        const int nu = _qp.dims.stage_control[k];
+        const uint nx = _qp.dims.stage_state[k];
+        const uint nu = _qp.dims.stage_control[k];
 
         const auto &A     = _qp.stages[k].A;     // nx x nx
         const auto &B     = _qp.stages[k].B;     // nx x nu
@@ -384,8 +382,8 @@ void lqr::_solve_cache_rho()
 
     for (int k = 0; k < H; ++k)
     {
-        const int nx = _qp.dims.stage_state[k];
-        const int nu = _qp.dims.stage_control[k];
+        const uint nx = _qp.dims.stage_state[k];
+        const uint nu = _qp.dims.stage_control[k];
 
         const auto &B     = _qp.stages[k].B;     // nx x nu
         const auto &gamma = _qp.stages[k].gamma; // nx
@@ -415,19 +413,18 @@ void lqr::_solve()
 {
     ZoneScopedN("LQR: _solve");
 
-    const int H             = _qp.dims.horizon;
-    bool      backward_fail = false;
+    const uint H             = _qp.dims.horizon;
+    bool       backward_fail = false;
 
-    do
-    {
+    do {
         _output.P[H] = _Qt;
         _output.p[H] = _qt;
 
         // Backward pass
         for (int k = H - 1; k >= 0; --k)
         {
-            const int nx = _qp.dims.stage_state[k];
-            const int nu = _qp.dims.stage_control[k];
+            const uint nx = _qp.dims.stage_state[k];
+            const uint nu = _qp.dims.stage_control[k];
 
             const auto &A     = _qp.stages[k].A; // nx x nx
             const auto &B     = _qp.stages[k].B; // nx x nu
@@ -566,8 +563,8 @@ void lqr::_solve()
 
     for (int k = 0; k < H; ++k)
     {
-        const int nx = _qp.dims.stage_state[k];
-        const int nu = _qp.dims.stage_control[k];
+        const uint nx = _qp.dims.stage_state[k];
+        const uint nu = _qp.dims.stage_control[k];
 
         const auto &B     = _qp.stages[k].B;
         const auto &gamma = _qp.stages[k].gamma;

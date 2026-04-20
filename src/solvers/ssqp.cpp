@@ -201,6 +201,16 @@ ssqp::ssqp(model::Model &model, const Params &params)
     {
         model.finalize();
     }
+
+    const model::Dimensions lin_dims = model.linear_dims();
+
+    uint max_x = *std::max_element(lin_dims.stage_state.begin(),
+                                   lin_dims.stage_state.end());
+    uint max_u = *std::max_element(lin_dims.stage_control.begin(),
+                                   lin_dims.stage_control.end());
+
+    _tmp.x1.resize(max_x);
+    _tmp.u1.resize(max_u);
 }
 
 ssqp::ssqp(const model::Model &model, const Params &params)
@@ -317,7 +327,7 @@ SolverState ssqp::solve(Guess &guess)
                 [this](const step::Point &a,
                        const step::Point &b,
                        const step::Point &offset,
-                       const double       alpha)
+                       const double alpha)
                 {
                     return step::filter(
                       a,
@@ -347,7 +357,7 @@ SolverState ssqp::solve(Guess &guess)
                 [this](const step::Point &a,
                        const step::Point &b,
                        const step::Point &offset,
-                       const double       alpha)
+                       const double alpha)
                 {
                     return step::merit(
                       a,
@@ -768,7 +778,7 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
         sum += costs[k]->evaluate(x.stage(k), u.stage(k))(0);
     }
 
-    return sum + costs[horizon]->evaluate(x.stage(horizon), VecX::Zero(1))(0);
+    return sum + costs[horizon]->evaluate(x.stage(horizon), _emptyVec)(0);
 }
 
 void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
@@ -787,7 +797,7 @@ void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         du.stage(k) = duk;
     }
 
-    costs[horizon]->gradient(x.stage(horizon), VecX::Zero(1), dxk, duk);
+    costs[horizon]->gradient(x.stage(horizon), _emptyVec, dxk, duk);
     dx.stage(horizon) = dxk;
 }
 
@@ -906,7 +916,7 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 
     if (constraints[horizon] != nullptr)
     {
-        c    = constraints[horizon]->evaluate(x.stage(horizon), VecX::Zero(1));
+        c    = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
         sum += constraints[horizon]
                  ->right_minus(c, constraints[horizon]->lower_bound())
                  .cwiseMin(0)
@@ -951,7 +961,7 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 
     if (constraints[horizon])
     {
-        c = constraints[horizon]->evaluate(x.stage(horizon), VecX::Zero(1));
+        c = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
 
         VecX v = constraints[horizon]
                    ->right_minus(c, constraints[horizon]->lower_bound())
@@ -1011,7 +1021,7 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         du.stage(k).noalias() += dUk.transpose() * c_k;
     }
 
-    VecX c_H = constraints[horizon]->evaluate(x.stage(horizon), VecX::Zero(1));
+    VecX c_H = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
     VecX lb  = constraints[horizon]->lower_bound();
     VecX ub  = constraints[horizon]->upper_bound();
 
@@ -1040,7 +1050,7 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
     c_H = w.cwiseProduct(dv_dc);
 
-    constraints[horizon]->gradient(x.stage(horizon), VecX::Zero(1), dXk, dUk);
+    constraints[horizon]->gradient(x.stage(horizon), _emptyVec, dXk, dUk);
 
     dx.stage(horizon).noalias() += dXk.transpose() * c_H;
 }

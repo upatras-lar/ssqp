@@ -521,7 +521,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         {
             dX = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
                             2 * ctx.nv);
-            dU = MatX::Zero(_bounded_joint_indices.size() + nv_reduced, 1);
+            dU = MatX::Zero(_bounded_joint_indices.size() + nv_reduced, 0);
         }
         else if constexpr (DM == DynamicsMode::Forward)
         {

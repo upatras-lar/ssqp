@@ -298,6 +298,15 @@ class ssqp
     friend class tests::FDGradFullTrajectoryConstraintViolation;
 
     std::deque<std::tuple<double, double, double>> _filter_memory;
+
+    // Temporaries to prevent aliasing for Eigen operations
+    struct
+    {
+        VecX x1;
+        VecX u1;
+    } _tmp;
+
+    const VecX _emptyVec = VecX::Zero(0);
 };
 }
 }
