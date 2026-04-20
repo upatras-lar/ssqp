@@ -138,8 +138,8 @@ void ssqp::_setup_qp()
         {
             _qp.stages[k].D  = MatX::Zero(0, _qp.dims.stage_state[k]);
             _qp.stages[k].E  = MatX::Zero(0, _qp.dims.stage_control[k]);
-            _qp.stages[k].cl = VecX::Zero(0);
-            _qp.stages[k].cu = VecX::Zero(0);
+            _qp.stages[k].cl = _emptyVec;
+            _qp.stages[k].cu = _emptyVec;
         }
 
         logln_at(LogLevel::Debug, "Qxx: " << std::endl << _qp.stages[k].Qxx);
@@ -155,13 +155,13 @@ void ssqp::_setup_qp()
 
     // Terminal values for Q, q, D and c
     costs[_qp.dims.horizon]->hessian_xx(_guess.x.stage(_qp.dims.horizon),
-                                        VecX::Zero(1),
+                                        _emptyVec,
                                         _qp.Qxx_t);
 
     if constexpr (withGradients)
     {
         costs[_qp.dims.horizon]->gradient(_guess.x.stage(_qp.dims.horizon),
-                                          VecX::Zero(1),
+                                          _emptyVec,
                                           _qp.qx_t,
                                           tmpVec);
     }
@@ -170,7 +170,7 @@ void ssqp::_setup_qp()
     {
         constraints[_qp.dims.horizon]->hessprod_xx(
           _guess.x.stage(_qp.dims.horizon),
-          VecX::Zero(1),
+          _emptyVec,
           _guess.mu.stage(_qp.dims.horizon),
           tmpMat);
         _qp.Qxx_t += tmpMat;
@@ -179,13 +179,13 @@ void ssqp::_setup_qp()
         {
             constraints[_qp.dims.horizon]->gradient(
               _guess.x.stage(_qp.dims.horizon),
-              VecX::Zero(1),
+              _emptyVec,
               _qp.Dt,
               tmpMat);
         }
         VecX ct = constraints[_qp.dims.horizon]->evaluate(
           _guess.x.stage(_qp.dims.horizon),
-          VecX::Zero(1));
+          _emptyVec);
         _qp.cl_t = constraints[_qp.dims.horizon]->right_minus(
           constraints[_qp.dims.horizon]->lower_bound(),
           ct);
@@ -196,8 +196,8 @@ void ssqp::_setup_qp()
     else
     {
         _qp.Dt   = MatX::Zero(0, _qp.dims.stage_state[_qp.dims.horizon]);
-        _qp.cl_t = VecX::Zero(0);
-        _qp.cu_t = VecX::Zero(0);
+        _qp.cl_t = _emptyVec;
+        _qp.cu_t = _emptyVec;
     }
 }
 
@@ -229,7 +229,7 @@ SolverState ssqp::_check_termination()
 
     // Add terminal terms for x
     costs[horizon]->gradient(_guess.x.stage(horizon),
-                             VecX::Zero(1),
+                             _emptyVec,
                              _qp.qx_t,
                              tmp_vec);
 
@@ -243,12 +243,15 @@ SolverState ssqp::_check_termination()
     if (constraints[horizon] != nullptr)
     {
         constraints[horizon]->gradient(_guess.x.stage(horizon),
-                                       VecX::Zero(1),
+                                       _emptyVec,
                                        _qp.Dt,
                                        tmp_mat);
 
-        lagrangian_dx.stage(horizon).noalias() -=
-          _qp.Dt.transpose() * _guess.mu.stage(horizon);
+        const uint nx = _qp.dims.stage_state[horizon];
+        auto       x1 = _tmp.x1.head(nx);
+
+        x1.noalias() = _qp.Dt.transpose() * _guess.mu.stage(horizon);
+        lagrangian_dx.stage(horizon) -= x1;
     }
 
     // Add k=0 terms for u
@@ -264,8 +267,12 @@ SolverState ssqp::_check_termination()
                           _guess.u.stage(0),
                           _qp.stages[0].A,
                           _qp.stages[0].B);
-    lagrangian_du.stage(0).noalias() +=
-      _qp.stages[0].B.transpose() * _guess.lambda.stage(0);
+
+    const uint nu = _qp.dims.stage_control[0];
+    auto       u1 = _tmp.u1.head(nu);
+
+    u1.noalias() = _qp.stages[0].B.transpose() * _guess.lambda.stage(0);
+    lagrangian_du.stage(0).noalias() += u1;
 
     if (constraints[0] != nullptr)
     {
@@ -273,46 +280,72 @@ SolverState ssqp::_check_termination()
                                  _guess.u.stage(0),
                                  _qp.stages[0].D,
                                  _qp.stages[0].E);
-        lagrangian_du.stage(0).noalias() -=
-          _qp.stages[0].E.transpose() * _guess.mu.stage(0);
+
+        u1.noalias() = _qp.stages[0].E.transpose() * _guess.mu.stage(0);
+        lagrangian_du.stage(0).noalias() -= u1;
     }
 
     // Ignore x0 terms since it is not being optimized
-    for (uint k = 1; k < horizon; ++k)
+    for (int k = 1; k < horizon; ++k)
     {
-        // Compute cost jacobian
+        auto &stage = _qp.stages[k];
+
+        const uint nx = _qp.dims.stage_state[k];
+        const uint nu = _qp.dims.stage_control[k];
+
+        auto x1 = _tmp.x1.head(nx);
+        auto u1 = _tmp.u1.head(nu);
+
+        // =========================
+        // Cost
+        // =========================
         costs[k]->gradient(_guess.x.stage(k),
                            _guess.u.stage(k),
-                           _qp.stages[k].qx,
-                           _qp.stages[k].qu);
-        lagrangian_dx.stage(k) += _qp.stages[k].qx;
-        lagrangian_du.stage(k) += _qp.stages[k].qu;
+                           stage.qx,
+                           stage.qu);
 
-        _cost_dx.stage(k) = _qp.stages[k].qx;
-        _cost_du.stage(k) = _qp.stages[k].qu;
+        lagrangian_dx.stage(k) += stage.qx;
+        lagrangian_du.stage(k) += stage.qu;
 
-        // Compute dynamics gap jacobian
+        _cost_dx.stage(k) = stage.qx;
+        _cost_du.stage(k) = stage.qu;
+
+        // =========================
+        // Dynamics
+        // =========================
         dynamics[k]->gradient(_guess.x.stage(k),
                               _guess.u.stage(k),
-                              _qp.stages[k].A,
-                              _qp.stages[k].B);
-        lagrangian_dx.stage(k).noalias() +=
-          _qp.stages[k].A.transpose() * _guess.lambda.stage(k);
-        lagrangian_dx.stage(k) -= _guess.lambda.stage(k - 1);
-        lagrangian_du.stage(k).noalias() +=
-          _qp.stages[k].B.transpose() * _guess.lambda.stage(k);
+                              stage.A,
+                              stage.B);
 
-        // Compute constraint jacobian
+        // dx += Aᵀ λ_k
+        x1.noalias()            = stage.A.transpose() * _guess.lambda.stage(k);
+        lagrangian_dx.stage(k) += x1;
+
+        // dx -= λ_{k-1}
+        lagrangian_dx.stage(k) -= _guess.lambda.stage(k - 1);
+
+        // du += Bᵀ λ_k
+        u1.noalias()            = stage.B.transpose() * _guess.lambda.stage(k);
+        lagrangian_du.stage(k) += u1;
+
+        // =========================
+        // Constraints
+        // =========================
         if (constraints[k] != nullptr)
         {
             constraints[k]->gradient(_guess.x.stage(k),
                                      _guess.u.stage(k),
-                                     _qp.stages[k].D,
-                                     _qp.stages[k].E);
-            lagrangian_dx.stage(k).noalias() -=
-              _qp.stages[k].D.transpose() * _guess.mu.stage(k);
-            lagrangian_du.stage(k).noalias() -=
-              _qp.stages[k].E.transpose() * _guess.mu.stage(k);
+                                     stage.D,
+                                     stage.E);
+
+            // dx -= Dᵀ μ
+            x1.noalias()            = stage.D.transpose() * _guess.mu.stage(k);
+            lagrangian_dx.stage(k) -= x1;
+
+            // du -= Eᵀ μ
+            u1.noalias()            = stage.E.transpose() * _guess.mu.stage(k);
+            lagrangian_du.stage(k) -= u1;
         }
     }
 
@@ -412,8 +445,8 @@ SolverState ssqp::_check_termination()
     // Terminal constraint violation
     if (constraints[horizon] != nullptr)
     {
-        csnorm = constraints[horizon]->violation(_guess.x.stage(horizon),
-                                                 VecX::Zero(1));
+        csnorm =
+          constraints[horizon]->violation(_guess.x.stage(horizon), _emptyVec);
 
         if (csnorm > _params.constraint_tolerance)
         {
@@ -453,7 +486,7 @@ SolverState ssqp::_check_termination()
               costs[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k))[0];
         }
         _convergence_data.iteration_data.back().costs[horizon] =
-          costs[horizon]->evaluate(_guess.x.stage(horizon), VecX::Zero(1))[0];
+          costs[horizon]->evaluate(_guess.x.stage(horizon), _emptyVec)[0];
 
         if (_convergence_data.iteration_data.back().first_violation_stage != -1)
         {

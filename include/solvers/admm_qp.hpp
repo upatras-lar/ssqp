@@ -130,6 +130,14 @@ class admm_qp : public QPSolver
     void _update_rho();
 
     void _step(const FlatVec &dx_hat, const FlatVec &du_hat);
+
+    // Temporaries to prevent aliasing for Eigen operations
+    struct
+    {
+        VecX x1;
+        VecX u1;
+        VecX c1, c2;
+    } _tmp;
 };
 }
 }
