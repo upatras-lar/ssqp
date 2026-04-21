@@ -190,6 +190,18 @@ enum DynamicsMode
     ReducedInverse = 2,
 };
 
+inline const std::unordered_map<DynamicsMode, std::string> DM_to_str = {
+    {        DynamicsMode::Forward,        "Forward" },
+    {        DynamicsMode::Inverse,        "Inverse" },
+    { DynamicsMode::ReducedInverse, "ReducedInverse" }
+};
+
+inline const std::unordered_map<std::string, DynamicsMode> str_to_DM = {
+    {        "Forward",        DynamicsMode::Forward },
+    {        "Inverse",        DynamicsMode::Inverse },
+    { "ReducedInverse", DynamicsMode::ReducedInverse }
+};
+
 }
 
 std::string format_double(double val, uint precision);

@@ -47,6 +47,8 @@ std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
     FlatVec x(x_size, x_stage_sizes);
     FlatVec u(u_size, u_stage_sizes);
 
+    const model::DynamicsMode dynamics_mode =
+      model::str_to_DM.at(j["properties"]["dynamics_mode"]);
     const bool &loaded_from_xml = j["properties"]["xml"];
 
     for (uint k = 0; k < horizon; ++k)
@@ -75,7 +77,15 @@ std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
               x_stage_sizes[k]);
         }
 
-        u.stage(k).head(u_stage_sizes[k] - 3 * stage_nforces[k]) =
+        uint offset = 0;
+
+        if (dynamics_mode == model::DynamicsMode::Forward)
+        {
+            offset = 6;
+            u.stage(k).head(6).setZero();
+        }
+
+        u.stage(k).segment(offset, u_stage_sizes[k] - 3 * stage_nforces[k]) =
           Eigen::Map<VecX>(
             static_cast<std::vector<double>>(j["stage_data"][k]["control"])
               .data(),
@@ -736,6 +746,7 @@ bool ssqp::write(const std::string &filepath)
 
     model::DynamicsMode dynamics_mode   = _model.dynamicsMode();
     bool                loaded_from_xml = _model.xml();
+    j["properties"]["dynamics_mode"]    = model::DM_to_str.at(dynamics_mode);
     j["properties"]["xml"]              = loaded_from_xml;
     bool floating_base;
     uint nv, nu, njoints;
