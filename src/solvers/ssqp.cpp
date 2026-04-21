@@ -7,12 +7,117 @@ namespace ssqp
 {
 namespace solvers
 {
-ssqp::Params::Params(const std::string &filename)
+std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
 {
     using namespace nlohmann;
 
     std::ifstream in;
-    in.open(filename);
+    in.open(filepath);
+    if (!in)
+    {
+        throw std::runtime_error("SSQP trajectory file could not be opened");
+    }
+
+    ordered_json j = json::parse(in);
+
+    const uint &horizon = j["properties"]["horizon"];
+
+    uint x_size = 0;
+    uint u_size = 0;
+
+    std::vector<uint> x_stage_sizes(horizon + 1);
+    std::vector<uint> u_stage_sizes(horizon);
+
+    std::vector<uint> stage_nforces(horizon);
+
+    for (uint k = 0; k < horizon; ++k)
+    {
+        x_stage_sizes[k] = j["properties"]["stages"][k]["size"];
+        u_stage_sizes[k] = j["properties"]["stages"][k]["control"];
+
+        x_size += x_stage_sizes[k];
+        u_size += u_stage_sizes[k];
+
+        stage_nforces[k] = j["properties"]["stages"][k]["nforces"];
+    }
+
+    x_stage_sizes[horizon]  = j["properties"]["stages"][horizon]["size"];
+    x_size                 += x_stage_sizes[horizon];
+
+    FlatVec x(x_size, x_stage_sizes);
+    FlatVec u(u_size, u_stage_sizes);
+
+    const bool &loaded_from_xml = j["properties"]["xml"];
+
+    for (uint k = 0; k < horizon; ++k)
+    {
+        if (loaded_from_xml)
+        {
+            x.stage(k).head(3) = Eigen::Map<VecX>(
+              static_cast<std::vector<double>>(j["stage_data"][k]["position"])
+                .data(),
+              3);
+            x.stage(k).segment(3, 4) =
+              Eigen::Map<VecX>(static_cast<std::vector<double>>(
+                                 j["stage_data"][k]["orientation"])
+                                 .data(),
+                               4);
+            x.stage(k).tail(x_stage_sizes[k] - 7) = Eigen::Map<VecX>(
+              static_cast<std::vector<double>>(j["stage_data"][k]["state"])
+                .data(),
+              x_stage_sizes[k] - 7);
+        }
+        else
+        {
+            x.stage(k) = Eigen::Map<VecX>(
+              static_cast<std::vector<double>>(j["stage_data"][k]["state"])
+                .data(),
+              x_stage_sizes[k]);
+        }
+
+        u.stage(k).head(u_stage_sizes[k] - 3 * stage_nforces[k]) =
+          Eigen::Map<VecX>(
+            static_cast<std::vector<double>>(j["stage_data"][k]["control"])
+              .data(),
+            u_stage_sizes[k] - 3 * stage_nforces[k]);
+        u.stage(k).tail(3 * stage_nforces[k]) = Eigen::Map<VecX>(
+          static_cast<std::vector<double>>(j["stage_data"][k]["forces"]).data(),
+          3 * stage_nforces[k]);
+    }
+
+    if (loaded_from_xml)
+    {
+        x.stage(horizon).head(3) = Eigen::Map<VecX>(
+          static_cast<std::vector<double>>(j["stage_data"][horizon]["position"])
+            .data(),
+          3);
+        x.stage(horizon).segment(3, 4) =
+          Eigen::Map<VecX>(static_cast<std::vector<double>>(
+                             j["stage_data"][horizon]["orientation"])
+                             .data(),
+                           4);
+        x.stage(horizon).tail(x_stage_sizes[horizon] - 7) = Eigen::Map<VecX>(
+          static_cast<std::vector<double>>(j["stage_data"][horizon]["state"])
+            .data(),
+          x_stage_sizes[horizon] - 7);
+    }
+    else
+    {
+        x.stage(horizon) = Eigen::Map<VecX>(
+          static_cast<std::vector<double>>(j["stage_data"][horizon]["state"])
+            .data(),
+          x_stage_sizes[horizon]);
+    }
+
+    return { x, u };
+}
+
+ssqp::Params::Params(const std::string &filepath)
+{
+    using namespace nlohmann;
+
+    std::ifstream in;
+    in.open(filepath);
     if (!in)
     {
         throw std::runtime_error("SSQP parameter file could not be opened");
@@ -164,12 +269,12 @@ void ssqp::Params::write(nlohmann::ordered_json &j) const
     }
 }
 
-bool ssqp::Params::write(const std::string &filename) const
+bool ssqp::Params::write(const std::string &filepath) const
 {
     using namespace nlohmann;
 
     std::ofstream out;
-    out.open(filename);
+    out.open(filepath);
     if (!out)
     {
         return false;
@@ -549,14 +654,14 @@ SolverState ssqp::solve(Guess &guess)
     return MAX_ITER_REACHED;
 }
 
-bool ssqp::write(const std::string &filename)
+bool ssqp::write(const std::string &filepath)
 {
     using namespace nlohmann;
     static const model::Dimensions &dims = _model.dims();
     static const double            &dt   = _model.dt();
 
     std::ofstream out;
-    out.open(filename);
+    out.open(filepath);
     if (!out)
     {
         return false;
@@ -703,6 +808,30 @@ bool ssqp::write(const std::string &filename)
 
         j["stage_data"].push_back(stage_data);
     }
+
+    j["properties"]["stages"].push_back(ordered_json({
+      {                 "size", dims.stage_state[dims.horizon] },
+      {              "control",                              0 },
+      {              "nforces",                              0 },
+      { "ordered_force_frames",                             {} }
+    }));
+
+    ordered_json stage_data;
+
+    if (loaded_from_xml && floating_base)
+    {
+        VecX x = _guess.x.stage(dims.horizon);
+
+        stage_data["position"]    = x.head(3);
+        stage_data["orientation"] = x.segment(3, 4);
+        stage_data["state"]       = x.segment(7, njoints);
+    }
+    else
+    {
+        stage_data["state"] = _guess.x.stage(dims.horizon);
+    }
+
+    j["stage_data"].push_back(stage_data);
 
     out << std::setw(4) << j;
     out.close();
