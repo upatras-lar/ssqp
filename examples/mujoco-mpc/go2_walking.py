@@ -23,16 +23,16 @@ def quat_xyzw_to_wxyz(xyzw):
 
 
 dt = 0.002
-mpc_H = 50
+mpc_H = 20
 mpc_dt = 0.1
 
-T_WGT = 1.0
-C_WGT = 0.1
+T_WGT = 10.0
+C_WGT = 1.0
 V_WGT = 1e-2
 U_WGT = 1e-4
 
 CONTACT_MU = 0.6
-GAIT_SWAP_FREQ = 10
+GAIT_SWAP_FREQ = 250
 
 dynamics_mode = ssqpy.model.DynamicsMode.Forward
 
@@ -177,18 +177,18 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         pre = time()
 
-        try:
-            mjdata.ctrl = joint_space_pd_controller.step(state)
-        except RuntimeError:
-            print("Exiting after regularization failure")
-            break
         # try:
-        #     u = mpc.step(state)[1].stage(0)
+        #     mjdata.ctrl = joint_space_pd_controller.step(state)
         # except RuntimeError:
         #     print("Exiting after regularization failure")
         #     break
+        try:
+            u = mpc.step(state)[1].stage(0)
+        except RuntimeError:
+            print("Exiting after regularization failure")
+            break
 
-        # mjdata.ctrl = u[6:18]
+        mjdata.ctrl = u[6:18]
 
         elapsed = time() - pre
 
@@ -198,7 +198,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         viewer.sync()
 
         stage += 1
-        update_model(stage)
+        # update_model(stage)
 
         to_sleep = dt - (time() - frame_start)
         if to_sleep > 0:
@@ -206,6 +206,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
 print()
 
+"""
 model = ssqpy.model.Model(
     len(states) - 1,
     mpc_dt,
@@ -217,5 +218,8 @@ for k in range(len(states)):
     model.addCost(k, v_cost)
 
 model.finalize(init_states=states)
-sqp = ssqpy.solvers.ssqp(model, line_search_method=ssqpy.solvers.LineSearchMethod.Merit)
+sqp = ssqpy.solvers.ssqp(
+    model, line_search_method=ssqpy.solvers.LineSearchMethod.Merit
+)
 sqp.write("test.json")
+"""
