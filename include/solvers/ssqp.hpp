@@ -30,6 +30,14 @@ class FDGradFullTrajectoryConstraintViolation;
 namespace solvers
 {
 
+/* Load a previously generated SSQP trajectory from a file
+ * Input:
+ *  - `filepath`: The path for the trajectory file output by `ssqp::write`
+ * 
+ * Returns: a pair of `FlatVec` for the full state and control vectors
+ */
+std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath);
+
 /* SSQP class
  * Defines an SSQP problem solver based on a given SSQP model and the desired
  * parameters.
@@ -68,7 +76,7 @@ class ssqp
     struct Params
     {
         Params() = default;
-        Params(const std::string &filename);
+        Params(const std::string &filepath);
 
         // General SSQP parameters
 
@@ -160,7 +168,7 @@ class ssqp
 
         void print() const;
 
-        bool write(const std::string &filename) const;
+        bool write(const std::string &filepath) const;
         void write(nlohmann::ordered_json &j) const;
     };
 
@@ -247,7 +255,7 @@ class ssqp
     SolverState solve(Guess &guess);
 
     // Write the current solution to the output file with the provided name
-    bool write(const std::string &filename);
+    bool write(const std::string &filepath);
 
     const ConvergenceData convergenceData() const;
 

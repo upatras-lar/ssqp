@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/pair.h>
 
 #include "solvers/ssqp.hpp"
 #include "solvers/admm_qp.hpp"
@@ -17,6 +18,14 @@ using namespace model;
 
 void bind_ssqp(nb::module_ &m)
 {
+    m.def("loadTrajectory", &loadTrajectory, nb::arg("filepath"), R"doc(
+        Load a previously generated SSQP trajectory from a file
+        Input:
+         - `filepath`: The path for the trajectory file output by `ssqp::write`
+
+        Returns: a pair of `FlatVec` for the full state and control vectors
+    )doc");
+
     nb::enum_<SolverState>(m, "SolverState", R"doc(
         The state of the solver.
         States:
@@ -652,9 +661,9 @@ void bind_ssqp(nb::module_ &m)
         "Solve the defined problem using SSQP.")
       .def("write",
            &ssqp::write,
-           nb::arg("filename"),
-           "Write the current solution to the output file with the provided "
-           "name.")
+           nb::arg("filepath"),
+           "Write the current solution to the output file at the provided "
+           "path.")
       .def("getConvergenceData",
            &ssqp::convergenceData,
            "Get the SSQP solver's convergence data (after solving).");
