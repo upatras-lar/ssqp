@@ -64,8 +64,8 @@ class JointVelocityConstraint : public StageConstraints
 {
   public:
     JointVelocityConstraint(const VecX &lb, const VecX &ub, const uint nv,
-                            const bool         free_flyer = false,
-                            const std::string &name       = "");
+                            const bool free_flyer   = false,
+                            const std::string &name = "");
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
 
@@ -255,6 +255,46 @@ class FrameLinearVelocityBound : public StageConstraints
     Vec3                         _lb, _ub;
     const uint                   _nq, _nv;
     const bool                   _terminal;
+};
+
+/* Predefined center of mass bound
+ * Creates a linear bound constraint on the center of mass of the model:
+ * $\boldsymbol{b}_l \leq \boldsymbol{c} \leq \boldsymbol{b}_u$
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{c}$ is the center of mass of the model
+ */
+class CenterOfMassBound : public StageConstraints
+{
+  public:
+    CenterOfMassBound(const Model &model, const Vec3 &lb, const Vec3 &ub,
+                      const uint nq, const uint nv,
+                      const std::string &name = "");
+
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    Vec3                         _lb, _ub;
+    const uint                   _nq, _nv;
 };
 
 /* Predefined contact constraint for a given frame

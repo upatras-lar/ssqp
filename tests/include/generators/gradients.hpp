@@ -43,6 +43,7 @@ std::shared_ptr<Test> get_joint_control_constraint_grad_test();
 std::shared_ptr<Test> get_frame_position_bound_grad_test();
 std::shared_ptr<Test> get_frame_rotation_bound_grad_test();
 std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test();
+std::shared_ptr<Test> get_center_of_mass_bound_grad_test();
 std::shared_ptr<Test> get_contact_constraint_grad_test();
 
 // Cost gradients

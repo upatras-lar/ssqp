@@ -442,6 +442,76 @@ void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
     Puu = MatX::Zero(u.size(), u.size());
 }
 
+// CenterOfMassBound
+CenterOfMassBound::CenterOfMassBound(const Model &model, const Vec3 &lb,
+                                     const Vec3 &ub, const uint nq,
+                                     const uint nv, const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _lb(lb)
+  , _ub(ub)
+  , _nq(nq)
+  , _nv(nv)
+{
+}
+
+void CenterOfMassBound::set_lower_bound(const Vec3 &lb)
+{
+    _lb = lb;
+}
+
+void CenterOfMassBound::set_upper_bound(const Vec3 &ub)
+{
+    _ub = ub;
+}
+
+uint CenterOfMassBound::output_size() const
+{
+    return 3;
+}
+
+VecX CenterOfMassBound::lower_bound() const
+{
+    return _lb;
+}
+
+VecX CenterOfMassBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX CenterOfMassBound::evaluate(const VecX &x, const VecX &u) const
+{
+    return _model->centerOfMass(x.head(_nq));
+}
+
+void CenterOfMassBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                 MatX &dU) const
+{
+    dX               = MatX::Zero(3, 2 * _nv);
+    dX.leftCols(_nv) = _model->jacobianCenterOfMass(x.head(_nq));
+
+    dU = MatX::Zero(3, u.size());
+}
+
+void CenterOfMassBound::hessprod_xx(const VecX &x, const VecX &u,
+                                    const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+}
+
+void CenterOfMassBound::hessprod_xu(const VecX &x, const VecX &u,
+                                    const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(2 * _nv, u.size());
+}
+
+void CenterOfMassBound::hessprod_uu(const VecX &x, const VecX &u,
+                                    const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
 // ContactConstraint
 ContactConstraint::ContactConstraint(const Model       &model,
                                      const std::string &frame, const uint nq,
