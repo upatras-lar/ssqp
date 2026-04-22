@@ -193,6 +193,13 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const std::string &frame, Eigen::MatrixXd &J,
                    bool local = false);
 
+// Get center of mass
+Eigen::Vector3d centerOfMass(const std::shared_ptr<ModelImpl> &impl,
+                             const Eigen::VectorXd            &q);
+
+Eigen::MatrixXd jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
+                                     const Eigen::VectorXd            &q);
+
 Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl);
 
 }

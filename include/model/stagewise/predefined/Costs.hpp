@@ -32,11 +32,11 @@ class SquaredJointAngleCost : public StageCost
 {
   public:
     SquaredJointAngleCost(const uint nq, const uint nv, const double weight,
-                          const bool         free_flyer = false,
-                          const std::string &name       = "");
+                          const bool free_flyer   = false,
+                          const std::string &name = "");
     SquaredJointAngleCost(const uint nq, const uint nv, const VecX &weight,
-                          const bool         free_flyer = false,
-                          const std::string &name       = "");
+                          const bool free_flyer   = false,
+                          const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -64,11 +64,11 @@ class SquaredJointVelocityCost : public StageCost
 {
   public:
     SquaredJointVelocityCost(const uint nv, const double weight,
-                             const bool         free_flyer = false,
-                             const std::string &name       = "");
+                             const bool free_flyer   = false,
+                             const std::string &name = "");
     SquaredJointVelocityCost(const uint nv, const VecX &weight,
-                             const bool         free_flyer = false,
-                             const std::string &name       = "");
+                             const bool free_flyer   = false,
+                             const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -113,6 +113,8 @@ class SquaredControlCost : public StageCost
     const uint _nv, _nu;
     VecX       _weight;
 };
+
+// TODO: remove nq, nv, nu arguments when model is passed
 
 /* Predefined squared inverse dynamics torque cost
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
@@ -195,15 +197,15 @@ class SquaredConfigurationErrorCost : public StageCost
     SquaredConfigurationErrorCost(const Model &model,
                                   const VecX  &desired_configuration,
                                   const uint nq, const uint nv,
-                                  const double       weight,
-                                  const bool         free_flyer = false,
-                                  const std::string &name       = "");
+                                  const double weight,
+                                  const bool   free_flyer = false,
+                                  const std::string &name = "");
     SquaredConfigurationErrorCost(const Model &model,
                                   const VecX  &desired_configuration,
                                   const uint nq, const uint nv,
-                                  const VecX        &weight,
-                                  const bool         free_flyer = false,
-                                  const std::string &name       = "");
+                                  const VecX &weight,
+                                  const bool  free_flyer  = false,
+                                  const std::string &name = "");
 
     void set_desired_configuration(const VecX &desired_configuration);
     void set_weight(const double weight);
@@ -422,6 +424,42 @@ class FrameSquaredVelocityCost : public StageCost
 
     const uint _nq, _nv;
     Vec6       _weight;
+};
+
+/* Predefined center of mass (CoM) tracking cost
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
+ * where:
+ *  - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
+ */
+class CenterOfMassTrackingCost : public StageCost
+{
+  public:
+    CenterOfMassTrackingCost(const Model &model, const Vec3 &cref,
+                             const uint nq, const uint nv, const double weight,
+                             const std::string &name = "");
+    CenterOfMassTrackingCost(const Model &model, const Vec3 &cref,
+                             const uint nq, const uint nv, const Vec3 &weight,
+                             const std::string &name = "");
+
+    void set_weight(const double weight);
+    void set_weight(const Vec3 &weight);
+
+    void set_cref(const Vec3 &cref);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+
+    Vec3       _cref;
+    const uint _nq, _nv;
+    Vec3       _weight;
 };
 }
 }

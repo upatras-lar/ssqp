@@ -15,6 +15,7 @@
 #include <pinocchio/algorithm/frames-derivatives.hpp>
 #include <pinocchio/algorithm/rnea.hpp>
 #include <pinocchio/algorithm/rnea-derivatives.hpp>
+#include <pinocchio/algorithm/center-of-mass.hpp>
 
 #include <boost/variant.hpp>
 
@@ -712,6 +713,18 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
       J);
+}
+
+Eigen::Vector3d centerOfMass(const std::shared_ptr<ModelImpl> &impl,
+                             const Eigen::VectorXd            &q)
+{
+    return pinocchio::centerOfMass(impl->model, impl->data, q, false);
+}
+
+Eigen::MatrixXd jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
+                                     const Eigen::VectorXd            &q)
+{
+    return pinocchio::jacobianCenterOfMass(impl->model, impl->data, q, false);
 }
 
 Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl)
