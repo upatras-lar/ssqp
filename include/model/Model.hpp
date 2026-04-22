@@ -363,6 +363,12 @@ class Model
     const MatX frameJacobian(const std::string &frame,
                              bool               local = false) const;
 
+    // Get model center of mass for the given configuration
+    const Vec3 centerOfMass(const VecX &q) const;
+
+    // Get model center of mass jacobian for the given configuration
+    const MatX jacobianCenterOfMass(const VecX &q) const;
+
     VecX difference(const VecX &q0, const VecX &q1) const;
 
     void dDifference(const VecX &q0, const VecX &q1, MatX &J,

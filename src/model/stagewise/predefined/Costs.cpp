@@ -1153,6 +1153,99 @@ void FrameSquaredVelocityCost::hessian_uu(const VecX &x, const VecX &u,
 {
     Huu = MatX::Zero(u.size(), u.size());
 }
+
+// CenterOfMassTrackingCost
+CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model &model,
+                                                   const Vec3  &cref,
+                                                   const uint nq, const uint nv,
+                                                   const double       weight,
+                                                   const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _cref(cref)
+  , _nq(nq)
+  , _nv(nv)
+{
+    _weight.setConstant(weight);
+}
+
+CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model &model,
+                                                   const Vec3  &cref,
+                                                   const uint nq, const uint nv,
+                                                   const Vec3        &weight,
+                                                   const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _cref(cref)
+  , _nq(nq)
+  , _nv(nv)
+  , _weight(weight)
+{
+}
+
+void CenterOfMassTrackingCost::set_weight(const double weight)
+{
+    _weight.setConstant(weight);
+}
+
+void CenterOfMassTrackingCost::set_weight(const Vec3 &weight)
+{
+    _weight = weight;
+}
+
+void CenterOfMassTrackingCost::set_cref(const Vec3 &cref)
+{
+    _cref = cref;
+}
+
+VecX CenterOfMassTrackingCost::evaluate(const VecX &x, const VecX &u) const
+{
+    Vec3 CoM = _model->centerOfMass(x.head(_nq));
+
+    return (Scalar() << 0.5 * (_weight.array() * (CoM - _cref).array())
+                                .matrix()
+                                .squaredNorm())
+      .finished();
+}
+
+void CenterOfMassTrackingCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+                                        VecX &du) const
+{
+    const VecX q = x.head(_nq);
+
+    Vec3 CoM  = _model->centerOfMass(q);
+    MatX JCoM = _model->jacobianCenterOfMass(q);
+
+    dx = VecX::Zero(2 * _nv);
+    dx.head(_nv).noalias() =
+      JCoM.transpose() *
+      (_weight.array().square() * (CoM - _cref).array()).matrix();
+
+    du = VecX::Zero(u.size());
+}
+
+void CenterOfMassTrackingCost::hessian_xx(const VecX &x, const VecX &u,
+                                          MatX &Hxx) const
+{
+    MatX JCoM = _model->jacobianCenterOfMass(x.head(_nq));
+
+    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Hxx.topLeftCorner(_nv, _nv) =
+      JCoM.transpose() * _weight.array().square().matrix().asDiagonal() * JCoM;
+}
+
+void CenterOfMassTrackingCost::hessian_xu(const VecX &x, const VecX &u,
+                                          MatX &Hxu) const
+{
+    Hxu = MatX::Zero(2 * _nv, u.size());
+}
+
+void CenterOfMassTrackingCost::hessian_uu(const VecX &x, const VecX &u,
+                                          MatX &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+}
+
 }
 }
 }

@@ -848,6 +848,36 @@ std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test()
     return cost_test;
 }
 
+std::shared_ptr<Test> get_center_of_mass_tracking_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<
+          model::stagewise::predefined::costs::CenterOfMassTrackingCost>(
+          k,
+          *model,
+          (Eigen::Vector3d() << 2.1, 3.2, -1.3).finished(),
+          19,
+          18,
+          4.13);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("CenterOfMassTrackingCostGradTest",
+                                   model,
+                                   0);
+
+    return cost_test;
+}
+
 std::shared_ptr<Test> get_lf_grad_test()
 {
     const uint              horizon = 40;

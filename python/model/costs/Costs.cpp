@@ -604,6 +604,49 @@ void bind_Costs(nb::module_ &m)
            static_cast<void (FrameSquaredVelocityCost::*)(const Vec6 &)>(
              &FrameSquaredVelocityCost::set_weight),
            nb::arg("weight"));
+
+    nb::class_<CenterOfMassTrackingCost, StageCost>(m,
+                                                    "CenterOfMassTrackingCost",
+                                                    R"doc(
+        Predefined center of mass (CoM) tracking cost
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
+        where:
+         - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
+         - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
+                                                    )doc")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const uint,
+                    const uint,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("cref"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const uint,
+                    const uint,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("cref"),
+           nb::arg("nq"),
+           nb::arg("nv"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def("set_weight",
+           static_cast<void (CenterOfMassTrackingCost::*)(const double)>(
+             &CenterOfMassTrackingCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (CenterOfMassTrackingCost::*)(const Vec3 &)>(
+             &CenterOfMassTrackingCost::set_weight),
+           nb::arg("weight"))
+      .def("set_cref", &CenterOfMassTrackingCost::set_cref, nb::arg("cref"));
 }
 }
 }

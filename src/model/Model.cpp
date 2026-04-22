@@ -920,6 +920,16 @@ const MatX Model::frameJacobian(const std::string &frame, bool local) const
     return J6;
 }
 
+const Vec3 Model::centerOfMass(const VecX &q) const
+{
+    return pinocchio_wrapper::centerOfMass(_impl, q);
+}
+
+const MatX Model::jacobianCenterOfMass(const VecX &q) const
+{
+    return pinocchio_wrapper::jacobianCenterOfMass(_impl, q);
+}
+
 VecX Model::difference(const VecX &q0, const VecX &q1) const
 {
     if (_xml)
