@@ -391,6 +391,33 @@ std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test()
     return constraints_test;
 }
 
+std::shared_ptr<Test> get_center_of_mass_bound_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::CenterOfMassBound>(
+      0,
+      *model,
+      Vec3::Zero(),
+      Vec3::Zero(),
+      19,
+      18);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("CenterOfMassBoundTest", model, 0);
+
+    return constraints_test;
+}
+
 std::shared_ptr<Test> get_contact_constraint_grad_test()
 {
     model::Model::Structure model_structure;

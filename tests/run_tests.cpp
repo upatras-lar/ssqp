@@ -90,6 +90,9 @@ int main()
     tests.addTest(
       ssqp::tests::generators::get_frame_linear_velocity_bound_grad_test());
 
+    tests.addTest(
+      ssqp::tests::generators::get_center_of_mass_bound_grad_test());
+
     tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test());
 
     tests.addTest(
