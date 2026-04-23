@@ -13,6 +13,7 @@ from multiprocessing.shared_memory import SharedMemory
 from sys import getsizeof
 
 import models
+from joystick import Controller
 
 np.set_printoptions(suppress=True)
 
@@ -40,6 +41,12 @@ def parse_args():
         type=float,
         default=(0.46, 0.35, 0.0),
         help="The target end-effector position",
+    )
+    parser_target.add_argument(
+        "--joystick",
+        default=False,
+        action="store_true",
+        help="Whether to accept joystick control",
     )
 
     parser_circle = subparsers.add_parser(
@@ -73,7 +80,7 @@ def parse_args():
         "-a",
         "--interpolation-alpha",
         type=float,
-        default=0.99,
+        default=0.999,
         help="The interpolation alpha parameter",
     )
 
@@ -136,21 +143,27 @@ def MPC_process(state_memory_name, controls_memory_name):
 
     mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=125)
 
+    if args.model == "target" and args.joystick:
+        controller = Controller()
+
     stage = 0
+
+    if args.model == "target":
+        current_target = np.array(args.pos)
 
     try:
         while True:
             # Get state data from hardware
             with state_lock:
-                state_data = np.ndarray(
-                    (14,), dtype=np.double, buffer=state_memory.buf
+                state_data = np.copy(
+                    np.ndarray((14,), dtype=np.double, buffer=state_memory.buf)
                 )
 
             state = np.zeros(nq + nv)
             state[:7] = state_data[:7]
             state[9:16] = state_data[7:]
 
-            controls = mpc.step(state)[0].stage(0)
+            controls = mpc.step(state)[0].stage(1)
 
             # Give controls to hardware process
             with controls_lock:
@@ -160,7 +173,29 @@ def MPC_process(state_memory_name, controls_memory_name):
                 controls_buffer[:] = controls[:7]
 
             stage += 1
-            callback(stage)
+            if args.model != "target" or not args.joystick:
+                callback(stage)
+            else:
+                keys = controller.read()
+                if keys[0] < 128:
+                    current_target[1] -= 0.01
+                elif keys[0] > 128:
+                    current_target[1] += 0.01
+
+                if keys[1] < 128:
+                    current_target[0] -= 0.01
+                elif keys[1] > 128:
+                    current_target[0] += 0.01
+
+                if keys[2]:
+                    current_target[2] += 0.01
+
+                if keys[3]:
+                    current_target[2] -= 0.01
+
+                callback(np.array(current_target))
+
+            time.sleep(0.05)
     except KeyboardInterrupt:
         state_memory.close()
         controls_memory.close()
@@ -171,7 +206,7 @@ def hardware_process(state_memory_name, controls_memory_name):
     controls_memory = SharedMemory(name=controls_memory_name)
 
     # Initialize hardware
-    robot = Robot(args.robot_ip, RealtimeConfig.kIgnore)
+    robot = Robot(args.robot_ip)
 
     # Set default behavior
     robot.set_collision_behavior(
@@ -192,8 +227,10 @@ def hardware_process(state_memory_name, controls_memory_name):
     current_control = None
 
     # Compliance parameters
-    joint_stiffness = [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0]
-    joint_damping = [2.0 * np.sqrt(k) for k in joint_stiffness]
+    joint_stiffness = [10.0] * 7
+    joint_damping = [0.8 * np.sqrt(k) for k in joint_stiffness]
+
+    period = 0.0001
 
     try:
         while True:
@@ -219,15 +256,16 @@ def hardware_process(state_memory_name, controls_memory_name):
 
             # Receive controls from MPC
             with controls_lock:
-                target_control = np.ndarray(
-                    (7,), dtype=np.double, buffer=controls_memory.buf
+                target_control = np.copy(
+                    np.ndarray(
+                        (7,), dtype=np.double, buffer=controls_memory.buf
+                    )
                 )
 
             current_control = (
                 args.interpolation_alpha * current_control
                 + (1.0 - args.interpolation_alpha) * target_control
             )
-            print("Current control:", current_control)
 
             # Compute error to desired equilibrium joint configuration
             position_error = q - current_control
@@ -242,12 +280,16 @@ def hardware_process(state_memory_name, controls_memory_name):
 
             # Add coriolis compensation
             tau_d = tau_task + coriolis
+
             command = Torques(tau_d.tolist())
             command.motion_finished = False
-
             active_control.writeOnce(command)
-            Dt = time.time() - t0
-            time.sleep(max(0.0008 - Dt, 0.0))
+
+            next_time = t0 + period
+            sleep_time = next_time - time.time()
+            if sleep_time > 0.0:
+                time.sleep(sleep_time)
+
     except KeyboardInterrupt:
         state_memory.close()
         controls_memory.close()

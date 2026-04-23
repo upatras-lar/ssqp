@@ -62,7 +62,13 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
 
     model.addConstraints(MPC_H, box_constraint)
 
-    return model, lambda _: None
+    def update_target_pos(new_pos):
+        if type(new_pos) is int:
+            return
+
+        pose_error.set_desired_translation(new_pos)
+
+    return model, update_target_pos
 
 
 def get_reset_model(dynamics_mode):

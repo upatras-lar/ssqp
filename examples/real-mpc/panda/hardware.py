@@ -86,7 +86,7 @@ sock.connect((args.ip, args.port))
 sock.setblocking(False)
 
 # Initialize hardware
-robot = Robot(args.robot_ip, RealtimeConfig.kIgnore)
+robot = Robot(args.robot_ip)
 
 # Set default behavior
 robot.set_collision_behavior(
@@ -143,7 +143,6 @@ while True:
     except:
         pass
 
-    print("Next current control:", current_control)
     current_control = alpha * current_control + (1.0 - alpha) * target_control
     if args.torque:
         # Compute error to desired equilibrium joint configuration
