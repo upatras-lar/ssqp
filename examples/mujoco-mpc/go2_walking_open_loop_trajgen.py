@@ -17,7 +17,7 @@ The `GaitManager` class is used to handle gait creation
 """
 
 # Model Parameters
-HORIZON = 300
+HORIZON = 600
 dt = 0.01
 
 # Weights
@@ -43,7 +43,7 @@ GAIT = GaitManager.setWalk
 # @script-parameter
 # How many steps to take per gait cycle
 # With `None`, the default cycle step value for the gait being used is used
-CYCLE_STEPS = 60
+CYCLE_STEPS = 120
 
 # @script-parameter
 # The number of steps to stand on all 4 feet for at the end of the trajectory
@@ -129,7 +129,7 @@ gait_manager = GaitManager(
     nq,
     nv,
     ["FL_foot", "FR_foot", "RL_foot", "RR_foot"],
-    swing_cost_height=0.1,
+    swing_cost_height=0.04,
 )
 
 # Add a gait of the specified type for the range [0, H - FSS - 1]

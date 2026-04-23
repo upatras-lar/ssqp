@@ -2,7 +2,13 @@ import socket
 import sys
 import numpy as np
 import argparse
-from pylibfranka import ControllerMode, RealtimeConfig, Robot, JointPositions, Torques
+from pylibfranka import (
+    ControllerMode,
+    RealtimeConfig,
+    Robot,
+    JointPositions,
+    Torques,
+)
 import time
 
 import fcntl, termios, array
@@ -94,7 +100,7 @@ robot.set_collision_behavior(
 model = robot.load_model()
 
 prev_controls = None
-alpha = 0.99
+alpha = args.interpolation_alpha
 
 if args.torque:
     active_control = robot.start_torque_control()
@@ -137,6 +143,7 @@ while True:
     except:
         pass
 
+    print("Next current control:", current_control)
     current_control = alpha * current_control + (1.0 - alpha) * target_control
     if args.torque:
         # Compute error to desired equilibrium joint configuration
@@ -146,7 +153,8 @@ while True:
         tau_task = np.zeros(7)
         for i in range(7):
             tau_task[i] = (
-                -joint_stiffness[i] * position_error[i] - joint_damping[i] * dq[i]
+                -joint_stiffness[i] * position_error[i]
+                - joint_damping[i] * dq[i]
             )
 
         # Add coriolis compensation
@@ -160,6 +168,6 @@ while True:
     Dt = time.time() - t0
     time.sleep(max(0.0008 - Dt, 0.0))
 
-    if time.time() - frame_start > 1.0:
-        print(f"\rFrequency: {1/Dt:.2f}Hz\t", end="")
-        frame_start = time.time()
+    # if time.time() - frame_start > 1.0:
+    #     print(f"\rFrequency: {1/Dt:.2f}Hz\t", end="")
+    #     frame_start = time.time()

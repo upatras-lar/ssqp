@@ -144,6 +144,8 @@ def recv_thread(conn):
             latest_data = data
 
 
+ssqpy.setSilentMode()
+
 try:
     while True:
         print("Waiting for hardware controller...")
