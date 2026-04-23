@@ -1,4 +1,5 @@
 import numpy as np
+import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
 
 
@@ -8,7 +9,7 @@ class GaitManager:
     Accepts a model for a quadruped and generates gaits of different types
     """
 
-    def __init__(self, model, nq, nv, foot_frames):
+    def __init__(self, model, nq, nv, foot_frames, swing_cost_height=-1.0):
         """
         Initialize GaitManager
 
@@ -25,6 +26,7 @@ class GaitManager:
         self.rr_foot = foot_frames[3]
         self.nq = nq
         self.nv = nv
+        self.swing_cost_height = swing_cost_height
 
         self.fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
             model, self.fl_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
@@ -51,6 +53,15 @@ class GaitManager:
             self.nv,
         )
 
+        self.fl_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
+            model,
+            self.fl_foot,
+            np.array((0.0, 0.0, swing_cost_height)),
+            self.nq,
+            self.nv,
+            np.array((0.0, 0.0, 1.0)),
+        )
+
         self.fr_foot_ag_bound = constraints.FramePositionBound(
             model,
             self.fr_foot,
@@ -58,6 +69,15 @@ class GaitManager:
             np.array((np.inf, np.inf, np.inf)),
             self.nq,
             self.nv,
+        )
+
+        self.fr_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
+            model,
+            self.fr_foot,
+            np.array((0.0, 0.0, swing_cost_height)),
+            self.nq,
+            self.nv,
+            np.array((0.0, 0.0, 1.0)),
         )
 
         self.rl_foot_ag_bound = constraints.FramePositionBound(
@@ -69,6 +89,15 @@ class GaitManager:
             self.nv,
         )
 
+        self.rl_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
+            model,
+            self.rl_foot,
+            np.array((0.0, 0.0, swing_cost_height)),
+            self.nq,
+            self.nv,
+            np.array((0.0, 0.0, 1.0)),
+        )
+
         self.rr_foot_ag_bound = constraints.FramePositionBound(
             model,
             self.rr_foot,
@@ -76,6 +105,15 @@ class GaitManager:
             np.array((np.inf, np.inf, np.inf)),
             self.nq,
             self.nv,
+        )
+
+        self.rr_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
+            model,
+            self.rr_foot,
+            np.array((0.0, 0.0, swing_cost_height)),
+            self.nq,
+            self.nv,
+            np.array((0.0, 0.0, 1.0)),
         )
 
     def addStandingStage(self, k):
@@ -106,6 +144,9 @@ class GaitManager:
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+
             elif gait_stage == 1:
                 self.model.addContactConstraint(k, self.fl_foot)
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
@@ -115,6 +156,9 @@ class GaitManager:
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
             elif gait_stage == 2:
                 self.model.addContactConstraint(k, self.fl_foot)
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
@@ -124,6 +168,9 @@ class GaitManager:
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+
             elif gait_stage == 3:
                 self.model.addContactConstraint(k, self.fl_foot)
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
@@ -133,6 +180,8 @@ class GaitManager:
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.rl_foot_ag_cost)
 
             init_controls.append(self._getInitControl(3))
 
@@ -153,6 +202,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
             elif gait_stage == 1:
                 self.model.addContactConstraint(k, self.fl_foot)
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
@@ -161,6 +214,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
             elif gait_stage == 2:
                 self.model.addContactConstraint(k, self.fl_foot)
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
@@ -169,6 +226,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+
             elif gait_stage == 3:
                 self.model.addContactConstraint(k, self.fr_foot)
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
@@ -177,6 +238,9 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
 
             init_controls.append(self._getInitControl(2))
 
@@ -197,6 +261,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             elif (
                 gait_stage > 0.5 * cycle_steps
@@ -209,12 +277,21 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             else:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
 
                 init_controls.append(self._getInitControl(0))
 
@@ -235,6 +312,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             elif (
                 gait_stage > 0.5 * cycle_steps
@@ -247,12 +328,22 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             else:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(0))
 
         return init_controls
@@ -271,6 +362,11 @@ class GaitManager:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 1:
                 self.model.addContactConstraint(k, self.fr_foot)
@@ -280,6 +376,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 2:
                 self.model.addContactConstraint(k, self.fl_foot)
@@ -288,12 +388,23 @@ class GaitManager:
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 3:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(0))
 
         return init_controls
@@ -312,6 +423,11 @@ class GaitManager:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 1:
                 self.model.addContactConstraint(k, self.rl_foot)
@@ -321,6 +437,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 2:
                 self.model.addContactConstraint(k, self.fl_foot)
@@ -331,6 +451,9 @@ class GaitManager:
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(3))
             elif gait_stage == 3:
                 self.model.addContactConstraint(k, self.fl_foot)
@@ -340,12 +463,22 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 4:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(0))
 
         return init_controls
@@ -364,6 +497,11 @@ class GaitManager:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 1:
                 self.model.addContactConstraint(k, self.rl_foot)
@@ -373,6 +511,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 2:
                 self.model.addContactConstraint(k, self.rl_foot)
@@ -381,12 +523,23 @@ class GaitManager:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 3:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(0))
             elif gait_stage == 4:
                 self.model.addContactConstraint(k, self.fl_foot)
@@ -395,6 +548,11 @@ class GaitManager:
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 5:
                 self.model.addContactConstraint(k, self.fl_foot)
@@ -404,6 +562,10 @@ class GaitManager:
 
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 6:
                 self.model.addContactConstraint(k, self.fr_foot)
@@ -412,12 +574,23 @@ class GaitManager:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 7:
                 self.model.addConstraints(k, self.fl_foot_ag_bound)
                 self.model.addConstraints(k, self.fr_foot_ag_bound)
                 self.model.addConstraints(k, self.rl_foot_ag_bound)
                 self.model.addConstraints(k, self.rr_foot_ag_bound)
+                if self.swing_cost_height > 0:
+                    self.model.addCost(k, self.fl_foot_ag_cost)
+                    self.model.addCost(k, self.fr_foot_ag_cost)
+                    self.model.addCost(k, self.rl_foot_ag_cost)
+                    self.model.addCost(k, self.rr_foot_ag_cost)
+
                 init_controls.append(self._getInitControl(0))
 
         return init_controls

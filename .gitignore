@@ -10,6 +10,7 @@
 /examples/trajgen/data/*
 /examples/visualizer/viser-venv/*
 /examples/real-mpc/plots/*
+/examples/real-mpc/panda/libfrankavenv/*
 /VARIABLES.sh
 /tests/logs/*
 /out.txt

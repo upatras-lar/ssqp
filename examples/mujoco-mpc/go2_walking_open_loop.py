@@ -53,16 +53,15 @@ nq = 19
 nv = 18
 nu = 18
 
-Kp = 5.0
-Kd = 0.2
+Kp = 1.8
+Kd = 0.01
 
 x, u = ssqpy.solvers.loadTrajectory("tmp.json")
 
 mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
-mjdata.qpos = x.stage(0)[:nq].copy()
-mjdata.qpos[3:7] = quat_xyzw_to_wxyz(mjdata.qpos[3:7])
+mjdata.qpos = ssqp_to_mujoco_state(x.stage(0))[:nq]
 
 np.set_printoptions(suppress=True)
 
@@ -73,20 +72,22 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         print(f"\rSimulation time: {mjdata.time:.2f}s")
         frame_start = time()
 
-        pos = mjdata.qpos.copy()
-        pos[3:7] = quat_wxyz_to_xyzw(pos[3:7])
-        state = np.hstack((pos, mjdata.qvel))
+        state = np.hstack((mjdata.qpos, mjdata.qvel))
 
         pre = time()
 
-        xk = ssqp_to_mujoco_state(x.stage(k))
+        xk = ssqp_to_mujoco_state(x.stage(k + 1))
         uk = ssqp_to_mujoco_control(u.stage(k))
+
+        mjdata.qpos[:3] = np.array((0.0, 0.0, 0.5))
+        # mjdata.qpos[0:19] = xk[0:19]
 
         mjdata.ctrl = (
             Kp * (xk[7:19] - state[7:19])
             + Kd * (xk[25:] - state[25:])
             + uk[6:18]
         )
+        print(mjdata.ctrl)
         step += 1
 
         if step % steps_per_stage == 0:
