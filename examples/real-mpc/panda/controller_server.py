@@ -21,9 +21,7 @@ def parse_args():
         "robot to a certain location"
     )
 
-    subparsers = parser.add_subparsers(
-        dest="model", help="The model to execute"
-    )
+    subparsers = parser.add_subparsers(dest="model", help="The model to execute")
 
     parser_reset = subparsers.add_parser(
         "reset", help="Resets the Panda's configuration to the initial"
@@ -204,7 +202,7 @@ try:
                 elif args.dynamics_mode == "forward":
                     controls = mpc.step(state)[1].stage(0)
             else:
-                controls = mpc.step(state)[0].stage(0)
+                controls = mpc.step(state)[0].stage(1)
 
             try:
                 send(conn, controls)
