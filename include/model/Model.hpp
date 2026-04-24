@@ -567,6 +567,7 @@ class Model
         VecX               init_control;
         uint               nq, nv, nu, nf;
         std::vector<uint>  actuated_joints, unactuated_joints;
+        std::string        stage_dynamics_name;
     };
 
     /* Makes the dynamics for a given stage with context `ctx` based on the
@@ -593,6 +594,7 @@ class Model
         std::vector<Force> force_data;
         uint               nq, nv, nu, nf, njoints;
         std::vector<uint>  actuated_joints, unactuated_joints;
+        std::string        stage_constraints_name;
     };
 
     /* Makes the innate constraints for a given stage with context `ctx` based

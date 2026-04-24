@@ -307,6 +307,8 @@ void Model::_buildXMLInnateConstraints()
 
     for (uint k = 0; k <= _dims.horizon; ++k)
     {
+        ctx.stage_constraints_name =
+          "StageInnateConstraints" + std::to_string(k);
         ctx.nf = _forces[k].size();
         std::shared_ptr<stagewise::StageConstraints> innate_constraints =
           std::visit(
@@ -344,6 +346,8 @@ void Model::_buildXMLIDTorqueConstraints()
 
     for (uint k = 0; k < _dims.horizon; ++k)
     {
+        ctx.stage_constraints_name =
+          "StageIDTorqueConstraints" + std::to_string(k);
         ctx.nf         = _forces[k].size();
         ctx.force_data = _forces[k];
 
@@ -462,8 +466,9 @@ void Model::_buildXMLDynamics(const Config &config)
 
     for (uint k = 0; k < _dynamics.size(); ++k)
     {
-        ctx.nf         = _forces[k].size();
-        ctx.force_data = _forces[k];
+        ctx.stage_dynamics_name = "StageDynamics" + std::to_string(k);
+        ctx.nf                  = _forces[k].size();
+        ctx.force_data          = _forces[k];
 
         ctx.init_state =
           init_state.size() != 0 ? init_state : config.init_states[k];

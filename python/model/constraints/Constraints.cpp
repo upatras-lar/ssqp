@@ -1,6 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/trampoline.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
@@ -94,7 +95,9 @@ void bind_Constraints(nb::module_ &m)
         )doc")
       .def(nb::init())
       .def(nb::init<const std::string &>(), nb::arg("name") = "")
-      .def("name", &StageConstraints::name, "Get constraints' name")
+      .def("names",
+           &StageConstraints::names,
+           "Get all constraints' names for StageConstraints.")
       .def("set_enabled",
            &StageConstraints::set_enabled,
            nb::arg("enabled"),
@@ -153,9 +156,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_xx",
         [](const StageConstraints &self,
-           const VecX             &x,
-           const VecX             &u,
-           const VecX             &mu)
+           const VecX &x,
+           const VecX &u,
+           const VecX &mu)
         {
             MatX Pxx;
             self.hessprod_xx(x, u, mu, Pxx);
@@ -172,9 +175,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_xu",
         [](const StageConstraints &self,
-           const VecX             &x,
-           const VecX             &u,
-           const VecX             &mu)
+           const VecX &x,
+           const VecX &u,
+           const VecX &mu)
         {
             MatX Pxu;
             self.hessprod_xu(x, u, mu, Pxu);
@@ -191,9 +194,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_uu",
         [](const StageConstraints &self,
-           const VecX             &x,
-           const VecX             &u,
-           const VecX             &mu)
+           const VecX &x,
+           const VecX &u,
+           const VecX &mu)
         {
             MatX Puu;
             self.hessprod_uu(x, u, mu, Puu);

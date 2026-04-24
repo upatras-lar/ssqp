@@ -21,8 +21,8 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction2 = decltype(ZeroHessian_xu),
          typename HessianFunction3 = decltype(ZeroHessian_uu)>
 inline std::shared_ptr<StageCost> make_cost(
-  EvaluationFunction eval, GradientFunction grad,
-  HessianFunction1 hess_xx = ZeroHessian_xx,
+  const std::vector<std::string> names, EvaluationFunction eval,
+  GradientFunction grad, HessianFunction1 hess_xx = ZeroHessian_xx,
   HessianFunction2 hess_xu = ZeroHessian_xu,
   HessianFunction3 hess_uu = ZeroHessian_uu);
 
@@ -32,8 +32,9 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
          typename HessprodFunction2 = decltype(ZeroHessprod_xu),
          typename HessprodFunction3 = decltype(ZeroHessprod_uu)>
 inline std::shared_ptr<StageDynamics> make_dynamics(
-  const uint nx, const uint nu, const uint nout, const uint ndx,
-  const VecX &init_state, const VecX &init_control,
+  const std::vector<std::string> names, const uint nx, const uint nu,
+  const uint nout, const uint ndx, const VecX &init_state,
+  const VecX &init_control,
   ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
   EvaluationFunction eval, multiGradientFunction grad,
   HessprodFunction1 hess_xx = ZeroHessprod_xx,
@@ -48,9 +49,9 @@ template<typename NOutFunction, typename NdcFunction,
          typename HessprodFunction2 = decltype(ZeroHessprod_xu),
          typename HessprodFunction3 = decltype(ZeroHessprod_uu)>
 inline std::shared_ptr<StageConstraints> make_constraints(
-  NOutFunction nout, NdcFunction ndc, LowerBoundFunction lb,
-  UpperBoundFunction ub, EvaluationFunction eval, multiGradientFunction grad,
-  ManifoldOperator  op      = DefaultRightMinus,
+  const std::vector<std::string> names, NOutFunction nout, NdcFunction ndc,
+  LowerBoundFunction lb, UpperBoundFunction ub, EvaluationFunction eval,
+  multiGradientFunction grad, ManifoldOperator op = DefaultRightMinus,
   HessprodFunction1 hess_xx = ZeroHessprod_xx,
   HessprodFunction2 hess_xu = ZeroHessprod_xu,
   HessprodFunction3 hess_uu = ZeroHessprod_uu);
@@ -68,7 +69,8 @@ template<typename EvaluationFunction, typename GradientFunction,
 class FunctionStageCost : public StageCost
 {
   public:
-    inline FunctionStageCost(EvaluationFunction eval, GradientFunction grad,
+    inline FunctionStageCost(const std::vector<std::string> names,
+                             EvaluationFunction eval, GradientFunction grad,
                              HessianFunction1 hess_xx, HessianFunction2 hess_xu,
                              HessianFunction3 hess_uu);
 
@@ -93,7 +95,8 @@ class FunctionStageCost : public StageCost
 class FunctionStageDynamicsBase : public StageDynamics
 {
   public:
-    inline FunctionStageDynamicsBase(const uint nx, const uint nu,
+    inline FunctionStageDynamicsBase(const std::vector<std::string> names,
+                                     const uint nx, const uint nu,
                                      const uint nout, const uint ndx,
                                      const VecX &init_state,
                                      const VecX &init_control);
@@ -120,8 +123,9 @@ class FunctionStageDynamics : public FunctionStageDynamicsBase
 {
   public:
     inline FunctionStageDynamics(
-      const uint nx, const uint nu, const uint nout, const uint ndx,
-      const VecX &init_state, const VecX &init_control,
+      const std::vector<std::string> names, const uint nx, const uint nu,
+      const uint nout, const uint ndx, const VecX &init_state,
+      const VecX                                             &init_control,
       ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
       EvaluationFunction eval, const multiGradientFunction grad,
       HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
@@ -162,11 +166,11 @@ class FunctionStageConstraints : public StageConstraints
 {
   public:
     inline FunctionStageConstraints(
-      NOutFunction nout, NdcFunction ndc, const LowerBoundFunction lb,
-      const UpperBoundFunction ub, const EvaluationFunction eval,
-      const multiGradientFunction grad, const ManifoldOperator op,
-      const HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
-      const HessprodFunction3 hess_uu);
+      const std::vector<std::string> names, NOutFunction nout, NdcFunction ndc,
+      const LowerBoundFunction lb, const UpperBoundFunction ub,
+      const EvaluationFunction eval, const multiGradientFunction grad,
+      const ManifoldOperator op, const HessprodFunction1 hess_xx,
+      const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu);
 
     inline uint output_size() const override;
 

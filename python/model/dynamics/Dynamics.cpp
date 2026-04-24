@@ -1,5 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/trampoline.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
@@ -104,7 +106,9 @@ void bind_Dynamics(nb::module_ &m)
         )doc")
       .def(nb::init())
       .def(nb::init<const std::string &>(), nb::arg("name") = "")
-      .def("name", &StageDynamics::name, "Get dynamics' name")
+      .def("names",
+           &StageDynamics::names,
+           "Get all dynamics' names for StageDynamics.")
       .def("output_size",
            &StageDynamics::output_size,
            "Get the dynamics function output size.")
@@ -172,9 +176,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_xx",
         [](const StageDynamics &self,
-           const VecX          &x,
-           const VecX          &u,
-           const VecX          &lambda)
+           const VecX &x,
+           const VecX &u,
+           const VecX &lambda)
         {
             MatX Pxx;
             self.hessprod_xx(x, u, lambda, Pxx);
@@ -191,9 +195,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_xu",
         [](const StageDynamics &self,
-           const VecX          &x,
-           const VecX          &u,
-           const VecX          &lambda)
+           const VecX &x,
+           const VecX &u,
+           const VecX &lambda)
         {
             MatX Pxu;
             self.hessprod_xu(x, u, lambda, Pxu);
@@ -210,9 +214,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_uu",
         [](const StageDynamics &self,
-           const VecX          &x,
-           const VecX          &u,
-           const VecX          &lambda)
+           const VecX &x,
+           const VecX &u,
+           const VecX &lambda)
         {
             MatX Puu;
             self.hessprod_uu(x, u, lambda, Puu);

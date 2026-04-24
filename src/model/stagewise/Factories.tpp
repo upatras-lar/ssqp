@@ -11,17 +11,19 @@ namespace factory
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3>
-std::shared_ptr<StageCost> make_cost(EvaluationFunction eval,
-                                     GradientFunction   grad,
-                                     HessianFunction1   hess_xx,
-                                     HessianFunction2   hess_xu,
-                                     HessianFunction3   hess_uu)
+std::shared_ptr<StageCost> make_cost(const std::vector<std::string> names,
+                                     EvaluationFunction             eval,
+                                     GradientFunction               grad,
+                                     HessianFunction1               hess_xx,
+                                     HessianFunction2               hess_xu,
+                                     HessianFunction3               hess_uu)
 {
     return std::make_shared<FunctionStageCost<EvaluationFunction,
                                               GradientFunction,
                                               HessianFunction1,
                                               HessianFunction2,
                                               HessianFunction3>>(
+      names,
       std::move(eval),
       std::move(grad),
       std::move(hess_xx),
@@ -34,8 +36,9 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
          typename HessprodFunction1, typename HessprodFunction2,
          typename HessprodFunction3>
 std::shared_ptr<StageDynamics> make_dynamics(
-  const uint nx, const uint nu, const uint nout, const uint ndx,
-  const VecX &init_state, const VecX &init_control,
+  const std::vector<std::string> names, const uint nx, const uint nu,
+  const uint nout, const uint ndx, const VecX &init_state,
+  const VecX                                             &init_control,
   ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
   EvaluationFunction eval, multiGradientFunction grad,
   HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
@@ -48,6 +51,7 @@ std::shared_ptr<StageDynamics> make_dynamics(
                                                   HessprodFunction1,
                                                   HessprodFunction2,
                                                   HessprodFunction3>>(
+      names,
       nx,
       nu,
       nout,
@@ -68,10 +72,11 @@ template<typename NOutFunction, typename NdcFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
 std::shared_ptr<StageConstraints> make_constraints(
-  NOutFunction nout, NdcFunction ndc, const LowerBoundFunction lb,
-  const UpperBoundFunction ub, EvaluationFunction eval,
-  multiGradientFunction grad, ManifoldOperator op, HessprodFunction1 hess_xx,
-  HessprodFunction2 hess_xu, HessprodFunction3 hess_uu)
+  const std::vector<std::string> names, NOutFunction nout, NdcFunction ndc,
+  const LowerBoundFunction lb, const UpperBoundFunction ub,
+  EvaluationFunction eval, multiGradientFunction grad, ManifoldOperator op,
+  HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
+  HessprodFunction3 hess_uu)
 {
     return std::make_shared<FunctionStageConstraints<NOutFunction,
                                                      NdcFunction,
@@ -83,6 +88,7 @@ std::shared_ptr<StageConstraints> make_constraints(
                                                      HessprodFunction1,
                                                      HessprodFunction2,
                                                      HessprodFunction3>>(
+      names,
       std::move(nout),
       std::move(ndc),
       std::move(lb),
@@ -98,6 +104,10 @@ std::shared_ptr<StageConstraints> make_constraints(
 std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
                                        const std::shared_ptr<StageCost> &l2)
 {
+    std::vector<std::string> names  = l1->names();
+    std::vector<std::string> names2 = l2->names();
+    names.insert(names.end(), names2.begin(), names2.end());
+
     auto eval = [l1, l2](const VecX &x, const VecX &u)
     {
         Scalar out;
@@ -196,13 +206,17 @@ std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
         }
     };
 
-    return make_cost(eval, grad, hess_xx, hess_xu, hess_uu);
+    return make_cost(names, eval, grad, hess_xx, hess_xu, hess_uu);
 }
 
 std::shared_ptr<StageConstraints> merge_constraints(
   const std::shared_ptr<StageConstraints> &c1,
   const std::shared_ptr<StageConstraints> &c2)
 {
+    std::vector<std::string> names  = c1->names();
+    std::vector<std::string> names2 = c2->names();
+    names.insert(names.end(), names2.begin(), names2.end());
+
     auto nout = [c1, c2]()
     {
         uint nc = 0;
@@ -468,7 +482,8 @@ std::shared_ptr<StageConstraints> merge_constraints(
         }
     };
 
-    return make_constraints(nout,
+    return make_constraints(names,
+                            nout,
                             ndc,
                             lb,
                             ub,
@@ -483,19 +498,21 @@ std::shared_ptr<StageConstraints> merge_constraints(
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3>
-FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
-                  HessianFunction2,
-                  HessianFunction3>::FunctionStageCost(EvaluationFunction eval,
-                                                       GradientFunction   grad,
-                                                       HessianFunction1 hess_xx,
-                                                       HessianFunction2 hess_xu,
-                                                       HessianFunction3 hess_uu)
+FunctionStageCost<
+  EvaluationFunction, GradientFunction, HessianFunction1, HessianFunction2,
+  HessianFunction3>::FunctionStageCost(const std::vector<std::string> names,
+                                       EvaluationFunction             eval,
+                                       GradientFunction               grad,
+                                       HessianFunction1               hess_xx,
+                                       HessianFunction2               hess_xu,
+                                       HessianFunction3               hess_uu)
   : _eval(std::move(eval))
   , _grad(std::move(grad))
   , _hess_xx(std::move(hess_xx))
   , _hess_xu(std::move(hess_xu))
   , _hess_uu(std::move(hess_uu))
 {
+    _names = names;
 }
 
 template<typename EvaluationFunction, typename GradientFunction,
@@ -557,8 +574,9 @@ void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
 }
 
 FunctionStageDynamicsBase::FunctionStageDynamicsBase(
-  const uint nx, const uint nu, const uint nout, const uint ndx,
-  const VecX &init_state, const VecX &init_control)
+  const std::vector<std::string> names, const uint nx, const uint nu,
+  const uint nout, const uint ndx, const VecX &init_state,
+  const VecX &init_control)
   : _nx(nx)
   , _nu(nu)
   , _nout(nout)
@@ -566,6 +584,7 @@ FunctionStageDynamicsBase::FunctionStageDynamicsBase(
   , _init_state(init_state)
   , _init_control(init_control)
 {
+    _names = names;
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
@@ -576,13 +595,15 @@ FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
                       multiGradientFunction, HessprodFunction1,
                       HessprodFunction2, HessprodFunction3>::
   FunctionStageDynamics(
-    const uint nx, const uint nu, const uint nout, const uint ndx,
-    const VecX &init_state, const VecX &init_control,
+    const std::vector<std::string> names, const uint nx, const uint nu,
+    const uint nout, const uint ndx, const VecX &init_state,
+    const VecX                                             &init_control,
     ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
     EvaluationFunction eval, multiGradientFunction grad,
     HessprodFunction1 hess_xx, HessprodFunction2 hess_xu,
     HessprodFunction3 hess_uu)
-  : FunctionStageDynamicsBase(nx, nu, nout, ndx, init_state, init_control)
+  : FunctionStageDynamicsBase(names, nx, nu, nout, ndx, init_state,
+                              init_control)
   , _ops(std::move(ops))
   , _eval(std::move(eval))
   , _grad(std::move(grad))
@@ -742,17 +763,14 @@ template<typename NOutFunction, typename NdcFunction,
 FunctionStageConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, ManifoldOperator,
-  HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::FunctionStageConstraints(const NOutFunction          nout,
-                                               const NdcFunction           ndc,
-                                               const LowerBoundFunction    lb,
-                                               const UpperBoundFunction    ub,
-                                               const EvaluationFunction    eval,
-                                               const multiGradientFunction grad,
-                                               const ManifoldOperator      op,
-                                               const HessprodFunction1 hess_xx,
-                                               const HessprodFunction2 hess_xu,
-                                               const HessprodFunction3 hess_uu)
+  HessprodFunction1, HessprodFunction2, HessprodFunction3>::
+  FunctionStageConstraints(
+    const std::vector<std::string> names, const NOutFunction nout,
+    const NdcFunction ndc, const LowerBoundFunction lb,
+    const UpperBoundFunction ub, const EvaluationFunction eval,
+    const multiGradientFunction grad, const ManifoldOperator op,
+    const HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
+    const HessprodFunction3 hess_uu)
   : _nout(std::move(nout))
   , _ndc(std::move(ndc))
   , _lb(std::move(lb))
@@ -764,6 +782,7 @@ FunctionStageConstraints<
   , _hess_xu(std::move(hess_xu))
   , _hess_uu(std::move(hess_uu))
 {
+    _names = names;
 }
 
 template<typename NOutFunction, typename NdcFunction,
