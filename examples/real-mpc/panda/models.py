@@ -11,10 +11,11 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
     MPC_H = 10
     dt = 0.1
 
-    T_WGT = 4.0
+    T_WGT = 500.0
     R_WGT = 2.0
-    V_WGT = 0.05
-    U_WGT = 1e-3
+    V_WGT = 1e-2
+    U_WGT = 1e-5
+    C_WGT = 0.0
 
     Rd = np.eye(3)
     Rd[1, 1] = -1
@@ -36,6 +37,9 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
     nv = model.getnv()
     nu = model.getnu()
 
+    init_state = np.zeros(nq + nv)
+    init_state[:nq] = [0.0] * 9
+
     constraint_vlines = [-np.inf, 0.1]
 
     lb = np.array((-np.inf, constraint_vlines[0], -np.inf))
@@ -46,6 +50,9 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
 
     v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
     u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
+        model, init_state[:nq], nq, nv, C_WGT, False
+    )
     pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
         model, "panda_ee", desired_pose, nq, nq, T_WGT, R_WGT
     )
@@ -54,6 +61,7 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
         model.addCost(k, v_cost)
         model.addCost(k, u_cost)
         model.addCost(k, pose_error)
+        model.addCost(k, config_cost)
 
         model.addConstraints(k, box_constraint)
 

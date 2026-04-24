@@ -193,9 +193,11 @@ def MPC_process(state_memory_name, controls_memory_name):
                 if keys[3]:
                     current_target[2] -= 0.01
 
+                current_target = np.clip(current_target, a_min=-0.6, a_max=0.6)
+
                 callback(np.array(current_target))
 
-            time.sleep(0.05)
+            time.sleep(0.01)
     except KeyboardInterrupt:
         state_memory.close()
         controls_memory.close()
@@ -227,8 +229,8 @@ def hardware_process(state_memory_name, controls_memory_name):
     current_control = None
 
     # Compliance parameters
-    joint_stiffness = [10.0] * 7
-    joint_damping = [0.8 * np.sqrt(k) for k in joint_stiffness]
+    joint_stiffness = [20.0] * 7
+    joint_damping = [0.6 * np.sqrt(k) for k in joint_stiffness]
 
     period = 0.0001
 
