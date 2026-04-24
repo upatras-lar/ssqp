@@ -6,11 +6,11 @@ namespace model
 {
 namespace stagewise
 {
-Function::Function(const std::string &name) : _name(name) {}
+Function::Function(const std::string &name) : _names({ name }) {}
 
-const std::string Function::name() const
+const std::vector<std::string> Function::names() const
 {
-    return _name;
+    return _names;
 }
 }
 }

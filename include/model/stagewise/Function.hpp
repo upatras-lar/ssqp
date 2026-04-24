@@ -16,7 +16,7 @@ class Function
     Function(const std::string &name);
 
     // Get function name
-    const std::string name() const;
+    virtual const std::vector<std::string> names() const;
 
     // Get function output size (if $f: R^m \to R^n$, this returns $n$)
     virtual uint output_size() const = 0;
@@ -34,7 +34,7 @@ class Function
     // hessprods (if $n > 1$)
 
   protected:
-    const std::string _name;
+    std::vector<std::string> _names;
 };
 }
 }

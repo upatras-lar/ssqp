@@ -45,28 +45,54 @@ nu = model.getnu()
 
 # Define regularization costs
 config_cost = costs.SquaredConfigurationErrorCost(
-    model, base_config, nq, nv, A_WGT, True
+    model, base_config, nq, nv, A_WGT, True, "Configuration cost"
 )
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(
+    nv, V_WGT, True, "Velocity cost"
+)
+control_cost = costs.SquaredControlCost(nv, nu, U_WGT, "Control cost")
+force_cost = costs.SquaredForceCost(nv, nu, F_WGT, "Force cost")
 
 # Define velocity bounds for feet
 # Used in conjunction with contact constraints
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model,
+    "FL_foot",
+    np.zeros(3),
+    np.zeros(3),
+    nq,
+    nv,
+    name="FL foot velocity bound",
 )
 
 fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model,
+    "FR_foot",
+    np.zeros(3),
+    np.zeros(3),
+    nq,
+    nv,
+    name="FR foot velocity bound",
 )
 
 rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model,
+    "RL_foot",
+    np.zeros(3),
+    np.zeros(3),
+    nq,
+    nv,
+    name="RL foot velocity bound",
 )
 
 rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model,
+    "RR_foot",
+    np.zeros(3),
+    np.zeros(3),
+    nq,
+    nv,
+    name="RR foot velocity bound",
 )
 
 for k in range(HORIZON):
@@ -77,16 +103,16 @@ for k in range(HORIZON):
     model.addCost(k, force_cost)
 
     # Add a standing phase (4 feet on the ground)
-    model.addContactConstraint(k, "FL_foot")
+    model.addContactConstraint(k, "FL_foot", name="FL foot contact constraint")
     model.addConstraints(k, fl_foot_vel_bound)
 
-    model.addContactConstraint(k, "FR_foot")
+    model.addContactConstraint(k, "FR_foot", name="FR foot contact constraint")
     model.addConstraints(k, fr_foot_vel_bound)
 
-    model.addContactConstraint(k, "RL_foot")
+    model.addContactConstraint(k, "RL_foot", name="RL foot contact constraint")
     model.addConstraints(k, rl_foot_vel_bound)
 
-    model.addContactConstraint(k, "RR_foot")
+    model.addContactConstraint(k, "RR_foot", name="RR foot contact constraint")
     model.addConstraints(k, rr_foot_vel_bound)
 
 model.addCost(HORIZON, config_cost)

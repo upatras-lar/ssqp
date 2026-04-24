@@ -1,6 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/trampoline.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/eigen/dense.h>
 
@@ -66,7 +67,7 @@ void bind_Costs(nb::module_ &m)
         )doc")
       .def(nb::init())
       .def(nb::init<const std::string &>(), nb::arg("name") = "")
-      .def("name", &StageCost::name, "Get cost's name")
+      .def("names", &StageCost::names, "Get all cost names for StageCost.")
       .def("set_enabled", &StageCost::set_enabled, nb::arg("enabled"), R"doc(
         Set enabled status for StageCost
         Note that this will only be considered if disabling is valid,
