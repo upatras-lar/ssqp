@@ -36,7 +36,7 @@ dynamics_mode = ssqpy.model.DynamicsMode.Forward
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
-    mjcf_path="../assets/mjcf/go2/go2.xml",
+    mjcf_path="../../assets/mjcf/go2/go2.xml",
     free_flyer=True,
     dynamics_mode=dynamics_mode,
 )

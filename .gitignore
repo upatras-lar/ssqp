@@ -18,8 +18,9 @@
 /TODO.md
 /examples/python/*.json
 /perf*
-/examples/mujoco-mpc/mujoco-venv
-/examples/real-mpc/candlevenv
+/examples/mujoco-mpc/mujoco-venv/*
+/examples/real-mpc/double_pendulum/candlevenv/*
+/examples/mujoco-mpc/go2/kinematic/pinvenv/*
 
 __pycache__
 out.txt

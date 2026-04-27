@@ -45,7 +45,7 @@ desired_pose[3, 3] = 1
 model = ssqpy.model.Model(
     MPC_H,
     dt,
-    urdf_path="../assets/urdf/panda/panda.urdf",
+    urdf_path="../../assets/urdf/panda/panda.urdf",
     dynamics_mode=(
         ssqpy.model.DynamicsMode.Inverse
         if INVERSE_MODE

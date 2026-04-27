@@ -58,7 +58,7 @@ Kd = 0.01
 
 x, u = ssqpy.solvers.loadTrajectory("tmp.json")
 
-mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/scene.xml")
+mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = ssqp_to_mujoco_state(x.stage(0))[:nq]
