@@ -19,7 +19,7 @@
         <child link="joint1_sphere" />
         <origin xyz="0 0 0" />
         <axis xyz="1 0 0" />
-        <limit lower="-10000" upper="10000" effort="0.15" velocity="25" />
+        <limit lower="-10000" upper="10000" effort="0.1" velocity="25" />
         <dynamics damping="7.634058385430087e-12" friction="0.00305" />
     </joint>
 

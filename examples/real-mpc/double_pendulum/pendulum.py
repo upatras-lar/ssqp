@@ -15,6 +15,8 @@ if os.path.exists(SOCK_PATH):
     os.unlink(SOCK_PATH)
 
 # Build MPC
+ssqpy.setSilentMode()
+
 dt = 0.01
 MPC_H = 50
 

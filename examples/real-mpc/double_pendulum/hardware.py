@@ -42,6 +42,7 @@ sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 sock.connect(SOCK_PATH)
 
 # Initialize hardware
+# candle2 = pyCandle.Candle(pyCandle.CAN_BAUD_1M, True)
 candle = pyCandle.Candle(pyCandle.CAN_BAUD_1M, True)
 ids = candle.ping()
 

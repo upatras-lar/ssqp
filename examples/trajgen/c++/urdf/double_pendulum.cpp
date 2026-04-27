@@ -62,7 +62,8 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
 
     // Use the make_cost helper to create the custom stage cost
     // By leaving hessian_xu and hessian_uu empty, they are set to zero
-    return ssqp::model::stagewise::factory::make_cost(cost_eval,
+    return ssqp::model::stagewise::factory::make_cost({},
+                                                      cost_eval,
                                                       cost_grad,
                                                       cost_hess_xx);
 }

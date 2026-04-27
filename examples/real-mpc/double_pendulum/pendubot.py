@@ -20,12 +20,13 @@ if os.path.exists(SOCK_PATH):
     os.unlink(SOCK_PATH)
 
 # Build MPC
-dt = 0.01
-MPC_H = 45
+ssqpy.setSilentMode()
 
-V_WGT = 7e-4
+dt = 0.01
+MPC_H = 55
+
+V_WGT = 2e-2
 U_WGT = 7e-4
-T_WGT = 0.0
 TIP_WGT = 4.2
 
 model = ssqpy.model.Model(
@@ -42,18 +43,22 @@ nu = model.getnu()
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
-t_cost = ssqpy.model.costs.SquaredIDTorqueCost(model, nq, nv, nu, T_WGT)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
+)
+config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
+    model, np.array((0.0, 0.0)), nq, nv, np.array((0.0, 2.3e-1)), False
 )
 
 for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
     model.addCost(k, tip_cost)
+    model.addCost(k, config_cost)
 
 model.addCost(MPC_H, vel_cost)
 model.addCost(MPC_H, tip_cost)
+model.addCost(MPC_H, config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1

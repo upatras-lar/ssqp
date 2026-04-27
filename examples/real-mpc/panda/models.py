@@ -11,11 +11,11 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
     MPC_H = 10
     dt = 0.1
 
-    T_WGT = 500.0
-    R_WGT = 2.0
+    T_WGT = 100.0
+    R_WGT = 20.0
     V_WGT = 1e-2
     U_WGT = 1e-5
-    C_WGT = 0.0
+    C_WGT = np.array([0.0, 0.05, 0.05, 0.05, 0.05, 0.0, 0.0, 0.0, 0.0])
 
     Rd = np.eye(3)
     Rd[1, 1] = -1
@@ -241,6 +241,123 @@ def get_circle_model(dynamics_mode, constrain=False):
 
     if constrain:
         model.addConstraints(MPC_H, box_constraint)
+
+    def update_pose_costs(current_stage):
+        for k in range(current_stage, current_stage + MPC_H):
+            pose_costs[k - current_stage].set_desired_translation(traj[k % H])
+
+    return model, update_pose_costs
+
+
+def get_sequence_model(dynamics_mode, constrain=False):
+    """
+    Get a model that follows a sequence of points with the Panda's end effector
+    """
+    H = 3800
+
+    points = [
+        np.array((0.3, 0.0, 0.3)),
+        np.array((0.3, 0.3, 0.5)),
+        np.array((0.3, 0.3, 0.1)),
+        np.array((0.3, -0.4, 0.3)),
+        np.array((0.0, -0.4, 0.4)),
+        np.array((-0.2, -0.4, 0.0)),
+        np.array((0.3, -0.4, 0.6)),
+        np.array((0.3, 0.0, 0.6)),
+        np.array((0.3, 0.4, 0.1)),
+        np.array((-0.2, 0.4, 0.6)),
+        np.array((-0.2, 0.4, 0.0)),
+        np.array((0.2, 0.3, -0.2)),
+        np.array((0.4, 0.5, 0.0)),
+        np.array((0.4, 0.5, 0.6)),
+        np.array((0.5, 0.0, 0.3)),
+        np.array((0.5, -0.2, 0.1)),
+        np.array((0.5, -0.3, -0.1)),
+        np.array((0.5, -0.4, -0.25)),
+        np.array((0.62, -0.45, 0.6)),
+        np.array((0.45, -0.45, 0.6)),
+    ]
+
+    point_steps = H // len(points)
+
+    traj = []
+
+    for k in range(H + 1):
+        k_between = k // point_steps
+        prev_point = points[k_between % len(points)]
+        next_point = points[(k_between + 1) % len(points)]
+
+        traj.append(
+            (k_between / point_steps) * next_point
+            + (1 - k_between / point_steps) * prev_point
+        )
+
+    Rd = np.eye(3)
+    Rd[1, 1] = -1
+    Rd[2, 2] = -1
+
+    MPC_H = 10
+    MPC_dt = 0.1
+
+    T_WGT = 10.0
+    R_WGT = 10.0
+    V_WGT = 1e-2
+    U_WGT = 1e-3
+    C_WGT = 0.16
+
+    model = ssqpy.model.Model(
+        MPC_H,
+        MPC_dt,
+        urdf_path="../../assets/urdf/panda/panda.urdf",
+        dynamics_mod=dynamics_mode,
+    )
+
+    nq = model.getnq()
+    nv = model.getnv()
+    nu = model.getnu()
+
+    init_state = np.zeros(nq + nv)
+    init_state[:nq] = [
+        0.0013,
+        -0.3281,
+        -0.0010,
+        -2.1711,
+        -0.0008,
+        1.7431,
+        0.7862,
+        0.0,
+        0.0,
+    ]
+
+    pose_costs = []
+
+    config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
+        model, init_state[:nq], nq, nv, C_WGT, False
+    )
+
+    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+
+    for k in range(MPC_H):
+        pose_costs.append(
+            ssqpy.model.costs.FrameSquaredPoseErrorCost(
+                model, "panda_ee", traj[k], Rd, nq, nv, T_WGT, R_WGT
+            )
+        )
+
+        model.addCost(k, v_cost)
+        model.addCost(k, u_cost)
+        model.addCost(k, config_cost)
+        model.addCost(k, pose_costs[-1])
+
+    pose_costs.append(
+        ssqpy.model.costs.FrameSquaredPoseErrorCost(
+            model, "panda_ee", traj[MPC_H], Rd, nq, nv, T_WGT, R_WGT
+        )
+    )
+
+    model.addCost(MPC_H, v_cost)
+    model.addCost(MPC_H, pose_costs[-1])
 
     def update_pose_costs(current_stage):
         for k in range(current_stage, current_stage + MPC_H):

@@ -60,6 +60,11 @@ def parse_args():
         help="Whether to add the inscribed square constraints",
     )
 
+    subparsers.add_parser(
+        "sequence",
+        help="Follows a sequence of points with the Panda's end effector",
+    )
+
     parser.add_argument(
         "-r",
         "--robot-ip",
@@ -100,6 +105,8 @@ state_memory = SharedMemory(create=True, size=14 * getsizeof(np.double))
 controls_lock = multiprocessing.Lock()
 controls_memory = SharedMemory(create=True, size=7 * getsizeof(np.double))
 
+running = multiprocessing.Value("i", 1)
+
 
 def MPC_process(state_memory_name, controls_memory_name):
     state_memory = SharedMemory(name=state_memory_name)
@@ -120,6 +127,8 @@ def MPC_process(state_memory_name, controls_memory_name):
     elif args.model == "circle":
         get_model_func = models.get_circle_model
         model_func_params.append(args.constrain)
+    elif args.model == "sequence":
+        get_model_func = models.get_sequence_model
 
     model, callback = get_model_func(
         mode_map[args.dynamics_mode], *model_func_params
@@ -136,7 +145,7 @@ def MPC_process(state_memory_name, controls_memory_name):
     admm_params = ssqpy.solvers.admmParams()
     admm_params.abs_tolerance = 1e-3
     admm_params.rel_tolerance = 1e-3
-    admm_params.init_rho = 0.1
+    admm_params.init_rho = 1.0
     admm_params.warm_start = False
 
     ssqp_params.admmParams = admm_params
@@ -151,56 +160,69 @@ def MPC_process(state_memory_name, controls_memory_name):
     if args.model == "target":
         current_target = np.array(args.pos)
 
-    try:
-        while True:
-            # Get state data from hardware
-            with state_lock:
-                state_data = np.copy(
-                    np.ndarray((14,), dtype=np.double, buffer=state_memory.buf)
-                )
+    pressed = False
 
-            state = np.zeros(nq + nv)
-            state[:7] = state_data[:7]
-            state[9:16] = state_data[7:]
+    while running.value:
+        # Get state data from hardware
+        with state_lock:
+            state_data = np.copy(
+                np.ndarray((14,), dtype=np.double, buffer=state_memory.buf)
+            )
 
-            controls = mpc.step(state)[0].stage(1)
+        state = np.zeros(nq + nv)
+        state[:7] = state_data[:7]
+        state[9:16] = state_data[7:]
 
-            # Give controls to hardware process
-            with controls_lock:
-                controls_buffer = np.ndarray(
-                    (7,), dtype=np.double, buffer=controls_memory.buf
-                )
-                controls_buffer[:] = controls[:7]
+        controls = mpc.step(state)[0].stage(1)
 
-            stage += 1
-            if args.model != "target" or not args.joystick:
-                callback(stage)
-            else:
-                keys = controller.read()
-                if keys[0] < 128:
-                    current_target[1] -= 0.01
-                elif keys[0] > 128:
-                    current_target[1] += 0.01
+        # Give controls to hardware process
+        with controls_lock:
+            controls_buffer = np.ndarray(
+                (7,), dtype=np.double, buffer=controls_memory.buf
+            )
+            controls_buffer[:] = controls[:7]
 
-                if keys[1] < 128:
-                    current_target[0] -= 0.01
-                elif keys[1] > 128:
-                    current_target[0] += 0.01
+        stage += 1
+        if args.model != "target" or not args.joystick:
+            callback(stage)
+        else:
+            keys = controller.read()
+            if keys[0] < 100:
+                current_target[1] -= 0.1
+                pressed = True
+            elif keys[0] > 200:
+                current_target[1] += 0.1
+                pressed = True
 
-                if keys[2]:
-                    current_target[2] += 0.01
+            if keys[1] < 100:
+                current_target[0] -= 0.1
+                pressed = True
+            elif keys[1] > 200:
+                current_target[0] += 0.1
+                pressed = True
 
-                if keys[3]:
-                    current_target[2] -= 0.01
+            if keys[2]:
+                current_target[2] += 0.1
+                pressed = True
 
-                current_target = np.clip(current_target, a_min=-0.6, a_max=0.6)
+            if keys[3]:
+                current_target[2] -= 0.1
+                pressed = True
 
-                callback(np.array(current_target))
+            if keys == [128, 128, 0, 0] and pressed:
+                current_target = model.forwardKinematics(
+                    state[:9], "panda_ee"
+                )[0]
+                pressed = False
 
-            time.sleep(0.01)
-    except KeyboardInterrupt:
-        state_memory.close()
-        controls_memory.close()
+            current_target = np.clip(current_target, a_min=-0.6, a_max=0.6)
+
+            callback(np.array(current_target))
+
+        time.sleep(0.01)
+
+    state_memory.close()
+    controls_memory.close()
 
 
 def hardware_process(state_memory_name, controls_memory_name):
@@ -220,8 +242,6 @@ def hardware_process(state_memory_name, controls_memory_name):
 
     # Create a model instance from robot
     model = robot.load_model()
-
-    prev_controls = None
 
     active_control = robot.start_torque_control()
 
@@ -295,6 +315,7 @@ def hardware_process(state_memory_name, controls_memory_name):
     except KeyboardInterrupt:
         state_memory.close()
         controls_memory.close()
+        running.value = 0
 
 
 mpc_process = multiprocessing.Process(

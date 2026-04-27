@@ -74,7 +74,8 @@ int main()
 
     // Create StageCost object using the make_cost helper
     std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
-      ssqp::model::stagewise::factory::make_cost(cost_eval,
+      ssqp::model::stagewise::factory::make_cost({},
+                                                 cost_eval,
                                                  cost_grad,
                                                  cost_hess_xx,
                                                  ssqp::model::ZeroHessian_xu,
@@ -106,7 +107,8 @@ int main()
     { Hxx = TERM_WGT * 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
-      ssqp::model::stagewise::factory::make_cost(terminal_cost_eval,
+      ssqp::model::stagewise::factory::make_cost({},
+                                                 terminal_cost_eval,
                                                  terminal_cost_grad,
                                                  terminal_cost_hess_xx,
                                                  ssqp::model::ZeroHessian_xu,
