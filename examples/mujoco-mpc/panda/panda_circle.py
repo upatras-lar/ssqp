@@ -53,7 +53,7 @@ Rd[2, 2] = -1
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
-    urdf_path="../assets/urdf/panda/panda.urdf",
+    urdf_path="../../assets/urdf/panda/panda.urdf",
     dynamics_mode=(
         ssqpy.model.DynamicsMode.Inverse
         if INVERSE_MODE
@@ -166,7 +166,9 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             #     f"Stage: {stage}, Mujoco: {mjdata.xpos[9]}, Ours: {model.forwardKinematics(mjdata.qpos, "panda_ee")[0]}"
             # )
             # state_data.append(mjdata.xpos[9].copy())
-            state_data.append(model.forwardKinematics(mjdata.qpos, "panda_ee")[0])
+            state_data.append(
+                model.forwardKinematics(mjdata.qpos, "panda_ee")[0]
+            )
 
             if stage == H:
                 break

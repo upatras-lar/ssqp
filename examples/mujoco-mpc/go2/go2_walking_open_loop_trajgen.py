@@ -63,7 +63,7 @@ init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 model = ssqpy.model.Model(
     HORIZON,
     dt,
-    mjcf_path="../assets/mjcf/go2/go2.xml",
+    mjcf_path="../../assets/mjcf/go2/go2.xml",
     free_flyer=True,
     dynamics_mode=ssqpy.model.DynamicsMode.Forward,
 )
