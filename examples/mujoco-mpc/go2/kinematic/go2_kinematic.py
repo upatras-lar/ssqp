@@ -7,6 +7,9 @@ import numpy as np
 
 import pinocchio as pin
 
+pin_model, _, _ = pin.buildModelsFromMJCF("../../../assets/mjcf/go2/go2.xml")
+pin_data = pin_model.createData()
+
 
 # Helpers
 # -------
@@ -20,6 +23,49 @@ def yaw_to_Rz(yaw):
     )
 
 
+def quat_to_yaw(quat):
+    qx, qy, qz, qw = quat
+    return np.atan2(2.0 * (qz * qw + qx * qy), -1.0 + 2.0 * (qw**2 + qx**2))
+
+
+def quat_to_yaw_jacobian(quat):
+    qx, qy, qz, qw = quat
+
+    # atan2 numerator/denominator
+    N = 2.0 * (qz * qw + qx * qy)
+    D = -1.0 + 2.0 * (qw**2 + qx**2)
+
+    # derivatives of N
+    dN_dqx = 2.0 * qy
+    dN_dqy = 2.0 * qx
+    dN_dqz = 2.0 * qw
+    dN_dqw = 2.0 * qz
+
+    # derivatives of D
+    dD_dqx = 4.0 * qx
+    dD_dqy = 0.0
+    dD_dqz = 0.0
+    dD_dqw = 4.0 * qw
+
+    # common denominator
+    denom = N**2 + D**2
+
+    # atan2 derivative
+    dyaw_dqx = (D * dN_dqx - N * dD_dqx) / denom
+    dyaw_dqy = (D * dN_dqy - N * dD_dqy) / denom
+    dyaw_dqz = (D * dN_dqz - N * dD_dqz) / denom
+    dyaw_dqw = (D * dN_dqw - N * dD_dqw) / denom
+
+    return np.array(
+        [
+            dyaw_dqx,
+            dyaw_dqy,
+            dyaw_dqz,
+            dyaw_dqw,
+        ]
+    )
+
+
 # Parameters
 # ----------
 dt = 0.01  # timestep
@@ -29,7 +75,16 @@ nj = 12  # number of actuated joints
 nq = 7 + nj  # configuration size
 ndq = 6 + nj  # linearized configuration size
 
-v_cmd = np.array((0.1, 0.1))  # sample velocity command
+frame_names = {
+    "FL": "FL_foot",
+    "FR": "FR_foot",
+    "RL": "RL_foot",
+    "RR": "RR_foot",
+}
+
+# TODO: Initial configuration
+init_config = np.zeros(nq)
+init_config[6] = 1.0
 
 # Contact Scheduler
 # -----------------
@@ -37,21 +92,61 @@ v_cmd = np.array((0.1, 0.1))  # sample velocity command
 T = 50
 beta = 0.5
 
+T_swing = int(beta * T)
+T_stance = T - T_swing
+
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
-hip_to_foot_ratios = {"FL": 1.0, "FR": 1.0, "RL": 1.0, "RR": 1.0}
+hip_to_foot_offsets = {
+    "FL": np.array((0.5, 0.25, 0.5)),
+    "FR": np.array((0.5, 0.25, 0.5)),
+    "RL": np.array((0.5, 0.25, 0.5)),
+    "RR": np.array((0.5, 0.25, 0.5)),
+}
 
 
+# Whether a foot with initial phase phi_0 is swinging at time t
+# Returns: (is_swinging, just_swapped)
+# just_swapped is True if the foot's current swing state is different to that of
+# the previous time step
 def is_swinging(t, phi_0):
+    prev_phi = ((t - 1) / T + phi_0) % 1
     phi = (t / T + phi_0) % 1
-    return phi < beta
+
+    at_prev = prev_phi < beta
+    at_t = phi < beta
+
+    return at_t, at_t != at_prev
 
 
 # Reference Generation
 # --------------------
 Kv = 0.1
+Kw = 0.1
+h_sw = 0.1
+
+# Last liftoff location for each foot, along with its liftoff time
+pin.forwardKinematics(pin_model, pin_data, init_config)
+pin.updateFramePlacements(pin_model, pin_data)
+
+liftoff = {
+    foot: [
+        pin_data.oMf[
+            pin_model.getFrameId(frame_names[foot]).translation.copy()
+        ],
+        0.0,
+    ]
+    for foot in foot_phases
+}
+
+# Next touchdown location for each foot, along with its touchdown time
+touchdown = {foot: liftoff[foot].copy() for foot in liftoff}
 
 
-def generate_references(v_cmd, config_0, vel_0, t):
+def generate_references(v_cmd, config_0, vel_0, t0):
+    # Actual initial velocity for x and y axes, and angular (yaw)
+    vel_0_3 = np.hstack((vel_0[:2], 0.0))
+    wz_0 = vel_0[2]
+
     # Commanded velocity for x and y axes, and angular (yaw)
     v_cmd_3 = np.hstack((v_cmd[:2], 0.0))
     wz_cmd = v_cmd[2]
@@ -61,60 +156,114 @@ def generate_references(v_cmd, config_0, vel_0, t):
 
     com_ref = [com_0]
     for _ in range(MPC_H):
+        # Follow velocity command with CoM
         com_ref_k = com_ref[-1] + dt * v_cmd_3
         com_ref.append(com_ref_k)
 
     # Generate base position reference
-    qx, qy, qz, qw = config_0[3:7]
-
-    yaw_0 = np.atan2(2.0 * (qz * qw + qx * qy), -1.0 + 2.0 * (qw**2 + qx**2))
+    yaw_0 = quat_to_yaw(config_0[3:7])
     xb_0 = np.hstack((config_0[:3], 0.0, 0.0, yaw_0))
 
     xb_ref = [xb_0]
     for _ in range(MPC_H):
+        # Follow velocity command with base position reference
         p_ref_k = xb_ref[-1][:3] + dt * v_cmd_3
+        # Follow angular (yaw) command with rotation angle
         yaw_ref_k = xb_ref[-1][-1] + dt * wz_cmd
         xb_ref.append(np.hstack((p_ref_k, 0.0, 0.0, yaw_ref_k)))
 
     # Generate feet trajectory references
     pin.forwardKinematics(pin_model, pin_data, config_0)
+    pin.updateFramePlacements(pin_model, pin_data)
 
+    # Get initial positions via forward kinematics
+    # Also keep a flag noting if foot is in swing for each position
     p_ref = {
-        "FL": [pin_data.oMf[pin_model.getFrameId("FL_foot")].translation()],
-        "FR": [pin_data.oMf[pin_model.getFrameId("FR_foot")].translation()],
-        "RL": [pin_data.oMf[pin_model.getFrameId("RL_foot")].translation()],
-        "RR": [pin_data.oMf[pin_model.getFrameId("RR_foot")].translation()],
+        foot: [
+            [
+                pin_data.oMf[
+                    pin_model.getFrameId(frame_names[foot])
+                ].translation.copy(),
+                0,
+            ]
+        ]
+        for foot in foot_phases
     }
 
-    touchdown_references = {}
-
-    Rz = yaw_to_Rz(yaw_0)
-
-    for foot in foot_phases:
-        if not is_swinging(t, foot_phases[foot]):
-            touchdown_references[foot] = p_ref[foot][0]
-            continue
-
-        # TODO: turning yaw-rate correction term
-        touchdown_references[foot] = (
-            p_ref[foot][0]
-            + Rz * hip_to_foot_ratios[foot]
-            + (1 - beta) * T / 2 * vel_0[:3]
-            + Kv * (vel_0[:3] - v_cmd_3)
-        )
+    p_ref["FL"][0][1] = 1
+    p_ref["RR"][0][1] = 1
 
     for k in range(MPC_H):
-        actual_t = t + k
+        t = t0 + k
+
+        Rz = yaw_to_Rz(xb_ref[k][-1])
+
         for foot in foot_phases:
-            if not is_swinging(actual_t, foot_phases[foot]):
-                p_ref[foot].append(p_ref[foot][-1])
+            # Use scheduling to check if foot is swinging at step t, and if it
+            # just swapped swinging state
+            swing_at_t, swapped = is_swinging(t, foot_phases[foot])
+
+            if not swing_at_t:
+                if swapped:
+                    # If the foot just swapped from swinging to stance,keep the
+                    # last touchdown position as the next stance position
+                    liftoff[foot][:] = touchdown[foot][:]
+
+                # Keep the stance position as this step's reference
+                ref = [liftoff[foot][0].copy(), 0]
+                p_ref[foot].append(ref)
                 continue
+
+            if swapped:
+                # If the foot just swapped from stance to swinging, calculate
+                # the next touchdown time
+                touchdown[foot][1] = t + T_swing - 1
+
+            # If the foot is swinging, update the touchdown position for step k
+            touchdown[foot][0] = (
+                com_ref[k]
+                + Rz @ hip_to_foot_offsets[foot]
+                + T_stance / 2 * vel_0_3
+                + Kv * (vel_0_3 - v_cmd_3)
+                + Kw
+                * (wz_0 - wz_cmd)
+                * Rz
+                @ np.array(
+                    (
+                        -hip_to_foot_offsets[foot][1],
+                        hip_to_foot_offsets[foot][0],
+                        0.0,
+                    )
+                )
+            )
+
+            # Calculate the normalized swing phase
+            phi_sw = (t - liftoff[foot][1]) / (
+                touchdown[foot][1] - liftoff[foot][1]
+            )
+
+            # Get an interpolation alpha for the swing
+            swing_alpha = 3 * phi_sw**2 - 2 * phi_sw**3
+
+            # Interpolate between previous liftoff and caluclated touchdown
+            # positions to get current position reference
+            p_ref_k = (1 - swing_alpha) * liftoff[foot][
+                0
+            ] + swing_alpha * touchdown[foot][0]
+
+            # For z reference, also add a height according to phase
+            p_ref_k[2] += 4 * h_sw * phi_sw * (1 - phi_sw)
+
+            p_ref[foot].append([p_ref_k, 1])
 
     return com_ref, xb_ref, p_ref
 
 
-pin_model, _, _ = pin.buildModelsFromMJCF("../../../assets/mjcf/go2/go2.xml")
-pin_data = pin_model.createData()
+print(
+    generate_references(
+        np.array((1.0, 1.0, 1.0)), init_config, np.array((0.0, 0.0, 0.0)), 0.0
+    )[2]
+)
 
 
 # Dynamics for Kinematic model
@@ -158,25 +307,168 @@ class KinematicDynamics(dynamics.StageDynamics):
 
 # Cost for Kinematic model
 # ------------------------
-Q_c = np.eye(3)
-Q_b = np.eye(3)
+q_c = 1.0
+q_b = 0.5
+q_st = 1.0
+q_sw = 0.01
+q_q = 1e-2
+q_v = 1e-3
+
+Q_c = q_c * np.eye(3)
+Q_b = q_b * np.eye(6)
+Q_st = q_st * np.eye(3)
+Q_sw = q_sw * np.eye(3)
+Q_q = q_q * np.eye(nq - 7)
+Q_v = q_v * np.eye(nq - 7)
 
 
 class KinematicCost(costs.StageCost):
-    def __init__(self, com_ref, xb_ref, p_ref):
-        self.update_references(com_ref, xb_ref, p_ref)
+    def __init__(self, com_ref, xb_ref, p_ref, qj_nom, vj_nom):
+        self.update_references(com_ref, xb_ref, p_ref, qj_nom, vj_nom)
 
-    def update_references(self, com_ref, xb_ref, p_ref):
+    def update_references(self, com_ref, xb_ref, p_ref, qj_nom, vj_nom):
         self.com_ref = com_ref
         self.xb_ref = xb_ref
         self.p_ref = p_ref
+        self.qj_nom = qj_nom
+        self.vj_nom = vj_nom
 
     def evaluate(self, x, u):
         cost = 0.0
 
+        # CoM tracking cost
         com = pin.centerOfMass(pin_model, pin_data, x)
         com_error = com - self.com_ref
         cost += com_error.T @ Q_c @ com_error
 
-        xb_error = x[:3] - self.xb_ref
+        # Base Pose tracking cost
+        x_pose = np.hstack((x[:3], 0.0, 0.0, quat_to_yaw(x[3:7])))
+        xb_error = x_pose - self.xb_ref
         cost += xb_error.T @ Q_b @ xb_error
+
+        pin.forwardKinematics(pin_model, pin_data, x)
+        pin.updateFramePlacements(pin_model, pin_data)
+
+        feet_pos = {
+            foot: [
+                pin_data.oMf[
+                    pin_model.getFrameId(frame_names[foot])
+                ].translation
+            ]
+            for foot in foot_phases
+        }
+
+        for foot in foot_phases:
+            p_error = feet_pos[foot] - self.p_ref[foot][0]
+            if self.p_ref[foot][1]:  # swing
+                cost += p_error.T @ Q_sw @ p_error
+            else:  # stance
+                cost += p_error.T @ Q_st @ p_error
+
+        # Joint configuration regularization
+        qj_error = x[7:nq] - self.qj_nom
+        cost += qj_error.T @ Q_q @ qj_error
+
+        # Joint velocity regularization
+        vj_error = u[6:ndq] - self.vj_nom
+        cost += vj_error.T @ Q_v @ vj_error
+
+    def gradient(self, x, u):
+        dx = np.zeros(ndq)
+        du = np.zeros(ndq)
+
+        # CoM tracking
+        com = pin.centerOfMass(pin_model, pin_data, x)
+        com_error = com - self.com_ref
+
+        com_jac = pin.jacobianCenterOfMass(pin_model, pin_data, x)
+        dx += 2.0 * com_jac.T @ Q_c @ com_error
+
+        # Base Pose tracking
+        yaw = quat_to_yaw(x[3:7])
+        x_pose = np.hstack((x[:3], 0.0, 0.0, yaw))
+        xb_error = x_pose - self.xb_ref
+
+        Jxb = np.zeros((6, ndq))
+        Jxb[0:3, 0:3] = np.eye(3)
+        Jxb[5, 3:7] = quat_to_yaw_jacobian(x[3:7])
+        dx += 2.0 * Jxb.T @ Q_b @ xb_error
+
+        pin.forwardKinematics(pin_model, pin_data, x)
+        pin.updateFramePlacements(pin_model, pin_data)
+
+        # Foot tracking
+        for foot in foot_phases:
+            frame_id = pin_model.getFrameId(frame_names[foot])
+
+            p = pin_data.oMf[frame_id]
+            p_error = p - self.p_ref[foot][0]
+
+            J6 = pin.computeFrameJacobian(
+                pin_model,
+                pin_data,
+                x,
+                frame_id,
+                pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
+            )
+
+            Jp = J6[:3, :]
+
+            if self.p_ref[foot][1]:
+                dx += 2.0 * Jp.T @ Q_sw @ p_error
+            else:
+                dx += 2.0 * Jp.T @ Q_st @ p_error
+
+        # Joint configuration
+        qj_error = x[7:nq] - self.qj_nom
+        dx[7:nq] = 2.0 * Q_q @ qj_error
+
+        # Joint velocity
+        vj_error = u[6:ndq] - self.vj_nom
+        du[6:ndq] += 2.0 * Q_v @ vj_error
+
+    def hessian_xx(self, x, u):
+        Hxx = np.zeros(ndq, ndq)
+
+        # CoM tracking
+        Jcom = pin.jacobianCenterOfMass(pin_model, pin_data, x)
+        Hxx += 2.0 * Jcom.T @ Q_c @ Jcom
+
+        # Base pose tracking
+        Jxb = np.zeros((6, ndq))
+        Jxb[0:3, 0:3] = np.eye(3)
+        Jxb[5, 3:7] = quat_to_yaw_jacobian(x[3:7])
+        Hxx += 2.0 * Jxb.T @ Q_b @ Jxb
+
+        # Foot tracking
+        pin.forwardKinematics(pin_model, pin_data, x)
+        pin.updateFramePlacements(pin_model, pin_data)
+
+        for foot in foot_phases:
+            frame_id = pin_model.getFrameId(frame_names[foot])
+
+            J6 = pin.computeFrameJacobian(
+                pin_model,
+                pin_data,
+                x,
+                frame_id,
+                pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
+            )
+
+            Jp = J6[:3, :]
+
+            if self.p_ref[foot][1]:
+                Hxx += 2.0 * Jp.T @ Q_sw @ Jp
+            else:
+                Hxx += 2.0 * Jp.T @ Q_st @ Jp
+
+        # Joint posture regularization
+        Hxx[7:nq, 7:nq] += 2.0 * Q_q
+
+        return Hxx
+
+    def hessian_xu(self, x, u):
+        return np.zeros(ndq, ndq)
+
+    def hessian_uu(self, x, u):
+        return 2.0 * Q_v
