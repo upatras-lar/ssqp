@@ -25,62 +25,163 @@ struct __attribute__((visibility("default"))) PyStageConstraints
 
     uint output_size() const override
     {
-        NB_OVERRIDE_PURE(output_size);
+        try
+        {
+            NB_OVERRIDE_PURE(output_size);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageConstraints::output_size`: expected an integer");
+        }
     }
 
     VecX lower_bound() const override
     {
-        NB_OVERRIDE(lower_bound);
+        try
+        {
+            NB_OVERRIDE(lower_bound);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::lower_bound`: "
+                                     "expected a vector (numpy.ndarray)");
+        }
     }
 
     VecX upper_bound() const override
     {
-        NB_OVERRIDE(upper_bound);
+        try
+        {
+            NB_OVERRIDE(upper_bound);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::upper_bound`: "
+                                     "expected a vector (numpy.ndarray)");
+        }
     }
 
     uint constraint_diff_size() const override
     {
-        NB_OVERRIDE(constraint_diff_size);
+        try
+        {
+            NB_OVERRIDE(constraint_diff_size);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageConstraints::constraint_diff_size`: expected an integer");
+        }
     }
 
     VecX right_minus(const VecX &x, const VecX &y) const override
     {
-        NB_OVERRIDE(right_minus, x, y);
+        try
+        {
+            NB_OVERRIDE(right_minus, x, y);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::right_minus`: "
+                                     "expected a vector (numpy.ndarray)");
+        }
     }
 
     VecX evaluate(const VecX &x, const VecX &u) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
-        return nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
+            return nb::cast<VecX>(
+              nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::evaluate`: "
+                                     "expected a vector (numpy.ndarray)");
+        }
     }
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
                   MatX &dU) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "gradient", true);
-        std::tie(dX, dU) = nb::cast<std::pair<MatX, MatX>>(
-          nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline, "gradient", true);
+            std::tie(dX, dU) = nb::cast<std::pair<MatX, MatX>>(
+              nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageConstraints::gradient`: "
+              "expected a pair of matrices (numpy.ndarray, numpy.ndarray)");
+        }
     }
 
     void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Pxx) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_xx", true);
-        Pxx = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessprod_xx",
+                                               true);
+            Pxx =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::hessprod_xx`: "
+                                     "expected a matrix (numpy.ndarray)");
+        }
     }
 
     void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Pxu) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_xu", true);
-        Pxu = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessprod_xu",
+                                               true);
+            Pxu =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::hessprod_xu`: "
+                                     "expected a matrix (numpy.ndarray)");
+        }
     }
 
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Puu) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_uu", true);
-        Puu = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessprod_uu",
+                                               true);
+            Puu =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::hessprod_uu`: "
+                                     "expected a matrix (numpy.ndarray)");
+        }
     }
 };
 

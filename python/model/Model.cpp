@@ -185,17 +185,17 @@ void bind_Model(nb::module_ &m)
         Initialize an SSQP Model.
 
         Positional arguments (required):
-            horizon (int): Optimization horizon (excluding initial stage)
-            dt (float): Optimization time step
+            `horizon` (int): Optimization horizon (excluding initial stage)
+            `dt` (float): Optimization time step
 
         Keyword arguments (optional):
-            urdf_path (str): Path to URDF file to use for the system dynamics
-            mjcf_path (str): Path to MJCF file to use for the system dynamics
-            free_flyer (bool): Whether the model has a floating base
-            dynamics_mode (ssqpy.model.DynamicsMode): The dynamics mode to solve in
-            integration (ssqpy.model.Integration): The integration method to use
-            ignore_innate_constraints (bool): Whether to ignore XML constraints
-            actuated_joints (list of int): List of joints to apply controls to;
+            `urdf_path` (str): Path to URDF file to use for the system dynamics
+            `mjcf_path` (str): Path to MJCF file to use for the system dynamics
+            `free_flyer` (bool): Whether the model has a floating base
+            `dynamics_mode` (ssqpy.model.DynamicsMode): The dynamics mode to solve in
+            `integration` (ssqpy.model.Integration): The integration method to use
+            `ignore_innate_constraints` (bool): Whether to ignore XML constraints
+            `actuated_joints` (list of int): List of joints to apply controls to;
                 if non-empty, all joints whose indices are not included will not be
                 actuated
            )doc")
@@ -266,14 +266,14 @@ void bind_Model(nb::module_ &m)
         Finalize the model with the provided configuration.
 
         Keyword arguments (optional):
-            costs (list of StageCost): Costs for each optimization stage
-            stage_cost (StageCost): Cost to add to each non-terminal stage
-            terminal_cost (StageCost): Cost for the terminal stage
-            constraints (list of StageConstraints): Constraints for each optimization stage
-            dynamics (list of StageDynamics): Dynamics for each optimization stage
-            init_states (np.array or list of np.array): Initial states for each optimization stage;
+            `costs` (list of StageCost): Costs for each optimization stage
+            `stage_cost` (StageCost): Cost to add to each non-terminal stage
+            `terminal_cost` (StageCost): Cost for the terminal stage
+            `constraints` (list of StageConstraints): Constraints for each optimization stage
+            `dynamics` (list of StageDynamics): Dynamics for each optimization stage
+            `init_states` (np.array or list of np.array): Initial states for each optimization stage;
                 if np.array: initial state to use for every stage
-            init_controls (np.array or list of np.array): Initial controls for each optimization stage;
+            `init_controls` (np.array or list of np.array): Initial controls for each optimization stage;
                 if np.array: initial controls to use for every stage
         )doc")
       .def("addCost",
