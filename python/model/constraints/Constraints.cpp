@@ -2,6 +2,7 @@
 #include <nanobind/trampoline.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
@@ -127,7 +128,7 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Pxx) const override
     {
         try
@@ -135,8 +136,8 @@ struct __attribute__((visibility("default"))) PyStageConstraints
             nanobind::detail::ticket nb_ticket(nb_trampoline,
                                                "hessprod_xx",
                                                true);
-            Pxx =
-              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+            Pxx = nb::cast<MatX>(
+              nb_trampoline.base().attr(nb_ticket.key)(x, u, mu));
         }
         catch (const nb::cast_error &e)
         {
@@ -146,7 +147,7 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Pxu) const override
     {
         try
@@ -154,8 +155,8 @@ struct __attribute__((visibility("default"))) PyStageConstraints
             nanobind::detail::ticket nb_ticket(nb_trampoline,
                                                "hessprod_xu",
                                                true);
-            Pxu =
-              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+            Pxu = nb::cast<MatX>(
+              nb_trampoline.base().attr(nb_ticket.key)(x, u, mu));
         }
         catch (const nb::cast_error &e)
         {
@@ -165,7 +166,7 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override
     {
         try
@@ -173,8 +174,8 @@ struct __attribute__((visibility("default"))) PyStageConstraints
             nanobind::detail::ticket nb_ticket(nb_trampoline,
                                                "hessprod_uu",
                                                true);
-            Puu =
-              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+            Puu = nb::cast<MatX>(
+              nb_trampoline.base().attr(nb_ticket.key)(x, u, mu));
         }
         catch (const nb::cast_error &e)
         {

@@ -103,6 +103,10 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
     {
         const auto &stage = _qp.stages[k];
 
+        // Initialize unconstrained
+        _qx[k] = stage.qx;
+        _qu[k] = stage.qu;
+
         const uint nx = _qp.dims.stage_state[k];
         const uint nu = _qp.dims.stage_control[k];
         const uint nc = stage.D.rows();
@@ -128,7 +132,6 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         auto x2      = _tmp.x2.head(nx);
         x2.noalias() = D.transpose() * c1;
 
-        _qx[k]  = stage.qx;
         _qx[k] += x1;
         _qx[k] -= x2;
         _qx[k] -= _sigma * current_sol.dx.stage(k);
@@ -142,11 +145,12 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         auto u2      = _tmp.u2.head(nu);
         u2.noalias() = E.transpose() * c1;
 
-        _qu[k]  = stage.qu;
         _qu[k] += u1;
         _qu[k] -= u2;
         _qu[k] -= _sigma * current_sol.du.stage(k);
     }
+
+    _qt = _qp.qx_t;
 
     // Terminal stage
     if (_qp.Dt.rows() != 0)
@@ -171,7 +175,6 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         // x2 = Dt^T * (rho ∘ z)
         x2.noalias() = Dt.transpose() * c1;
 
-        _qt  = _qp.qx_t;
         _qt += x1;
         _qt -= x2;
         _qt += _sigma * current_sol.dx.stage(H);
@@ -196,6 +199,14 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
     {
         const auto &stage = _qp.stages[k];
 
+        // Initialize unconstrained
+        _Qxx[k] = stage.Qxx;
+        _Qxu[k] = stage.Qxu;
+        _Quu[k] = stage.Quu;
+
+        _qx[k] = stage.qx;
+        _qu[k] = stage.qu;
+
         const uint nx = _qp.dims.stage_state[k];
         const uint nu = _qp.dims.stage_control[k];
         const uint nc = stage.D.rows();
@@ -205,7 +216,7 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         const auto &D = stage.D; // nc x nx
         const auto &E = stage.E; // nc x nu
 
-        // ---- scratch
+        // Temporaries
         auto c1 = _tmp.c1.head(nc);               // rho ∘ z
         auto CX = _tmp.CX1.topLeftCorner(nc, nx); // rho ∘ D
         auto CU = _tmp.CU1.topLeftCorner(nc, nu); // rho ∘ E
@@ -223,8 +234,6 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         CU.array().colwise() *= rho.stage(k).array();
 
         // Qxx
-        _Qxx[k] = stage.Qxx;
-
         auto XX      = _tmp.XX1.topLeftCorner(nx, nx);
         XX.noalias() = D.transpose() * CX;
 
@@ -232,12 +241,9 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         _Qxx[k].diagonal().array() += _sigma;
 
         // Qxu
-        _Qxu[k]            = stage.Qxu;
         _Qxu[k].noalias() += D.transpose() * CU;
 
         // Quu
-        _Quu[k] = stage.Quu;
-
         auto UU      = _tmp.UU1.topLeftCorner(nu, nu);
         UU.noalias() = E.transpose() * CU;
 
@@ -251,7 +257,6 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         x1.noalias() = D.transpose() * y.stage(k);
         x2.noalias() = D.transpose() * c1;
 
-        _qx[k]  = stage.qx;
         _qx[k] += x1;
         _qx[k] -= x2;
         _qx[k] -= _sigma * current_sol.dx.stage(k);
@@ -263,11 +268,13 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         u1.noalias() = E.transpose() * y.stage(k);
         u2.noalias() = E.transpose() * c1;
 
-        _qu[k]  = stage.qu;
         _qu[k] += u1;
         _qu[k] -= u2;
         _qu[k] -= _sigma * current_sol.du.stage(k);
     }
+
+    _Qt = _qp.Qxx_t;
+    _qt = _qp.qx_t;
 
     // Terminal stage
     if (_qp.Dt.rows() != 0)
@@ -289,8 +296,6 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         CX.array().colwise() *= rho.stage(H).array();
 
         // Qt
-        _Qt = _qp.Qxx_t;
-
         auto XX      = _tmp.XX1.topLeftCorner(nx, nx);
         XX.noalias() = Dt.transpose() * CX;
 
@@ -304,7 +309,6 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         x1.noalias() = Dt.transpose() * y.stage(H);
         x2.noalias() = Dt.transpose() * c1;
 
-        _qt  = _qp.qx_t;
         _qt += x1;
         _qt -= x2;
         _qt -= _sigma * current_sol.dx.stage(H);

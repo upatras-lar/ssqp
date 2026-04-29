@@ -29,6 +29,7 @@ class FDGradFullTrajectoryConstraintViolation;
 
 namespace solvers
 {
+auto to_compile_time(bool b);
 
 /* Load a previously generated SSQP trajectory from a file
  * Input:
@@ -275,7 +276,7 @@ class ssqp
 
     ConvergenceData _convergence_data;
 
-    template<bool withGradients>
+    template<bool withGradients, bool XMLModel = true>
     void _setup_qp();
 
     template<bool fullStagewiseConvergence>

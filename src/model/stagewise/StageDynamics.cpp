@@ -26,17 +26,27 @@ uint StageDynamics::state_diff_size() const
 
 VecX StageDynamics::init_state() const
 {
-    return VecX::Zero(state_size());
+    return _init_state.size() ? _init_state : VecX::Zero(state_size());
 }
 
-void StageDynamics::set_init_state(const VecX &init_state) {}
+void StageDynamics::set_init_state(const VecX &init_state)
+{
+    assert(init_state.size() == state_size() &&
+           "FunctionStageDynamics: nx must match init_state.size()");
+    _init_state = init_state;
+}
 
 VecX StageDynamics::init_control() const
 {
-    return VecX::Zero(control_size());
+    return _init_control.size() ? _init_control : VecX::Zero(control_size());
 }
 
-void StageDynamics::set_init_control(const VecX &init_control) {}
+void StageDynamics::set_init_control(const VecX &init_control)
+{
+    assert(init_control.size() == control_size() &&
+           "FunctionStageDynamics: nu must match init_control.size()");
+    _init_control = init_control;
+}
 
 VecX StageDynamics::state_right_plus(const VecX &x, const VecX &dx) const
 {

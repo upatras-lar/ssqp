@@ -581,10 +581,10 @@ FunctionStageDynamicsBase::FunctionStageDynamicsBase(
   , _nu(nu)
   , _nout(nout)
   , _ndx(ndx)
-  , _init_state(init_state)
-  , _init_control(init_control)
 {
     _names = names;
+    set_init_state(init_state);
+    set_init_control(init_control);
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
@@ -633,30 +633,6 @@ uint FunctionStageDynamicsBase::control_size() const
 uint FunctionStageDynamicsBase::state_diff_size() const
 {
     return _ndx;
-}
-
-VecX FunctionStageDynamicsBase::init_state() const
-{
-    return _init_state;
-}
-
-void FunctionStageDynamicsBase::set_init_state(const VecX &init_state)
-{
-    assert(init_state.size() == _nx &&
-           "FunctionStageDynamics: nx must match init_state.size()");
-    _init_state = init_state;
-}
-
-VecX FunctionStageDynamicsBase::init_control() const
-{
-    return _init_control;
-}
-
-void FunctionStageDynamicsBase::set_init_control(const VecX &init_control)
-{
-    assert(init_control.size() == _nu &&
-           "FunctionStageDynamics: nu must match init_control.size()");
-    _init_control = init_control;
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,

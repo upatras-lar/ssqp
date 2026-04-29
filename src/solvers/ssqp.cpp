@@ -7,6 +7,14 @@ namespace ssqp
 {
 namespace solvers
 {
+auto to_compile_time(bool b)
+{
+    using T = std::integral_constant<bool, true>;
+    using F = std::integral_constant<bool, false>;
+    using V = std::variant<T, F>;
+    return b ? V { T {} } : V { F {} };
+}
+
 std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
 {
     using namespace nlohmann;
@@ -391,7 +399,9 @@ SolverState ssqp::solve(Guess &guess)
     logln_at(LogLevel::Debug, "Starting SSQP solver loop");
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    _setup_qp<true>();
+    auto xml_model = to_compile_time(_model.xml());
+
+    std::visit([this](auto xml) { _setup_qp<true, xml.value>(); }, xml_model);
     std::unique_ptr<QPSolver> qp_solver;
     QPSolver::Solution        sol(_qp.dims);
 
@@ -629,7 +639,8 @@ SolverState ssqp::solve(Guess &guess)
 
         // Skip gradient calculation in _setup_qp, since they have been
         // calculated in _check_termination
-        _setup_qp<false>();
+        std::visit([this](auto xml) { _setup_qp<false, xml.value>(); },
+                   xml_model);
         qp_solver->reset();
 
         _convergence_data.iteration_data.back().iter_duration =

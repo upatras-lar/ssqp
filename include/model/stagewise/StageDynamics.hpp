@@ -93,6 +93,8 @@ class StageDynamics : public Function
 
   protected:
     static uint TOTAL;
+
+    VecX _init_state, _init_control;
 };
 }
 }
