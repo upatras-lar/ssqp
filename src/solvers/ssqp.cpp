@@ -761,7 +761,7 @@ bool ssqp::write(const std::string &filepath)
     j["properties"]["xml"]              = loaded_from_xml;
     bool floating_base;
     uint nv, nu, njoints;
-    if (loaded_from_xml)
+    if (loaded_from_xml || _model.hasCustomProperties())
     {
         floating_base = _model.floatingBase();
         nv            = _model.nv();
@@ -798,7 +798,7 @@ bool ssqp::write(const std::string &filepath)
 
         VecX u;
 
-        if (loaded_from_xml && floating_base)
+        if (floating_base)
         {
             VecX x = _guess.x.stage(k);
             u      = _guess.u.stage(k);
@@ -840,7 +840,7 @@ bool ssqp::write(const std::string &filepath)
 
     ordered_json stage_data;
 
-    if (loaded_from_xml && floating_base)
+    if (floating_base)
     {
         VecX x = _guess.x.stage(dims.horizon);
 

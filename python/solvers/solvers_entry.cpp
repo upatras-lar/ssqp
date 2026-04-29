@@ -23,7 +23,7 @@ void bind_solvers(nb::module_ &m)
     bind_FlatVec(m);
 
     nb::class_<param_search::ParamSearch>(m, "ParamSearch")
-      .def(nb::init<>())
+      .def(nb::init())
       .def(nb::init<const std::vector<solvers::ssqp::Params> &,
                     const std::vector<model::Model> &>())
       .def("addHyperparams", &param_search::ParamSearch::addHyperparams)

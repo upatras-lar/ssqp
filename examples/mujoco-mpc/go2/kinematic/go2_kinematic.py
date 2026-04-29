@@ -76,7 +76,7 @@ def quat_xyzw_to_wxyz(xyzw):
 # Parameters
 # ----------
 dt = 0.01  # timestep
-MPC_H = 250  # MPC optimization horizon
+MPC_H = 500  # MPC optimization horizon
 
 nj = 12  # number of actuated joints
 nq = 7 + nj  # configuration size
@@ -94,14 +94,14 @@ init_joint_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
 
 init_config = np.zeros(nq)
 init_config[:3] = init_pos
-init_config[3] = 1.0
+init_config[6] = 1.0
 init_config[7:] = init_joint_config
 
 # Contact Scheduler
 # -----------------
 # TODO: parameter values
-T = 50
-beta = 0.5
+T = 120
+beta = 0.4
 
 T_swing = int(beta * T)
 T_stance = T - T_swing
@@ -131,9 +131,9 @@ def is_swinging(t, phi_0):
 
 # Reference Generation
 # --------------------
-Kv = 0.1
+Kv = 1.0
 Kw = 0.1
-h_sw = 0.1
+h_sw = 0.4
 
 # Last liftoff location for each foot, along with its liftoff time
 pin.forwardKinematics(pin_model, pin_data, init_config)
@@ -546,7 +546,7 @@ class KinematicConstraints(constraints.StageConstraints):
         return np.zeros((ndq, ndq))
 
 
-v_cmd = np.array((0.1, 0.1, 0.0))
+v_cmd = np.array((0.5, 0.0, 0.0))
 
 dt = 0.01
 
@@ -586,6 +586,30 @@ model.finalize(
     dynamics=[KinematicDynamics() for _ in range(MPC_H + 1)],
     init_states=[init_config],
 )
+
+custom_properties = ssqpy.model.customProperties()
+custom_properties.nq = nq
+custom_properties.nv = ndq
+custom_properties.nu = ndq
+custom_properties.njoints = nj
+custom_properties.floating_base = True
+custom_properties.ordered_joints = [
+    "FL_hip_joint",
+    "FL_thigh_joint",
+    "FL_calf_joint",
+    "FR_hip_joint",
+    "FR_thigh_joint",
+    "FR_calf_joint",
+    "RL_hip_joint",
+    "RL_thigh_joint",
+    "RL_calf_joint",
+    "RR_hip_joint",
+    "RR_thigh_joint",
+    "RR_calf_joint",
+]
+custom_properties.joint_types = ["revolute"] * 12
+
+model.setCustomProperties(custom_properties)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
