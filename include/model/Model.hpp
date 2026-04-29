@@ -138,6 +138,21 @@ class Model
         }
     };
 
+    /* CustomProperties struct for Model
+    * Defines common XML-based properties (like nq & nv) for Models that are not
+    * loaded via XML
+    */
+    struct CustomProperties
+    {
+        bool                     floating_base;
+        uint                     nq;
+        uint                     nv;
+        uint                     nu;
+        uint                     njoints;
+        std::vector<std::string> ordered_joints;
+        std::vector<std::string> joint_types;
+    };
+
     /* Model Structure Constructor
      * ---
      * Initializes a model with the given structure
@@ -394,13 +409,20 @@ class Model
     VecX randomState(const uint stage) const;
     VecX randomControls(const uint stage) const;
 
+    // Set custom properties for non-XML models
+    void setCustomProperties(
+      const std::shared_ptr<CustomProperties> &custom_properties);
+
+    // Whether custom properties have been set
+    bool hasCustomProperties() const;
+
   protected:
     // Structure properties
     std::shared_ptr<pinocchio_wrapper::ModelImpl> _impl;
     Dimensions                                    _dims, _lin_dims;
     const double                                  _dt;
     const std::shared_ptr<terrain::Terrain>       _terrain;
-    const bool                                    _free_flyer;
+    bool                                          _free_flyer;
     const DynamicsMode                            _dynamics_mode;
     const IntegrationScheme                       _integration;
     const bool                                    _ignore_innate;
@@ -417,6 +439,9 @@ class Model
     DynamicsContainer               _dynamics;
     ConstraintsContainer            _constraints;
     std::vector<std::vector<Force>> _forces;
+
+    // Optional custom properties for non-XML models
+    std::shared_ptr<CustomProperties> _custom_properties = nullptr;
 
     // Helper functions
 

@@ -110,6 +110,28 @@ void bind_Model(nb::module_ &m)
       .value("SemiImplicitEuler", IntegrationScheme::SemiImplicitEuler)
       .export_values();
 
+    nb::class_<Model::CustomProperties>(
+      m,
+      "customProperties",
+      "Optional custom properties for non-XML models.")
+      .def(nb::init())
+      .def_rw("nq", &Model::CustomProperties::nq, "Joint configuration size.")
+      .def_rw("nv", &Model::CustomProperties::nv, "Joint velocity size")
+      .def_rw("nu", &Model::CustomProperties::nu, "Control size")
+      .def_rw("njoints",
+              &Model::CustomProperties::njoints,
+              "Number of actuated joints.")
+      .def_rw("floating_base",
+              &Model::CustomProperties::floating_base,
+              "Whether the model has a floating base.")
+      .def_rw("ordered_joints",
+              &Model::CustomProperties::ordered_joints,
+              "Ordered joint names.")
+      .def_rw(
+        "joint_types",
+        &Model::CustomProperties::joint_types,
+        "The types of joints corresponding to each of the ordered joints.");
+
     nb::class_<Model>(m, "Model", R"doc(
         Defines an SSQP model
         An SSQP model object is a prerequisite to performing optimization using SSQP
@@ -397,9 +419,10 @@ void bind_Model(nb::module_ &m)
         "getnq",
         [](Model &self)
         {
-            if (!self.xml())
+            if (!self.xml() && !self.hasCustomProperties())
             {
-                throw std::runtime_error("Model was not loaded from XML");
+                throw std::runtime_error(
+                  "Model was not loaded from XML and has no custom properties");
             }
 
             return self.nq();
@@ -412,9 +435,10 @@ void bind_Model(nb::module_ &m)
         "getnv",
         [](Model &self)
         {
-            if (!self.xml())
+            if (!self.xml() && !self.hasCustomProperties())
             {
-                throw std::runtime_error("Model was not loaded from XML");
+                throw std::runtime_error(
+                  "Model was not loaded from XML and has no custom properties");
             }
 
             return self.nv();
@@ -427,9 +451,10 @@ void bind_Model(nb::module_ &m)
         "getnu",
         [](Model &self)
         {
-            if (!self.xml())
+            if (!self.xml() && !self.hasCustomProperties())
             {
-                throw std::runtime_error("Model was not loaded from XML");
+                throw std::runtime_error(
+                  "Model was not loaded from XML and has no custom properties");
             }
 
             return self.nu();
@@ -442,9 +467,10 @@ void bind_Model(nb::module_ &m)
         "getnjoints",
         [](Model &self)
         {
-            if (!self.xml())
+            if (!self.xml() && !self.hasCustomProperties())
             {
-                throw std::runtime_error("Model was not loaded from XML");
+                throw std::runtime_error(
+                  "Model was not loaded from XML and has no custom properties");
             }
 
             return self.njoints();
@@ -457,9 +483,10 @@ void bind_Model(nb::module_ &m)
         "hasFloatingBase",
         [](Model &self, const uint k)
         {
-            if (!self.xml())
+            if (!self.xml() && !self.hasCustomProperties())
             {
-                throw std::runtime_error("Model was not loaded from XML");
+                throw std::runtime_error(
+                  "Model was not loaded from XML and has no custom properties");
             }
 
             return self.floatingBase();
@@ -683,7 +710,10 @@ void bind_Model(nb::module_ &m)
         R"doc(
         Get a configuration for the model.
         Only defined if the model was initialized using an XML file.
-        )doc");
+        )doc")
+      .def("setCustomProperties",
+           &Model::setCustomProperties,
+           "Set custom properties for non-XML models");
 }
 }
 }

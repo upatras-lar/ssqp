@@ -159,7 +159,7 @@ void bind_ssqp(nb::module_ &m)
               "Total final trajectory constraint violation.");
 
     nb::class_<ssqp::Params>(m, "ssqpParams", "SSQP solver parameters.")
-      .def(nb::init<>())
+      .def(nb::init())
       .def(nb::init<const std::string &>())
       .def("print", &ssqp::Params::print)
       .def("write",
@@ -255,7 +255,7 @@ void bind_ssqp(nb::module_ &m)
               "Parameters for the HPIPM QP solver.");
 
     nb::class_<admm_qp::Params>(m, "admmParams")
-      .def(nb::init<>())
+      .def(nb::init())
       .def("print", &admm_qp::Params::print)
       .def_rw("init_rho", &admm_qp::Params::init_rho, "Initial rho value.")
       .def_rw("alpha", &admm_qp::Params::alpha, "Over-relaxation parameter.")
@@ -324,7 +324,7 @@ void bind_ssqp(nb::module_ &m)
         )doc");
 
     nb::class_<hpipm_qp::Params>(m, "hpipmParams")
-      .def(nb::init<>())
+      .def(nb::init())
       .def("print", &hpipm_qp::Params::print)
       .def_rw("mode", &hpipm_qp::Params::mode, "The HPIPM solver mode.")
       .def_rw("alpha_min",
