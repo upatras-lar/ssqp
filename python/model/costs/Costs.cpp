@@ -25,36 +25,89 @@ struct __attribute__((visibility("default"))) PyStageCost : StageCost
 
     VecX evaluate(const VecX &x, const VecX &u) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
-        return (Scalar() << nb::cast<double>(
-                  nb_trampoline.base().attr(nb_ticket.key)(x, u)))
-          .finished();
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
+            return (Scalar() << nb::cast<double>(
+                      nb_trampoline.base().attr(nb_ticket.key)(x, u)))
+              .finished();
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageCost::evaluate`: expected a float");
+        }
     }
 
     void gradient(const VecX &x, const VecX &u, VecX &dx,
                   VecX &du) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "gradient", true);
-        std::tie(dx, du) = nb::cast<std::pair<VecX, VecX>>(
-          nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline, "gradient", true);
+            std::tie(dx, du) = nb::cast<std::pair<VecX, VecX>>(
+              nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageCost::gradient`: expected a vector (numpy.ndarray)");
+        }
     }
 
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessian_xx", true);
-        Hxx = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessian_xx",
+                                               true);
+            Hxx =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageCost::hessian_xx`: expected a matrix (numpy.ndarray)");
+        }
     }
 
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessian_xu", true);
-        Hxu = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessian_xu",
+                                               true);
+            Hxu =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageCost::hessian_xu`: expected a matrix (numpy.ndarray)");
+        }
     }
 
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessian_uu", true);
-        Huu = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessian_uu",
+                                               true);
+            Huu =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageCost::hessian_uu`: expected a matrix (numpy.ndarray)");
+        }
     }
 };
 

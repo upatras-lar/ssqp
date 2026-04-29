@@ -2,6 +2,7 @@
 #include <nanobind/trampoline.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
@@ -22,78 +23,205 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
 
     uint output_size() const override
     {
-        NB_OVERRIDE_PURE(output_size);
+        try
+        {
+            NB_OVERRIDE_PURE(output_size);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageDynamics::output_size`: expected an integer");
+        }
     }
 
     uint state_size() const override
     {
-        NB_OVERRIDE_PURE(state_size);
+        try
+        {
+            NB_OVERRIDE_PURE(state_size);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageDynamics::state_size`: expected an integer");
+        }
     }
 
     uint control_size() const override
     {
-        NB_OVERRIDE_PURE(control_size);
+        try
+        {
+            NB_OVERRIDE_PURE(control_size);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageDynamics::control_size`: expected an integer");
+        }
     }
 
     uint state_diff_size() const override
     {
-        NB_OVERRIDE(state_diff_size);
+        try
+        {
+            NB_OVERRIDE(state_diff_size);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageDynamics::state_diff_size`: expected an integer");
+        }
     }
 
     VecX init_state() const override
     {
-        NB_OVERRIDE(init_state);
+        try
+        {
+            NB_OVERRIDE(init_state);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageDynamics::init_state`: expected a vector (numpy.ndarray)");
+        }
     }
 
     VecX init_control() const override
     {
-        NB_OVERRIDE(init_control);
+        try
+        {
+            NB_OVERRIDE(init_control);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageDynamics::init_control`: expected "
+                                     "a vector (numpy.ndarray)");
+        }
     }
 
     VecX state_right_plus(const VecX &x, const VecX &dx) const override
     {
-        NB_OVERRIDE(state_right_plus, x, dx);
+        try
+        {
+            NB_OVERRIDE(state_right_plus, x, dx);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageDynamics::state_right_plus`: "
+                                     "expected a vector (numpy.ndarray)");
+        }
     }
 
     VecX state_right_minus(const VecX &x, const VecX &y) const override
     {
-        NB_OVERRIDE(state_right_minus, x, y);
+        try
+        {
+            NB_OVERRIDE(state_right_minus, x, y);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageDynamics::state_right_minus`: "
+                                     "expected a vector (numpy.ndarray)");
+        }
     }
 
     VecX evaluate(const VecX &x, const VecX &u) const override
     {
-        // TODO: this cast fails!
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
-        return nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
+            return nb::cast<VecX>(
+              nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageDynamics::evaluate`: expected a vector (numpy.ndarray)");
+        }
     }
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
                   MatX &dU) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "gradient", true);
-        std::tie(dX, dU) = nb::cast<std::pair<MatX, MatX>>(
-          nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline, "gradient", true);
+            std::tie(dX, dU) = nb::cast<std::pair<MatX, MatX>>(
+              nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error(
+              "Type mismatch in Python override of "
+              "`StageDynamics::gradient`: expected a pair of matrices "
+              "(numpy.ndarray, numpy.ndarray)");
+        }
     }
 
     void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Pxx) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_xx", true);
-        Pxx = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessprod_xx",
+                                               true);
+            Pxx =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageDynamics::hessprod_xx`: expected a "
+                                     "matrix (numpy.ndarray)");
+        }
     }
 
     void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Pxu) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_xu", true);
-        Pxu = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessprod_xu",
+                                               true);
+            Pxu =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageDynamics::hessprod_xu`: expected a "
+                                     "matrix (numpy.ndarray)");
+        }
     }
 
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
                      MatX &Puu) const override
     {
-        nanobind::detail::ticket nb_ticket(nb_trampoline, "hessprod_uu", true);
-        Puu = nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        try
+        {
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "hessprod_uu",
+                                               true);
+            Puu =
+              nb::cast<MatX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageDynamics::hessprod_uu`: expected a "
+                                     "matrix (numpy.ndarray)");
+        }
     }
 };
 
