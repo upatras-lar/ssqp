@@ -7,6 +7,8 @@ import numpy as np
 
 import pinocchio as pin
 
+from time import time
+
 pin_model, _, _ = pin.buildModelsFromMJCF("../../../assets/mjcf/go2/go2.xml")
 pin_data = pin_model.createData()
 
@@ -18,7 +20,7 @@ def yaw_to_Rz(yaw):
         (
             (np.cos(yaw), -np.sin(yaw), 0.0),
             (np.sin(yaw), np.cos(yaw), 0.0),
-            (0.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0),
         )
     )
 
@@ -28,48 +30,53 @@ def quat_to_yaw(quat):
     return np.atan2(2.0 * (qz * qw + qx * qy), -1.0 + 2.0 * (qw**2 + qx**2))
 
 
-def quat_to_yaw_jacobian(quat):
-    qx, qy, qz, qw = quat
+def yaw_tangent_jacobian(q, eps=1e-8):
+    """
+    Returns dyaw/d(delta_q) in tangent space.
 
-    # atan2 numerator/denominator
-    N = 2.0 * (qz * qw + qx * qy)
-    D = -1.0 + 2.0 * (qw**2 + qx**2)
+    Output shape: (ndq,)
+    """
+    J = np.zeros(ndq)
 
-    # derivatives of N
-    dN_dqx = 2.0 * qy
-    dN_dqy = 2.0 * qx
-    dN_dqz = 2.0 * qw
-    dN_dqw = 2.0 * qz
+    yaw0 = quat_to_yaw(q[3:7])
 
-    # derivatives of D
-    dD_dqx = 4.0 * qx
-    dD_dqy = 0.0
-    dD_dqz = 0.0
-    dD_dqw = 4.0 * qw
+    for i in range(ndq):
+        dq = np.zeros(ndq)
+        dq[i] = eps
 
-    # common denominator
-    denom = N**2 + D**2
+        q_plus = pin.integrate(pin_model, q, dq)
 
-    # atan2 derivative
-    dyaw_dqx = (D * dN_dqx - N * dD_dqx) / denom
-    dyaw_dqy = (D * dN_dqy - N * dD_dqy) / denom
-    dyaw_dqz = (D * dN_dqz - N * dD_dqz) / denom
-    dyaw_dqw = (D * dN_dqw - N * dD_dqw) / denom
+        yaw_plus = quat_to_yaw(q_plus[3:7])
 
-    return np.array(
-        [
-            dyaw_dqx,
-            dyaw_dqy,
-            dyaw_dqz,
-            dyaw_dqw,
-        ]
-    )
+        # wrap angle difference
+        dyaw = np.arctan2(
+            np.sin(yaw_plus - yaw0),
+            np.cos(yaw_plus - yaw0),
+        )
+
+        J[i] = dyaw / eps
+
+    return J
+
+
+def quat_wxyz_to_xyzw(wxyz):
+    xyzw = np.zeros(4)
+    xyzw[:3] = wxyz[1:]
+    xyzw[3] = wxyz[0]
+    return xyzw
+
+
+def quat_xyzw_to_wxyz(xyzw):
+    wxyz = np.zeros(4)
+    wxyz[0] = xyzw[3]
+    wxyz[1:] = xyzw[:3]
+    return wxyz
 
 
 # Parameters
 # ----------
 dt = 0.01  # timestep
-MPC_H = 25  # MPC optimization horizon
+MPC_H = 250  # MPC optimization horizon
 
 nj = 12  # number of actuated joints
 nq = 7 + nj  # configuration size
@@ -82,9 +89,13 @@ frame_names = {
     "RR": "RR_foot",
 }
 
-# TODO: Initial configuration
+init_pos = np.array([0.0, 0.0, 0.389])
+init_joint_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
+
 init_config = np.zeros(nq)
-init_config[6] = 1.0
+init_config[:3] = init_pos
+init_config[3] = 1.0
+init_config[7:] = init_joint_config
 
 # Contact Scheduler
 # -----------------
@@ -97,10 +108,10 @@ T_stance = T - T_swing
 
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
 hip_to_foot_offsets = {
-    "FL": np.array((0.5, 0.25, 0.5)),
-    "FR": np.array((0.5, 0.25, 0.5)),
-    "RL": np.array((0.5, 0.25, 0.5)),
-    "RR": np.array((0.5, 0.25, 0.5)),
+    "FL": np.array((0.1934, 0.142, -0.36892682)),
+    "FR": np.array((0.1934, -0.142, -0.36892682)),
+    "RL": np.array((-0.1934, 0.142, -0.36892682)),
+    "RR": np.array((-0.1934, -0.142, -0.36892682)),
 }
 
 
@@ -131,8 +142,8 @@ pin.updateFramePlacements(pin_model, pin_data)
 liftoff = {
     foot: [
         pin_data.oMf[
-            pin_model.getFrameId(frame_names[foot]).translation.copy()
-        ],
+            pin_model.getFrameId(frame_names[foot])
+        ].translation.copy(),
         0.0,
     ]
     for foot in foot_phases
@@ -259,13 +270,6 @@ def generate_references(v_cmd, config_0, vel_0, t0):
     return com_ref, xb_ref, p_ref
 
 
-print(
-    generate_references(
-        np.array((1.0, 1.0, 1.0)), init_config, np.array((0.0, 0.0, 0.0)), 0.0
-    )[2]
-)
-
-
 # Dynamics for Kinematic model
 # ----------------------------
 class KinematicDynamics(dynamics.StageDynamics):
@@ -279,7 +283,7 @@ class KinematicDynamics(dynamics.StageDynamics):
         return ndq
 
     def control_size(self):
-        return nq
+        return ndq
 
     def state_right_plus(self, x, dx):
         return pin.integrate(pin_model, x, dx)
@@ -291,17 +295,20 @@ class KinematicDynamics(dynamics.StageDynamics):
         return self.state_right_plus(x, u * dt)
 
     def gradient(self, x, u):
-        dX = pin.dIntegrate(pin_model, x, u * dt, 0)
-        dU = pin.dIntegrate(pin_model, x, u * dt, 1) * dt
+        dX = pin.dIntegrate(pin_model, x, u * dt, pin.ArgumentPosition.ARG0)
+        dU = (
+            pin.dIntegrate(pin_model, x, u * dt, pin.ArgumentPosition.ARG1)
+            * dt
+        )
         return dX, dU
 
-    def hessprod_xx(self, x, u):
+    def hessprod_xx(self, x, u, lam):
         return np.zeros((ndq, ndq))
 
-    def hessprod_xu(self, x, u):
+    def hessprod_xu(self, x, u, lam):
         return np.zeros((ndq, ndq))
 
-    def hessprod_uu(self, x, u):
+    def hessprod_uu(self, x, u, lam):
         return np.zeros((ndq, ndq))
 
 
@@ -323,8 +330,10 @@ Q_v = q_v * np.eye(nq - 7)
 
 
 class KinematicCost(costs.StageCost):
-    def __init__(self, com_ref, xb_ref, p_ref, qj_nom, vj_nom):
+    def __init__(self, com_ref, xb_ref, p_ref, qj_nom, vj_nom, terminal=False):
+        super().__init__()
         self.update_references(com_ref, xb_ref, p_ref, qj_nom, vj_nom)
+        self.terminal = terminal
 
     def update_references(self, com_ref, xb_ref, p_ref, qj_nom, vj_nom):
         self.com_ref = com_ref
@@ -350,11 +359,9 @@ class KinematicCost(costs.StageCost):
         pin.updateFramePlacements(pin_model, pin_data)
 
         feet_pos = {
-            foot: [
-                pin_data.oMf[
-                    pin_model.getFrameId(frame_names[foot])
-                ].translation
-            ]
+            foot: pin_data.oMf[
+                pin_model.getFrameId(frame_names[foot])
+            ].translation
             for foot in foot_phases
         }
 
@@ -370,8 +377,11 @@ class KinematicCost(costs.StageCost):
         cost += qj_error.T @ Q_q @ qj_error
 
         # Joint velocity regularization
-        vj_error = u[6:ndq] - self.vj_nom
-        cost += vj_error.T @ Q_v @ vj_error
+        if not self.terminal:
+            vj_error = u[6:ndq] - self.vj_nom
+            cost += vj_error.T @ Q_v @ vj_error
+
+        return cost
 
     def gradient(self, x, u):
         dx = np.zeros(ndq)
@@ -391,7 +401,7 @@ class KinematicCost(costs.StageCost):
 
         Jxb = np.zeros((6, ndq))
         Jxb[0:3, 0:3] = np.eye(3)
-        Jxb[5, 3:7] = quat_to_yaw_jacobian(x[3:7])
+        Jxb[5, :] = yaw_tangent_jacobian(x)
         dx += 2.0 * Jxb.T @ Q_b @ xb_error
 
         pin.forwardKinematics(pin_model, pin_data, x)
@@ -401,7 +411,7 @@ class KinematicCost(costs.StageCost):
         for foot in foot_phases:
             frame_id = pin_model.getFrameId(frame_names[foot])
 
-            p = pin_data.oMf[frame_id]
+            p = pin_data.oMf[frame_id].translation
             p_error = p - self.p_ref[foot][0]
 
             J6 = pin.computeFrameJacobian(
@@ -421,14 +431,17 @@ class KinematicCost(costs.StageCost):
 
         # Joint configuration
         qj_error = x[7:nq] - self.qj_nom
-        dx[7:nq] = 2.0 * Q_q @ qj_error
+        dx[6:ndq] += 2.0 * Q_q @ qj_error
 
         # Joint velocity
-        vj_error = u[6:ndq] - self.vj_nom
-        du[6:ndq] += 2.0 * Q_v @ vj_error
+        if not self.terminal:
+            vj_error = u[6:ndq] - self.vj_nom
+            du[6:ndq] += 2.0 * Q_v @ vj_error
+
+        return dx, du
 
     def hessian_xx(self, x, u):
-        Hxx = np.zeros(ndq, ndq)
+        Hxx = np.zeros((ndq, ndq))
 
         # CoM tracking
         Jcom = pin.jacobianCenterOfMass(pin_model, pin_data, x)
@@ -437,7 +450,7 @@ class KinematicCost(costs.StageCost):
         # Base pose tracking
         Jxb = np.zeros((6, ndq))
         Jxb[0:3, 0:3] = np.eye(3)
-        Jxb[5, 3:7] = quat_to_yaw_jacobian(x[3:7])
+        Jxb[5, :] = yaw_tangent_jacobian(x)
         Hxx += 2.0 * Jxb.T @ Q_b @ Jxb
 
         # Foot tracking
@@ -463,12 +476,219 @@ class KinematicCost(costs.StageCost):
                 Hxx += 2.0 * Jp.T @ Q_st @ Jp
 
         # Joint posture regularization
-        Hxx[7:nq, 7:nq] += 2.0 * Q_q
+        Hxx[6:ndq, 6:ndq] += 2.0 * Q_q
 
         return Hxx
 
     def hessian_xu(self, x, u):
-        return np.zeros(ndq, ndq)
+        return np.zeros((ndq, ndq))
 
     def hessian_uu(self, x, u):
-        return 2.0 * Q_v
+        Huu = np.zeros((ndq, ndq))
+
+        if not self.terminal:
+            Huu[6:, 6:] = 2.0 * Q_v
+
+        return Huu
+
+
+# Constraints for Kinematic model
+nc = nj + nj + 1
+
+zb_min = 0.25
+zb_max = 0.4
+
+
+class KinematicConstraints(constraints.StageConstraints):
+    def output_size(self):
+        return nc
+
+    def lower_bound(self):
+        return np.hstack(
+            (
+                pin_model.lowerPositionLimit[7:],
+                -pin_model.velocityLimit[6:],
+                zb_min,
+            )
+        )
+
+    def upper_bound(self):
+        return np.hstack(
+            (
+                pin_model.upperPositionLimit[7:],
+                pin_model.velocityLimit[6:],
+                zb_max,
+            )
+        )
+
+    def evaluate(self, x, u):
+        return np.hstack((x[7:], u[6:], x[2]))
+
+    def gradient(self, x, u):
+        dX = np.zeros((nc, ndq))
+        dU = np.zeros((nc, ndq))
+
+        dX[:nj, 6:ndq] += np.eye(nj)
+
+        dU[nj : 2 * nj, 6:ndq] += np.eye(nj)
+
+        dX[2 * nj, 2] = 1.0
+
+        return dX, dU
+
+    def hessprod_xx(self, x, u, mu):
+        return np.zeros((ndq, ndq))
+
+    def hessprod_xu(self, x, u, mu):
+        return np.zeros((ndq, ndq))
+
+    def hessprod_uu(self, x, u, mu):
+        return np.zeros((ndq, ndq))
+
+
+v_cmd = np.array((0.1, 0.1, 0.0))
+
+dt = 0.01
+
+model = ssqpy.model.Model(MPC_H, dt)
+
+com_ref, xb_ref, p_ref = generate_references(
+    v_cmd, init_config, np.zeros(3), 0.0
+)
+
+constr = KinematicConstraints()
+
+stage_costs = []
+for k in range(MPC_H):
+    stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
+
+    cost = KinematicCost(
+        com_ref[k], xb_ref[k], stage_p_ref, init_config[7:], np.zeros(nj)
+    )
+    stage_costs.append(cost)
+
+    model.addCost(k, cost)
+    model.addConstraints(k, constr)
+
+stage_p_ref = {foot: p_ref[foot][MPC_H] for foot in p_ref}
+cost = KinematicCost(
+    com_ref[MPC_H],
+    xb_ref[MPC_H],
+    stage_p_ref,
+    init_config[7:],
+    np.zeros(nj),
+    terminal=True,
+)
+
+model.addCost(MPC_H, cost)
+
+model.finalize(
+    dynamics=[KinematicDynamics() for _ in range(MPC_H + 1)],
+    init_states=[init_config],
+)
+
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.tolerance = 1e-2
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.warm_start = False
+
+ssqp_params.admmParams = admm_params
+
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
+state, x, u = solver.solve()
+print("Solver state:", state)
+solver.write("tmp.json")
+
+
+"""
+# MPC & Simulation
+dt = 0.002
+mpc_dt = 0.1
+
+v_cmd = np.array((0.0, 0.0, 0.0))
+
+model = ssqpy.model.Model(MPC_H, mpc_dt)
+
+com_ref, xb_ref, p_ref = generate_references(
+    v_cmd, init_config, np.zeros(3), 0.0
+)
+
+constr = KinematicConstraints()
+
+stage_costs = []
+for k in range(MPC_H):
+    stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
+
+    cost = KinematicCost(
+        com_ref[k], xb_ref[k], stage_p_ref, init_config[7:], np.zeros(nj)
+    )
+    stage_costs.append(cost)
+
+    model.addCost(k, cost)
+    model.addConstraints(k, constr)
+
+stage_p_ref = {foot: p_ref[foot][MPC_H] for foot in p_ref}
+cost = KinematicCost(
+    com_ref[MPC_H],
+    xb_ref[MPC_H],
+    stage_p_ref,
+    init_config[7:],
+    np.zeros(nj),
+    terminal=True,
+)
+
+model.addCost(MPC_H, cost)
+
+model.finalize(
+    dynamics=[KinematicDynamics() for _ in range(MPC_H + 1)],
+    init_states=[init_config],
+)
+
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.tolerance = 1e-2
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.warm_start = False
+
+ssqp_params.admmParams = admm_params
+
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
+
+import mujoco
+import mujoco.viewer
+
+mjmodel = mujoco.MjModel.from_xml_path("../../../assets/mjcf/go2/scene.xml")
+mjdata = mujoco.MjData(mjmodel)
+
+mjdata.qpos = init_config.copy()
+mjdata.qpos[3:7] = quat_xyzw_to_wxyz(mjdata.qpos[3:7])
+
+np.set_printoptions(suppress=True)
+
+with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
+    while viewer.is_running():
+        print(f"\rSimulation time: {mjdata.time:.2f}s")
+        frame_start = time()
+
+        new_pos = mjdata.qpos.copy()
+        new_pos[3:7] = quat_wxyz_to_xyzw(new_pos[3:7])
+
+        pre = time()
+
+        mjdata.qpos = mpc.step(new_pos)[0].stage(1)
+
+        elapsed = time() - pre
+
+        print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t")
+
+        mujoco.mj_step(mjmodel, mjdata)
+        viewer.sync()
+
+print()
+
+"""
