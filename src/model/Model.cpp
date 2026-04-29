@@ -163,6 +163,14 @@ void Model::finalize(const Config &config)
     assert(!_xml ^ config.dynamics.empty() &&
            "Expected either an XML description or custom dynamics");
 
+    assert((config.init_states.empty() || config.init_states.size() == 1 ||
+            config.init_states.size() == _dims.horizon + 1) &&
+           "Invalid init_states size");
+
+    assert((config.init_controls.empty() || config.init_controls.size() == 1 ||
+            config.init_controls.size() == _dims.horizon) &&
+           "Invalid init_controls size");
+
     // Build dynamics from XML
     if (config.dynamics.empty())
     {
@@ -171,17 +179,39 @@ void Model::finalize(const Config &config)
     // Use custom dynamics
     else
     {
-        if (config.dynamics.size() == 1)
+        assert((config.dynamics.size() == _dims.horizon + 1) &&
+               "Invalid stage dynamics vector size for custom dynamics");
+        if (config.init_states.size() == 1)
         {
             for (uint k = 0; k <= _dims.horizon; ++k)
             {
-                _dynamics[k] = config.dynamics[0];
+                config.dynamics[k]->set_init_state(config.init_states[0]);
             }
         }
-        else
+        else if (config.init_states.size() == _dims.horizon + 1)
         {
-            _dynamics = config.dynamics;
+            for (uint k = 0; k <= _dims.horizon; ++k)
+            {
+                config.dynamics[k]->set_init_state(config.init_states[k]);
+            }
         }
+
+        if (config.init_controls.size() == 1)
+        {
+            for (uint k = 0; k < _dims.horizon; ++k)
+            {
+                config.dynamics[k]->set_init_control(config.init_controls[k]);
+            }
+        }
+        else if (config.init_controls.size() == _dims.horizon)
+        {
+            for (uint k = 0; k < _dims.horizon; ++k)
+            {
+                config.dynamics[k]->set_init_control(config.init_controls[k]);
+            }
+        }
+
+        _dynamics = config.dynamics;
     }
 
     // Setup costs
@@ -373,14 +403,6 @@ void Model::_buildXMLIDTorqueConstraints()
 
 void Model::_buildXMLDynamics(const Config &config)
 {
-    assert((config.init_states.empty() || config.init_states.size() == 1 ||
-            config.init_states.size() == _dims.horizon + 1) &&
-           "Invalid init_states size");
-
-    assert((config.init_controls.empty() || config.init_controls.size() == 1 ||
-            config.init_controls.size() == _dims.horizon) &&
-           "Invalid init_controls size");
-
     uint nv_act = _dims.nv;
     MatX S      = MatX::Zero(nv_act, nv_act);
 

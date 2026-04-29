@@ -105,14 +105,9 @@ class FunctionStageDynamicsBase : public StageDynamics
     inline uint state_size() const override;
     inline uint control_size() const override;
     inline uint state_diff_size() const override;
-    inline VecX init_state() const override;
-    inline void set_init_state(const VecX &init_state) override;
-    inline VecX init_control() const override;
-    inline void set_init_control(const VecX &init_state) override;
 
   protected:
     const uint _nx, _nu, _nout, _ndx;
-    VecX       _init_state, _init_control;
 };
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,

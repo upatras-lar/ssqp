@@ -4,7 +4,7 @@ namespace ssqp
 {
 namespace solvers
 {
-template<bool withGradients>
+template<bool withGradients, bool XMLModel>
 void ssqp::_setup_qp()
 {
     ZoneScopedN("SSQP: _setup_qp");
@@ -15,9 +15,14 @@ void ssqp::_setup_qp()
     const model::CostsContainer       costs       = _model.costs();
     const model::DynamicsContainer    dynamics    = _model.dynamics();
     const model::ConstraintsContainer constraints = _model.constraints();
-    const uint                        nq          = _model.nq();
-    const uint                        nv          = _model.nv();
-    const uint                        nu          = _model.nu();
+
+    uint nq, nv, nu;
+    if constexpr (XMLModel)
+    {
+        nq = _model.nq();
+        nv = _model.nv();
+        nu = _model.nu();
+    }
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
@@ -39,22 +44,24 @@ void ssqp::_setup_qp()
         _qp.stages[k].gamma =
           dynamics[k]->state_right_minus(f, _guess.x.stage(k + 1));
 
-        MatX Jx = _qp.stages[k].A.topLeftCorner(nv, nv);
-        MatX Ju = _qp.stages[k].B.topLeftCorner(nu, nu);
+        if constexpr (XMLModel)
+        {
+            MatX Jx = _qp.stages[k].A.topLeftCorner(nv, nv);
+            MatX Ju = _qp.stages[k].B.topLeftCorner(nu, nu);
 
-        MatX Jr_inv = MatX::Zero(nv, nv);
-        _model.dDifference(f.head(nq),
-                           _guess.x.stage(k + 1).head(nq),
-                           Jr_inv,
-                           0);
+            MatX Jr_inv = MatX::Zero(nv, nv);
+            _model.dDifference(f.head(nq),
+                               _guess.x.stage(k + 1).head(nq),
+                               Jr_inv,
+                               0);
 
-        _qp.stages[k].A.topLeftCorner(nv, nv).noalias() = Jr_inv * Jx;
-        _qp.stages[k].B.topLeftCorner(nu, nu).noalias() =
-          _model.getMatrixActuatedPart(Jr_inv) * Ju;
+            _qp.stages[k].A.topLeftCorner(nv, nv).noalias() = Jr_inv * Jx;
+            _qp.stages[k].B.topLeftCorner(nu, nu).noalias() =
+              _model.getMatrixActuatedPart(Jr_inv) * Ju;
+        }
 
         logln_at(LogLevel::Debug, "A: " << std::endl << _qp.stages[k].A);
         logln_at(LogLevel::Debug, "B: " << std::endl << _qp.stages[k].B);
-        logln_at(LogLevel::Debug, "Jr_inv: " << std::endl << Jr_inv);
         logln_at(LogLevel::Debug, "gamma: " << _qp.stages[k].gamma.transpose());
 
         // Calculate Q_k
@@ -67,6 +74,8 @@ void ssqp::_setup_qp()
                                  tmpMat);
         _qp.stages[k].Qxx += tmpMat;
 
+        logln_at(LogLevel::Debug, "Qxx: added costs & dynamics");
+
         // Calculate S_k
         costs[k]->hessian_xu(_guess.x.stage(k),
                              _guess.u.stage(k),
@@ -76,6 +85,8 @@ void ssqp::_setup_qp()
                                  _guess.lambda.stage(k),
                                  tmpMat);
         _qp.stages[k].Qxu += tmpMat;
+
+        logln_at(LogLevel::Debug, "Qxu: added costs & dynamics");
 
         // Calculate R_k
         costs[k]->hessian_uu(_guess.x.stage(k),
@@ -87,6 +98,8 @@ void ssqp::_setup_qp()
                                  tmpMat);
         _qp.stages[k].Quu += tmpMat;
 
+        logln_at(LogLevel::Debug, "Quu: added costs & dynamics");
+
         if constexpr (withGradients)
         {
             // Get q and r
@@ -94,6 +107,9 @@ void ssqp::_setup_qp()
                                _guess.u.stage(k),
                                _qp.stages[k].qx,
                                _qp.stages[k].qu);
+
+            logln_at(LogLevel::Debug, "qx: " << _qp.stages[k].qx.transpose());
+            logln_at(LogLevel::Debug, "qu: " << _qp.stages[k].qu.transpose());
         }
 
         if (constraints[k] != nullptr)
@@ -105,17 +121,23 @@ void ssqp::_setup_qp()
                                         tmpMat);
             _qp.stages[k].Qxx += tmpMat;
 
+            logln_at(LogLevel::Debug, "Qxx: added constraints");
+
             constraints[k]->hessprod_xu(_guess.x.stage(k),
                                         _guess.u.stage(k),
                                         _guess.mu.stage(k),
                                         tmpMat);
             _qp.stages[k].Qxu += tmpMat;
 
+            logln_at(LogLevel::Debug, "Qxu: added constraints");
+
             constraints[k]->hessprod_uu(_guess.x.stage(k),
                                         _guess.u.stage(k),
                                         _guess.mu.stage(k),
                                         tmpMat);
             _qp.stages[k].Quu += tmpMat;
+
+            logln_at(LogLevel::Debug, "Quu: added constraints");
 
             // Get D and E
             if constexpr (withGradients)
@@ -124,6 +146,13 @@ void ssqp::_setup_qp()
                                          _guess.u.stage(k),
                                          _qp.stages[k].D,
                                          _qp.stages[k].E);
+
+                logln_at(LogLevel::Debug,
+                         "D: " << std::endl
+                               << _qp.stages[k].D);
+                logln_at(LogLevel::Debug,
+                         "E: " << std::endl
+                               << _qp.stages[k].E);
             }
 
             // Get cl, cu
@@ -133,6 +162,9 @@ void ssqp::_setup_qp()
               constraints[k]->right_minus(constraints[k]->lower_bound(), c);
             _qp.stages[k].cu =
               constraints[k]->right_minus(constraints[k]->upper_bound(), c);
+
+            logln_at(LogLevel::Debug, "cl: " << _qp.stages[k].cl.transpose());
+            logln_at(LogLevel::Debug, "cu: " << _qp.stages[k].cu.transpose());
         }
         else
         {
@@ -141,16 +173,6 @@ void ssqp::_setup_qp()
             _qp.stages[k].cl = _emptyVec;
             _qp.stages[k].cu = _emptyVec;
         }
-
-        logln_at(LogLevel::Debug, "Qxx: " << std::endl << _qp.stages[k].Qxx);
-        logln_at(LogLevel::Debug, "Qxu: " << std::endl << _qp.stages[k].Qxu);
-        logln_at(LogLevel::Debug, "Quu: " << std::endl << _qp.stages[k].Quu);
-        logln_at(LogLevel::Debug, "qx: " << _qp.stages[k].qx.transpose());
-        logln_at(LogLevel::Debug, "qu: " << _qp.stages[k].qu.transpose());
-        logln_at(LogLevel::Debug, "D: " << std::endl << _qp.stages[k].D);
-        logln_at(LogLevel::Debug, "E: " << std::endl << _qp.stages[k].E);
-        logln_at(LogLevel::Debug, "cl: " << _qp.stages[k].cl.transpose());
-        logln_at(LogLevel::Debug, "cu: " << _qp.stages[k].cu.transpose());
     }
 
     // Terminal values for Q, q, D and c
