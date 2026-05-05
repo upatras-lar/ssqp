@@ -3,81 +3,24 @@ import ssqpy.model.dynamics as dynamics
 import ssqpy.model.constraints as constraints
 import ssqpy.model.costs as costs
 
+import pinocchio as pin
 import numpy as np
 
-import pinocchio as pin
+import model_utils
 
-from time import time
-
-pin_model, _, _ = pin.buildModelsFromMJCF("../../../assets/mjcf/go2/go2.xml")
-pin_data = pin_model.createData()
-
-
-# Helpers
-# -------
-def yaw_to_Rz(yaw):
-    return np.array(
-        (
-            (np.cos(yaw), -np.sin(yaw), 0.0),
-            (np.sin(yaw), np.cos(yaw), 0.0),
-            (0.0, 0.0, 1.0),
-        )
-    )
+# Pinocchio model creation
+# ------------------------
+pin_model, pin_data = None, None
 
 
-def quat_mul(q1, q2):
-    x1, y1, z1, w1 = q1
-    x2, y2, z2, w2 = q2
-    return np.array(
-        [
-            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
-            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-        ]
-    )
-
-
-def euler_to_quat(roll, pitch, yaw):
-    cr = np.cos(roll / 2)
-    sr = np.sin(roll / 2)
-    cp = np.cos(pitch / 2)
-    sp = np.sin(pitch / 2)
-    cy = np.cos(yaw / 2)
-    sy = np.sin(yaw / 2)
-
-    x = sr * cp * cy - cr * sp * sy
-    y = cr * sp * cy + sr * cp * sy
-    z = cr * cp * sy - sr * sp * cy
-    w = cr * cp * cy + sr * sp * sy
-
-    return np.array([x, y, z, w])
-
-
-def quat_to_yaw(quat):
-    qx, qy, qz, qw = quat
-    return np.atan2(2.0 * (qz * qw + qx * qy), -1.0 + 2.0 * (qw**2 + qx**2))
-
-
-def quat_wxyz_to_xyzw(wxyz):
-    xyzw = np.zeros(4)
-    xyzw[:3] = wxyz[1:]
-    xyzw[3] = wxyz[0]
-    return xyzw
-
-
-def quat_xyzw_to_wxyz(xyzw):
-    wxyz = np.zeros(4)
-    wxyz[0] = xyzw[3]
-    wxyz[1:] = xyzw[:3]
-    return wxyz
+def load_model(xml_path):
+    global pin_model, pin_data
+    pin_model, _, _ = pin.buildModelsFromMJCF(xml_path)
+    pin_data = pin_model.createData()
 
 
 # Parameters
 # ----------
-dt = 0.01  # timestep
-MPC_H = 500  # MPC optimization horizon
-
 nj = 12  # number of actuated joints
 nq = 7 + nj  # configuration size
 ndq = 6 + nj  # linearized configuration size
@@ -89,6 +32,9 @@ frame_names = {
     "RR": "RR_foot",
 }
 
+### High-level planner ###
+### ================== ###
+
 init_pos = np.array([0.0, 0.0, 0.389])
 init_joint_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
 
@@ -97,11 +43,10 @@ init_config[:3] = init_pos
 init_config[6] = 1.0
 init_config[7:] = init_joint_config
 
-# Contact Scheduler
-# -----------------
-# TODO: parameter values
+# Contact Scheduling parameters
+# -----------------------------
 T = 100
-beta = 0.4
+beta = 0.2
 
 T_swing = int(beta * T)
 T_stance = T - T_swing
@@ -114,46 +59,28 @@ hip_to_foot_offsets = {
     "RR": np.array((0.0, -0.12, -0.36892682)),
 }
 
-
-# Whether a foot with initial phase phi_0 is swinging at time t
-# Returns: (is_swinging, just_swapped)
-# just_swapped is True if the foot's current swing state is different to that of
-# the previous time step
-def is_swinging(t, phi_0):
-    prev_phi = ((t - 1) / T + phi_0) % 1
-    phi = (t / T + phi_0) % 1
-
-    at_prev = prev_phi < beta
-    at_t = phi < beta
-
-    return at_t, at_t != at_prev
-
-
 # Reference Generation
 # --------------------
 Kv = 1.0
 Kw = 0.1
 h_sw = 0.15
 
-# Last liftoff location for each foot, along with its liftoff time
-pin.forwardKinematics(pin_model, pin_data, init_config)
-pin.updateFramePlacements(pin_model, pin_data)
 
-liftoff = {
-    foot: [
-        pin_data.oMf[
+def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
+    # Last liftoff location for each foot, along with its liftoff time
+    pin.forwardKinematics(pin_model, pin_data, config_0)
+    pin.updateFramePlacements(pin_model, pin_data)
+
+    liftoff = {
+        foot: pin_data.oMf[
             pin_model.getFrameId(frame_names[foot])
-        ].translation.copy(),
-        0.0,
-    ]
-    for foot in foot_phases
-}
+        ].translation.copy()
+        for foot in foot_phases
+    }
 
-# Next touchdown location for each foot, along with its touchdown time
-touchdown = {foot: liftoff[foot].copy() for foot in liftoff}
+    # Next touchdown location for each foot, along with its touchdown time
+    touchdown = {foot: liftoff[foot].copy() for foot in liftoff}
 
-
-def generate_references(v_cmd, config_0, vel_0, t0):
     # Actual initial velocity for x and y axes, and angular (yaw)
     vel_0_3 = np.hstack((vel_0[:2], 0.0))
     wz_0 = vel_0[2]
@@ -166,26 +93,26 @@ def generate_references(v_cmd, config_0, vel_0, t0):
     com_0 = pin.centerOfMass(pin_model, pin_data, config_0)
 
     com_ref = [com_0]
-    for _ in range(MPC_H):
+    for _ in range(H):
         # Follow velocity command with CoM
         com_ref_k = com_ref[-1] + dt * v_cmd_3
         com_ref.append(com_ref_k)
 
     # Generate base position reference
     xb_0 = config_0[:7]
-    yaw = quat_to_yaw(config_0[3:7])
+    yaw = model_utils.quat_to_yaw(config_0[3:7])
 
     xb_ref = [xb_0]
-    for _ in range(MPC_H):
+    for _ in range(H):
         # Follow velocity command with base position reference
         p_ref_k = xb_ref[-1][:3] + dt * v_cmd_3
         # Follow angular (yaw) command with rotation angle
         yaw += dt * wz_cmd
-        xb_ref.append(np.hstack((p_ref_k, euler_to_quat(0.0, 0.0, yaw))))
+        xb_ref.append(
+            np.hstack((p_ref_k, model_utils.euler_to_quat(0.0, 0.0, yaw)))
+        )
 
     # Generate feet trajectory references
-    pin.forwardKinematics(pin_model, pin_data, config_0)
-    pin.updateFramePlacements(pin_model, pin_data)
 
     # Get initial positions via forward kinematics
     # Also keep a flag noting if foot is in swing for each position
@@ -204,11 +131,11 @@ def generate_references(v_cmd, config_0, vel_0, t0):
     p_ref["FL"][0][1] = 1
     p_ref["RR"][0][1] = 1
 
-    for k in range(MPC_H):
-        t = t0 + k
+    for k in range(H):
+        t = k0 + k
 
-        yaw_k = quat_to_yaw(xb_ref[k][3:7])
-        Rz = yaw_to_Rz(yaw_k)
+        yaw_k = model_utils.quat_to_yaw(xb_ref[k][3:7])
+        Rz = model_utils.yaw_to_Rz(yaw_k)
 
         for foot in foot_phases:
             # Use scheduling to check if foot is swinging at step t, and if it
@@ -219,21 +146,14 @@ def generate_references(v_cmd, config_0, vel_0, t0):
                 if swapped:
                     # If the foot just swapped from swinging to stance,keep the
                     # last touchdown position as the next stance position
-                    liftoff[foot][:] = touchdown[foot][:]
+                    liftoff[foot] = touchdown[foot].copy()
 
                 # Keep the stance position as this step's reference
-                ref = [liftoff[foot][0].copy(), 0]
-                p_ref[foot].append(ref)
+                p_ref[foot].append([liftoff[foot].copy(), 0])
                 continue
 
-            if swapped:
-                # If the foot just swapped from stance to swinging, calculate
-                # the next touchdown time
-                liftoff[foot][1] = t
-                touchdown[foot][1] = t + T_swing - 1
-
             # If the foot is swinging, update the touchdown position for step k
-            touchdown[foot][0] = (
+            touchdown[foot] = (
                 com_ref[k]
                 + Rz @ hip_to_foot_offsets[foot]
                 + T_stance / 2 * vel_0_3
@@ -251,18 +171,17 @@ def generate_references(v_cmd, config_0, vel_0, t0):
             )
 
             # Calculate the normalized swing phase
-            phi_sw = (t - liftoff[foot][1]) / (
-                touchdown[foot][1] - liftoff[foot][1]
-            )
+            phi = (t / T + foot_phases[foot]) % 1
+            phi_sw = phi / beta
 
             # Get an interpolation alpha for the swing
             swing_alpha = 3 * phi_sw**2 - 2 * phi_sw**3
 
             # Interpolate between previous liftoff and caluclated touchdown
             # positions to get current position reference
-            p_ref_k = (1 - swing_alpha) * liftoff[foot][
-                0
-            ] + swing_alpha * touchdown[foot][0]
+            p_ref_k = (1 - swing_alpha) * liftoff[
+                foot
+            ] + swing_alpha * touchdown[foot]
 
             # For z reference, also add a height according to phase
             p_ref_k[2] += 4 * h_sw * phi_sw * (1 - phi_sw)
@@ -272,9 +191,31 @@ def generate_references(v_cmd, config_0, vel_0, t0):
     return com_ref, xb_ref, p_ref
 
 
+# Whether a foot with initial phase phi_0 is swinging at time t
+# Returns: (is_swinging, just_swapped)
+# just_swapped is True if the foot's current swing state is different to that of
+# the previous time step
+def is_swinging(t, phi_0):
+    prev_phi = ((t - 1) / T + phi_0) % 1
+    phi = (t / T + phi_0) % 1
+
+    at_prev = prev_phi < beta
+    at_t = phi < beta
+
+    return at_t, at_t != at_prev
+
+
+### ssqpy Model ###
+### =========== ###
+
+
 # Dynamics for Kinematic model
 # ----------------------------
 class KinematicDynamics(dynamics.StageDynamics):
+    def __init__(self, dt):
+        super().__init__()
+        self.dt = dt
+
     def output_size(self):
         return nq
 
@@ -294,13 +235,17 @@ class KinematicDynamics(dynamics.StageDynamics):
         return pin.difference(pin_model, y, x)
 
     def evaluate(self, x, u):
-        return self.state_right_plus(x, u * dt)
+        return self.state_right_plus(x, u * self.dt)
 
     def gradient(self, x, u):
-        dX = pin.dIntegrate(pin_model, x, u * dt, pin.ArgumentPosition.ARG0)
+        dX = pin.dIntegrate(
+            pin_model, x, u * self.dt, pin.ArgumentPosition.ARG0
+        )
         dU = (
-            pin.dIntegrate(pin_model, x, u * dt, pin.ArgumentPosition.ARG1)
-            * dt
+            pin.dIntegrate(
+                pin_model, x, u * self.dt, pin.ArgumentPosition.ARG1
+            )
+            * self.dt
         )
         return dX, dU
 
@@ -317,7 +262,7 @@ class KinematicDynamics(dynamics.StageDynamics):
 # Cost for Kinematic model
 # ------------------------
 q_c = 1.0
-q_b = 0.5
+q_b = 1.0
 q_o = 1.0
 q_st = 100.0
 q_sw = 1.0
@@ -360,7 +305,7 @@ class KinematicCost(costs.StageCost):
 
         q_ref = self.xb_ref[3:7]
         q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
-        q_error = quat_mul(q_ref_inv, x[3:7])
+        q_error = model_utils.quat_mul(q_ref_inv, x[3:7])
         cost += q_o * self.xb_ref[6] * np.dot(q_error[:3], q_error[:3])
 
         pin.forwardKinematics(pin_model, pin_data, x)
@@ -370,10 +315,10 @@ class KinematicCost(costs.StageCost):
             foot: pin_data.oMf[
                 pin_model.getFrameId(frame_names[foot])
             ].translation
-            for foot in foot_phases
+            for foot in frame_names
         }
 
-        for foot in foot_phases:
+        for foot in frame_names:
             p_error = feet_pos[foot] - self.p_ref[foot][0]
             if self.p_ref[foot][1]:  # swing
                 cost += p_error.T @ Q_sw @ p_error
@@ -411,7 +356,7 @@ class KinematicCost(costs.StageCost):
 
         q_ref = self.xb_ref[3:7]
         q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
-        q_error = quat_mul(q_ref_inv, x[3:7])
+        q_error = model_utils.quat_mul(q_ref_inv, x[3:7])
 
         dx[3:7] = q_o * self.xb_ref[6] * np.hstack((q_error[:3], 0.0))
 
@@ -419,7 +364,7 @@ class KinematicCost(costs.StageCost):
         pin.updateFramePlacements(pin_model, pin_data)
 
         # Foot tracking
-        for foot in foot_phases:
+        for foot in frame_names:
             frame_id = pin_model.getFrameId(frame_names[foot])
 
             p = pin_data.oMf[frame_id].translation
@@ -473,7 +418,7 @@ class KinematicCost(costs.StageCost):
         pin.forwardKinematics(pin_model, pin_data, x)
         pin.updateFramePlacements(pin_model, pin_data)
 
-        for foot in foot_phases:
+        for foot in frame_names:
             frame_id = pin_model.getFrameId(frame_names[foot])
 
             J6 = pin.computeFrameJacobian(
@@ -509,6 +454,7 @@ class KinematicCost(costs.StageCost):
 
 
 # Constraints for Kinematic model
+# -------------------------------
 nc = nj + nj + 1
 
 zb_min = 0.25
@@ -560,175 +506,3 @@ class KinematicConstraints(constraints.StageConstraints):
 
     def hessprod_uu(self, x, u, mu):
         return np.zeros((ndq, ndq))
-
-
-v_cmd = np.array((0.2, 0.0, 0.0))
-
-dt = 0.01
-
-model = ssqpy.model.Model(MPC_H, dt)
-
-com_ref, xb_ref, p_ref = generate_references(
-    v_cmd, init_config, np.zeros(3), 0.0
-)
-
-constr = KinematicConstraints()
-
-stage_costs = []
-for k in range(MPC_H):
-    stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
-
-    cost = KinematicCost(
-        com_ref[k], xb_ref[k], stage_p_ref, init_config[7:], np.zeros(nj)
-    )
-    stage_costs.append(cost)
-
-    model.addCost(k, cost)
-    model.addConstraints(k, constr)
-
-stage_p_ref = {foot: p_ref[foot][MPC_H] for foot in p_ref}
-cost = KinematicCost(
-    com_ref[MPC_H],
-    xb_ref[MPC_H],
-    stage_p_ref,
-    init_config[7:],
-    np.zeros(nj),
-    terminal=True,
-)
-
-model.addCost(MPC_H, cost)
-
-model.finalize(
-    dynamics=[KinematicDynamics() for _ in range(MPC_H + 1)],
-    init_states=[init_config],
-)
-
-custom_properties = ssqpy.model.customProperties()
-custom_properties.nq = nq
-custom_properties.nv = ndq
-custom_properties.nu = ndq
-custom_properties.njoints = nj
-custom_properties.floating_base = True
-custom_properties.ordered_joints = [
-    "FL_hip_joint",
-    "FL_thigh_joint",
-    "FL_calf_joint",
-    "FR_hip_joint",
-    "FR_thigh_joint",
-    "FR_calf_joint",
-    "RL_hip_joint",
-    "RL_thigh_joint",
-    "RL_calf_joint",
-    "RR_hip_joint",
-    "RR_thigh_joint",
-    "RR_calf_joint",
-]
-custom_properties.joint_types = ["revolute"] * 12
-
-model.setCustomProperties(custom_properties)
-
-ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-2
-
-admm_params = ssqpy.solvers.admmParams()
-admm_params.abs_tolerance = 1e-3
-admm_params.rel_tolerance = 1e-3
-admm_params.warm_start = False
-
-ssqp_params.admmParams = admm_params
-
-solver = ssqpy.solvers.ssqp(model, ssqp_params)
-state, x, u = solver.solve()
-print("Solver state:", state)
-solver.write("tmp.json")
-
-
-"""
-# MPC & Simulation
-dt = 0.002
-mpc_dt = 0.1
-
-v_cmd = np.array((0.0, 0.0, 0.0))
-
-model = ssqpy.model.Model(MPC_H, mpc_dt)
-
-com_ref, xb_ref, p_ref = generate_references(
-    v_cmd, init_config, np.zeros(3), 0.0
-)
-
-constr = KinematicConstraints()
-
-stage_costs = []
-for k in range(MPC_H):
-    stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
-
-    cost = KinematicCost(
-        com_ref[k], xb_ref[k], stage_p_ref, init_config[7:], np.zeros(nj)
-    )
-    stage_costs.append(cost)
-
-    model.addCost(k, cost)
-    model.addConstraints(k, constr)
-
-stage_p_ref = {foot: p_ref[foot][MPC_H] for foot in p_ref}
-cost = KinematicCost(
-    com_ref[MPC_H],
-    xb_ref[MPC_H],
-    stage_p_ref,
-    init_config[7:],
-    np.zeros(nj),
-    terminal=True,
-)
-
-model.addCost(MPC_H, cost)
-
-model.finalize(
-    dynamics=[KinematicDynamics() for _ in range(MPC_H + 1)],
-    init_states=[init_config],
-)
-
-ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-2
-
-admm_params = ssqpy.solvers.admmParams()
-admm_params.abs_tolerance = 1e-3
-admm_params.rel_tolerance = 1e-3
-admm_params.warm_start = False
-
-ssqp_params.admmParams = admm_params
-
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
-
-import mujoco
-import mujoco.viewer
-
-mjmodel = mujoco.MjModel.from_xml_path("../../../assets/mjcf/go2/scene.xml")
-mjdata = mujoco.MjData(mjmodel)
-
-mjdata.qpos = init_config.copy()
-mjdata.qpos[3:7] = quat_xyzw_to_wxyz(mjdata.qpos[3:7])
-
-np.set_printoptions(suppress=True)
-
-with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
-    while viewer.is_running():
-        print(f"\rSimulation time: {mjdata.time:.2f}s")
-        frame_start = time()
-
-        new_pos = mjdata.qpos.copy()
-        new_pos[3:7] = quat_wxyz_to_xyzw(new_pos[3:7])
-
-        pre = time()
-
-        mjdata.qpos = mpc.step(new_pos)[0].stage(1)
-
-        elapsed = time() - pre
-
-        print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t")
-
-        mujoco.mj_step(mjmodel, mjdata)
-        viewer.sync()
-
-print()
-
-"""

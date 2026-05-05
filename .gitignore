@@ -1,27 +1,37 @@
+# VSCode folder
 /.vscode/
+
+# Build folder
 /build/*
+
+# Generated data
 /examples/data/*
 /examples/benchmarks/trajgen/data/plots/*
 /examples/benchmarks/trajgen/data/results/*
 /examples/benchmarks/trajgen/data/parameters/*_hpipm_*.json
-/examples/benchmarks/benchmark-venv/*
 /examples/benchmarks/trajgen/pendubot_plots.py
 /examples/benchmarks/mpc/data/*
 /examples/trajgen/data/*
-/examples/visualizer/viser-venv/*
 /examples/real-mpc/plots/*
-/examples/real-mpc/panda/libfrankavenv/*
-/VARIABLES.sh
 /tests/logs/*
-/out.txt
-/nbvenv/*
-/TODO.md
 /examples/python/*.json
-/perf*
+
+# Virtual environments
+/examples/benchmarks/benchmark-venv/*
+/examples/visualizer/viser-venv/*
+/examples/real-mpc/panda/libfrankavenv/*
+/nbvenv/*
 /examples/mujoco-mpc/mujoco-venv/*
 /examples/real-mpc/double_pendulum/candlevenv/*
-/examples/mujoco-mpc/go2/kinematic/pinvenv/*
+/examples/pinvenv/*
 
+# Configuration & other files
+/VARIABLES.sh
+/out.txt
+/TODO.md
+/perf*
+
+# General filenames to always skip
 __pycache__
 out.txt
 test.py
