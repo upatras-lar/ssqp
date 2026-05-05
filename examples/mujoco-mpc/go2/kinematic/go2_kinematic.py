@@ -25,38 +25,38 @@ def yaw_to_Rz(yaw):
     )
 
 
+def quat_mul(q1, q2):
+    x1, y1, z1, w1 = q1
+    x2, y2, z2, w2 = q2
+    return np.array(
+        [
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+        ]
+    )
+
+
+def euler_to_quat(roll, pitch, yaw):
+    cr = np.cos(roll / 2)
+    sr = np.sin(roll / 2)
+    cp = np.cos(pitch / 2)
+    sp = np.sin(pitch / 2)
+    cy = np.cos(yaw / 2)
+    sy = np.sin(yaw / 2)
+
+    x = sr * cp * cy - cr * sp * sy
+    y = cr * sp * cy + sr * cp * sy
+    z = cr * cp * sy - sr * sp * cy
+    w = cr * cp * cy + sr * sp * sy
+
+    return np.array([x, y, z, w])
+
+
 def quat_to_yaw(quat):
     qx, qy, qz, qw = quat
     return np.atan2(2.0 * (qz * qw + qx * qy), -1.0 + 2.0 * (qw**2 + qx**2))
-
-
-def yaw_tangent_jacobian(q, eps=1e-8):
-    """
-    Returns dyaw/d(delta_q) in tangent space.
-
-    Output shape: (ndq,)
-    """
-    J = np.zeros(ndq)
-
-    yaw0 = quat_to_yaw(q[3:7])
-
-    for i in range(ndq):
-        dq = np.zeros(ndq)
-        dq[i] = eps
-
-        q_plus = pin.integrate(pin_model, q, dq)
-
-        yaw_plus = quat_to_yaw(q_plus[3:7])
-
-        # wrap angle difference
-        dyaw = np.arctan2(
-            np.sin(yaw_plus - yaw0),
-            np.cos(yaw_plus - yaw0),
-        )
-
-        J[i] = dyaw / eps
-
-    return J
 
 
 def quat_wxyz_to_xyzw(wxyz):
@@ -100,7 +100,7 @@ init_config[7:] = init_joint_config
 # Contact Scheduler
 # -----------------
 # TODO: parameter values
-T = 120
+T = 100
 beta = 0.4
 
 T_swing = int(beta * T)
@@ -108,10 +108,10 @@ T_stance = T - T_swing
 
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
 hip_to_foot_offsets = {
-    "FL": np.array((0.1934, 0.142, -0.36892682)),
-    "FR": np.array((0.1934, -0.142, -0.36892682)),
-    "RL": np.array((-0.1934, 0.142, -0.36892682)),
-    "RR": np.array((-0.1934, -0.142, -0.36892682)),
+    "FL": np.array((0.4, 0.12, -0.36892682)),
+    "FR": np.array((0.4, -0.12, -0.36892682)),
+    "RL": np.array((0.0, 0.12, -0.36892682)),
+    "RR": np.array((0.0, -0.12, -0.36892682)),
 }
 
 
@@ -133,7 +133,7 @@ def is_swinging(t, phi_0):
 # --------------------
 Kv = 1.0
 Kw = 0.1
-h_sw = 0.4
+h_sw = 0.15
 
 # Last liftoff location for each foot, along with its liftoff time
 pin.forwardKinematics(pin_model, pin_data, init_config)
@@ -172,16 +172,16 @@ def generate_references(v_cmd, config_0, vel_0, t0):
         com_ref.append(com_ref_k)
 
     # Generate base position reference
-    yaw_0 = quat_to_yaw(config_0[3:7])
-    xb_0 = np.hstack((config_0[:3], 0.0, 0.0, yaw_0))
+    xb_0 = config_0[:7]
+    yaw = quat_to_yaw(config_0[3:7])
 
     xb_ref = [xb_0]
     for _ in range(MPC_H):
         # Follow velocity command with base position reference
         p_ref_k = xb_ref[-1][:3] + dt * v_cmd_3
         # Follow angular (yaw) command with rotation angle
-        yaw_ref_k = xb_ref[-1][-1] + dt * wz_cmd
-        xb_ref.append(np.hstack((p_ref_k, 0.0, 0.0, yaw_ref_k)))
+        yaw += dt * wz_cmd
+        xb_ref.append(np.hstack((p_ref_k, euler_to_quat(0.0, 0.0, yaw))))
 
     # Generate feet trajectory references
     pin.forwardKinematics(pin_model, pin_data, config_0)
@@ -207,7 +207,8 @@ def generate_references(v_cmd, config_0, vel_0, t0):
     for k in range(MPC_H):
         t = t0 + k
 
-        Rz = yaw_to_Rz(xb_ref[k][-1])
+        yaw_k = quat_to_yaw(xb_ref[k][3:7])
+        Rz = yaw_to_Rz(yaw_k)
 
         for foot in foot_phases:
             # Use scheduling to check if foot is swinging at step t, and if it
@@ -228,6 +229,7 @@ def generate_references(v_cmd, config_0, vel_0, t0):
             if swapped:
                 # If the foot just swapped from stance to swinging, calculate
                 # the next touchdown time
+                liftoff[foot][1] = t
                 touchdown[foot][1] = t + T_swing - 1
 
             # If the foot is swinging, update the touchdown position for step k
@@ -316,13 +318,15 @@ class KinematicDynamics(dynamics.StageDynamics):
 # ------------------------
 q_c = 1.0
 q_b = 0.5
-q_st = 1.0
-q_sw = 0.01
+q_o = 1.0
+q_st = 100.0
+q_sw = 1.0
 q_q = 1e-2
 q_v = 1e-3
 
 Q_c = q_c * np.eye(3)
-Q_b = q_b * np.eye(6)
+Q_b = q_b * np.eye(3)
+Q_o = q_o * np.eye(3)
 Q_st = q_st * np.eye(3)
 Q_sw = q_sw * np.eye(3)
 Q_q = q_q * np.eye(nq - 7)
@@ -351,9 +355,13 @@ class KinematicCost(costs.StageCost):
         cost += com_error.T @ Q_c @ com_error
 
         # Base Pose tracking cost
-        x_pose = np.hstack((x[:3], 0.0, 0.0, quat_to_yaw(x[3:7])))
-        xb_error = x_pose - self.xb_ref
+        xb_error = x[:3] - self.xb_ref[:3]
         cost += xb_error.T @ Q_b @ xb_error
+
+        q_ref = self.xb_ref[3:7]
+        q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
+        q_error = quat_mul(q_ref_inv, x[3:7])
+        cost += q_o * self.xb_ref[6] * np.dot(q_error[:3], q_error[:3])
 
         pin.forwardKinematics(pin_model, pin_data, x)
         pin.updateFramePlacements(pin_model, pin_data)
@@ -395,14 +403,17 @@ class KinematicCost(costs.StageCost):
         dx += 2.0 * com_jac.T @ Q_c @ com_error
 
         # Base Pose tracking
-        yaw = quat_to_yaw(x[3:7])
-        x_pose = np.hstack((x[:3], 0.0, 0.0, yaw))
-        xb_error = x_pose - self.xb_ref
+        xb_error = x[:3] - self.xb_ref[:3]
 
-        Jxb = np.zeros((6, ndq))
-        Jxb[0:3, 0:3] = np.eye(3)
-        Jxb[5, :] = yaw_tangent_jacobian(x)
+        Jxb = np.zeros((3, ndq))
+        Jxb[:, 0:3] = np.eye(3)
         dx += 2.0 * Jxb.T @ Q_b @ xb_error
+
+        q_ref = self.xb_ref[3:7]
+        q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
+        q_error = quat_mul(q_ref_inv, x[3:7])
+
+        dx[3:7] = q_o * self.xb_ref[6] * np.hstack((q_error[:3], 0.0))
 
         pin.forwardKinematics(pin_model, pin_data, x)
         pin.updateFramePlacements(pin_model, pin_data)
@@ -448,10 +459,15 @@ class KinematicCost(costs.StageCost):
         Hxx += 2.0 * Jcom.T @ Q_c @ Jcom
 
         # Base pose tracking
-        Jxb = np.zeros((6, ndq))
-        Jxb[0:3, 0:3] = np.eye(3)
-        Jxb[5, :] = yaw_tangent_jacobian(x)
+        Jxb = np.zeros((3, ndq))
+        Jxb[:, 0:3] = np.eye(3)
         Hxx += 2.0 * Jxb.T @ Q_b @ Jxb
+
+        J = np.zeros((3, 4))
+        J[:, :3] = np.eye(3)
+
+        H_q = q_o * self.xb_ref[6] * (J.T @ J)
+        Hxx[3:7, 3:7] += H_q
 
         # Foot tracking
         pin.forwardKinematics(pin_model, pin_data, x)
@@ -546,7 +562,7 @@ class KinematicConstraints(constraints.StageConstraints):
         return np.zeros((ndq, ndq))
 
 
-v_cmd = np.array((0.5, 0.0, 0.0))
+v_cmd = np.array((0.2, 0.0, 0.0))
 
 dt = 0.01
 
