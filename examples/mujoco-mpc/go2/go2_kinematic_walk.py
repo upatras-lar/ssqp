@@ -43,10 +43,10 @@ def mujoco_to_ssqp_config(mujoco_config):
     return ssqp_config
 
 
-v_cmd = np.array((-0.02, 0.0, 0.0))
+v_cmd = np.array((0.1, 0.0, 0.0))
 
-MPC_H = 15
-dt = 0.05
+MPC_H = 25
+dt = 0.02
 
 model = ssqpy.model.Model(MPC_H, dt)
 
@@ -54,9 +54,9 @@ com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
     v_cmd, go2_kinematic.init_config, np.zeros(3), 0, 2000, dt
 )
 
+stage_costs = []
 constr = go2_kinematic.KinematicConstraints()
 
-stage_costs = []
 for k in range(MPC_H):
     stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
 
@@ -86,21 +86,21 @@ stage_costs.append(cost)
 model.addCost(MPC_H, cost)
 
 model.finalize(
-    dynamics=[go2_kinematic.KinematicDynamics(dt) for _ in range(MPC_H + 1)],
+    dynamics=[go2_kinematic.Kinematics(dt) for _ in range(MPC_H + 1)],
     init_states=[go2_kinematic.init_config],
 )
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-2
+ssqp_params.tolerance = 1e-1
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.abs_tolerance = 1e-3
-admm_params.rel_tolerance = 1e-3
+admm_params.abs_tolerance = 1e-2
+admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=6, qp_iters=125)
 
 import mujoco
 import mujoco.viewer
@@ -116,7 +116,7 @@ step = 0
 
 ssqpy.setSilentMode()
 
-Kp = 80.0
+Kp = 20.0
 Kv = 2.0 * np.sqrt(Kp)
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
@@ -127,7 +127,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         pos = mujoco_to_ssqp_config(mjdata.qpos)
         vel = ssqp_to_mujoco_vel(mjdata.qvel)
 
-        # pre = time()
+        pre = time()
 
         p, v = mpc.step(pos)
 
@@ -143,7 +143,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             vel[6:] - next_vel[6:]
         )
 
-        # elapsed = time() - pre
+        elapsed = time() - pre
 
         step += 1
         # com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
@@ -160,7 +160,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
                 np.zeros(go2_kinematic.nj),
             )
 
-        # print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t")
+        print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t", end="")
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
