@@ -10,7 +10,7 @@ go2_kinematic.load_model("../../assets/mjcf/go2/go2.xml")
 
 v_cmd = np.array((0.2, 0.0, 0.0))
 
-H = 600
+H = 500
 dt = 0.01
 
 model = ssqpy.model.Model(H, dt)
@@ -19,9 +19,9 @@ com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
     v_cmd, go2_kinematic.init_config, np.zeros(3), 0.0, H, dt
 )
 
+stage_costs = []
 constr = go2_kinematic.KinematicConstraints()
 
-stage_costs = []
 for k in range(H):
     stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
 
@@ -46,11 +46,12 @@ cost = go2_kinematic.KinematicCost(
     np.zeros(go2_kinematic.nj),
     terminal=True,
 )
+stage_costs.append(cost)
 
 model.addCost(H, cost)
 
 model.finalize(
-    dynamics=[go2_kinematic.KinematicDynamics(dt) for _ in range(H + 1)],
+    dynamics=[go2_kinematic.Kinematics(dt) for _ in range(H + 1)],
     init_states=[go2_kinematic.init_config],
 )
 

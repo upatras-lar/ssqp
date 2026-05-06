@@ -46,7 +46,7 @@ init_config[7:] = init_joint_config
 # Contact Scheduling parameters
 # -----------------------------
 T = 100
-beta = 0.2
+beta = 0.3
 
 T_swing = int(beta * T)
 T_stance = T - T_swing
@@ -63,7 +63,7 @@ hip_to_foot_offsets = {
 # --------------------
 Kv = 1.0
 Kw = 0.1
-h_sw = 0.15
+h_sw = 0.35
 
 
 def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
@@ -211,7 +211,7 @@ def is_swinging(t, phi_0):
 
 # Dynamics for Kinematic model
 # ----------------------------
-class KinematicDynamics(dynamics.StageDynamics):
+class Kinematics(dynamics.StageDynamics):
     def __init__(self, dt):
         super().__init__()
         self.dt = dt
