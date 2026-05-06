@@ -45,25 +45,25 @@ init_config[7:] = init_joint_config
 
 # Contact Scheduling parameters
 # -----------------------------
-T = 100
-beta = 0.2
+T = 120
+beta = 0.3
 
 T_swing = int(beta * T)
 T_stance = T - T_swing
 
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
 hip_to_foot_offsets = {
-    "FL": np.array((0.35, 0.13, -0.36892682)),
-    "FR": np.array((0.35, -0.12, -0.36892682)),
-    "RL": np.array((-0.2, 0.12, -0.36892682)),
-    "RR": np.array((-0.2, -0.12, -0.36892682)),
+    "FL": np.array((0.4, 0.08, -0.36892682)),
+    "FR": np.array((0.4, -0.08, -0.36892682)),
+    "RL": np.array((-0.1, 0.08, -0.36892682)),
+    "RR": np.array((-0.1, -0.08, -0.36892682)),
 }
 
 # Reference Generation
 # --------------------
 Kv = 1.0
 Kw = 0.1
-h_sw = 0.25
+h_sw = 0.1
 
 
 def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
@@ -263,10 +263,10 @@ class Kinematics(dynamics.StageDynamics):
 # ------------------------
 q_c = 1.0  # CoM tracking weight
 q_b = 1.0  # Body position tracking weight
-q_o = 1.0  # Orientation tracking weight
-q_st = 100.0  # Stance feet position tracking weight
+q_o = 10.0  # Orientation tracking weight
+q_st = 200.0  # Stance feet position tracking weight
 q_sw = 1.0  # Swing feet position tracking weight
-q_q = 1e-2  # Configuration regularization weight
+q_q = 1e-3  # Configuration regularization weight
 q_v = 1e-3  # Velocity regularization weight
 # TODO: validity check
 q_sp = 10.0  # Support polygon (line segment) CoM weight
