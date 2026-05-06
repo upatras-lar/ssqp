@@ -63,7 +63,7 @@ hip_to_foot_offsets = {
 # --------------------
 Kv = 1.0
 Kw = 0.1
-h_sw = 0.35
+h_sw = 0.25
 
 
 def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
@@ -261,13 +261,16 @@ class Kinematics(dynamics.StageDynamics):
 
 # Cost for Kinematic model
 # ------------------------
-q_c = 1.0
-q_b = 1.0
-q_o = 1.0
-q_st = 100.0
-q_sw = 1.0
-q_q = 1e-2
-q_v = 1e-3
+q_c = 1.0  # CoM tracking weight
+q_b = 1.0  # Body position tracking weight
+q_o = 1.0  # Orientation tracking weight
+q_st = 100.0  # Stance feet position tracking weight
+q_sw = 1.0  # Swing feet position tracking weight
+q_q = 1e-2  # Configuration regularization weight
+q_v = 1e-3  # Velocity regularization weight
+# TODO: validity check
+q_sp = 1.0  # Support polygon (line segment) CoM weight
+l_sigma = 0.5
 
 Q_c = q_c * np.eye(3)
 Q_b = q_b * np.eye(3)
@@ -276,6 +279,7 @@ Q_st = q_st * np.eye(3)
 Q_sw = q_sw * np.eye(3)
 Q_q = q_q * np.eye(nq - 7)
 Q_v = q_v * np.eye(nq - 7)
+Q_sp = q_sp * np.eye(2)
 
 
 class KinematicCost(costs.StageCost):
@@ -334,6 +338,24 @@ class KinematicCost(costs.StageCost):
             vj_error = u[6:ndq] - self.vj_nom
             cost += vj_error.T @ Q_v @ vj_error
 
+        # Find feet that are standing
+        ground_feet = []
+        for foot in frame_names:
+            if not self.p_ref[foot][1]:
+                ground_feet.append(foot)
+
+        # CoM support line segment cost
+        if len(ground_feet) == 2:
+            pf1_xy = feet_pos[ground_feet[0]][:2]
+            pf2_xy = feet_pos[ground_feet[1]][:2]
+
+            l = pf1_xy + l_sigma * (pf2_xy - pf1_xy)
+            com_xy = com[:2]
+
+            com_sp_error = com_xy - l
+
+            cost += com_sp_error.T @ Q_sp @ com_sp_error
+
         return cost
 
     def gradient(self, x, u):
@@ -358,7 +380,7 @@ class KinematicCost(costs.StageCost):
         q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
         q_error = model_utils.quat_mul(q_ref_inv, x[3:7])
 
-        dx[3:7] = q_o * self.xb_ref[6] * np.hstack((q_error[:3], 0.0))
+        dx[3:6] = q_o * self.xb_ref[6] * q_error[:3]
 
         pin.forwardKinematics(pin_model, pin_data, x)
         pin.updateFramePlacements(pin_model, pin_data)
@@ -393,6 +415,28 @@ class KinematicCost(costs.StageCost):
         if not self.terminal:
             vj_error = u[6:ndq] - self.vj_nom
             du[6:ndq] += 2.0 * Q_v @ vj_error
+
+        # Find feet that are standing
+        ground_feet = []
+        for foot in frame_names:
+            if not self.p_ref[foot][1]:
+                ground_feet.append(foot)
+
+        # CoM support line segment cost
+        if len(ground_feet) == 2:
+            pf1_xy = pin_data.oMf[
+                pin_model.getFrameId(frame_names[ground_feet[0]])
+            ].translation[:2]
+            pf2_xy = pin_data.oMf[
+                pin_model.getFrameId(frame_names[ground_feet[1]])
+            ].translation[:2]
+
+            l = pf1_xy + l_sigma * (pf2_xy - pf1_xy)
+            com_xy = com[:2]
+
+            com_sp_error = com_xy - l
+
+            dx += 2.0 * com_jac[:2, :].T @ Q_sp @ com_sp_error
 
         return dx, du
 
@@ -438,6 +482,16 @@ class KinematicCost(costs.StageCost):
 
         # Joint posture regularization
         Hxx[6:ndq, 6:ndq] += 2.0 * Q_q
+
+        # Find feet that are standing
+        ground_feet = []
+        for foot in frame_names:
+            if not self.p_ref[foot][1]:
+                ground_feet.append(foot)
+
+        # CoM support line segment cost
+        if len(ground_feet) == 2:
+            Hxx += 2.0 * Jcom[:2, :].T @ Q_sp @ Jcom[:2, :]
 
         return Hxx
 

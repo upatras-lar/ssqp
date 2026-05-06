@@ -43,9 +43,9 @@ def mujoco_to_ssqp_config(mujoco_config):
     return ssqp_config
 
 
-v_cmd = np.array((0.1, 0.0, 0.0))
+v_cmd = np.array((0.05, 0.0, 0.0))
 
-MPC_H = 25
+MPC_H = 20
 dt = 0.02
 
 model = ssqpy.model.Model(MPC_H, dt)
