@@ -1,6 +1,8 @@
 import ssqpy
 import numpy as np
 from time import time
+from go2_controllers.JointSpacePD import KinematicJointSpacePD
+
 import sys
 
 sys.path.insert(0, "../../models")
@@ -8,6 +10,8 @@ sys.path.insert(0, "../../models")
 import go2_kinematic
 
 go2_kinematic.load_model("../../assets/mjcf/go2/go2.xml")
+
+ssqpy.setSilentMode()
 
 
 def ssqp_to_mujoco_config(ssqp_config):
@@ -43,7 +47,7 @@ def mujoco_to_ssqp_config(mujoco_config):
     return ssqp_config
 
 
-v_cmd = np.array((0.05, 0.0, 0.0))
+v_cmd = np.array((0.1, 0.0, 0.0))
 
 MPC_H = 20
 dt = 0.02
@@ -51,7 +55,7 @@ dt = 0.02
 model = ssqpy.model.Model(MPC_H, dt)
 
 com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
-    v_cmd, go2_kinematic.init_config, np.zeros(3), 0, 2000, dt
+    v_cmd, go2_kinematic.init_config, np.zeros(3), 0, 10000, dt
 )
 
 stage_costs = []
@@ -91,16 +95,16 @@ model.finalize(
 )
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-1
+ssqp_params.tolerance = 1e-2
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.abs_tolerance = 1e-2
-admm_params.rel_tolerance = 1e-2
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
 admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=6, qp_iters=125)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=6, qp_iters=100)
 
 import mujoco
 import mujoco.viewer
@@ -112,12 +116,25 @@ mjdata.qpos = ssqp_to_mujoco_config(go2_kinematic.init_config)
 
 np.set_printoptions(suppress=True)
 
-step = 0
 
-ssqpy.setSilentMode()
+def update_func(step):
+    for k, cost in enumerate(stage_costs):
+        stage_p_ref = {foot: p_ref[foot][step + k] for foot in p_ref}
+        cost.update_references(
+            com_ref[step + k],
+            xb_ref[step + k],
+            stage_p_ref,
+            go2_kinematic.init_config[7:],
+            np.zeros(go2_kinematic.nj),
+        )
+
 
 Kp = 20.0
 Kv = 2.0 * np.sqrt(Kp)
+
+joint_space_pd_controller = KinematicJointSpacePD(
+    mpc, go2_kinematic.init_config, Kp=Kp, Kd=Kv, update_func=update_func
+)
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
@@ -129,36 +146,27 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         pre = time()
 
-        p, v = mpc.step(pos)
+        # p, v = mpc.step(pos)
 
-        next_pos = p.stage(1)
-        next_vel = v.stage(0)
+        # next_pos = p.stage(1)
+        # next_vel = v.stage(0)
 
         # mjdata.qpos = next_pos
         # mjdata.qpos[3:7] = go2_kinematic.model_utils.quat_xyzw_to_wxyz(
         #     mjdata.qpos[3:7]
         # )
 
-        mjdata.ctrl = -Kp * (pos[7:] - next_pos[7:]) - Kv * (
-            vel[6:] - next_vel[6:]
-        )
+        mjdata.ctrl = joint_space_pd_controller.step(pos, vel)
+
+        # mjdata.ctrl = -Kp * (pos[7:] - next_pos[7:]) - Kv * (
+        #     vel[6:] - next_vel[6:]
+        # )
 
         elapsed = time() - pre
 
-        step += 1
         # com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
         #     v_cmd, mjpos, np.hstack((mjvel[:2], mjvel[5])), step, MPC_H, dt
         # )
-
-        for k, cost in enumerate(stage_costs):
-            stage_p_ref = {foot: p_ref[foot][step + k] for foot in p_ref}
-            cost.update_references(
-                com_ref[step + k],
-                xb_ref[step + k],
-                stage_p_ref,
-                go2_kinematic.init_config[7:],
-                np.zeros(go2_kinematic.nj),
-            )
 
         print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t", end="")
 

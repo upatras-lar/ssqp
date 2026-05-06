@@ -46,17 +46,17 @@ init_config[7:] = init_joint_config
 # Contact Scheduling parameters
 # -----------------------------
 T = 100
-beta = 0.3
+beta = 0.2
 
 T_swing = int(beta * T)
 T_stance = T - T_swing
 
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
 hip_to_foot_offsets = {
-    "FL": np.array((0.4, 0.12, -0.36892682)),
-    "FR": np.array((0.4, -0.12, -0.36892682)),
-    "RL": np.array((0.0, 0.12, -0.36892682)),
-    "RR": np.array((0.0, -0.12, -0.36892682)),
+    "FL": np.array((0.35, 0.13, -0.36892682)),
+    "FR": np.array((0.35, -0.12, -0.36892682)),
+    "RL": np.array((-0.2, 0.12, -0.36892682)),
+    "RR": np.array((-0.2, -0.12, -0.36892682)),
 }
 
 # Reference Generation
@@ -269,7 +269,7 @@ q_sw = 1.0  # Swing feet position tracking weight
 q_q = 1e-2  # Configuration regularization weight
 q_v = 1e-3  # Velocity regularization weight
 # TODO: validity check
-q_sp = 1.0  # Support polygon (line segment) CoM weight
+q_sp = 10.0  # Support polygon (line segment) CoM weight
 l_sigma = 0.5
 
 Q_c = q_c * np.eye(3)
@@ -380,7 +380,7 @@ class KinematicCost(costs.StageCost):
         q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
         q_error = model_utils.quat_mul(q_ref_inv, x[3:7])
 
-        dx[3:6] = q_o * self.xb_ref[6] * q_error[:3]
+        dx[3:6] += q_o * self.xb_ref[6] * q_error[:3]
 
         pin.forwardKinematics(pin_model, pin_data, x)
         pin.updateFramePlacements(pin_model, pin_data)
@@ -424,19 +424,38 @@ class KinematicCost(costs.StageCost):
 
         # CoM support line segment cost
         if len(ground_feet) == 2:
-            pf1_xy = pin_data.oMf[
-                pin_model.getFrameId(frame_names[ground_feet[0]])
-            ].translation[:2]
-            pf2_xy = pin_data.oMf[
-                pin_model.getFrameId(frame_names[ground_feet[1]])
-            ].translation[:2]
+            frame1 = pin_model.getFrameId(frame_names[ground_feet[0]])
+            frame2 = pin_model.getFrameId(frame_names[ground_feet[1]])
+
+            pf1_xy = pin_data.oMf[frame1].translation[:2]
+            pf2_xy = pin_data.oMf[frame2].translation[:2]
 
             l = pf1_xy + l_sigma * (pf2_xy - pf1_xy)
-            com_xy = com[:2]
 
+            com_xy = com[:2]
             com_sp_error = com_xy - l
 
-            dx += 2.0 * com_jac[:2, :].T @ Q_sp @ com_sp_error
+            Jf1 = pin.computeFrameJacobian(
+                pin_model,
+                pin_data,
+                x,
+                frame1,
+                pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
+            )[:2, :]
+
+            Jf2 = pin.computeFrameJacobian(
+                pin_model,
+                pin_data,
+                x,
+                frame2,
+                pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
+            )[:2, :]
+
+            Jl = (1.0 - l_sigma) * Jf1 + l_sigma * Jf2
+
+            Je = com_jac[:2, :] - Jl
+
+            dx += 2.0 * Je.T @ Q_sp @ com_sp_error
 
         return dx, du
 
@@ -491,7 +510,29 @@ class KinematicCost(costs.StageCost):
 
         # CoM support line segment cost
         if len(ground_feet) == 2:
-            Hxx += 2.0 * Jcom[:2, :].T @ Q_sp @ Jcom[:2, :]
+            frame1 = pin_model.getFrameId(frame_names[ground_feet[0]])
+            frame2 = pin_model.getFrameId(frame_names[ground_feet[1]])
+
+            Jf1 = pin.computeFrameJacobian(
+                pin_model,
+                pin_data,
+                x,
+                frame1,
+                pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
+            )[:2, :]
+
+            Jf2 = pin.computeFrameJacobian(
+                pin_model,
+                pin_data,
+                x,
+                frame2,
+                pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
+            )[:2, :]
+
+            Jl = (1.0 - l_sigma) * Jf1 + l_sigma * Jf2
+            Je = Jcom[:2, :] - Jl
+
+            Hxx += 2.0 * Je.T @ Q_sp @ Je
 
         return Hxx
 
