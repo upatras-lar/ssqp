@@ -49,7 +49,7 @@ def mujoco_to_ssqp_config(mujoco_config):
 
 v_cmd = np.array((0.1, 0.0, 0.0))
 
-MPC_H = 20
+MPC_H = 15
 dt = 0.02
 
 model = ssqpy.model.Model(MPC_H, dt)
@@ -129,7 +129,7 @@ def update_func(step):
         )
 
 
-Kp = 20.0
+Kp = 40.0
 Kv = 2.0 * np.sqrt(Kp)
 
 joint_space_pd_controller = KinematicJointSpacePD(
@@ -146,21 +146,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         pre = time()
 
-        # p, v = mpc.step(pos)
-
-        # next_pos = p.stage(1)
-        # next_vel = v.stage(0)
-
-        # mjdata.qpos = next_pos
-        # mjdata.qpos[3:7] = go2_kinematic.model_utils.quat_xyzw_to_wxyz(
-        #     mjdata.qpos[3:7]
-        # )
-
         mjdata.ctrl = joint_space_pd_controller.step(pos, vel)
-
-        # mjdata.ctrl = -Kp * (pos[7:] - next_pos[7:]) - Kv * (
-        #     vel[6:] - next_vel[6:]
-        # )
 
         elapsed = time() - pre
 
