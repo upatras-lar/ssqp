@@ -39,10 +39,7 @@ class JointSpacePD:
                 - state[7:19]
             )
             + self.Kd
-            * (
-                self.last_mpc_sol[0][self.mpc_traj_offset + 1][25:]
-                - state[25:]
-            )
+            * (self.last_mpc_sol[0][self.mpc_traj_offset][25:] - state[25:])
         )
 
         # if self.mpc_traj_offset < len(self.last_mpc_sol[1]) - 1:
@@ -68,7 +65,7 @@ class KinematicJointSpacePD:
         init_state,
         Kp=1.0,
         Kd=0.01,
-        update_func=lambda _: None,
+        update_func=lambda _1, _2, _3: None,
     ):
         self.mpc_controller = mpc_controller
         self.Kp = Kp
@@ -79,7 +76,7 @@ class KinematicJointSpacePD:
         self.mpc_traj_offset = 0
 
         self.state_q = multiprocessing.Queue()
-        self.state_q.put(init_state)
+        self.state_q.put((init_state, np.zeros(6)))
 
         self.mpc_q = multiprocessing.Queue()
         self.mpc_proc = multiprocessing.Process(
@@ -88,7 +85,7 @@ class KinematicJointSpacePD:
         self.mpc_proc.start()
 
     def step(self, state, vel):
-        self.state_q.put(state)
+        self.state_q.put((state, vel))
 
         while self.last_mpc_sol is None and self.mpc_q.empty():
             sleep(0.1)
@@ -100,22 +97,28 @@ class KinematicJointSpacePD:
         control = self.Kp * (
             self.last_mpc_sol[0][self.mpc_traj_offset + 1][7:19] - state[7:19]
         ) + self.Kd * (
-            self.last_mpc_sol[1][self.mpc_traj_offset + 1][6:] - vel[6:]
+            self.last_mpc_sol[1][self.mpc_traj_offset][6:] - vel[6:]
         )
 
         return control
 
     def _run_mpc(self):
         step = 0
+
         while True:
             try:
+                while self.state_q.empty():
+                    sleep(0.01)
+
                 while not self.state_q.empty():
-                    state = self.state_q.get()
+                    state, vel = self.state_q.get()
+
+                step += 1
+                self.update_func(state, vel, step)
+
                 next = [x.toarray() for x in self.mpc_controller.step(state)]
                 self.mpc_q.put(next)
 
-                step += 1
-                self.update_func(step)
-
-            except:
+            except Exception as exc:
+                print(exc)
                 sleep(0.01)

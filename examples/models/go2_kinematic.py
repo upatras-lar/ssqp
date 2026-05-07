@@ -45,18 +45,18 @@ init_config[7:] = init_joint_config
 
 # Contact Scheduling parameters
 # -----------------------------
-T = 120
-beta = 0.3
+T = 30
+beta = 0.5
 
 T_swing = int(beta * T)
 T_stance = T - T_swing
 
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
 hip_to_foot_offsets = {
-    "FL": np.array((0.4, 0.08, -0.36892682)),
-    "FR": np.array((0.4, -0.08, -0.36892682)),
-    "RL": np.array((-0.1, 0.08, -0.36892682)),
-    "RR": np.array((-0.1, -0.08, -0.36892682)),
+    "FL": np.array((0.4, 0.12, -0.36892682)),
+    "FR": np.array((0.4, -0.12, -0.36892682)),
+    "RL": np.array((-0.1, 0.12, -0.36892682)),
+    "RR": np.array((-0.1, -0.12, -0.36892682)),
 }
 
 # Reference Generation
@@ -64,6 +64,147 @@ hip_to_foot_offsets = {
 Kv = 1.0
 Kw = 0.1
 h_sw = 0.1
+
+
+class ReferenceState:
+    initialized = False
+
+    # Persistent swing state
+    was_swinging = {}
+    swing_start_step = {}
+
+    # Frozen swing endpoints
+    liftoff = {}
+    touchdown = {}
+
+    # Persistent stance footholds
+    stance_position = {}
+
+
+class ReferenceState:
+    initialized = False
+
+    liftoff = {}
+    touchdown = {}
+
+
+def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
+    pin.forwardKinematics(pin_model, pin_data, config_0)
+    pin.updateFramePlacements(pin_model, pin_data)
+
+    if not ReferenceState.initialized:
+        ReferenceState.liftoff = {
+            foot: pin_data.oMf[
+                pin_model.getFrameId(frame_names[foot])
+            ].translation.copy()
+            for foot in foot_phases
+        }
+        ReferenceState.touchdown = {
+            foot: ReferenceState.liftoff[foot].copy() for foot in foot_phases
+        }
+
+        ReferenceState.initialized = True
+
+    # Local copies
+    liftoff = {f: v.copy() for f, v in ReferenceState.liftoff.items()}
+    touchdown = {f: v.copy() for f, v in ReferenceState.touchdown.items()}
+
+    # Actual initial velocity for x/y and yaw
+    vel_0_3 = np.hstack((vel_0[:2], 0.0))
+    wz_0 = vel_0[2]
+
+    # Commanded velocity for x/y and yaw
+    v_cmd_3 = np.hstack((v_cmd[:2], 0.0))
+    wz_cmd = v_cmd[2]
+
+    # CoM reference
+    # -------------
+    com_0 = pin.centerOfMass(pin_model, pin_data, config_0)
+    com_ref = [com_0]
+    for _ in range(H):
+        com_ref.append(com_ref[-1] + dt * v_cmd_3)
+
+    # Base pose reference
+    # -------------------
+    xb_0 = config_0[:7]
+    yaw = model_utils.quat_to_yaw(config_0[3:7])
+    xb_ref = [xb_0]
+    for _ in range(H):
+        p_ref_k = xb_ref[-1][:3] + dt * v_cmd_3
+        yaw += dt * wz_cmd
+        xb_ref.append(
+            np.hstack((p_ref_k, model_utils.euler_to_quat(0.0, 0.0, yaw)))
+        )
+
+    # Foot trajectory references
+    # --------------------------
+    p_ref = {
+        foot: [
+            [
+                pin_data.oMf[
+                    pin_model.getFrameId(frame_names[foot])
+                ].translation.copy(),
+                is_swinging(k0, foot_phases[foot])[0],
+            ]
+        ]
+        for foot in foot_phases
+    }
+
+    for k in range(H):
+        t = k0 + k
+
+        yaw_k = model_utils.quat_to_yaw(xb_ref[k][3:7])
+        Rz = model_utils.yaw_to_Rz(yaw_k)
+
+        for foot in foot_phases:
+            swing_at_t, swapped = is_swinging(t, foot_phases[foot])
+
+            if not swing_at_t:
+                if swapped:
+                    # Foot just landed – freeze its position
+                    liftoff[foot] = touchdown[foot].copy()
+                p_ref[foot].append([liftoff[foot].copy(), False])
+                continue
+
+            # Update predicted touchdown for this swing
+            touchdown[foot] = (
+                com_ref[k]
+                + Rz @ hip_to_foot_offsets[foot]
+                + T_stance / 2 * vel_0_3
+                + Kv * (vel_0_3 - v_cmd_3)
+                + Kw
+                * (wz_0 - wz_cmd)
+                * Rz
+                @ np.array(
+                    (
+                        -hip_to_foot_offsets[foot][1],
+                        hip_to_foot_offsets[foot][0],
+                        0.0,
+                    )
+                )
+            )
+
+            # Normalized swing phase
+            phi = (t / T + foot_phases[foot]) % 1
+            phi_sw = phi / beta
+
+            swing_alpha = 3 * phi_sw**2 - 2 * phi_sw**3
+
+            p_ref_k = (1 - swing_alpha) * liftoff[
+                foot
+            ] + swing_alpha * touchdown[foot]
+            p_ref_k[2] += 4 * h_sw * phi_sw * (1 - phi_sw)
+
+            p_ref[foot].append([p_ref_k, True])
+
+        if k == 0:
+            ReferenceState.liftoff = {f: v.copy() for f, v in liftoff.items()}
+            ReferenceState.touchdown = {
+                f: v.copy() for f, v in touchdown.items()
+            }
+
+    # Return the advanced foot state so the caller can thread it forward
+    return com_ref, xb_ref, p_ref
 
 
 def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
@@ -79,7 +220,7 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
     }
 
     # Next touchdown location for each foot, along with its touchdown time
-    touchdown = {foot: liftoff[foot].copy() for foot in liftoff}
+    touchdown = {foot: liftoff[foot].copy() for foot in foot_phases}
 
     # Actual initial velocity for x and y axes, and angular (yaw)
     vel_0_3 = np.hstack((vel_0[:2], 0.0))
@@ -122,14 +263,14 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
                 pin_data.oMf[
                     pin_model.getFrameId(frame_names[foot])
                 ].translation.copy(),
-                0,
+                False,
             ]
         ]
         for foot in foot_phases
     }
 
-    p_ref["FL"][0][1] = 1
-    p_ref["RR"][0][1] = 1
+    p_ref["FL"][0][1] = True
+    p_ref["RR"][0][1] = True
 
     for k in range(H):
         t = k0 + k
@@ -149,7 +290,7 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
                     liftoff[foot] = touchdown[foot].copy()
 
                 # Keep the stance position as this step's reference
-                p_ref[foot].append([liftoff[foot].copy(), 0])
+                p_ref[foot].append([liftoff[foot].copy(), False])
                 continue
 
             # If the foot is swinging, update the touchdown position for step k
@@ -186,7 +327,7 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt):
             # For z reference, also add a height according to phase
             p_ref_k[2] += 4 * h_sw * phi_sw * (1 - phi_sw)
 
-            p_ref[foot].append([p_ref_k, 1])
+            p_ref[foot].append([p_ref_k, True])
 
     return com_ref, xb_ref, p_ref
 
@@ -265,11 +406,11 @@ q_c = 1.0  # CoM tracking weight
 q_b = 1.0  # Body position tracking weight
 q_o = 10.0  # Orientation tracking weight
 q_st = 200.0  # Stance feet position tracking weight
-q_sw = 1.0  # Swing feet position tracking weight
+q_sw = 10.0  # Swing feet position tracking weight
 q_q = 1e-3  # Configuration regularization weight
 q_v = 1e-3  # Velocity regularization weight
 # TODO: validity check
-q_sp = 10.0  # Support polygon (line segment) CoM weight
+q_sp = 50.0  # Support polygon (line segment) CoM weight
 l_sigma = 0.5
 
 Q_c = q_c * np.eye(3)
