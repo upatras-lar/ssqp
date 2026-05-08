@@ -45,7 +45,7 @@ init_config[7:] = init_joint_config
 
 # Contact Scheduling parameters
 # -----------------------------
-T = 30
+T = 20
 beta = 0.5
 
 T_swing = int(beta * T)
@@ -53,10 +53,10 @@ T_stance = T - T_swing
 
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
 hip_to_foot_offsets = {
-    "FL": np.array((0.4, 0.12, -0.36892682)),
-    "FR": np.array((0.4, -0.12, -0.36892682)),
-    "RL": np.array((-0.1, 0.12, -0.36892682)),
-    "RR": np.array((-0.1, -0.12, -0.36892682)),
+    "FL": np.array((0.2, 0.12, -0.36892682)),
+    "FR": np.array((0.2, -0.12, -0.36892682)),
+    "RL": np.array((-0.2, 0.12, -0.36892682)),
+    "RR": np.array((-0.2, -0.12, -0.36892682)),
 }
 
 # Reference Generation
@@ -64,21 +64,6 @@ hip_to_foot_offsets = {
 Kv = 1.0
 Kw = 0.1
 h_sw = 0.1
-
-
-class ReferenceState:
-    initialized = False
-
-    # Persistent swing state
-    was_swinging = {}
-    swing_start_step = {}
-
-    # Frozen swing endpoints
-    liftoff = {}
-    touchdown = {}
-
-    # Persistent stance footholds
-    stance_position = {}
 
 
 class ReferenceState:
@@ -167,22 +152,23 @@ def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
                 continue
 
             # Update predicted touchdown for this swing
-            touchdown[foot] = (
-                com_ref[k]
-                + Rz @ hip_to_foot_offsets[foot]
-                + T_stance / 2 * vel_0_3
-                + Kv * (vel_0_3 - v_cmd_3)
-                + Kw
-                * (wz_0 - wz_cmd)
-                * Rz
-                @ np.array(
-                    (
-                        -hip_to_foot_offsets[foot][1],
-                        hip_to_foot_offsets[foot][0],
-                        0.0,
+            if swapped:
+                touchdown[foot] = (
+                    com_ref[k]
+                    + Rz @ hip_to_foot_offsets[foot]
+                    - Rz @ (Kv * (vel_0_3 - v_cmd_3))
+                    + Kw
+                    * (wz_0 - wz_cmd)
+                    * Rz
+                    @ np.array(
+                        (
+                            -hip_to_foot_offsets[foot][1],
+                            hip_to_foot_offsets[foot][0],
+                            0.0,
+                        )
                     )
                 )
-            )
+                touchdown[foot][2] = -0.0002611
 
             # Normalized swing phase
             phi = (t / T + foot_phases[foot]) % 1
@@ -203,7 +189,6 @@ def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
                 f: v.copy() for f, v in touchdown.items()
             }
 
-    # Return the advanced foot state so the caller can thread it forward
     return com_ref, xb_ref, p_ref
 
 

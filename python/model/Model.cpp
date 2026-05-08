@@ -515,6 +515,40 @@ void bind_Model(nb::module_ &m)
         [](Model &self) { return self.terrain(); },
         "Get the model's terrain.")
       .def(
+        "setInitState",
+        [](Model &self, const uint k, const VecX &init_state)
+        {
+            if (!self.finalized())
+            {
+                throw std::runtime_error("Model is not finalized");
+            }
+            if (init_state.size() != self.dynamics()[k]->state_size())
+            {
+                throw std::runtime_error("Invalid initial state size");
+            }
+            self.setInitState(k, init_state);
+        },
+        nb::arg("k"),
+        nb::arg("init_state"),
+        "Set initial state for stage k (must be finalized)")
+      .def(
+        "setInitControl",
+        [](Model &self, const uint k, const VecX &init_control)
+        {
+            if (!self.finalized())
+            {
+                throw std::runtime_error("Model is not finalized");
+            }
+            if (init_control.size() != self.dynamics()[k]->control_size())
+            {
+                throw std::runtime_error("Invalid initial controls size");
+            }
+            self.setInitControl(k, init_control);
+        },
+        nb::arg("k"),
+        nb::arg("init_state"),
+        "Set initial state for stage k (must be finalized)")
+      .def(
         "addForce",
         [](Model &self, const uint k, const std::string &frame)
         {

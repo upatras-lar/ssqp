@@ -2,6 +2,12 @@ import ssqpy
 import numpy as np
 import time
 from go2_controllers.JointSpacePD import KinematicJointSpacePD
+from utils_go2_mujoco import (
+    ssqp_to_mujoco_state_kin,
+    ssqp_to_mujoco_vel_kin,
+    ssqp_to_mujoco_ctrl_kin,
+    mujoco_to_ssqp_state_kin,
+)
 
 import sys
 
@@ -13,50 +19,7 @@ go2_kinematic.load_model("../../assets/mjcf/go2/go2.xml")
 
 ssqpy.setSilentMode()
 
-
-def ssqp_to_mujoco_config(ssqp_config):
-    mujoco_config = ssqp_config.copy()
-    mujoco_config[3:7] = go2_kinematic.model_utils.quat_xyzw_to_wxyz(
-        ssqp_config[3:7]
-    )
-    mujoco_config[7:10] = ssqp_config[10:13]
-    mujoco_config[10:13] = ssqp_config[7:10]
-    mujoco_config[13:16] = ssqp_config[16:19]
-    mujoco_config[16:19] = ssqp_config[13:16]
-    return mujoco_config
-
-
-def ssqp_to_mujoco_vel(ssqp_vel):
-    mujoco_vel = ssqp_vel.copy()
-    mujoco_vel[6:9] = ssqp_vel[9:12]
-    mujoco_vel[9:12] = ssqp_vel[6:9]
-    mujoco_vel[12:15] = ssqp_vel[15:18]
-    mujoco_vel[15:18] = ssqp_vel[12:15]
-    return mujoco_vel
-
-
-def ssqp_to_mujoco_ctrl(ssqp_ctrl):
-    mujoco_ctrl = ssqp_ctrl.copy()
-    # mujoco_ctrl[:3] = ssqp_ctrl[3:6]
-    # mujoco_ctrl[3:6] = ssqp_ctrl[:3]
-    # mujoco_ctrl[6:9] = ssqp_ctrl[9:]
-    # mujoco_ctrl[9:] = ssqp_ctrl[6:9]
-    return mujoco_ctrl
-
-
-def mujoco_to_ssqp_config(mujoco_config):
-    ssqp_config = mujoco_config.copy()
-    ssqp_config[3:7] = go2_kinematic.model_utils.quat_wxyz_to_xyzw(
-        mujoco_config[3:7]
-    )
-    ssqp_config[7:10] = mujoco_config[10:13]
-    ssqp_config[10:13] = mujoco_config[7:10]
-    ssqp_config[13:16] = mujoco_config[16:19]
-    ssqp_config[16:19] = mujoco_config[13:16]
-    return ssqp_config
-
-
-v_cmd = np.array((0.6, 0.2, 0.0))
+v_cmd = np.array((0.1, 0.1, 0.0))
 
 MPC_H = 15
 dt = 0.02
@@ -121,16 +84,15 @@ import mujoco.viewer
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
-mjdata.qpos = ssqp_to_mujoco_config(go2_kinematic.init_config)
+mjdata.qpos = ssqp_to_mujoco_state_kin(go2_kinematic.init_config)
 
 np.set_printoptions(suppress=True)
 
 
 def update_func(config, vel, step):
     vel_3 = np.hstack((vel[:2], vel[5]))
-    # TODO: velocity?
     com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
-        v_cmd, config, np.zeros(3), step, MPC_H, dt
+        v_cmd, config, vel_3, step, MPC_H, dt
     )
 
     for k, cost in enumerate(stage_costs):
@@ -143,35 +105,52 @@ def update_func(config, vel, step):
             np.zeros(go2_kinematic.nj),
         )
 
+    model.setInitState(0, config)
 
-Kp = 40.0
+
+Kp = 60.0
 Kv = 2.0 * np.sqrt(Kp)
 
 joint_space_pd_controller = KinematicJointSpacePD(
     mpc, go2_kinematic.init_config, Kp=Kp, Kd=Kv, update_func=update_func
 )
 
+mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]
+step = 0
+
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         # print(f"\rSimulation time: {mjdata.time:.2f}s")
         # frame_start = time.time()
 
-        pos = mujoco_to_ssqp_config(mjdata.qpos)
-        vel = ssqp_to_mujoco_vel(mjdata.qvel)
+        pos = mujoco_to_ssqp_state_kin(mjdata.qpos)
+        vel = ssqp_to_mujoco_vel_kin(mjdata.qvel)
 
         pre = time.time()
 
-        mjdata.ctrl = ssqp_to_mujoco_ctrl(
-            joint_space_pd_controller.step(pos, vel)
-        )
+        mjdata.qpos = ssqp_to_mujoco_state_kin(mpc.step(pos)[0].stage(1))
+
+        # mjdata.ctrl = ssqp_to_mujoco_ctrl_kin(
+        #     joint_space_pd_controller.step(pos, vel)
+        # )
+
+        # mpc_pos, mpc_vel = mpc.step(pos)
+
+        # mjdata.ctrl = ssqp_to_mujoco_ctrl_kin(
+        #     Kp * (mpc_pos.stage(1)[7:] - pos[7:])
+        #     + Kv * (mpc_vel.stage(1)[6:] - vel[6:])
+        # )
 
         elapsed = time.time() - pre
+
+        step += 1
+        update_func(pos, vel, step)
 
         # print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t", end="")
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 
-        time.sleep(0.001)
+        # time.sleep(0.01)
 
 print()

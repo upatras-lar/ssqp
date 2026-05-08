@@ -15,7 +15,7 @@ dt = 0.01
 
 model = ssqpy.model.Model(H, dt)
 
-com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
+com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
     v_cmd, go2_kinematic.init_config, np.zeros(3), 0.0, H, dt
 )
 
@@ -89,7 +89,33 @@ admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
+step = 0
 solver = ssqpy.solvers.ssqp(model, ssqp_params)
 state, x, u = solver.solve()
 print("Solver state:", state)
 solver.write("../data/go2_kinematic_walk.json")
+
+"""        
+config = x.stage(1)
+vel = u.stage(0)
+step += 1
+
+vel_3 = np.hstack((vel[:2], vel[5]))
+com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
+    v_cmd, config, np.zeros(3), step, H, dt
+)
+
+for k, cost in enumerate(stage_costs):
+    stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
+    cost.update_references(
+        com_ref[k],
+        xb_ref[k],
+        stage_p_ref,
+        go2_kinematic.init_config[7:],
+        np.zeros(go2_kinematic.nj),
+    )
+
+model.setInitState(0, config)
+
+input()
+"""
