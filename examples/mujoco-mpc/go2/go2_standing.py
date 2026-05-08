@@ -3,22 +3,9 @@ import mujoco.viewer
 import ssqpy
 import numpy as np
 from time import time, sleep
+from utils_go2_mujoco import quat_wxyz_to_xyzw, quat_xyzw_to_wxyz
 
 ssqpy.setSilentMode()
-
-
-def quat_wxyz_to_xyzw(wxyz):
-    xyzw = np.zeros(4)
-    xyzw[:3] = wxyz[1:]
-    xyzw[3] = wxyz[0]
-    return xyzw
-
-
-def quat_xyzw_to_wxyz(xyzw):
-    wxyz = np.zeros(4)
-    wxyz[0] = xyzw[3]
-    wxyz[1:] = xyzw[:3]
-    return wxyz
 
 
 dt = 0.002
