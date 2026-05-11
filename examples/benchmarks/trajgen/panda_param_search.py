@@ -4,10 +4,10 @@ import generate_paramset
 import generate_panda_problems
 
 
-def paramsearch_panda(dynamics_mode=ssqpy.model.DynamicsMode.Inverse):
+def paramsearch_panda(dynamics_mode=ssqpy.model.SolverMode.InverseDynamics):
     dynamics_mode_str = (
         "forward"
-        if dynamics_mode == ssqpy.model.DynamicsMode.Forward
+        if dynamics_mode == ssqpy.model.SolverMode.ForwardDynamics
         else "inverse"
     )
 
@@ -69,13 +69,13 @@ if __name__ == "__main__":
     # Inverse Dynamics
     H_inv = multiprocessing.Process(
         target=paramsearch_panda,
-        args=(ssqpy.model.DynamicsMode.Inverse,),
+        args=(ssqpy.model.SolverMode.InverseDynamics,),
     )
 
     # Forward Dynamics
     H_fwd = multiprocessing.Process(
         target=paramsearch_panda,
-        args=(ssqpy.model.DynamicsMode.Forward,),
+        args=(ssqpy.model.SolverMode.ForwardDynamics,),
     )
 
     H_inv.start()

@@ -25,10 +25,10 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
-    dynamics_mode=(
-        ssqpy.model.DynamicsMode.Inverse
+    solver_mode=(
+        ssqpy.model.SolverMode.InverseDynamics
         if INVERSE_MODE
-        else ssqpy.model.DynamicsMode.Forward
+        else ssqpy.model.SolverMode.ForwardDynamics
     ),
 )
 

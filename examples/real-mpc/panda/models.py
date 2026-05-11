@@ -30,7 +30,7 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
         MPC_H,
         dt,
         urdf_path="../../assets/urdf/panda/panda.urdf",
-        dynamics_mod=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     nq = model.getnq()
@@ -98,7 +98,7 @@ def get_reset_model(dynamics_mode):
         MPC_H,
         dt,
         urdf_path="../../assets/urdf/panda/panda.urdf",
-        dynamics_mod=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     nq = model.getnq()
@@ -180,7 +180,7 @@ def get_circle_model(dynamics_mode, constrain=False):
         MPC_H,
         MPC_dt,
         urdf_path="../../assets/urdf/panda/panda.urdf",
-        dynamics_mod=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     nq = model.getnq()
@@ -309,7 +309,7 @@ def get_sequence_model(dynamics_mode, constrain=False):
         MPC_H,
         MPC_dt,
         urdf_path="../../assets/urdf/panda/panda.urdf",
-        dynamics_mod=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     nq = model.getnq()

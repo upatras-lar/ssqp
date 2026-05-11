@@ -44,7 +44,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/a1/a1.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.ReducedInverse,
+    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()

@@ -18,14 +18,14 @@ U_WGT = 1e-4
 
 CONTACT_MU = 0.6
 
-dynamics_mode = ssqpy.model.DynamicsMode.Forward
+dynamics_mode = ssqpy.model.SolverMode.ForwardDynamics
 
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
     mjcf_path="../../assets/mjcf/go2/go2.xml",
     free_flyer=True,
-    dynamics_mode=dynamics_mode,
+    solver_mode=dynamics_mode,
 )
 
 nq = model.getnq()
@@ -97,7 +97,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         pre = time()
 
-        if dynamics_mode == ssqpy.model.DynamicsMode.Forward:
+        if dynamics_mode == ssqpy.model.SolverMode.ForwardDynamics:
             u = mpc.step(state)[1].stage(0)
             mjdata.ctrl = u[6:18]
         else:

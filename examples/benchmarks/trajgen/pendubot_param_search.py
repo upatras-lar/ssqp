@@ -5,11 +5,11 @@ import generate_pendubot_problems
 
 
 def paramsearch_pendubot(
-    horizon, n_problems=10, dynamics_mode=ssqpy.model.DynamicsMode.Inverse
+    horizon, n_problems=10, dynamics_mode=ssqpy.model.SolverMode.InverseDynamics
 ):
     dynamics_mode_str = (
         "forward"
-        if dynamics_mode == ssqpy.model.DynamicsMode.Forward
+        if dynamics_mode == ssqpy.model.SolverMode.ForwardDynamics
         else "inverse"
     )
 
@@ -77,25 +77,25 @@ if __name__ == "__main__":
     # Small Horizon, Inverse Dynamics
     H_small_inv = multiprocessing.Process(
         target=paramsearch_pendubot,
-        args=(H_small, 10, ssqpy.model.DynamicsMode.Inverse),
+        args=(H_small, 10, ssqpy.model.SolverMode.InverseDynamics),
     )
 
     # Large Horizon, Inverse Dynamics
     H_large_inv = multiprocessing.Process(
         target=paramsearch_pendubot,
-        args=(H_large, 5, ssqpy.model.DynamicsMode.Inverse),
+        args=(H_large, 5, ssqpy.model.SolverMode.InverseDynamics),
     )
 
     # Small Horizon, Forward Dynamics
     H_small_fwd = multiprocessing.Process(
         target=paramsearch_pendubot,
-        args=(H_small, 10, ssqpy.model.DynamicsMode.Forward),
+        args=(H_small, 10, ssqpy.model.SolverMode.ForwardDynamics),
     )
 
     # Large Horizon, Forward Dynamics
     H_large_fwd = multiprocessing.Process(
         target=paramsearch_pendubot,
-        args=(H_large, 5, ssqpy.model.DynamicsMode.Forward),
+        args=(H_large, 5, ssqpy.model.SolverMode.ForwardDynamics),
     )
 
     # H_small_inv.start()

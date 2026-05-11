@@ -27,14 +27,14 @@ void set_model_unactuated_joints(std::shared_ptr<model::Model> &model,
 // Dynamics gradients
 std::shared_ptr<Test> generate_dynamics_gradient_test(
   const std::string &urdf_path, const bool floating_base,
-  const model::DynamicsMode &dm, const model::IntegrationScheme &is,
+  const model::SolverMode &sm, const model::IntegrationScheme &is,
   const bool forces, const bool unactuated_joints, const uint seed = 42);
 
 // Innate Constraint gradients
 std::shared_ptr<Test> generate_innate_constraint_gradient_test(
   const std::string &urdf_path, const bool floating_base,
-  const model::DynamicsMode &dm, const bool forces,
-  const bool unactuated_joints, const uint seed = 42);
+  const model::SolverMode &sm, const bool forces, const bool unactuated_joints,
+  const uint seed = 42);
 
 // Predefined Constraint gradients
 std::shared_ptr<Test> get_joint_angle_constraint_grad_test();

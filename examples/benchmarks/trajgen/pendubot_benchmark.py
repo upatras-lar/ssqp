@@ -12,7 +12,7 @@ H = 200
 def run(horizon, dynamics_mode):
     dynamics_mode_str = (
         "forward"
-        if dynamics_mode == ssqpy.model.DynamicsMode.Forward
+        if dynamics_mode == ssqpy.model.SolverMode.ForwardDynamics
         else "inverse"
     )
 
@@ -52,7 +52,7 @@ H_inv_p = multiprocessing.Process(
     target=run,
     args=(
         H,
-        ssqpy.model.DynamicsMode.Inverse,
+        ssqpy.model.SolverMode.InverseDynamics,
     ),
 )
 
@@ -60,7 +60,7 @@ H_fwd_p = multiprocessing.Process(
     target=run,
     args=(
         H,
-        ssqpy.model.DynamicsMode.Forward,
+        ssqpy.model.SolverMode.ForwardDynamics,
     ),
 )
 

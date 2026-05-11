@@ -82,16 +82,16 @@ C_WGT_INV = 1.0
 C_WGT_FWD = 0.1
 
 mode_map = {
-    "reduced-inverse": ssqpy.model.DynamicsMode.ReducedInverse,
-    "inverse": ssqpy.model.DynamicsMode.Inverse,
-    "forward": ssqpy.model.DynamicsMode.Forward,
+    "reduced-inverse": ssqpy.model.SolverMode.ReducedInverseDynamics,
+    "inverse": ssqpy.model.SolverMode.InverseDynamics,
+    "forward": ssqpy.model.SolverMode.ForwardDynamics,
 }
 
 ALL_MODES = args.dynamics_mode == "all"
 nu = {
-    ssqpy.model.DynamicsMode.Forward: 2,
-    ssqpy.model.DynamicsMode.Inverse: 2,
-    ssqpy.model.DynamicsMode.ReducedInverse: 1,
+    ssqpy.model.SolverMode.ForwardDynamics: 2,
+    ssqpy.model.SolverMode.InverseDynamics: 2,
+    ssqpy.model.SolverMode.ReducedInverseDynamics: 1,
 }
 
 
@@ -103,8 +103,8 @@ def wrap_to_reference(theta, reference=np.pi):
 
 def run(dynamics_mode):
     inverse_mode = (
-        dynamics_mode == ssqpy.model.DynamicsMode.Inverse
-        or dynamics_mode == ssqpy.model.DynamicsMode.ReducedInverse
+        dynamics_mode == ssqpy.model.SolverMode.InverseDynamics
+        or dynamics_mode == ssqpy.model.SolverMode.ReducedInverseDynamics
     )
 
     model = ssqpy.model.Model(
@@ -112,7 +112,7 @@ def run(dynamics_mode):
         dt,
         urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
         actuated_joints=[0],
-        dynamics_mode=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
@@ -314,13 +314,13 @@ def get_data(dynamics_mode):
 
 if ALL_MODES:
     add_plots(
-        *get_data(ssqpy.model.DynamicsMode.Forward), legend_pref="Forward"
+        *get_data(ssqpy.model.SolverMode.ForwardDynamics), legend_pref="Forward"
     )
     add_plots(
-        *get_data(ssqpy.model.DynamicsMode.Inverse), legend_pref="Inverse"
+        *get_data(ssqpy.model.SolverMode.InverseDynamics), legend_pref="Inverse"
     )
     add_plots(
-        *get_data(ssqpy.model.DynamicsMode.ReducedInverse),
+        *get_data(ssqpy.model.SolverMode.ReducedInverseDynamics),
         legend_pref="ReducedInverse",
     )
 else:

@@ -46,10 +46,10 @@ model = ssqpy.model.Model(
     MPC_H,
     dt,
     urdf_path="../../assets/urdf/panda/panda.urdf",
-    dynamics_mode=(
-        ssqpy.model.DynamicsMode.Inverse
+    solver_mode=(
+        ssqpy.model.SolverMode.InverseDynamics
         if INVERSE_MODE
-        else ssqpy.model.DynamicsMode.Forward
+        else ssqpy.model.SolverMode.ForwardDynamics
     ),
 )
 

@@ -18,7 +18,7 @@ model = ssqpy.model.Model(
     H,
     dt,
     mjcf_path="../../assets/mjcf/ball_joint.xml",
-    dynamics_mode=ssqpy.model.DynamicsMode.Forward,
+    solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
 )
 
 nq = model.getnq()

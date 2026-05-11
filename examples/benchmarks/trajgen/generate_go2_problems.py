@@ -109,7 +109,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
             dt,
             urdf_path="../../assets/urdf/go2/go2.urdf",
             free_flyer=True,
-            dynamics_mode=dynamics_mode,
+            solver_mode=dynamics_mode,
         )
 
         # -------------------------

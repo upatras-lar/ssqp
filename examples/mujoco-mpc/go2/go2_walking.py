@@ -26,14 +26,14 @@ U_WGT = 1e-3
 CONTACT_MU = 0.6
 GAIT_PERIOD = 60
 
-dynamics_mode = ssqpy.model.DynamicsMode.Forward
+dynamics_mode = ssqpy.model.SolverMode.ForwardDynamics
 
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
     mjcf_path="../../assets/mjcf/go2/go2.xml",
     free_flyer=True,
-    dynamics_mode=dynamics_mode,
+    solver_mode=dynamics_mode,
 )
 
 nq = model.getnq()

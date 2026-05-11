@@ -84,7 +84,7 @@ def cvt(
 
 def generate_pendubot_problems(n, horizon, dynamics_mode):
     V_WGT = 1e-3
-    U_WGT = 1e-4 if dynamics_mode == ssqpy.model.DynamicsMode.Forward else 1e-3
+    U_WGT = 1e-4 if dynamics_mode == ssqpy.model.SolverMode.ForwardDynamics else 1e-3
     TIP_WGT = 5.0
     C_WGT = 4.0
 
@@ -100,7 +100,7 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
             dt,
             urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
             actuated_joints=[0],
-            dynamics_mode=dynamics_mode,
+            solver_mode=dynamics_mode,
         )
 
         nq = model.getnq()

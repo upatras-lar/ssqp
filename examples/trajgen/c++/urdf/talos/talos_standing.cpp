@@ -33,7 +33,7 @@ int main()
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/assets/urdf/talos/talos.urdf";
     model_structure.free_flyer = true;
-    // model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
+    // model_structure.solver_mode = ssqp::model::SolverMode::InverseDynamics;
     ssqp::model::Model model(HORIZON, dt, model_structure);
     // model.printFramesAndJoints();
 

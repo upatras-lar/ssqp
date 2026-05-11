@@ -55,8 +55,8 @@ std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
     FlatVec x(x_size, x_stage_sizes);
     FlatVec u(u_size, u_stage_sizes);
 
-    const model::DynamicsMode dynamics_mode =
-      model::str_to_DM.at(j["properties"]["dynamics_mode"]);
+    const model::SolverMode solver_mode =
+      model::str_to_DM.at(j["properties"]["solver_mode"]);
     const bool &loaded_from_xml = j["properties"]["xml"];
 
     for (uint k = 0; k < horizon; ++k)
@@ -87,7 +87,7 @@ std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
 
         uint offset = 0;
 
-        if (dynamics_mode == model::DynamicsMode::Forward)
+        if (solver_mode == model::SolverMode::ForwardDynamics)
         {
             offset = 6;
             u.stage(k).head(6).setZero();
@@ -755,10 +755,10 @@ bool ssqp::write(const std::string &filepath)
     j["properties"]["horizon"] = dims.horizon;
     j["properties"]["dt"]      = dt;
 
-    model::DynamicsMode dynamics_mode   = _model.dynamicsMode();
-    bool                loaded_from_xml = _model.xml();
-    j["properties"]["dynamics_mode"]    = model::DM_to_str.at(dynamics_mode);
-    j["properties"]["xml"]              = loaded_from_xml;
+    model::SolverMode solver_mode     = _model.solverMode();
+    bool              loaded_from_xml = _model.xml();
+    j["properties"]["solver_mode"]    = model::DM_to_str.at(solver_mode);
+    j["properties"]["xml"]            = loaded_from_xml;
     bool floating_base;
     uint nv, nu, njoints;
     if (loaded_from_xml || _model.hasCustomProperties())
@@ -806,7 +806,7 @@ bool ssqp::write(const std::string &filepath)
             stage_data["position"]    = x.head(3);
             stage_data["orientation"] = x.segment(3, 4);
             stage_data["state"]       = x.segment(7, njoints);
-            if (dynamics_mode == model::DynamicsMode::ReducedInverse)
+            if (solver_mode == model::SolverMode::ReducedInverseDynamics)
             {
                 stage_data["control"] = u.head(nu);
             }

@@ -8,14 +8,14 @@ V_WGT = 1e-3
 U_WGT = 1e-3
 C_WGT = 10.0
 
-dynamics_mode = ssqpy.model.DynamicsMode.Inverse
+dynamics_mode = ssqpy.model.SolverMode.InverseDynamics
 
 model = ssqpy.model.Model(
     horizon,
     dt,
     urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
-    dynamics_mode=dynamics_mode,
+    solver_mode=dynamics_mode,
 )
 
 nq = model.getnq()

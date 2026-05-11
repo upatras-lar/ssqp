@@ -111,8 +111,8 @@ data_lock = threading.Lock()
 running = True
 
 mode_map = {
-    "inverse": ssqpy.model.DynamicsMode.Inverse,
-    "forward": ssqpy.model.DynamicsMode.Forward,
+    "inverse": ssqpy.model.SolverMode.InverseDynamics,
+    "forward": ssqpy.model.SolverMode.ForwardDynamics,
 }
 
 get_model_func = None

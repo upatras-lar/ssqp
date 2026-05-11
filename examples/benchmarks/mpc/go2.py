@@ -46,16 +46,16 @@ C_WGT = 10.0
 CONTACT_MU = 0.6
 
 mode_map = {
-    "reduced-inverse": ssqpy.model.DynamicsMode.ReducedInverse,
-    "inverse": ssqpy.model.DynamicsMode.Inverse,
-    "forward": ssqpy.model.DynamicsMode.Forward,
+    "reduced-inverse": ssqpy.model.SolverMode.ReducedInverseDynamics,
+    "inverse": ssqpy.model.SolverMode.InverseDynamics,
+    "forward": ssqpy.model.SolverMode.ForwardDynamics,
 }
 
 
 def run(dynamics_mode):
     inverse_mode = (
-        dynamics_mode == ssqpy.model.DynamicsMode.Inverse
-        or dynamics_mode == ssqpy.model.DynamicsMode.ReducedInverse
+        dynamics_mode == ssqpy.model.SolverMode.InverseDynamics
+        or dynamics_mode == ssqpy.model.SolverMode.ReducedInverseDynamics
     )
 
     model = ssqpy.model.Model(
@@ -63,7 +63,7 @@ def run(dynamics_mode):
         mpc_dt,
         urdf_path="../../assets/urdf/go2/go2.urdf",
         free_flyer=True,
-        dynamics_mode=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     nq = model.getnq()
@@ -183,7 +183,7 @@ model = ssqpy.model.Model(
     0.01,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Forward,
+    solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
 )
 cost = ssqpy.model.costs.SquaredJointVelocityCost(model.getnv(), V_WGT, True)
 
