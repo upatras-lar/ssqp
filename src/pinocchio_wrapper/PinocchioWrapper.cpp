@@ -161,7 +161,7 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
   const std::shared_ptr<ModelImpl>     &impl,
   const std::vector<uint>              &bounded_joint_indices,
   const std::unordered_map<uint, uint> &indices_to_config,
-  const bool free_flyer, const bool skip_torques)
+  const bool free_flyer, const bool skip_velocities, const bool skip_torques)
 {
     uint nv_reduced = impl->model.nv;
     if (free_flyer)
@@ -169,8 +169,8 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
         nv_reduced -= 6;
     }
 
-    uint nbounds =
-      bounded_joint_indices.size() + (1 + !skip_torques) * nv_reduced;
+    uint nbounds = bounded_joint_indices.size() +
+                   (!skip_velocities + !skip_torques) * nv_reduced;
     Eigen::VectorXd lb(nbounds), ub(nbounds);
 
     for (uint i = 0; i < bounded_joint_indices.size(); ++i)
@@ -183,10 +183,13 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
             .upperPositionLimit[indices_to_config.at(bounded_joint_indices[i])];
     }
 
-    lb.segment(bounded_joint_indices.size(), nv_reduced) =
-      -impl->model.velocityLimit.tail(nv_reduced);
-    ub.segment(bounded_joint_indices.size(), nv_reduced) =
-      impl->model.velocityLimit.tail(nv_reduced);
+    if (!skip_velocities)
+    {
+        lb.segment(bounded_joint_indices.size(), nv_reduced) =
+          -impl->model.velocityLimit.tail(nv_reduced);
+        ub.segment(bounded_joint_indices.size(), nv_reduced) =
+          impl->model.velocityLimit.tail(nv_reduced);
+    }
 
     if (!skip_torques)
     {

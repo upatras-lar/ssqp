@@ -163,16 +163,23 @@ void Model::finalize(const Config &config)
     }
 
     // Setup dynamics
-    assert(!_xml ^ config.dynamics.empty() &&
-           "Expected either an XML description or custom dynamics");
+    if (!(!_xml ^ config.dynamics.empty()))
+    {
+        throw std::runtime_error(
+          "Expected either an XML description or custom dynamics");
+    }
 
-    assert((config.init_states.empty() || config.init_states.size() == 1 ||
-            config.init_states.size() == _dims.horizon + 1) &&
-           "Invalid init_states size");
+    if (!(config.init_states.empty() || config.init_states.size() == 1 ||
+          config.init_states.size() == _dims.horizon + 1))
+    {
+        throw std::runtime_error("Invalid init_states size");
+    }
 
-    assert((config.init_controls.empty() || config.init_controls.size() == 1 ||
-            config.init_controls.size() == _dims.horizon) &&
-           "Invalid init_controls size");
+    if (!(config.init_controls.empty() || config.init_controls.size() == 1 ||
+          config.init_controls.size() == _dims.horizon))
+    {
+        throw std::runtime_error("Invalid init_controls size");
+    }
 
     // Build dynamics from XML
     if (config.dynamics.empty())
@@ -182,8 +189,12 @@ void Model::finalize(const Config &config)
     // Use custom dynamics
     else
     {
-        assert((config.dynamics.size() == _dims.horizon + 1) &&
-               "Invalid stage dynamics vector size for custom dynamics");
+        if (!(config.dynamics.size() == _dims.horizon + 1))
+        {
+            throw std::runtime_error(
+              "Invalid stage dynamics vector size for custom dynamics");
+        }
+
         if (config.init_states.size() == 1)
         {
             for (uint k = 0; k <= _dims.horizon; ++k)
@@ -218,13 +229,17 @@ void Model::finalize(const Config &config)
     }
 
     // Setup costs
-    assert((config.stage_cost != nullptr || config.costs.empty() ||
-            config.costs.size() == _dims.horizon + 1) &&
-           "Costs size mismatch");
+    if (config.stage_cost == nullptr && !config.costs.empty() &&
+        config.costs.size() != _dims.horizon + 1)
+    {
+        throw std::runtime_error("Costs size mismatch");
+    }
 
-    assert((config.constraints.empty() ||
-            config.constraints.size() == _dims.horizon + 1) &&
-           "Constraints size mismatch");
+    if (!config.constraints.empty() &&
+        config.constraints.size() != _dims.horizon + 1)
+    {
+        throw std::runtime_error("Constraints size mismatch");
+    }
 
     if (config.stage_cost != nullptr)
     {
@@ -270,8 +285,18 @@ void Model::finalize(const Config &config)
     // Setup stagewise dimension data
     for (uint k = 0; k < _dims.horizon; ++k)
     {
-        assert(_dynamics[k] != nullptr && "All stage dynamics must be defined");
-        assert(_costs[k] != nullptr && "All stage costs must be defined");
+        if (_dynamics[k] == nullptr)
+        {
+            throw std::runtime_error("Stage " + std::to_string(k) +
+                                     " dynamics are undefined");
+        }
+
+        if (_costs[k] == nullptr)
+        {
+            throw std::runtime_error("Stage " + std::to_string(k) +
+                                     " costs are undefined");
+        }
+
         _dims.stage_state[k]   = _dynamics[k]->state_size();
         _dims.stage_control[k] = _dynamics[k]->control_size();
         _dims.stage_constraint[k] =
@@ -285,9 +310,13 @@ void Model::finalize(const Config &config)
 
         if (k > 0)
         {
-            assert(_dynamics[k - 1]->output_size() == _dims.stage_state[k] &&
-                   "Dynamics function stage k output and state k+1 dimension "
-                   "mismatch");
+            if (_dynamics[k - 1]->output_size() != _dims.stage_state[k])
+            {
+                throw std::runtime_error(
+                  "Dynamics function stage " + std::to_string(k - 1) +
+                  " output and state " + std::to_string(k) +
+                  " dimension mismatch");
+            }
         }
 
         _dims.state      += _dims.stage_state[k];
@@ -299,10 +328,17 @@ void Model::finalize(const Config &config)
         _lin_dims.constraint += _lin_dims.stage_constraint[k];
     }
 
-    assert(_dynamics[_dims.horizon] != nullptr &&
-           "All stage dynamics must be defined");
-    assert(_costs[_dims.horizon] != nullptr &&
-           "All stage costs must be defined");
+    if (_dynamics[_dims.horizon] == nullptr)
+    {
+        throw std::runtime_error(
+          "No dynamics for terminal stage passed (required for initial state)");
+    }
+
+    if (_costs[_dims.horizon] == nullptr)
+    {
+        throw std::runtime_error("Terminal stage costs are undefined");
+    }
+
     _dims.stage_state[_dims.horizon] = _dynamics[_dims.horizon]->state_size();
     _dims.stage_constraint[_dims.horizon] =
       (_constraints[_dims.horizon] != nullptr)
@@ -415,19 +451,29 @@ void Model::_buildXMLDynamics(const Config &config)
         nv_act -= 6;
     }
 
+    // TODO: do not make S if unneeded
     if (_actuated_joints.size() == _dims.njoints)
     {
         S.bottomRightCorner(nv_act, nv_act) = MatX::Identity(nv_act, nv_act);
     }
     else
     {
-        assert(_actuated_joints.size() <= nv_act &&
-               "Invalid actuated joints size");
+        if (_actuated_joints.size() > nv_act)
+        {
+            throw std::runtime_error("Invalid actuated_joints passed (size " +
+                                     std::to_string(_actuated_joints.size()) +
+                                     " > " + std::to_string(nv_act) + ")");
+        }
 
         for (uint i = 0; i < _actuated_joints.size(); ++i)
         {
-            assert(_actuated_joints[i] < nv_act &&
-                   "Invalid actuated joint index");
+            if (_actuated_joints[i] >= nv_act)
+            {
+                throw std::runtime_error("Invalid actuated_joints value (" +
+                                         std::to_string(_actuated_joints[i]) +
+                                         " >= " + std::to_string(nv_act) + ")");
+            }
+
             S.bottomRightCorner(nv_act, nv_act)(_actuated_joints[i],
                                                 _actuated_joints[i]) = 1.0;
         }
@@ -440,7 +486,18 @@ void Model::_buildXMLDynamics(const Config &config)
         const std::vector<pinocchio_wrapper::JointType> joint_types =
           pinocchio_wrapper::getOrderedJointTypes(_impl);
 
-        init_state = VecX::Zero(_dims.nq + _dims.nv);
+        uint nx;
+
+        if (_solver_mode == SolverMode::Kinematics)
+        {
+            nx = _dims.nq;
+        }
+        else
+        {
+            nx = _dims.nq + _dims.nv;
+        }
+
+        init_state = VecX::Zero(nx);
 
         uint offset = 0;
         if (_free_flyer)
@@ -565,17 +622,35 @@ const std::shared_ptr<terrain::Terrain> Model::terrain() const
 
 void Model::setInitState(const uint k, const VecX &init_state)
 {
-    assert(_finalized && "Cannot set initial state for unfinalized model");
-    assert(init_state.size() == _dynamics[k]->state_size() &&
-           "Invalid initial state size");
+    if (!_finalized)
+    {
+        throw std::runtime_error(
+          "Cannot set initial state for an unfinalized model");
+    }
+
+    if (init_state.size() != _dynamics[k]->state_size())
+    {
+        throw std::runtime_error("Invalid initial state size for stage " +
+                                 std::to_string(k));
+    }
+
     _dynamics[k]->set_init_state(init_state);
 }
 
 void Model::setInitControl(const uint k, const VecX &init_control)
 {
-    assert(_finalized && "Cannot set initial controls for unfinalized model");
-    assert(init_control.size() == _dynamics[k]->control_size() &&
-           "Invalid initial controls size");
+    if (!_finalized)
+    {
+        throw std::runtime_error(
+          "Cannot set initial controls for unfinalized model");
+    }
+
+    if (init_control.size() != _dynamics[k]->control_size())
+    {
+        throw std::runtime_error("Invalid initial controls size for stage " +
+                                 std::to_string(k));
+    }
+
     _dynamics[k]->set_init_control(init_control);
 }
 
@@ -606,6 +681,12 @@ void Model::addConstraints(
 
 Force Model::addForce(const uint k, const std::string &frame)
 {
+    if (_finalized)
+    {
+        throw std::runtime_error(
+          "Cannot add a force to a model that is already finalized");
+    }
+
     _forces[k].push_back(Force(frame, _forces[k].size()));
     return _forces[k].back();
 }
@@ -994,8 +1075,11 @@ void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
 
 MatX Model::getMatrixActuatedPart(const MatX &M) const
 {
-    assert(M.rows() == _dims.nv && M.cols() == _dims.nv &&
-           "Model::getMatrixActuatedPart: Incorrect matrix size");
+    if (M.rows() != _dims.nv || M.cols() != _dims.nv)
+    {
+        throw std::runtime_error(
+          "Model::getMatrixActuatedPart: Incorrect matrix size passed");
+    }
 
     if (_dims.nu == _dims.nv)
     {
