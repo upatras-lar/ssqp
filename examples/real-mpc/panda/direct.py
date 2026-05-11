@@ -113,8 +113,8 @@ def MPC_process(state_memory_name, controls_memory_name):
     controls_memory = SharedMemory(name=controls_memory_name)
 
     mode_map = {
-        "inverse": ssqpy.model.DynamicsMode.Inverse,
-        "forward": ssqpy.model.DynamicsMode.Forward,
+        "inverse": ssqpy.model.SolverMode.InverseDynamics,
+        "forward": ssqpy.model.SolverMode.ForwardDynamics,
     }
 
     get_model_func = None

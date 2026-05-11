@@ -53,10 +53,10 @@ T_stance = T - T_swing
 
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
 hip_to_foot_offsets = {
-    "FL": np.array((0.2, 0.12, -0.36892682)),
-    "FR": np.array((0.2, -0.12, -0.36892682)),
-    "RL": np.array((-0.2, 0.12, -0.36892682)),
-    "RR": np.array((-0.2, -0.12, -0.36892682)),
+    "FL": np.array((0.3, 0.14, -0.36892682)),
+    "FR": np.array((0.3, -0.14, -0.36892682)),
+    "RL": np.array((-0.3, 0.14, -0.36892682)),
+    "RR": np.array((-0.3, -0.14, -0.36892682)),
 }
 
 # Reference Generation
@@ -389,7 +389,7 @@ class Kinematics(dynamics.StageDynamics):
 # ------------------------
 q_c = 1.0  # CoM tracking weight
 q_b = 1.0  # Body position tracking weight
-q_o = 10.0  # Orientation tracking weight
+q_o = 1.0  # Orientation tracking weight
 q_st = 200.0  # Stance feet position tracking weight
 q_sw = 10.0  # Swing feet position tracking weight
 q_q = 1e-3  # Configuration regularization weight

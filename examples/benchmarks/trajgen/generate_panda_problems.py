@@ -51,7 +51,7 @@ def get_panda_circle_problem(dynamics_mode):
         H,
         dt,
         urdf_path="../../assets/urdf/panda/panda.urdf",
-        dynamics_mode=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     init_state = np.zeros(2 * nq)
@@ -123,7 +123,7 @@ def get_panda_obstacle_problem(dynamics_mode):
         H,
         dt,
         urdf_path="../../assets/urdf/panda/panda.urdf",
-        dynamics_mode=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     init_state = np.zeros(2 * nq)
@@ -190,7 +190,7 @@ def generate_panda_feasible_region_problems(
     T_WGT = 20.0
     R_WGT = 10.0
     V_WGT = 1e-1
-    U_WGT = 1e-2 if dynamics_mode == ssqpy.model.DynamicsMode.Inverse else 1e-3
+    U_WGT = 1e-2 if dynamics_mode == ssqpy.model.SolverMode.InverseDynamics else 1e-3
 
     Rd = np.eye(3)
     Rd[1, 1] = -1
@@ -220,7 +220,7 @@ def generate_panda_feasible_region_problems(
             H,
             dt,
             urdf_path="../../assets/urdf/panda/panda.urdf",
-            dynamics_mode=dynamics_mode,
+            solver_mode=dynamics_mode,
         )
 
         random_offset = rng.uniform(-0.3, 0.3, size=3)

@@ -65,7 +65,7 @@ model = ssqpy.model.Model(
     dt,
     mjcf_path="../../assets/mjcf/go2/go2.xml",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Forward,
+    solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
 )
 
 nq = model.getnq()

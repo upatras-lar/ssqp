@@ -61,7 +61,7 @@ void set_model_unactuated_joints(std::shared_ptr<model::Model> &model,
 
 std::shared_ptr<Test> generate_dynamics_gradient_test(
   const std::string &urdf_path, const bool floating_base,
-  const model::DynamicsMode &dm, const model::IntegrationScheme &is,
+  const model::SolverMode &sm, const model::IntegrationScheme &is,
   const bool forces, const bool unactuated_joints, const uint seed)
 {
     std::random_device dev;
@@ -69,10 +69,10 @@ std::shared_ptr<Test> generate_dynamics_gradient_test(
     rng.seed(seed);
 
     model::Model::Structure model_structure;
-    model_structure.urdf_path     = urdf_path;
-    model_structure.free_flyer    = floating_base;
-    model_structure.dynamics_mode = dm;
-    model_structure.integration   = is;
+    model_structure.urdf_path   = urdf_path;
+    model_structure.free_flyer  = floating_base;
+    model_structure.solver_mode = sm;
+    model_structure.integration = is;
 
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -93,16 +93,16 @@ std::shared_ptr<Test> generate_dynamics_gradient_test(
 
     std::stringstream test_name_ss;
 
-    switch (dm)
+    switch (sm)
     {
     default:
-    case model::DynamicsMode::Forward:
+    case model::SolverMode::ForwardDynamics:
         test_name_ss << "Fwdyn";
         break;
-    case model::DynamicsMode::Inverse:
+    case model::SolverMode::InverseDynamics:
         test_name_ss << "Invdyn";
         break;
-    case model::DynamicsMode::ReducedInverse:
+    case model::SolverMode::ReducedInverseDynamics:
         test_name_ss << "ReducedInvdyn";
         break;
     }
@@ -147,17 +147,17 @@ std::shared_ptr<Test> generate_dynamics_gradient_test(
 
 std::shared_ptr<Test> generate_innate_constraint_gradient_test(
   const std::string &urdf_path, const bool floating_base,
-  const model::DynamicsMode &dm, const bool forces,
-  const bool unactuated_joints, const uint seed)
+  const model::SolverMode &sm, const bool forces, const bool unactuated_joints,
+  const uint seed)
 {
     std::random_device dev;
     std::mt19937       rng(dev());
     rng.seed(seed);
 
     model::Model::Structure model_structure;
-    model_structure.urdf_path     = urdf_path;
-    model_structure.free_flyer    = floating_base;
-    model_structure.dynamics_mode = dm;
+    model_structure.urdf_path   = urdf_path;
+    model_structure.free_flyer  = floating_base;
+    model_structure.solver_mode = sm;
 
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
@@ -178,16 +178,16 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
 
     std::stringstream test_name_ss;
 
-    switch (dm)
+    switch (sm)
     {
     default:
-    case model::DynamicsMode::Forward:
+    case model::SolverMode::ForwardDynamics:
         test_name_ss << "Fwdyn";
         break;
-    case model::DynamicsMode::Inverse:
+    case model::SolverMode::InverseDynamics:
         test_name_ss << "Invdyn";
         break;
-    case model::DynamicsMode::ReducedInverse:
+    case model::SolverMode::ReducedInverseDynamics:
         test_name_ss << "ReducedInvdyn";
         break;
     }
@@ -587,9 +587,9 @@ std::shared_ptr<Test> get_squared_control_cost_grad_test()
 std::shared_ptr<Test> get_squared_ID_torque_cost_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path     = "examples/assets/urdf/panda/panda.urdf";
-    model_structure.free_flyer    = false;
-    model_structure.dynamics_mode = model::DynamicsMode::Inverse;
+    model_structure.urdf_path   = "examples/assets/urdf/panda/panda.urdf";
+    model_structure.free_flyer  = false;
+    model_structure.solver_mode = model::SolverMode::InverseDynamics;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
 

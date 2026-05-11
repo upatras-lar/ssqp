@@ -79,21 +79,35 @@ PyType_Slot model_slots[] = {
 
 void bind_Model(nb::module_ &m)
 {
-    nb::enum_<DynamicsMode>(m, "DynamicsMode", R"doc(
-        The mode the solver uses for the system dynamics formulation
+    nb::enum_<SolverMode>(m, "SolverMode", R"doc(
+        Solver Mode
+        The mode the solver uses for the system formulation, corresponding to the
+        equality constraint of the NLP
+        This can either be full dynamics, or a kinematics formulation
         Options:
-        - Forward: The solver optimizes with a forward dynamics approach. As such,
-        the generated controls correspond to torques which, when applied over time
-        to the system, generate the output trajectory.
-        - Inverse: The solver optimizes with an inverse dynamics approach. As such,
-        the generated controls correspond to accelerations. This simplifies the
-        LQR formulation, generally leading to more robust solutions. Inverse
-        dynamics is used as a constraint, ensuring the torques producing the
-        generated acceleration controls are within the required effort limits.
+         - Kinematics: The solver optimizes in a kinematic mode. This means there are
+           no system dynamics. Instead, the generated controls correspond to velocities,
+           while the state corresponds to the system configuration.
+         - ForwardDynamics: The solver optimizes with a forward dynamics approach. The 
+           state corresponds to a stacked vector of the system configuration and velocity.
+           The generated controls correspond to torques which, when applied over time
+           to the system, generate the output trajectory.
+         - InverseDynamics: The solver optimizes with an inverse dynamics approach. The 
+           state corresponds to a stacked vector of the system configuration and velocity.
+           The generated controls correspond to accelerations. This simplifies the
+           LQR formulation and can sometimes lead to more robust solutions. Inverse
+           dynamics is used as a constraint, ensuring the torques producing the
+           generated acceleration controls are within the required effort limits.
+         - ReducedInverseDynamics: This mode is similar to the Inverse dynamics mode. In 
+           this mode, the floating base (if present) and/or some subset of the model's
+           joints are unactuated. While regular Inverse mode enforces this via
+           equality constraints, this mode instead enforces this implicitly through
+           state propagation.
         )doc")
-      .value("Forward", DynamicsMode::Forward)
-      .value("Inverse", DynamicsMode::Inverse)
-      .value("ReducedInverse", DynamicsMode::ReducedInverse)
+      .value("Kinematics", SolverMode::Kinematics)
+      .value("ForwardDynamics", SolverMode::ForwardDynamics)
+      .value("InverseDynamics", SolverMode::InverseDynamics)
+      .value("ReducedInverseDynamics", SolverMode::ReducedInverseDynamics)
       .export_values();
 
     nb::enum_<IntegrationScheme>(m, "Integration", R"doc(
@@ -180,10 +194,10 @@ void bind_Model(nb::module_ &m)
             {
                 structure.free_flyer = nb::cast<bool>(kwargs["free_flyer"]);
             }
-            if (kwargs.contains("dynamics_mode"))
+            if (kwargs.contains("solver_mode"))
             {
-                structure.dynamics_mode =
-                  nb::cast<DynamicsMode>(kwargs["dynamics_mode"]);
+                structure.solver_mode =
+                  nb::cast<SolverMode>(kwargs["solver_mode"]);
             }
             if (kwargs.contains("integration"))
             {
@@ -214,7 +228,7 @@ void bind_Model(nb::module_ &m)
             `urdf_path` (str): Path to URDF file to use for the system dynamics
             `mjcf_path` (str): Path to MJCF file to use for the system dynamics
             `free_flyer` (bool): Whether the model has a floating base
-            `dynamics_mode` (ssqpy.model.DynamicsMode): The dynamics mode to solve in
+            `solver_mode` (ssqpy.model.SolverMode): The solver mode to solve in
             `integration` (ssqpy.model.Integration): The integration method to use
             `ignore_innate_constraints` (bool): Whether to ignore XML constraints
             `actuated_joints` (list of int): List of joints to apply controls to;

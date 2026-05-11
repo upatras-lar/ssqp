@@ -5,13 +5,13 @@ from generate_go2_problems import generate_go2_walk_problems
 
 # problem = generate_pendubot_problems(
 #     20,
-#     dynamics_mode=ssqpy.model.DynamicsMode.Forward,
+#     dynamics_mode=ssqpy.model.SolverMode.ForwardDynamics,
 #     horizon=200,
 # )[10]
 # problem = generate_panda_feasible_region_problems(
-#     40, ssqpy.model.DynamicsMode.Inverse
+#     40, ssqpy.model.SolverMode.InverseDynamics
 # )[39]
-problem = generate_go2_walk_problems(10, ssqpy.model.DynamicsMode.Inverse)[5]
+problem = generate_go2_walk_problems(10, ssqpy.model.SolverMode.InverseDynamics)[5]
 
 
 # Pendubot params

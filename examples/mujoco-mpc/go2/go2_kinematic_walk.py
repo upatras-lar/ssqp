@@ -19,7 +19,7 @@ go2_kinematic.load_model("../../assets/mjcf/go2/go2.xml")
 
 ssqpy.setSilentMode()
 
-v_cmd = np.array((0.1, 0.1, 0.0))
+v_cmd = np.array((0.1, 0.0, 0.0))
 
 MPC_H = 15
 dt = 0.02
@@ -109,7 +109,7 @@ def update_func(config, vel, step):
 
 
 Kp = 60.0
-Kv = 2.0 * np.sqrt(Kp)
+Kv = 1.0 * np.sqrt(Kp)
 
 joint_space_pd_controller = KinematicJointSpacePD(
     mpc, go2_kinematic.init_config, Kp=Kp, Kd=Kv, update_func=update_func

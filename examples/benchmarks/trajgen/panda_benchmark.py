@@ -9,7 +9,7 @@ N_problems = 50
 def run(dynamics_mode):
     dynamics_mode_str = (
         "forward"
-        if dynamics_mode == ssqpy.model.DynamicsMode.Forward
+        if dynamics_mode == ssqpy.model.SolverMode.ForwardDynamics
         else "inverse"
     )
 
@@ -40,11 +40,11 @@ def run(dynamics_mode):
 
 
 inv = multiprocessing.Process(
-    target=run, args=(ssqpy.model.DynamicsMode.Inverse,)
+    target=run, args=(ssqpy.model.SolverMode.InverseDynamics,)
 )
 
 fwd = multiprocessing.Process(
-    target=run, args=(ssqpy.model.DynamicsMode.Forward,)
+    target=run, args=(ssqpy.model.SolverMode.ForwardDynamics,)
 )
 
 inv.start()

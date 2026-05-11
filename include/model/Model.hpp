@@ -24,7 +24,7 @@ using DynamicsContainer    = Container<stagewise::StageDynamics>;
 using ConstraintsContainer = Container<stagewise::StageConstraints>;
 
 auto to_compile_time(bool b);
-auto to_compile_time(DynamicsMode dm);
+auto to_compile_time(SolverMode sm);
 auto to_compile_time(IntegrationScheme is);
 
 // TODO: optimize calls to pinocchio algorithms (avoid recomputations)
@@ -73,7 +73,7 @@ class Model
      *  - `free_flyer`: Whether the model has a floating base (only relevant
      *     if initialized through XML)
      *  - `terrain`: The ground terrain (default flat at z=0)
-     *  - `dynamics_mode`: The dynamics mode to use (default Forward Dynamics)
+     *  - `solver_mode`: The solver mode to use (default `ForwardDynamics`)
      *  - `integration`: The integration scheme to use (default Semi-Implicit
      *     Euler)
      *  - `ignore_innate_constraints`: Whether to ignore innate constraints from
@@ -85,10 +85,10 @@ class Model
     {
         std::string                       urdf_path;
         std::string                       mjcf_path;
-        bool                              free_flyer    = false;
-        std::shared_ptr<terrain::Terrain> terrain       = nullptr;
-        DynamicsMode                      dynamics_mode = Forward;
-        IntegrationScheme                 integration   = SemiImplicitEuler;
+        bool                              free_flyer  = false;
+        std::shared_ptr<terrain::Terrain> terrain     = nullptr;
+        SolverMode                        solver_mode = ForwardDynamics;
+        IntegrationScheme                 integration = SemiImplicitEuler;
         bool                              ignore_innate_constraints = false;
         std::vector<uint>                 actuated_joints;
 
@@ -310,8 +310,8 @@ class Model
     // If the user passed custom dynamics that integrate this value internally,
     // this might be undefined
     double dt() const;
-    // The dynamics mode formulation
-    DynamicsMode dynamicsMode() const;
+    // The solver mode formulation
+    SolverMode solverMode() const;
 
     // Algorithms defined if XML was used to initialize model
 
@@ -396,10 +396,10 @@ class Model
      * Input:
      *  - `x`: The model state
      *  - `u`: The model controls
-     *  - `k`: The model stage (only required if model is in Reduced Inverse
+     *  - `k`: The model stage (only required if model is in ReducedInverseDynamics
      *     mode and there are present forces)
      * 
-     * Note: For Inverse dynamics mode, this function is trivial, since it only
+     * Note: For InverseDynamics mode, this function is trivial, since it only
      * returns the non-force part of the control vector
      * Note: XML-based function
      */
@@ -423,7 +423,7 @@ class Model
     const double                                  _dt;
     const std::shared_ptr<terrain::Terrain>       _terrain;
     bool                                          _free_flyer;
-    const DynamicsMode                            _dynamics_mode;
+    const SolverMode                              _solver_mode;
     const IntegrationScheme                       _integration;
     const bool                                    _ignore_innate;
     std::vector<uint>                             _actuated_joints;
@@ -467,7 +467,7 @@ class Model
     std::pair<std::vector<Vec6>, MatX> _calculateJointForcesAndJacobian(
       const VecX &q, const VecX &f, const std::vector<Force> &force_data) const;
 
-    /* Calculates the full acceleration vector for reduced inverse mode
+    /* Calculates the full acceleration vector for ReducedInverseDynamics mode
      * Input:
      *  - `q`: The configuration vector
      *  - `v`: The velocity vector
@@ -508,7 +508,7 @@ class Model
       const std::vector<uint>  &actuated_joints,
       const std::vector<uint>  &unactuated_joints) const;
 
-    /* Calculates the derivatives of the acceleration vector for reduced inverse
+    /* Calculates the derivatives of the acceleration vector for ReducedInverseDynamics
      * mode, with respect to q, v, aj (the actual actuated controls) and f
      * Input:
      *  - `q`: The configuration vector
@@ -601,11 +601,10 @@ class Model
      *  - `FloatingBase`: Whether the model has a floating base
      *  - `WithForces`: Whether there are additional external forces for this
      *     stage
-     *  - `DM`: The dynamics mode that should be used (Forward or Inverse),
-     *     determining whether controls represent torques or accelerations
+     *  - `SM`: The solver mode that should be used
      *  - `IS`: The integration scheme to be used for deriving the next state
      */
-    template<bool FloatingBase, bool WithForces, DynamicsMode DM,
+    template<bool FloatingBase, bool WithForces, SolverMode SM,
              IntegrationScheme IS>
     std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
       const _StageDynamicsContext &ctx) const;
@@ -627,34 +626,34 @@ class Model
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
      *  - `IsTerminal`: Whether the stage is the terminal stage (no controls)
-     *  - `DM`: The dynamics mode that should be used
+     *  - `DM`: The solver mode that should be used
      * 
      * ### Note
-     * If the selected dynamics mode is Inverse, this function does not generate
-     * the inverse dynamics constraints required by the Inverse dynamics mode. 
+     * If the selected solver mode is Inverse, this function does not generate
+     * the inverse dynamics constraints required by the InverseDynamics mode. 
      * `_makeStageIDTorqueConstraints` needs to also be called.
      */
     template<bool FloatingBase, bool IsTerminal,
-             DynamicsMode DM = DynamicsMode::Forward>
+             SolverMode SM = SolverMode::ForwardDynamics>
     std::shared_ptr<stagewise::StageConstraints> _makeStageInnateConstraints(
       const _StageInnateConstraintsContext &ctx) const;
 
-    /* Makes the inverse dynamics torque constraints required by the Inverse
-     * dynamics mode, based on the XML effort limits.
+    /* Makes the inverse dynamics torque constraints required by the InverseDynamics
+     * solver mode, based on the XML effort limits.
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
-     *  - `ReducedInverse`: Whether the dynamics mode is reduced inverse, such
+     *  - `ReducedInverseDynamics`: Whether the solver mode is ReducedInverseDynamics, such
      *     that zero equality constraints are not added
      *  - `WithForces`: Whether there are additional external forces for this
      *     stage
      * 
      * ### Note
      * This function will only generate inverse dynamics torque constraints,
-     * intended for use with the Inverse dynamics mode. This function must be
+     * intended for use with the InverseDynamics mode. This function must be
      * called regardless of the value of the `ignore_innate_constraints` option,
-     * since Inverse mode always requires these constraints.
+     * since InverseDynamics mode always requires these constraints.
      */
-    template<bool FloatingBase, bool ReducedInverse = false,
+    template<bool FloatingBase, bool ReducedInverseDynamics = false,
              bool WithForces = false>
     std::shared_ptr<stagewise::StageConstraints> _makeStageIDTorqueConstraints(
       const _StageInnateConstraintsContext &ctx) const;

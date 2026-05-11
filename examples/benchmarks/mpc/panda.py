@@ -68,13 +68,13 @@ constraint_vlines = [cy - square_side_hlf, cy + square_side_hlf]
 
 
 def run(dynamics_mode, constrain):
-    inverse_mode = dynamics_mode == ssqpy.model.DynamicsMode.Inverse
+    inverse_mode = dynamics_mode == ssqpy.model.SolverMode.InverseDynamics
 
     model = ssqpy.model.Model(
         mpc_H,
         mpc_dt,
         urdf_path="../../assets/urdf/panda/panda.urdf",
-        dynamics_mode=dynamics_mode,
+        solver_mode=dynamics_mode,
     )
 
     init_state = np.zeros(2 * nq)
@@ -189,18 +189,18 @@ def run(dynamics_mode, constrain):
 
 unconstrained_state_data, unconstrained_frequency_data = run(
     (
-        ssqpy.model.DynamicsMode.Inverse
+        ssqpy.model.SolverMode.InverseDynamics
         if INVERSE_MODE
-        else ssqpy.model.DynamicsMode.Forward
+        else ssqpy.model.SolverMode.ForwardDynamics
     ),
     False,
 )
 
 constrained_state_data, constrained_frequency_data = run(
     (
-        ssqpy.model.DynamicsMode.Inverse
+        ssqpy.model.SolverMode.InverseDynamics
         if INVERSE_MODE
-        else ssqpy.model.DynamicsMode.Forward
+        else ssqpy.model.SolverMode.ForwardDynamics
     ),
     True,
 )

@@ -22,7 +22,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/double_pendulum/pendubot_cont.urdf",
     actuated_joints=[0],
-    dynamics_mode=ssqpy.model.DynamicsMode.Forward,
+    solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
 )
 
 nq = model.getnq()

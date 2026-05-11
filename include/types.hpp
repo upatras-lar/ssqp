@@ -166,40 +166,50 @@ enum IntegrationScheme
     SemiImplicitEuler = 1
 };
 
-/* Dynamics Mode
- * The mode the solver uses for the system dynamics formulation
+/* Solver Mode
+ * The mode the solver uses for the system formulation, corresponding to the
+ * equality constraint of the NLP
+ * This can either be full dynamics, or a kinematics formulation
  * Options:
- *  - Forward: The solver optimizes with a forward dynamics approach. As such,
- *    the generated controls correspond to torques which, when applied over time
+ *  - Kinematics: The solver optimizes in a kinematic mode. This means there are
+ *    no system dynamics. Instead, the generated controls correspond to velocities,
+ *    while the state corresponds to the system configuration.
+ *  - ForwardDynamics: The solver optimizes with a forward dynamics approach. The 
+ *    state corresponds to a stacked vector of the system configuration and velocity.
+ *    The generated controls correspond to torques which, when applied over time
  *    to the system, generate the output trajectory.
- *  - Inverse: The solver optimizes with an inverse dynamics approach. As such,
- *    the generated controls correspond to accelerations. This simplifies the
- *    LQR formulation, generally leading to more robust solutions. Inverse
+ *  - InverseDynamics: The solver optimizes with an inverse dynamics approach. The 
+ *    state corresponds to a stacked vector of the system configuration and velocity.
+ *    The generated controls correspond to accelerations. This simplifies the
+ *    LQR formulation and can sometimes lead to more robust solutions. Inverse
  *    dynamics is used as a constraint, ensuring the torques producing the
  *    generated acceleration controls are within the required effort limits.
- *  - ReducedInverse: This mode is similar to the Inverse dynamics mode. In this
- *    mode, the floating base (if present) and/or some subset of the model's
+ *  - ReducedInverseDynamics: This mode is similar to the Inverse dynamics mode. In 
+ *    this mode, the floating base (if present) and/or some subset of the model's
  *    joints are unactuated. While regular Inverse mode enforces this via
  *    equality constraints, this mode instead enforces this implicitly through
  *    state propagation.
  */
-enum DynamicsMode
+enum SolverMode
 {
-    Forward        = 0,
-    Inverse        = 1,
-    ReducedInverse = 2,
+    Kinematics             = 0,
+    ForwardDynamics        = 1,
+    InverseDynamics        = 2,
+    ReducedInverseDynamics = 3,
 };
 
-inline const std::unordered_map<DynamicsMode, std::string> DM_to_str = {
-    {        DynamicsMode::Forward,        "Forward" },
-    {        DynamicsMode::Inverse,        "Inverse" },
-    { DynamicsMode::ReducedInverse, "ReducedInverse" }
+inline const std::unordered_map<SolverMode, std::string> DM_to_str = {
+    {             SolverMode::Kinematics,             "Kinematics" },
+    {        SolverMode::ForwardDynamics,        "ForwardDynamics" },
+    {        SolverMode::InverseDynamics,        "InverseDynamics" },
+    { SolverMode::ReducedInverseDynamics, "ReducedInverseDynamics" }
 };
 
-inline const std::unordered_map<std::string, DynamicsMode> str_to_DM = {
-    {        "Forward",        DynamicsMode::Forward },
-    {        "Inverse",        DynamicsMode::Inverse },
-    { "ReducedInverse", DynamicsMode::ReducedInverse }
+inline const std::unordered_map<std::string, SolverMode> str_to_DM = {
+    {             "Kinematics",             SolverMode::Kinematics },
+    {        "ForwardDynamics",        SolverMode::ForwardDynamics },
+    {        "InverseDynamics",        SolverMode::InverseDynamics },
+    { "ReducedInverseDynamics", SolverMode::ReducedInverseDynamics }
 };
 
 }

@@ -15,10 +15,11 @@ int main()
         {       "examples/assets/urdf/cont_floater/cont_floater.urdf",  true }
     };
 
-    const std::vector<ssqp::model::DynamicsMode> dms = {
-        ssqp::model::DynamicsMode::Forward,
-        ssqp::model::DynamicsMode::Inverse,
-        ssqp::model::DynamicsMode::ReducedInverse
+    const std::vector<ssqp::model::SolverMode> sms = {
+        // ssqp::model::SolverMode::Kinematics,
+        ssqp::model::SolverMode::ForwardDynamics,
+        ssqp::model::SolverMode::InverseDynamics,
+        ssqp::model::SolverMode::ReducedInverseDynamics
     };
 
     const std::vector<ssqp::model::IntegrationScheme> iss = {
@@ -30,7 +31,7 @@ int main()
 
     for (const auto &urdf_pair : urdfs)
     {
-        for (const auto &dm : dms)
+        for (const auto &sm : sms)
         {
             for (const auto &is : iss)
             {
@@ -42,7 +43,7 @@ int main()
                           ssqp::tests::generators::
                             generate_dynamics_gradient_test(urdf_pair.first,
                                                             urdf_pair.second,
-                                                            dm,
+                                                            sm,
                                                             is,
                                                             forces,
                                                             unactuated_joints));
@@ -54,7 +55,7 @@ int main()
 
     for (const auto &urdf_pair : urdfs)
     {
-        for (const auto &dm : dms)
+        for (const auto &sm : sms)
         {
             for (const auto &forces : opts)
             {
@@ -64,7 +65,7 @@ int main()
                                     generate_innate_constraint_gradient_test(
                                       urdf_pair.first,
                                       urdf_pair.second,
-                                      dm,
+                                      sm,
                                       forces,
                                       unactuated_joints));
                 }

@@ -72,7 +72,7 @@ int main()
     model_structure.free_flyer = true;
 
     // Select inverse dynamics mode
-    model_structure.dynamics_mode = ssqp::model::DynamicsMode::Inverse;
+    model_structure.solver_mode = ssqp::model::SolverMode::InverseDynamics;
 
     ssqp::model::Model model(HORIZON, dt, model_structure);
 

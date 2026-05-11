@@ -39,7 +39,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::addConstraints(const uint k,
     return constraints;
 }
 
-template<bool FloatingBase, bool WithForces, DynamicsMode DM,
+template<bool FloatingBase, bool WithForces, SolverMode SM,
          IntegrationScheme IS>
 std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
   const _StageDynamicsContext &ctx) const
@@ -77,14 +77,14 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         VecX v    = x.tail(ctx.nv);
         VecX ctrl = u.head(ctx.nu);
         VecX f    = u.tail(3 * ctx.nf);
-        if constexpr (DM == DynamicsMode::Forward)
+        if constexpr (SM == SolverMode::ForwardDynamics)
         {
             ctrl = ctx.S * ctrl;
         }
 
         VecX ddq;
 
-        if constexpr (DM == DynamicsMode::Forward)
+        if constexpr (SM == SolverMode::ForwardDynamics)
         {
             if constexpr (WithForces)
             {
@@ -98,11 +98,11 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl);
             }
         }
-        else if constexpr (DM == DynamicsMode::Inverse)
+        else if constexpr (SM == SolverMode::InverseDynamics)
         {
             ddq = ctrl;
         }
-        else if constexpr (DM == DynamicsMode::ReducedInverse)
+        else if constexpr (SM == SolverMode::ReducedInverseDynamics)
         {
             ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
                                                            WithForces>(
@@ -139,7 +139,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         VecX v    = x.tail(ctx.nv);
         VecX ctrl = u.head(ctx.nu);
         VecX f    = u.tail(3 * ctx.nf);
-        if constexpr (DM == DynamicsMode::Forward)
+        if constexpr (SM == SolverMode::ForwardDynamics)
         {
             ctrl = ctx.S * ctrl;
         }
@@ -154,7 +154,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         MatX              Muu, Muj;
         Eigen::LDLT<MatX> Muu_ldlt;
 
-        if constexpr (DM == DynamicsMode::Forward)
+        if constexpr (SM == SolverMode::ForwardDynamics)
         {
             if constexpr (WithForces)
             {
@@ -202,7 +202,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                                                          Minv);
             }
         }
-        else if constexpr (DM == DynamicsMode::Inverse)
+        else if constexpr (SM == SolverMode::InverseDynamics)
         {
             if constexpr (IS == IntegrationScheme::ExplicitEuler)
             {
@@ -213,7 +213,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 vn = v + ctrl * _dt;
             }
         }
-        else if constexpr (DM == DynamicsMode::ReducedInverse)
+        else if constexpr (SM == SolverMode::ReducedInverseDynamics)
         {
             if constexpr (IS == IntegrationScheme::ExplicitEuler)
             {
@@ -254,7 +254,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             dX.topLeftCorner(ctx.nv, ctx.nv)  = Jint_q;
             dX.topRightCorner(ctx.nv, ctx.nv) = Jint_v * _dt;
 
-            if constexpr (DM == DynamicsMode::Forward)
+            if constexpr (SM == SolverMode::ForwardDynamics)
             {
                 dX.bottomLeftCorner(ctx.nv, ctx.nv) = ddq_dq * _dt;
                 dX.bottomRightCorner(ctx.nv, ctx.nv) =
@@ -268,12 +268,12 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                       Minv * Jf_full.transpose() * _dt;
                 }
             }
-            else if constexpr (DM == DynamicsMode::Inverse)
+            else if constexpr (SM == SolverMode::InverseDynamics)
             {
                 dX.bottomRightCorner(ctx.nv, ctx.nv).setIdentity();
                 dU.bottomLeftCorner(ctx.nv, ctx.nu).diagonal().setConstant(_dt);
             }
-            else if constexpr (DM == DynamicsMode::ReducedInverse)
+            else if constexpr (SM == SolverMode::ReducedInverseDynamics)
             {
                 ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
                                                                WithForces>(
@@ -331,7 +331,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         }
         else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
         {
-            if constexpr (DM == DynamicsMode::Forward)
+            if constexpr (SM == SolverMode::ForwardDynamics)
             {
                 dX.topLeftCorner(ctx.nv, ctx.nv) =
                   Jint_q + Jint_v * _dt * _dt * ddq_dq;
@@ -355,7 +355,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                       Minv * Jf_full.transpose() * _dt;
                 }
             }
-            else if constexpr (DM == DynamicsMode::Inverse)
+            else if constexpr (SM == SolverMode::InverseDynamics)
             {
                 dX.topLeftCorner(ctx.nv, ctx.nv)  = Jint_q;
                 dX.topRightCorner(ctx.nv, ctx.nv) = Jint_v * _dt;
@@ -365,7 +365,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                 dU.topLeftCorner(ctx.nv, ctx.nv) = Jint_v * _dt * _dt;
                 dU.bottomLeftCorner(ctx.nv, ctx.nv).diagonal().setConstant(_dt);
             }
-            else if constexpr (DM == DynamicsMode::ReducedInverse)
+            else if constexpr (SM == SolverMode::ReducedInverseDynamics)
             {
                 MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
                 MatX da_dq, da_dv, da_daj, da_df;
@@ -445,13 +445,13 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                                              dyn_hessprod_uu);
 }
 
-template<bool FloatingBase, bool IsTerminal, DynamicsMode DM>
+template<bool FloatingBase, bool IsTerminal, SolverMode SM>
 std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
   const _StageInnateConstraintsContext &ctx) const
 {
     VecX lb, ub;
 
-    if constexpr (DM == DynamicsMode::Forward)
+    if constexpr (SM == SolverMode::ForwardDynamics)
     {
         std::tie(lb, ub) =
           pinocchio_wrapper::modelBounds(_impl,
@@ -459,8 +459,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                                          _bounded_joint_indices_to_config,
                                          _free_flyer);
     }
-    else if constexpr (DM == DynamicsMode::Inverse ||
-                       DM == DynamicsMode::ReducedInverse)
+    else if constexpr (SM == SolverMode::InverseDynamics ||
+                       SM == SolverMode::ReducedInverseDynamics)
     {
         std::tie(lb, ub) =
           pinocchio_wrapper::modelBounds(_impl,
@@ -481,12 +481,12 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     {
         VecX c;
 
-        if constexpr (IsTerminal || DM == DynamicsMode::Inverse ||
-                      DM == DynamicsMode::ReducedInverse)
+        if constexpr (IsTerminal || SM == SolverMode::InverseDynamics ||
+                      SM == SolverMode::ReducedInverseDynamics)
         {
             c.resize(_bounded_joint_indices.size() + nv_reduced);
         }
-        else if constexpr (DM == DynamicsMode::Forward)
+        else if constexpr (SM == SolverMode::ForwardDynamics)
         {
             c.resize(_bounded_joint_indices.size() + 2 * nv_reduced);
         }
@@ -500,7 +500,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         c.segment(_bounded_joint_indices.size(), nv_reduced) =
           x.tail(nv_reduced);
 
-        if (!IsTerminal && DM == DynamicsMode::Forward)
+        if (!IsTerminal && SM == SolverMode::ForwardDynamics)
         {
             if constexpr (FloatingBase)
             {
@@ -524,15 +524,15 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                             2 * ctx.nv);
             dU = MatX::Zero(_bounded_joint_indices.size() + nv_reduced, 0);
         }
-        else if constexpr (DM == DynamicsMode::Forward)
+        else if constexpr (SM == SolverMode::ForwardDynamics)
         {
             dX = MatX::Zero(_bounded_joint_indices.size() + 2 * nv_reduced,
                             2 * ctx.nv);
             dU = MatX::Zero(_bounded_joint_indices.size() + 2 * nv_reduced,
                             ctx.nu + 3 * ctx.nf);
         }
-        else if constexpr (DM == DynamicsMode::Inverse ||
-                           DM == DynamicsMode::ReducedInverse)
+        else if constexpr (SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
         {
             dX = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
                             2 * ctx.nv);
@@ -564,7 +564,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
               .setIdentity();
         }
 
-        if (!IsTerminal && DM == DynamicsMode::Forward)
+        if (!IsTerminal && SM == SolverMode::ForwardDynamics)
         {
             if constexpr (FloatingBase)
             {
@@ -616,7 +616,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           innate_constraint_hessprod_xu,
           innate_constraint_hessprod_uu);
     }
-    else if constexpr (DM == DynamicsMode::Forward)
+    else if constexpr (SM == SolverMode::ForwardDynamics)
     {
         return stagewise::factory::make_constraints(
           { ctx.stage_constraints_name },
@@ -633,8 +633,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           innate_constraint_hessprod_xu,
           innate_constraint_hessprod_uu);
     }
-    else if constexpr (DM == DynamicsMode::Inverse ||
-                       DM == DynamicsMode::ReducedInverse)
+    else if constexpr (SM == SolverMode::InverseDynamics ||
+                       SM == SolverMode::ReducedInverseDynamics)
     {
         return stagewise::factory::make_constraints(
           { ctx.stage_constraints_name },
@@ -653,7 +653,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     }
 }
 
-template<bool FloatingBase, bool ReducedInverse, bool WithForces>
+template<bool FloatingBase, bool ReducedInverseDynamics, bool WithForces>
 std::shared_ptr<stagewise::StageConstraints>
 Model::_makeStageIDTorqueConstraints(
   const _StageInnateConstraintsContext &ctx) const
@@ -661,7 +661,7 @@ Model::_makeStageIDTorqueConstraints(
     VecX lb, ub;
     std::tie(lb, ub) = pinocchio_wrapper::modelEffortLimits(_impl);
 
-    if constexpr (ReducedInverse)
+    if constexpr (ReducedInverseDynamics)
     {
         VecX lb_n(ctx.nu);
         VecX ub_n(ctx.nu);
@@ -711,7 +711,7 @@ Model::_makeStageIDTorqueConstraints(
 
         VecX ddq;
 
-        if constexpr (ReducedInverse)
+        if constexpr (ReducedInverseDynamics)
         {
             ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
                                                            WithForces>(
@@ -742,7 +742,7 @@ Model::_makeStageIDTorqueConstraints(
             tau = inverseDynamics(q, v, ddq);
         }
 
-        if constexpr (ReducedInverse)
+        if constexpr (ReducedInverseDynamics)
         {
             uint offset = 0;
             if constexpr (FloatingBase)
@@ -778,7 +778,7 @@ Model::_makeStageIDTorqueConstraints(
 
         std::vector<Vec6> joint_forces;
 
-        if constexpr (ReducedInverse)
+        if constexpr (ReducedInverseDynamics)
         {
             MatX              Muu, Muj;
             Eigen::LDLT<MatX> Muu_ldlt;

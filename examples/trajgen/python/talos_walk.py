@@ -31,7 +31,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/talos/talos.urdf",
     free_flyer=True,
-    dynamics_mode=ssqpy.model.DynamicsMode.Inverse,
+    solver_mode=ssqpy.model.SolverMode.InverseDynamics,
 )
 
 nq = model.getnq()

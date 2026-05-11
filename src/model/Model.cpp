@@ -12,21 +12,24 @@ auto to_compile_time(bool b)
     return b ? V { T {} } : V { F {} };
 }
 
-auto to_compile_time(DynamicsMode dm)
+auto to_compile_time(SolverMode sm)
 {
-    using DMF = std::integral_constant<DynamicsMode, DynamicsMode::Forward>;
-    using DMI = std::integral_constant<DynamicsMode, DynamicsMode::Inverse>;
+    using DMK = std::integral_constant<SolverMode, SolverMode::Kinematics>;
+    using DMF = std::integral_constant<SolverMode, SolverMode::ForwardDynamics>;
+    using DMI = std::integral_constant<SolverMode, SolverMode::InverseDynamics>;
     using DMRI =
-      std::integral_constant<DynamicsMode, DynamicsMode::ReducedInverse>;
-    using V = std::variant<DMF, DMI, DMRI>;
+      std::integral_constant<SolverMode, SolverMode::ReducedInverseDynamics>;
+    using V = std::variant<DMK, DMF, DMI, DMRI>;
 
-    switch (dm)
+    switch (sm)
     {
-    case DynamicsMode::Forward:
+    case SolverMode::Kinematics:
+        return V { DMK {} };
+    case SolverMode::ForwardDynamics:
         return V { DMF {} };
-    case DynamicsMode::Inverse:
+    case SolverMode::InverseDynamics:
         return V { DMI {} };
-    case DynamicsMode::ReducedInverse:
+    case SolverMode::ReducedInverseDynamics:
         return V { DMRI {} };
     default:
         throw std::invalid_argument("Unknown dynamics mode");
@@ -62,7 +65,7 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
   , _constraints(horizon + 1)
   , _dynamics(horizon + 1) //H+1 to keep init_states for final stage
   , _forces(horizon + 1)
-  , _dynamics_mode(structure.dynamics_mode)
+  , _solver_mode(structure.solver_mode)
   , _integration(structure.integration)
   , _ignore_innate(structure.ignore_innate_constraints)
 {
@@ -107,7 +110,7 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
         std::tie(_dims.nq, _dims.nv) =
           pinocchio_wrapper::modelDimensions(_impl);
         _dims.nu = _dims.nv;
-        if (_dynamics_mode == DynamicsMode::ReducedInverse && _free_flyer)
+        if (_solver_mode == SolverMode::ReducedInverseDynamics && _free_flyer)
         {
             _dims.nu -= 6;
         }
@@ -152,8 +155,8 @@ void Model::finalize(const Config &config)
             _buildXMLInnateConstraints();
         }
 
-        if (_dynamics_mode == DynamicsMode::Inverse ||
-            _dynamics_mode == DynamicsMode::ReducedInverse)
+        if (_solver_mode == SolverMode::InverseDynamics ||
+            _solver_mode == SolverMode::ReducedInverseDynamics)
         {
             _buildXMLIDTorqueConstraints();
         }
@@ -333,7 +336,7 @@ void Model::_buildXMLInnateConstraints()
     auto ct_floating_base = to_compile_time(_free_flyer);
     auto ct_true          = to_compile_time(true);
     auto ct_false         = to_compile_time(false);
-    auto ct_dm            = to_compile_time(_dynamics_mode);
+    auto ct_sm            = to_compile_time(_solver_mode);
 
     for (uint k = 0; k <= _dims.horizon; ++k)
     {
@@ -350,7 +353,7 @@ void Model::_buildXMLInnateConstraints()
             },
             ct_floating_base,
             k == _dims.horizon ? ct_true : ct_false,
-            ct_dm);
+            ct_sm);
 
         _constraints[k] =
           _constraints[k] == nullptr
@@ -390,7 +393,8 @@ void Model::_buildXMLIDTorqueConstraints()
                                                      wf.value>(ctx);
             },
             ct_floating_base,
-            _dynamics_mode == DynamicsMode::ReducedInverse ? ct_true : ct_false,
+            _solver_mode == SolverMode::ReducedInverseDynamics ? ct_true
+                                                               : ct_false,
             ctx.nf == 0 ? ct_false : ct_true);
 
         _constraints[k] =
@@ -483,7 +487,7 @@ void Model::_buildXMLDynamics(const Config &config)
     auto ct_floating_base = to_compile_time(_free_flyer);
     auto ct_true          = to_compile_time(true);
     auto ct_false         = to_compile_time(false);
-    auto ct_dm            = to_compile_time(_dynamics_mode);
+    auto ct_sm            = to_compile_time(_solver_mode);
     auto ct_is            = to_compile_time(_integration);
 
     for (uint k = 0; k < _dynamics.size(); ++k)
@@ -509,7 +513,7 @@ void Model::_buildXMLDynamics(const Config &config)
           },
           ct_floating_base,
           ctx.nf == 0 ? ct_false : ct_true,
-          ct_dm,
+          ct_sm,
           ct_is);
     }
 }
@@ -717,7 +721,7 @@ void Model::setActuatedJoints(const std::vector<uint> &actuated_joints)
     if (actuated_joints.empty())
     {
         _actuated_joints.clear();
-        for (uint j = 0; j < (_dynamics_mode == DynamicsMode::ReducedInverse
+        for (uint j = 0; j < (_solver_mode == SolverMode::ReducedInverseDynamics
                                 ? _dims.nu
                                 : _dims.njoints);
              ++j)
@@ -731,7 +735,7 @@ void Model::setActuatedJoints(const std::vector<uint> &actuated_joints)
         std::sort(_actuated_joints.begin(), _actuated_joints.end());
     }
 
-    if (_dynamics_mode == ReducedInverse && !_actuated_joints.empty())
+    if (_solver_mode == ReducedInverseDynamics && !_actuated_joints.empty())
     {
         _dims.nu = _actuated_joints.size();
     }
@@ -787,9 +791,9 @@ double Model::dt() const
     return _dt;
 }
 
-DynamicsMode Model::dynamicsMode() const
+SolverMode Model::solverMode() const
 {
-    return _dynamics_mode;
+    return _solver_mode;
 }
 
 const VecX Model::neutralPose() const
@@ -1017,16 +1021,16 @@ MatX Model::getMatrixActuatedPart(const MatX &M) const
 VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,
                                       const uint k) const
 {
-    switch (_dynamics_mode)
+    switch (_solver_mode)
     {
     default:
-    case DynamicsMode::Forward:
+    case SolverMode::ForwardDynamics:
         return forwardDynamics(x.head(_dims.nq),
                                x.tail(_dims.nv),
                                u.head(_dims.nv));
-    case DynamicsMode::Inverse:
+    case SolverMode::InverseDynamics:
         return u.head(_dims.nv);
-    case DynamicsMode::ReducedInverse:
+    case SolverMode::ReducedInverseDynamics:
         auto ct_floating_base = to_compile_time(_free_flyer);
         auto ct_with_forces   = to_compile_time(!_forces[k].empty());
 
