@@ -96,6 +96,9 @@ std::shared_ptr<Test> generate_dynamics_gradient_test(
     switch (sm)
     {
     default:
+    case model::SolverMode::Kinematics:
+        test_name_ss << "Kin";
+        break;
     case model::SolverMode::ForwardDynamics:
         test_name_ss << "Fwdyn";
         break;
@@ -107,15 +110,18 @@ std::shared_ptr<Test> generate_dynamics_gradient_test(
         break;
     }
 
-    switch (is)
+    if (sm != model::SolverMode::Kinematics)
     {
-    default:
-    case model::IntegrationScheme::SemiImplicitEuler:
-        test_name_ss << "SemiImplicitEuler";
-        break;
-    case model::IntegrationScheme::ExplicitEuler:
-        test_name_ss << "ExplicitEuler";
-        break;
+        switch (is)
+        {
+        default:
+        case model::IntegrationScheme::SemiImplicitEuler:
+            test_name_ss << "SemiImplicitEuler";
+            break;
+        case model::IntegrationScheme::ExplicitEuler:
+            test_name_ss << "ExplicitEuler";
+            break;
+        }
     }
 
     if (floating_base)

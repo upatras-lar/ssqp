@@ -1142,7 +1142,13 @@ VecX Model::randomState(const uint stage) const
     VecX rx(_dynamics[stage]->state_size());
 
     rx.head(_dims.nq) = pinocchio_wrapper::randomConfiguration(_impl);
-    rx.tail(_dims.nv) = _randomVector(_dims.nv);
+
+    if (_solver_mode == SolverMode::ForwardDynamics ||
+        _solver_mode == SolverMode::InverseDynamics ||
+        _solver_mode == SolverMode::ReducedInverseDynamics)
+    {
+        rx.tail(_dims.nv) = _randomVector(_dims.nv);
+    }
 
     if (_free_flyer)
     {
