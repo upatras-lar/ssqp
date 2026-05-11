@@ -74,7 +74,8 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
   const std::shared_ptr<ModelImpl>     &impl,
   const std::vector<uint>              &bounded_joint_indices,
   const std::unordered_map<uint, uint> &indices_to_config,
-  const bool free_flyer = false, const bool skip_torques = false);
+  const bool free_flyer = false, const bool skip_velocities = false,
+  const bool skip_torques = false);
 
 std::pair<Eigen::VectorXd, Eigen::VectorXd> modelEffortLimits(
   const std::shared_ptr<ModelImpl> &impl);

@@ -46,22 +46,55 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 {
     auto right_plus = [this, ctx](const VecX &x, const VecX &dx)
     {
-        VecX out(ctx.nq + ctx.nv);
+        VecX out;
+
+        if constexpr (SM == SolverMode::Kinematics)
+        {
+            out.resize(ctx.nq);
+        }
+        else if constexpr (SM == SolverMode::ForwardDynamics ||
+                           SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
+        {
+            out.resize(ctx.nq + ctx.nv);
+        }
 
         out.head(ctx.nq) =
           pinocchio_wrapper::integrate(_impl, x.head(ctx.nq), dx.head(ctx.nv));
-        out.tail(ctx.nv) = x.tail(ctx.nv) + dx.tail(ctx.nv);
+
+        if constexpr (SM == SolverMode::ForwardDynamics ||
+                      SM == SolverMode::InverseDynamics ||
+                      SM == SolverMode::ReducedInverseDynamics)
+        {
+            out.tail(ctx.nv) = x.tail(ctx.nv) + dx.tail(ctx.nv);
+        }
 
         return out;
     };
 
     auto right_minus = [this, ctx](const VecX &x, const VecX &y)
     {
-        VecX out(2 * ctx.nv);
+        VecX out;
+        if constexpr (SM == SolverMode::Kinematics)
+        {
+            out.resize(ctx.nv);
+        }
+        else if constexpr (SM == SolverMode::ForwardDynamics ||
+                           SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
+        {
+            out.resize(2 * ctx.nv);
+        }
 
         out.head(ctx.nv) =
           pinocchio_wrapper::difference(_impl, y.head(ctx.nq), x.head(ctx.nq));
-        out.tail(ctx.nv) = x.tail(ctx.nv) - y.tail(ctx.nv);
+
+        if constexpr (SM == SolverMode::ForwardDynamics ||
+                      SM == SolverMode::InverseDynamics ||
+                      SM == SolverMode::ReducedInverseDynamics)
+        {
+            out.tail(ctx.nv) = x.tail(ctx.nv) - y.tail(ctx.nv);
+        }
 
         return out;
     };
@@ -74,59 +107,86 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
     auto dyn_eval = [this, ctx](const VecX &x, const VecX &u)
     {
         VecX q    = x.head(ctx.nq);
-        VecX v    = x.tail(ctx.nv);
         VecX ctrl = u.head(ctx.nu);
-        VecX f    = u.tail(3 * ctx.nf);
+
+        VecX v;
+        VecX f;
+
+        if constexpr (SM == SolverMode::ForwardDynamics ||
+                      SM == SolverMode::InverseDynamics ||
+                      SM == SolverMode::ReducedInverseDynamics)
+        {
+            v = x.tail(ctx.nv);
+            f = u.tail(3 * ctx.nf);
+        }
+
         if constexpr (SM == SolverMode::ForwardDynamics)
         {
             ctrl = ctx.S * ctrl;
         }
 
-        VecX ddq;
+        VecX out;
 
-        if constexpr (SM == SolverMode::ForwardDynamics)
+        if constexpr (SM == SolverMode::Kinematics)
         {
-            if constexpr (WithForces)
+            out.resize(ctx.nq);
+            out = pinocchio_wrapper::integrate(_impl, q, ctrl * _dt);
+        }
+        else if constexpr (SM == SolverMode::ForwardDynamics ||
+                           SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
+        {
+
+            VecX ddq;
+
+            if constexpr (SM == SolverMode::ForwardDynamics)
             {
-                std::vector<Vec6> joint_forces =
-                  _calculateJointForces(q, f, ctx.force_data);
+                if constexpr (WithForces)
+                {
+                    std::vector<Vec6> joint_forces =
+                      _calculateJointForces(q, f, ctx.force_data);
 
-                ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl, joint_forces);
+                    ddq =
+                      pinocchio_wrapper::aba(_impl, q, v, ctrl, joint_forces);
+                }
+                else
+                {
+                    ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl);
+                }
             }
-            else
+            else if constexpr (SM == SolverMode::InverseDynamics)
             {
-                ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl);
+                ddq = ctrl;
             }
-        }
-        else if constexpr (SM == SolverMode::InverseDynamics)
-        {
-            ddq = ctrl;
-        }
-        else if constexpr (SM == SolverMode::ReducedInverseDynamics)
-        {
-            ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
-                                                           WithForces>(
-              q,
-              v,
-              ctrl,
-              f,
-              ctx.force_data,
-              ctx.actuated_joints,
-              ctx.unactuated_joints);
-        }
+            else if constexpr (SM == SolverMode::ReducedInverseDynamics)
+            {
+                ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
+                                                               WithForces>(
+                  q,
+                  v,
+                  ctrl,
+                  f,
+                  ctx.force_data,
+                  ctx.actuated_joints,
+                  ctx.unactuated_joints);
+            }
 
-        VecX out(ctx.nq + ctx.nv);
+            out.resize(ctx.nq + ctx.nv);
 
-        if constexpr (IS == IntegrationScheme::ExplicitEuler)
-        {
-            out.head(ctx.nq) = pinocchio_wrapper::integrate(_impl, q, v * _dt);
-            out.tail(ctx.nv) = v + ddq * _dt;
-        }
-        else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
-        {
-            out.tail(ctx.nv) = v + ddq * _dt;
-            out.head(ctx.nq) =
-              pinocchio_wrapper::integrate(_impl, q, out.tail(ctx.nv) * _dt);
+            if constexpr (IS == IntegrationScheme::ExplicitEuler)
+            {
+                out.head(ctx.nq) =
+                  pinocchio_wrapper::integrate(_impl, q, v * _dt);
+                out.tail(ctx.nv) = v + ddq * _dt;
+            }
+            else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
+            {
+                out.tail(ctx.nv) = v + ddq * _dt;
+                out.head(ctx.nq) =
+                  pinocchio_wrapper::integrate(_impl,
+                                               q,
+                                               out.tail(ctx.nv) * _dt);
+            }
         }
 
         return out;
@@ -136,283 +196,320 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
       [this, ctx](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
         VecX q    = x.head(ctx.nq);
-        VecX v    = x.tail(ctx.nv);
         VecX ctrl = u.head(ctx.nu);
-        VecX f    = u.tail(3 * ctx.nf);
+
+        VecX v;
+        VecX f;
+        if constexpr (SM == SolverMode::ForwardDynamics ||
+                      SM == SolverMode::InverseDynamics ||
+                      SM == SolverMode::ReducedInverseDynamics)
+        {
+            v = x.tail(ctx.nv);
+            f = u.tail(3 * ctx.nf);
+        }
+
         if constexpr (SM == SolverMode::ForwardDynamics)
         {
             ctrl = ctx.S * ctrl;
         }
 
-        MatX ddq_dq, ddq_dv, Minv;
-        VecX vn;
-
-        std::vector<Vec6> joint_forces;
-        MatX              Jf_full;
-
-        VecX              ddq;
-        MatX              Muu, Muj;
-        Eigen::LDLT<MatX> Muu_ldlt;
-
-        if constexpr (SM == SolverMode::ForwardDynamics)
+        if constexpr (SM == SolverMode::Kinematics)
         {
-            if constexpr (WithForces)
-            {
-                std::tie(joint_forces, Jf_full) =
-                  _calculateJointForcesAndJacobian(q, f, ctx.force_data);
+            dX = MatX::Zero(ctx.nv, ctx.nv);
+            dU = MatX::Zero(ctx.nv, ctx.nu + 3 * ctx.nf);
 
-                if constexpr (IS == IntegrationScheme::ExplicitEuler)
-                {
-                    vn = v;
-                }
-                else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
-                {
-                    ddq =
-                      pinocchio_wrapper::aba(_impl, q, v, ctrl, joint_forces);
-                    vn = v + ddq * _dt;
-                }
+            MatX Jint_v = MatX::Zero(ctx.nv, ctx.nv);
 
-                pinocchio_wrapper::computeABADerivatives(_impl,
-                                                         q,
-                                                         v,
-                                                         ctrl,
-                                                         joint_forces,
-                                                         ddq_dq,
-                                                         ddq_dv,
-                                                         Minv);
-            }
-            else
-            {
-                if constexpr (IS == IntegrationScheme::ExplicitEuler)
-                {
-                    vn = v;
-                }
-                else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
-                {
-                    VecX ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl);
-                    vn       = v + ddq * _dt;
-                }
+            pinocchio_wrapper::dIntegrate(_impl, q, v, dX, 0);
+            pinocchio_wrapper::dIntegrate(_impl, q, v, Jint_v, 1);
 
-                pinocchio_wrapper::computeABADerivatives(_impl,
-                                                         q,
-                                                         v,
-                                                         ctrl,
-                                                         ddq_dq,
-                                                         ddq_dv,
-                                                         Minv);
-            }
+            dU.leftCols(ctx.nv) = Jint_v * _dt;
         }
-        else if constexpr (SM == SolverMode::InverseDynamics)
+        else if constexpr (SM == SolverMode::ForwardDynamics ||
+                           SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
         {
-            if constexpr (IS == IntegrationScheme::ExplicitEuler)
-            {
-                vn = v;
-            }
-            else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
-            {
-                vn = v + ctrl * _dt;
-            }
-        }
-        else if constexpr (SM == SolverMode::ReducedInverseDynamics)
-        {
-            if constexpr (IS == IntegrationScheme::ExplicitEuler)
-            {
-                vn = v;
-            }
-            else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
-            {
-                ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
-                                                               WithForces>(
-                  q,
-                  v,
-                  ctrl,
-                  f,
-                  ctx.force_data,
-                  ctx.actuated_joints,
-                  ctx.unactuated_joints,
-                  Muu,
-                  Muj,
-                  Muu_ldlt,
-                  joint_forces,
-                  Jf_full);
 
-                vn = v + ddq * _dt;
-            }
-        }
+            MatX ddq_dq, ddq_dv, Minv;
+            VecX vn;
 
-        MatX Jint_q = MatX::Zero(ctx.nv, ctx.nv);
-        MatX Jint_v = MatX::Zero(ctx.nv, ctx.nv);
+            std::vector<Vec6> joint_forces;
+            MatX              Jf_full;
 
-        pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_q, 0);
-        pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_v, 1);
-
-        dX = MatX::Zero(2 * ctx.nv, 2 * ctx.nv);
-        dU = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
-
-        if constexpr (IS == IntegrationScheme::ExplicitEuler)
-        {
-            dX.topLeftCorner(ctx.nv, ctx.nv)  = Jint_q;
-            dX.topRightCorner(ctx.nv, ctx.nv) = Jint_v * _dt;
+            VecX              ddq;
+            MatX              Muu, Muj;
+            Eigen::LDLT<MatX> Muu_ldlt;
 
             if constexpr (SM == SolverMode::ForwardDynamics)
             {
-                dX.bottomLeftCorner(ctx.nv, ctx.nv) = ddq_dq * _dt;
-                dX.bottomRightCorner(ctx.nv, ctx.nv) =
-                  MatX::Identity(ctx.nv, ctx.nv) + ddq_dv * _dt;
-
-                dU.bottomLeftCorner(ctx.nv, ctx.nu) = Minv * ctx.S * _dt;
-
                 if constexpr (WithForces)
                 {
-                    dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) =
-                      Minv * Jf_full.transpose() * _dt;
+                    std::tie(joint_forces, Jf_full) =
+                      _calculateJointForcesAndJacobian(q, f, ctx.force_data);
+
+                    if constexpr (IS == IntegrationScheme::ExplicitEuler)
+                    {
+                        vn = v;
+                    }
+                    else if constexpr (IS ==
+                                       IntegrationScheme::SemiImplicitEuler)
+                    {
+                        ddq = pinocchio_wrapper::aba(_impl,
+                                                     q,
+                                                     v,
+                                                     ctrl,
+                                                     joint_forces);
+                        vn  = v + ddq * _dt;
+                    }
+
+                    pinocchio_wrapper::computeABADerivatives(_impl,
+                                                             q,
+                                                             v,
+                                                             ctrl,
+                                                             joint_forces,
+                                                             ddq_dq,
+                                                             ddq_dv,
+                                                             Minv);
+                }
+                else
+                {
+                    if constexpr (IS == IntegrationScheme::ExplicitEuler)
+                    {
+                        vn = v;
+                    }
+                    else if constexpr (IS ==
+                                       IntegrationScheme::SemiImplicitEuler)
+                    {
+                        VecX ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl);
+                        vn       = v + ddq * _dt;
+                    }
+
+                    pinocchio_wrapper::computeABADerivatives(_impl,
+                                                             q,
+                                                             v,
+                                                             ctrl,
+                                                             ddq_dq,
+                                                             ddq_dv,
+                                                             Minv);
                 }
             }
             else if constexpr (SM == SolverMode::InverseDynamics)
             {
-                dX.bottomRightCorner(ctx.nv, ctx.nv).setIdentity();
-                dU.bottomLeftCorner(ctx.nv, ctx.nu).diagonal().setConstant(_dt);
+                if constexpr (IS == IntegrationScheme::ExplicitEuler)
+                {
+                    vn = v;
+                }
+                else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
+                {
+                    vn = v + ctrl * _dt;
+                }
             }
             else if constexpr (SM == SolverMode::ReducedInverseDynamics)
             {
-                ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
-                                                               WithForces>(
-                  q,
-                  v,
-                  ctrl,
-                  f,
-                  ctx.force_data,
-                  ctx.actuated_joints,
-                  ctx.unactuated_joints,
-                  Muu,
-                  Muj,
-                  Muu_ldlt,
-                  joint_forces,
-                  Jf_full);
-
-                MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
-                MatX da_dq, da_dv, da_daj, da_df;
-
-                _calculateReducedInverseFullAccelerationDerivatives<
-                  FloatingBase,
-                  WithForces>(q,
-                              v,
-                              ctrl,
-                              f,
-                              ctx.force_data,
-                              ctx.actuated_joints,
-                              ctx.unactuated_joints,
-                              ddq,
-                              Muu,
-                              Muj,
-                              Muu_ldlt,
-                              joint_forces,
-                              Jf_full,
-                              dtau_dq,
-                              dtau_dv,
-                              dtau_da,
-                              dtau_daj,
-                              da_dq,
-                              da_dv,
-                              da_daj,
-                              da_df);
-
-                dX.bottomLeftCorner(ctx.nv, ctx.nv) = da_dq * _dt;
-                dX.bottomRightCorner(ctx.nv, ctx.nv) =
-                  MatX::Identity(ctx.nv, ctx.nv) + da_dv * _dt;
-
-                dU.bottomLeftCorner(ctx.nv, ctx.nu) = da_daj * _dt;
-
-                if constexpr (WithForces)
+                if constexpr (IS == IntegrationScheme::ExplicitEuler)
                 {
-                    dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) = da_df * _dt;
+                    vn = v;
+                }
+                else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
+                {
+                    ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
+                                                                   WithForces>(
+                      q,
+                      v,
+                      ctrl,
+                      f,
+                      ctx.force_data,
+                      ctx.actuated_joints,
+                      ctx.unactuated_joints,
+                      Muu,
+                      Muj,
+                      Muu_ldlt,
+                      joint_forces,
+                      Jf_full);
+
+                    vn = v + ddq * _dt;
                 }
             }
-        }
-        else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
-        {
-            if constexpr (SM == SolverMode::ForwardDynamics)
-            {
-                dX.topLeftCorner(ctx.nv, ctx.nv) =
-                  Jint_q + Jint_v * _dt * _dt * ddq_dq;
-                dX.topRightCorner(ctx.nv, ctx.nv) =
-                  Jint_v * _dt *
-                  (MatX::Identity(ctx.nv, ctx.nv) + ddq_dv * _dt);
-                dX.bottomLeftCorner(ctx.nv, ctx.nv) = ddq_dq * _dt;
-                dX.bottomRightCorner(ctx.nv, ctx.nv) =
-                  MatX::Identity(ctx.nv, ctx.nv) + ddq_dv * _dt;
 
-                dU.topLeftCorner(ctx.nv, ctx.nv) =
-                  Jint_v * _dt * _dt * Minv * ctx.S;
-                dU.bottomLeftCorner(ctx.nv, ctx.nv) = Minv * ctx.S * _dt;
+            MatX Jint_q = MatX::Zero(ctx.nv, ctx.nv);
+            MatX Jint_v = MatX::Zero(ctx.nv, ctx.nv);
 
-                if constexpr (WithForces)
-                {
-                    dU.topRightCorner(ctx.nv, 3 * ctx.nf) =
-                      Jint_v * _dt * _dt * Minv * Jf_full.transpose();
+            pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_q, 0);
+            pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_v, 1);
 
-                    dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) =
-                      Minv * Jf_full.transpose() * _dt;
-                }
-            }
-            else if constexpr (SM == SolverMode::InverseDynamics)
+            dX = MatX::Zero(2 * ctx.nv, 2 * ctx.nv);
+            dU = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
+
+            if constexpr (IS == IntegrationScheme::ExplicitEuler)
             {
                 dX.topLeftCorner(ctx.nv, ctx.nv)  = Jint_q;
                 dX.topRightCorner(ctx.nv, ctx.nv) = Jint_v * _dt;
-                dX.bottomRightCorner(ctx.nv, ctx.nv) =
-                  MatX::Identity(ctx.nv, ctx.nv);
 
-                dU.topLeftCorner(ctx.nv, ctx.nv) = Jint_v * _dt * _dt;
-                dU.bottomLeftCorner(ctx.nv, ctx.nv).diagonal().setConstant(_dt);
-            }
-            else if constexpr (SM == SolverMode::ReducedInverseDynamics)
-            {
-                MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
-                MatX da_dq, da_dv, da_daj, da_df;
-
-                _calculateReducedInverseFullAccelerationDerivatives<
-                  FloatingBase,
-                  WithForces>(q,
-                              v,
-                              ctrl,
-                              f,
-                              ctx.force_data,
-                              ctx.actuated_joints,
-                              ctx.unactuated_joints,
-                              ddq,
-                              Muu,
-                              Muj,
-                              Muu_ldlt,
-                              joint_forces,
-                              Jf_full,
-                              dtau_dq,
-                              dtau_dv,
-                              dtau_da,
-                              dtau_daj,
-                              da_dq,
-                              da_dv,
-                              da_daj,
-                              da_df);
-
-                dX.bottomLeftCorner(ctx.nv, ctx.nv) = da_dq * _dt;
-                dX.bottomRightCorner(ctx.nv, ctx.nv) =
-                  MatX::Identity(ctx.nv, ctx.nv) + da_dv * _dt;
-
-                dX.topLeftCorner(ctx.nv, ctx.nv) =
-                  Jint_q * (MatX::Identity(ctx.nv, ctx.nv) +
-                            dX.bottomLeftCorner(ctx.nv, ctx.nv) * _dt);
-                dX.topRightCorner(ctx.nv, ctx.nv) =
-                  Jint_v * dX.bottomRightCorner(ctx.nv, ctx.nv) * _dt;
-
-                dU.bottomLeftCorner(ctx.nv, ctx.nu) = da_daj * _dt;
-                dU.topLeftCorner(ctx.nv, ctx.nu) =
-                  Jint_v * dU.bottomLeftCorner(ctx.nv, ctx.nu) * _dt;
-
-                if constexpr (WithForces)
+                if constexpr (SM == SolverMode::ForwardDynamics)
                 {
-                    dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) = da_df * _dt;
-                    dU.topRightCorner(ctx.nv, 3 * ctx.nf) =
-                      Jint_v * dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) * _dt;
+                    dX.bottomLeftCorner(ctx.nv, ctx.nv) = ddq_dq * _dt;
+                    dX.bottomRightCorner(ctx.nv, ctx.nv) =
+                      MatX::Identity(ctx.nv, ctx.nv) + ddq_dv * _dt;
+
+                    dU.bottomLeftCorner(ctx.nv, ctx.nu) = Minv * ctx.S * _dt;
+
+                    if constexpr (WithForces)
+                    {
+                        dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) =
+                          Minv * Jf_full.transpose() * _dt;
+                    }
+                }
+                else if constexpr (SM == SolverMode::InverseDynamics)
+                {
+                    dX.bottomRightCorner(ctx.nv, ctx.nv).setIdentity();
+                    dU.bottomLeftCorner(ctx.nv, ctx.nu)
+                      .diagonal()
+                      .setConstant(_dt);
+                }
+                else if constexpr (SM == SolverMode::ReducedInverseDynamics)
+                {
+                    ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
+                                                                   WithForces>(
+                      q,
+                      v,
+                      ctrl,
+                      f,
+                      ctx.force_data,
+                      ctx.actuated_joints,
+                      ctx.unactuated_joints,
+                      Muu,
+                      Muj,
+                      Muu_ldlt,
+                      joint_forces,
+                      Jf_full);
+
+                    MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
+                    MatX da_dq, da_dv, da_daj, da_df;
+
+                    _calculateReducedInverseFullAccelerationDerivatives<
+                      FloatingBase,
+                      WithForces>(q,
+                                  v,
+                                  ctrl,
+                                  f,
+                                  ctx.force_data,
+                                  ctx.actuated_joints,
+                                  ctx.unactuated_joints,
+                                  ddq,
+                                  Muu,
+                                  Muj,
+                                  Muu_ldlt,
+                                  joint_forces,
+                                  Jf_full,
+                                  dtau_dq,
+                                  dtau_dv,
+                                  dtau_da,
+                                  dtau_daj,
+                                  da_dq,
+                                  da_dv,
+                                  da_daj,
+                                  da_df);
+
+                    dX.bottomLeftCorner(ctx.nv, ctx.nv) = da_dq * _dt;
+                    dX.bottomRightCorner(ctx.nv, ctx.nv) =
+                      MatX::Identity(ctx.nv, ctx.nv) + da_dv * _dt;
+
+                    dU.bottomLeftCorner(ctx.nv, ctx.nu) = da_daj * _dt;
+
+                    if constexpr (WithForces)
+                    {
+                        dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) = da_df * _dt;
+                    }
+                }
+            }
+            else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
+            {
+                if constexpr (SM == SolverMode::ForwardDynamics)
+                {
+                    dX.topLeftCorner(ctx.nv, ctx.nv) =
+                      Jint_q + Jint_v * _dt * _dt * ddq_dq;
+                    dX.topRightCorner(ctx.nv, ctx.nv) =
+                      Jint_v * _dt *
+                      (MatX::Identity(ctx.nv, ctx.nv) + ddq_dv * _dt);
+                    dX.bottomLeftCorner(ctx.nv, ctx.nv) = ddq_dq * _dt;
+                    dX.bottomRightCorner(ctx.nv, ctx.nv) =
+                      MatX::Identity(ctx.nv, ctx.nv) + ddq_dv * _dt;
+
+                    dU.topLeftCorner(ctx.nv, ctx.nv) =
+                      Jint_v * _dt * _dt * Minv * ctx.S;
+                    dU.bottomLeftCorner(ctx.nv, ctx.nv) = Minv * ctx.S * _dt;
+
+                    if constexpr (WithForces)
+                    {
+                        dU.topRightCorner(ctx.nv, 3 * ctx.nf) =
+                          Jint_v * _dt * _dt * Minv * Jf_full.transpose();
+
+                        dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) =
+                          Minv * Jf_full.transpose() * _dt;
+                    }
+                }
+                else if constexpr (SM == SolverMode::InverseDynamics)
+                {
+                    dX.topLeftCorner(ctx.nv, ctx.nv)  = Jint_q;
+                    dX.topRightCorner(ctx.nv, ctx.nv) = Jint_v * _dt;
+                    dX.bottomRightCorner(ctx.nv, ctx.nv) =
+                      MatX::Identity(ctx.nv, ctx.nv);
+
+                    dU.topLeftCorner(ctx.nv, ctx.nv) = Jint_v * _dt * _dt;
+                    dU.bottomLeftCorner(ctx.nv, ctx.nv)
+                      .diagonal()
+                      .setConstant(_dt);
+                }
+                else if constexpr (SM == SolverMode::ReducedInverseDynamics)
+                {
+                    MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
+                    MatX da_dq, da_dv, da_daj, da_df;
+
+                    _calculateReducedInverseFullAccelerationDerivatives<
+                      FloatingBase,
+                      WithForces>(q,
+                                  v,
+                                  ctrl,
+                                  f,
+                                  ctx.force_data,
+                                  ctx.actuated_joints,
+                                  ctx.unactuated_joints,
+                                  ddq,
+                                  Muu,
+                                  Muj,
+                                  Muu_ldlt,
+                                  joint_forces,
+                                  Jf_full,
+                                  dtau_dq,
+                                  dtau_dv,
+                                  dtau_da,
+                                  dtau_daj,
+                                  da_dq,
+                                  da_dv,
+                                  da_daj,
+                                  da_df);
+
+                    dX.bottomLeftCorner(ctx.nv, ctx.nv) = da_dq * _dt;
+                    dX.bottomRightCorner(ctx.nv, ctx.nv) =
+                      MatX::Identity(ctx.nv, ctx.nv) + da_dv * _dt;
+
+                    dX.topLeftCorner(ctx.nv, ctx.nv) =
+                      Jint_q * (MatX::Identity(ctx.nv, ctx.nv) +
+                                dX.bottomLeftCorner(ctx.nv, ctx.nv) * _dt);
+                    dX.topRightCorner(ctx.nv, ctx.nv) =
+                      Jint_v * dX.bottomRightCorner(ctx.nv, ctx.nv) * _dt;
+
+                    dU.bottomLeftCorner(ctx.nv, ctx.nu) = da_daj * _dt;
+                    dU.topLeftCorner(ctx.nv, ctx.nu) =
+                      Jint_v * dU.bottomLeftCorner(ctx.nv, ctx.nu) * _dt;
+
+                    if constexpr (WithForces)
+                    {
+                        dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) = da_df * _dt;
+                        dU.topRightCorner(ctx.nv, 3 * ctx.nf) =
+                          Jint_v * dU.bottomRightCorner(ctx.nv, 3 * ctx.nf) *
+                          _dt;
+                    }
                 }
             }
         }
@@ -420,29 +517,72 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
     auto dyn_hessprod_xx =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
-    { Pxx = MatX::Zero(2 * ctx.nv, 2 * ctx.nv); };
+    {
+        if constexpr (SM == SolverMode::Kinematics)
+        {
+            Pxx = MatX::Zero(ctx.nv, ctx.nv);
+        }
+        else if constexpr (SM == SolverMode::ForwardDynamics ||
+                           SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
+        {
+            Pxx = MatX::Zero(2 * ctx.nv, 2 * ctx.nv);
+        }
+    };
 
     auto dyn_hessprod_xu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
-    { Pxu = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf); };
+    {
+        if constexpr (SM == SolverMode::Kinematics)
+        {
+            Pxu = MatX::Zero(ctx.nv, ctx.nu + 3 * ctx.nf);
+        }
+        else if constexpr (SM == SolverMode::ForwardDynamics ||
+                           SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
+        {
+            Pxu = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
+        }
+    };
 
     auto dyn_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
     { Puu = MatX::Zero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
 
-    return stagewise::factory::make_dynamics({ ctx.stage_dynamics_name },
-                                             ctx.nq + ctx.nv,
-                                             ctx.nu + 3 * ctx.nf,
-                                             ctx.nq + ctx.nv,
-                                             2 * ctx.nv,
-                                             ctx.init_state,
-                                             ctx.init_control,
-                                             ops,
-                                             dyn_eval,
-                                             dyn_grad,
-                                             dyn_hessprod_xx,
-                                             dyn_hessprod_xu,
-                                             dyn_hessprod_uu);
+    if constexpr (SM == SolverMode::Kinematics)
+    {
+        return stagewise::factory::make_dynamics({ ctx.stage_dynamics_name },
+                                                 ctx.nq,
+                                                 ctx.nu + 3 * ctx.nf,
+                                                 ctx.nq,
+                                                 ctx.nv,
+                                                 ctx.init_state,
+                                                 ctx.init_control,
+                                                 ops,
+                                                 dyn_eval,
+                                                 dyn_grad,
+                                                 dyn_hessprod_xx,
+                                                 dyn_hessprod_xu,
+                                                 dyn_hessprod_uu);
+    }
+    else if constexpr (SM == SolverMode::ForwardDynamics ||
+                       SM == SolverMode::InverseDynamics ||
+                       SM == SolverMode::ReducedInverseDynamics)
+    {
+        return stagewise::factory::make_dynamics({ ctx.stage_dynamics_name },
+                                                 ctx.nq + ctx.nv,
+                                                 ctx.nu + 3 * ctx.nf,
+                                                 ctx.nq + ctx.nv,
+                                                 2 * ctx.nv,
+                                                 ctx.init_state,
+                                                 ctx.init_control,
+                                                 ops,
+                                                 dyn_eval,
+                                                 dyn_grad,
+                                                 dyn_hessprod_xx,
+                                                 dyn_hessprod_xu,
+                                                 dyn_hessprod_uu);
+    }
 }
 
 template<bool FloatingBase, bool IsTerminal, SolverMode SM>
@@ -467,6 +607,17 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                                          _bounded_joint_indices,
                                          _bounded_joint_indices_to_config,
                                          _free_flyer,
+                                         false,
+                                         true);
+    }
+    else if constexpr (SM == SolverMode::Kinematics)
+    {
+        std::tie(lb, ub) =
+          pinocchio_wrapper::modelBounds(_impl,
+                                         _bounded_joint_indices,
+                                         _bounded_joint_indices_to_config,
+                                         _free_flyer,
+                                         true,
                                          true);
     }
 
@@ -481,8 +632,12 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     {
         VecX c;
 
-        if constexpr (IsTerminal || SM == SolverMode::InverseDynamics ||
-                      SM == SolverMode::ReducedInverseDynamics)
+        if constexpr (SM == SolverMode::Kinematics)
+        {
+            c.resize(_bounded_joint_indices.size());
+        }
+        else if constexpr (IsTerminal || SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
         {
             c.resize(_bounded_joint_indices.size() + nv_reduced);
         }
@@ -497,10 +652,15 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
               x[_bounded_joint_indices_to_config.at(_bounded_joint_indices[i])];
         }
 
-        c.segment(_bounded_joint_indices.size(), nv_reduced) =
-          x.tail(nv_reduced);
+        if constexpr (SM == SolverMode::ForwardDynamics ||
+                      SM == SolverMode::InverseDynamics ||
+                      SM == SolverMode::ReducedInverseDynamics)
+        {
+            c.segment(_bounded_joint_indices.size(), nv_reduced) =
+              x.tail(nv_reduced);
+        }
 
-        if (!IsTerminal && SM == SolverMode::ForwardDynamics)
+        if constexpr (!IsTerminal && SM == SolverMode::ForwardDynamics)
         {
             if constexpr (FloatingBase)
             {
@@ -518,7 +678,21 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     auto innate_constraint_grad =
       [this, ctx, nv_reduced](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
     {
-        if constexpr (IsTerminal)
+        if constexpr (SM == SolverMode::Kinematics)
+        {
+            dX = MatX::Zero(_bounded_joint_indices.size(), ctx.nv);
+
+            if constexpr (IsTerminal)
+            {
+                dU = MatX::Zero(_bounded_joint_indices.size(), 0);
+            }
+            else
+            {
+                dU = MatX::Zero(_bounded_joint_indices.size(),
+                                ctx.nu + 3 * ctx.nf);
+            }
+        }
+        else if constexpr (IsTerminal)
         {
             dX = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
                             2 * ctx.nv);
@@ -547,24 +721,29 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                  _bounded_joint_indices[i])) = 1.0;
         }
 
-        if constexpr (FloatingBase)
+        if constexpr (SM == SolverMode::ForwardDynamics ||
+                      SM == SolverMode::InverseDynamics ||
+                      SM == SolverMode::ReducedInverseDynamics)
         {
-            dX.block(_bounded_joint_indices.size(),
-                     ctx.nv + 6,
-                     nv_reduced,
-                     nv_reduced)
-              .setIdentity();
-        }
-        else
-        {
-            dX.block(_bounded_joint_indices.size(),
-                     ctx.nv,
-                     nv_reduced,
-                     nv_reduced)
-              .setIdentity();
+            if constexpr (FloatingBase)
+            {
+                dX.block(_bounded_joint_indices.size(),
+                         ctx.nv + 6,
+                         nv_reduced,
+                         nv_reduced)
+                  .setIdentity();
+            }
+            else
+            {
+                dX.block(_bounded_joint_indices.size(),
+                         ctx.nv,
+                         nv_reduced,
+                         nv_reduced)
+                  .setIdentity();
+            }
         }
 
-        if (!IsTerminal && SM == SolverMode::ForwardDynamics)
+        if constexpr (!IsTerminal && SM == SolverMode::ForwardDynamics)
         {
             if constexpr (FloatingBase)
             {
@@ -587,17 +766,55 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
 
     auto innate_constraint_hessprod_xx =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
-    { Pxx = MatX::Zero(2 * ctx.nv, 2 * ctx.nv); };
+    {
+        if constexpr (SM == SolverMode::Kinematics)
+        {
+            Pxx = MatX::Zero(ctx.nv, ctx.nv);
+        }
+        else if constexpr (SM == SolverMode::ForwardDynamics ||
+                           SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
+        {
+            Pxx = MatX::Zero(2 * ctx.nv, 2 * ctx.nv);
+        }
+    };
 
     auto innate_constraint_hessprod_xu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
-    { Pxu = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf); };
+    {
+        if constexpr (SM == SolverMode::Kinematics)
+        {
+            Pxu = MatX::Zero(ctx.nv, ctx.nu + 3 * ctx.nf);
+        }
+        else if constexpr (SM == SolverMode::ForwardDynamics ||
+                           SM == SolverMode::InverseDynamics ||
+                           SM == SolverMode::ReducedInverseDynamics)
+        {
+            Pxu = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
+        }
+    };
 
     auto innate_constraint_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
     { Puu = MatX::Zero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
 
-    if constexpr (IsTerminal)
+    if constexpr (SM == SolverMode::Kinematics)
+    {
+        return stagewise::factory::make_constraints(
+          { ctx.stage_constraints_name },
+          [this]() { return _bounded_joint_indices.size(); },
+          [this]() { return _bounded_joint_indices.size(); },
+          [lb]() { return lb; },
+          [ub]() { return ub; },
+          innate_constraint_eval,
+          innate_constraint_grad,
+          DefaultRightMinus,
+          innate_constraint_hessprod_xx,
+          innate_constraint_hessprod_xu,
+          innate_constraint_hessprod_uu);
+    }
+
+    else if constexpr (IsTerminal)
     {
         return stagewise::factory::make_constraints(
           { ctx.stage_constraints_name },

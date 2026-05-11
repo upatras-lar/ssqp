@@ -629,8 +629,8 @@ class Model
      *  - `DM`: The solver mode that should be used
      * 
      * ### Note
-     * If the selected solver mode is Inverse, this function does not generate
-     * the inverse dynamics constraints required by the InverseDynamics mode. 
+     * If the selected solver mode is InverseDynamics or ReducedInverseDynamics,
+     * this function does not generate the required inverse dynamics constraints. 
      * `_makeStageIDTorqueConstraints` needs to also be called.
      */
     template<bool FloatingBase, bool IsTerminal,
@@ -639,7 +639,7 @@ class Model
       const _StageInnateConstraintsContext &ctx) const;
 
     /* Makes the inverse dynamics torque constraints required by the InverseDynamics
-     * solver mode, based on the XML effort limits.
+     * or ReducedInverseDynamics solver modes, based on the XML effort limits.
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
      *  - `ReducedInverseDynamics`: Whether the solver mode is ReducedInverseDynamics, such
