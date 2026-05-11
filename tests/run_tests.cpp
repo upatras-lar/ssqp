@@ -16,7 +16,7 @@ int main()
     };
 
     const std::vector<ssqp::model::SolverMode> sms = {
-        // ssqp::model::SolverMode::Kinematics,
+        ssqp::model::SolverMode::Kinematics,
         ssqp::model::SolverMode::ForwardDynamics,
         ssqp::model::SolverMode::InverseDynamics,
         ssqp::model::SolverMode::ReducedInverseDynamics

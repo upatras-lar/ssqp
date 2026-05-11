@@ -136,7 +136,6 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-
             VecX ddq;
 
             if constexpr (SM == SolverMode::ForwardDynamics)
@@ -220,8 +219,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
             MatX Jint_v = MatX::Zero(ctx.nv, ctx.nv);
 
-            pinocchio_wrapper::dIntegrate(_impl, q, v, dX, 0);
-            pinocchio_wrapper::dIntegrate(_impl, q, v, Jint_v, 1);
+            pinocchio_wrapper::dIntegrate(_impl, q, ctrl * _dt, dX, 0);
+            pinocchio_wrapper::dIntegrate(_impl, q, ctrl * _dt, Jint_v, 1);
 
             dU.leftCols(ctx.nv) = Jint_v * _dt;
         }
