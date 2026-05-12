@@ -29,19 +29,19 @@ class GaitManager:
         self.swing_cost_height = swing_cost_height
 
         self.fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-            model, self.fl_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
+            model, self.fl_foot, np.zeros(3), np.zeros(3)
         )
 
         self.fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-            model, self.fr_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
+            model, self.fr_foot, np.zeros(3), np.zeros(3)
         )
 
         self.rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-            model, self.rl_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
+            model, self.rl_foot, np.zeros(3), np.zeros(3)
         )
 
         self.rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-            model, self.rr_foot, np.zeros(3), np.zeros(3), self.nq, self.nv
+            model, self.rr_foot, np.zeros(3), np.zeros(3)
         )
 
         self.fl_foot_ag_bound = constraints.FramePositionBound(
@@ -49,16 +49,12 @@ class GaitManager:
             self.fl_foot,
             np.array((-np.inf, -np.inf, 0.0)),
             np.array((np.inf, np.inf, np.inf)),
-            self.nq,
-            self.nv,
         )
 
         self.fl_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
             model,
             self.fl_foot,
             np.array((0.0, 0.0, swing_cost_height)),
-            self.nq,
-            self.nv,
             np.array((0.0, 0.0, 1.0)),
         )
 
@@ -67,16 +63,12 @@ class GaitManager:
             self.fr_foot,
             np.array((-np.inf, -np.inf, 0.0)),
             np.array((np.inf, np.inf, np.inf)),
-            self.nq,
-            self.nv,
         )
 
         self.fr_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
             model,
             self.fr_foot,
             np.array((0.0, 0.0, swing_cost_height)),
-            self.nq,
-            self.nv,
             np.array((0.0, 0.0, 1.0)),
         )
 
@@ -85,16 +77,12 @@ class GaitManager:
             self.rl_foot,
             np.array((-np.inf, -np.inf, 0.0)),
             np.array((np.inf, np.inf, np.inf)),
-            self.nq,
-            self.nv,
         )
 
         self.rl_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
             model,
             self.rl_foot,
             np.array((0.0, 0.0, swing_cost_height)),
-            self.nq,
-            self.nv,
             np.array((0.0, 0.0, 1.0)),
         )
 
@@ -103,16 +91,12 @@ class GaitManager:
             self.rr_foot,
             np.array((-np.inf, -np.inf, 0.0)),
             np.array((np.inf, np.inf, np.inf)),
-            self.nq,
-            self.nv,
         )
 
         self.rr_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
             model,
             self.rr_foot,
             np.array((0.0, 0.0, swing_cost_height)),
-            self.nq,
-            self.nv,
             np.array((0.0, 0.0, 1.0)),
         )
 
@@ -266,10 +250,7 @@ class GaitManager:
                     self.model.addCost(k, self.rl_foot_ag_cost)
 
                 init_controls.append(self._getInitControl(2))
-            elif (
-                gait_stage > 0.5 * cycle_steps
-                and gait_stage < 0.8 * cycle_steps
-            ):
+            elif gait_stage > 0.5 * cycle_steps and gait_stage < 0.8 * cycle_steps:
                 self.model.addContactConstraint(k, self.fr_foot)
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(k, self.rl_foot)
@@ -317,10 +298,7 @@ class GaitManager:
                     self.model.addCost(k, self.rr_foot_ag_cost)
 
                 init_controls.append(self._getInitControl(2))
-            elif (
-                gait_stage > 0.5 * cycle_steps
-                and gait_stage < 0.8 * cycle_steps
-            ):
+            elif gait_stage > 0.5 * cycle_steps and gait_stage < 0.8 * cycle_steps:
                 self.model.addContactConstraint(k, self.fr_foot)
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(k, self.rr_foot)
@@ -601,9 +579,7 @@ class GaitManager:
             or end_stage >= self.model.horizon
             or start_stage >= end_stage
         ):
-            raise ValueError(
-                f"Invalid stage range {start_stage} - {end_stage}"
-            )
+            raise ValueError(f"Invalid stage range {start_stage} - {end_stage}")
 
         if cycle_steps < 0 or cycle_steps > end_stage - start_stage:
             raise ValueError(f"Invalid cycle steps value {cycle_steps}")

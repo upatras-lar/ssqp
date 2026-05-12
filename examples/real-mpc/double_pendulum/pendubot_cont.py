@@ -37,10 +37,10 @@ nu = model.getnu()
 
 DESIRED_CONFIG = np.array((-1.0, 0.0, 1.0, 0.0))
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, DESIRED_CONFIG, nq, nv, C_WGT, False
+    model, DESIRED_CONFIG, C_WGT
 )
 
 for k in range(MPC_H):
@@ -78,9 +78,7 @@ data = []
 
 
 def wrap_to_reference(theta, reference=np.pi):
-    return reference + np.arctan2(
-        np.sin(theta - reference), np.cos(theta - reference)
-    )
+    return reference + np.arctan2(np.sin(theta - reference), np.cos(theta - reference))
 
 
 t0 = time()
@@ -96,9 +94,7 @@ while True:
     # pos = state[:nq]
     # vel = state[nq:]
     pos = state[:2]
-    pos = np.array(
-        (np.cos(pos[0]), np.sin(pos[0]), np.cos(pos[1]), np.sin(pos[1]))
-    )
+    pos = np.array((np.cos(pos[0]), np.sin(pos[0]), np.cos(pos[1]), np.sin(pos[1])))
     vel = state[2:]
 
     state = np.hstack((pos, vel))

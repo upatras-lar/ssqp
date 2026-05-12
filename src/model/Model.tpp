@@ -127,6 +127,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
         VecX out;
 
+        // TODO: forces in kinematic mode? (maybe free variables?)
         if constexpr (SM == SolverMode::Kinematics)
         {
             out.resize(ctx.nq);

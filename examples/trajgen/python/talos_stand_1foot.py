@@ -53,23 +53,23 @@ for f in range(1, 5):
 
 
 # Create regularization costs
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT, True)
+control_cost = costs.SquaredControlCost(model, U_WGT)
+force_cost = costs.SquaredForceCost(model, F_WGT)
 
 # Create velocity bounds for each frame that will have a force applied
 left_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mm", np.zeros(3), np.zeros(3), nq, nv
+    model, "left_mm", np.zeros(3), np.zeros(3)
 )
 left_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mp", np.zeros(3), np.zeros(3), nq, nv
+    model, "left_mp", np.zeros(3), np.zeros(3)
 )
 left_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pp", np.zeros(3), np.zeros(3), nq, nv
+    model, "left_pp", np.zeros(3), np.zeros(3)
 )
 left_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pm", np.zeros(3), np.zeros(3), nq, nv
+    model, "left_pm", np.zeros(3), np.zeros(3)
 )
 
 init_controls = []
@@ -92,8 +92,6 @@ for k in range(H):
             "torso_1_link",
             np.array((0.0, 0.15, 1.072)),
             np.eye(3),
-            nq,
-            nv,
             T_BASE_WGT,
             R_BASE_WGT,
         ),
@@ -108,8 +106,6 @@ for k in range(H):
                 model,
                 "leg_right_4_link",
                 np.array((0.4, -0.25, 0.65)),
-                nq,
-                nv,
                 T_KNEE_RAISE_WGT,
             ),
         )
@@ -121,8 +117,6 @@ for k in range(H):
                 model,
                 "arm_left_4_link",
                 np.array((0.0, 0.6, 1.0)),
-                nq,
-                nv,
                 T_ARM_RAISE_WGT,
             ),
         )
@@ -133,8 +127,6 @@ for k in range(H):
                 model,
                 "arm_right_4_link",
                 np.array((0.0, -0.6, 1.0)),
-                nq,
-                nv,
                 T_ARM_RAISE_WGT,
             ),
         )
@@ -159,7 +151,7 @@ model.addCost(H, joint_vel_cost)
 model.addConstraints(
     H,
     constraints.FrameLinearVelocityBound(
-        model, "torso_1_link", np.zeros(3), np.zeros(3), nq, nv, True
+        model, "torso_1_link", np.zeros(3), np.zeros(3), True
     ),
 )
 

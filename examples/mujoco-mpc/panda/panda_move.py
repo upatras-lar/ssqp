@@ -72,10 +72,10 @@ init_state[:nq] = [
 
 start_pos = model.forwardKinematics(init_state[:nq], "panda_ee")[0]
 
-v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
-    model, "panda_ee", desired_pose, nq, nq, T_WGT, R_WGT
+    model, "panda_ee", desired_pose, T_WGT, R_WGT
 )
 
 
@@ -92,11 +92,7 @@ def get_constraint_bounds(current_pos, current_target):
 
 
 obstacle_box = ssqpy.model.constraints.FramePositionBound(
-    model,
-    "panda_ee",
-    *get_constraint_bounds(start_pos, target_pos),
-    nq,
-    nv,
+    model, "panda_ee", *get_constraint_bounds(start_pos, target_pos)
 )
 
 

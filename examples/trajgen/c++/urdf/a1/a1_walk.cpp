@@ -108,18 +108,9 @@ int main()
     for (uint k = 0; k < HORIZON; ++k)
     {
         // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k,
-                                                       VELOCITY_SIZE,
-                                                       V_WGT,
-                                                       true);
-        model.addCost<costs::SquaredControlCost>(k,
-                                                 VELOCITY_SIZE,
-                                                 CONTROL_SIZE,
-                                                 U_WGT);
-        model.addCost<costs::SquaredForceCost>(k,
-                                               VELOCITY_SIZE,
-                                               CONTROL_SIZE,
-                                               F_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
+        model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
+        model.addCost<costs::SquaredForceCost>(k, model, F_WGT);
 
         // Add cost for trunk to follow the desired trajectory
         model.addCost<costs::FrameSquaredPoseErrorCost>(
@@ -128,8 +119,6 @@ int main()
           "trunk",
           traj[k],
           Eigen::Matrix3d::Identity(),
-          STATE_SIZE,
-          VELOCITY_SIZE,
           T_WGT,
           T_WGT);
 
@@ -143,9 +132,6 @@ int main()
               k,
               model,
               ls1 ? "RR_foot" : "RL_foot",
-              STATE_SIZE,
-              VELOCITY_SIZE,
-              CONTROL_SIZE,
               0.6);
 
             model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -153,17 +139,12 @@ int main()
               model,
               ls1 ? "RR_foot" : "RL_foot",
               Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero(),
-              STATE_SIZE,
-              VELOCITY_SIZE);
+              Eigen::Vector3d::Zero());
 
             model.addConstraints<constraints::ContactConstraint>(
               k,
               model,
               ls1 ? "FR_foot" : "FL_foot",
-              STATE_SIZE,
-              VELOCITY_SIZE,
-              CONTROL_SIZE,
               0.6);
 
             model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -171,9 +152,7 @@ int main()
               model,
               ls1 ? "FR_foot" : "FL_foot",
               Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero(),
-              STATE_SIZE,
-              VELOCITY_SIZE);
+              Eigen::Vector3d::Zero());
         }
         else
         {
@@ -192,9 +171,6 @@ int main()
                                                              model,
                                                              ls1 ? "FR_foot"
                                                                  : "FL_foot",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -202,17 +178,12 @@ int main()
           model,
           ls1 ? "FR_foot" : "FL_foot",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              ls1 ? "RL_foot"
                                                                  : "RR_foot",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -220,24 +191,17 @@ int main()
           model,
           ls1 ? "RL_foot" : "RR_foot",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
     }
 
     // Add terminal costs
-    model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
-                                                   VELOCITY_SIZE,
-                                                   V_WGT,
-                                                   true);
+    model.addCost<costs::SquaredJointVelocityCost>(HORIZON, model, V_WGT);
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
                                                     "trunk",
                                                     traj[HORIZON],
                                                     Eigen::Matrix3d::Identity(),
-                                                    STATE_SIZE,
-                                                    VELOCITY_SIZE,
                                                     T_WGT,
                                                     T_WGT);
 
@@ -247,8 +211,6 @@ int main()
       "trunk",
       -1e-3 * Eigen::Vector3d::Ones(),
       1e-3 * Eigen::Vector3d::Ones(),
-      STATE_SIZE,
-      VELOCITY_SIZE,
       true);
 
     ssqp::model::Model::Config model_config;

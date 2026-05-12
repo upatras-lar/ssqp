@@ -70,34 +70,34 @@ def get_panda_circle_problem(dynamics_mode):
     lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
     ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
     box_constraint = ssqpy.model.constraints.FramePositionBound(
-        circle_problem, "panda_ee", lb, ub, nq, nv
+        circle_problem, "panda_ee", lb, ub
     )
 
     for k in range(H):
         circle_problem.addCost(
             k,
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
-                circle_problem, "panda_ee", traj[k], Rd, nq, nq, T_WGT, R_WGT
+                circle_problem, "panda_ee", traj[k], Rd, T_WGT, R_WGT
             ),
         )
 
         circle_problem.addCost(
-            k, ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
+            k, ssqpy.model.costs.SquaredJointVelocityCost(circle_problem, V_WGT)
         )
         circle_problem.addCost(
-            k, ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+            k, ssqpy.model.costs.SquaredControlCost(circle_problem, U_WGT)
         )
         circle_problem.addConstraints(k, box_constraint)
 
     circle_problem.addCost(
         H,
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            circle_problem, "panda_ee", traj[H], Rd, nq, nq, T_WGT, R_WGT
+            circle_problem, "panda_ee", traj[H], Rd, T_WGT, R_WGT
         ),
     )
 
     circle_problem.addCost(
-        H, ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
+        H, ssqpy.model.costs.SquaredJointVelocityCost(circle_problem, V_WGT)
     )
 
     circle_problem.addConstraints(H, box_constraint)
@@ -139,18 +139,16 @@ def get_panda_obstacle_problem(dynamics_mode):
         0.0,
     ]
 
-    joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-    control_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(obstacle_problem, V_WGT)
+    control_cost = ssqpy.model.costs.SquaredControlCost(obstacle_problem, U_WGT)
     rot_cost = ssqpy.model.costs.FrameSquaredRotationErrorCost(
-        obstacle_problem, "panda_ee", Rd, nq, nq, R_WGT
+        obstacle_problem, "panda_ee", Rd, R_WGT
     )
     pose_cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
         obstacle_problem,
         "panda_ee",
         np.array((0.3, 0.3, 0.1)),
         Rd,
-        nq,
-        nq,
         T_WGT,
         R_WGT,
     )
@@ -160,8 +158,6 @@ def get_panda_obstacle_problem(dynamics_mode):
         "panda_ee",
         np.array((-np.inf, -np.inf, 0.4)),
         np.array((np.inf, np.inf, np.inf)),
-        nq,
-        nv,
     )
 
     for k in range(H):
@@ -180,9 +176,7 @@ def get_panda_obstacle_problem(dynamics_mode):
     return obstacle_problem
 
 
-def generate_panda_feasible_region_problems(
-    n_problems, dynamics_mode, seed=42
-):
+def generate_panda_feasible_region_problems(n_problems, dynamics_mode, seed=42):
     rng = np.random.default_rng(seed)
 
     H = 400
@@ -231,18 +225,18 @@ def generate_panda_feasible_region_problems(
             "panda_ee",
             final_goal,
             Rd,
-            nq,
-            nq,
             T_WGT,
             R_WGT,
         )
 
         rot_cost = ssqpy.model.costs.FrameSquaredRotationErrorCost(
-            obstacle_problem, "panda_ee", Rd, nq, nq, R_WGT
+            obstacle_problem, "panda_ee", Rd, R_WGT
         )
 
-        joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-        control_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+        joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(
+            obstacle_problem, V_WGT
+        )
+        control_cost = ssqpy.model.costs.SquaredControlCost(obstacle_problem, U_WGT)
 
         # -----------------------------
         # Random obstacle along line
@@ -261,12 +255,7 @@ def generate_panda_feasible_region_problems(
         # print("--goal", *final_goal, "--box-region", *obstacle_lower, *obstacle_upper)
 
         obstacle_box = ssqpy.model.constraints.FramePositionBound(
-            obstacle_problem,
-            "panda_ee",
-            obstacle_lower,
-            obstacle_upper,
-            nq,
-            nv,
+            obstacle_problem, "panda_ee", obstacle_lower, obstacle_upper
         )
 
         # -----------------------------

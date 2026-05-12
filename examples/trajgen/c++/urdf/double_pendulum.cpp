@@ -97,7 +97,7 @@ int main()
         model.addCost(k, getCost());
         // Also add a predefined cost of type SquaredControlCost to stage k
         // with arguments nv = 2 and weight = 1e-5
-        model.addCost<costs::SquaredControlCost>(k, 2, 2, 1e-5);
+        model.addCost<costs::SquaredControlCost>(k, model, 1e-5);
     }
 
     // Add terminal cost with larger weight

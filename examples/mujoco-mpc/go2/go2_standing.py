@@ -42,10 +42,10 @@ init_state[5] = 1.0
 init_state[7:19] = base_config
 
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, init_state[7:nq], nq, nv, C_WGT, True
+    model, init_state[7:nq], C_WGT
 )
-v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT, True)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
 for k in range(mpc_H):
     model.addCost(k, config_cost)

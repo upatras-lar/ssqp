@@ -15,7 +15,7 @@ dt = 0.01
 
 model = ssqpy.model.Model(H, dt)
 
-com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
+com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
     v_cmd, go2_kinematic.init_config, np.zeros(3), 0.0, H, dt
 )
 

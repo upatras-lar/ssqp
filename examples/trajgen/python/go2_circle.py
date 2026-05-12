@@ -53,9 +53,7 @@ traj = make_trajectory(HORIZON)
 # Initial configuration
 # ----------------------------
 
-base_pos = np.array(
-    (0.00977120909615503, 0.0010149333444776712, 0.3699871267409014)
-)
+base_pos = np.array((0.00977120909615503, 0.0010149333444776712, 0.3699871267409014))
 base_config = np.array(
     (
         -0.00301867560886747,
@@ -108,17 +106,15 @@ for k in range(HORIZON):
         "base",  # Go2 trunk frame name
         traj[k],
         np.eye(3),
-        nq,
-        nv,
         T_WGT,
         R_WGT,
     )
     model.addCost(k, trunk_cost)
 
     # Regularization
-    joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-    control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-    force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+    joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+    control_cost = costs.SquaredControlCost(model, U_WGT)
+    force_cost = costs.SquaredForceCost(model, F_WGT)
 
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
@@ -130,12 +126,7 @@ for k in range(HORIZON):
         model.addContactConstraint(k, foot)
 
         vel_bound = constraints.FrameLinearVelocityBound(
-            model,
-            foot,
-            np.zeros(3),
-            np.zeros(3),
-            nq,
-            nv,
+            model, foot, np.zeros(3), np.zeros(3)
         )
 
         model.addConstraints(k, vel_bound)
@@ -147,8 +138,6 @@ terminal_cost = costs.FrameSquaredPoseErrorCost(
     "base",
     traj[-1],
     np.eye(3),
-    nq,
-    nv,
     T_WGT,
     R_WGT,
 )

@@ -43,39 +43,39 @@ init_control[-7] = 3.75 * 9.81
 init_control[-4] = 3.75 * 9.81
 init_control[-1] = 3.75 * 9.81
 
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+control_cost = costs.SquaredControlCost(model, U_WGT)
+force_cost = costs.SquaredForceCost(model, F_WGT)
 pose_cost = costs.FrameSquaredPoseErrorCost(
-    model, "base", base_pos, np.eye(3), nq, nv, T_WGT, R_WGT
+    model, "base", base_pos, np.eye(3), T_WGT, R_WGT
 )
 
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FL_foot", np.zeros(3), np.zeros(3)
 )
 
 fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FR_foot", np.zeros(3), np.zeros(3)
 )
 
 rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RL_foot", np.zeros(3), np.zeros(3)
 )
 
 rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RR_foot", np.zeros(3), np.zeros(3)
 )
 
 above_ground_lb = np.array((-np.inf, -np.inf, 0.1))
 above_ground_ub = np.array((np.inf, np.inf, np.inf))
 
 base_above_ground_bound = constraints.FramePositionBound(
-    model, "base", above_ground_lb, above_ground_ub, nq, nv
+    model, "base", above_ground_lb, above_ground_ub
 )
 
 head_above_ground_bound = constraints.FramePositionBound(
-    model, "Head_lower", above_ground_lb, above_ground_ub, nq, nv
+    model, "Head_lower", above_ground_lb, above_ground_ub
 )
 
 init_states = []
@@ -121,7 +121,7 @@ for k in range(HORIZON):
     # model.addCost(
     #     k,
     #     costs.FrameSquaredRotationErrorCost(
-    #         model, "base", rotation_traj[k - STEPS_BEFORE], nq, nv, R_WGT
+    #         model, "base", rotation_traj[k - STEPS_BEFORE], R_WGT
     #     ),
     # )
 
@@ -134,9 +134,7 @@ model.addCost(HORIZON, pose_cost)
 model.addCost(HORIZON, joint_vel_cost)
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(
-        model, "base", np.zeros(3), np.zeros(3), nq, nv, True
-    ),
+    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
 )
 
 init_states.append(init)
