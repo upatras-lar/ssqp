@@ -37,11 +37,7 @@ traj_l = []
 traj_r = []
 
 x = lambda t: 0.02 * (16 * sin(t) ** 3)
-y = (
-    lambda t: 0.02
-    * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t))
-    + 0.5
-)
+y = lambda t: 0.02 * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)) + 0.5
 
 for t in np.arange(0, pi, pi / trace_steps):
     traj_l.append((x(t), y(t)))
@@ -100,27 +96,27 @@ init_control_2[-1] = 7.5 * 9.81
 # )[-nv + 6 :]
 
 # Create regularization costs
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+control_cost = costs.SquaredControlCost(model, U_WGT)
+force_cost = costs.SquaredForceCost(model, F_WGT)
 
 # Define velocity bounds for feet
 # Used in conjunction with contact constraints
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FL_foot", np.zeros(3), np.zeros(3)
 )
 
 fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FR_foot", np.zeros(3), np.zeros(3)
 )
 
 rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RL_foot", np.zeros(3), np.zeros(3)
 )
 
 rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RR_foot", np.zeros(3), np.zeros(3)
 )
 
 
@@ -159,11 +155,7 @@ for k in range(HORIZON):
             costs.FrameSquaredTranslationErrorCost(
                 model,
                 "FL_foot",
-                np.array(
-                    (TRACE_X_COORD, traj_l[trace_k][0], traj_l[trace_k][1])
-                ),
-                nq,
-                nv,
+                np.array((TRACE_X_COORD, traj_l[trace_k][0], traj_l[trace_k][1])),
                 TRACE_ARM_WGT,
             ),
         )
@@ -173,11 +165,7 @@ for k in range(HORIZON):
             costs.FrameSquaredTranslationErrorCost(
                 model,
                 "FR_foot",
-                np.array(
-                    (TRACE_X_COORD, traj_r[trace_k][0], traj_r[trace_k][1])
-                ),
-                nq,
-                nv,
+                np.array((TRACE_X_COORD, traj_r[trace_k][0], traj_r[trace_k][1])),
                 TRACE_ARM_WGT,
             ),
         )
@@ -192,17 +180,13 @@ model.addCost(HORIZON, joint_vel_cost)
 # position
 model.addCost(
     HORIZON,
-    costs.FrameSquaredTranslationErrorCost(
-        model, "base", base_pos, nq, nv, TF_WGT
-    ),
+    costs.FrameSquaredTranslationErrorCost(model, "base", base_pos, TF_WGT),
 )
 
 # Add a bound such that the base has no velocity at the end of the trajectory
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(
-        model, "base", np.zeros(3), np.zeros(3), nq, nv, True
-    ),
+    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
 )
 
 # Finalize the model

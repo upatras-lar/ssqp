@@ -94,9 +94,7 @@ init_state[:nq] = [
 # of the horizon, we actually have to add it to the model
 lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
 ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
-box_constraint = ssqpy.model.constraints.FramePositionBound(
-    model, "panda_ee", lb, ub, nq, nv
-)
+box_constraint = ssqpy.model.constraints.FramePositionBound(model, "panda_ee", lb, ub)
 
 for k in range(H):
     # Add a squared pose error cost for the end effector (`"panda_ee"` frame) to
@@ -106,13 +104,13 @@ for k in range(H):
     model.addCost(
         k,
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, "panda_ee", traj[k], Rd, nq, nq, T_WGT, R_WGT
+            model, "panda_ee", traj[k], Rd, T_WGT, R_WGT
         ),
     )
 
     # Add regularization costs for joint velocity (v) and control (u)
-    model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT))
-    model.addCost(k, ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT))
+    model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT))
+    model.addCost(k, ssqpy.model.costs.SquaredControlCost(model, U_WGT))
 
     if CONSTRAIN:
         # Add the previously created box constraint to stage k
@@ -122,13 +120,13 @@ for k in range(H):
 model.addCost(
     H,
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, "panda_ee", traj[H], Rd, nq, nq, T_WGT, R_WGT
+        model, "panda_ee", traj[H], Rd, T_WGT, R_WGT
     ),
 )
 
 # There are no controls (u) at the terminal stage, so we cannot add a control
 # regularization cost; thus, we only add the joint velocity regularization cost
-model.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT))
+model.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT))
 
 if CONSTRAIN:
     # Add box constraint to terminal stage as well

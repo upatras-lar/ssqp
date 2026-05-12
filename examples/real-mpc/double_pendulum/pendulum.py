@@ -39,10 +39,10 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
+    model, "tip", np.array((0.0, 0.0, 0.1)), TIP_WGT
 )
 
 for k in range(MPC_H):

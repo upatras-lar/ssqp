@@ -82,20 +82,18 @@ pose_costs = []
 
 lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
 ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
-box_constraint = ssqpy.model.constraints.FramePositionBound(
-    model, "panda_ee", lb, ub, nq, nv
-)
+box_constraint = ssqpy.model.constraints.FramePositionBound(model, "panda_ee", lb, ub)
 
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, init_state[:nq], nq, nv, C_WGT, False
+    model, init_state[:nq], C_WGT
 )
-v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
 for k in range(mpc_H):
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, "panda_ee", traj[k], Rd, nq, nv, T_WGT, R_WGT
+            model, "panda_ee", traj[k], Rd, T_WGT, R_WGT
         )
     )
 
@@ -109,7 +107,7 @@ for k in range(mpc_H):
 
 pose_costs.append(
     ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, "panda_ee", traj[mpc_H], Rd, nq, nv, T_WGT, R_WGT
+        model, "panda_ee", traj[mpc_H], Rd, T_WGT, R_WGT
     )
 )
 
@@ -166,9 +164,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             #     f"Stage: {stage}, Mujoco: {mjdata.xpos[9]}, Ours: {model.forwardKinematics(mjdata.qpos, "panda_ee")[0]}"
             # )
             # state_data.append(mjdata.xpos[9].copy())
-            state_data.append(
-                model.forwardKinematics(mjdata.qpos, "panda_ee")[0]
-            )
+            state_data.append(model.forwardKinematics(mjdata.qpos, "panda_ee")[0])
 
             if stage == H:
                 break

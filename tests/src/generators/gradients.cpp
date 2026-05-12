@@ -14,9 +14,8 @@ void setup_model(std::shared_ptr<model::Model> &model)
         model->addCost<
           model::stagewise::predefined::costs::SquaredJointVelocityCost>(
           k,
-          dims.nv,
-          1,
-          model->floatingBase());
+          *model.get(),
+          1.0);
     }
 }
 
@@ -237,10 +236,9 @@ std::shared_ptr<Test> get_joint_angle_constraint_grad_test()
     model->addConstraints<
       model::stagewise::predefined::constraints::JointAngleConstraint>(
       0,
+      *model.get(),
       VecX::Zero(9),
-      VecX::Zero(9),
-      9,
-      9);
+      VecX::Zero(9));
 
     model->finalize();
 
@@ -264,9 +262,9 @@ std::shared_ptr<Test> get_joint_velocity_constraint_grad_test()
     model->addConstraints<
       model::stagewise::predefined::constraints::JointVelocityConstraint>(
       0,
+      *model.get(),
       VecX::Zero(9),
-      VecX::Zero(9),
-      9);
+      VecX::Zero(9));
 
     model->finalize();
 
@@ -289,10 +287,9 @@ std::shared_ptr<Test> get_joint_control_constraint_grad_test()
     model->addConstraints<
       model::stagewise::predefined::constraints::JointControlConstraint>(
       0,
+      *model.get(),
       VecX::Zero(9),
-      VecX::Zero(9),
-      9,
-      9);
+      VecX::Zero(9));
 
     model->finalize();
 
@@ -317,12 +314,10 @@ std::shared_ptr<Test> get_frame_position_bound_grad_test()
     model->addConstraints<
       model::stagewise::predefined::constraints::FramePositionBound>(
       0,
-      *model,
+      *model.get(),
       "trunk",
       Vec3::Zero(),
-      Vec3::Zero(),
-      19,
-      18);
+      Vec3::Zero());
 
     model->finalize();
 
@@ -347,13 +342,11 @@ std::shared_ptr<Test> get_frame_rotation_bound_grad_test()
     model->addConstraints<
       model::stagewise::predefined::constraints::FrameRotationBound>(
       0,
-      *model,
+      *model.get(),
       "trunk",
       MatX::Identity(3, 3),
       Vec3::Zero(),
-      Vec3::Zero(),
-      19,
-      18);
+      Vec3::Zero());
 
     model->finalize();
 
@@ -380,12 +373,10 @@ std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test()
     model->addConstraints<
       model::stagewise::predefined::constraints::FrameLinearVelocityBound>(
       0,
-      *model,
+      *model.get(),
       "trunk",
       Vec3::Zero(),
-      Vec3::Zero(),
-      19,
-      18);
+      Vec3::Zero());
 
     model->finalize();
 
@@ -410,11 +401,9 @@ std::shared_ptr<Test> get_center_of_mass_bound_grad_test()
     model->addConstraints<
       model::stagewise::predefined::constraints::CenterOfMassBound>(
       0,
-      *model,
+      *model.get(),
       Vec3::Zero(),
-      Vec3::Zero(),
-      19,
-      18);
+      Vec3::Zero());
 
     model->finalize();
 
@@ -435,13 +424,11 @@ std::shared_ptr<Test> get_contact_constraint_grad_test()
     setup_model(model);
 
     model->addConstraints<
-      model::stagewise::predefined::constraints::ContactConstraint>(0,
-                                                                    *model,
-                                                                    "FL_foot",
-                                                                    19,
-                                                                    18,
-                                                                    18,
-                                                                    0.6);
+      model::stagewise::predefined::constraints::ContactConstraint>(
+      0,
+      *model.get(),
+      "FL_foot",
+      0.6);
 
     model->finalize();
 
@@ -465,8 +452,7 @@ std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test()
         model
           ->addCost<model::stagewise::predefined::costs::SquaredJointAngleCost>(
             k,
-            9,
-            9,
+            *model.get(),
             9.94);
     }
 
@@ -491,10 +477,8 @@ std::shared_ptr<Test> get_squared_joint_angle_cost_floating_base_grad_test()
         model
           ->addCost<model::stagewise::predefined::costs::SquaredJointAngleCost>(
             k,
-            19,
-            18,
-            0.58,
-            true);
+            *model.get(),
+            0.58);
     }
 
     model->finalize();
@@ -517,9 +501,10 @@ std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test()
     for (uint k = 0; k <= model->dims().horizon; ++k)
     {
         model->addCost<
-          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
-                                                                         9,
-                                                                         5.72);
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+          k,
+          *model.get(),
+          5.72);
     }
 
     model->finalize();
@@ -543,10 +528,10 @@ std::shared_ptr<Test> get_squared_joint_velocity_cost_floating_base_grad_test()
     for (uint k = 0; k <= model->dims().horizon; ++k)
     {
         model->addCost<
-          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
-                                                                         18,
-                                                                         9.43,
-                                                                         true);
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+          k,
+          *model.get(),
+          9.43);
     }
 
     model->finalize();
@@ -571,15 +556,14 @@ std::shared_ptr<Test> get_squared_control_cost_grad_test()
     {
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
-          18,
-          18,
+          *model.get(),
           0.47);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         2,
-        1,
+        *model.get(),
         1.0);
 
     model->finalize();
@@ -604,17 +588,14 @@ std::shared_ptr<Test> get_squared_ID_torque_cost_grad_test()
         model
           ->addCost<model::stagewise::predefined::costs::SquaredIDTorqueCost>(
             k,
-            *model,
-            9,
-            9,
-            9,
+            *model.get(),
             0.74);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         2,
-        1,
+        *model.get(),
         1.0);
 
     model->finalize();
@@ -643,15 +624,14 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test()
     {
         model->addCost<model::stagewise::predefined::costs::SquaredForceCost>(
           k,
-          18,
-          18,
+          *model.get(),
           9.78);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         2,
-        1,
+        *model.get(),
         1.0);
 
     model->finalize();
@@ -674,12 +654,9 @@ std::shared_ptr<Test> get_squared_configuration_error_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredConfigurationErrorCost>(
           k,
-          *model,
+          *model.get(),
           VecX::Zero(9),
-          9,
-          9,
-          9.17,
-          false);
+          9.17);
     }
 
     model->finalize();
@@ -706,12 +683,9 @@ get_squared_configuration_error_cost_floating_base_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::SquaredConfigurationErrorCost>(
           k,
-          *model,
+          *model.get(),
           VecX::Zero(12),
-          19,
-          18,
-          3.27,
-          true);
+          3.27);
     }
 
     model->finalize();
@@ -736,11 +710,9 @@ std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test()
     {
         model->addCost<model::stagewise::predefined::costs::
                          FrameSquaredTranslationErrorCost>(k,
-                                                           *model,
+                                                           *model.get(),
                                                            "trunk",
                                                            Vec3::Zero(),
-                                                           19,
-                                                           18,
                                                            3.58);
     }
 
@@ -767,11 +739,9 @@ std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::FrameSquaredRotationErrorCost>(
           k,
-          *model,
+          *model.get(),
           "trunk",
           Mat3::Identity(),
-          19,
-          18,
           6.59);
     }
 
@@ -798,12 +768,10 @@ std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::FrameSquaredPoseErrorCost>(
           k,
-          *model,
+          *model.get(),
           "trunk",
           Vec3::Zero(),
           Mat3::Identity(),
-          19,
-          18,
           9.41,
           0.86);
     }
@@ -833,11 +801,9 @@ std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::FrameSquaredVelocityErrorCost>(
           k,
-          *model,
+          *model.get(),
           "FR_foot",
           vd,
-          19,
-          18,
           5.87);
     }
 
@@ -864,10 +830,8 @@ std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::FrameSquaredVelocityCost>(
           k,
-          *model,
+          *model.get(),
           "FR_foot",
-          19,
-          18,
           2.61);
     }
 
@@ -894,10 +858,8 @@ std::shared_ptr<Test> get_center_of_mass_tracking_cost_grad_test()
         model->addCost<
           model::stagewise::predefined::costs::CenterOfMassTrackingCost>(
           k,
-          *model,
+          *model.get(),
           (Eigen::Vector3d() << 2.1, 3.2, -1.3).finished(),
-          19,
-          18,
           4.13);
     }
 
@@ -923,23 +885,21 @@ std::shared_ptr<Test> get_lf_grad_test()
     for (uint k = 0; k < horizon; ++k)
     {
         model->addCost<
-          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
-                                                                         18,
-                                                                         2.98,
-                                                                         true);
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+          k,
+          *model.get(),
+          2.98);
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
-          18,
-          18,
+          *model.get(),
           7.07);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         horizon,
-        18,
-        6.33,
-        true);
+        *model.get(),
+        6.33);
 
     VecX init_state = VecX::Zero(37);
     init_state[6]   = 1.0;
@@ -966,23 +926,21 @@ std::shared_ptr<Test> get_gammaf_grad_test()
     for (uint k = 0; k < horizon; ++k)
     {
         model->addCost<
-          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
-                                                                         18,
-                                                                         8.13,
-                                                                         true);
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+          k,
+          *model.get(),
+          8.13);
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
-          18,
-          18,
+          *model.get(),
           0.66);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         horizon,
-        18,
-        8.72,
-        true);
+        *model.get(),
+        8.72);
 
     VecX init_state = VecX::Zero(37);
     init_state[6]   = 1.0;
@@ -1014,14 +972,13 @@ std::shared_ptr<Test> get_cf_grad_test()
     for (uint k = 0; k < horizon; ++k)
     {
         model->addCost<
-          model::stagewise::predefined::costs::SquaredJointVelocityCost>(k,
-                                                                         18,
-                                                                         8.37,
-                                                                         true);
+          model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+          k,
+          *model.get(),
+          8.37);
         model->addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
-          18,
-          18,
+          *model.get(),
           7.53);
 
         model->addConstraints<
@@ -1030,17 +987,14 @@ std::shared_ptr<Test> get_cf_grad_test()
           *model.get(),
           "FL_foot",
           lb,
-          ub,
-          19,
-          18);
+          ub);
     }
 
     model
       ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
         horizon,
-        18,
-        2.16,
-        true);
+        *model.get(),
+        2.16);
 
     model->addConstraints<
       model::stagewise::predefined::constraints::FramePositionBound>(
@@ -1048,9 +1002,7 @@ std::shared_ptr<Test> get_cf_grad_test()
       *model.get(),
       "FL_foot",
       lb,
-      ub,
-      19,
-      18);
+      ub);
 
     VecX init_state = VecX::Zero(37);
     init_state[6]   = 1.0;

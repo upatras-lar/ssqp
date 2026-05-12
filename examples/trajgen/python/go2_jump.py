@@ -55,37 +55,30 @@ init_control[-7] = 3.75 * 9.81
 init_control[-4] = 3.75 * 9.81
 init_control[-1] = 3.75 * 9.81
 
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
-config_cost = costs.SquaredConfigurationErrorCost(
-    model, base_config, nq, nv, C_WGT, True
-)
+joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+control_cost = costs.SquaredControlCost(model, U_WGT)
+force_cost = costs.SquaredForceCost(model, F_WGT)
+config_cost = costs.SquaredConfigurationErrorCost(model, base_config, C_WGT)
 
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FL_foot", np.zeros(3), np.zeros(3)
 )
 
 fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FR_foot", np.zeros(3), np.zeros(3)
 )
 
 rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RL_foot", np.zeros(3), np.zeros(3)
 )
 
 rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RR_foot", np.zeros(3), np.zeros(3)
 )
 
 fl_foot_pos_bound = constraints.FramePositionBound(
-    model,
-    "FL_foot",
-    np.array((-np.inf, 0.1, 0.0)),
-    np.array((np.inf, np.inf, np.inf)),
-    nq,
-    nv,
+    model, "FL_foot", np.array((-np.inf, 0.1, 0.0)), np.array((np.inf, np.inf, np.inf))
 )
 
 fr_foot_pos_bound = constraints.FramePositionBound(
@@ -93,17 +86,10 @@ fr_foot_pos_bound = constraints.FramePositionBound(
     "FR_foot",
     np.array((-np.inf, -np.inf, 0.0)),
     np.array((np.inf, -0.1, np.inf)),
-    nq,
-    nv,
 )
 
 rl_foot_pos_bound = constraints.FramePositionBound(
-    model,
-    "RL_foot",
-    np.array((-np.inf, 0.1, 0.0)),
-    np.array((np.inf, np.inf, np.inf)),
-    nq,
-    nv,
+    model, "RL_foot", np.array((-np.inf, 0.1, 0.0)), np.array((np.inf, np.inf, np.inf))
 )
 
 rr_foot_pos_bound = constraints.FramePositionBound(
@@ -111,8 +97,6 @@ rr_foot_pos_bound = constraints.FramePositionBound(
     "RR_foot",
     np.array((-np.inf, -np.inf, 0.0)),
     np.array((np.inf, -0.1, np.inf)),
-    nq,
-    nv,
 )
 
 init_controls = []
@@ -152,9 +136,7 @@ model.addCost(HORIZON, joint_vel_cost)
 
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(
-        model, "base", np.zeros(3), np.zeros(3), nq, nv, True
-    ),
+    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
 )
 
 model.addConstraints(
@@ -164,8 +146,6 @@ model.addConstraints(
         "FL_foot",
         np.array((0.1934, 0.142, -0.00002682)),
         np.array((0.1934, 0.142, -0.00002682)),
-        nq,
-        nv,
     ),
 )
 
@@ -176,8 +156,6 @@ model.addConstraints(
         "FR_foot",
         np.array((0.1934, -0.142, -0.00002682)),
         np.array((0.1934, -0.142, -0.00002682)),
-        nq,
-        nv,
     ),
 )
 
@@ -188,8 +166,6 @@ model.addConstraints(
         "RL_foot",
         np.array((-0.1934, 0.142, -0.00002682)),
         np.array((-0.1934, 0.142, -0.00002682)),
-        nq,
-        nv,
     ),
 )
 
@@ -200,8 +176,6 @@ model.addConstraints(
         "RR_foot",
         np.array((-0.1934, -0.142, -0.00002682)),
         np.array((-0.1934, -0.142, -0.00002682)),
-        nq,
-        nv,
     ),
 )
 

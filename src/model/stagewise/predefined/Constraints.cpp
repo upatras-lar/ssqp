@@ -12,16 +12,16 @@ namespace predefined
 namespace constraints
 {
 // JointAngleConstraint
-JointAngleConstraint::JointAngleConstraint(const VecX &lb, const VecX &ub,
-                                           const uint nq, const uint nv,
-                                           const bool         free_flyer,
+JointAngleConstraint::JointAngleConstraint(const Model &model, const VecX &lb,
+                                           const VecX        &ub,
                                            const std::string &name)
   : StageConstraints(name)
   , _lb(lb)
   , _ub(ub)
-  , _nv(nv)
-  , _njoints(free_flyer ? nq - 7 : nq)
-  , _free_flyer(free_flyer)
+  , _free_flyer(model.floatingBase())
+  , _nv(model.nv())
+  , _njoints(_free_flyer ? model.nq() - 7 : model.nq())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
 {
     assert(lb.size() == ub.size() && lb.size() == _njoints &&
            "Invalid bound size");
@@ -52,7 +52,7 @@ VecX JointAngleConstraint::evaluate(const VecX &x, const VecX &u) const
 void JointAngleConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                     MatX &dU) const
 {
-    dX = MatX::Zero(_njoints, 2 * _nv);
+    dX = MatX::Zero(_njoints, _ndx);
     if (_free_flyer)
     {
         dX.block(0, 6, _njoints, _njoints).setIdentity();
@@ -68,12 +68,12 @@ void JointAngleConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 void JointAngleConstraint::hessprod_xx(const VecX &x, const VecX &u,
                                        const VecX &mu, MatX &Pxx) const
 {
-    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Pxx = MatX::Zero(_ndx, _ndx);
 }
 void JointAngleConstraint::hessprod_xu(const VecX &x, const VecX &u,
                                        const VecX &mu, MatX &Pxu) const
 {
-    Pxu = MatX::Zero(2 * _nv, u.size());
+    Pxu = MatX::Zero(_ndx, u.size());
 }
 void JointAngleConstraint::hessprod_uu(const VecX &x, const VecX &u,
                                        const VecX &mu, MatX &Puu) const
@@ -82,15 +82,14 @@ void JointAngleConstraint::hessprod_uu(const VecX &x, const VecX &u,
 }
 
 // JointVelocityConstraint
-JointVelocityConstraint::JointVelocityConstraint(const VecX &lb, const VecX &ub,
-                                                 const uint         nv,
-                                                 const bool         free_flyer,
+JointVelocityConstraint::JointVelocityConstraint(const Model &model,
+                                                 const VecX &lb, const VecX &ub,
                                                  const std::string &name)
   : StageConstraints(name)
   , _lb(lb)
   , _ub(ub)
-  , _nv(nv)
-  , _njoints(free_flyer ? nv - 6 : nv)
+  , _nv(model.nv())
+  , _njoints(model.floatingBase() ? _nv - 6 : _nv)
 {
     assert(lb.size() == ub.size() && lb.size() == _njoints &&
            "Invalid bound size");
@@ -144,16 +143,16 @@ void JointVelocityConstraint::hessprod_uu(const VecX &x, const VecX &u,
 }
 
 // JointControlConstraint
-JointControlConstraint::JointControlConstraint(const VecX &lb, const VecX &ub,
-                                               const uint nv, const uint nu,
-                                               const bool         free_flyer,
+JointControlConstraint::JointControlConstraint(const Model &model,
+                                               const VecX &lb, const VecX &ub,
                                                const std::string &name)
   : StageConstraints(name)
   , _lb(lb)
   , _ub(ub)
-  , _nv(nv)
-  , _nu(nu)
-  , _free_flyer(free_flyer)
+  , _free_flyer(model.floatingBase())
+  , _nv(model.nv())
+  , _nu(model.nu())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
 {
     assert(lb.size() == ub.size() && lb.size() == _nu && "Invalid bound size");
 }
@@ -183,7 +182,7 @@ VecX JointControlConstraint::evaluate(const VecX &x, const VecX &u) const
 void JointControlConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                       MatX &dU) const
 {
-    dX = MatX::Zero(_nu, 2 * _nv);
+    dX = MatX::Zero(_nu, _ndx);
     dU = MatX::Zero(_nu, u.size());
     if (_free_flyer)
     {
@@ -198,12 +197,12 @@ void JointControlConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 void JointControlConstraint::hessprod_xx(const VecX &x, const VecX &u,
                                          const VecX &mu, MatX &Pxx) const
 {
-    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Pxx = MatX::Zero(_ndx, _ndx);
 }
 void JointControlConstraint::hessprod_xu(const VecX &x, const VecX &u,
                                          const VecX &mu, MatX &Pxu) const
 {
-    Pxu = MatX::Zero(2 * _nv, u.size());
+    Pxu = MatX::Zero(_ndx, u.size());
 }
 void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
                                          const VecX &mu, MatX &Puu) const
@@ -214,15 +213,15 @@ void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
 // FramePositionBound
 FramePositionBound::FramePositionBound(const Model       &model,
                                        const std::string &frame, const Vec3 &lb,
-                                       const Vec3 &ub, const uint nq,
-                                       const uint nv, const std::string &name)
+                                       const Vec3 &ub, const std::string &name)
   : StageConstraints(name)
   , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _lb(lb)
   , _ub(ub)
-  , _nq(nq)
-  , _nv(nv)
 {
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
@@ -264,7 +263,7 @@ void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 {
     MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
-    dX               = MatX::Zero(3, 2 * _nv);
+    dX               = MatX::Zero(3, _ndx);
     dX.leftCols(_nv) = Jfk.topRows(3);
 
     dU = MatX::Zero(3, u.size());
@@ -273,12 +272,12 @@ void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 void FramePositionBound::hessprod_xx(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Pxx) const
 {
-    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Pxx = MatX::Zero(_ndx, _ndx);
 }
 void FramePositionBound::hessprod_xu(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Pxu) const
 {
-    Pxu = MatX::Zero(2 * _nv, u.size());
+    Pxu = MatX::Zero(_ndx, u.size());
 }
 void FramePositionBound::hessprod_uu(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Puu) const
@@ -290,16 +289,16 @@ void FramePositionBound::hessprod_uu(const VecX &x, const VecX &u,
 FrameRotationBound::FrameRotationBound(const Model       &model,
                                        const std::string &frame,
                                        const Mat3 &Rref, const Vec3 &lb,
-                                       const Vec3 &ub, const uint nq,
-                                       const uint nv, const std::string &name)
+                                       const Vec3 &ub, const std::string &name)
   : StageConstraints(name)
   , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _Rref(Rref)
   , _lb(lb)
   , _ub(ub)
-  , _nq(nq)
-  , _nv(nv)
 {
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
@@ -344,7 +343,7 @@ void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     MatX Jw   = _model->frameJacobian(x.head(_nq), _frame, true).bottomRows(3);
     Mat3 Jlog = pinocchio_wrapper::JlogSO3(_Rref.transpose() * Rf);
 
-    dX               = MatX::Zero(3, 2 * _nv);
+    dX               = MatX::Zero(3, _ndx);
     dX.leftCols(_nv) = Jlog * Jw;
 
     dU = MatX::Zero(3, u.size());
@@ -353,12 +352,12 @@ void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 void FrameRotationBound::hessprod_xx(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Pxx) const
 {
-    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Pxx = MatX::Zero(_ndx, _ndx);
 }
 void FrameRotationBound::hessprod_xu(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Pxu) const
 {
-    Pxu = MatX::Zero(2 * _nv, u.size());
+    Pxu = MatX::Zero(_ndx, u.size());
 }
 void FrameRotationBound::hessprod_uu(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Puu) const
@@ -369,14 +368,15 @@ void FrameRotationBound::hessprod_uu(const VecX &x, const VecX &u,
 // FrameLinearVelocityBound
 FrameLinearVelocityBound::FrameLinearVelocityBound(
   const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
-  const uint nq, const uint nv, const bool terminal, const std::string &name)
+  const bool terminal, const std::string &name)
   : StageConstraints(name)
   , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _lb(lb)
   , _ub(ub)
-  , _nq(nq)
-  , _nv(nv)
   , _terminal(terminal)
 {
     assert(model.hasFrame(frame) && "Invalid frame for given model");
@@ -419,7 +419,7 @@ void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     std::tie(dVdq, dVdv) =
       _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame, true);
 
-    dX                = MatX::Zero(3, 2 * _nv);
+    dX                = MatX::Zero(3, _ndx);
     dX.leftCols(_nv)  = dVdq.topRows<3>();
     dX.rightCols(_nv) = dVdv.topRows<3>();
 
@@ -429,12 +429,12 @@ void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 void FrameLinearVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
                                            const VecX &mu, MatX &Pxx) const
 {
-    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Pxx = MatX::Zero(_ndx, _ndx);
 }
 void FrameLinearVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
                                            const VecX &mu, MatX &Pxu) const
 {
-    Pxu = MatX::Zero(2 * _nv, u.size());
+    Pxu = MatX::Zero(_ndx, u.size());
 }
 void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
                                            const VecX &mu, MatX &Puu) const
@@ -444,14 +444,14 @@ void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 
 // CenterOfMassBound
 CenterOfMassBound::CenterOfMassBound(const Model &model, const Vec3 &lb,
-                                     const Vec3 &ub, const uint nq,
-                                     const uint nv, const std::string &name)
+                                     const Vec3 &ub, const std::string &name)
   : StageConstraints(name)
   , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
-  , _nq(nq)
-  , _nv(nv)
 {
 }
 
@@ -488,7 +488,7 @@ VecX CenterOfMassBound::evaluate(const VecX &x, const VecX &u) const
 void CenterOfMassBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                  MatX &dU) const
 {
-    dX               = MatX::Zero(3, 2 * _nv);
+    dX               = MatX::Zero(3, _ndx);
     dX.leftCols(_nv) = _model->jacobianCenterOfMass(x.head(_nq));
 
     dU = MatX::Zero(3, u.size());
@@ -497,13 +497,13 @@ void CenterOfMassBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 void CenterOfMassBound::hessprod_xx(const VecX &x, const VecX &u,
                                     const VecX &mu, MatX &Pxx) const
 {
-    Pxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Pxx = MatX::Zero(_ndx, _ndx);
 }
 
 void CenterOfMassBound::hessprod_xu(const VecX &x, const VecX &u,
                                     const VecX &mu, MatX &Pxu) const
 {
-    Pxu = MatX::Zero(2 * _nv, u.size());
+    Pxu = MatX::Zero(_ndx, u.size());
 }
 
 void CenterOfMassBound::hessprod_uu(const VecX &x, const VecX &u,
@@ -514,16 +514,15 @@ void CenterOfMassBound::hessprod_uu(const VecX &x, const VecX &u,
 
 // ContactConstraint
 ContactConstraint::ContactConstraint(const Model       &model,
-                                     const std::string &frame, const uint nq,
-                                     const uint nv, const uint nu,
-                                     const double mu, const double eq_tol,
+                                     const std::string &frame, const double mu,
+                                     const double       eq_tol,
                                      const std::string &name)
   : StageConstraints(name)
   , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _nu(model.nu())
   , _frame(frame)
-  , _nq(nq)
-  , _nv(nv)
-  , _nu(nu)
   , _mu(mu)
   , _eq_tol(eq_tol)
 {

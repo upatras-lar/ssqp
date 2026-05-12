@@ -96,9 +96,7 @@ nu = {
 
 
 def wrap_to_reference(theta, reference=np.pi):
-    return reference + np.arctan2(
-        np.sin(theta - reference), np.cos(theta - reference)
-    )
+    return reference + np.arctan2(np.sin(theta - reference), np.cos(theta - reference))
 
 
 def run(dynamics_mode):
@@ -115,23 +113,20 @@ def run(dynamics_mode):
         solver_mode=dynamics_mode,
     )
 
-    vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu[dynamics_mode], U_WGT)
+    vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
     tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-        model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
+        model, "tip", np.array((0.0, 0.0, 0.1)), TIP_WGT
     )
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
         model,
         np.array((pi, 0.0)),
-        nq,
-        nv,
         np.array(
             (
                 (C_WGT_INV if inverse_mode else C_WGT_FWD),
                 0.0,
             )
         ),
-        False,
     )
 
     for k in range(mpc_H):
@@ -313,12 +308,8 @@ def get_data(dynamics_mode):
 
 
 if ALL_MODES:
-    add_plots(
-        *get_data(ssqpy.model.SolverMode.ForwardDynamics), legend_pref="Forward"
-    )
-    add_plots(
-        *get_data(ssqpy.model.SolverMode.InverseDynamics), legend_pref="Inverse"
-    )
+    add_plots(*get_data(ssqpy.model.SolverMode.ForwardDynamics), legend_pref="Forward")
+    add_plots(*get_data(ssqpy.model.SolverMode.InverseDynamics), legend_pref="Inverse")
     add_plots(
         *get_data(ssqpy.model.SolverMode.ReducedInverseDynamics),
         legend_pref="ReducedInverse",

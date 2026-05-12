@@ -95,19 +95,19 @@ def run(dynamics_mode, constrain):
     lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
     ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
     box_constraint = ssqpy.model.constraints.FramePositionBound(
-        model, "panda_ee", lb, ub, nq, nv
+        model, "panda_ee", lb, ub
     )
 
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-        model, init_state[:nq], nq, nv, C_WGT, False
+        model, init_state[:nq], C_WGT
     )
-    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
     for k in range(mpc_H):
         pose_costs.append(
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
-                model, "panda_ee", traj[k], Rd, nq, nv, T_WGT, R_WGT
+                model, "panda_ee", traj[k], Rd, T_WGT, R_WGT
             )
         )
 
@@ -121,7 +121,7 @@ def run(dynamics_mode, constrain):
 
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, "panda_ee", traj[mpc_H], Rd, nq, nv, T_WGT, R_WGT
+            model, "panda_ee", traj[mpc_H], Rd, T_WGT, R_WGT
         )
     )
 
@@ -175,9 +175,7 @@ def run(dynamics_mode, constrain):
 
         elapsed = time() - pre
 
-        state_data.append(
-            model.forwardKinematics(simulator.state[:nq], "panda_ee")[0]
-        )
+        state_data.append(model.forwardKinematics(simulator.state[:nq], "panda_ee")[0])
         frequency_data.append(1 / elapsed)
 
         simulator.step(sim_ctrl)
@@ -262,9 +260,7 @@ def add_plots(state_data, frequency_data, ref_traj, legend_pref=""):
     ax_top.legend()
     ax_top.grid(True)
 
-    ax_bottom.plot(
-        np.arange(H), np.array(frequency_data), label=f"{legend_pref} - f"
-    )
+    ax_bottom.plot(np.arange(H), np.array(frequency_data), label=f"{legend_pref} - f")
     ax_bottom.set_title("Frequency")
     ax_bottom.set_xlabel("Time (s)")
     ax_bottom.set_ylabel("Frequency (Hz)")

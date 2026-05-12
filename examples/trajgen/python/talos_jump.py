@@ -138,43 +138,41 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
     "torso_1_link",
     base_pos,
     np.eye(3),
-    nq,
-    nv,
     T_WGT,
     R_WGT,
 )
 
 # Create regularization costs
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT, True)
+control_cost = costs.SquaredControlCost(model, U_WGT)
+force_cost = costs.SquaredForceCost(model, F_WGT)
 
 # Create velocity bounds for feet frames that are in contact
 left_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mm", np.zeros(3), np.zeros(3), nq, nv
+    model, "left_mm", np.zeros(3), np.zeros(3)
 )
 left_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mp", np.zeros(3), np.zeros(3), nq, nv
+    model, "left_mp", np.zeros(3), np.zeros(3)
 )
 left_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pp", np.zeros(3), np.zeros(3), nq, nv
+    model, "left_pp", np.zeros(3), np.zeros(3)
 )
 left_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pm", np.zeros(3), np.zeros(3), nq, nv
+    model, "left_pm", np.zeros(3), np.zeros(3)
 )
 
 right_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_mm", np.zeros(3), np.zeros(3), nq, nv
+    model, "right_mm", np.zeros(3), np.zeros(3)
 )
 right_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_mp", np.zeros(3), np.zeros(3), nq, nv
+    model, "right_mp", np.zeros(3), np.zeros(3)
 )
 right_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_pp", np.zeros(3), np.zeros(3), nq, nv
+    model, "right_pp", np.zeros(3), np.zeros(3)
 )
 right_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_pm", np.zeros(3), np.zeros(3), nq, nv
+    model, "right_pm", np.zeros(3), np.zeros(3)
 )
 
 init_controls = []
@@ -220,7 +218,7 @@ model.addCost(H, pose_cost)
 model.addConstraints(
     H,
     constraints.FrameLinearVelocityBound(
-        model, "torso_1_link", np.zeros(3), np.zeros(3), nq, nv, True
+        model, "torso_1_link", np.zeros(3), np.zeros(3), True
     ),
 )
 

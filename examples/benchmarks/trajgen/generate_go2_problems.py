@@ -115,12 +115,10 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         # -------------------------
         # Costs
         # -------------------------
-        config_cost = costs.SquaredConfigurationErrorCost(
-            model, init[7:19], nq, nv, C_WGT, True
-        )
-        joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-        control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-        force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+        config_cost = costs.SquaredConfigurationErrorCost(model, init[7:19], C_WGT)
+        joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+        control_cost = costs.SquaredControlCost(model, U_WGT)
+        force_cost = costs.SquaredForceCost(model, F_WGT)
 
         for k in range(HORIZON):
             model.addCost(k, joint_vel_cost)
@@ -133,14 +131,14 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         # Strong terminal velocity regularization
         model.addCost(
             HORIZON,
-            costs.SquaredJointVelocityCost(nv, 1e3, True),
+            costs.SquaredJointVelocityCost(model, 1e3),
         )
 
         # Final translation target
         model.addCost(
             HORIZON,
             costs.FrameSquaredPoseErrorCost(
-                model, "base", final_pos, final_R, nq, nv, TF_WGT, ROT_WGT
+                model, "base", final_pos, final_R, TF_WGT, ROT_WGT
             ),
         )
 
@@ -148,7 +146,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         model.addConstraints(
             HORIZON,
             constraints.FrameLinearVelocityBound(
-                model, "base", np.zeros(3), np.zeros(3), nq, nv, True
+                model, "base", np.zeros(3), np.zeros(3), True
             ),
         )
 

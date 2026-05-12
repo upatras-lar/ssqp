@@ -80,25 +80,25 @@ def run(dynamics_mode):
     init_state[7:19] = base_config
 
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-        model, init_state[7:nq], nq, nv, C_WGT, True
+        model, init_state[7:nq], C_WGT
     )
-    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT, True)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
     fl_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-        model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
+        model, "FL_foot", np.zeros(3), np.zeros(3)
     )
 
     fr_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-        model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
+        model, "FR_foot", np.zeros(3), np.zeros(3)
     )
 
     rl_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-        model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
+        model, "RL_foot", np.zeros(3), np.zeros(3)
     )
 
     rr_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-        model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
+        model, "RR_foot", np.zeros(3), np.zeros(3)
     )
 
     for k in range(mpc_H):
@@ -185,7 +185,7 @@ model = ssqpy.model.Model(
     free_flyer=True,
     solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
 )
-cost = ssqpy.model.costs.SquaredJointVelocityCost(model.getnv(), V_WGT, True)
+cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 
 for k in range(args.steps + 1):
     model.addCost(k, cost)

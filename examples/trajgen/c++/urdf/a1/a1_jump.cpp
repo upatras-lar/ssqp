@@ -74,18 +74,9 @@ int main()
     for (uint k = 0; k < HORIZON; ++k)
     {
         // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k,
-                                                       VELOCITY_SIZE,
-                                                       V_WGT,
-                                                       true);
-        model.addCost<costs::SquaredControlCost>(k,
-                                                 VELOCITY_SIZE,
-                                                 CONTROL_SIZE,
-                                                 U_WGT);
-        model.addCost<costs::SquaredForceCost>(k,
-                                               VELOCITY_SIZE,
-                                               CONTROL_SIZE,
-                                               F_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
+        model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
+        model.addCost<costs::SquaredForceCost>(k, model, F_WGT);
 
         // Get stage index relative to jumps
         uint rel_k = k % JUMP_STAGES;
@@ -98,41 +89,29 @@ int main()
             {
                 // Add constraints for front feet to touch the ground
                 init_controls.push_back(init_control);
-                model.addConstraints<constraints::ContactConstraint>(
-                  k,
-                  model,
-                  "FL_foot",
-                  STATE_SIZE,
-                  VELOCITY_SIZE,
-                  CONTROL_SIZE,
-                  0.6);
+                model.addConstraints<constraints::ContactConstraint>(k,
+                                                                     model,
+                                                                     "FL_foot",
+                                                                     0.6);
 
                 model.addConstraints<constraints::FrameLinearVelocityBound>(
                   k,
                   model,
                   "FL_foot",
                   Eigen::Vector3d::Zero(),
-                  Eigen::Vector3d::Zero(),
-                  STATE_SIZE,
-                  VELOCITY_SIZE);
+                  Eigen::Vector3d::Zero());
 
-                model.addConstraints<constraints::ContactConstraint>(
-                  k,
-                  model,
-                  "FR_foot",
-                  STATE_SIZE,
-                  VELOCITY_SIZE,
-                  CONTROL_SIZE,
-                  0.6);
+                model.addConstraints<constraints::ContactConstraint>(k,
+                                                                     model,
+                                                                     "FR_foot",
+                                                                     0.6);
 
                 model.addConstraints<constraints::FrameLinearVelocityBound>(
                   k,
                   model,
                   "FR_foot",
                   Eigen::Vector3d::Zero(),
-                  Eigen::Vector3d::Zero(),
-                  STATE_SIZE,
-                  VELOCITY_SIZE);
+                  Eigen::Vector3d::Zero());
             }
             // If we are not at the start or end, only back feet should touch
             // the ground
@@ -145,9 +124,6 @@ int main()
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RL_foot",
-                                                                 STATE_SIZE,
-                                                                 VELOCITY_SIZE,
-                                                                 CONTROL_SIZE,
                                                                  0.6);
 
             model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -155,16 +131,11 @@ int main()
               model,
               "RL_foot",
               Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero(),
-              STATE_SIZE,
-              VELOCITY_SIZE);
+              Eigen::Vector3d::Zero());
 
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RR_foot",
-                                                                 STATE_SIZE,
-                                                                 VELOCITY_SIZE,
-                                                                 CONTROL_SIZE,
                                                                  0.6);
 
             model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -172,9 +143,7 @@ int main()
               model,
               "RR_foot",
               Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero(),
-              STATE_SIZE,
-              VELOCITY_SIZE);
+              Eigen::Vector3d::Zero());
         }
         // If we are on air, do not add constraints
         else
@@ -184,18 +153,13 @@ int main()
     }
 
     // Add regularization costs for the terminal stage
-    model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
-                                                   VELOCITY_SIZE,
-                                                   V_WGT,
-                                                   true);
+    model.addCost<costs::SquaredJointVelocityCost>(HORIZON, model, V_WGT);
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
                                                     "trunk",
                                                     base_pos,
                                                     Eigen::Matrix3d::Identity(),
-                                                    STATE_SIZE,
-                                                    VELOCITY_SIZE,
                                                     TF_WGT,
                                                     RF_WGT);
 
@@ -206,8 +170,6 @@ int main()
       "trunk",
       -1e-3 * Eigen::Vector3d::Ones(),
       1e-3 * Eigen::Vector3d::Ones(),
-      STATE_SIZE,
-      VELOCITY_SIZE,
       true);
 
     ssqp::model::Model::Config model_config;

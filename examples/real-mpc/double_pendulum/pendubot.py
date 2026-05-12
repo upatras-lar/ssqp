@@ -41,13 +41,13 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, "tip", np.array((0.0, 0.0, 0.1)), nq, nv, TIP_WGT
+    model, "tip", np.array((0.0, 0.0, 0.1)), TIP_WGT
 )
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, np.array((0.0, 0.0)), nq, nv, np.array((0.0, 2.3e-1)), False
+    model, np.array((0.0, 0.0)), np.array((0.0, 2.3e-1))
 )
 
 for k in range(MPC_H):
@@ -87,9 +87,7 @@ data = []
 
 
 def wrap_to_reference(theta, reference=np.pi):
-    return reference + np.arctan2(
-        np.sin(theta - reference), np.cos(theta - reference)
-    )
+    return reference + np.arctan2(np.sin(theta - reference), np.cos(theta - reference))
 
 
 t0 = time()
@@ -120,9 +118,7 @@ while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
         timestamps.append(time() - t0)
         data.append(
             (
-                np.array(
-                    (wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))
-                ),
+                np.array((wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))),
                 vel,
                 np.clip(tau, -0.15, 0.15),
             )

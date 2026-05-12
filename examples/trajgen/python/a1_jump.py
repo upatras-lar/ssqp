@@ -52,26 +52,26 @@ nv = model.getnv()
 nu = model.getnu()
 
 # Create regularization costs for joint angles, joint velocity and control
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
+joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+control_cost = costs.SquaredControlCost(model, U_WGT)
 
 # Velocity bounds for feet frames
 # These add constraints, such that the feet have no velocity
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FL_foot", np.zeros(3), np.zeros(3)
 )
 
 fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FR_foot", np.zeros(3), np.zeros(3)
 )
 
 rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RL_foot", np.zeros(3), np.zeros(3)
 )
 
 rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RR_foot", np.zeros(3), np.zeros(3)
 )
 
 for k in range(HORIZON):
@@ -84,13 +84,13 @@ for k in range(HORIZON):
     if k < STEPS_BEFORE:
         # Add an increasing weight to the forces as we move closer to the jump
         force_cost_k = costs.SquaredForceCost(
-            nv, nu, F_WGT_START + k * (F_WGT_END - F_WGT_START) / STEPS_BEFORE
+            model, F_WGT_START + k * (F_WGT_END - F_WGT_START) / STEPS_BEFORE
         )
         model.addCost(k, force_cost_k)
     # If after jump
     elif k > HORIZON - STEPS_AFTER:
         # Add the regular force weight
-        force_cost_k = costs.SquaredForceCost(nv, nu, F_WGT_START)
+        force_cost_k = costs.SquaredForceCost(model, F_WGT_START)
         model.addCost(k, force_cost_k)
 
     # If not on the air
@@ -117,7 +117,7 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredPoseErrorCost(
-        model, "trunk", base_pos, np.eye(3), nq, nv, TF_WGT, RF_WGT
+        model, "trunk", base_pos, np.eye(3), TF_WGT, RF_WGT
     ),
 )
 

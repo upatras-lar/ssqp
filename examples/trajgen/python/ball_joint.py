@@ -25,10 +25,10 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, DESIRED_CONFIG, nq, nv, C_WGT, False
+    model, DESIRED_CONFIG, C_WGT
 )
 
 for k in range(H):

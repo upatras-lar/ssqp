@@ -22,12 +22,14 @@ namespace constraints
  * where:
  *  - $\boldsymbol{q}_l$, $\boldsymbol{q}_u$: Lower and upper configuration vectors
  *  - $\boldsymbol{q}$: The model's joint configuration vector
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`), appearing after the floating base (if present)
  */
 class JointAngleConstraint : public StageConstraints
 {
   public:
-    JointAngleConstraint(const VecX &lb, const VecX &ub, const uint nq,
-                         const uint nv, const bool free_flyer = false,
+    JointAngleConstraint(const Model &model, const VecX &lb, const VecX &ub,
                          const std::string &name = "");
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
@@ -48,8 +50,8 @@ class JointAngleConstraint : public StageConstraints
 
   protected:
     VecX       _lb, _ub;
-    const uint _nv, _njoints;
     const bool _free_flyer;
+    const uint _nv, _njoints, _ndx;
 };
 
 /* Predefined joint velocity constraint
@@ -59,12 +61,14 @@ class JointAngleConstraint : public StageConstraints
  * where:
  *  - $\boldsymbol{q}_{v,l}$, $\boldsymbol{q}_{v,u}$: Lower and upper joint velocity vectors
  *  - $\boldsymbol{q}_v$: The model's joint velocity vector
+ * Assumes:
+ *  - The model joint velocity is the final part of the state vector (size
+ *    `model.nv()`)
  */
 class JointVelocityConstraint : public StageConstraints
 {
   public:
-    JointVelocityConstraint(const VecX &lb, const VecX &ub, const uint nv,
-                            const bool free_flyer   = false,
+    JointVelocityConstraint(const Model &model, const VecX &lb, const VecX &ub,
                             const std::string &name = "");
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
@@ -97,12 +101,14 @@ class JointVelocityConstraint : public StageConstraints
  * where:
  *  - $\boldsymbol{u}_{c,l}$, $\boldsymbol{u}_{c,u}$: Lower and upper joint control vectors
  *  - $\boldsymbol{u}_c$: The joint part of the control vector
+ * Assumes:
+ *  - The model control is the first part of the control vector (size 
+ *    `model.nu()`)
  */
 class JointControlConstraint : public StageConstraints
 {
   public:
-    JointControlConstraint(const VecX &lb, const VecX &ub, const uint nv,
-                           const uint nu, const bool free_flyer = false,
+    JointControlConstraint(const Model &model, const VecX &lb, const VecX &ub,
                            const std::string &name = "");
     void set_lower_bound(const VecX &lb);
     void set_upper_bound(const VecX &ub);
@@ -123,8 +129,8 @@ class JointControlConstraint : public StageConstraints
 
   protected:
     VecX       _lb, _ub;
-    const uint _nv, _nu;
     const bool _free_flyer;
+    const uint _nv, _nu, _ndx;
 };
 
 /* Predefined 3D position bound for a given frame
@@ -133,56 +139,16 @@ class JointControlConstraint : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
  */
 class FramePositionBound : public StageConstraints
 {
   public:
     // Regular constructor
     FramePositionBound(const Model &model, const std::string &frame,
-                       const Vec3 &lb, const Vec3 &ub, const uint nq,
-                       const uint nv, const std::string &name = "");
-
-    void set_lower_bound(const Vec3 &lb);
-    void set_upper_bound(const Vec3 &ub);
-
-    uint output_size() const override;
-
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
-
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-
-  protected:
-    const std::shared_ptr<Model> _model;
-    const std::string            _frame;
-    Vec3                         _lb, _ub;
-    const uint                   _nq, _nv;
-};
-
-/* Predefined 3D orientation bound for a given frame
- * Creates a nonlinear bound constraint on the orientation of a frame:
- * $\boldsymbol{b}_l \leq \log_{SO3}R_{ref}^\top R_f \leq \boldsymbol{b}_u$
- * where:
- *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the orientation error (in $\mathcal{R}^3$)
- *  - $R_f$: Frame rotation matrix
- *  - $R_{ref}$: Reference rotation matrix
- */
-class FrameRotationBound : public StageConstraints
-{
-  public:
-    FrameRotationBound(const Model &model, const std::string &frame,
-                       const Mat3 &Rref, const Vec3 &lb, const Vec3 &ub,
-                       const uint nq, const uint nv,
+                       const Vec3 &lb, const Vec3 &ub,
                        const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
@@ -207,10 +173,55 @@ class FrameRotationBound : public StageConstraints
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    const std::string            _frame;
+    Vec3                         _lb, _ub;
+};
+
+/* Predefined 3D orientation bound for a given frame
+ * Creates a nonlinear bound constraint on the orientation of a frame:
+ * $\boldsymbol{b}_l \leq \log_{SO3}R_{ref}^\top R_f \leq \boldsymbol{b}_u$
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the orientation error (in $\mathcal{R}^3$)
+ *  - $R_f$: Frame rotation matrix
+ *  - $R_{ref}$: Reference rotation matrix
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
+ */
+class FrameRotationBound : public StageConstraints
+{
+  public:
+    FrameRotationBound(const Model &model, const std::string &frame,
+                       const Mat3 &Rref, const Vec3 &lb, const Vec3 &ub,
+                       const std::string &name = "");
+
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     Mat3                         _Rref;
     Vec3                         _lb, _ub;
-    const uint                   _nq, _nv;
 };
 
 /* Predefined 3D velocity bound for a given frame
@@ -219,14 +230,19 @@ class FrameRotationBound : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
+ *  - The model joint velocity is the final part of the state vector (size
+ *    `model.nv()`)
  */
 class FrameLinearVelocityBound : public StageConstraints
 {
   public:
     // Regular constructor
     FrameLinearVelocityBound(const Model &model, const std::string &frame,
-                             const Vec3 &lb, const Vec3 &ub, const uint nq,
-                             const uint nv, const bool terminal = false,
+                             const Vec3 &lb, const Vec3 &ub,
+                             const bool terminal     = false,
                              const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
@@ -251,9 +267,9 @@ class FrameLinearVelocityBound : public StageConstraints
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     Vec3                         _lb, _ub;
-    const uint                   _nq, _nv;
     const bool                   _terminal;
 };
 
@@ -263,12 +279,14 @@ class FrameLinearVelocityBound : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{c}$ is the center of mass of the model
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
  */
 class CenterOfMassBound : public StageConstraints
 {
   public:
     CenterOfMassBound(const Model &model, const Vec3 &lb, const Vec3 &ub,
-                      const uint nq, const uint nv,
                       const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
@@ -293,8 +311,8 @@ class CenterOfMassBound : public StageConstraints
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
     Vec3                         _lb, _ub;
-    const uint                   _nq, _nv;
 };
 
 /* Predefined contact constraint for a given frame
@@ -327,7 +345,6 @@ class ContactConstraint : public StageConstraints
 {
   public:
     ContactConstraint(const Model &model, const std::string &frame,
-                      const uint nq, const uint nv, const uint nu,
                       const double mu = 0.6, const double eq_tol = 0.0,
                       const std::string &name = "");
 
@@ -363,9 +380,9 @@ class ContactConstraint : public StageConstraints
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _nu;
     const std::string            _frame;
     std::vector<Force>           _forces;
-    const uint                   _nq, _nv, _nu;
     double                       _mu;
     const double                 _eq_tol;
 };

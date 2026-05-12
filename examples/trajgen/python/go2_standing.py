@@ -45,13 +45,11 @@ nu = model.getnu()
 
 # Define regularization costs
 config_cost = costs.SquaredConfigurationErrorCost(
-    model, base_config, nq, nv, A_WGT, True, "Configuration cost"
+    model, base_config, A_WGT, "Configuration cost"
 )
-joint_vel_cost = costs.SquaredJointVelocityCost(
-    nv, V_WGT, True, "Velocity cost"
-)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT, "Control cost")
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT, "Force cost")
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT, "Velocity cost")
+control_cost = costs.SquaredControlCost(model, U_WGT, "Control cost")
+force_cost = costs.SquaredForceCost(model, F_WGT, "Force cost")
 
 # Define velocity bounds for feet
 # Used in conjunction with contact constraints
@@ -60,8 +58,6 @@ fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     "FL_foot",
     np.zeros(3),
     np.zeros(3),
-    nq,
-    nv,
     name="FL foot velocity bound",
 )
 
@@ -70,8 +66,6 @@ fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     "FR_foot",
     np.zeros(3),
     np.zeros(3),
-    nq,
-    nv,
     name="FR foot velocity bound",
 )
 
@@ -80,8 +74,6 @@ rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
     "RL_foot",
     np.zeros(3),
     np.zeros(3),
-    nq,
-    nv,
     name="RL foot velocity bound",
 )
 
@@ -90,8 +82,6 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     "RR_foot",
     np.zeros(3),
     np.zeros(3),
-    nq,
-    nv,
     name="RR foot velocity bound",
 )
 
@@ -119,7 +109,7 @@ model.addCost(HORIZON, config_cost)
 # model.addConstraints(
 #     HORIZON,
 #     constraints.FrameLinearVelocityBound(
-#         model, "base", np.zeros(3), np.zeros(3), nq, nv, True
+#         model, "base", np.zeros(3), np.zeros(3), True
 #     ),
 # )
 

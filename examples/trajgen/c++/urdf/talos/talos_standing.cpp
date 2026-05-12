@@ -58,31 +58,17 @@ int main()
           "torso_1_link",
           base_pos,
           Eigen::Matrix3d::Identity(),
-          STATE_SIZE,
-          VELOCITY_SIZE,
           T_WGT,
           R_WGT);
 
         // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k,
-                                                       VELOCITY_SIZE,
-                                                       V_WGT,
-                                                       true);
-        model.addCost<costs::SquaredControlCost>(k,
-                                                 VELOCITY_SIZE,
-                                                 CONTROL_SIZE,
-                                                 U_WGT);
-        model.addCost<costs::SquaredForceCost>(k,
-                                               VELOCITY_SIZE,
-                                               CONTROL_SIZE,
-                                               F_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
+        model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
+        model.addCost<costs::SquaredForceCost>(k, model, F_WGT);
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_mm",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -90,16 +76,11 @@ int main()
           model,
           "left_mm",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_mp",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -107,16 +88,11 @@ int main()
           model,
           "left_mp",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_pp",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -124,16 +100,11 @@ int main()
           model,
           "left_pp",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_pm",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -141,16 +112,11 @@ int main()
           model,
           "left_pm",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_mm",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -158,16 +124,11 @@ int main()
           model,
           "right_mm",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_mp",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -175,16 +136,11 @@ int main()
           model,
           "right_mp",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_pp",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -192,16 +148,11 @@ int main()
           model,
           "right_pp",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_pm",
-                                                             STATE_SIZE,
-                                                             VELOCITY_SIZE,
-                                                             CONTROL_SIZE,
                                                              0.6);
 
         model.addConstraints<constraints::FrameLinearVelocityBound>(
@@ -209,23 +160,16 @@ int main()
           model,
           "right_pm",
           Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero(),
-          STATE_SIZE,
-          VELOCITY_SIZE);
+          Eigen::Vector3d::Zero());
     }
 
-    model.addCost<costs::SquaredJointVelocityCost>(HORIZON,
-                                                   VELOCITY_SIZE,
-                                                   V_WGT,
-                                                   true);
+    model.addCost<costs::SquaredJointVelocityCost>(HORIZON, model, V_WGT);
 
     model.addCost<costs::FrameSquaredPoseErrorCost>(HORIZON,
                                                     model,
                                                     "torso_1_link",
                                                     base_pos,
                                                     Eigen::Matrix3d::Identity(),
-                                                    STATE_SIZE,
-                                                    VELOCITY_SIZE,
                                                     T_WGT,
                                                     R_WGT);
 

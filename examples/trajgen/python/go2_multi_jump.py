@@ -79,27 +79,27 @@ nv = model.getnv()
 nu = model.getnu()
 
 # Define regularization costs
-joint_angle_cost = costs.SquaredJointAngleCost(nq, nv, A_WGT, True)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+control_cost = costs.SquaredControlCost(model, U_WGT)
+force_cost = costs.SquaredForceCost(model, F_WGT)
 
 # Define velocity bounds for feet
 # Used in conjunction with contact constraints
 fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FL_foot", np.zeros(3), np.zeros(3)
 )
 
 fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "FR_foot", np.zeros(3), np.zeros(3)
 )
 
 rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RL_foot", np.zeros(3), np.zeros(3)
 )
 
 rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3), nq, nv
+    model, "RR_foot", np.zeros(3), np.zeros(3)
 )
 
 # Define position bounds for feet, such that their z-coordinate is positive and
@@ -109,12 +109,7 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
 #  1) Feet that are on the air stay above the ground
 #  2) Front and back feet don't get too close to each other
 fl_foot_pos_bound = constraints.FramePositionBound(
-    model,
-    "FL_foot",
-    np.array((-np.inf, 0.1, 0.0)),
-    np.array((np.inf, np.inf, np.inf)),
-    nq,
-    nv,
+    model, "FL_foot", np.array((-np.inf, 0.1, 0.0)), np.array((np.inf, np.inf, np.inf))
 )
 
 fr_foot_pos_bound = constraints.FramePositionBound(
@@ -122,17 +117,10 @@ fr_foot_pos_bound = constraints.FramePositionBound(
     "FR_foot",
     np.array((-np.inf, -np.inf, 0.0)),
     np.array((np.inf, -0.1, np.inf)),
-    nq,
-    nv,
 )
 
 rl_foot_pos_bound = constraints.FramePositionBound(
-    model,
-    "RL_foot",
-    np.array((-np.inf, 0.1, 0.0)),
-    np.array((np.inf, np.inf, np.inf)),
-    nq,
-    nv,
+    model, "RL_foot", np.array((-np.inf, 0.1, 0.0)), np.array((np.inf, np.inf, np.inf))
 )
 
 rr_foot_pos_bound = constraints.FramePositionBound(
@@ -140,8 +128,6 @@ rr_foot_pos_bound = constraints.FramePositionBound(
     "RR_foot",
     np.array((-np.inf, -np.inf, 0.0)),
     np.array((np.inf, -0.1, np.inf)),
-    nq,
-    nv,
 )
 
 # Define a bound to keep the head position above the ground
@@ -150,8 +136,6 @@ head_pos_bound = constraints.FramePositionBound(
     "Head_lower",
     np.array((-np.inf, -np.inf, 0.01)),
     np.array((np.inf, np.inf, np.inf)),
-    nq,
-    nv,
 )
 
 init_controls = []
@@ -265,15 +249,13 @@ model.addCost(HORIZON, joint_vel_cost)
 model.addCost(
     HORIZON,
     costs.FrameSquaredPoseErrorCost(
-        model, "base", final_pos, np.eye(3), nq, nv, TF_WGT, RF_WGT
+        model, "base", final_pos, np.eye(3), TF_WGT, RF_WGT
     ),
 )
 # Add constraint for the final velocity of the base to be 0
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(
-        model, "base", np.zeros(3), np.zeros(3), nq, nv, True
-    ),
+    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
 )
 
 # Finalize the model with our state and controls

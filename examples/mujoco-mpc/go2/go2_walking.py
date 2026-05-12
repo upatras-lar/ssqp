@@ -92,8 +92,7 @@ foot_names = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 
 # initialize from initial state
 foot_positions = {
-    name: model.forwardKinematics(init_state[:nq], name)[0]
-    for name in foot_names
+    name: model.forwardKinematics(init_state[:nq], name)[0] for name in foot_names
 }
 
 foot_trajs = {name: [foot_positions[name].copy()] for name in foot_names}
@@ -137,10 +136,10 @@ for k in range(1, H + 1):
         foot_trajs[name].append(foot_positions[name].copy())
 
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, init_state[7:nq], nq, nv, C_WGT, True
+    model, init_state[7:nq], C_WGT
 )
-v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT, True)
-u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
 base_costs = []
 foot_funcs = {name: [] for name in foot_names}
@@ -156,7 +155,7 @@ for k in range(mpc_H):
 
     base_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, "base_link", traj[k], R, nq, nv, T_WGT, R_WGT
+            model, "base_link", traj[k], R, T_WGT, R_WGT
         )
     )
     model.addCost(k, base_costs[-1])
@@ -167,7 +166,7 @@ for k in range(mpc_H):
         foot_funcs[name].append(
             (
                 ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-                    model, name, foot_pos, nq, nv, T_WGT
+                    model, name, foot_pos, T_WGT
                 ),
                 model.addContactConstraint(k, name, CONTACT_MU),
             )
@@ -191,9 +190,7 @@ def update_model(current_stage):
         idx = k - current_stage
 
         # base tracking
-        base_costs[idx].set_desired_translation(
-            traj[k] if k <= H else traj[-1]
-        )
+        base_costs[idx].set_desired_translation(traj[k] if k <= H else traj[-1])
 
         swing_feet = get_swing_feet(k)
 
@@ -204,9 +201,7 @@ def update_model(current_stage):
 
                 # update swing tracking point
                 foot_funcs[name][idx][0].set_enabled(True)
-                foot_funcs[name][idx][0].set_desired_translation(
-                    foot_trajs[name][k]
-                )
+                foot_funcs[name][idx][0].set_desired_translation(foot_trajs[name][k])
             else:
                 # enable contact
                 foot_funcs[name][idx][1].set_enabled(True)
@@ -272,9 +267,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         # mjdata.qpos[:3] = np.array((0.0, 0.0, 0.5))
         mjdata.ctrl = (
-            Kp * (xk[7:19] - state[7:19])
-            + Kd * (xk[25:] - state[25:])
-            + uk[6:18]
+            Kp * (xk[7:19] - state[7:19]) + Kd * (xk[25:] - state[25:]) + uk[6:18]
         )
 
         stage += 1

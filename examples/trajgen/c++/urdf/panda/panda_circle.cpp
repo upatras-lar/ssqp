@@ -132,17 +132,12 @@ int main()
                                                         model,
                                                         "panda_ee",
                                                         desired_pose,
-                                                        STATE_SIZE,
-                                                        STATE_SIZE,
                                                         T_WGT,
                                                         R_WGT);
 
         // Add regularization costs
-        model.addCost<costs::SquaredJointVelocityCost>(k, STATE_SIZE, V_WGT);
-        model.addCost<costs::SquaredControlCost>(k,
-                                                 STATE_SIZE,
-                                                 STATE_SIZE,
-                                                 U_WGT);
+        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
+        model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
 
         if (CONSTRAIN)
         {
@@ -156,9 +151,7 @@ int main()
                                                                   model,
                                                                   "panda_ee",
                                                                   lb,
-                                                                  ub,
-                                                                  STATE_SIZE,
-                                                                  STATE_SIZE);
+                                                                  ub);
         }
     }
 
@@ -171,12 +164,10 @@ int main()
                                                     model,
                                                     "panda_ee",
                                                     desired_pose,
-                                                    STATE_SIZE,
-                                                    STATE_SIZE,
                                                     T_WGT,
                                                     R_WGT);
 
-    model.addCost<costs::SquaredJointVelocityCost>(HORIZON, STATE_SIZE, V_WGT);
+    model.addCost<costs::SquaredJointVelocityCost>(HORIZON, model, V_WGT);
 
     if (CONSTRAIN)
     {
@@ -188,9 +179,7 @@ int main()
                                                               model,
                                                               "panda_ee",
                                                               lb,
-                                                              ub,
-                                                              STATE_SIZE,
-                                                              STATE_SIZE);
+                                                              ub);
     }
 
     ssqp::model::Model::Config model_config;

@@ -338,9 +338,6 @@ void bind_Model(nb::module_ &m)
             return self.addConstraints<ContactConstraint>(k,
                                                           self,
                                                           frame,
-                                                          self.nq(),
-                                                          self.nv(),
-                                                          self.nu(),
                                                           mu,
                                                           eq_tol,
                                                           name);
@@ -720,6 +717,18 @@ void bind_Model(nb::module_ &m)
         Perform inverse dynamics on the model with forces.
         Only defined if the model was initialized using an XML file.
         )doc")
+      .def(
+        "centerOfMass",
+        [](Model &self, const VecX &q)
+        {
+            if (!self.xml())
+            {
+                throw std::runtime_error("Model was not loaded from XML");
+            }
+            return self.centerOfMass(q);
+        },
+        nb::arg("q"),
+        "Get model center of mass for the given configuration")
       .def(
         "getFullAccelerationVector",
         [](Model &self, const VecX &x, const VecX &u, const uint k)

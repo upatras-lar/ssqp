@@ -314,20 +314,8 @@ void bind_Constraints(nb::module_ &m)
         )doc");
 
     nb::class_<JointAngleConstraint, StageConstraints>(m,
-                                                       "JointAngleConstraint")
-      .def(nb::init<const VecX &,
-                    const VecX &,
-                    const uint,
-                    const uint,
-                    const bool,
-                    const std::string &>(),
-           nb::arg("lb"),
-           nb::arg("ub"),
-           nb::arg("nq"),
-           nb::arg("nv"),
-           nb::arg("free_flyer") = false,
-           nb::arg("name")       = "",
-           R"doc(
+                                                       "JointAngleConstraint",
+                                                       R"doc(
         Predefined joint angle constraint
         Creates a constraint on the joint angles of the model
         Note: this constraint is separate to any potential innate constraints
@@ -335,7 +323,18 @@ void bind_Constraints(nb::module_ &m)
         where:
          - $\boldsymbol{q}_l$, $\boldsymbol{q}_u$: Lower and upper configuration vectors
          - $\boldsymbol{q}$: The model's joint configuration vector
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`), appearing after the floating base (if present)
            )doc")
+      .def(nb::init<const Model &,
+                    const VecX &,
+                    const VecX &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
       .def("set_lower_bound",
            &JointAngleConstraint::set_lower_bound,
            nb::arg("lower_bound"))
@@ -345,18 +344,8 @@ void bind_Constraints(nb::module_ &m)
 
     nb::class_<JointVelocityConstraint, StageConstraints>(
       m,
-      "JointVelocityConstraint")
-      .def(nb::init<const VecX &,
-                    const VecX &,
-                    const uint,
-                    const bool,
-                    const std::string &>(),
-           nb::arg("lb"),
-           nb::arg("ub"),
-           nb::arg("nv"),
-           nb::arg("free_flyer") = false,
-           nb::arg("name")       = "",
-           R"doc(
+      "JointVelocityConstraint",
+      R"doc(
         Predefined joint velocity constraint
         Creates a constraint on the joint velocities of the model
         Note: this constraint is separate to any potential innate constraints
@@ -364,7 +353,18 @@ void bind_Constraints(nb::module_ &m)
         where:
          - $\boldsymbol{q}_{v,l}$, $\boldsymbol{q}_{v,u}$: Lower and upper joint velocity vectors
          - $\boldsymbol{q}_v$: The model's joint velocity vector
+        Assumes:
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)
            )doc")
+      .def(nb::init<const Model &,
+                    const VecX &,
+                    const VecX &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
       .def("set_lower_bound",
            &JointVelocityConstraint::set_lower_bound,
            nb::arg("lower_bound"))
@@ -374,20 +374,8 @@ void bind_Constraints(nb::module_ &m)
 
     nb::class_<JointControlConstraint, StageConstraints>(
       m,
-      "JointControlConstraint")
-      .def(nb::init<const VecX &,
-                    const VecX &,
-                    const uint,
-                    const uint,
-                    const bool,
-                    const std::string &>(),
-           nb::arg("lb"),
-           nb::arg("ub"),
-           nb::arg("nv"),
-           nb::arg("nu"),
-           nb::arg("free_flyer") = false,
-           nb::arg("name")       = "",
-           R"doc(
+      "JointControlConstraint",
+      R"doc(
         Predefined joint control constraint
         Creates a constraint on the joint part of the control vector
         This can either act as a torque constraint (FD mode) or an acceleration
@@ -397,7 +385,18 @@ void bind_Constraints(nb::module_ &m)
         where:
          - $\boldsymbol{u}_{c,l}$, $\boldsymbol{u}_{c,u}$: Lower and upper joint control vectors
          - $\boldsymbol{u}_c$: The joint part of the control vector
+        Assumes:
+         - The model control is the first part of the control vector (size 
+           `model.nu()`)
            )doc")
+      .def(nb::init<const Model &,
+                    const VecX &,
+                    const VecX &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
       .def("set_lower_bound",
            &JointControlConstraint::set_lower_bound,
            nb::arg("lower_bound"))
@@ -405,29 +404,29 @@ void bind_Constraints(nb::module_ &m)
            &JointControlConstraint::set_upper_bound,
            nb::arg("upper_bound"));
 
-    nb::class_<FramePositionBound, StageConstraints>(m, "FramePositionBound")
+    nb::class_<FramePositionBound, StageConstraints>(m,
+                                                     "FramePositionBound",
+                                                     R"doc(
+        Predefined 3D position bound for a given frame
+        Creates a linear bound constraint on the position of a frame of the given
+        model: $\boldsymbol{b}_l \leq \boldsymbol{p}_f \leq \boldsymbol{b}_u$
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+         - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
+           )doc")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
                     const Vec3 &,
-                    uint,
-                    uint,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("nq"),
-           nb::arg("nv"),
-           nb::arg("name") = "",
-           R"doc(
-        Predefined 3D position bound for a given frame
-        Creates a linear bound constraint on the position of a frame of the given
-        model: $\boldsymbol{b}_l <= \boldsymbol{p}_f <= \boldsymbol{b}_u$
-        where:
-         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
-         - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
-           )doc")
+           nb::arg("name") = "")
       .def("set_lower_bound",
            &FramePositionBound::set_lower_bound,
            nb::arg("lower_bound"))
@@ -435,24 +434,9 @@ void bind_Constraints(nb::module_ &m)
            &FramePositionBound::set_upper_bound,
            nb::arg("upper_bound"));
 
-    nb::class_<FrameRotationBound, StageConstraints>(m, "FrameRotationBound")
-      .def(nb::init<const Model &,
-                    const std::string &,
-                    const Mat3 &,
-                    const Vec3 &,
-                    const Vec3 &,
-                    uint,
-                    uint,
-                    const std::string &>(),
-           nb::arg("model"),
-           nb::arg("frame"),
-           nb::arg("Rref"),
-           nb::arg("lb"),
-           nb::arg("ub"),
-           nb::arg("nq"),
-           nb::arg("nv"),
-           nb::arg("name") = "",
-           R"doc(
+    nb::class_<FrameRotationBound, StageConstraints>(m,
+                                                     "FrameRotationBound",
+                                                     R"doc(
         Predefined 3D orientation bound for a given frame
         Creates a nonlinear bound constraint on the orientation of a frame:
         $\boldsymbol{b}_l \leq \log_{SO3}R_{ref}^\top R_f \leq \boldsymbol{b}_u$
@@ -460,7 +444,22 @@ void bind_Constraints(nb::module_ &m)
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the orientation error (in $\mathcal{R}^3$)
          - $R_f$: Frame rotation matrix
          - $R_{ref}$: Reference rotation matrix
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
            )doc")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Mat3 &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("Rref"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
       .def("set_lower_bound",
            &FrameRotationBound::set_lower_bound,
            nb::arg("lower_bound"))
@@ -470,31 +469,32 @@ void bind_Constraints(nb::module_ &m)
 
     nb::class_<FrameLinearVelocityBound, StageConstraints>(
       m,
-      "FrameLinearVelocityBound")
+      "FrameLinearVelocityBound",
+      R"doc(
+        Predefined 3D velocity bound for a given frame
+        Creates a linear bound constraint on the velocity of a frame of the given
+        model: $\boldsymbol{b}_l \leq \boldsymbol{v}_f \leq \boldsymbol{b}_u$
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+         - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)
+           )doc")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
                     const Vec3 &,
-                    uint,
-                    uint,
                     bool,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("terminal") = false,
-           nb::arg("name")     = "",
-           R"doc(
-        Predefined 3D velocity bound for a given frame
-        Creates a linear bound constraint on the velocity of a frame of the given
-        model: $\boldsymbol{b}_l <= \boldsymbol{v}_f <= \boldsymbol{b}_u$
-        where:
-         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
-         - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)          
-           )doc")
+           nb::arg("name")     = "")
       .def("set_lower_bound",
            &FrameLinearVelocityBound::set_lower_bound,
            nb::arg("lower_bound"))

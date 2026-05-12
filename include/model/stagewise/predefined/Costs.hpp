@@ -27,15 +27,16 @@ namespace costs
  *    Note that this will ignore the first 7 elements if the model has a 
  *    floating base
  *  - $\boldsymbol{w}$ is the weight on the angular term
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`), appearing after the floating base (if present)
  */
 class SquaredJointAngleCost : public StageCost
 {
   public:
-    SquaredJointAngleCost(const uint nq, const uint nv, const double weight,
-                          const bool free_flyer   = false,
+    SquaredJointAngleCost(const Model &model, const double weight,
                           const std::string &name = "");
-    SquaredJointAngleCost(const uint nq, const uint nv, const VecX &weight,
-                          const bool free_flyer   = false,
+    SquaredJointAngleCost(const Model &model, const VecX &weight,
                           const std::string &name = "");
 
     void set_weight(const double weight);
@@ -49,9 +50,9 @@ class SquaredJointAngleCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const uint _nq, _nv;
-    VecX       _weight;
     const bool _free_flyer;
+    const uint _nq, _nv, _ndx;
+    VecX       _weight;
 };
 
 /* Predefined squared joint velocity cost
@@ -59,15 +60,16 @@ class SquaredJointAngleCost : public StageCost
  * where:
  *  - $\boldsymbol{x}_{vel}$ is the velocity part of the state
  *  - $\boldsymbol{w}$ is the weight on the velocity term
+ * Assumes:
+ *  - The model joint velocity is the final part of the state vector (size
+ *    `model.nv()`)
  */
 class SquaredJointVelocityCost : public StageCost
 {
   public:
-    SquaredJointVelocityCost(const uint nv, const double weight,
-                             const bool free_flyer   = false,
+    SquaredJointVelocityCost(const Model &model, const double weight,
                              const std::string &name = "");
-    SquaredJointVelocityCost(const uint nv, const VecX &weight,
-                             const bool free_flyer   = false,
+    SquaredJointVelocityCost(const Model &model, const VecX &weight,
                              const std::string &name = "");
 
     void set_weight(const double weight);
@@ -90,13 +92,16 @@ class SquaredJointVelocityCost : public StageCost
  * where:
  *  - $\boldsymbol{u}_{ctrl}$ is the control part of the controls
  *  - $\boldsymbol{w}$ is the weight on the control term
+ * Assumes:
+ *  - The model control is the first part of the control vector (size 
+ *    `model.nu()`)
  */
 class SquaredControlCost : public StageCost
 {
   public:
-    SquaredControlCost(const uint nv, const uint nu, const double weight,
+    SquaredControlCost(const Model &model, const double weight,
                        const std::string &name = "");
-    SquaredControlCost(const uint nv, const uint nu, const VecX &weight,
+    SquaredControlCost(const Model &model, const VecX &weight,
                        const std::string &name = "");
 
     void set_weight(const double weight);
@@ -110,11 +115,9 @@ class SquaredControlCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const uint _nv, _nu;
+    const uint _nu, _ndx;
     VecX       _weight;
 };
-
-// TODO: remove nq, nv, nu arguments when model is passed
 
 /* Predefined squared inverse dynamics torque cost
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
@@ -123,18 +126,20 @@ class SquaredControlCost : public StageCost
  * where:
  *  - $\boldsymbol{\tau}$ is the torque caused by the controls
  *  - $\boldsymbol{w}$ is the weight on the torque term
+ * Assumes:
+ *  - The model is in Inverse Dynamics mode, such that the state is made up of
+ *    configuration and velocity and the controls are made up of accelerations
+ *    (including base) and potential forces
  */
 // TODO: Take into account any joint forces
 // TODO: Potential bug
-// TODO: Fix for ReducedInverse
+// TODO: Make for ReducedInverse
 class SquaredIDTorqueCost : public StageCost
 {
   public:
-    SquaredIDTorqueCost(const Model &model, const uint nq, const uint nv,
-                        const uint nu, const double weight,
+    SquaredIDTorqueCost(const Model &model, const double weight,
                         const std::string &name = "");
-    SquaredIDTorqueCost(const Model &model, const uint nq, const uint nv,
-                        const uint nu, const VecX &weight,
+    SquaredIDTorqueCost(const Model &model, const VecX &weight,
                         const std::string &name = "");
 
     void set_weight(const double weight);
@@ -158,13 +163,17 @@ class SquaredIDTorqueCost : public StageCost
  * where:
  *  - $\boldsymbol{u}_{f}$ is the force part of the controls
  *  - $\boldsymbol{w}$ is the weight on the force term
+ * Assumes:
+ *  - The model forces make up the second and final part of the control vector,
+ *    following the control part of size `model.nu()`, for any remaining
+ *    elements
  */
 class SquaredForceCost : public StageCost
 {
   public:
-    SquaredForceCost(const uint nv, const uint nu, const double weight,
+    SquaredForceCost(const Model &model, const double weight,
                      const std::string &name = "");
-    SquaredForceCost(const uint nv, const uint nu, const VecX &weight,
+    SquaredForceCost(const Model &model, const VecX &weight,
                      const std::string &name = "");
 
     void set_weight(const double weight);
@@ -178,7 +187,7 @@ class SquaredForceCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const uint _nv, _nu;
+    const uint _nv, _nu, _ndx;
     double     _weight;
     VecX       _weight_vec;
     bool       _single_weight;
@@ -190,21 +199,20 @@ class SquaredForceCost : public StageCost
  *  - $\boldsymbol{q}$ is the configuration part of the state
  *  - $\boldsymbol{q}_d$ is the desired configuration
  *  - $\boldsymbol{w}$ is the weight for the configuration error
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
  */
 class SquaredConfigurationErrorCost : public StageCost
 {
   public:
-    SquaredConfigurationErrorCost(const Model &model,
-                                  const VecX  &desired_configuration,
-                                  const uint nq, const uint nv,
-                                  const double weight,
-                                  const bool   free_flyer = false,
+    SquaredConfigurationErrorCost(const Model       &model,
+                                  const VecX        &desired_configuration,
+                                  const double       weight,
                                   const std::string &name = "");
-    SquaredConfigurationErrorCost(const Model &model,
-                                  const VecX  &desired_configuration,
-                                  const uint nq, const uint nv,
-                                  const VecX &weight,
-                                  const bool  free_flyer  = false,
+    SquaredConfigurationErrorCost(const Model       &model,
+                                  const VecX        &desired_configuration,
+                                  const VecX        &weight,
                                   const std::string &name = "");
 
     void set_desired_configuration(const VecX &desired_configuration);
@@ -220,11 +228,11 @@ class SquaredConfigurationErrorCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
     VecX                         _desired_configuration;
     VecX                         _full_desired_configuration;
-    const uint                   _nq, _nv;
-    VecX                         _weight;
     const bool                   _free_flyer;
+    VecX                         _weight;
 };
 
 /* Predefined squared frame translation error cost
@@ -233,6 +241,9 @@ class SquaredConfigurationErrorCost : public StageCost
  *  - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
  *  - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
  *  - $\boldsymbol{w}$ is the weight on the translation error
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
  */
 class FrameSquaredTranslationErrorCost : public StageCost
 {
@@ -240,13 +251,11 @@ class FrameSquaredTranslationErrorCost : public StageCost
     FrameSquaredTranslationErrorCost(const Model       &model,
                                      const std::string &frame,
                                      const Vec3        &desired_translation,
-                                     const uint nq, const uint nv,
                                      const double       weight,
                                      const std::string &name = "");
     FrameSquaredTranslationErrorCost(const Model       &model,
                                      const std::string &frame,
                                      const Vec3        &desired_translation,
-                                     const uint nq, const uint nv,
                                      const Vec3        &weight,
                                      const std::string &name = "");
 
@@ -263,11 +272,10 @@ class FrameSquaredTranslationErrorCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
     Vec3                         _desired_translation;
     const std::string            _frame;
-
-    const uint _nq, _nv;
-    Vec3       _weight;
+    Vec3                         _weight;
 };
 
 /* Predefined squared frame rotation error cost
@@ -276,13 +284,16 @@ class FrameSquaredTranslationErrorCost : public StageCost
  *  - $R$ is the frame rotation for a given frame of the model (in $\mathit{SO3}$)
  *  - $R_d$ is the desired rotation for that frame (in $\mathit{SO3}$)
  *  - $\boldsymbol{w}$ is the weight on the rotation error
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
  */
 class FrameSquaredRotationErrorCost : public StageCost
 {
   public:
     FrameSquaredRotationErrorCost(const Model &model, const std::string &frame,
-                                  const Mat3 &desired_rotation, const uint nq,
-                                  const uint nv, const double weight,
+                                  const Mat3        &desired_rotation,
+                                  const double       weight,
                                   const std::string &name = "");
 
     void set_desired_rotation(const Mat3 &desired_rotation);
@@ -298,11 +309,10 @@ class FrameSquaredRotationErrorCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
     Mat3                         _desired_rotation;
     const std::string            _frame;
-
-    const uint _nq, _nv;
-    double     _weight;
+    double                       _weight;
 };
 
 /* Predefined squared frame pose error cost
@@ -313,20 +323,23 @@ class FrameSquaredRotationErrorCost : public StageCost
  *  - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)
  *  - $W$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
  *    for rotation
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
  */
 class FrameSquaredPoseErrorCost : public StageCost
 {
   public:
     FrameSquaredPoseErrorCost(const Model &model, const std::string &frame,
-                              const Mat4 &desired_pose, const uint nq,
-                              const uint nv, const double translation_weight,
+                              const Mat4        &desired_pose,
+                              const double       translation_weight,
                               const double       rotation_weight,
                               const std::string &name = "");
 
     FrameSquaredPoseErrorCost(const Model &model, const std::string &frame,
-                              const Vec3 &desired_translation,
-                              const Mat3 &desired_rotation, const uint nq,
-                              const uint nv, const double translation_weight,
+                              const Vec3        &desired_translation,
+                              const Mat3        &desired_rotation,
+                              const double       translation_weight,
                               const double       rotation_weight,
                               const std::string &name = "");
 
@@ -346,11 +359,10 @@ class FrameSquaredPoseErrorCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
     Mat4                         _desired_pose;
     const std::string            _frame;
-
-    const uint _nq, _nv;
-    Mat6       _weight;
+    Mat6                         _weight;
 };
 
 /* Predefined squared frame velocity error cost
@@ -359,17 +371,22 @@ class FrameSquaredPoseErrorCost : public StageCost
  *  - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model (in $\mathcal{R}^6$)
  *  - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$)
  *  - $\boldsymbol{w}$ is the weight on the velocity error
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
+ *  - The model joint velocity is the final part of the state vector (size
+ *    `model.nv()`)
  */
 class FrameSquaredVelocityErrorCost : public StageCost
 {
   public:
     FrameSquaredVelocityErrorCost(const Model &model, const std::string &frame,
-                                  const Vec6 &desired_velocity, const uint nq,
-                                  const uint nv, const double weight,
+                                  const Vec6        &desired_velocity,
+                                  const double       weight,
                                   const std::string &name = "");
     FrameSquaredVelocityErrorCost(const Model &model, const std::string &frame,
-                                  const Vec6 &desired_velocity, const uint nq,
-                                  const uint nv, const Vec6 &weight,
+                                  const Vec6        &desired_velocity,
+                                  const Vec6        &weight,
                                   const std::string &name = "");
 
     void set_desired_velocity(const Vec6 &desired_velocity);
@@ -385,11 +402,10 @@ class FrameSquaredVelocityErrorCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
     Vec6                         _desired_velocity;
     const std::string            _frame;
-
-    const uint _nq, _nv;
-    Vec6       _weight;
+    Vec6                         _weight;
 };
 
 /* Predefined squared frame velocity cost
@@ -397,16 +413,19 @@ class FrameSquaredVelocityErrorCost : public StageCost
  * where:
  *  - $\boldsymbol{v}_f$ is the velocity for a frame (in $\mathcal{R}^6$)
  *  - $\boldsymbol{w}$ is the weight on the velocity term
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
+ *  - The model joint velocity is the final part of the state vector (size
+ *    `model.nv()`)
  */
 class FrameSquaredVelocityCost : public StageCost
 {
   public:
     FrameSquaredVelocityCost(const Model &model, const std::string &frame,
-                             const uint nq, const uint nv, const double weight,
-                             const std::string &name = "");
+                             const double weight, const std::string &name = "");
     FrameSquaredVelocityCost(const Model &model, const std::string &frame,
-                             const uint nq, const uint nv, const Vec6 &weight,
-                             const std::string &name = "");
+                             const Vec6 &weight, const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const Vec6 &weight);
@@ -422,7 +441,7 @@ class FrameSquaredVelocityCost : public StageCost
     const std::shared_ptr<Model> _model;
     const std::string            _frame;
 
-    const uint _nq, _nv;
+    const uint _nq, _nv, _ndx;
     Vec6       _weight;
 };
 
@@ -431,16 +450,17 @@ class FrameSquaredVelocityCost : public StageCost
  * where:
  *  - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
  *  - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
  */
 class CenterOfMassTrackingCost : public StageCost
 {
   public:
     CenterOfMassTrackingCost(const Model &model, const Vec3 &cref,
-                             const uint nq, const uint nv, const double weight,
-                             const std::string &name = "");
+                             const double weight, const std::string &name = "");
     CenterOfMassTrackingCost(const Model &model, const Vec3 &cref,
-                             const uint nq, const uint nv, const Vec3 &weight,
-                             const std::string &name = "");
+                             const Vec3 &weight, const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const Vec3 &weight);
@@ -458,7 +478,7 @@ class CenterOfMassTrackingCost : public StageCost
     const std::shared_ptr<Model> _model;
 
     Vec3       _cref;
-    const uint _nq, _nv;
+    const uint _nq, _nv, _ndx;
     Vec3       _weight;
 };
 }

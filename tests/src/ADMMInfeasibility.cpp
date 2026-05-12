@@ -16,8 +16,7 @@ ADMMInfeasibility::ADMMInfeasibility(const std::string &name)
     {
         _model.addCost<model::stagewise::predefined::costs::SquaredControlCost>(
           k,
-          9,
-          9,
+          _model,
           1e-3);
 
         _model.addConstraints<
@@ -26,15 +25,12 @@ ADMMInfeasibility::ADMMInfeasibility(const std::string &name)
           _model,
           "panda_ee",
           lb,
-          ub,
-          9,
-          9);
+          ub);
     }
 
     _model.addCost<model::stagewise::predefined::costs::SquaredJointAngleCost>(
       100,
-      9,
-      9,
+      _model,
       1e-1);
 
     _model.finalize();

@@ -45,16 +45,16 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
     lb = np.array((-np.inf, constraint_vlines[0], -np.inf))
     ub = np.array((np.inf, constraint_vlines[1], np.inf))
     box_constraint = ssqpy.model.constraints.FramePositionBound(
-        model, "panda_ee", lb, ub, nq, nv
+        model, "panda_ee", lb, ub
     )
 
-    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-        model, init_state[:nq], nq, nv, C_WGT, False
+        model, init_state[:nq], C_WGT
     )
     pose_error = ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, "panda_ee", desired_pose, nq, nq, T_WGT, R_WGT
+        model, "panda_ee", desired_pose, T_WGT, R_WGT
     )
 
     for k in range(MPC_H):
@@ -118,10 +118,10 @@ def get_reset_model(dynamics_mode):
         0.0,
     ]
 
-    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
     init_config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-        model, target_init_state[:nq], nq, nv, C_WGT, False
+        model, target_init_state[:nq], C_WGT
     )
 
     for k in range(MPC_H):
@@ -205,20 +205,20 @@ def get_circle_model(dynamics_mode, constrain=False):
     lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
     ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
     box_constraint = ssqpy.model.constraints.FramePositionBound(
-        model, "panda_ee", lb, ub, nq, nv
+        model, "panda_ee", lb, ub
     )
 
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-        model, init_state[:nq], nq, nv, C_WGT, False
+        model, init_state[:nq], C_WGT
     )
 
-    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
     for k in range(MPC_H):
         pose_costs.append(
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
-                model, "panda_ee", traj[k], Rd, nq, nv, T_WGT, R_WGT
+                model, "panda_ee", traj[k], Rd, T_WGT, R_WGT
             )
         )
 
@@ -232,7 +232,7 @@ def get_circle_model(dynamics_mode, constrain=False):
 
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, "panda_ee", traj[MPC_H], Rd, nq, nv, T_WGT, R_WGT
+            model, "panda_ee", traj[MPC_H], Rd, T_WGT, R_WGT
         )
     )
 
@@ -332,16 +332,16 @@ def get_sequence_model(dynamics_mode, constrain=False):
     pose_costs = []
 
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-        model, init_state[:nq], nq, nv, C_WGT, False
+        model, init_state[:nq], C_WGT
     )
 
-    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(nv, V_WGT)
-    u_cost = ssqpy.model.costs.SquaredControlCost(nv, nu, U_WGT)
+    v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+    u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
     for k in range(MPC_H):
         pose_costs.append(
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
-                model, "panda_ee", traj[k], Rd, nq, nv, T_WGT, R_WGT
+                model, "panda_ee", traj[k], Rd, T_WGT, R_WGT
             )
         )
 
@@ -352,7 +352,7 @@ def get_sequence_model(dynamics_mode, constrain=False):
 
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
-            model, "panda_ee", traj[MPC_H], Rd, nq, nv, T_WGT, R_WGT
+            model, "panda_ee", traj[MPC_H], Rd, T_WGT, R_WGT
         )
     )
 

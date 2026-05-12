@@ -210,27 +210,18 @@ void bind_Costs(nb::module_ &m)
            Note that this will ignore the first 7 elements if the model has a 
            floating base
          - $\boldsymbol{w}$ is the weight on the angular term
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`), appearing after the floating base (if present)
             )doc")
-      .def(nb::init<const uint,
-                    const uint,
-                    const double,
-                    const bool,
-                    const std::string &>(),
-           nb::arg("nq"),
-           nb::arg("nv"),
+      .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::arg("model"),
            nb::arg("weight"),
-           nb::arg("free_flyer") = false,
-           nb::arg("name")       = "")
-      .def(nb::init<const uint,
-                    const uint,
-                    const VecX &,
-                    const bool,
-                    const std::string &>(),
-           nb::arg("nq"),
-           nb::arg("nv"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::arg("model"),
            nb::arg("weight"),
-           nb::arg("free_flyer") = false,
-           nb::arg("name")       = "")
+           nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (SquaredJointAngleCost::*)(const double)>(
              &SquaredJointAngleCost::set_weight),
@@ -248,19 +239,18 @@ void bind_Costs(nb::module_ &m)
         where:
          - $\boldsymbol{x}_{vel}$ is the velocity part of the state
          - $\boldsymbol{w}$ is the weight on the velocity term
+        Assumes:
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)    
                                                     )doc")
-      .def(
-        nb::init<const uint, const double, const bool, const std::string &>(),
-        nb::arg("nv"),
-        nb::arg("weight"),
-        nb::arg("free_flyer") = false,
-        nb::arg("name")       = "")
-      .def(
-        nb::init<const uint, const VecX &, const bool, const std::string &>(),
-        nb::arg("nv"),
-        nb::arg("weight"),
-        nb::arg("free_flyer") = false,
-        nb::arg("name")       = "")
+      .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::arg("model"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::arg("model"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (SquaredJointVelocityCost::*)(const double)>(
              &SquaredJointVelocityCost::set_weight),
@@ -276,19 +266,18 @@ void bind_Costs(nb::module_ &m)
         where:
          - $\boldsymbol{u}_{ctrl}$ is the control part of the controls
          - $\boldsymbol{w}$ is the weight on the control term
+        Assumes:
+         - The model control is the first part of the control vector (size 
+           `model.nu()`)
         )doc")
-      .def(
-        nb::init<const uint, const uint, const double, const std::string &>(),
-        nb::arg("nv"),
-        nb::arg("nu"),
-        nb::arg("weight"),
-        nb::arg("name") = "")
-      .def(
-        nb::init<const uint, const uint, const VecX &, const std::string &>(),
-        nb::arg("nv"),
-        nb::arg("nu"),
-        nb::arg("weight"),
-        nb::arg("name") = "")
+      .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::arg("model"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::arg("model"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (SquaredControlCost::*)(const double)>(
              &SquaredControlCost::set_weight),
@@ -306,29 +295,17 @@ void bind_Costs(nb::module_ &m)
         where:
          - $\boldsymbol{\tau}$ is the torque caused by the controls
          - $\boldsymbol{w}$ is the weight on the torque term
+        Assumes:
+         - The model is in Inverse Dynamics mode, such that the state is made up of
+           configuration and velocity and the controls are made up of accelerations
+           (including base) and potential forces
         )doc")
-      .def(nb::init<const Model &,
-                    const uint,
-                    const uint,
-                    const uint,
-                    const double,
-                    const std::string &>(),
+      .def(nb::init<const Model &, const double, const std::string &>(),
            nb::arg("model"),
-           nb::arg("nq"),
-           nb::arg("nv"),
-           nb::arg("nu"),
            nb::arg("weight"),
            nb::arg("name") = "")
-      .def(nb::init<const Model &,
-                    const uint,
-                    const uint,
-                    const uint,
-                    const VecX &,
-                    const std::string &>(),
+      .def(nb::init<const Model &, const VecX &, const std::string &>(),
            nb::arg("model"),
-           nb::arg("nq"),
-           nb::arg("nv"),
-           nb::arg("nu"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def("set_weight",
@@ -342,22 +319,23 @@ void bind_Costs(nb::module_ &m)
 
     nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost", R"doc(
         Predefined squared force cost
-        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u})=w_f \boldsymbol{u}_f$
-        where $\boldsymbol{u}_f$ is the force part of the controls
-        and $w_f$ is the weight on the term
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{f} \rVert_2^2$
+        where:
+         - $\boldsymbol{u}_{f}$ is the force part of the controls
+         - $\boldsymbol{w}$ is the weight on the force term
+        Assumes:
+         - The model forces make up the second and final part of the control vector,
+           following the control part of size `model.nu()`, for any remaining
+           elements
         )doc")
-      .def(
-        nb::init<const uint, const uint, const double, const std::string &>(),
-        nb::arg("nv"),
-        nb::arg("nu"),
-        nb::arg("weight"),
-        nb::arg("name") = "")
-      .def(
-        nb::init<const uint, const uint, const VecX &, const std::string &>(),
-        nb::arg("nv"),
-        nb::arg("nu"),
-        nb::arg("weight"),
-        nb::arg("name") = "")
+      .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::arg("model"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::arg("model"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (SquaredForceCost::*)(const double)>(
              &SquaredForceCost::set_weight),
@@ -377,34 +355,25 @@ void bind_Costs(nb::module_ &m)
          - $\boldsymbol{q}$ is the configuration part of the state
          - $\boldsymbol{q}_d$ is the desired configuration
          - $\boldsymbol{w}$ is the weight for the configuration error
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
       )doc")
       .def(nb::init<const Model &,
                     const VecX &,
-                    const uint,
-                    const uint,
                     const double,
-                    const bool,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("desired_configuration"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
-           nb::arg("free_flyer"),
            nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const VecX &,
-                    const uint,
-                    const uint,
                     const VecX &,
-                    const bool,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("desired_configuration"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
-           nb::arg("free_flyer"),
            nb::arg("name") = "")
       .def("set_desired_configuration",
            &SquaredConfigurationErrorCost::set_desired_configuration,
@@ -427,34 +396,29 @@ void bind_Costs(nb::module_ &m)
         where:
          - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
          - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
-         - $\boldsymbol{w}$ is the weight on the translation error  
+         - $\boldsymbol{w}$ is the weight on the translation error
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
       )doc")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
-                    const uint,
-                    const uint,
                     const double,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
-                    const uint,
-                    const uint,
                     const Vec3 &,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def("set_desired_translation",
@@ -481,19 +445,18 @@ void bind_Costs(nb::module_ &m)
          - $R$ is the frame rotation for a given frame of the model (in $\mathit{SO3}$)
          - $R_d$ is the desired rotation for that frame (in $\mathit{SO3}$)
          - $\boldsymbol{w}$ is the weight on the rotation error
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
       )doc")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Mat3 &,
-                    const uint,
-                    const uint,
                     const double,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_rotation"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def("set_desired_rotation",
@@ -515,20 +478,19 @@ void bind_Costs(nb::module_ &m)
          - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)
          - $W$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
            for rotation
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
       )doc")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Mat4 &,
-                    const uint,
-                    const uint,
                     const double,
                     const double,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_pose"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("position_weight"),
            nb::arg("rotation_weight"),
            nb::arg("name") = "")
@@ -536,8 +498,6 @@ void bind_Costs(nb::module_ &m)
                     const std::string &,
                     const Vec3 &,
                     const Mat3 &,
-                    const uint,
-                    const uint,
                     const double,
                     const double,
                     const std::string &>(),
@@ -545,8 +505,6 @@ void bind_Costs(nb::module_ &m)
            nb::arg("frame"),
            nb::arg("desired_position"),
            nb::arg("desired_rotation"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("position_weight"),
            nb::arg("rotation_weight"),
            nb::arg("name") = "")
@@ -576,33 +534,30 @@ void bind_Costs(nb::module_ &m)
          - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model (in $\mathcal{R}^6$)
          - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$)
          - $\boldsymbol{w}$ is the weight on the velocity error
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)
       )doc")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec6 &,
-                    const uint,
-                    const uint,
                     const double,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_velocity"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec6 &,
-                    const uint,
-                    const uint,
                     const Vec6 &,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_velocity"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def("set_desired_velocity",
@@ -623,31 +578,28 @@ void bind_Costs(nb::module_ &m)
         Predefined squared frame velocity cost
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
         where:
-         - $\boldsymbol{v}_f$ is the (6D) velocity for a frame
+         - $\boldsymbol{v}_f$ is the velocity for a frame (in $\mathcal{R}^6$)
          - $\boldsymbol{w}$ is the weight on the velocity term
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)
                                                     )doc")
       .def(nb::init<const Model &,
                     const std::string &,
-                    const uint,
-                    const uint,
                     const double,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const std::string &,
-                    const uint,
-                    const uint,
                     const Vec6 &,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def("set_weight",
@@ -667,29 +619,24 @@ void bind_Costs(nb::module_ &m)
         where:
          - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
          - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
                                                     )doc")
       .def(nb::init<const Model &,
                     const Vec3 &,
-                    const uint,
-                    const uint,
                     const double,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("cref"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const Vec3 &,
-                    const uint,
-                    const uint,
                     const Vec3 &,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("cref"),
-           nb::arg("nq"),
-           nb::arg("nv"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def("set_weight",

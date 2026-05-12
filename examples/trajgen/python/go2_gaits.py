@@ -68,12 +68,10 @@ nv = model.getnv()
 nu = model.getnu()
 
 # Create regularization costs
-config_cost = costs.SquaredConfigurationErrorCost(
-    model, init[7:19], nq, nv, C_WGT, True
-)
-joint_vel_cost = costs.SquaredJointVelocityCost(nv, V_WGT, True)
-control_cost = costs.SquaredControlCost(nv, nu, U_WGT)
-force_cost = costs.SquaredForceCost(nv, nu, F_WGT)
+config_cost = costs.SquaredConfigurationErrorCost(model, init[7:19], C_WGT)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+control_cost = costs.SquaredControlCost(model, U_WGT)
+force_cost = costs.SquaredForceCost(model, F_WGT)
 
 for k in range(HORIZON):
     # Add the regularization costs for each stage
@@ -85,9 +83,7 @@ for k in range(HORIZON):
     # orientation
     model.addCost(
         k,
-        costs.FrameSquaredRotationErrorCost(
-            model, "base", np.eye(3), nq, nv, ROT_WGT
-        ),
+        costs.FrameSquaredRotationErrorCost(model, "base", np.eye(3), ROT_WGT),
     )
 
 
@@ -95,23 +91,19 @@ for k in range(HORIZON + 1):
     model.addCost(k, config_cost)
 
 # Add a velocity regularization cost for the final stage
-model.addCost(HORIZON, costs.SquaredJointVelocityCost(nv, 1e3, True))
+model.addCost(HORIZON, costs.SquaredJointVelocityCost(model, 1e3))
 
 # Add a cost for the final translation of the base to be that of the final
 # position
 model.addCost(
     HORIZON,
-    costs.FrameSquaredTranslationErrorCost(
-        model, "base", final_pos, nq, nv, TF_WGT
-    ),
+    costs.FrameSquaredTranslationErrorCost(model, "base", final_pos, TF_WGT),
 )
 
 # Add a bound such that the base has no velocity at the end of the trajectory
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(
-        model, "base", np.zeros(3), np.zeros(3), nq, nv, True
-    ),
+    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
 )
 
 # List of initial controls
@@ -119,17 +111,13 @@ init_controls = []
 
 # Create a `GaitManager`, passing the model, the configuration and velocity
 # sizes and the ordered frames for each of the 4 feet
-gait_manager = GaitManager(
-    model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
-)
+gait_manager = GaitManager(model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"])
 
 # Add a gait of the specified type for the range [0, H - FSS - 1]
 # Gait methods will return the initial controls as a list, so we extend
 # `init_controls` by their return value
 if CYCLE_STEPS is None:
-    init_controls.extend(
-        GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1)
-    )
+    init_controls.extend(GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1))
 else:
     init_controls.extend(
         GAIT(
