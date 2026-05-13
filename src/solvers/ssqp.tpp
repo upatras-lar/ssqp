@@ -175,6 +175,7 @@ void ssqp::_setup_qp()
         }
     }
 
+    logln_at(LogLevel::Debug, "Terminal stage");
     // Terminal values for Q, q, D and c
     costs[_qp.dims.horizon]->hessian_xx(_guess.x.stage(_qp.dims.horizon),
                                         _emptyVec,
@@ -197,6 +198,8 @@ void ssqp::_setup_qp()
           tmpMat);
         _qp.Qxx_t += tmpMat;
 
+        logln_at(LogLevel::Debug, "Qxx: added constraints");
+
         if constexpr (withGradients)
         {
             constraints[_qp.dims.horizon]->gradient(
@@ -205,6 +208,9 @@ void ssqp::_setup_qp()
               _qp.Dt,
               tmpMat);
         }
+
+        logln_at(LogLevel::Debug, "D: " << std::endl << _qp.Dt);
+
         VecX ct = constraints[_qp.dims.horizon]->evaluate(
           _guess.x.stage(_qp.dims.horizon),
           _emptyVec);
@@ -214,6 +220,9 @@ void ssqp::_setup_qp()
         _qp.cu_t = constraints[_qp.dims.horizon]->right_minus(
           constraints[_qp.dims.horizon]->upper_bound(),
           ct);
+
+        logln_at(LogLevel::Debug, "cl: " << _qp.cl_t.transpose());
+        logln_at(LogLevel::Debug, "cu: " << _qp.cu_t.transpose());
     }
     else
     {

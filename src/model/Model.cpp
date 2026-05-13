@@ -1018,14 +1018,14 @@ const void Model::inverseDynamicsDerivatives(
                                               rnea_partial_da);
 }
 
-const MatX Model::frameJacobian(const VecX &x, const std::string &frame,
+const MatX Model::frameJacobian(const VecX &q, const std::string &frame,
                                 bool local) const
 {
     uint nv;
     std::tie(std::ignore, nv) = pinocchio_wrapper::modelDimensions(_impl);
 
     MatX J6 = MatX::Zero(6, nv);
-    pinocchio_wrapper::frameJacobian(_impl, x, frame, J6, local);
+    pinocchio_wrapper::frameJacobian(_impl, q, frame, J6, local);
 
     return J6;
 }
