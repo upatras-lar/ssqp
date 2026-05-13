@@ -8,7 +8,7 @@ sys.path.insert(0, "../../models")
 
 import go2_kinematic
 
-v_cmd = np.array((0.2, 0.0, 0.0))
+v_cmd = np.array((0.5, 0.0, 0.0))
 
 H = 500
 dt = 0.01
@@ -17,6 +17,7 @@ model = ssqpy.model.Model(
     H,
     dt,
     mjcf_path="../../assets/mjcf/go2/go2.xml",
+    free_flyer=True,
     solver_mode=ssqpy.model.SolverMode.Kinematics,
 )
 
@@ -27,46 +28,47 @@ com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
     v_cmd, go2_kinematic.init_config, np.zeros(3), 0.0, H, dt, ssqp_model=model
 )
 
+q_q = 1e-2
+q_v = 1e-3
+q_c = 0.1
+q_b = 0.1
+q_o = 0.1
+q_sw = 0.5
+
 config_cost = costs.SquaredConfigurationErrorCost(
     model,
     go2_kinematic.init_config[7:],
-    go2_kinematic.q_q,
+    q_q,
     "Configuration Regularization Cost",
 )
 
-vel_cost = costs.SquaredControlCost(
-    model, go2_kinematic.q_v, "Velocity Regularization Cost"
-)
+vel_cost = costs.SquaredControlCost(model, q_v, "Velocity Regularization Cost")
 
 
 base_height_constraint = constraints.FramePositionBound(
     model,
     "base_link",
     np.array((-np.inf, -np.inf, go2_kinematic.zb_min)),
-    np.array((np.inf, np.inf, go2_kinematic.zb_max))
+    np.array((np.inf, np.inf, go2_kinematic.zb_max)),
     "Base Height Constraint",
 )
 
-for k in range(H):
+for k in range(H + 1):
     com_cost = costs.CenterOfMassTrackingCost(
-        model, com_ref[k], go2_kinematic.q_c, f"CoM Cost {k}"
+        model, com_ref[k], q_c, f"CoM Cost {k}"
     )
 
     model.addCost(k, com_cost)
 
-    desired_pose = np.zeros((4, 4))
-    desired_pose[:3, 3] = xb_ref[k][:3]
-    desired_pose[:3, :3] = go2_kinematic.model_utils.quaternion_to_rotation_matrix(
-        xb_ref[k][3:7]
-    )
-    desired_pose[3, 3] = 1.0
-
     pose_cost = costs.FrameSquaredPoseErrorCost(
         model,
         "base_link",
-        desired_pose,
-        go2_kinematic.q_b,
-        go2_kinematic.q_o,
+        xb_ref[k][:3],
+        go2_kinematic.model_utils.quaternion_to_rotation_matrix(
+            xb_ref[k][3:7]
+        ),
+        q_b,
+        q_o,
         f"Pose Cost {k}",
     )
 
@@ -78,26 +80,28 @@ for k in range(H):
                 model,
                 go2_kinematic.frame_names[foot],
                 p_ref[foot][k][0],
-                go2_kinematic.q_sw,
+                q_sw,
                 f"Foot {foot} Swing Cost {k}",
             )
+
+            model.addCost(k, foot_translation_cost)
         else:
-            foot_translation_cost = costs.FrameSquaredTranslationErrorCost(
+            foot_translation_bound = constraints.FramePositionBound(
                 model,
                 go2_kinematic.frame_names[foot],
                 p_ref[foot][k][0],
-                go2_kinematic.q_st,
-                f"Foot {foot} Stance Cost {k}",
+                p_ref[foot][k][0],
+                f"Foot {foot} Stance Constraint {k}",
             )
 
-        model.addCost(k, foot_translation_cost)
+            model.addConstraints(k, foot_translation_bound)
 
     model.addCost(k, config_cost)
-    model.addCost(k, vel_cost)
+
+    if k != H:
+        model.addCost(k, vel_cost)
 
     model.addConstraints(k, base_height_constraint)
-
-model.addCost(H, config_cost)
 
 model.finalize(
     init_states=[go2_kinematic.init_config],
@@ -113,7 +117,7 @@ admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
+# ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
 
 step = 0
 solver = ssqpy.solvers.ssqp(model, ssqp_params)

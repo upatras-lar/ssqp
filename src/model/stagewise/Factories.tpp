@@ -126,7 +126,7 @@ std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
             out += l2->evaluate(x, u);
         }
 
-        return (Scalar() << l1->evaluate(x, u) + l2->evaluate(x, u)).finished();
+        return out;
     };
 
     auto grad = [l1, l2](const VecX &x, const VecX &u, VecX &dx, VecX &du)
