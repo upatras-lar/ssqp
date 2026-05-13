@@ -1001,6 +1001,11 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     static const uint              horizon  = _model.horizon();
     const model::DynamicsContainer dynamics = _model.dynamics();
 
+    const uint nq = _model.nq();
+    const uint nv = _model.nv();
+
+    bool kinematic = _model.solverMode() == model::SolverMode::Kinematics;
+
     MatX dXk, dUk;
     for (uint k = 0; k < horizon; ++k)
     {
@@ -1009,9 +1014,6 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
         VecX a = (_params.merit_grad_softmax_beta * r_k.array().abs()).exp();
         r_k    = (r_k.array().sign() * a.array()) / a.sum();
-
-        const uint nq = _model.nq();
-        const uint nv = _model.nv();
 
         MatX Jr_inv_wrt_x = MatX::Zero(nv, nv);
         _model.dDifference(x.stage(k + 1).head(nq),
@@ -1028,15 +1030,24 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         dynamics[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
 
         // J_r = [ Jr_inv_wrt_f, 0; 0, -I ];
-        MatX J_r                  = MatX::Zero(2 * nv, 2 * nv);
-        J_r.topLeftCorner(nv, nv) = Jr_inv_wrt_f;
-        J_r.bottomRightCorner(nv, nv).diagonal().setConstant(-1.0);
+        MatX J_r;
+        if (kinematic)
+        {
+            J_r = Jr_inv_wrt_f;
+        }
+        else
+        {
+            J_r                       = MatX::Zero(2 * nv, 2 * nv);
+            J_r.topLeftCorner(nv, nv) = Jr_inv_wrt_f;
+            J_r.bottomRightCorner(nv, nv).diagonal().setConstant(-1.0);
+
+            dx.stage(k + 1).tail(nv) += r_k.tail(nv);
+        }
 
         dx.stage(k) += (J_r * dXk).transpose() * r_k;
         du.stage(k) += (J_r * dUk).transpose() * r_k;
 
         dx.stage(k + 1).head(nv) += Jr_inv_wrt_x.transpose() * r_k.head(nv);
-        dx.stage(k + 1).tail(nv) += r_k.tail(nv);
     }
 }
 

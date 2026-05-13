@@ -8,7 +8,7 @@ import go2_kinematic
 
 go2_kinematic.load_model("../../assets/mjcf/go2/go2.xml")
 
-v_cmd = np.array((0.2, 0.0, 0.0))
+v_cmd = np.array((1.0, 0.0, 0.0))
 
 H = 500
 dt = 0.01
@@ -94,28 +94,3 @@ solver = ssqpy.solvers.ssqp(model, ssqp_params)
 state, x, u = solver.solve()
 print("Solver state:", state)
 solver.write("../data/go2_kinematic_walk.json")
-
-"""        
-config = x.stage(1)
-vel = u.stage(0)
-step += 1
-
-vel_3 = np.hstack((vel[:2], vel[5]))
-com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
-    v_cmd, config, np.zeros(3), step, H, dt
-)
-
-for k, cost in enumerate(stage_costs):
-    stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
-    cost.update_references(
-        com_ref[k],
-        xb_ref[k],
-        stage_p_ref,
-        go2_kinematic.init_config[7:],
-        np.zeros(go2_kinematic.nj),
-    )
-
-model.setInitState(0, config)
-
-input()
-"""

@@ -72,8 +72,6 @@ void ssqp::_setup_qp()
                                  _guess.u.stage(k),
                                  _guess.lambda.stage(k),
                                  tmpMat);
-        print_matrix_dimensions(_qp.stages[k].Qxx);
-        print_matrix_dimensions(tmpMat);
         _qp.stages[k].Qxx += tmpMat;
 
         logln_at(LogLevel::Debug, "Qxx: added costs & dynamics");

@@ -53,10 +53,10 @@ T_stance = T - T_swing
 
 foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
 hip_to_foot_offsets = {
-    "FL": np.array((0.3, 0.14, -0.36892682)),
-    "FR": np.array((0.3, -0.14, -0.36892682)),
-    "RL": np.array((-0.3, 0.14, -0.36892682)),
-    "RR": np.array((-0.3, -0.14, -0.36892682)),
+    "FL": np.array((0.6, 0.14, -0.36892682)),
+    "FR": np.array((0.6, -0.14, -0.36892682)),
+    "RL": np.array((0.1, 0.14, -0.36892682)),
+    "RR": np.array((0.1, -0.14, -0.36892682)),
 }
 
 # Reference Generation
@@ -117,7 +117,9 @@ def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
     for _ in range(H):
         p_ref_k = xb_ref[-1][:3] + dt * v_cmd_3
         yaw += dt * wz_cmd
-        xb_ref.append(np.hstack((p_ref_k, model_utils.euler_to_quat(0.0, 0.0, yaw))))
+        xb_ref.append(
+            np.hstack((p_ref_k, model_utils.euler_to_quat(0.0, 0.0, yaw)))
+        )
 
     # Foot trajectory references
     # --------------------------
@@ -174,14 +176,18 @@ def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
 
             swing_alpha = 3 * phi_sw**2 - 2 * phi_sw**3
 
-            p_ref_k = (1 - swing_alpha) * liftoff[foot] + swing_alpha * touchdown[foot]
+            p_ref_k = (1 - swing_alpha) * liftoff[
+                foot
+            ] + swing_alpha * touchdown[foot]
             p_ref_k[2] += 4 * h_sw * phi_sw * (1 - phi_sw)
 
             p_ref[foot].append([p_ref_k, True])
 
         if k == 0:
             ReferenceState.liftoff = {f: v.copy() for f, v in liftoff.items()}
-            ReferenceState.touchdown = {f: v.copy() for f, v in touchdown.items()}
+            ReferenceState.touchdown = {
+                f: v.copy() for f, v in touchdown.items()
+            }
 
     return com_ref, xb_ref, p_ref
 
@@ -240,7 +246,9 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
         p_ref_k = xb_ref[-1][:3] + dt * v_cmd_3
         # Follow angular (yaw) command with rotation angle
         yaw += dt * wz_cmd
-        xb_ref.append(np.hstack((p_ref_k, model_utils.euler_to_quat(0.0, 0.0, yaw))))
+        xb_ref.append(
+            np.hstack((p_ref_k, model_utils.euler_to_quat(0.0, 0.0, yaw)))
+        )
 
     # Generate feet trajectory references
 
@@ -307,7 +315,9 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
 
             # Interpolate between previous liftoff and caluclated touchdown
             # positions to get current position reference
-            p_ref_k = (1 - swing_alpha) * liftoff[foot] + swing_alpha * touchdown[foot]
+            p_ref_k = (1 - swing_alpha) * liftoff[
+                foot
+            ] + swing_alpha * touchdown[foot]
 
             # For z reference, also add a height according to phase
             p_ref_k[2] += 4 * h_sw * phi_sw * (1 - phi_sw)
@@ -364,9 +374,13 @@ class Kinematics(dynamics.StageDynamics):
         return self.state_right_plus(x, u * self.dt)
 
     def gradient(self, x, u):
-        dX = pin.dIntegrate(pin_model, x, u * self.dt, pin.ArgumentPosition.ARG0)
+        dX = pin.dIntegrate(
+            pin_model, x, u * self.dt, pin.ArgumentPosition.ARG0
+        )
         dU = (
-            pin.dIntegrate(pin_model, x, u * self.dt, pin.ArgumentPosition.ARG1)
+            pin.dIntegrate(
+                pin_model, x, u * self.dt, pin.ArgumentPosition.ARG1
+            )
             * self.dt
         )
         return dX, dU
@@ -438,7 +452,9 @@ class KinematicCost(costs.StageCost):
         pin.updateFramePlacements(pin_model, pin_data)
 
         feet_pos = {
-            foot: pin_data.oMf[pin_model.getFrameId(frame_names[foot])].translation
+            foot: pin_data.oMf[
+                pin_model.getFrameId(frame_names[foot])
+            ].translation
             for foot in frame_names
         }
 

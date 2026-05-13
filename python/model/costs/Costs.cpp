@@ -204,12 +204,15 @@ void bind_Costs(nb::module_ &m)
                                                  "SquaredJointAngleCost",
                                                  R"doc(
         Predefined squared joint angle cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{ang} \rVert_2^2$
+
         where:
          - $\boldsymbol{x}_{ang}$ is the angular (position) part of the state
            Note that this will ignore the first 7 elements if the model has a 
            floating base
          - $\boldsymbol{w}$ is the weight on the angular term
+
         Assumes:
          - The model joint configuration is the first part of the state vector (size 
            `model.nq()`), appearing after the floating base (if present)
@@ -235,10 +238,13 @@ void bind_Costs(nb::module_ &m)
                                                     "SquaredJointVelocityCost",
                                                     R"doc(
         Predefined squared joint velocity cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{vel} \rVert_2^2$
+
         where:
          - $\boldsymbol{x}_{vel}$ is the velocity part of the state
          - $\boldsymbol{w}$ is the weight on the velocity term
+
         Assumes:
          - The model joint velocity is the final part of the state vector (size
            `model.nv()`)    
@@ -262,10 +268,13 @@ void bind_Costs(nb::module_ &m)
 
     nb::class_<SquaredControlCost, StageCost>(m, "SquaredControlCost", R"doc(
         Predefined squared control cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{ctrl} \rVert_2^2$
+
         where:
          - $\boldsymbol{u}_{ctrl}$ is the control part of the controls
          - $\boldsymbol{w}$ is the weight on the control term
+
         Assumes:
          - The model control is the first part of the control vector (size 
            `model.nu()`)
@@ -289,12 +298,16 @@ void bind_Costs(nb::module_ &m)
 
     nb::class_<SquaredIDTorqueCost, StageCost>(m, "SquaredIDTorqueCost", R"doc(
         Predefined squared inverse dynamics torque cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
-        Note that this cost assumes inverse dynamics is being used (i.e. treats
-        controls as accelerations)
+
         where:
          - $\boldsymbol{\tau}$ is the torque caused by the controls
          - $\boldsymbol{w}$ is the weight on the torque term
+
+        Note that this cost assumes inverse dynamics is being used (i.e. treats
+        controls as accelerations)
+
         Assumes:
          - The model is in Inverse Dynamics mode, such that the state is made up of
            configuration and velocity and the controls are made up of accelerations
@@ -319,10 +332,13 @@ void bind_Costs(nb::module_ &m)
 
     nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost", R"doc(
         Predefined squared force cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{f} \rVert_2^2$
+
         where:
          - $\boldsymbol{u}_{f}$ is the force part of the controls
          - $\boldsymbol{w}$ is the weight on the force term
+
         Assumes:
          - The model forces make up the second and final part of the control vector,
            following the control part of size `model.nu()`, for any remaining
@@ -350,11 +366,14 @@ void bind_Costs(nb::module_ &m)
       "SquaredConfigurationErrorCost",
       R"doc(
         Predefined squared configuration error cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2$
+
         where:
          - $\boldsymbol{q}$ is the configuration part of the state
          - $\boldsymbol{q}_d$ is the desired configuration
          - $\boldsymbol{w}$ is the weight for the configuration error
+
         Assumes:
          - The model joint configuration is the first part of the state vector (size 
            `model.nq()`)
@@ -392,11 +411,14 @@ void bind_Costs(nb::module_ &m)
       "FrameSquaredTranslationErrorCost",
       R"doc(
         Predefined squared frame translation error cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
+
         where:
          - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
          - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
          - $\boldsymbol{w}$ is the weight on the translation error
+
         Assumes:
          - The model joint configuration is the first part of the state vector (size 
            `model.nq()`)
@@ -440,11 +462,14 @@ void bind_Costs(nb::module_ &m)
       "FrameSquaredRotationErrorCost",
       R"doc(
         Predefined squared frame rotation error cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert w \log_{SO(3)}R^\top R_d\rVert_2^2$
+
         where:
          - $R$ is the frame rotation for a given frame of the model (in $\mathit{SO3}$)
          - $R_d$ is the desired rotation for that frame (in $\mathit{SO3}$)
          - $\boldsymbol{w}$ is the weight on the rotation error
+
         Assumes:
          - The model joint configuration is the first part of the state vector (size 
            `model.nq()`)
@@ -471,13 +496,16 @@ void bind_Costs(nb::module_ &m)
       "FrameSquaredPoseErrorCost",
       R"doc(
         Predefined squared frame pose error cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D$
+
         where:
          - $D = \log_{SE(3)} T^{-1}T_d$
          - $T$ is the frame pose for a given frame of the model (in $\mathit{SE3}$)
          - $T_d$ is the desired pose for that frame (in $\mathit{SE3}$)
          - $W$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
            for rotation
+
         Assumes:
          - The model joint configuration is the first part of the state vector (size 
            `model.nq()`)
@@ -529,11 +557,14 @@ void bind_Costs(nb::module_ &m)
       "FrameSquaredVelocityErrorCost",
       R"doc(
         Predefined squared frame velocity error cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_f - \boldsymbol{v}_d)\rVert_2^2$
+
         where:
          - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model (in $\mathcal{R}^6$)
          - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$)
          - $\boldsymbol{w}$ is the weight on the velocity error
+
         Assumes:
          - The model joint configuration is the first part of the state vector (size 
            `model.nq()`)
@@ -576,10 +607,13 @@ void bind_Costs(nb::module_ &m)
                                                     "FrameSquaredVelocityCost",
                                                     R"doc(
         Predefined squared frame velocity cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
+
         where:
          - $\boldsymbol{v}_f$ is the velocity for a frame (in $\mathcal{R}^6$)
          - $\boldsymbol{w}$ is the weight on the velocity term
+
         Assumes:
          - The model joint configuration is the first part of the state vector (size 
            `model.nq()`)
@@ -615,10 +649,13 @@ void bind_Costs(nb::module_ &m)
                                                     "CenterOfMassTrackingCost",
                                                     R"doc(
         Predefined center of mass (CoM) tracking cost
+
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
+        
         where:
          - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
          - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
+
         Assumes:
          - The model joint configuration is the first part of the state vector (size 
            `model.nq()`)

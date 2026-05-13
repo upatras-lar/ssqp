@@ -65,6 +65,7 @@ inline void unset_log_level(const uint log_level_mask)
 #define logln_at(level, ...)                                               \
     (level & GlobalLogMask ? (void)(std::cout << __VA_ARGS__ << std::endl) \
                            : ((void)0))
+#define logln(...) (std::cout << __VA_ARGS__ << std::endl)
 #define log_wait_at(level)                                       \
     (level & GlobalLogMask ? (void)(std::cin.get()) : ((void)0))
 #else

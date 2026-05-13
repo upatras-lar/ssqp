@@ -16,12 +16,16 @@ namespace predefined
 namespace constraints
 {
 /* Predefined joint angle constraint
+ *
  * Creates a constraint on the joint angles of the model
+ * 
  * Note: this constraint is separate to any potential innate constraints
  * $\boldsymbol{q}_l \leq \boldsymbol{q} \leq \boldsymbol{q}_u$
+ * 
  * where:
  *  - $\boldsymbol{q}_l$, $\boldsymbol{q}_u$: Lower and upper configuration vectors
  *  - $\boldsymbol{q}$: The model's joint configuration vector
+ * 
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size 
  *    `model.nq()`), appearing after the floating base (if present)
@@ -55,12 +59,16 @@ class JointAngleConstraint : public StageConstraints
 };
 
 /* Predefined joint velocity constraint
+ *
  * Creates a constraint on the joint velocities of the model
+ * 
  * Note: this constraint is separate to any potential innate constraints
  * $\boldsymbol{q}_{v,l} \leq \boldsymbol{q}_v \leq \boldsymbol{q}_{v, u}$
+ * 
  * where:
  *  - $\boldsymbol{q}_{v,l}$, $\boldsymbol{q}_{v,u}$: Lower and upper joint velocity vectors
  *  - $\boldsymbol{q}_v$: The model's joint velocity vector
+ * 
  * Assumes:
  *  - The model joint velocity is the final part of the state vector (size
  *    `model.nv()`)
@@ -93,14 +101,19 @@ class JointVelocityConstraint : public StageConstraints
 };
 
 /* Predefined joint control constraint
+ *
  * Creates a constraint on the joint part of the control vector
+ * 
  * This can either act as a torque constraint (FD mode) or an acceleration
  * constraint (ID mode)
+ * 
  * Note: this constraint is separate to any potential innate constraints
  * $\boldsymbol{u}_{c,l} \leq \boldsymbol{u}_c \leq \boldsymbol{u}_{c, u}$
+ * 
  * where:
  *  - $\boldsymbol{u}_{c,l}$, $\boldsymbol{u}_{c,u}$: Lower and upper joint control vectors
  *  - $\boldsymbol{u}_c$: The joint part of the control vector
+ * 
  * Assumes:
  *  - The model control is the first part of the control vector (size 
  *    `model.nu()`)
@@ -134,11 +147,14 @@ class JointControlConstraint : public StageConstraints
 };
 
 /* Predefined 3D position bound for a given frame
+ *
  * Creates a linear bound constraint on the position of a frame of the given
  * model: $\boldsymbol{b}_l \leq \boldsymbol{p}_f \leq \boldsymbol{b}_u$
+ * 
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
+ * 
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size 
  *    `model.nq()`)
@@ -179,12 +195,15 @@ class FramePositionBound : public StageConstraints
 };
 
 /* Predefined 3D orientation bound for a given frame
+ *
  * Creates a nonlinear bound constraint on the orientation of a frame:
  * $\boldsymbol{b}_l \leq \log_{SO3}R_{ref}^\top R_f \leq \boldsymbol{b}_u$
+ * 
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the orientation error (in $\mathcal{R}^3$)
  *  - $R_f$: Frame rotation matrix
  *  - $R_{ref}$: Reference rotation matrix
+ * 
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size 
  *    `model.nq()`)
@@ -225,11 +244,14 @@ class FrameRotationBound : public StageConstraints
 };
 
 /* Predefined 3D velocity bound for a given frame
+ *
  * Creates a linear bound constraint on the velocity of a frame of the given
  * model: $\boldsymbol{b}_l \leq \boldsymbol{v}_f \leq \boldsymbol{b}_u$
+ * 
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)
+ * 
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size 
  *    `model.nq()`)
@@ -274,11 +296,14 @@ class FrameLinearVelocityBound : public StageConstraints
 };
 
 /* Predefined center of mass bound
+ *
  * Creates a linear bound constraint on the center of mass of the model:
  * $\boldsymbol{b}_l \leq \boldsymbol{c} \leq \boldsymbol{b}_u$
+ * 
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{c}$ is the center of mass of the model
+ * 
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size 
  *    `model.nq()`)
