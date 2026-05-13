@@ -730,6 +730,35 @@ void bind_Model(nb::module_ &m)
         nb::arg("q"),
         "Get model center of mass for the given configuration")
       .def(
+        "frameJacobian",
+        [](Model &self,
+           const VecX &q,
+           const std::string &frame,
+           const bool local)
+        {
+            if (!self.xml())
+            {
+                throw std::runtime_error("Model was not loaded from XML");
+            }
+            return self.frameJacobian(q, frame, local);
+        },
+        nb::arg("q"),
+        nb::arg("frame"),
+        nb::arg("local") = false,
+        "Get a frame jacobian based on the XML model dynamics")
+      .def(
+        "jacobianCenterOfMass",
+        [](Model &self, const VecX &q)
+        {
+            if (!self.xml())
+            {
+                throw std::runtime_error("Model was not loaded from XML");
+            }
+            return self.jacobianCenterOfMass(q);
+        },
+        nb::arg("q"),
+        "Get model center of mass jacobian for the given configuration")
+      .def(
         "getFullAccelerationVector",
         [](Model &self, const VecX &x, const VecX &u, const uint k)
         {

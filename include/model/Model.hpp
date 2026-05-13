@@ -371,7 +371,7 @@ class Model
       Eigen::MatrixXd &rnea_partial_da) const;
 
     // Get a frame jacobian based on the XML model dynamics
-    const MatX frameJacobian(const VecX &x, const std::string &frame,
+    const MatX frameJacobian(const VecX &q, const std::string &frame,
                              bool local = false) const;
 
     // Get frame jacobian (assuming computeJointJacobians has been called)
