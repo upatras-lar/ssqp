@@ -103,7 +103,7 @@ class KinematicJointSpacePD:
             self.last_mpc_sol[1][self.mpc_traj_offset + 1][6:] - vel[6:]
         )
 
-        # if self.mpc_traj_offset < len(self.last_mpc_sol[1]) - 1:
+        # if self.mpc_traj_offset < len(self.last_mpc_sol[1]) - 2:
         #     self.mpc_traj_offset += 1
 
         return control

@@ -62,7 +62,7 @@ hip_to_foot_offsets = {
 # Reference Generation
 # --------------------
 Kv = 0.1
-Kw = 0.0
+Kw = 0.1
 h_sw = 0.1
 
 
@@ -168,7 +168,7 @@ def generate_references_MPC(
             touchdown[foot] = (
                 com_ref[k]
                 + Rz @ hip_to_foot_offsets[foot]
-                # + T_stance * dt / 2 * vel_0_3
+                - T_stance * dt / 2 * vel_0_3
                 + Kv * (v_cmd_3 - vel_0_3)
                 + Kw
                 * (wz_0 - wz_cmd)
@@ -805,7 +805,7 @@ class LineSegmentCost(costs.StageCost):
 # -------------------------------
 nc = nj + nj + 1
 
-zb_min = 0.3
+zb_min = 0.35
 zb_max = 0.4
 
 
