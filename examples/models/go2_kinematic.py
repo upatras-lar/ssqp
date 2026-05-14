@@ -109,7 +109,8 @@ def generate_references_MPC(
     wz_0 = vel_0[2]
 
     # Commanded velocity for x/y and yaw
-    v_cmd_3 = np.hstack((v_cmd[:2], 0.0))
+    Rz_0 = model_utils.yaw_to_Rz(model_utils.quat_to_yaw(config_0[3:7]))
+    v_cmd_3 = Rz_0 @ np.hstack((v_cmd[:2], 0.0))
     wz_cmd = v_cmd[2]
 
     # CoM reference
