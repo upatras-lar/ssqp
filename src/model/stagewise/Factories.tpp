@@ -111,6 +111,7 @@ std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
     auto eval = [l1, l2](const VecX &x, const VecX &u)
     {
         Scalar out;
+        out[0] = 0.0;
 
         if (l1->enabled())
         {

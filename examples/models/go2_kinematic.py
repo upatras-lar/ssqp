@@ -45,7 +45,7 @@ init_config[7:] = init_joint_config
 
 # Contact Scheduling parameters
 # -----------------------------
-T = 20
+T = 30
 beta = 0.5
 
 T_swing = int(beta * T)
@@ -61,8 +61,8 @@ hip_to_foot_offsets = {
 
 # Reference Generation
 # --------------------
-Kv = 1.0
-Kw = 0.1
+Kv = 0.1
+Kw = 0.0
 h_sw = 0.1
 
 
@@ -73,17 +73,27 @@ class ReferenceState:
     touchdown = {}
 
 
-def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
-    pin.forwardKinematics(pin_model, pin_data, config_0)
-    pin.updateFramePlacements(pin_model, pin_data)
+def generate_references_MPC(
+    v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None
+):
+    translations = {}
+
+    if ssqp_model is None:
+        pin.forwardKinematics(pin_model, pin_data, config_0)
+        pin.updateFramePlacements(pin_model, pin_data)
+
+        for foot in foot_phases:
+            translations[foot] = pin_data.oMf[
+                pin_model.getFrameId(frame_names[foot])
+            ].translation
+    else:
+        for foot in foot_phases:
+            translations[foot], _ = ssqp_model.forwardKinematics(
+                config_0, frame_names[foot]
+            )
 
     if not ReferenceState.initialized:
-        ReferenceState.liftoff = {
-            foot: pin_data.oMf[
-                pin_model.getFrameId(frame_names[foot])
-            ].translation.copy()
-            for foot in foot_phases
-        }
+        ReferenceState.liftoff = translations.copy()
         ReferenceState.touchdown = {
             foot: ReferenceState.liftoff[foot].copy() for foot in foot_phases
         }
@@ -104,7 +114,11 @@ def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
 
     # CoM reference
     # -------------
-    com_0 = pin.centerOfMass(pin_model, pin_data, config_0)
+    if ssqp_model is None:
+        com_0 = pin.centerOfMass(pin_model, pin_data, config_0)
+    else:
+        com_0 = ssqp_model.centerOfMass(config_0)
+
     com_ref = [com_0]
     for _ in range(H):
         com_ref.append(com_ref[-1] + dt * v_cmd_3)
@@ -126,9 +140,7 @@ def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
     p_ref = {
         foot: [
             [
-                pin_data.oMf[
-                    pin_model.getFrameId(frame_names[foot])
-                ].translation.copy(),
+                translations[foot].copy(),
                 is_swinging(k0, foot_phases[foot])[0],
             ]
         ]
@@ -152,23 +164,24 @@ def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
                 continue
 
             # Update predicted touchdown for this swing
-            if swapped:
-                touchdown[foot] = (
-                    com_ref[k]
-                    + Rz @ hip_to_foot_offsets[foot]
-                    - Rz @ (Kv * (vel_0_3 - v_cmd_3))
-                    + Kw
-                    * (wz_0 - wz_cmd)
-                    * Rz
-                    @ np.array(
-                        (
-                            -hip_to_foot_offsets[foot][1],
-                            hip_to_foot_offsets[foot][0],
-                            0.0,
-                        )
+            # if swapped:
+            touchdown[foot] = (
+                com_ref[k]
+                + Rz @ hip_to_foot_offsets[foot]
+                # + T_stance * dt / 2 * vel_0_3
+                + Kv * (v_cmd_3 - vel_0_3)
+                + Kw
+                * (wz_0 - wz_cmd)
+                * Rz
+                @ np.array(
+                    (
+                        -hip_to_foot_offsets[foot][1],
+                        hip_to_foot_offsets[foot][0],
+                        0.0,
                     )
                 )
-                touchdown[foot][2] = -0.0002611
+            )
+            touchdown[foot][2] = -0.0002611
 
             # Normalized swing phase
             phi = (t / T + foot_phases[foot]) % 1
@@ -194,7 +207,6 @@ def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt):
 
 def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
     # Last liftoff location for each foot, along with its liftoff time
-
     translations = {}
 
     if ssqp_model is None:
@@ -684,11 +696,116 @@ class KinematicCost(costs.StageCost):
         return Huu
 
 
+class LineSegmentCost(costs.StageCost):
+    def __init__(self, model, p_ref, q_sp, l_sigma, terminal=False):
+        super().__init__()
+        self.model = model
+        self.p_ref = p_ref
+        self.Q_sp = q_sp * np.eye(2)
+        self.l_sigma = l_sigma
+
+        if terminal:
+            self.u_size = 0
+        else:
+            self.u_size = ndq
+
+    def update_reference(self, p_ref):
+        self.p_ref = p_ref
+
+    def evaluate(self, x, u):
+        cost = 0.0
+
+        # Find feet that are standing
+        ground_feet = []
+        for foot in frame_names:
+            if not self.p_ref[foot][1]:
+                ground_feet.append(frame_names[foot])
+
+        com = self.model.centerOfMass(x)
+
+        # CoM support line segment cost
+        if len(ground_feet) == 2:
+            pf1_xy = self.model.forwardKinematics(x, ground_feet[0])[0][:2]
+            pf2_xy = self.model.forwardKinematics(x, ground_feet[1])[0][:2]
+
+            l = pf1_xy + self.l_sigma * (pf2_xy - pf1_xy)
+            com_xy = com[:2]
+
+            com_sp_error = com_xy - l
+
+            cost += com_sp_error.T @ self.Q_sp @ com_sp_error
+
+        return cost
+
+    def gradient(self, x, u):
+        dx = np.zeros(ndq)
+        du = np.zeros(self.u_size)
+
+        # Find feet that are standing
+        ground_feet = []
+        for foot in frame_names:
+            if not self.p_ref[foot][1]:
+                ground_feet.append(frame_names[foot])
+
+        # CoM support line segment cost
+        if len(ground_feet) == 2:
+            com = self.model.centerOfMass(x)
+            com_jac = self.model.jacobianCenterOfMass(x)
+
+            pf1_xy = self.model.forwardKinematics(x, ground_feet[0])[0][:2]
+            pf2_xy = self.model.forwardKinematics(x, ground_feet[1])[0][:2]
+
+            l = pf1_xy + self.l_sigma * (pf2_xy - pf1_xy)
+
+            com_xy = com[:2]
+            com_sp_error = com_xy - l
+
+            Jf1 = self.model.frameJacobian(x, ground_feet[0])[:2, :]
+            Jf2 = self.model.frameJacobian(x, ground_feet[1])[:2, :]
+
+            Jl = (1.0 - self.l_sigma) * Jf1 + self.l_sigma * Jf2
+
+            Je = com_jac[:2, :] - Jl
+
+            dx += 2.0 * Je.T @ self.Q_sp @ com_sp_error
+
+        return dx, du
+
+    def hessian_xx(self, x, u):
+        Hxx = np.zeros((ndq, ndq))
+
+        # Find feet that are standing
+        ground_feet = []
+        for foot in frame_names:
+            if not self.p_ref[foot][1]:
+                ground_feet.append(frame_names[foot])
+
+        # CoM support line segment cost
+        if len(ground_feet) == 2:
+            com_jac = self.model.jacobianCenterOfMass(x)
+
+            Jf1 = self.model.frameJacobian(x, ground_feet[0])[:2, :]
+            Jf2 = self.model.frameJacobian(x, ground_feet[1])[:2, :]
+
+            Jl = (1.0 - self.l_sigma) * Jf1 + self.l_sigma * Jf2
+            Je = com_jac[:2, :] - Jl
+
+            Hxx += 2.0 * Je.T @ self.Q_sp @ Je
+
+        return Hxx
+
+    def hessian_xu(self, x, u):
+        return np.zeros((ndq, self.u_size))
+
+    def hessian_uu(self, x, u):
+        return np.zeros((self.u_size, self.u_size))
+
+
 # Constraints for Kinematic model
 # -------------------------------
 nc = nj + nj + 1
 
-zb_min = 0.25
+zb_min = 0.3
 zb_max = 0.4
 
 

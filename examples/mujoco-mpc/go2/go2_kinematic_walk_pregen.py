@@ -15,12 +15,19 @@ sys.path.insert(0, "../../models")
 
 import go2_kinematic
 
+go2_kinematic.hip_to_foot_offsets = {
+    "FL": np.array((0.4, 0.14, -0.36892682)),
+    "FR": np.array((0.4, -0.14, -0.36892682)),
+    "RL": np.array((-0.1, 0.14, -0.36892682)),
+    "RR": np.array((-0.1, -0.14, -0.36892682)),
+}
+
 go2_kinematic.load_model("../../assets/mjcf/go2/go2.xml")
 
 ssqpy.setSilentMode()
 
 
-v_cmd = np.array((0.2, -0.05, 0.0))
+v_cmd = np.array((0.2, 0.0, 0.0))
 
 MPC_H = 15
 dt = 0.01

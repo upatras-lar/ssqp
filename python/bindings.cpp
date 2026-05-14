@@ -13,6 +13,10 @@ void bind_solvers(nb::module_ &);
 
 NB_MODULE(ssqpy, m)
 {
+    // TODO: Fix leaks when combining Python and C++ `StageCost` and
+    // `StageConstraint` objects
+    nb::set_leak_warnings(false);
+
     m.doc() = "Python bindings for SSQP";
 
     nb::enum_<ssqp::LogLevel>(m,
