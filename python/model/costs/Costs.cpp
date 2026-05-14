@@ -113,7 +113,9 @@ struct __attribute__((visibility("default"))) PyStageCost : StageCost
 
 void bind_Costs(nb::module_ &m)
 {
-    nb::class_<StageCost, PyStageCost>(m, "StageCost", R"doc(
+    nb::class_<StageCost, PyStageCost>(m,
+                                       "StageCost",
+                                       R"doc(
         General abstract constraint function for an optimization stage $k$: $\ell_k(\boldsymbol{x}, \boldsymbol{u})$
         Defines the required functions for a stage cost, while providing 
         default implementations for some
@@ -651,7 +653,7 @@ void bind_Costs(nb::module_ &m)
         Predefined center of mass (CoM) tracking cost
 
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
-        
+
         where:
          - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
          - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)

@@ -15,14 +15,22 @@ sys.path.insert(0, "../../models")
 
 import go2_kinematic
 
+# go2_kinematic.init_config[3:7] = np.array((0.0, 0.0, 1.0, 0.0))
+go2_kinematic.hip_to_foot_offsets = {
+    "FL": np.array((0.35, 0.16, -0.36892682)),
+    "FR": np.array((0.35, -0.16, -0.36892682)),
+    "RL": np.array((-0.15, 0.16, -0.36892682)),
+    "RR": np.array((-0.15, -0.16, -0.36892682)),
+}
+
 go2_kinematic.load_model("../../assets/mjcf/go2/go2.xml")
 
 ssqpy.setSilentMode()
 
-v_cmd = np.array((0.1, 0.0, 0.0))
+v_cmd = np.array((0.0, 0.0, 0.0))
 
 MPC_H = 15
-dt = 0.02
+dt = 0.01
 
 model = ssqpy.model.Model(MPC_H, dt)
 
@@ -105,17 +113,17 @@ def update_func(config, vel, step):
             np.zeros(go2_kinematic.nj),
         )
 
-    model.setInitState(0, config)
+        model.setInitState(k, config)
 
 
 Kp = 60.0
-Kv = 1.0 * np.sqrt(Kp)
+Kv = 2.0 * np.sqrt(Kp)
 
 joint_space_pd_controller = KinematicJointSpacePD(
     mpc, go2_kinematic.init_config, Kp=Kp, Kd=Kv, update_func=update_func
 )
 
-mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]
+# mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]
 step = 0
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
@@ -128,11 +136,11 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         pre = time.time()
 
-        mjdata.qpos = ssqp_to_mujoco_state_kin(mpc.step(pos)[0].stage(1))
+        # mjdata.qpos = ssqp_to_mujoco_state_kin(mpc.step(pos)[0].stage(1))
 
-        # mjdata.ctrl = ssqp_to_mujoco_ctrl_kin(
-        #     joint_space_pd_controller.step(pos, vel)
-        # )
+        mjdata.ctrl = ssqp_to_mujoco_ctrl_kin(
+            joint_space_pd_controller.step(pos, vel)
+        )
 
         # mpc_pos, mpc_vel = mpc.step(pos)
 

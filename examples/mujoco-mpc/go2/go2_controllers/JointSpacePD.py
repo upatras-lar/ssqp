@@ -100,7 +100,7 @@ class KinematicJointSpacePD:
         control = self.Kp * (
             self.last_mpc_sol[0][self.mpc_traj_offset + 1][7:] - state[7:]
         ) + self.Kd * (
-            self.last_mpc_sol[1][self.mpc_traj_offset][6:] - vel[6:]
+            self.last_mpc_sol[1][self.mpc_traj_offset + 1][6:] - vel[6:]
         )
 
         # if self.mpc_traj_offset < len(self.last_mpc_sol[1]) - 1:

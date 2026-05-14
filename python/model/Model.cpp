@@ -37,7 +37,7 @@ int model_tp_traverse(PyObject *self, visitproc visit, void *arg)
     ConstraintsContainer constraints = model->constraints();
     DynamicsContainer    dynamics    = model->dynamics();
 
-    for (uint k = 0; k < model->horizon(); ++k)
+    for (uint k = 0; k <= model->horizon(); ++k)
     {
         nb::handle value = nb::find(costs[k]);
         Py_VISIT(value.ptr());
@@ -60,7 +60,7 @@ int model_tp_clear(PyObject *self)
     ConstraintsContainer constraints = model->constraints();
     DynamicsContainer    dynamics    = model->dynamics();
 
-    for (uint k = 0; k < model->horizon(); ++k)
+    for (uint k = 0; k <= model->horizon(); ++k)
     {
         costs[k]       = nullptr;
         constraints[k] = nullptr;
@@ -312,13 +312,20 @@ void bind_Model(nb::module_ &m)
             `init_controls` (np.array or list of np.array): Initial controls for each optimization stage;
                 if np.array: initial controls to use for every stage
         )doc")
-      .def("addCost",
-           static_cast<void (Model::*)(const uint,
-                                       const std::shared_ptr<StageCost> &)>(
-             &Model::addCost),
-           nb::arg("k"),
-           nb::arg("cost"),
-           "Add a cost to a stage.")
+      .def(
+        "addCost",
+        [](Model &self, const uint k, nb::object py_cost)
+        {
+            auto *raw  = nb::cast<StageCost *>(py_cost);
+            auto  cost = std::shared_ptr<StageCost>(
+              raw,
+              [ref = nb::object(py_cost)](StageCost *) {});
+
+            self.addCost(k, cost);
+        },
+        nb::arg("k"),
+        nb::arg("cost"),
+        "Add a cost to a stage.")
       .def("addConstraints",
            static_cast<void (
              Model::*)(const uint, const std::shared_ptr<StageConstraints> &)>(

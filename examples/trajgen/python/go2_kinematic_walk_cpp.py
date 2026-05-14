@@ -8,7 +8,7 @@ sys.path.insert(0, "../../models")
 
 import go2_kinematic
 
-v_cmd = np.array((1.0, 0.0, 0.0))
+v_cmd = np.array((0.5, 0.0, -0.4))
 
 H = 500
 dt = 0.01
@@ -36,108 +36,8 @@ q_b = 0.1
 q_o = 0.1
 q_sw = 0.5
 
-Q_sp = 7.0 * np.eye(2)
+q_sp = 7.0
 l_sigma = 0.5
-
-
-class LineSegmentCost(costs.StageCost):
-    def __init__(self, model, p_ref, terminal=False):
-        super().__init__()
-        self.model = model
-        self.p_ref = p_ref
-        if terminal:
-            self.u_size = 0
-        else:
-            self.u_size = nv
-
-    def evaluate(self, x, u):
-        cost = 0.0
-
-        # Find feet that are standing
-        ground_feet = []
-        for foot in go2_kinematic.frame_names:
-            if not self.p_ref[foot][1]:
-                ground_feet.append(go2_kinematic.frame_names[foot])
-
-        com = self.model.centerOfMass(x)
-
-        # CoM support line segment cost
-        if len(ground_feet) == 2:
-            pf1_xy = self.model.forwardKinematics(x, ground_feet[0])[0][:2]
-            pf2_xy = self.model.forwardKinematics(x, ground_feet[1])[0][:2]
-
-            l = pf1_xy + l_sigma * (pf2_xy - pf1_xy)
-            com_xy = com[:2]
-
-            com_sp_error = com_xy - l
-
-            cost += com_sp_error.T @ Q_sp @ com_sp_error
-
-        return cost
-
-    def gradient(self, x, u):
-        dx = np.zeros(nv)
-        du = np.zeros(self.u_size)
-
-        # Find feet that are standing
-        ground_feet = []
-        for foot in go2_kinematic.frame_names:
-            if not self.p_ref[foot][1]:
-                ground_feet.append(go2_kinematic.frame_names[foot])
-
-        # CoM support line segment cost
-        if len(ground_feet) == 2:
-            com = self.model.centerOfMass(x)
-            com_jac = self.model.jacobianCenterOfMass(x)
-
-            pf1_xy = self.model.forwardKinematics(x, ground_feet[0])[0][:2]
-            pf2_xy = self.model.forwardKinematics(x, ground_feet[1])[0][:2]
-
-            l = pf1_xy + l_sigma * (pf2_xy - pf1_xy)
-
-            com_xy = com[:2]
-            com_sp_error = com_xy - l
-
-            Jf1 = self.model.frameJacobian(x, ground_feet[0])[:2, :]
-            Jf2 = self.model.frameJacobian(x, ground_feet[1])[:2, :]
-
-            Jl = (1.0 - l_sigma) * Jf1 + l_sigma * Jf2
-
-            Je = com_jac[:2, :] - Jl
-
-            dx += 2.0 * Je.T @ Q_sp @ com_sp_error
-
-        return dx, du
-
-    def hessian_xx(self, x, u):
-        Hxx = np.zeros((nv, nv))
-
-        # Find feet that are standing
-        ground_feet = []
-        for foot in go2_kinematic.frame_names:
-            if not self.p_ref[foot][1]:
-                ground_feet.append(go2_kinematic.frame_names[foot])
-
-        # CoM support line segment cost
-        if len(ground_feet) == 2:
-            com_jac = self.model.jacobianCenterOfMass(x)
-
-            Jf1 = self.model.frameJacobian(x, ground_feet[0])[:2, :]
-            Jf2 = self.model.frameJacobian(x, ground_feet[1])[:2, :]
-
-            Jl = (1.0 - l_sigma) * Jf1 + l_sigma * Jf2
-            Je = com_jac[:2, :] - Jl
-
-            Hxx += 2.0 * Je.T @ Q_sp @ Je
-
-        return Hxx
-
-    def hessian_xu(self, x, u):
-        return np.zeros((nv, self.u_size))
-
-    def hessian_uu(self, x, u):
-        return np.zeros((self.u_size, self.u_size))
-
 
 config_cost = costs.SquaredConfigurationErrorCost(
     model,
@@ -147,7 +47,6 @@ config_cost = costs.SquaredConfigurationErrorCost(
 )
 
 vel_cost = costs.SquaredControlCost(model, q_v, "Velocity Regularization Cost")
-
 
 base_height_constraint = constraints.FramePositionBound(
     model,
@@ -200,8 +99,12 @@ for k in range(H + 1):
 
             model.addConstraints(k, foot_translation_bound)
 
-    line_segment_cost = LineSegmentCost(
-        model, {foot: p_ref[foot][k] for foot in p_ref}, terminal=k == H
+    line_segment_cost = go2_kinematic.LineSegmentCost(
+        model,
+        {foot: p_ref[foot][k] for foot in p_ref},
+        q_sp,
+        l_sigma,
+        terminal=k == H,
     )
 
     model.addCost(k, line_segment_cost)
