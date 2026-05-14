@@ -45,7 +45,7 @@ init_config[7:] = init_joint_config
 
 # Contact Scheduling parameters
 # -----------------------------
-T = 30
+T = 20
 beta = 0.5
 
 T_swing = int(beta * T)
