@@ -18,18 +18,20 @@ sys.path.insert(0, "../../models")
 import go2_kinematic
 
 go2_kinematic.hip_to_foot_offsets = {
-    "FL": np.array((0.1, 0.14, -0.36892682)),
-    "FR": np.array((0.1, -0.14, -0.36892682)),
-    "RL": np.array((-0.25, 0.14, -0.36892682)),
-    "RR": np.array((-0.25, -0.14, -0.36892682)),
+    "FL": np.array((0.05, 0.16, -0.36892682)),
+    "FR": np.array((0.05, -0.16, -0.36892682)),
+    "RL": np.array((-0.3, 0.12, -0.36892682)),
+    "RR": np.array((-0.3, -0.12, -0.36892682)),
 }
+
+go2_kinematic.h_sw = 0.15
 
 ssqpy.setSilentMode()
 
-v_cmd = np.array((1.0, 0.0, 0.0))
+v_cmd = np.array((0.4, -0.4, -0.0))
 
-MPC_H = 15
-dt = 0.01
+MPC_H = 10
+dt = 0.02
 
 model = ssqpy.model.Model(
     MPC_H,
@@ -52,13 +54,13 @@ com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
     ssqp_model=model,
 )
 
-q_q = 1e-2
-q_v = 1e-3
-q_c = 1.0
-q_b = 1.0
+q_q = 1e-3
+q_v = 1e-4
+q_c = 1.5
+q_b = 3.0
 q_o = 1.0
-q_sw = 1.0
-q_sp = 1.0
+q_sw = 2.0
+q_sp = 10.0
 l_sigma = 0.5
 
 config_cost = costs.SquaredConfigurationErrorCost(
