@@ -18,13 +18,13 @@ sys.path.insert(0, "../../models")
 import go2_kinematic
 
 go2_kinematic.hip_to_foot_offsets = {
-    "FL": np.array((0.05, 0.16, -0.36892682)),
-    "FR": np.array((0.05, -0.16, -0.36892682)),
-    "RL": np.array((-0.3, 0.12, -0.36892682)),
-    "RR": np.array((-0.3, -0.12, -0.36892682)),
+    "FL": np.array((0.05, 0.14, -0.36892682)),
+    "FR": np.array((0.05, -0.14, -0.36892682)),
+    "RL": np.array((-0.35, 0.14, -0.36892682)),
+    "RR": np.array((-0.35, -0.14, -0.36892682)),
 }
 
-go2_kinematic.h_sw = 0.15
+go2_kinematic.h_sw = 0.1
 
 ssqpy.setSilentMode()
 
@@ -59,7 +59,7 @@ q_v = 1e-4
 q_c = 1.5
 q_b = 3.0
 q_o = 1.0
-q_sw = 2.0
+q_sw = 1.0
 q_sp = 10.0
 l_sigma = 0.5
 
@@ -224,7 +224,7 @@ def update_func(v_cmd, config, vel, step):
 
 
 Kp = 40.0
-Kv = 2 * np.sqrt(Kp)
+Kv = 2.0 * np.sqrt(Kp)
 
 joint_space_pd_controller = KinematicJointSpacePD(
     mpc, go2_kinematic.init_config, Kp=Kp, Kd=Kv, update_func=update_func
