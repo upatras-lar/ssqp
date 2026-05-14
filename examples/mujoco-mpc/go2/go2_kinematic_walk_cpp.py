@@ -28,7 +28,7 @@ go2_kinematic.h_sw = 0.15
 
 ssqpy.setSilentMode()
 
-v_cmd = np.array((0.4, -0.4, -0.0))
+v_cmd = np.array((0.0, 0.0, 0.0))
 
 MPC_H = 10
 dt = 0.02
@@ -182,7 +182,7 @@ mjdata.qpos = ssqp_to_mujoco_state_kin(go2_kinematic.init_config)
 np.set_printoptions(suppress=True)
 
 
-def update_func(config, vel, step):
+def update_func(v_cmd, config, vel, step):
     vel_3 = np.hstack((vel[:2], vel[5]))
     com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
         v_cmd,
@@ -258,8 +258,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         elapsed = time.time() - pre
 
-        step += 1
-        update_func(pos, vel, step)
+        # step += 1
+        # update_func(pos, vel, step)
 
         # print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t", end="")
 

@@ -1,6 +1,7 @@
 import multiprocessing
 import numpy as np
 from time import sleep
+from go2_controllers.joystick import Controller
 
 
 class JointSpacePD:
@@ -111,6 +112,8 @@ class KinematicJointSpacePD:
     def _run_mpc(self):
         step = 0
 
+        joy = Controller()
+
         while True:
             try:
                 while self.state_q.empty():
@@ -119,8 +122,10 @@ class KinematicJointSpacePD:
                 while not self.state_q.empty():
                     state, vel = self.state_q.get()
 
+                v_cmd = joy.read()
                 step += 1
-                self.update_func(state, vel, step)
+
+                self.update_func(v_cmd, state, vel, step)
 
                 next = [x.toarray() for x in self.mpc_controller.step(state)]
                 self.mpc_q.put(next)
