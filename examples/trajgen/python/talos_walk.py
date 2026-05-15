@@ -9,8 +9,8 @@ Performs a walk with the Talos humanoid robot
 """
 
 # Model Parameters
-H = 160
-dt = 0.01
+H = 200
+dt = 0.02
 
 # Weights
 V_WGT = 3e-2
@@ -152,7 +152,7 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
 )
 
 # Create regularization costs
-joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT, True)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 

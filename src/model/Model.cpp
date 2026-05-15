@@ -118,7 +118,7 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
         _dims.njoints      = pinocchio_wrapper::getTotalActuatedJoints(_impl);
         _dims.total_joints = pinocchio_wrapper::modelJoints(_impl);
 
-        pinocchio_wrapper::modelBoundedJointIndices(
+        _bounded_joint_indices = pinocchio_wrapper::modelBoundedJointIndices(
           _impl,
           _bounded_joint_indices_to_config,
           _bounded_joint_indices_to_tangent,

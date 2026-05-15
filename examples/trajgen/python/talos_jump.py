@@ -144,7 +144,7 @@ pose_cost = costs.FrameSquaredPoseErrorCost(
 
 # Create regularization costs
 joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
-joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT, True)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 

@@ -32,6 +32,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/talos/talos.urdf",
     free_flyer=True,
+    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -47,14 +48,14 @@ init[:3] = base_pos
 init[6] = 1.0
 
 # Initial control (for forces)
-init_control = np.zeros(nv + 12)
+init_control = np.zeros(nu + 12)
 for f in range(1, 5):
-    init_control[nv + 3 * f - 1] = 2 * 116
+    init_control[nu + 3 * f - 1] = 2 * 116
 
 
 # Create regularization costs
 joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
-joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT, True)
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
@@ -163,7 +164,7 @@ solver = ssqpy.solvers.ssqp(
     filter_size=10,
     tolerance=1e-1,
     admm_abs_tolerance=1e-2,
-    admm_rel_tolerance=1e-3,
+    admm_rel_tolerance=1e-2,
     admm_max_iter=500,
 )
 
