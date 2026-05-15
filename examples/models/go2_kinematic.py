@@ -160,29 +160,32 @@ def generate_references_MPC(
             if not swing_at_t:
                 if swapped:
                     # Foot just landed – freeze its position
-                    liftoff[foot] = touchdown[foot].copy()
+                    if k == 0:
+                        liftoff[foot] = translations[foot].copy()
+                    else:
+                        liftoff[foot] = touchdown[foot].copy()
                 p_ref[foot].append([liftoff[foot].copy(), False])
                 continue
 
             # Update predicted touchdown for this swing
-            # if swapped:
-            touchdown[foot] = (
-                com_ref[k]
-                + Rz @ hip_to_foot_offsets[foot]
-                - T_stance * dt / 2 * vel_0_3
-                + Kv * (v_cmd_3 - vel_0_3)
-                + Kw
-                * (wz_0 - wz_cmd)
-                * Rz
-                @ np.array(
-                    (
-                        -hip_to_foot_offsets[foot][1],
-                        hip_to_foot_offsets[foot][0],
-                        0.0,
+            if swapped:
+                touchdown[foot] = (
+                    com_ref[k]
+                    + Rz @ hip_to_foot_offsets[foot]
+                    - T_stance * dt / 2 * vel_0_3
+                    + Kv * (v_cmd_3 - vel_0_3)
+                    + Kw
+                    * (wz_0 - wz_cmd)
+                    * Rz
+                    @ np.array(
+                        (
+                            -hip_to_foot_offsets[foot][1],
+                            hip_to_foot_offsets[foot][0],
+                            0.0,
+                        )
                     )
                 )
-            )
-            touchdown[foot][2] = -0.0002611
+                touchdown[foot][2] = -0.0002611
 
             # Normalized swing phase
             phi = (t / T + foot_phases[foot]) % 1

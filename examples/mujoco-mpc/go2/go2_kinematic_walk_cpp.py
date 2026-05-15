@@ -18,10 +18,10 @@ sys.path.insert(0, "../../models")
 import go2_kinematic
 
 go2_kinematic.hip_to_foot_offsets = {
-    "FL": np.array((0.05, 0.14, -0.36892682)),
-    "FR": np.array((0.05, -0.14, -0.36892682)),
-    "RL": np.array((-0.35, 0.14, -0.36892682)),
-    "RR": np.array((-0.35, -0.14, -0.36892682)),
+    "FL": np.array((0.3, 0.16, -0.36892682)),
+    "FR": np.array((0.3, -0.16, -0.36892682)),
+    "RL": np.array((-0.15, 0.16, -0.36892682)),
+    "RR": np.array((-0.15, -0.16, -0.36892682)),
 }
 
 go2_kinematic.h_sw = 0.1
@@ -169,7 +169,7 @@ admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=250)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
 
 import mujoco
 import mujoco.viewer
@@ -180,6 +180,8 @@ mjdata = mujoco.MjData(mjmodel)
 mjdata.qpos = ssqp_to_mujoco_state_kin(go2_kinematic.init_config)
 
 np.set_printoptions(suppress=True)
+
+# ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
 
 
 def update_func(v_cmd, config, vel, step):
@@ -259,13 +261,13 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         elapsed = time.time() - pre
 
         # step += 1
-        # update_func(pos, vel, step)
+        # update_func(v_cmd, pos, vel, step)
 
         # print(f"\rControl frequency: {(1 / elapsed):.2f}Hz\t", end="")
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 
-        # time.sleep(0.1)
+        # time.sleep(0.01)
 
 print()

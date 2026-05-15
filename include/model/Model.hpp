@@ -426,10 +426,16 @@ class Model
     const SolverMode                              _solver_mode;
     const IntegrationScheme                       _integration;
     const bool                                    _ignore_innate;
-    std::vector<uint>                             _actuated_joints;
-    std::vector<uint>                             _unactuated_joints;
-    std::vector<uint>                             _bounded_joint_indices;
+
+    // Indices of joints that are actuated
+    std::vector<uint> _actuated_joints;
+    // Complement of `actuated_joints`
+    std::vector<uint> _unactuated_joints;
+    // Indices of joints that are bounded with constraints
+    std::vector<uint> _bounded_joint_indices;
+    // Map mapping joint indices to their offset in the configuration vector
     std::unordered_map<uint, uint> _bounded_joint_indices_to_config;
+    // Map mapping joint indices to their offset in the tangent vector
     std::unordered_map<uint, uint> _bounded_joint_indices_to_tangent;
 
     // Configuration properties
