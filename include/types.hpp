@@ -119,6 +119,8 @@ inline auto ZeroHessprod_uu =
 inline auto DefaultRightMinus = [](const VecX &x, const VecX &y)
 { return x - y; };
 
+inline auto DefaultEnabledFunc = []() { return true; };
+
 struct Dimensions
 {
     uint horizon;

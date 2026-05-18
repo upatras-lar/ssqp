@@ -47,14 +47,16 @@ template<typename NOutFunction, typename NdcFunction,
          typename ManifoldOperator  = decltype(DefaultRightMinus),
          typename HessprodFunction1 = decltype(ZeroHessprod_xx),
          typename HessprodFunction2 = decltype(ZeroHessprod_xu),
-         typename HessprodFunction3 = decltype(ZeroHessprod_uu)>
+         typename HessprodFunction3 = decltype(ZeroHessprod_uu),
+         typename EnabledFunction   = decltype(DefaultEnabledFunc)>
 inline std::shared_ptr<StageConstraints> make_constraints(
   const std::vector<std::string> names, NOutFunction nout, NdcFunction ndc,
   LowerBoundFunction lb, UpperBoundFunction ub, EvaluationFunction eval,
   multiGradientFunction grad, ManifoldOperator op = DefaultRightMinus,
-  HessprodFunction1 hess_xx = ZeroHessprod_xx,
-  HessprodFunction2 hess_xu = ZeroHessprod_xu,
-  HessprodFunction3 hess_uu = ZeroHessprod_uu);
+  HessprodFunction1 hess_xx    = ZeroHessprod_xx,
+  HessprodFunction2 hess_xu    = ZeroHessprod_xu,
+  HessprodFunction3 hess_uu    = ZeroHessprod_uu,
+  EnabledFunction enabled_func = DefaultEnabledFunc);
 
 inline std::shared_ptr<StageCost> merge_costs(
   const std::shared_ptr<StageCost> &l1, const std::shared_ptr<StageCost> &l2);
@@ -156,7 +158,8 @@ template<typename NOutFunction, typename NdcFunction,
          typename LowerBoundFunction, typename UpperBoundFunction,
          typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
-         typename HessprodFunction2, typename HessprodFunction3>
+         typename HessprodFunction2, typename HessprodFunction3,
+         typename EnabledFunction>
 class FunctionStageConstraints : public StageConstraints
 {
   public:
@@ -165,7 +168,10 @@ class FunctionStageConstraints : public StageConstraints
       const LowerBoundFunction lb, const UpperBoundFunction ub,
       const EvaluationFunction eval, const multiGradientFunction grad,
       const ManifoldOperator op, const HessprodFunction1 hess_xx,
-      const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu);
+      const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu,
+      const EnabledFunction enabled_func);
+
+    inline bool enabled() const override;
 
     inline uint output_size() const override;
 
@@ -201,6 +207,7 @@ class FunctionStageConstraints : public StageConstraints
     const HessprodFunction1     _hess_xx;
     const HessprodFunction2     _hess_xu;
     const HessprodFunction3     _hess_uu;
+    const EnabledFunction       _enabled_func;
 };
 }
 }

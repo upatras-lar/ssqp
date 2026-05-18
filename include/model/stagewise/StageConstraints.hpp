@@ -22,7 +22,7 @@ class StageConstraints : public Function
     StageConstraints(const std::string &name);
 
     // Set enabled status for StageConstraints
-    virtual void set_enabled(const bool enabled);
+    void set_enabled(const bool enabled);
 
     // Whether this constraint is enabled
     virtual bool enabled() const;

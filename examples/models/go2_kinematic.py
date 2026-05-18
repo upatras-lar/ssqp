@@ -45,7 +45,7 @@ init_config[7:] = init_joint_config
 
 # Contact Scheduling parameters
 # -----------------------------
-T = 20
+T = 25
 beta = 0.5
 
 T_swing = int(beta * T)
@@ -185,7 +185,7 @@ def generate_references_MPC(
                         )
                     )
                 )
-                touchdown[foot][2] = -0.0002611
+                touchdown[foot][2] = 0.0  # -0.0002611
 
             # Normalized swing phase
             phi = (t / T + foot_phases[foot]) % 1
@@ -809,8 +809,7 @@ class LineSegmentCost(costs.StageCost):
 # -------------------------------
 nc = nj + nj + 1
 
-zb_min = 0.35
-zb_max = 0.4
+zb = 0.35
 
 
 class KinematicConstraints(constraints.StageConstraints):
@@ -822,7 +821,7 @@ class KinematicConstraints(constraints.StageConstraints):
             (
                 pin_model.lowerPositionLimit[7:],
                 -pin_model.velocityLimit[6:],
-                zb_min,
+                zb,
             )
         )
 
@@ -831,7 +830,7 @@ class KinematicConstraints(constraints.StageConstraints):
             (
                 pin_model.upperPositionLimit[7:],
                 pin_model.velocityLimit[6:],
-                zb_max,
+                zb,
             )
         )
 

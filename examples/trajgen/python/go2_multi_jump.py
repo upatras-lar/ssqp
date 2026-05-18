@@ -109,7 +109,10 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
 #  1) Feet that are on the air stay above the ground
 #  2) Front and back feet don't get too close to each other
 fl_foot_pos_bound = constraints.FramePositionBound(
-    model, "FL_foot", np.array((-np.inf, 0.1, 0.0)), np.array((np.inf, np.inf, np.inf))
+    model,
+    "FL_foot",
+    np.array((-np.inf, 0.1, 0.0)),
+    np.array((np.inf, np.inf, np.inf)),
 )
 
 fr_foot_pos_bound = constraints.FramePositionBound(
@@ -120,7 +123,10 @@ fr_foot_pos_bound = constraints.FramePositionBound(
 )
 
 rl_foot_pos_bound = constraints.FramePositionBound(
-    model, "RL_foot", np.array((-np.inf, 0.1, 0.0)), np.array((np.inf, np.inf, np.inf))
+    model,
+    "RL_foot",
+    np.array((-np.inf, 0.1, 0.0)),
+    np.array((np.inf, np.inf, np.inf)),
 )
 
 rr_foot_pos_bound = constraints.FramePositionBound(
@@ -255,7 +261,9 @@ model.addCost(
 # Add constraint for the final velocity of the base to be 0
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
+    constraints.FrameLinearVelocityBound(
+        model, "base", np.zeros(3), np.zeros(3), True
+    ),
 )
 
 # Finalize the model with our state and controls

@@ -312,6 +312,11 @@ void bind_Model(nb::module_ &m)
             `init_controls` (np.array or list of np.array): Initial controls for each optimization stage;
                 if np.array: initial controls to use for every stage
         )doc")
+      .def("updateDimensions", &Model::updateDimensions, R"doc(
+        Updates the model's dimensions and linear dimensions
+        This is required to update constraint sizes, when constraints' enabled
+        state changes
+        )doc")
       .def(
         "addCost",
         [](Model &self, const uint k, nb::object py_cost)

@@ -9,7 +9,7 @@ Balances the Talos humanoid robot on 1 foot
 """
 
 # Model Parameters
-H = 40
+H = 160
 dt = 0.01
 
 # Weights

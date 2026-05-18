@@ -87,6 +87,7 @@ std::pair<FlatVec, FlatVec> MPC::step(const FlatVec &states,
 
 std::pair<FlatVec, FlatVec> MPC::step()
 {
+    _model.updateDimensions();
     ssqp        solver(_model, _ssqp_params);
     ssqp::Guess solution(_model.dims(), _model.linear_dims());
     SolverState state = solver.solve(solution);
