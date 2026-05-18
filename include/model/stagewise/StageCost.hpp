@@ -22,10 +22,10 @@ class StageCost : public Function
     // Set enabled status for StageCost
     // Note that this will only be considered if disabling is valid,
     // meaning this cost is part of a merged cost and the other cost is enabled
-    virtual void set_enabled(const bool enabled);
+    void set_enabled(const bool enabled);
 
     // Whether this cost is enabled
-    virtual bool enabled() const;
+    bool enabled() const;
 
     // Cost function output size, always $1$
     uint output_size() const final

@@ -134,7 +134,9 @@ model.addCost(HORIZON, pose_cost)
 model.addCost(HORIZON, joint_vel_cost)
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
+    constraints.FrameLinearVelocityBound(
+        model, "base", np.zeros(3), np.zeros(3), True
+    ),
 )
 
 init_states.append(init)

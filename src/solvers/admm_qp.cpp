@@ -206,6 +206,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     _rho_changed = true;
     for (_iter = 0;; ++_iter)
     {
+        logln_at(LogLevel::Debug, "ADMM Iteration: " << _iter);
         if (_rho_changed)
         {
             lqr_out      = lqr_solver.constrained(_solution, _z, _y, _rho);

@@ -230,6 +230,14 @@ class Model
     const Dimensions dims() const;
     const Dimensions linear_dims() const;
 
+    /* Updates the model's dimensions and linear dimensions
+     * This is required to update constraint sizes, when constraints' enabled
+     * state changes
+     * 
+     * TODO: this currently assumes only constraint sizes can change
+     */
+    void updateDimensions();
+
     const CostsContainer       costs() const;
     const DynamicsContainer    dynamics() const;
     const ConstraintsContainer constraints() const;

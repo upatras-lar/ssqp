@@ -600,6 +600,36 @@ const Dimensions Model::linear_dims() const
     return _lin_dims;
 }
 
+void Model::updateDimensions()
+{
+    _dims.constraint     = 0;
+    _lin_dims.constraint = 0;
+
+    for (uint k = 0; k < _dims.horizon; ++k)
+    {
+        _dims.stage_constraint[k] =
+          (_constraints[k] != nullptr) ? _constraints[k]->output_size() : 0;
+        _lin_dims.stage_constraint[k] =
+          (_constraints[k] != nullptr) ? _constraints[k]->constraint_diff_size()
+                                       : 0;
+
+        _dims.constraint     += _dims.stage_constraint[k];
+        _lin_dims.constraint += _lin_dims.stage_constraint[k];
+    }
+
+    _dims.stage_constraint[_dims.horizon] =
+      (_constraints[_dims.horizon] != nullptr)
+        ? _constraints[_dims.horizon]->output_size()
+        : 0;
+    _lin_dims.stage_constraint[_lin_dims.horizon] =
+      (_constraints[_lin_dims.horizon] != nullptr)
+        ? _constraints[_lin_dims.horizon]->constraint_diff_size()
+        : 0;
+
+    _dims.constraint     += _dims.stage_constraint[_dims.horizon];
+    _lin_dims.constraint += _lin_dims.stage_constraint[_lin_dims.horizon];
+}
+
 const CostsContainer Model::costs() const
 {
     return _costs;

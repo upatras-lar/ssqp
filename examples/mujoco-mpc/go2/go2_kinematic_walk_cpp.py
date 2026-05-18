@@ -18,10 +18,10 @@ sys.path.insert(0, "../../models")
 import go2_kinematic
 
 go2_kinematic.hip_to_foot_offsets = {
-    "FL": np.array((0.3, 0.16, -0.36892682)),
-    "FR": np.array((0.3, -0.16, -0.36892682)),
-    "RL": np.array((-0.15, 0.16, -0.36892682)),
-    "RR": np.array((-0.15, -0.16, -0.36892682)),
+    "FL": np.array((0.3, 0.14, -0.36892682)),
+    "FR": np.array((0.3, -0.14, -0.36892682)),
+    "RL": np.array((-0.15, 0.14, -0.36892682)),
+    "RR": np.array((-0.15, -0.14, -0.36892682)),
 }
 
 go2_kinematic.h_sw = 0.1
@@ -55,11 +55,11 @@ com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
 )
 
 q_q = 1e-3
-q_v = 1e-4
+q_v = 1e-3
 q_c = 1.5
 q_b = 3.0
 q_o = 1.0
-q_sw = 1.0
+q_sw = 1.5
 q_sp = 10.0
 l_sigma = 0.5
 
@@ -75,8 +75,8 @@ vel_cost = costs.SquaredControlCost(model, q_v, "Velocity Regularization Cost")
 base_height_constraint = constraints.FramePositionBound(
     model,
     "base_link",
-    np.array((-np.inf, -np.inf, go2_kinematic.zb_min)),
-    np.array((np.inf, np.inf, go2_kinematic.zb_max)),
+    np.array((-np.inf, -np.inf, go2_kinematic.zb)),
+    np.array((np.inf, np.inf, go2_kinematic.zb)),
     "Base Height Constraint",
 )
 
@@ -169,7 +169,7 @@ admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=200)
 
 import mujoco
 import mujoco.viewer
@@ -222,18 +222,20 @@ def update_func(v_cmd, config, vel, step):
 
         line_segment_costs[k].update_reference(stage_p_ref)
 
-        model.setInitState(k, config)
-
 
 Kp = 40.0
 Kv = 2.0 * np.sqrt(Kp)
 
 joint_space_pd_controller = KinematicJointSpacePD(
-    mpc, go2_kinematic.init_config, Kp=Kp, Kd=Kv, update_func=update_func
+    mpc,
+    go2_kinematic.init_config,
+    Kp=Kp,
+    Kd=Kv,
+    update_func=update_func,
 )
 
 # mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]
-step = 0
+# step = 0
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
@@ -243,7 +245,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         pos = mujoco_to_ssqp_state_kin(mjdata.qpos)
         vel = ssqp_to_mujoco_vel_kin(mjdata.qvel)
 
-        pre = time.time()
+        # pre = time.time()
 
         # mjdata.qpos = ssqp_to_mujoco_state_kin(mpc.step(pos)[0].stage(1))
 
@@ -258,7 +260,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         #     + Kv * (mpc_vel.stage(0)[6:] - vel[6:])
         # )
 
-        elapsed = time.time() - pre
+        # elapsed = time.time() - pre
 
         # step += 1
         # update_func(v_cmd, pos, vel, step)

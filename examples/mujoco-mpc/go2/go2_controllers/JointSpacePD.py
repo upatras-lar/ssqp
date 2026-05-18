@@ -1,6 +1,6 @@
 import multiprocessing
 import numpy as np
-from time import sleep
+from time import time, sleep
 from go2_controllers.joystick import Controller
 
 
@@ -117,7 +117,7 @@ class KinematicJointSpacePD:
         while True:
             try:
                 while self.state_q.empty():
-                    sleep(0.01)
+                    sleep(0.001)
 
                 while not self.state_q.empty():
                     state, vel = self.state_q.get()
@@ -127,7 +127,17 @@ class KinematicJointSpacePD:
 
                 self.update_func(v_cmd, state, vel, step)
 
+                # pre = time()
+
                 next = [x.toarray() for x in self.mpc_controller.step(state)]
+
+                # elapsed = time() - pre
+
+                # if not step % 20:
+                #     print(
+                #         f"\rControl frequency: {(1 / elapsed):.2f}Hz\t", end=""
+                #     )
+
                 self.mpc_q.put(next)
 
             except Exception as exc:
