@@ -22,7 +22,7 @@ class Controller:
         if vel_y > 0.0:
             vel_y *= 1.5 * max_vel
         else:
-            vel_y *= max_vel
+            vel_y *= 2 / 3 * max_vel
 
         return [vel_y, vel_x, vel_z]
 

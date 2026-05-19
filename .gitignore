@@ -17,13 +17,14 @@
 /examples/python/*.json
 
 # Virtual environments
-/examples/benchmarks/benchmark-venv/*
-/examples/visualizer/viser-venv/*
-/examples/real-mpc/panda/libfrankavenv/*
 /nbvenv/*
-/examples/mujoco-mpc/mujoco-venv/*
-/examples/real-mpc/double_pendulum/candlevenv/*
 /examples/pinvenv/*
+/examples/benchmarks/benchmark-venv/*
+/examples/mujoco-mpc/mujoco-venv/*
+/examples/real-mpc/panda/libfrankavenv/*
+/examples/real-mpc/double_pendulum/candlevenv/*
+/examples/real-mpc/go2/unitree-sdk2-venv/*
+/examples/visualizer/viser-venv/*
 
 # Configuration & other files
 /VARIABLES.sh

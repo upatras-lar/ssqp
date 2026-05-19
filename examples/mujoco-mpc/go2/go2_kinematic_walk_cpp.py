@@ -41,9 +41,6 @@ model = ssqpy.model.Model(
     solver_mode=ssqpy.model.SolverMode.Kinematics,
 )
 
-nq = model.getnq()
-nv = model.getnv()
-
 com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
     v_cmd,
     go2_kinematic.init_config,
@@ -165,19 +162,13 @@ ssqp_params.tolerance = 1e-1
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
-admm_params.warm_start = False
+admm_params.warm_start = True
+admm_params.init_rho = 10.0
+admm_params.adaptive_rho_tolerance = 0.1
 
 ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=200)
-
-import mujoco
-import mujoco.viewer
-
-mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
-mjdata = mujoco.MjData(mjmodel)
-
-mjdata.qpos = ssqp_to_mujoco_state_kin(go2_kinematic.init_config)
 
 np.set_printoptions(suppress=True)
 
@@ -233,6 +224,17 @@ joint_space_pd_controller = KinematicJointSpacePD(
     Kd=Kv,
     update_func=update_func,
 )
+
+joint_space_pd_controller.start_mpc()
+
+import mujoco
+import mujoco.viewer
+
+mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
+mjdata = mujoco.MjData(mjmodel)
+
+mjdata.qpos = ssqp_to_mujoco_state_kin(go2_kinematic.init_config)
+
 
 # mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]
 # step = 0

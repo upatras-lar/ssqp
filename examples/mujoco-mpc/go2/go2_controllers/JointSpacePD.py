@@ -86,6 +86,8 @@ class KinematicJointSpacePD:
         self.mpc_proc = multiprocessing.Process(
             target=self._run_mpc, daemon=True
         )
+
+    def start_mpc(self):
         self.mpc_proc.start()
 
     def step(self, state, vel):
