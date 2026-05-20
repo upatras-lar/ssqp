@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import pinocchio as pin
+from threading import Lock
 
 from unitree_sdk2py.core.channel import (
     ChannelPublisher,
@@ -10,7 +11,7 @@ from unitree_sdk2py.core.channel import (
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowState_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_
-from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowState_
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowState_, SportModeState_
 from unitree_sdk2py.utils.crc import CRC
 from unitree_sdk2py.utils.thread import RecurrentThread
 from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import (
@@ -50,10 +51,27 @@ VelStopF = 16000.0
 
 class CustomGo2Controller:
     JOINT_REORDER_MAP = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
+    JOINT_Kps = [
+        50.0,
+        50.0,
+        30.0,
+        50.0,
+        50.0,
+        30.0,
+        50.0,
+        55.0,
+        40.0,
+        50.0,
+        55.0,
+        40.0,
+    ]
+
+    JOINT_Kds = [0.25 * np.sqrt(Kp) for Kp in JOINT_Kps]
 
     def __init__(self):
         self.Kp = 40.0
         self.Kd = 1.6
+        self.dt = 0.009
 
         self.low_cmd = unitree_go_msg_dds__LowCmd_()
         self.low_state = None
@@ -61,6 +79,8 @@ class CustomGo2Controller:
             :3
         ]
         self.current_base_vel = np.zeros(3)
+
+        self.state_lock = Lock()
 
         # Position before starting stand move
         self._stand_ground_pos = [
@@ -171,17 +191,22 @@ class CustomGo2Controller:
 
         # Create subscriber
         self.lowstate_subscriber = ChannelSubscriber("rt/lowstate", LowState_)
-        self.lowstate_subscriber.Init(self._lowStateMessageHandler, 10)
+        self.lowstate_subscriber.Init(self._lowStateMessageHandler, 1)
 
-        """
+        self.sportmode_subscriber = ChannelSubscriber(
+            "rt/sportmodestate", SportModeState_
+        )
+        self.sportmode_subscriber.Init(self._sportStateMessageHandler, 1)
+
         self.sc = SportClient()
-        self.sc.SetTimeout(5.0)
+        self.sc.SetTimeout(0.5)
         self.sc.Init()
 
         self.msc = MotionSwitcherClient()
-        self.msc.SetTimeout(5.0)
+        self.msc.SetTimeout(0.5)
         self.msc.Init()
 
+        """
         status, result = self.msc.CheckMode()
         while result["name"]:
             self.sc.StandDown()
@@ -192,7 +217,9 @@ class CustomGo2Controller:
 
     def start(self):
         self.low_cmd_write_thread = RecurrentThread(
-            interval=0.002, target=self._lowCmdWrite, name="writebasiccmd"
+            interval=self.dt,
+            target=self._lowCmdWrite,
+            name="writebasiccmd",  # TODO: dt=0.009 works
         )
         self.low_cmd_write_thread.Start()
 
@@ -207,7 +234,15 @@ class CustomGo2Controller:
 
     # Private methods
     def _lowStateMessageHandler(self, msg: LowState_):
+        self.state_lock.acquire()
         self.low_state = msg
+        self.state_lock.release()
+
+    def _sportStateMessageHandler(self, msg: SportModeState_):
+        self.state_lock.acquire()
+        self.current_base_pos = np.hstack((np.zeros(2), msg.position[2]))
+        self.current_base_vel = np.array(msg.velocity)
+        self.state_lock.release()
 
     def _lowCmdWrite(self):
         if self.low_state is None:
@@ -228,7 +263,7 @@ class CustomGo2Controller:
             self.first_run = False
 
         # On sub-move 1, interpolate between initial and stand-ground positions
-        self.percent_1 += 1.0 / 500.0
+        self.percent_1 += self.dt
         self.percent_1 = min(self.percent_1, 1)
         if self.percent_1 < 1:
             for i in range(12):
@@ -246,7 +281,7 @@ class CustomGo2Controller:
 
         # On sub-move 2, interpolate between stand-ground and stance positions
         elif self.percent_2 < 1:
-            self.percent_2 += 1.0 / 500.0
+            self.percent_2 += self.dt
             self.percent_2 = min(self.percent_2, 1)
             for i in range(12):
                 self.low_cmd.motor_cmd[i].q = (
@@ -263,7 +298,7 @@ class CustomGo2Controller:
 
         # On sub-move 3, hold stance position
         elif self.percent_3 < 1:
-            self.percent_3 += 1.0 / 500.0
+            self.percent_3 += self.dt
             self.percent_3 = min(self.percent_3, 1)
             for i in range(12):
                 self.low_cmd.motor_cmd[i].q = self._stance_pos[i]
@@ -284,7 +319,7 @@ class CustomGo2Controller:
             self.first_run = False
 
         # On sub-move 1, interpolate between initial and stance positions
-        self.percent_1 += 1.0 / 500.0
+        self.percent_1 += self.dt
         self.percent_1 = min(self.percent_1, 1)
         if self.percent_1 < 1:
             for i in range(12):
@@ -298,7 +333,7 @@ class CustomGo2Controller:
 
         # On sub-move 2, interpolate between stance and ground positions
         elif self.percent_2 < 1:
-            self.percent_2 += 1.0 / 900.0
+            self.percent_2 += self.dt / 2
             self.percent_2 = min(self.percent_2, 1)
             for i in range(12):
                 self.low_cmd.motor_cmd[i].q = (
@@ -315,9 +350,10 @@ class CustomGo2Controller:
 
     def _execKinematicWalkTask(self):
         # Get generalized position and velocity vectors
-        # TODO: Find a way to get the correct generalized vectors
+        self.state_lock.acquire()
         pos = self._getGeneralizedConfiguration(self.current_base_pos)
         vel = self._getGeneralizedVelocity(self.current_base_vel)
+        self.state_lock.release()
 
         v_cmd = self.joystick.read()
         self.step += 1
@@ -338,9 +374,11 @@ class CustomGo2Controller:
             self.low_cmd.motor_cmd[i].dq = next[1][1][
                 6 + self.JOINT_REORDER_MAP[i]
             ]
-            self.low_cmd.motor_cmd[i].kp = 40.0
-            self.low_cmd.motor_cmd[i].kd = 1.0
+            self.low_cmd.motor_cmd[i].kp = self.JOINT_Kps[i]
+            self.low_cmd.motor_cmd[i].kd = self.JOINT_Kds[i]
             self.low_cmd.motor_cmd[i].tau = 0.0
+
+        # time.sleep(0.01)
 
     def _getGeneralizedConfiguration(self, base_pos):
         # Extract & reorder quaternion
@@ -369,7 +407,7 @@ class CustomGo2Controller:
                 self.low_state.motor_state[self.JOINT_REORDER_MAP[i]].dq
             )
 
-        return np.hstack((np.zeros(3), ang_vel, joint_vel))
+        return np.hstack((base_vel, ang_vel, joint_vel))
 
 
 if __name__ == "__main__":
@@ -377,10 +415,10 @@ if __name__ == "__main__":
 
     custom = CustomGo2Controller()
     custom.start()
-    custom.set_task("stand")
 
-    while True:
-        time.sleep(4.0)
-        custom.set_task("kinematic-walk")
-        time.sleep(20.0)
-        break
+    custom.set_task("stand")
+    time.sleep(4.0)
+    custom.set_task("kinematic-walk")
+    time.sleep(20.0)
+    custom.set_task("drop")
+    time.sleep(4.0)
