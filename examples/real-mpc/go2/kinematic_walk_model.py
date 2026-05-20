@@ -42,14 +42,14 @@ def get_controller(init_config):
         ssqp_model=model,
     )
 
-    q_q = 1e-3
-    q_v = 1e-3
-    q_c = 1.5
+    q_q = 1e-1
+    q_v = 1e-4
+    q_c = 2.0
     q_b = 3.0
-    q_o = 1.0
-    q_sw = 1.5
+    q_o = 10.0
+    q_sw = 3.0
     q_sp = 10.0
-    l_sigma = 0.5
+    l_sigma = 0.45
 
     config_cost = costs.SquaredConfigurationErrorCost(
         model,
