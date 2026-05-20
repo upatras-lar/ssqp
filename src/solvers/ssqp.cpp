@@ -175,8 +175,12 @@ ssqp::Params::Params(const std::string &filepath)
 
     if (j["qp_solver_type"] == "HPIPM")
     {
+#ifdef WITH_HPIPM
         qp_solver_type = QPSolverType::HPIPM;
         hpipm_params   = hpipm_qp::Params(j["hpipm"]);
+#else
+        throw std::runtime_error("SSQP was not compiled with HPIPM support!");
+#endif
     }
     else
     {
@@ -245,7 +249,11 @@ void ssqp::Params::print() const
     }
     else if (qp_solver_type == QPSolverType::HPIPM)
     {
+#ifdef WITH_HPIPM
         hpipm_params.print();
+#else
+        throw std::runtime_error("SSQP was not compiled with HPIPM support!");
+#endif
     }
 }
 
@@ -282,8 +290,12 @@ void ssqp::Params::write(nlohmann::ordered_json &j) const
     }
     else if (qp_solver_type == QPSolverType::HPIPM)
     {
+#ifdef WITH_HPIPM
         j["qp_solver_type"] = "HPIPM";
         hpipm_params.write(j);
+#else
+        throw std::runtime_error("SSQP was not compiled with HPIPM support!");
+#endif
     }
 }
 
@@ -411,7 +423,11 @@ SolverState ssqp::solve(Guess &guess)
         qp_solver = std::make_unique<admm_qp>(_qp, _params.admm_params);
         break;
     case HPIPM:
+#ifdef WITH_HPIPM
         qp_solver = std::make_unique<hpipm_qp>(_qp, _params.hpipm_params);
+#else
+        throw std::runtime_error("SSQP was not compiled with HPIPM support!");
+#endif
         break;
     }
 

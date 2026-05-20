@@ -242,6 +242,7 @@ bool ADMMTest::run()
     return pass;
 }
 
+#ifdef WITH_HPIPM
 HPIPMTest::HPIPMTest(const std::string &name, const std::string &data_file,
                      const double tolerance)
   : QPSolverTest(name, data_file, tolerance)
@@ -320,5 +321,7 @@ bool HPIPMTest::run()
 
     return pass;
 }
+#endif
+
 }
 }
