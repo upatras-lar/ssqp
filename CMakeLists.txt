@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-fPIC -march=native)
 
 # --- Options ---
-option(WITH_HPIPM "Link against HPIPM and BLASFEO" ON)
+option(WITH_HPIPM "Link against HPIPM and BLASFEO" OFF)
 option(PINOCCHIO_STATIC "Use a static Pinocchio build" OFF)
 option(ENABLE_PROFILING "Enable Tracy profiling" OFF)
 option(DISABLE_LOGGING "Add -DDISABLE_LOGGING compile flag" OFF)
@@ -124,10 +124,12 @@ if(BUILD_PYTHON)
 
     execute_process(
         COMMAND ${Python_EXECUTABLE} -c "import nanobind; print(nanobind.cmake_dir())"
-        OUTPUT_VARIABLE nanobind_DIR
+        OUTPUT_VARIABLE nanobind_DIR_FOUND
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET
     )
+
+    set(nanobind_DIR ${nanobind_DIR_FOUND} CACHE PATH "nanobind CMake directory" FORCE)
 
     if(nanobind_DIR)
         find_package(nanobind REQUIRED)

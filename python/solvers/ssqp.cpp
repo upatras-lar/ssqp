@@ -323,6 +323,7 @@ void bind_ssqp(nb::module_ &m)
         Note: setting to false may often cause oscillations
         )doc");
 
+#ifdef WITH_HPIPM
     nb::class_<hpipm_qp::Params>(m, "hpipmParams")
       .def(nb::init())
       .def("print", &hpipm_qp::Params::print)
@@ -353,6 +354,7 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("split_step",
               &hpipm_qp::Params::split_step,
               "Whether to use different step for primal and dual variables.");
+#endif
 
     nb::class_<ssqp>(m, "ssqp", R"doc(
         Defines an SSQP problem solver based on a given SSQP model and the desired
@@ -570,6 +572,7 @@ void bind_ssqp(nb::module_ &m)
 
             params.admm_params = admm_params;
 
+#ifdef WITH_HPIPM
             hpipm_qp::Params hpipm_params;
 
             if (kwargs.contains("hpipm_mode"))
@@ -635,6 +638,7 @@ void bind_ssqp(nb::module_ &m)
             }
 
             params.hpipm_params = hpipm_params;
+#endif
 
             new (self) ssqp(model, params);
         },

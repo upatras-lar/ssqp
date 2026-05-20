@@ -1,3 +1,4 @@
+#ifdef WITH_HPIPM
 #include "solvers/hpipm_qp.hpp"
 
 extern "C"
@@ -466,3 +467,4 @@ uint hpipm_qp::iterations() const
 
 }
 }
+#endif
