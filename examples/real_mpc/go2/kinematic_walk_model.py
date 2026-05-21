@@ -5,14 +5,22 @@ import numpy as np
 
 import models.go2_kinematic.model as go2_kinematic
 
+go2_kinematic.config.ContactScheduling.T = 28
 go2_kinematic.config.ContactScheduling.hip_to_foot_offsets = {
-    "FL": np.array((0.3, 0.14, -0.36892682)),
-    "FR": np.array((0.3, -0.14, -0.36892682)),
-    "RL": np.array((-0.18, 0.14, -0.36892682)),
-    "RR": np.array((-0.18, -0.14, -0.36892682)),
+    "FL": np.array((0.3, 0.15, -0.36892682)),
+    "FR": np.array((0.3, -0.15, -0.36892682)),
+    "RL": np.array((-0.15, 0.15, -0.36892682)),
+    "RR": np.array((-0.15, -0.15, -0.36892682)),
 }
+go2_kinematic.config.ContactScheduling.calculate()
 
 go2_kinematic.config.ReferenceGeneration.h_sw = 0.1
+go2_kinematic.config.ReferenceGeneration.zb_min = 0.37
+go2_kinematic.config.ReferenceGeneration.zb_max = 0.37
+go2_kinematic.config.ReferenceGeneration.max_vel_front = 1.2
+go2_kinematic.config.ReferenceGeneration.max_vel_back = 1.0
+go2_kinematic.config.ReferenceGeneration.max_vel_side = 0.5
+go2_kinematic.config.ReferenceGeneration.max_vel_yaw = 0.5
 
 ssqpy.setSilentMode()
 
@@ -39,14 +47,14 @@ def get_controller(init_config):
         ssqp_model=model,
     )
 
-    q_q = 1e-1
-    q_v = 1e-4
-    q_c = 1.5
-    q_b = 3.0
-    q_o = 6.0
+    q_q = 1e-3
+    q_v = 1e-5
+    q_c = 3.0
+    q_b = 1.0
+    q_o = 50.0
     q_sw = 2.0
     q_sp = 10.0
-    l_sigma = 0.44
+    l_sigma = 0.4
 
     config_cost = costs.SquaredConfigurationErrorCost(
         model,
@@ -66,14 +74,14 @@ def get_controller(init_config):
             (
                 -np.inf,
                 -np.inf,
-                go2_kinematic.config.ReferenceGeneration.zb_min + 0.03,
+                go2_kinematic.config.ReferenceGeneration.zb_min,
             )
         ),
         np.array(
             (
                 np.inf,
                 np.inf,
-                go2_kinematic.config.ReferenceGeneration.zb_max + 0.03,
+                go2_kinematic.config.ReferenceGeneration.zb_max,
             )
         ),
         "Base Height Constraint",

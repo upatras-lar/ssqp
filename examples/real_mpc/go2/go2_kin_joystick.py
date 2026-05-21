@@ -46,27 +46,19 @@ VelStopF = 16000.0
 
 class CustomGo2Controller:
     JOINT_REORDER_MAP = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
-    JOINT_Kps = [
-        50.0,
-        30.0,
-        30.0,
-        50.0,
-        30.0,
-        30.0,
-        50.0,
-        30.0,
-        30.0,
-        50.0,
-        30.0,
-        30.0,
-    ]
+    JOINT_Kps = [30.0] * 12
 
-    JOINT_Kds = [0.25 * np.sqrt(Kp) for Kp in JOINT_Kps]
+    JOINT_Kds = [0.3 * np.sqrt(Kp) for Kp in JOINT_Kps]
 
-    def __init__(self):
+    def __init__(self, max_vel_front, max_vel_back, max_vel_side, max_vel_yaw):
+        self.max_vel_front = max_vel_front
+        self.max_vel_back = max_vel_back
+        self.max_vel_side = max_vel_side
+        self.max_vel_yaw = max_vel_yaw
+
         self.Kp = 40.0
         self.Kd = 1.6
-        self.dt = 0.009
+        self.dt = 0.01
 
         self.low_cmd = unitree_go_msg_dds__LowCmd_()
         self.low_state = None
@@ -352,7 +344,12 @@ class CustomGo2Controller:
         vel = self._getGeneralizedVelocity(self.current_base_vel)
         self.state_lock.release()
 
-        v_cmd = self.joystick.read(max_vel=1.5)
+        v_cmd = self.joystick.read(
+            self.max_vel_front,
+            self.max_vel_back,
+            self.max_vel_side,
+            self.max_vel_yaw,
+        )
         self.step += 1
 
         self.update_func(
@@ -410,7 +407,12 @@ class CustomGo2Controller:
 if __name__ == "__main__":
     ChannelFactoryInitialize(0, "enp5s0")
 
-    custom = CustomGo2Controller()
+    custom = CustomGo2Controller(
+        kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_front,
+        kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_back,
+        kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_side,
+        kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_yaw,
+    )
     custom.start()
 
     custom.set_task("stand")
