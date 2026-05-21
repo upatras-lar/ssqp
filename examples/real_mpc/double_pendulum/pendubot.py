@@ -1,12 +1,10 @@
 import socket
 import os
-import sys
 import numpy as np
 import ssqpy
 from time import time
 
-sys.path.insert(0, "..")
-from socket_utils import send, recv
+from real_mpc.socket_utils import send, recv
 
 # Use -1 to to not plot
 PLOT_STEPS = -1
@@ -87,7 +85,9 @@ data = []
 
 
 def wrap_to_reference(theta, reference=np.pi):
-    return reference + np.arctan2(np.sin(theta - reference), np.cos(theta - reference))
+    return reference + np.arctan2(
+        np.sin(theta - reference), np.cos(theta - reference)
+    )
 
 
 t0 = time()
@@ -118,7 +118,9 @@ while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
         timestamps.append(time() - t0)
         data.append(
             (
-                np.array((wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))),
+                np.array(
+                    (wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))
+                ),
                 vel,
                 np.clip(tau, -0.15, 0.15),
             )

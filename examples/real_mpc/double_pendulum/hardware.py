@@ -3,10 +3,8 @@ import socket
 import numpy as np
 import time
 import argparse
-import sys
 
-sys.path.insert(0, "..")
-from socket_utils import send, recv
+from real_mpc.socket_utils import send, recv
 
 
 def parse_args():

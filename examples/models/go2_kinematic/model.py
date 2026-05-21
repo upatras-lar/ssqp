@@ -3,67 +3,35 @@ import ssqpy.model.dynamics as dynamics
 import ssqpy.model.constraints as constraints
 import ssqpy.model.costs as costs
 
-import pinocchio as pin
 import numpy as np
 
-import model_utils
+from pathlib import Path
+import os
+
+from . import config
+import models.model_utils as utils
 
 # Pinocchio model creation
-# ------------------------
-pin_model, pin_data = None, None
+if config.WITH_PINOCCHIO:
+    import pinocchio as pin
 
+    examples_env = os.environ.get("PYTHONPATH", "")
+    sep = os.pathsep
+    examples_dir_str = Path(
+        [p for p in examples_env.split(sep) if "examples" in p][0]
+    )
 
-def load_model(xml_path):
     global pin_model, pin_data
-    pin_model, _, _ = pin.buildModelsFromMJCF(xml_path)
+    pin_model, _, _ = pin.buildModelsFromMJCF(
+        str(examples_dir_str / Path("assets/mjcf/go2/go2.xml"))
+    )
     pin_data = pin_model.createData()
-
 
 # Parameters
 # ----------
 nj = 12  # number of actuated joints
 nq = 7 + nj  # configuration size
 ndq = 6 + nj  # linearized configuration size
-
-frame_names = {
-    "FL": "FL_foot",
-    "FR": "FR_foot",
-    "RL": "RL_foot",
-    "RR": "RR_foot",
-}
-
-### High-level planner ###
-### ================== ###
-
-init_pos = np.array([0.0, 0.0, 0.389])
-init_joint_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
-
-init_config = np.zeros(nq)
-init_config[:3] = init_pos
-init_config[6] = 1.0
-init_config[7:] = init_joint_config
-
-# Contact Scheduling parameters
-# -----------------------------
-T = 30
-beta = 0.5
-
-T_swing = int(beta * T)
-T_stance = T - T_swing
-
-foot_phases = {"FL": 0.0, "FR": 0.5, "RL": 0.5, "RR": 0.0}
-hip_to_foot_offsets = {
-    "FL": np.array((0.6, 0.14, -0.36892682)),
-    "FR": np.array((0.6, -0.14, -0.36892682)),
-    "RL": np.array((0.1, 0.14, -0.36892682)),
-    "RR": np.array((0.1, -0.14, -0.36892682)),
-}
-
-# Reference Generation
-# --------------------
-Kv = 0.1
-Kw = 0.1
-h_sw = 0.1
 
 
 class ReferenceState:
@@ -82,20 +50,21 @@ def generate_references_MPC(
         pin.forwardKinematics(pin_model, pin_data, config_0)
         pin.updateFramePlacements(pin_model, pin_data)
 
-        for foot in foot_phases:
+        for foot in config.ContactScheduling.foot_phases:
             translations[foot] = pin_data.oMf[
-                pin_model.getFrameId(frame_names[foot])
+                pin_model.getFrameId(config.FRAME_NAMES[foot])
             ].translation
     else:
-        for foot in foot_phases:
+        for foot in config.ContactScheduling.foot_phases:
             translations[foot], _ = ssqp_model.forwardKinematics(
-                config_0, frame_names[foot]
+                config_0, config.FRAME_NAMES[foot]
             )
 
     if not ReferenceState.initialized:
         ReferenceState.liftoff = translations.copy()
         ReferenceState.touchdown = {
-            foot: ReferenceState.liftoff[foot].copy() for foot in foot_phases
+            foot: ReferenceState.liftoff[foot].copy()
+            for foot in config.ContactScheduling.foot_phases
         }
 
         ReferenceState.initialized = True
@@ -109,7 +78,7 @@ def generate_references_MPC(
     wz_0 = vel_0[2]
 
     # Commanded velocity for x/y and yaw
-    Rz_0 = model_utils.yaw_to_Rz(model_utils.quat_to_yaw(config_0[3:7]))
+    Rz_0 = utils.yaw_to_Rz(utils.quat_to_yaw(config_0[3:7]))
     v_cmd_3 = Rz_0 @ np.hstack((v_cmd[:2], 0.0))
     wz_cmd = v_cmd[2]
 
@@ -127,14 +96,12 @@ def generate_references_MPC(
     # Base pose reference
     # -------------------
     xb_0 = config_0[:7]
-    yaw = model_utils.quat_to_yaw(config_0[3:7])
+    yaw = utils.quat_to_yaw(config_0[3:7])
     xb_ref = [xb_0]
     for _ in range(H):
         p_ref_k = xb_ref[-1][:3] + dt * v_cmd_3
         yaw += dt * wz_cmd
-        xb_ref.append(
-            np.hstack((p_ref_k, model_utils.euler_to_quat(0.0, 0.0, yaw)))
-        )
+        xb_ref.append(np.hstack((p_ref_k, utils.euler_to_quat(0.0, 0.0, yaw))))
 
     # Foot trajectory references
     # --------------------------
@@ -142,20 +109,22 @@ def generate_references_MPC(
         foot: [
             [
                 translations[foot].copy(),
-                is_swinging(k0, foot_phases[foot])[0],
+                is_swinging(k0, config.ContactScheduling.foot_phases[foot])[0],
             ]
         ]
-        for foot in foot_phases
+        for foot in config.ContactScheduling.foot_phases
     }
 
     for k in range(H):
         t = k0 + k
 
-        yaw_k = model_utils.quat_to_yaw(xb_ref[k][3:7])
-        Rz = model_utils.yaw_to_Rz(yaw_k)
+        yaw_k = utils.quat_to_yaw(xb_ref[k][3:7])
+        Rz = utils.yaw_to_Rz(yaw_k)
 
-        for foot in foot_phases:
-            swing_at_t, swapped = is_swinging(t, foot_phases[foot])
+        for foot in config.ContactScheduling.foot_phases:
+            swing_at_t, swapped = is_swinging(
+                t, config.ContactScheduling.foot_phases[foot]
+            )
 
             if not swing_at_t:
                 if swapped:
@@ -171,16 +140,20 @@ def generate_references_MPC(
             if swapped:
                 touchdown[foot] = (
                     com_ref[k]
-                    + Rz @ hip_to_foot_offsets[foot]
-                    - T_stance * dt / 2 * vel_0_3
-                    + Kv * (v_cmd_3 - vel_0_3)
-                    + Kw
+                    + Rz @ config.ContactScheduling.hip_to_foot_offsets[foot]
+                    - config.ContactScheduling.T_stance * dt / 2 * vel_0_3
+                    + config.ReferenceGeneration.Kv * (v_cmd_3 - vel_0_3)
+                    + config.ReferenceGeneration.Kw
                     * (wz_0 - wz_cmd)
                     * Rz
                     @ np.array(
                         (
-                            -hip_to_foot_offsets[foot][1],
-                            hip_to_foot_offsets[foot][0],
+                            -config.ContactScheduling.hip_to_foot_offsets[
+                                foot
+                            ][1],
+                            config.ContactScheduling.hip_to_foot_offsets[foot][
+                                0
+                            ],
                             0.0,
                         )
                     )
@@ -188,15 +161,20 @@ def generate_references_MPC(
                 touchdown[foot][2] = 0.0  # -0.0002611
 
             # Normalized swing phase
-            phi = (t / T + foot_phases[foot]) % 1
-            phi_sw = phi / beta
+            phi = (
+                t / config.ContactScheduling.T
+                + config.ContactScheduling.foot_phases[foot]
+            ) % 1
+            phi_sw = phi / config.ContactScheduling.beta
 
             swing_alpha = 3 * phi_sw**2 - 2 * phi_sw**3
 
             p_ref_k = (1 - swing_alpha) * liftoff[
                 foot
             ] + swing_alpha * touchdown[foot]
-            p_ref_k[2] += 4 * h_sw * phi_sw * (1 - phi_sw)
+            p_ref_k[2] += (
+                4 * config.ReferenceGeneration.h_sw * phi_sw * (1 - phi_sw)
+            )
 
             p_ref[foot].append([p_ref_k, True])
 
@@ -217,20 +195,23 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
         pin.forwardKinematics(pin_model, pin_data, config_0)
         pin.updateFramePlacements(pin_model, pin_data)
 
-        for foot in foot_phases:
+        for foot in config.ContactScheduling.foot_phases:
             translations[foot] = pin_data.oMf[
-                pin_model.getFrameId(frame_names[foot])
+                pin_model.getFrameId(config.FRAME_NAMES[foot])
             ].translation
     else:
-        for foot in foot_phases:
+        for foot in config.ContactScheduling.foot_phases:
             translations[foot], _ = ssqp_model.forwardKinematics(
-                config_0, frame_names[foot]
+                config_0, config.FRAME_NAMES[foot]
             )
 
     liftoff = translations.copy()
 
     # Next touchdown location for each foot, along with its touchdown time
-    touchdown = {foot: liftoff[foot].copy() for foot in foot_phases}
+    touchdown = {
+        foot: liftoff[foot].copy()
+        for foot in config.ContactScheduling.foot_phases
+    }
 
     # Actual initial velocity for x and y axes, and angular (yaw)
     vel_0_3 = np.hstack((vel_0[:2], 0.0))
@@ -254,7 +235,7 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
 
     # Generate base position reference
     xb_0 = config_0[:7]
-    yaw = model_utils.quat_to_yaw(config_0[3:7])
+    yaw = utils.quat_to_yaw(config_0[3:7])
 
     xb_ref = [xb_0]
     for _ in range(H):
@@ -262,9 +243,7 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
         p_ref_k = xb_ref[-1][:3] + dt * v_cmd_3
         # Follow angular (yaw) command with rotation angle
         yaw += dt * wz_cmd
-        xb_ref.append(
-            np.hstack((p_ref_k, model_utils.euler_to_quat(0.0, 0.0, yaw)))
-        )
+        xb_ref.append(np.hstack((p_ref_k, utils.euler_to_quat(0.0, 0.0, yaw))))
 
     # Generate feet trajectory references
 
@@ -277,7 +256,7 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
                 False,
             ]
         ]
-        for foot in foot_phases
+        for foot in config.ContactScheduling.foot_phases
     }
 
     p_ref["FL"][0][1] = True
@@ -286,13 +265,15 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
     for k in range(H):
         t = k0 + k
 
-        yaw_k = model_utils.quat_to_yaw(xb_ref[k][3:7])
-        Rz = model_utils.yaw_to_Rz(yaw_k)
+        yaw_k = utils.quat_to_yaw(xb_ref[k][3:7])
+        Rz = utils.yaw_to_Rz(yaw_k)
 
-        for foot in foot_phases:
+        for foot in config.ContactScheduling.foot_phases:
             # Use scheduling to check if foot is swinging at step t, and if it
             # just swapped swinging state
-            swing_at_t, swapped = is_swinging(t, foot_phases[foot])
+            swing_at_t, swapped = is_swinging(
+                t, config.ContactScheduling.foot_phases[foot]
+            )
 
             if not swing_at_t:
                 if swapped:
@@ -307,24 +288,27 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
             # If the foot is swinging, update the touchdown position for step k
             touchdown[foot] = (
                 com_ref[k]
-                + Rz @ hip_to_foot_offsets[foot]
-                + T_stance / 2 * vel_0_3
-                + Kv * (vel_0_3 - v_cmd_3)
-                + Kw
+                + Rz @ config.ContactScheduling.hip_to_foot_offsets[foot]
+                + config.ContactScheduling.T_stance / 2 * vel_0_3
+                + config.ReferenceGeneration.Kv * (vel_0_3 - v_cmd_3)
+                + config.ReferenceGeneration.Kw
                 * (wz_0 - wz_cmd)
                 * Rz
                 @ np.array(
                     (
-                        -hip_to_foot_offsets[foot][1],
-                        hip_to_foot_offsets[foot][0],
+                        -config.ContactScheduling.hip_to_foot_offsets[foot][1],
+                        config.ContactScheduling.hip_to_foot_offsets[foot][0],
                         0.0,
                     )
                 )
             )
 
             # Calculate the normalized swing phase
-            phi = (t / T + foot_phases[foot]) % 1
-            phi_sw = phi / beta
+            phi = (
+                t / config.ContactScheduling.T
+                + config.ContactScheduling.foot_phases[foot]
+            ) % 1
+            phi_sw = phi / config.ContactScheduling.beta
 
             # Get an interpolation alpha for the swing
             swing_alpha = 3 * phi_sw**2 - 2 * phi_sw**3
@@ -336,7 +320,9 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
             ] + swing_alpha * touchdown[foot]
 
             # For z reference, also add a height according to phase
-            p_ref_k[2] += 4 * h_sw * phi_sw * (1 - phi_sw)
+            p_ref_k[2] += (
+                4 * config.ReferenceGeneration.h_sw * phi_sw * (1 - phi_sw)
+            )
 
             p_ref[foot].append([p_ref_k, True])
 
@@ -348,11 +334,11 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
 # just_swapped is True if the foot's current swing state is different to that of
 # the previous time step
 def is_swinging(t, phi_0):
-    prev_phi = ((t - 1) / T + phi_0) % 1
-    phi = (t / T + phi_0) % 1
+    prev_phi = ((t - 1) / config.ContactScheduling.T + phi_0) % 1
+    phi = (t / config.ContactScheduling.T + phi_0) % 1
 
-    at_prev = prev_phi < beta
-    at_t = phi < beta
+    at_prev = prev_phi < config.ContactScheduling.beta
+    at_t = phi < config.ContactScheduling.beta
 
     return at_t, at_t != at_prev
 
@@ -420,7 +406,6 @@ q_st = 200.0  # Stance feet position tracking weight
 q_sw = 10.0  # Swing feet position tracking weight
 q_q = 1e-3  # Configuration regularization weight
 q_v = 1e-3  # Velocity regularization weight
-# TODO: validity check
 q_sp = 50.0  # Support polygon (line segment) CoM weight
 l_sigma = 0.5
 
@@ -461,7 +446,7 @@ class KinematicCost(costs.StageCost):
 
         q_ref = self.xb_ref[3:7]
         q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
-        q_error = model_utils.quat_mul(q_ref_inv, x[3:7])
+        q_error = utils.quat_mul(q_ref_inv, x[3:7])
         cost += q_o * self.xb_ref[6] * np.dot(q_error[:3], q_error[:3])
 
         pin.forwardKinematics(pin_model, pin_data, x)
@@ -469,12 +454,12 @@ class KinematicCost(costs.StageCost):
 
         feet_pos = {
             foot: pin_data.oMf[
-                pin_model.getFrameId(frame_names[foot])
+                pin_model.getFrameId(config.FRAME_NAMES[foot])
             ].translation
-            for foot in frame_names
+            for foot in config.FRAME_NAMES
         }
 
-        for foot in frame_names:
+        for foot in config.FRAME_NAMES:
             p_error = feet_pos[foot] - self.p_ref[foot][0]
             if self.p_ref[foot][1]:  # swing
                 cost += p_error.T @ Q_sw @ p_error
@@ -492,7 +477,7 @@ class KinematicCost(costs.StageCost):
 
         # Find feet that are standing
         ground_feet = []
-        for foot in frame_names:
+        for foot in config.FRAME_NAMES:
             if not self.p_ref[foot][1]:
                 ground_feet.append(foot)
 
@@ -530,7 +515,7 @@ class KinematicCost(costs.StageCost):
 
         q_ref = self.xb_ref[3:7]
         q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
-        q_error = model_utils.quat_mul(q_ref_inv, x[3:7])
+        q_error = utils.quat_mul(q_ref_inv, x[3:7])
 
         dx[3:6] += q_o * self.xb_ref[6] * q_error[:3]
 
@@ -538,8 +523,8 @@ class KinematicCost(costs.StageCost):
         pin.updateFramePlacements(pin_model, pin_data)
 
         # Foot tracking
-        for foot in frame_names:
-            frame_id = pin_model.getFrameId(frame_names[foot])
+        for foot in config.FRAME_NAMES:
+            frame_id = pin_model.getFrameId(config.FRAME_NAMES[foot])
 
             p = pin_data.oMf[frame_id].translation
             p_error = p - self.p_ref[foot][0]
@@ -570,14 +555,14 @@ class KinematicCost(costs.StageCost):
 
         # Find feet that are standing
         ground_feet = []
-        for foot in frame_names:
+        for foot in config.FRAME_NAMES:
             if not self.p_ref[foot][1]:
                 ground_feet.append(foot)
 
         # CoM support line segment cost
         if len(ground_feet) == 2:
-            frame1 = pin_model.getFrameId(frame_names[ground_feet[0]])
-            frame2 = pin_model.getFrameId(frame_names[ground_feet[1]])
+            frame1 = pin_model.getFrameId(config.FRAME_NAMES[ground_feet[0]])
+            frame2 = pin_model.getFrameId(config.FRAME_NAMES[ground_feet[1]])
 
             pf1_xy = pin_data.oMf[frame1].translation[:2]
             pf2_xy = pin_data.oMf[frame2].translation[:2]
@@ -633,8 +618,8 @@ class KinematicCost(costs.StageCost):
         pin.forwardKinematics(pin_model, pin_data, x)
         pin.updateFramePlacements(pin_model, pin_data)
 
-        for foot in frame_names:
-            frame_id = pin_model.getFrameId(frame_names[foot])
+        for foot in config.FRAME_NAMES:
+            frame_id = pin_model.getFrameId(config.FRAME_NAMES[foot])
 
             J6 = pin.computeFrameJacobian(
                 pin_model,
@@ -656,14 +641,14 @@ class KinematicCost(costs.StageCost):
 
         # Find feet that are standing
         ground_feet = []
-        for foot in frame_names:
+        for foot in config.FRAME_NAMES:
             if not self.p_ref[foot][1]:
                 ground_feet.append(foot)
 
         # CoM support line segment cost
         if len(ground_feet) == 2:
-            frame1 = pin_model.getFrameId(frame_names[ground_feet[0]])
-            frame2 = pin_model.getFrameId(frame_names[ground_feet[1]])
+            frame1 = pin_model.getFrameId(config.FRAME_NAMES[ground_feet[0]])
+            frame2 = pin_model.getFrameId(config.FRAME_NAMES[ground_feet[1]])
 
             Jf1 = pin.computeFrameJacobian(
                 pin_model,
@@ -721,9 +706,9 @@ class LineSegmentCost(costs.StageCost):
 
         # Find feet that are standing
         ground_feet = []
-        for foot in frame_names:
+        for foot in config.FRAME_NAMES:
             if not self.p_ref[foot][1]:
-                ground_feet.append(frame_names[foot])
+                ground_feet.append(config.FRAME_NAMES[foot])
 
         com = self.model.centerOfMass(x)
 
@@ -747,9 +732,9 @@ class LineSegmentCost(costs.StageCost):
 
         # Find feet that are standing
         ground_feet = []
-        for foot in frame_names:
+        for foot in config.FRAME_NAMES:
             if not self.p_ref[foot][1]:
-                ground_feet.append(frame_names[foot])
+                ground_feet.append(config.FRAME_NAMES[foot])
 
         # CoM support line segment cost
         if len(ground_feet) == 2:
@@ -780,9 +765,9 @@ class LineSegmentCost(costs.StageCost):
 
         # Find feet that are standing
         ground_feet = []
-        for foot in frame_names:
+        for foot in config.FRAME_NAMES:
             if not self.p_ref[foot][1]:
-                ground_feet.append(frame_names[foot])
+                ground_feet.append(config.FRAME_NAMES[foot])
 
         # CoM support line segment cost
         if len(ground_feet) == 2:

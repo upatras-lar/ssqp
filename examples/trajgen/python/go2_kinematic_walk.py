@@ -1,12 +1,7 @@
 import ssqpy
 import numpy as np
-import sys
 
-sys.path.insert(0, "../../models")
-
-import go2_kinematic
-
-go2_kinematic.load_model("../../assets/mjcf/go2/go2.xml")
+import models.go2_kinematic.model as go2_kinematic
 
 v_cmd = np.array((1.0, 0.0, 0.0))
 
@@ -16,7 +11,7 @@ dt = 0.01
 model = ssqpy.model.Model(H, dt)
 
 com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
-    v_cmd, go2_kinematic.init_config, np.zeros(3), 0.0, H, dt
+    v_cmd, go2_kinematic.config.INIT_CONFIG, np.zeros(3), 0.0, H, dt
 )
 
 stage_costs = []
@@ -29,7 +24,7 @@ for k in range(H):
         com_ref[k],
         xb_ref[k],
         stage_p_ref,
-        go2_kinematic.init_config[7:],
+        go2_kinematic.config.INIT_JOINT_CONFIG,
         np.zeros(go2_kinematic.nj),
     )
     stage_costs.append(cost)
@@ -42,7 +37,7 @@ cost = go2_kinematic.KinematicCost(
     com_ref[H],
     xb_ref[H],
     stage_p_ref,
-    go2_kinematic.init_config[7:],
+    go2_kinematic.config.INIT_JOINT_CONFIG,
     np.zeros(go2_kinematic.nj),
     terminal=True,
 )
@@ -52,7 +47,7 @@ model.addCost(H, cost)
 
 model.finalize(
     dynamics=[go2_kinematic.Kinematics(dt) for _ in range(H + 1)],
-    init_states=[go2_kinematic.init_config],
+    init_states=[go2_kinematic.config.INIT_CONFIG],
 )
 
 custom_properties = ssqpy.model.customProperties()

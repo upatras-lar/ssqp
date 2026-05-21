@@ -2,11 +2,8 @@ import ssqpy
 from ssqpy.model import costs, constraints
 import numpy as np
 from math import pi
-import sys
 
-sys.path.insert(0, "../../trajgen/python/utils")
-
-from GaitManager import GaitManager
+from trajgen.python.utils.GaitManager import GaitManager
 
 
 def yaw_to_quaternion(yaw):
@@ -115,7 +112,9 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         # -------------------------
         # Costs
         # -------------------------
-        config_cost = costs.SquaredConfigurationErrorCost(model, init[7:19], C_WGT)
+        config_cost = costs.SquaredConfigurationErrorCost(
+            model, init[7:19], C_WGT
+        )
         joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
         control_cost = costs.SquaredControlCost(model, U_WGT)
         force_cost = costs.SquaredForceCost(model, F_WGT)

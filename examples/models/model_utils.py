@@ -45,7 +45,7 @@ def euler_to_quat(roll, pitch, yaw):
 
 def quat_to_yaw(quat):
     qx, qy, qz, qw = quat
-    return np.atan2(2.0 * (qz * qw + qx * qy), -1.0 + 2.0 * (qw**2 + qx**2))
+    return np.arctan2(2.0 * (qz * qw + qx * qy), -1.0 + 2.0 * (qw**2 + qx**2))
 
 
 def quat_wxyz_to_xyzw(wxyz):

@@ -1,12 +1,10 @@
 import socket
 import os
-import sys
 import numpy as np
 import ssqpy
 from time import time
 
-sys.path.insert(0, "..")
-from socket_utils import send, recv
+from real_mpc.socket_utils import send, recv
 
 SOCK_PATH = "/tmp/mpc_socket"
 
@@ -78,7 +76,9 @@ data = []
 
 
 def wrap_to_reference(theta, reference=np.pi):
-    return reference + np.arctan2(np.sin(theta - reference), np.cos(theta - reference))
+    return reference + np.arctan2(
+        np.sin(theta - reference), np.cos(theta - reference)
+    )
 
 
 t0 = time()
@@ -94,7 +94,9 @@ while True:
     # pos = state[:nq]
     # vel = state[nq:]
     pos = state[:2]
-    pos = np.array((np.cos(pos[0]), np.sin(pos[0]), np.cos(pos[1]), np.sin(pos[1])))
+    pos = np.array(
+        (np.cos(pos[0]), np.sin(pos[0]), np.cos(pos[1]), np.sin(pos[1]))
+    )
     vel = state[2:]
 
     state = np.hstack((pos, vel))
