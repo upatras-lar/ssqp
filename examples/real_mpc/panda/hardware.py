@@ -1,5 +1,4 @@
 import socket
-import sys
 import numpy as np
 import argparse
 from pylibfranka import (
@@ -15,8 +14,7 @@ import fcntl, termios, array
 
 buf_queued = array.array("I", [0])
 
-sys.path.insert(0, "..")
-from socket_utils import send, recv
+from real_mpc.socket_utils import send, recv
 
 np.set_printoptions(suppress=True)
 

@@ -1,6 +1,5 @@
 import ssqpy
 import numpy as np
-import sys
 import argparse
 import socket
 
@@ -9,8 +8,7 @@ import time
 
 import models
 
-sys.path.insert(0, "..")
-from socket_utils import send, recv
+from real_mpc.socket_utils import send, recv
 
 np.set_printoptions(suppress=True)
 
@@ -21,7 +19,9 @@ def parse_args():
         "robot to a certain location"
     )
 
-    subparsers = parser.add_subparsers(dest="model", help="The model to execute")
+    subparsers = parser.add_subparsers(
+        dest="model", help="The model to execute"
+    )
 
     parser_reset = subparsers.add_parser(
         "reset", help="Resets the Panda's configuration to the initial"

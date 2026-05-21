@@ -70,6 +70,10 @@ class KinematicJointSpacePD:
         Kp=1.0,
         Kd=0.01,
         update_func=lambda _1, _2, _3: None,
+        max_vel_front=1.0,
+        max_vel_back=1.0,
+        max_vel_side=1.0,
+        max_vel_yaw=1.0,
     ):
         self.mpc_controller = mpc_controller
         self.Kp = Kp
@@ -86,6 +90,11 @@ class KinematicJointSpacePD:
         self.mpc_proc = multiprocessing.Process(
             target=self._run_mpc, daemon=True
         )
+
+        self.max_vel_front = max_vel_front
+        self.max_vel_back = max_vel_back
+        self.max_vel_side = max_vel_side
+        self.max_vel_yaw = max_vel_yaw
 
     def start_mpc(self):
         self.mpc_proc.start()
@@ -124,7 +133,12 @@ class KinematicJointSpacePD:
                 while not self.state_q.empty():
                     state, vel = self.state_q.get()
 
-                v_cmd = joy.read()
+                v_cmd = joy.read(
+                    self.max_vel_front,
+                    self.max_vel_back,
+                    self.max_vel_side,
+                    self.max_vel_yaw,
+                )
                 step += 1
 
                 self.update_func(v_cmd, state, vel, step)

@@ -12,7 +12,7 @@
 /examples/benchmarks/trajgen/pendubot_plots.py
 /examples/benchmarks/mpc/data/*
 /examples/trajgen/data/*
-/examples/real-mpc/plots/*
+/examples/real_mpc/plots/*
 /tests/logs/*
 /examples/python/*.json
 
@@ -20,10 +20,10 @@
 /nbvenv/*
 /examples/pinvenv/*
 /examples/benchmarks/benchmark-venv/*
-/examples/mujoco-mpc/mujoco-venv/*
-/examples/real-mpc/panda/libfrankavenv/*
-/examples/real-mpc/double_pendulum/candlevenv/*
-/examples/real-mpc/go2/unitree-sdk2-venv/*
+/examples/mujoco_mpc/mujoco-venv/*
+/examples/real_mpc/panda/libfrankavenv/*
+/examples/real_mpc/double_pendulum/candlevenv/*
+/examples/real_mpc/go2/unitree-sdk-venv/*
 /examples/visualizer/viser-venv/*
 
 # Configuration & other files

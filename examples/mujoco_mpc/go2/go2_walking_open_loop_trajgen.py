@@ -4,11 +4,7 @@ import ssqpy.model.constraints as constraints
 import numpy as np
 from math import pi
 
-from sys import path
-
-path.insert(0, "../trajgen/python")
-
-from utils.GaitManager import GaitManager
+from trajgen.python.utils.GaitManager import GaitManager
 
 """
 Go2 Gaits example
@@ -88,7 +84,9 @@ for k in range(HORIZON):
     # orientation
     model.addCost(
         k,
-        costs.FrameSquaredRotationErrorCost(model, "base_link", np.eye(3), ROT_WGT),
+        costs.FrameSquaredRotationErrorCost(
+            model, "base_link", np.eye(3), ROT_WGT
+        ),
     )
 
 
@@ -102,7 +100,9 @@ model.addCost(HORIZON, costs.SquaredJointVelocityCost(model, 1e3))
 # position
 model.addCost(
     HORIZON,
-    costs.FrameSquaredTranslationErrorCost(model, "base_link", final_pos, TF_WGT),
+    costs.FrameSquaredTranslationErrorCost(
+        model, "base_link", final_pos, TF_WGT
+    ),
 )
 
 # Add a bound such that the base has no velocity at the end of the trajectory
@@ -130,7 +130,9 @@ gait_manager = GaitManager(
 # Gait methods will return the initial controls as a list, so we extend
 # `init_controls` by their return value
 if CYCLE_STEPS is None:
-    init_controls.extend(GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1))
+    init_controls.extend(
+        GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1)
+    )
 else:
     init_controls.extend(
         GAIT(

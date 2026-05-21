@@ -14,15 +14,21 @@ class Controller:
         self._monitor_thread.daemon = True
         self._monitor_thread.start()
 
-    def read(self, max_vel=1.0):
-        vel_x = -(self.x - 128) / 128 * max_vel * 2 / 3
+    def read(
+        self,
+        max_vel_front=1.0,
+        max_vel_back=0.75,
+        max_vel_side=0.75,
+        max_vel_yaw=0.75,
+    ):
+        vel_x = -(self.x - 128) / 128 * max_vel_side
         vel_y = -(self.y - 128) / 128
-        vel_z = -(self.z - 128) / 128 * max_vel * 2 / 3
+        vel_z = -(self.z - 128) / 128 * max_vel_yaw
 
         if vel_y > 0.0:
-            vel_y *= 1.5 * max_vel
+            vel_y *= max_vel_front
         else:
-            vel_y *= 2 / 3 * max_vel
+            vel_y *= 2 / 3 * max_vel_back
 
         return [vel_y, vel_x, vel_z]
 

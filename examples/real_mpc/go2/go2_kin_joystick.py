@@ -1,6 +1,5 @@
 import time
 import numpy as np
-import pinocchio as pin
 from threading import Lock
 
 from unitree_sdk2py.core.channel import (
@@ -21,11 +20,7 @@ from unitree_sdk2py.go2.sport.sport_client import SportClient
 
 import kinematic_walk_model
 
-import sys
-
-sys.path.insert(0, "../../mujoco-mpc/go2")
-
-from go2_controllers.joystick import Controller
+from mujoco_mpc.go2.go2_controllers.joystick import Controller
 
 LegID = {
     "FR_0": 0,
@@ -53,17 +48,17 @@ class CustomGo2Controller:
     JOINT_REORDER_MAP = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
     JOINT_Kps = [
         50.0,
-        50.0,
+        30.0,
         30.0,
         50.0,
-        50.0,
+        30.0,
         30.0,
         50.0,
-        55.0,
-        40.0,
+        30.0,
+        30.0,
         50.0,
-        55.0,
-        40.0,
+        30.0,
+        30.0,
     ]
 
     JOINT_Kds = [0.25 * np.sqrt(Kp) for Kp in JOINT_Kps]
@@ -75,9 +70,9 @@ class CustomGo2Controller:
 
         self.low_cmd = unitree_go_msg_dds__LowCmd_()
         self.low_state = None
-        self.current_base_pos = kinematic_walk_model.go2_kinematic.init_config[
-            :3
-        ]
+        self.current_base_pos = (
+            kinematic_walk_model.go2_kinematic.config.INIT_BASE_POS
+        )
         self.current_base_vel = np.zeros(3)
 
         self.state_lock = Lock()
@@ -244,6 +239,8 @@ class CustomGo2Controller:
         self.current_base_vel = np.array(msg.velocity)
         self.state_lock.release()
 
+        # print(f"Received z position: {msg.position[2]}")
+
     def _lowCmdWrite(self):
         if self.low_state is None:
             return
@@ -355,7 +352,7 @@ class CustomGo2Controller:
         vel = self._getGeneralizedVelocity(self.current_base_vel)
         self.state_lock.release()
 
-        v_cmd = self.joystick.read()
+        v_cmd = self.joystick.read(max_vel=1.5)
         self.step += 1
 
         self.update_func(
