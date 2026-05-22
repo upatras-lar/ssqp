@@ -11,6 +11,8 @@ from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowState_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowState_, SportModeState_
+from unitree_sdk2py.idl.nav_msgs.msg.dds_ import Odometry_
+from unitree_sdk2py.idl.sensor_msgs.msg.dds_ import PointCloud2_
 from unitree_sdk2py.utils.crc import CRC
 from unitree_sdk2py.utils.thread import RecurrentThread
 from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import (
@@ -46,7 +48,20 @@ VelStopF = 16000.0
 
 class CustomGo2Controller:
     JOINT_REORDER_MAP = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
-    JOINT_Kps = [30.0] * 12
+    JOINT_Kps = [
+        30.0,
+        40.0,
+        40.0,
+        30.0,
+        40.0,
+        40.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+    ]
 
     JOINT_Kds = [0.3 * np.sqrt(Kp) for Kp in JOINT_Kps]
 
@@ -78,10 +93,10 @@ class CustomGo2Controller:
             1.36,
             -2.65,
             -0.2,
-            1.36,
+            1.66,
             -2.65,
             0.2,
-            1.36,
+            1.66,
             -2.65,
         ]
 
@@ -138,7 +153,7 @@ class CustomGo2Controller:
             self.joystick = Controller()
             self.step = 0
 
-            self.mpc_controller, self.update_func = (
+            self.model, self.mpc_controller, self.update_func = (
                 kinematic_walk_model.get_controller(
                     self._getGeneralizedConfiguration(self.current_base_pos)
                 )
@@ -180,27 +195,38 @@ class CustomGo2Controller:
         self.lowstate_subscriber = ChannelSubscriber("rt/lowstate", LowState_)
         self.lowstate_subscriber.Init(self._lowStateMessageHandler, 1)
 
-        self.sportmode_subscriber = ChannelSubscriber(
-            "rt/sportmodestate", SportModeState_
-        )
-        self.sportmode_subscriber.Init(self._sportStateMessageHandler, 1)
+        # Feet that are in contact (according to Kinematic model)
+        self.stance_feet = []
+        # Estimated base height
+        self.height = None
+        # Previous linear velocity
+        self.prev_lin_vel = np.zeros(3)
+        # Alpha parameter for accelerometer - kinematic velocity estimate
+        self.vel_alpha = 0.99
+
+        # self.sportmode_subscriber = ChannelSubscriber(
+        #     "rt/sportmodestate", SportModeState_
+        # )
+        # self.sportmode_subscriber.Init(self._sportStateMessageHandler, 1)
 
         self.sc = SportClient()
-        self.sc.SetTimeout(0.5)
+        self.sc.SetTimeout(0.2)
         self.sc.Init()
 
         self.msc = MotionSwitcherClient()
-        self.msc.SetTimeout(0.5)
+        self.msc.SetTimeout(0.2)
         self.msc.Init()
 
-        """
-        status, result = self.msc.CheckMode()
+        _, result = self.msc.CheckMode()
+
+        if result is None:
+            return
+
         while result["name"]:
             self.sc.StandDown()
             self.msc.ReleaseMode()
-            status, result = self.msc.CheckMode()
+            _, result = self.msc.CheckMode()
             time.sleep(1)
-        """
 
     def start(self):
         self.low_cmd_write_thread = RecurrentThread(
@@ -225,13 +251,95 @@ class CustomGo2Controller:
         self.low_state = msg
         self.state_lock.release()
 
+        if not self.stance_feet:
+            return
+
+        # Estimate body height
+        velocity = []
+
+        for motor in msg.motor_state[:12]:
+            velocity.append(motor.dq)
+
+        velocity = np.array(velocity)
+
+        # Get configuration, assuming base is at (0.0, 0.0, 0.0)
+        generalized_configuration = self._getGeneralizedConfiguration(
+            np.zeros(3)
+        )
+
+        # Use forward kinematics to get position of each foot that is on the
+        # ground, given base is at (0.0, 0.0, 0.0)
+        feet_positions = []
+        for foot in self.stance_feet:
+            feet_positions.append(
+                self.model.forwardKinematics(
+                    generalized_configuration,
+                    kinematic_walk_model.go2_kinematic.config.FRAME_NAMES[
+                        foot
+                    ],
+                )[0]
+            )
+
+        # Since stance feet are at (0.0, 0.0, 0.0), the base will be at the
+        # opposite height that forward kinematics calculated
+        # So average the (opposite) height of each ground foot
+        self.height = 0
+        for pos in feet_positions:
+            self.height -= pos[2]
+
+        self.height /= len(feet_positions)
+        # Offset height by some amount
+        self.height += 0.05
+
+        # TODO
+        # Estimate linear velocity through Kinematics
+        """
+        ang_vel = np.array(msg.imu_state.gyroscope)
+        accel_body = np.array(msg.imu_state.accelerometer)
+
+        pure_accel = accel_body
+
+        lin_vel_kin = np.zeros(3)
+
+        for foot in self.stance_feet:
+            frame_name = kinematic_walk_model.go2_kinematic.config.FRAME_NAMES[
+                foot
+            ]
+
+            v_foot_rel = (
+                self.model.frameJacobian(
+                    generalized_configuration, frame_name
+                )[:3, 6:]
+                @ velocity
+            )
+
+            lin_vel_kin += -v_foot_rel
+
+        lin_vel_kin /= len(self.stance_feet)
+
+        v_integrated = self.prev_lin_vel + pure_accel * self.dt
+        lin_vel = (
+            self.vel_alpha * v_integrated + (1 - self.vel_alpha) * lin_vel_kin
+        )
+
+        # Track history for the next iteration loop
+        self.prev_lin_vel = lin_vel.copy()
+
+        print(f"Estimated linear velocity: {lin_vel}")
+        """
+
+        self.state_lock.acquire()
+        self.current_base_pos = np.hstack((np.zeros(2), self.height))
+        self.current_base_vel = np.zeros(3)
+        self.state_lock.release()
+
     def _sportStateMessageHandler(self, msg: SportModeState_):
         self.state_lock.acquire()
         self.current_base_pos = np.hstack((np.zeros(2), msg.position[2]))
         self.current_base_vel = np.array(msg.velocity)
         self.state_lock.release()
 
-        # print(f"Received z position: {msg.position[2]}")
+        print(f"Got z-position: {msg.position[2]}")
 
     def _lowCmdWrite(self):
         if self.low_state is None:
@@ -352,12 +460,17 @@ class CustomGo2Controller:
         )
         self.step += 1
 
-        self.update_func(
+        p_ref = self.update_func(
             v_cmd,
             pos,
             vel,
             self.step,
         )
+
+        self.stance_feet = []
+        for foot in p_ref:
+            if not p_ref[foot][0][1]:  # if stance
+                self.stance_feet.append(foot)
 
         next = [x.toarray() for x in self.mpc_controller.step(pos)]
 
@@ -405,7 +518,7 @@ class CustomGo2Controller:
 
 
 if __name__ == "__main__":
-    ChannelFactoryInitialize(0, "enp5s0")
+    ChannelFactoryInitialize(0, "lo")
 
     custom = CustomGo2Controller(
         kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_front,

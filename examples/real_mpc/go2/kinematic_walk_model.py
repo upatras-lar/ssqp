@@ -224,4 +224,6 @@ def get_controller(init_config):
 
             line_segment_costs[k].update_reference(stage_p_ref)
 
-    return mpc, update_func
+        return p_ref
+
+    return model, mpc, update_func

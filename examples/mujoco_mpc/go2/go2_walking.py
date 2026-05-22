@@ -92,7 +92,8 @@ foot_names = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 
 # initialize from initial state
 foot_positions = {
-    name: model.forwardKinematics(init_state[:nq], name)[0] for name in foot_names
+    name: model.forwardKinematics(init_state[:nq], name)[0]
+    for name in foot_names
 }
 
 foot_trajs = {name: [foot_positions[name].copy()] for name in foot_names}
@@ -190,7 +191,9 @@ def update_model(current_stage):
         idx = k - current_stage
 
         # base tracking
-        base_costs[idx].set_desired_translation(traj[k] if k <= H else traj[-1])
+        base_costs[idx].set_desired_translation(
+            traj[k] if k <= H else traj[-1]
+        )
 
         swing_feet = get_swing_feet(k)
 
@@ -201,7 +204,9 @@ def update_model(current_stage):
 
                 # update swing tracking point
                 foot_funcs[name][idx][0].set_enabled(True)
-                foot_funcs[name][idx][0].set_desired_translation(foot_trajs[name][k])
+                foot_funcs[name][idx][0].set_desired_translation(
+                    foot_trajs[name][k]
+                )
             else:
                 # enable contact
                 foot_funcs[name][idx][1].set_enabled(True)
@@ -227,7 +232,7 @@ mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
 
 # joint_space_pd_controller = JointSpacePD(mpc, init_state, Kp=2.0, Kd=0.05)
 
-mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/scene.xml")
+mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = ssqp_to_mujoco_state(init_state)[:nq]
@@ -267,7 +272,9 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         # mjdata.qpos[:3] = np.array((0.0, 0.0, 0.5))
         mjdata.ctrl = (
-            Kp * (xk[7:19] - state[7:19]) + Kd * (xk[25:] - state[25:]) + uk[6:18]
+            Kp * (xk[7:19] - state[7:19])
+            + Kd * (xk[25:] - state[25:])
+            + uk[6:18]
         )
 
         stage += 1
