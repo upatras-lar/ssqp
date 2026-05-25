@@ -54,7 +54,7 @@ def get_controller(init_config):
     q_o = 50.0
     q_sw = 2.0
     q_sp = 10.0
-    l_sigma = 0.4
+    l_sigma = 0.45
 
     config_cost = costs.SquaredConfigurationErrorCost(
         model,

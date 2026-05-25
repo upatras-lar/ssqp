@@ -20,6 +20,9 @@ from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import (
 )
 from unitree_sdk2py.go2.sport.sport_client import SportClient
 
+from rko_lio.config import PipelineConfig
+from rko_lio.lio_pipeline import LIOPipeline
+
 import kinematic_walk_model
 
 from mujoco_mpc.go2.go2_controllers.joystick import Controller
@@ -191,10 +194,23 @@ class CustomGo2Controller:
         self.lowcmd_publisher = ChannelPublisher("rt/lowcmd", LowCmd_)
         self.lowcmd_publisher.Init()
 
-        # Create subscriber
+        # Create LIO
+        self.lio_config = PipelineConfig()
+        self.lio_config.extrinsic_imu2base = None
+        self.lio_config.extrinsic_lidar2base = None
+
+        self.lio_pipeline = LIOPipeline(self.lio_config)
+
+        # Create subscribers
         self.lowstate_subscriber = ChannelSubscriber("rt/lowstate", LowState_)
         self.lowstate_subscriber.Init(self._lowStateMessageHandler, 1)
 
+        self.lidar_subscriber = ChannelSubscriber(
+            "rt/utlidar/cloud", PointCloud2_
+        )
+        self.lidar_subscriber.Init(self._pointCloudMessageHandler, 1)
+
+        """
         # Feet that are in contact (according to Kinematic model)
         self.stance_feet = []
         # Estimated base height
@@ -203,6 +219,7 @@ class CustomGo2Controller:
         self.prev_lin_vel = np.zeros(3)
         # Alpha parameter for accelerometer - kinematic velocity estimate
         self.vel_alpha = 0.99
+        """
 
         # self.sportmode_subscriber = ChannelSubscriber(
         #     "rt/sportmodestate", SportModeState_
@@ -251,6 +268,13 @@ class CustomGo2Controller:
         self.low_state = msg
         self.state_lock.release()
 
+        self.lio_pipeline.add_imu(
+            time.time(),
+            msg.imu_state.accelerometer,
+            msg.imu_state.gyroscope,
+        )
+
+        """
         if not self.stance_feet:
             return
 
@@ -293,7 +317,6 @@ class CustomGo2Controller:
 
         # TODO
         # Estimate linear velocity through Kinematics
-        """
         ang_vel = np.array(msg.imu_state.gyroscope)
         accel_body = np.array(msg.imu_state.accelerometer)
 
@@ -326,12 +349,59 @@ class CustomGo2Controller:
         self.prev_lin_vel = lin_vel.copy()
 
         print(f"Estimated linear velocity: {lin_vel}")
-        """
 
         self.state_lock.acquire()
         self.current_base_pos = np.hstack((np.zeros(2), self.height))
         self.current_base_vel = np.zeros(3)
         self.state_lock.release()
+        """
+
+    def _pointCloudMessageHandler(self, msg: PointCloud2_):
+        raw_bytes = bytes(msg.data)
+
+        ROS_DTYPE = {
+            1: np.int8,
+            2: np.uint8,
+            3: np.int16,
+            4: np.uint16,
+            5: np.int32,
+            6: np.uint32,
+            7: np.float32,
+            8: np.float64,
+        }
+
+        # Sort fields by byte offset to lay them out in order.
+        fields = sorted(msg.fields, key=lambda f: f.offset)
+
+        dtype_list = []
+        pos = 0
+        for field in fields:
+            # Insert explicit padding if there's a gap before this field.
+            if field.offset > pos:
+                dtype_list.append(
+                    (f"_pad_{pos}", np.uint8, field.offset - pos)
+                )
+            dtype_list.append((field.name, ROS_DTYPE[field.datatype]))
+            pos = field.offset + np.dtype(ROS_DTYPE[field.datatype]).itemsize
+
+        # Pad out to point_step if there are trailing bytes.
+        if pos < msg.point_step:
+            dtype_list.append((f"_pad_{pos}", np.uint8, msg.point_step - pos))
+
+        dtype = np.dtype(dtype_list)
+        pc = np.frombuffer(raw_bytes, dtype=dtype)
+
+        xyz = np.stack([pc["x"], pc["y"], pc["z"]], axis=1)  # (N, 3)
+
+        header_s = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        timestamps = header_s + pc["time"].astype(np.float64)  # (N,)
+
+        try:
+            self.lio_pipeline.add_lidar(xyz, timestamps)
+        except RuntimeError:
+            return
+
+        print(self.lio_pipeline.lio.pose())
 
     def _sportStateMessageHandler(self, msg: SportModeState_):
         self.state_lock.acquire()
@@ -467,10 +537,12 @@ class CustomGo2Controller:
             self.step,
         )
 
+        """
         self.stance_feet = []
         for foot in p_ref:
             if not p_ref[foot][0][1]:  # if stance
                 self.stance_feet.append(foot)
+        """
 
         next = [x.toarray() for x in self.mpc_controller.step(pos)]
 
@@ -518,7 +590,7 @@ class CustomGo2Controller:
 
 
 if __name__ == "__main__":
-    ChannelFactoryInitialize(0, "lo")
+    ChannelFactoryInitialize(0, "enp5s0")
 
     custom = CustomGo2Controller(
         kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_front,
@@ -529,8 +601,8 @@ if __name__ == "__main__":
     custom.start()
 
     custom.set_task("stand")
-    time.sleep(4.0)
-    custom.set_task("kinematic-walk")
-    time.sleep(20.0)
+    time.sleep(6.0)
+    # custom.set_task("kinematic-walk")
+    # time.sleep(20.0)
     custom.set_task("drop")
-    time.sleep(4.0)
+    time.sleep(6.0)
