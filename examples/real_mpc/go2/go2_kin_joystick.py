@@ -196,12 +196,32 @@ class CustomGo2Controller:
 
         # Create LIO
         self.lio_config = PipelineConfig()
-        self.lio_config.extrinsic_imu2base = None
-        self.lio_config.extrinsic_lidar2base = None
+        self.lio_config.extrinsic_imu2base = np.array(
+            (
+                (1.0, 0.0, 0.0, 0.0),
+                (0.0, 1.0, 0.0, 0.0),
+                (0.0, 0.0, 1.0, 0.0),
+                (0.0, 0.0, 0.0, 1.0),
+            )
+        )
+        lidar2imu = np.array(
+            (
+                (1.0, 0.0, 0.0, 0.171),
+                (0.0, 1.0, 0.0, 0.0),
+                (0.0, 0.0, 1.0, 0.0908),
+                (0.0, 0.0, 0.0, 1.0),
+            )
+        )
+        self.lio_config.extrinsic_lidar2base = (
+            lidar2imu @ self.lio_config.extrinsic_imu2base
+        )
 
         self.lio_pipeline = LIOPipeline(self.lio_config)
 
         # Create subscribers
+        self.initial_timestamp = None
+        self.first_imu_time = None
+
         self.lowstate_subscriber = ChannelSubscriber("rt/lowstate", LowState_)
         self.lowstate_subscriber.Init(self._lowStateMessageHandler, 1)
 
@@ -234,6 +254,9 @@ class CustomGo2Controller:
         self.msc.SetTimeout(0.2)
         self.msc.Init()
 
+        self.lieAndReleaseMode()
+
+    def lieAndReleaseMode(self):
         _, result = self.msc.CheckMode()
 
         if result is None:
@@ -264,97 +287,25 @@ class CustomGo2Controller:
 
     # Private methods
     def _lowStateMessageHandler(self, msg: LowState_):
+        if self.initial_timestamp is None:
+            self.initial_timestamp = time.time()
+
         self.state_lock.acquire()
         self.low_state = msg
         self.state_lock.release()
 
+        if self.first_imu_time is None:
+            self.first_imu_time = msg.tick / 1000
+
+        imu_timestamp = (
+            self.initial_timestamp + msg.tick / 1000 - self.first_imu_time
+        )
+
         self.lio_pipeline.add_imu(
-            time.time(),
+            imu_timestamp,
             msg.imu_state.accelerometer,
             msg.imu_state.gyroscope,
         )
-
-        """
-        if not self.stance_feet:
-            return
-
-        # Estimate body height
-        velocity = []
-
-        for motor in msg.motor_state[:12]:
-            velocity.append(motor.dq)
-
-        velocity = np.array(velocity)
-
-        # Get configuration, assuming base is at (0.0, 0.0, 0.0)
-        generalized_configuration = self._getGeneralizedConfiguration(
-            np.zeros(3)
-        )
-
-        # Use forward kinematics to get position of each foot that is on the
-        # ground, given base is at (0.0, 0.0, 0.0)
-        feet_positions = []
-        for foot in self.stance_feet:
-            feet_positions.append(
-                self.model.forwardKinematics(
-                    generalized_configuration,
-                    kinematic_walk_model.go2_kinematic.config.FRAME_NAMES[
-                        foot
-                    ],
-                )[0]
-            )
-
-        # Since stance feet are at (0.0, 0.0, 0.0), the base will be at the
-        # opposite height that forward kinematics calculated
-        # So average the (opposite) height of each ground foot
-        self.height = 0
-        for pos in feet_positions:
-            self.height -= pos[2]
-
-        self.height /= len(feet_positions)
-        # Offset height by some amount
-        self.height += 0.05
-
-        # TODO
-        # Estimate linear velocity through Kinematics
-        ang_vel = np.array(msg.imu_state.gyroscope)
-        accel_body = np.array(msg.imu_state.accelerometer)
-
-        pure_accel = accel_body
-
-        lin_vel_kin = np.zeros(3)
-
-        for foot in self.stance_feet:
-            frame_name = kinematic_walk_model.go2_kinematic.config.FRAME_NAMES[
-                foot
-            ]
-
-            v_foot_rel = (
-                self.model.frameJacobian(
-                    generalized_configuration, frame_name
-                )[:3, 6:]
-                @ velocity
-            )
-
-            lin_vel_kin += -v_foot_rel
-
-        lin_vel_kin /= len(self.stance_feet)
-
-        v_integrated = self.prev_lin_vel + pure_accel * self.dt
-        lin_vel = (
-            self.vel_alpha * v_integrated + (1 - self.vel_alpha) * lin_vel_kin
-        )
-
-        # Track history for the next iteration loop
-        self.prev_lin_vel = lin_vel.copy()
-
-        print(f"Estimated linear velocity: {lin_vel}")
-
-        self.state_lock.acquire()
-        self.current_base_pos = np.hstack((np.zeros(2), self.height))
-        self.current_base_vel = np.zeros(3)
-        self.state_lock.release()
-        """
 
     def _pointCloudMessageHandler(self, msg: PointCloud2_):
         raw_bytes = bytes(msg.data)
@@ -398,9 +349,11 @@ class CustomGo2Controller:
 
         try:
             self.lio_pipeline.add_lidar(xyz, timestamps)
-        except RuntimeError:
+        except RuntimeError as err:
+            print(err)
             return
 
+        np.set_printoptions(suppress=True)
         print(self.lio_pipeline.lio.pose())
 
     def _sportStateMessageHandler(self, msg: SportModeState_):
@@ -430,7 +383,7 @@ class CustomGo2Controller:
             self.first_run = False
 
         # On sub-move 1, interpolate between initial and stand-ground positions
-        self.percent_1 += self.dt
+        self.percent_1 += self.dt / 2.0
         self.percent_1 = min(self.percent_1, 1)
         if self.percent_1 < 1:
             for i in range(12):
@@ -447,8 +400,8 @@ class CustomGo2Controller:
                 self.low_cmd.motor_cmd[i].tau = 0
 
         # On sub-move 2, interpolate between stand-ground and stance positions
-        elif self.percent_2 < 1:
-            self.percent_2 += self.dt
+        if self.percent_2 < 1:
+            self.percent_2 += self.dt / 2.0
             self.percent_2 = min(self.percent_2, 1)
             for i in range(12):
                 self.low_cmd.motor_cmd[i].q = (
@@ -465,7 +418,7 @@ class CustomGo2Controller:
 
         # On sub-move 3, hold stance position
         elif self.percent_3 < 1:
-            self.percent_3 += self.dt
+            self.percent_3 += self.dt / 2.0
             self.percent_3 = min(self.percent_3, 1)
             for i in range(12):
                 self.low_cmd.motor_cmd[i].q = self._stance_pos[i]
@@ -486,21 +439,21 @@ class CustomGo2Controller:
             self.first_run = False
 
         # On sub-move 1, interpolate between initial and stance positions
-        self.percent_1 += self.dt
-        self.percent_1 = min(self.percent_1, 1)
-        if self.percent_1 < 1:
-            for i in range(12):
-                self.low_cmd.motor_cmd[i].q = (
-                    1 - self.percent_1
-                ) * self.start_pos[i] + self.percent_1 * self._stance_pos[i]
-                self.low_cmd.motor_cmd[i].dq = 0
-                self.low_cmd.motor_cmd[i].kp = self.Kp
-                self.low_cmd.motor_cmd[i].kd = self.Kd
-                self.low_cmd.motor_cmd[i].tau = 0
+        # self.percent_1 += self.dt / 2.5
+        # self.percent_1 = min(self.percent_1, 1)
+        # if self.percent_1 < 1:
+        #     for i in range(12):
+        #         self.low_cmd.motor_cmd[i].q = (
+        #             1 - self.percent_1
+        #         ) * self.start_pos[i] + self.percent_1 * self._stance_pos[i]
+        #         self.low_cmd.motor_cmd[i].dq = 0
+        #         self.low_cmd.motor_cmd[i].kp = self.Kp
+        #         self.low_cmd.motor_cmd[i].kd = self.Kd
+        #         self.low_cmd.motor_cmd[i].tau = 0
 
         # On sub-move 2, interpolate between stance and ground positions
-        elif self.percent_2 < 1:
-            self.percent_2 += self.dt / 2
+        if self.percent_2 < 1:
+            self.percent_2 += self.dt / 2.5
             self.percent_2 = min(self.percent_2, 1)
             for i in range(12):
                 self.low_cmd.motor_cmd[i].q = (
@@ -600,9 +553,11 @@ if __name__ == "__main__":
     )
     custom.start()
 
-    custom.set_task("stand")
-    time.sleep(6.0)
+    # custom.set_task("stand")
+    # time.sleep(6.0)
     # custom.set_task("kinematic-walk")
     # time.sleep(20.0)
-    custom.set_task("drop")
-    time.sleep(6.0)
+    # custom.set_task("drop")
+    # time.sleep(3.0)
+    # custom.lieAndReleaseMode()
+    time.sleep(10.0)

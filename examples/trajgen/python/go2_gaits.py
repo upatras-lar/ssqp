@@ -103,7 +103,9 @@ model.addCost(
 # Add a bound such that the base has no velocity at the end of the trajectory
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
+    constraints.FrameLinearVelocityBound(
+        model, "base", np.zeros(3), np.zeros(3), True
+    ),
 )
 
 # List of initial controls
@@ -111,13 +113,17 @@ init_controls = []
 
 # Create a `GaitManager`, passing the model, the configuration and velocity
 # sizes and the ordered frames for each of the 4 feet
-gait_manager = GaitManager(model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"])
+gait_manager = GaitManager(
+    model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
+)
 
 # Add a gait of the specified type for the range [0, H - FSS - 1]
 # Gait methods will return the initial controls as a list, so we extend
 # `init_controls` by their return value
 if CYCLE_STEPS is None:
-    init_controls.extend(GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1))
+    init_controls.extend(
+        GAIT(gait_manager, 0, HORIZON - FINAL_STANDING_STEPS - 1)
+    )
 else:
     init_controls.extend(
         GAIT(

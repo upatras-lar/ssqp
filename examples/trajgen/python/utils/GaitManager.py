@@ -250,7 +250,10 @@ class GaitManager:
                     self.model.addCost(k, self.rl_foot_ag_cost)
 
                 init_controls.append(self._getInitControl(2))
-            elif gait_stage > 0.5 * cycle_steps and gait_stage < 0.8 * cycle_steps:
+            elif (
+                gait_stage > 0.5 * cycle_steps
+                and gait_stage < 0.8 * cycle_steps
+            ):
                 self.model.addContactConstraint(k, self.fr_foot)
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(k, self.rl_foot)
@@ -298,7 +301,10 @@ class GaitManager:
                     self.model.addCost(k, self.rr_foot_ag_cost)
 
                 init_controls.append(self._getInitControl(2))
-            elif gait_stage > 0.5 * cycle_steps and gait_stage < 0.8 * cycle_steps:
+            elif (
+                gait_stage > 0.5 * cycle_steps
+                and gait_stage < 0.8 * cycle_steps
+            ):
                 self.model.addContactConstraint(k, self.fr_foot)
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(k, self.rr_foot)
@@ -579,7 +585,9 @@ class GaitManager:
             or end_stage >= self.model.horizon
             or start_stage >= end_stage
         ):
-            raise ValueError(f"Invalid stage range {start_stage} - {end_stage}")
+            raise ValueError(
+                f"Invalid stage range {start_stage} - {end_stage}"
+            )
 
         if cycle_steps < 0 or cycle_steps > end_stage - start_stage:
             raise ValueError(f"Invalid cycle steps value {cycle_steps}")
