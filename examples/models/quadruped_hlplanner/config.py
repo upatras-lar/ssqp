@@ -1,5 +1,5 @@
 """
-Configuration file for the Go2 Kinematic Model
+Configuration file for the Quadruped models
 Determines various options about how the model is loaded and its properties
 """
 
@@ -7,7 +7,8 @@ import numpy as np
 
 # Whether to import pinocchio
 # Also determines whether the robot model is loaded via Python
-WITH_PINOCCHIO = False
+WITH_PINOCCHIO = True
+
 
 # Initial base position
 INIT_BASE_POS = np.array([0.0, 0.0, 0.389])
@@ -19,6 +20,34 @@ INIT_CONFIG = np.zeros(19)
 INIT_CONFIG[:3] = INIT_BASE_POS
 INIT_CONFIG[6] = 1.0
 INIT_CONFIG[7:] = INIT_JOINT_CONFIG
+
+
+# Kinematic-specific Parameters
+class KinematicParameters:
+    nj = 12  # number of actuated joints
+    nq = 7 + nj  # configuration size
+    ndq = 6 + nj  # linearized configuration size
+
+
+# SRBD-specific parameters
+class SRBDParameters:
+    GRAVITY = np.array((0.0, 0.0, -9.81))
+
+    nq = 13  # state size (p, q, v, w)
+    ndq = 12  # tangent state size (dp, dq, dv, dw)
+    nu = 12  # controls / contact forces (4 feet * 3)
+
+    mass = 15.206408
+    inertia = np.array(
+        (
+            (0.22180955, 0.00012166, 0.00323384),
+            (0.00012166, 0.48982369, -0.0000312),
+            (0.00323384, -0.0000312, 0.54306506),
+        )
+    )
+
+    INIT_STATE = np.hstack((INIT_CONFIG[:7], np.zeros(6)))
+
 
 # Dictionary mapping foot frame names used to XML frame names
 FRAME_NAMES = {

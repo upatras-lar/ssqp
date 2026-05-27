@@ -9,9 +9,10 @@ from utils_go2_mujoco import (
     ssqp_to_mujoco_ctrl_kin,
 )
 
-import models.go2_kinematic.model as go2_kinematic
+import models.quadruped_hlplanner.planner as go2_planner
+import models.quadruped_kinematic.model as go2_kinematic
 
-go2_kinematic.config.ContactScheduling.hip_to_foot_offsets = {
+go2_planner.config.ContactScheduling.hip_to_foot_offsets = {
     "FL": np.array((0.4, 0.14, -0.36892682)),
     "FR": np.array((0.4, -0.14, -0.36892682)),
     "RL": np.array((-0.1, 0.14, -0.36892682)),
@@ -28,8 +29,13 @@ dt = 0.01
 
 model = ssqpy.model.Model(MPC_H, dt)
 
-com_ref, xb_ref, p_ref = go2_kinematic.generate_references(
-    v_cmd, go2_kinematic.config.INIT_CONFIG, np.zeros(3), 0, 10000, dt
+com_ref, xb_ref, p_ref = go2_planner.generate_references(
+    v_cmd,
+    go2_planner.config.INIT_CONFIG,
+    np.zeros(3),
+    0,
+    10000,
+    dt,
 )
 
 stage_costs = []
@@ -42,8 +48,8 @@ for k in range(MPC_H):
         com_ref[k],
         xb_ref[k],
         stage_p_ref,
-        go2_kinematic.config.INIT_JOINT_CONFIG,
-        np.zeros(go2_kinematic.nj),
+        go2_planner.config.INIT_JOINT_CONFIG,
+        np.zeros(go2_planner.config.KinematicParameters.nj),
     )
     stage_costs.append(cost)
 
@@ -55,8 +61,8 @@ cost = go2_kinematic.KinematicCost(
     com_ref[MPC_H],
     xb_ref[MPC_H],
     stage_p_ref,
-    go2_kinematic.config.INIT_JOINT_CONFIG,
-    np.zeros(go2_kinematic.nj),
+    go2_planner.config.INIT_JOINT_CONFIG,
+    np.zeros(go2_planner.config.KinematicParameters.nj),
     terminal=True,
 )
 stage_costs.append(cost)
@@ -65,7 +71,7 @@ model.addCost(MPC_H, cost)
 
 model.finalize(
     dynamics=[go2_kinematic.Kinematics(dt) for _ in range(MPC_H + 1)],
-    init_states=[go2_kinematic.config.INIT_CONFIG],
+    init_states=[go2_planner.config.INIT_CONFIG],
 )
 
 ssqp_params = ssqpy.solvers.ssqpParams()
@@ -86,7 +92,7 @@ import mujoco.viewer
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
-mjdata.qpos = ssqp_to_mujoco_state_kin(go2_kinematic.config.INIT_CONFIG)
+mjdata.qpos = ssqp_to_mujoco_state_kin(go2_planner.config.INIT_CONFIG)
 
 np.set_printoptions(suppress=True)
 
@@ -98,8 +104,8 @@ def update_func(_1, _2, _3, step):
             com_ref[step + k],
             xb_ref[step + k],
             stage_p_ref,
-            go2_kinematic.config.INIT_JOINT_CONFIG,
-            np.zeros(go2_kinematic.nj),
+            go2_planner.config.INIT_JOINT_CONFIG,
+            np.zeros(go2_planner.config.KinematicParameters.nj),
         )
 
 
@@ -108,7 +114,7 @@ Kv = 2.0 * np.sqrt(Kp)
 
 joint_space_pd_controller = KinematicJointSpacePD(
     mpc,
-    go2_kinematic.config.INIT_CONFIG,
+    go2_planner.config.INIT_CONFIG,
     Kp=Kp,
     Kd=Kv,
     update_func=update_func,

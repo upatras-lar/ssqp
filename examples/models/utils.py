@@ -62,7 +62,7 @@ def quat_xyzw_to_wxyz(xyzw):
     return wxyz
 
 
-def quaternion_to_rotation_matrix(Q):
+def quat_to_rotation_matrix(Q):
     """
     Covert a quaternion into a full three-dimensional rotation matrix.
 
@@ -99,3 +99,30 @@ def quaternion_to_rotation_matrix(Q):
     rot_matrix = np.array([[r00, r01, r02], [r10, r11, r12], [r20, r21, r22]])
 
     return rot_matrix
+
+
+def quat_integrate(q, omega_dt):
+    """Integrate quaternion q by angular-velocity * dt (expressed in world)."""
+    angle = np.linalg.norm(omega_dt)
+    if angle < 1e-10:
+        return q / np.linalg.norm(q)
+    axis = omega_dt / angle
+    dq = np.array(
+        [
+            np.sin(angle / 2) * axis[0],
+            np.sin(angle / 2) * axis[1],
+            np.sin(angle / 2) * axis[2],
+            np.cos(angle / 2),
+        ]
+    )
+    return quat_mul(q, dq)
+
+
+def skew(v):
+    return np.array(
+        [
+            [0, -v[2], v[1]],
+            [v[2], 0, -v[0]],
+            [-v[1], v[0], 0],
+        ]
+    )
