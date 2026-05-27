@@ -773,8 +773,15 @@ bool ssqp::write(const std::string &filepath)
 
     model::SolverMode solver_mode     = _model.solverMode();
     bool              loaded_from_xml = _model.xml();
-    j["properties"]["solver_mode"]    = model::DM_to_str.at(solver_mode);
-    j["properties"]["xml"]            = loaded_from_xml;
+    if (loaded_from_xml)
+    {
+        j["properties"]["solver_mode"] = model::DM_to_str.at(solver_mode);
+    }
+    else
+    {
+        j["properties"]["solver_mode"] = "Custom";
+    }
+    j["properties"]["xml"] = loaded_from_xml;
     bool floating_base;
     uint nv, nu, njoints;
     if (loaded_from_xml || _model.hasCustomProperties())
@@ -814,7 +821,7 @@ bool ssqp::write(const std::string &filepath)
 
         VecX u;
 
-        if (floating_base)
+        if (loaded_from_xml && floating_base)
         {
             VecX x = _guess.x.stage(k);
             u      = _guess.u.stage(k);
@@ -836,7 +843,7 @@ bool ssqp::write(const std::string &filepath)
             u = _guess.u.stage(k);
 
             stage_data["state"]   = _guess.x.stage(k);
-            stage_data["control"] = u.head(nu);
+            stage_data["control"] = u.head(u.size() - nforces);
         }
 
         if (nforces > 0)
