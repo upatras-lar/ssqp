@@ -33,9 +33,9 @@ class KinematicParameters:
 class SRBDParameters:
     GRAVITY = np.array((0.0, 0.0, -9.81))
 
-    nq = 13  # state size (p, q, v, w)
-    ndq = 12  # tangent state size (dp, dq, dv, dw)
-    nu = 12  # controls / contact forces (4 feet * 3)
+    nq = 25  # state size (p, q, v, w, 4 * feet_pos, 4 * feet_vel)
+    ndq = 24  # tangent state size (dp, dq, dv, dw, 4 * d_feet_pos, 4 * d_feet_vel)
+    nu = 24  # controls / contact forces (4 feet * 3)
 
     mass = 15.206408
     inertia = np.array(
