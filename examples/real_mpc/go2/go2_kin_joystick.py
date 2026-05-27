@@ -81,7 +81,7 @@ class CustomGo2Controller:
         self.low_cmd = unitree_go_msg_dds__LowCmd_()
         self.low_state = None
         self.current_base_pos = (
-            kinematic_walk_model.go2_kinematic.config.INIT_BASE_POS
+            kinematic_walk_model.go2_planner.config.INIT_BASE_POS
         )
         self.current_base_vel = np.zeros(3)
 
@@ -198,22 +198,19 @@ class CustomGo2Controller:
         self.lio_config = PipelineConfig()
         self.lio_config.extrinsic_imu2base = np.array(
             (
-                (1.0, 0.0, 0.0, 0.0),
+                (1.0, 0.0, 0.0, -0.02557),
                 (0.0, 1.0, 0.0, 0.0),
-                (0.0, 0.0, 1.0, 0.0),
+                (0.0, 0.0, 1.0, 0.04232),
                 (0.0, 0.0, 0.0, 1.0),
             )
         )
-        lidar2imu = np.array(
+        self.lio_config.extrinsic_lidar2base = np.array(
             (
-                (1.0, 0.0, 0.0, 0.171),
+                (np.cos(2.8782), 0.0, np.sin(2.8782), 0.28945),
                 (0.0, 1.0, 0.0, 0.0),
-                (0.0, 0.0, 1.0, 0.0908),
+                (-np.sin(2.8782), 0.0, np.cos(2.8782), -0.046825),
                 (0.0, 0.0, 0.0, 1.0),
             )
-        )
-        self.lio_config.extrinsic_lidar2base = (
-            lidar2imu @ self.lio_config.extrinsic_imu2base
         )
 
         self.lio_pipeline = LIOPipeline(self.lio_config)
@@ -546,18 +543,17 @@ if __name__ == "__main__":
     ChannelFactoryInitialize(0, "enp5s0")
 
     custom = CustomGo2Controller(
-        kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_front,
-        kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_back,
-        kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_side,
-        kinematic_walk_model.go2_kinematic.config.ReferenceGeneration.max_vel_yaw,
+        kinematic_walk_model.go2_planner.config.ReferenceGeneration.max_vel_front,
+        kinematic_walk_model.go2_planner.config.ReferenceGeneration.max_vel_back,
+        kinematic_walk_model.go2_planner.config.ReferenceGeneration.max_vel_side,
+        kinematic_walk_model.go2_planner.config.ReferenceGeneration.max_vel_yaw,
     )
     custom.start()
 
-    # custom.set_task("stand")
-    # time.sleep(6.0)
+    custom.set_task("stand")
+    time.sleep(6.0)
     # custom.set_task("kinematic-walk")
-    # time.sleep(20.0)
-    # custom.set_task("drop")
-    # time.sleep(3.0)
-    # custom.lieAndReleaseMode()
     time.sleep(10.0)
+    custom.set_task("drop")
+    time.sleep(3.0)
+    # time.sleep(10)

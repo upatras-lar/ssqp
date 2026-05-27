@@ -11,18 +11,18 @@ from utils_go2_mujoco import (
     mujoco_to_ssqp_state_kin,
 )
 
-import models.go2_kinematic.model as go2_kinematic
+import models.quadruped_hlplanner.planner as go2_planner
 
-go2_kinematic.config.ContactScheduling.T = 25
-go2_kinematic.config.ContactScheduling.hip_to_foot_offsets = {
+go2_planner.config.ContactScheduling.T = 25
+go2_planner.config.ContactScheduling.hip_to_foot_offsets = {
     "FL": np.array((0.3, 0.14, -0.36892682)),
     "FR": np.array((0.3, -0.14, -0.36892682)),
     "RL": np.array((-0.15, 0.14, -0.36892682)),
     "RR": np.array((-0.15, -0.14, -0.36892682)),
 }
-go2_kinematic.config.ContactScheduling.calculate()
+go2_planner.config.ContactScheduling.calculate()
 
-go2_kinematic.config.ReferenceGeneration.h_sw = 0.1
+go2_planner.config.ReferenceGeneration.h_sw = 0.1
 
 ssqpy.setSilentMode()
 
@@ -39,9 +39,9 @@ model = ssqpy.model.Model(
     solver_mode=ssqpy.model.SolverMode.Kinematics,
 )
 
-com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
+com_ref, xb_ref, p_ref = go2_planner.generate_references_MPC(
     v_cmd,
-    go2_kinematic.config.INIT_CONFIG,
+    go2_planner.config.INIT_CONFIG,
     np.zeros(3),
     0.0,
     MPC_H,
@@ -60,7 +60,7 @@ l_sigma = 0.5
 
 config_cost = costs.SquaredConfigurationErrorCost(
     model,
-    go2_kinematic.config.INIT_JOINT_CONFIG,
+    go2_planner.config.INIT_JOINT_CONFIG,
     q_q,
     "Configuration Regularization Cost",
 )
@@ -71,18 +71,16 @@ base_height_constraint = constraints.FramePositionBound(
     model,
     "base_link",
     np.array(
-        (-np.inf, -np.inf, go2_kinematic.config.ReferenceGeneration.zb_min)
+        (-np.inf, -np.inf, go2_planner.config.ReferenceGeneration.zb_min)
     ),
-    np.array(
-        (np.inf, np.inf, go2_kinematic.config.ReferenceGeneration.zb_max)
-    ),
+    np.array((np.inf, np.inf, go2_planner.config.ReferenceGeneration.zb_max)),
     "Base Height Constraint",
 )
 
 com_costs = []
 pose_costs = []
-feet_costs = {foot: [] for foot in go2_kinematic.config.FRAME_NAMES}
-feet_constraints = {foot: [] for foot in go2_kinematic.config.FRAME_NAMES}
+feet_costs = {foot: [] for foot in go2_planner.config.FRAME_NAMES}
+feet_constraints = {foot: [] for foot in go2_planner.config.FRAME_NAMES}
 line_segment_costs = []
 
 for k in range(MPC_H + 1):
@@ -97,7 +95,7 @@ for k in range(MPC_H + 1):
         model,
         "base_link",
         xb_ref[k][:3],
-        go2_kinematic.utils.quaternion_to_rotation_matrix(xb_ref[k][3:7]),
+        go2_planner.utils.quat_to_rotation_matrix(xb_ref[k][3:7]),
         q_b,
         q_o,
         f"Pose Cost {k}",
@@ -109,7 +107,7 @@ for k in range(MPC_H + 1):
     for foot in p_ref:
         foot_translation_cost = costs.FrameSquaredTranslationErrorCost(
             model,
-            go2_kinematic.config.FRAME_NAMES[foot],
+            go2_planner.config.FRAME_NAMES[foot],
             p_ref[foot][k][0],
             q_sw,
             f"Foot {foot} Swing Cost {k}",
@@ -120,7 +118,7 @@ for k in range(MPC_H + 1):
 
         foot_translation_bound = constraints.FramePositionBound(
             model,
-            go2_kinematic.config.FRAME_NAMES[foot],
+            go2_planner.config.FRAME_NAMES[foot],
             p_ref[foot][k][0],
             p_ref[foot][k][0],
             f"Foot {foot} Stance Constraint {k}",
@@ -134,7 +132,7 @@ for k in range(MPC_H + 1):
         else:  # stance
             foot_translation_cost.set_enabled(False)
 
-    line_segment_cost = go2_kinematic.LineSegmentCost(
+    line_segment_cost = go2_planner.LineSegmentCost(
         model,
         {foot: p_ref[foot][k] for foot in p_ref},
         q_sp,
@@ -153,7 +151,7 @@ for k in range(MPC_H + 1):
     model.addConstraints(k, base_height_constraint)
 
 model.finalize(
-    init_states=[go2_kinematic.config.INIT_CONFIG],
+    init_states=[go2_planner.config.INIT_CONFIG],
 )
 
 ssqp_params = ssqpy.solvers.ssqpParams()
@@ -177,7 +175,7 @@ np.set_printoptions(suppress=True)
 
 def update_func(v_cmd, config, vel, step):
     vel_3 = np.hstack((vel[:2], vel[5]))
-    com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
+    com_ref, xb_ref, p_ref = go2_planner.generate_references_MPC(
         v_cmd,
         config,
         vel_3,
@@ -191,12 +189,12 @@ def update_func(v_cmd, config, vel, step):
         com_costs[k].set_cref(com_ref[k])
         pose_costs[k].set_desired_translation(xb_ref[k][:3])
         pose_costs[k].set_desired_rotation(
-            go2_kinematic.utils.quaternion_to_rotation_matrix(xb_ref[k][3:7])
+            go2_planner.utils.quat_to_rotation_matrix(xb_ref[k][3:7])
         )
 
         stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
 
-        for foot in go2_kinematic.config.FRAME_NAMES:
+        for foot in go2_planner.config.FRAME_NAMES:
             if stage_p_ref[foot][1]:  # swing
                 feet_constraints[foot][k].set_enabled(False)
                 feet_costs[foot][k].set_enabled(True)
@@ -217,14 +215,14 @@ Kv = 2.0 * np.sqrt(Kp)
 
 joint_space_pd_controller = KinematicJointSpacePD(
     mpc,
-    go2_kinematic.config.INIT_CONFIG,
+    go2_planner.config.INIT_CONFIG,
     Kp=Kp,
     Kd=Kv,
     update_func=update_func,
-    max_vel_front=go2_kinematic.config.ReferenceGeneration.max_vel_front,
-    max_vel_back=go2_kinematic.config.ReferenceGeneration.max_vel_back,
-    max_vel_side=go2_kinematic.config.ReferenceGeneration.max_vel_side,
-    max_vel_yaw=go2_kinematic.config.ReferenceGeneration.max_vel_yaw,
+    max_vel_front=go2_planner.config.ReferenceGeneration.max_vel_front,
+    max_vel_back=go2_planner.config.ReferenceGeneration.max_vel_back,
+    max_vel_side=go2_planner.config.ReferenceGeneration.max_vel_side,
+    max_vel_yaw=go2_planner.config.ReferenceGeneration.max_vel_yaw,
 )
 
 joint_space_pd_controller.start_mpc()
@@ -235,7 +233,7 @@ import mujoco.viewer
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
-mjdata.qpos = ssqp_to_mujoco_state_kin(go2_kinematic.config.INIT_CONFIG)
+mjdata.qpos = ssqp_to_mujoco_state_kin(go2_planner.config.INIT_CONFIG)
 
 
 # mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]

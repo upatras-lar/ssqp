@@ -3,24 +3,24 @@ import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
 import numpy as np
 
-import models.go2_kinematic.model as go2_kinematic
+import models.quadruped_hlplanner.planner as go2_planner
 
-go2_kinematic.config.ContactScheduling.T = 28
-go2_kinematic.config.ContactScheduling.hip_to_foot_offsets = {
+go2_planner.config.ContactScheduling.T = 28
+go2_planner.config.ContactScheduling.hip_to_foot_offsets = {
     "FL": np.array((0.3, 0.15, -0.36892682)),
     "FR": np.array((0.3, -0.15, -0.36892682)),
     "RL": np.array((-0.15, 0.15, -0.36892682)),
     "RR": np.array((-0.15, -0.15, -0.36892682)),
 }
-go2_kinematic.config.ContactScheduling.calculate()
+go2_planner.config.ContactScheduling.calculate()
 
-go2_kinematic.config.ReferenceGeneration.h_sw = 0.1
-go2_kinematic.config.ReferenceGeneration.zb_min = 0.37
-go2_kinematic.config.ReferenceGeneration.zb_max = 0.37
-go2_kinematic.config.ReferenceGeneration.max_vel_front = 1.2
-go2_kinematic.config.ReferenceGeneration.max_vel_back = 1.0
-go2_kinematic.config.ReferenceGeneration.max_vel_side = 0.5
-go2_kinematic.config.ReferenceGeneration.max_vel_yaw = 0.5
+go2_planner.config.ReferenceGeneration.h_sw = 0.1
+go2_planner.config.ReferenceGeneration.zb_min = 0.37
+go2_planner.config.ReferenceGeneration.zb_max = 0.37
+go2_planner.config.ReferenceGeneration.max_vel_front = 1.2
+go2_planner.config.ReferenceGeneration.max_vel_back = 1.0
+go2_planner.config.ReferenceGeneration.max_vel_side = 0.5
+go2_planner.config.ReferenceGeneration.max_vel_yaw = 0.5
 
 ssqpy.setSilentMode()
 
@@ -37,7 +37,7 @@ def get_controller(init_config):
         solver_mode=ssqpy.model.SolverMode.Kinematics,
     )
 
-    com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
+    com_ref, xb_ref, p_ref = go2_planner.generate_references_MPC(
         np.array((0.0, 0.0, 0.0)),
         init_config,
         np.zeros(3),
@@ -74,14 +74,14 @@ def get_controller(init_config):
             (
                 -np.inf,
                 -np.inf,
-                go2_kinematic.config.ReferenceGeneration.zb_min,
+                go2_planner.config.ReferenceGeneration.zb_min,
             )
         ),
         np.array(
             (
                 np.inf,
                 np.inf,
-                go2_kinematic.config.ReferenceGeneration.zb_max,
+                go2_planner.config.ReferenceGeneration.zb_max,
             )
         ),
         "Base Height Constraint",
@@ -89,8 +89,8 @@ def get_controller(init_config):
 
     com_costs = []
     pose_costs = []
-    feet_costs = {foot: [] for foot in go2_kinematic.config.FRAME_NAMES}
-    feet_constraints = {foot: [] for foot in go2_kinematic.config.FRAME_NAMES}
+    feet_costs = {foot: [] for foot in go2_planner.config.FRAME_NAMES}
+    feet_constraints = {foot: [] for foot in go2_planner.config.FRAME_NAMES}
     line_segment_costs = []
 
     for k in range(MPC_H + 1):
@@ -105,7 +105,7 @@ def get_controller(init_config):
             model,
             "base_link",
             xb_ref[k][:3],
-            go2_kinematic.utils.quaternion_to_rotation_matrix(xb_ref[k][3:7]),
+            go2_planner.utils.quat_to_rotation_matrix(xb_ref[k][3:7]),
             q_b,
             q_o,
             f"Pose Cost {k}",
@@ -117,7 +117,7 @@ def get_controller(init_config):
         for foot in p_ref:
             foot_translation_cost = costs.FrameSquaredTranslationErrorCost(
                 model,
-                go2_kinematic.config.FRAME_NAMES[foot],
+                go2_planner.config.FRAME_NAMES[foot],
                 p_ref[foot][k][0],
                 q_sw,
                 f"Foot {foot} Swing Cost {k}",
@@ -128,7 +128,7 @@ def get_controller(init_config):
 
             foot_translation_bound = constraints.FramePositionBound(
                 model,
-                go2_kinematic.config.FRAME_NAMES[foot],
+                go2_planner.config.FRAME_NAMES[foot],
                 p_ref[foot][k][0],
                 p_ref[foot][k][0],
                 f"Foot {foot} Stance Constraint {k}",
@@ -142,7 +142,7 @@ def get_controller(init_config):
             else:  # stance
                 foot_translation_cost.set_enabled(False)
 
-        line_segment_cost = go2_kinematic.LineSegmentCost(
+        line_segment_cost = go2_planner.LineSegmentCost(
             model,
             {foot: p_ref[foot][k] for foot in p_ref},
             q_sp,
@@ -184,7 +184,7 @@ def get_controller(init_config):
 
     def update_func(v_cmd, config, vel, step):
         vel_3 = np.hstack((vel[:2], vel[5]))
-        com_ref, xb_ref, p_ref = go2_kinematic.generate_references_MPC(
+        com_ref, xb_ref, p_ref = go2_planner.generate_references_MPC(
             v_cmd,
             config,
             vel_3,
@@ -198,14 +198,12 @@ def get_controller(init_config):
             com_costs[k].set_cref(com_ref[k])
             pose_costs[k].set_desired_translation(xb_ref[k][:3])
             pose_costs[k].set_desired_rotation(
-                go2_kinematic.utils.quaternion_to_rotation_matrix(
-                    xb_ref[k][3:7]
-                )
+                go2_planner.utils.quat_to_rotation_matrix(xb_ref[k][3:7])
             )
 
             stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
 
-            for foot in go2_kinematic.config.FRAME_NAMES:
+            for foot in go2_planner.config.FRAME_NAMES:
                 if stage_p_ref[foot][1]:  # swing
                     feet_constraints[foot][k].set_enabled(False)
                     feet_costs[foot][k].set_enabled(True)
