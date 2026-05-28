@@ -27,6 +27,9 @@ import kinematic_walk_model
 
 from mujoco_mpc.go2.go2_controllers.joystick import Controller
 
+import matplotlib.pyplot as plt
+from multiprocessing import Process, Queue
+
 LegID = {
     "FR_0": 0,
     "FR_1": 1,
@@ -86,6 +89,7 @@ class CustomGo2Controller:
         self.current_base_vel = np.zeros(3)
 
         self.state_lock = Lock()
+        self.lio_lock = Lock()
 
         # Position before starting stand move
         self._stand_ground_pos = [
@@ -191,7 +195,7 @@ class CustomGo2Controller:
             self.low_cmd.motor_cmd[i].tau = 0
 
         # Create publisher
-        self.lowcmd_publisher = ChannelPublisher("rt/lowcmd", LowCmd_)
+        self.lowcmd_publisher = ChannelPublisher("lowcmd", LowCmd_)
         self.lowcmd_publisher.Init()
 
         # Create LIO
@@ -244,11 +248,11 @@ class CustomGo2Controller:
         # self.sportmode_subscriber.Init(self._sportStateMessageHandler, 1)
 
         self.sc = SportClient()
-        self.sc.SetTimeout(0.2)
+        self.sc.SetTimeout(1.0)
         self.sc.Init()
 
         self.msc = MotionSwitcherClient()
-        self.msc.SetTimeout(0.2)
+        self.msc.SetTimeout(1.0)
         self.msc.Init()
 
         self.lieAndReleaseMode()
@@ -284,6 +288,7 @@ class CustomGo2Controller:
 
     # Private methods
     def _lowStateMessageHandler(self, msg: LowState_):
+        # TODO: IMU time
         if self.initial_timestamp is None:
             self.initial_timestamp = time.time()
 
@@ -298,11 +303,18 @@ class CustomGo2Controller:
             self.initial_timestamp + msg.tick / 1000 - self.first_imu_time
         )
 
-        self.lio_pipeline.add_imu(
-            imu_timestamp,
-            msg.imu_state.accelerometer,
-            msg.imu_state.gyroscope,
-        )
+        # print(f"Adding IMU with timestamp: {imu_timestamp}")
+
+        self.lio_lock.acquire()
+        try:
+            self.lio_pipeline.add_imu(
+                imu_timestamp,
+                msg.imu_state.accelerometer,
+                msg.imu_state.gyroscope,
+            )
+        except RuntimeError as err:
+            print(f"Failed to add IMU data with error: {err}")
+        self.lio_lock.release()
 
     def _pointCloudMessageHandler(self, msg: PointCloud2_):
         raw_bytes = bytes(msg.data)
@@ -339,27 +351,35 @@ class CustomGo2Controller:
         dtype = np.dtype(dtype_list)
         pc = np.frombuffer(raw_bytes, dtype=dtype)
 
-        xyz = np.stack([pc["x"], pc["y"], pc["z"]], axis=1)  # (N, 3)
+        xyz = np.stack([pc["x"], pc["y"], -pc["z"]], axis=1)  # (N, 3)
 
         header_s = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         timestamps = header_s + pc["time"].astype(np.float64)  # (N,)
 
+        # print(
+        #     f"Adding LIDAR with timestamp range: {timestamps.min()} - {timestamps.max()}"
+        # )
+
+        # queue.put((xyz, timestamps))
+
+        self.lio_lock.acquire()
         try:
             self.lio_pipeline.add_lidar(xyz, timestamps)
         except RuntimeError as err:
-            print(err)
-            return
+            print(f"Failed to add LIDAR data with error: {err}")
+        self.lio_lock.release()
 
         np.set_printoptions(suppress=True)
-        print(self.lio_pipeline.lio.pose())
+        print(
+            f"\rCurrent translation: {self.lio_pipeline.lio.pose()[:3, 3]}",
+            end="",
+        )
 
     def _sportStateMessageHandler(self, msg: SportModeState_):
         self.state_lock.acquire()
         self.current_base_pos = np.hstack((np.zeros(2), msg.position[2]))
         self.current_base_vel = np.array(msg.velocity)
         self.state_lock.release()
-
-        print(f"Got z-position: {msg.position[2]}")
 
     def _lowCmdWrite(self):
         if self.low_state is None:
@@ -539,8 +559,52 @@ class CustomGo2Controller:
         return np.hstack((base_vel, ang_vel, joint_vel))
 
 
+import time
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def plot_cloud(queue):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+
+    plt.ion()
+    plt.show()
+
+    sc = None
+
+    while True:
+        if queue.empty():
+            time.sleep(0.05)
+            continue
+
+        if sc is not None:
+            sc.remove()
+
+        xyz, _ = queue.get_nowait()
+
+        sc = ax.scatter(
+            xyz[:, 1],
+            xyz[:, 0],
+            xyz[:, 2],
+            s=1,
+        )
+
+        lims = 0.5
+        ax.set_xlim(-lims, lims)
+        ax.set_ylim(-lims, lims)
+        ax.set_zlim(-lims, lims)
+
+        plt.draw()
+        plt.pause(0.01)
+
+
 if __name__ == "__main__":
     ChannelFactoryInitialize(0, "enp5s0")
+
+    queue = Queue()
+    draw_proc = Process(target=plot_cloud, args=(queue,), daemon=True)
+    draw_proc.start()
 
     custom = CustomGo2Controller(
         kinematic_walk_model.go2_planner.config.ReferenceGeneration.max_vel_front,
@@ -550,10 +614,10 @@ if __name__ == "__main__":
     )
     custom.start()
 
-    custom.set_task("stand")
-    time.sleep(6.0)
+    # custom.set_task("stand")
+    # time.sleep(6.0)
     # custom.set_task("kinematic-walk")
-    time.sleep(10.0)
-    custom.set_task("drop")
-    time.sleep(3.0)
+    time.sleep(20.0)
+    # custom.set_task("drop")
+    # time.sleep(3.0)
     # time.sleep(10)

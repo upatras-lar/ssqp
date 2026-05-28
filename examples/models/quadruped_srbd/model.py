@@ -5,25 +5,8 @@ import ssqpy.model.costs as costs
 
 import numpy as np
 
-from pathlib import Path
-import os
-
 import models.quadruped_hlplanner.config as config
 import models.utils as utils
-
-# Pinocchio model creation
-import pinocchio as pin
-
-examples_env = os.environ.get("PYTHONPATH", "")
-sep = os.pathsep
-examples_dir_str = Path(
-    [p for p in examples_env.split(sep) if "examples" in p][0]
-)
-
-pin_model, _, _ = pin.buildModelsFromMJCF(
-    str(examples_dir_str / Path("assets/mjcf/go2/go2.xml"))
-)
-pin_data = pin_model.createData()
 
 # ---------------------------------------------------------------------------
 # State / tangent / control dimensions
@@ -362,12 +345,12 @@ class SRBDynamics(dynamics.StageDynamics):
 # ---------------------------------------------------------------------------
 # Cost
 # ---------------------------------------------------------------------------
-w_p = 100.0  # CoM position tracking
-w_o = 1.0  # Orientation tracking
-w_w = 1.0  # Angular velocity regularisation
-w_pf = 500.0  # Foot position tracking
-w_f = 1e-4  # Contact force regularisation
-w_vf = 1e-4  # Foot velocity regularisation
+w_p = 100.0
+w_o = 1.0
+w_w = 1.0
+w_pf = 100.0
+w_f = 1e-4
+w_vf = 1e-4
 
 Q_p = w_p * np.eye(3)
 Q_w = w_w * np.eye(3)
@@ -376,240 +359,325 @@ Q_f = w_f * np.eye(3)
 Q_vf = w_vf * np.eye(3)
 
 
-class SRBCost(costs.StageCost):
-    """Tracking + regularisation cost for the SRBD model.
-
-    Parameters
-    ----------
-    com_ref : (3,)  desired CoM position
-    xb_ref  : (7,)  desired base pose [p(3), q(4)]
-    p_ref   : dict  foot → [pos(3), is_swing(bool), vel_ref(3)]
-                    vel_ref used as swing foot velocity reference (control reg.)
-    terminal : bool
-    """
-
-    def __init__(self, com_ref, xb_ref, p_ref, terminal=False):
+# 1. CoM Position Tracking Cost
+class CoMTrackingCost(costs.StageCost):
+    def __init__(self, com_ref):
         super().__init__()
-        self.update_references(com_ref, xb_ref, p_ref)
-        self.terminal = terminal
-
-    def update_references(self, com_ref, xb_ref, p_ref):
         self.com_ref = com_ref
-        self.xb_ref = xb_ref
-        self.p_ref = p_ref
 
     def evaluate(self, x, u):
-        cost = 0.0
-
-        # CoM position tracking
         p_err = _p(x) - self.com_ref
-        cost += p_err @ Q_p @ p_err
-
-        # Orientation tracking
-        q_ref = self.xb_ref[3:7]
-        q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
-        q_err = utils.quat_mul(q_ref_inv, _q(x))
-        cost += w_o * np.dot(q_err[:3], q_err[:3])
-
-        # Angular velocity regularisation
-        cost += _w(x) @ Q_w @ _w(x)
-
-        for i, foot in enumerate(FEET):
-            # Track reference foot position (state)
-            pf_err = _pf(x, i) - self.p_ref[foot][0]
-            cost += pf_err @ Q_pf @ pf_err
-
-            is_swing = self.p_ref[foot][1]
-            if not self.terminal:
-                if not is_swing:
-                    # Stance: regularise contact force
-                    f_i = u[_O_F + 3 * i : _O_F + 3 * i + 3]
-                    cost += f_i @ Q_f @ f_i
-                fv_i = u[_O_V + 3 * i : _O_V + 3 * i + 3]
-                cost += fv_i @ Q_vf @ fv_i
-
-        return cost
+        return p_err @ Q_p @ p_err
 
     def gradient(self, x, u):
-        ndq = config.SRBDParameters.ndq
-        nu = config.SRBDParameters.nu
-        dx = np.zeros(ndq)
-        du = np.zeros(nu)
-
-        # CoM position
-        dx[_O_P_COM : _O_P_COM + 3] += 2.0 * Q_p @ (_p(x) - self.com_ref)
-
-        # Orientation
-        q_ref = self.xb_ref[3:7]
-        q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
-        q_err = utils.quat_mul(q_ref_inv, _q(x))
-        dx[_O_THETA : _O_THETA + 3] += 2.0 * w_o * q_err[:3]
-
-        # Angular velocity
-        dx[_O_OMEGA : _O_OMEGA + 3] += 2.0 * Q_w @ _w(x)
-
-        for i, foot in enumerate(FEET):
-            cs = _O_P_FEET + 3 * i
-            cf = _O_F + 3 * i
-            cvf = _O_V + 3 * i
-            dx[cs : cs + 3] += 2.0 * Q_pf @ (_pf(x, i) - self.p_ref[foot][0])
-
-            is_swing = self.p_ref[foot][1]
-            if not self.terminal:
-                if not is_swing:
-                    du[cf : cf + 3] += 2.0 * Q_f @ u[cf : cf + 3]
-                du[cvf : cvf + 3] += 2.0 * Q_vf @ u[cvf : cvf + 3]
-
+        dx = np.zeros(config.SRBDParameters.ndq)
+        du = np.zeros(config.SRBDParameters.nu)
+        dx[_O_P_COM : _O_P_COM + 3] = 2.0 * Q_p @ (_p(x) - self.com_ref)
         return dx, du
 
     def hessian_xx(self, x, u):
-        ndq = config.SRBDParameters.ndq
-        Hxx = np.zeros((ndq, ndq))
-        Hxx[_O_P_COM : _O_P_COM + 3, _O_P_COM : _O_P_COM + 3] += 2.0 * Q_p
-        Hxx[_O_THETA : _O_THETA + 3, _O_THETA : _O_THETA + 3] += (
-            2.0 * w_o * np.eye(3)
-        )
-        Hxx[_O_OMEGA : _O_OMEGA + 3, _O_OMEGA : _O_OMEGA + 3] += 2.0 * Q_w
-        for i, foot in enumerate(FEET):
-            cs = _O_P_FEET + 3 * i
-            Hxx[cs : cs + 3, cs : cs + 3] += 2.0 * Q_pf
+        Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+        Hxx[_O_P_COM : _O_P_COM + 3, _O_P_COM : _O_P_COM + 3] = 2.0 * Q_p
         return Hxx
 
     def hessian_xu(self, x, u):
         return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
 
     def hessian_uu(self, x, u):
-        nu = config.SRBDParameters.nu
-        Huu = np.zeros((nu, nu))
-        if not self.terminal:
-            for i, foot in enumerate(FEET):
-                is_swing = self.p_ref[foot][1]
-                if not is_swing:
-                    cf = _O_F + 3 * i
-                    Huu[cf : cf + 3, cf : cf + 3] += 2.0 * Q_f
-                cvf = _O_V + 3 * i
-                Huu[cvf : cvf + 3, cvf : cvf + 3] += 2.0 * Q_vf
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+# 2. Orientation Tracking Cost
+class OrientationTrackingCost(costs.StageCost):
+    def __init__(self, xb_ref):
+        super().__init__()
+        self.xb_ref = xb_ref
+
+    def evaluate(self, x, u):
+        q_ref = self.xb_ref[3:7]
+        q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
+        q_err = utils.quat_mul(q_ref_inv, _q(x))
+        return w_o * np.dot(q_err[:3], q_err[:3])
+
+    def gradient(self, x, u):
+        dx = np.zeros(config.SRBDParameters.ndq)
+        du = np.zeros(config.SRBDParameters.nu)
+        q_ref = self.xb_ref[3:7]
+        q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
+        q_err = utils.quat_mul(q_ref_inv, _q(x))
+        dx[_O_THETA : _O_THETA + 3] = 2.0 * w_o * q_err[:3]
+        return dx, du
+
+    def hessian_xx(self, x, u):
+        Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+        Hxx[_O_THETA : _O_THETA + 3, _O_THETA : _O_THETA + 3] = (
+            2.0 * w_o * np.eye(3)
+        )
+        return Hxx
+
+    def hessian_xu(self, x, u):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessian_uu(self, x, u):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+# 3. Angular Velocity Regularisation
+class AngularVelocityCost(costs.StageCost):
+    def __init__(self):
+        super().__init__()
+
+    def evaluate(self, x, u):
+        return _w(x) @ Q_w @ _w(x)
+
+    def gradient(self, x, u):
+        dx = np.zeros(config.SRBDParameters.ndq)
+        du = np.zeros(config.SRBDParameters.nu)
+        dx[_O_OMEGA : _O_OMEGA + 3] = 2.0 * Q_w @ _w(x)
+        return dx, du
+
+    def hessian_xx(self, x, u):
+        Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+        Hxx[_O_OMEGA : _O_OMEGA + 3, _O_OMEGA : _O_OMEGA + 3] = 2.0 * Q_w
+        return Hxx
+
+    def hessian_xu(self, x, u):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessian_uu(self, x, u):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+# 4. Foot Position Tracking Cost
+class FootTrackingCost(costs.StageCost):
+    def __init__(self, p_ref):
+        super().__init__()
+        self.p_ref = p_ref
+
+    def evaluate(self, x, u):
+        cost = 0.0
+        for i, foot in enumerate(FEET):
+            pf_err = _pf(x, i) - self.p_ref[foot][0]
+            cost += pf_err @ Q_pf @ pf_err
+        return cost
+
+    def gradient(self, x, u):
+        dx = np.zeros(config.SRBDParameters.ndq)
+        du = np.zeros(config.SRBDParameters.nu)
+        for i, foot in enumerate(FEET):
+            cs = _O_P_FEET + 3 * i
+            dx[cs : cs + 3] = 2.0 * Q_pf @ (_pf(x, i) - self.p_ref[foot][0])
+        return dx, du
+
+    def hessian_xx(self, x, u):
+        Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+        for i, foot in enumerate(FEET):
+            cs = _O_P_FEET + 3 * i
+            Hxx[cs : cs + 3, cs : cs + 3] = 2.0 * Q_pf
+        return Hxx
+
+    def hessian_xu(self, x, u):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessian_uu(self, x, u):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+# 5. Control Regularisation (Forces & Velocities)
+class ControlRegularizationCost(costs.StageCost):
+    def __init__(self, p_ref, terminal=False):
+        super().__init__()
+        self.p_ref = p_ref
+        self.terminal = terminal
+
+    def evaluate(self, x, u):
+        if self.terminal:
+            return 0.0
+        cost = 0.0
+        for i, foot in enumerate(FEET):
+            is_swing = self.p_ref[foot][1]
+            if not is_swing:
+                f_i = u[_O_F + 3 * i : _O_F + 3 * i + 3]
+                cost += f_i @ Q_f @ f_i
+            fv_i = u[_O_V + 3 * i : _O_V + 3 * i + 3]
+            cost += fv_i @ Q_vf @ fv_i
+        return cost
+
+    def gradient(self, x, u):
+        dx = np.zeros(config.SRBDParameters.ndq)
+        du = np.zeros(config.SRBDParameters.nu)
+        if self.terminal:
+            return dx, du
+
+        for i, foot in enumerate(FEET):
+            is_swing = self.p_ref[foot][1]
+            if not is_swing:
+                cf = _O_F + 3 * i
+                du[cf : cf + 3] = 2.0 * Q_f @ u[cf : cf + 3]
+            cvf = _O_V + 3 * i
+            du[cvf : cvf + 3] = 2.0 * Q_vf @ u[cvf : cvf + 3]
+        return dx, du
+
+    def hessian_xx(self, x, u):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+
+    def hessian_xu(self, x, u):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessian_uu(self, x, u):
+        Huu = np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+        if self.terminal:
+            return Huu
+        for i, foot in enumerate(FEET):
+            is_swing = self.p_ref[foot][1]
+            if not is_swing:
+                cf = _O_F + 3 * i
+                Huu[cf : cf + 3, cf : cf + 3] = 2.0 * Q_f
+            cvf = _O_V + 3 * i
+            Huu[cvf : cvf + 3, cvf : cvf + 3] = 2.0 * Q_vf
         return Huu
 
 
 # ---------------------------------------------------------------------------
 # Constraints
-#
-# Per foot (8 entries):
-#   [0:5]  friction pyramid / force-zero
-#   [5:8]  foot velocity vᵢ  (control): = 0 for stance, free for swing
-# Plus 1 CoM height.
-# Total: 8×4 + 1 = 33
 # ---------------------------------------------------------------------------
 MU = 0.6
 F_Z_MIN = 1.0
 F_Z_MAX = 250.0
 Z_MIN = 0.20
 
-NC_PER_FOOT = 8
-NC_SRB = NC_PER_FOOT * NF + 1
 
-
-class SRBConstraints(constraints.StageConstraints):
-    """Friction pyramid, foot zero-velocity (stance), zero-force (swing),
-    and CoM height constraints.
-
-    Update each MPC step via ``update_contact_schedule``.
-    """
-
-    def __init__(self, p_ref):
-        super().__init__()
-        self.p_ref = p_ref
-
-    def update_contact_schedule(self, p_ref):
-        self.p_ref = p_ref
-
-    def _is_swing(self, foot):
-        return self.p_ref[foot][1]
-
+# 1. CoM Height Constraint
+class CoMHeightConstraint(constraints.StageConstraints):
     def output_size(self):
-        return NC_SRB
+        return 1
 
     def lower_bound(self):
-        lb = []
-        for foot in FEET:
-            if self._is_swing(foot):
-                lb += [0.0, 0.0, 0.0, 0.0, 0.0]  # force = 0
-                lb += [-np.inf, -np.inf, -np.inf]  # velocity free
-            else:
-                lb += [0.0, 0.0, 0.0, 0.0, F_Z_MIN]  # friction pyramid
-                lb += [0.0, 0.0, 0.0]  # velocity = 0
-        lb.append(Z_MIN)
-        return np.array(lb)
+        return np.array([Z_MIN])
 
     def upper_bound(self):
-        ub = []
-        for foot in FEET:
-            if self._is_swing(foot):
-                ub += [0.0, 0.0, 0.0, 0.0, 0.0]  # force = 0
-                ub += [np.inf, np.inf, np.inf]  # velocity free
-            else:
-                ub += [
-                    np.inf,
-                    np.inf,
-                    np.inf,
-                    np.inf,
-                    F_Z_MAX,
-                ]  # friction pyramid
-                ub += [0.0, 0.0, 0.0]  # velocity = 0
-        ub.append(np.inf)
-        return np.array(ub)
+        return np.array([np.inf])
 
     def evaluate(self, x, u):
-        c = []
-        for i, foot in enumerate(FEET):
-            fx, fy, fz = (
-                u[_O_F + 3 * i],
-                u[_O_F + 3 * i + 1],
-                u[_O_F + 3 * i + 2],
-            )
-
-            # Friction pyramid (5)
-            c.append(fx + MU * fz)
-            c.append(-fx + MU * fz)
-            c.append(fy + MU * fz)
-            c.append(-fy + MU * fz)
-            c.append(fz)
-
-            # Foot velocity (3) — control
-            c.extend(u[_O_V + 3 * i : _O_V + 3 * i + 3].tolist())
-
-        c.append(_p(x)[2])
-        return np.array(c)
+        return np.array([_p(x)[2]])
 
     def gradient(self, x, u):
-        ndq = config.SRBDParameters.ndq
-        nu = config.SRBDParameters.nu
-        dX = np.zeros((NC_SRB, ndq))
-        dU = np.zeros((NC_SRB, nu))
+        dX = np.zeros((1, config.SRBDParameters.ndq))
+        dU = np.zeros((1, config.SRBDParameters.nu))
+        dX[0, _O_P_COM + 2] = 1.0
+        return dX, dU
 
-        for i, foot in enumerate(FEET):
-            row = NC_PER_FOOT * i
-            cf = _O_F + 3 * i
-            cv = _O_V + 3 * i
+    def hessprod_xx(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
 
-            # Friction pyramid (rows 0–4)
-            dU[row, cf] = 1.0
-            dU[row, cf + 2] = MU
-            dU[row + 1, cf] = -1.0
-            dU[row + 1, cf + 2] = MU
-            dU[row + 2, cf + 1] = 1.0
-            dU[row + 2, cf + 2] = MU
-            dU[row + 3, cf + 1] = -1.0
-            dU[row + 3, cf + 2] = MU
-            dU[row + 4, cf + 2] = 1.0
+    def hessprod_xu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
 
-            # Foot velocity (rows 5–7) — control
-            dU[row + 5 : row + 8, cv : cv + 3] = np.eye(3)
+    def hessprod_uu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
 
-        # CoM height
-        dX[NC_SRB - 1, _O_P_COM + 2] = 1.0
 
+# 2. Friction Pyramid & Stance Force Constraint
+class FrictionAndForcesConstraint(constraints.StageConstraints):
+    def __init__(self, p_ref, foot_idx):
+        super().__init__()
+        self.p_ref = p_ref
+        self.foot_idx = foot_idx
+        self.foot_name = FEET[foot_idx]
+
+    def _is_swing(self):
+        return self.p_ref[self.foot_name][1]
+
+    def output_size(self):
+        return 5
+
+    def lower_bound(self):
+        lb = np.zeros(5)
+        if not self._is_swing():
+            lb[4] = F_Z_MIN
+        return lb
+
+    def upper_bound(self):
+        if self._is_swing():
+            return np.zeros(5)
+        else:
+            ub = np.full(5, np.inf)
+            ub[4] = F_Z_MAX
+            return ub
+
+    def evaluate(self, x, u):
+        cf = _O_F + 3 * self.foot_idx
+        fx, fy, fz = u[cf], u[cf + 1], u[cf + 2]
+
+        c = np.zeros(5)
+        c[0] = fx + MU * fz
+        c[1] = -fx + MU * fz
+        c[2] = fy + MU * fz
+        c[3] = -fy + MU * fz
+        c[4] = fz
+        return c
+
+    def gradient(self, x, u):
+        dX = np.zeros((5, config.SRBDParameters.ndq))
+        dU = np.zeros((5, config.SRBDParameters.nu))
+
+        cf = _O_F + 3 * self.foot_idx
+        dU[0, cf] = 1.0
+        dU[0, cf + 2] = MU
+        dU[1, cf] = -1.0
+        dU[1, cf + 2] = MU
+        dU[2, cf + 1] = 1.0
+        dU[2, cf + 2] = MU
+        dU[3, cf + 1] = -1.0
+        dU[3, cf + 2] = MU
+        dU[4, cf + 2] = 1.0
+
+        return dX, dU
+
+    def hessprod_xx(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+
+    def hessprod_xu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessprod_uu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+# 3. Foot Velocity Constraint
+class FootVelocityConstraint(constraints.StageConstraints):
+    def __init__(self, p_ref, foot_idx):
+        super().__init__()
+        self.p_ref = p_ref
+        self.foot_idx = foot_idx
+        self.foot_name = FEET[foot_idx]
+
+    def _is_swing(self):
+        return self.p_ref[self.foot_name][1]
+
+    def output_size(self):
+        return 3
+
+    def lower_bound(self):
+        if self._is_swing():
+            return np.full(3, -np.inf)
+        return np.zeros(3)
+
+    def upper_bound(self):
+        if self._is_swing():
+            return np.full(3, np.inf)
+        return np.zeros(3)
+
+    def evaluate(self, x, u):
+        cv = _O_V + 3 * self.foot_idx
+        return u[cv : cv + 3]
+
+    def gradient(self, x, u):
+        dX = np.zeros((3, config.SRBDParameters.ndq))
+        dU = np.zeros((3, config.SRBDParameters.nu))
+
+        cv = _O_V + 3 * self.foot_idx
+        dU[0:3, cv : cv + 3] = np.eye(3)
         return dX, dU
 
     def hessprod_xx(self, x, u, mu):
