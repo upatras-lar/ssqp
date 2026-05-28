@@ -18,26 +18,46 @@ com_ref, xb_ref, p_ref = go2_planner.generate_references(
 for i, p in enumerate(p_ref["RR"]):
     print(f"Position {i}: {p[0]}, swing: {p[1]}")
 
-stage_costs = []
-stage_constraints = []
-
 for k in range(H):
     stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
 
-    cost = go2_srbd.SRBCost(com_ref[k], xb_ref[k], stage_p_ref)
-    constr = go2_srbd.SRBConstraints(stage_p_ref)
+    com_cost = go2_srbd.CoMTrackingCost(com_ref[k])
+    orientation_cost = go2_srbd.OrientationTrackingCost(xb_ref[k])
+    angvel_cost = go2_srbd.AngularVelocityCost()
+    foot_cost = go2_srbd.FootTrackingCost(stage_p_ref)
+    control_cost = go2_srbd.ControlRegularizationCost(stage_p_ref)
 
-    stage_costs.append(cost)
-    stage_constraints.append(constr)
+    model.addCost(k, com_cost)
+    model.addCost(k, orientation_cost)
+    model.addCost(k, angvel_cost)
+    model.addCost(k, foot_cost)
+    model.addCost(k, control_cost)
 
-    model.addCost(k, cost)
-    model.addConstraints(k, constr)
+    height_constraint = go2_srbd.CoMHeightConstraint()
+    model.addConstraints(k, height_constraint)
+
+    for i, foot in enumerate(stage_p_ref):
+        foot_constraint = go2_srbd.FrictionAndForcesConstraint(stage_p_ref, i)
+        foot_vel_constraint = go2_srbd.FootVelocityConstraint(stage_p_ref, i)
+
+        model.addConstraints(k, foot_constraint)
+        model.addConstraints(k, foot_vel_constraint)
+
 
 stage_p_ref = {foot: p_ref[foot][H] for foot in p_ref}
 
-cost = go2_srbd.SRBCost(com_ref[H], xb_ref[H], stage_p_ref, terminal=True)
-stage_costs.append(cost)
-model.addCost(H, cost)
+com_cost = go2_srbd.CoMTrackingCost(com_ref[H])
+orientation_cost = go2_srbd.OrientationTrackingCost(xb_ref[H])
+angvel_cost = go2_srbd.AngularVelocityCost()
+foot_cost = go2_srbd.FootTrackingCost(stage_p_ref)
+
+model.addCost(H, com_cost)
+model.addCost(H, orientation_cost)
+model.addCost(H, angvel_cost)
+model.addCost(H, foot_cost)
+
+height_constraint = go2_srbd.CoMHeightConstraint()
+model.addConstraints(H, height_constraint)
 
 model.finalize(
     dynamics=[
