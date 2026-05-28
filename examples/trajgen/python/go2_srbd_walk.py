@@ -6,7 +6,7 @@ import models.quadruped_srbd.model as go2_srbd
 
 v_cmd = np.array((1.0, 0.0, 0.0))
 
-H = 100
+H = 200
 dt = 0.01
 
 model = ssqpy.model.Model(H, dt)
@@ -14,6 +14,9 @@ model = ssqpy.model.Model(H, dt)
 com_ref, xb_ref, p_ref = go2_planner.generate_references(
     v_cmd, go2_planner.config.INIT_CONFIG, np.zeros(3), 0.0, H, dt
 )
+
+for i, p in enumerate(p_ref["RR"]):
+    print(f"Position {i}: {p[0]}, swing: {p[1]}")
 
 stage_costs = []
 stage_constraints = []
@@ -60,6 +63,7 @@ model.finalize(
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
+ssqp_params.max_iter = 25
 ssqp_params.loose_success = True
 
 admm_params = ssqpy.solvers.admmParams()

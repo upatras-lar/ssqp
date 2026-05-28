@@ -37,7 +37,6 @@ pin_data = pin_model.createData()
 #   Control u   = [ f_FL(3)..f_RR(3), v_FL(3)..v_RR(3) ]
 #   nu  = 12 + 12 = 24
 # ---------------------------------------------------------------------------
-
 FEET = list(config.FRAME_NAMES.keys())  # [FL, FR, RL, RR]
 NF = len(FEET)  # 4
 
@@ -56,8 +55,6 @@ _O_V = 12  # v_footᵢ at [12+3i  : 15+3i]
 # ---------------------------------------------------------------------------
 # State accessors
 # ---------------------------------------------------------------------------
-
-
 def _p(x):
     return x[0:3]
 
@@ -85,8 +82,6 @@ def _pack(p, q, v, w, p_feet):
 # ---------------------------------------------------------------------------
 # Dynamics
 # ---------------------------------------------------------------------------
-
-
 class SRBDynamics(dynamics.StageDynamics):
     """Single Rigid Body Dynamics with foot positions as states.
 
@@ -367,17 +362,14 @@ class SRBDynamics(dynamics.StageDynamics):
 # ---------------------------------------------------------------------------
 # Cost
 # ---------------------------------------------------------------------------
-
-w_p = 50.0  # CoM position tracking
-w_v = 10.0  # CoM velocity tracking
-w_o = 100.0  # Orientation tracking
+w_p = 100.0  # CoM position tracking
+w_o = 1.0  # Orientation tracking
 w_w = 1.0  # Angular velocity regularisation
+w_pf = 500.0  # Foot position tracking
 w_f = 1e-4  # Contact force regularisation
-w_pf = 10.0  # Swing foot position tracking
-w_vf = 1.0  # Swing foot velocity tracking (control regularisation)
+w_vf = 1e-4  # Foot velocity regularisation
 
 Q_p = w_p * np.eye(3)
-Q_v = w_v * np.eye(3)
 Q_w = w_w * np.eye(3)
 Q_pf = w_pf * np.eye(3)
 Q_f = w_f * np.eye(3)
@@ -423,16 +415,18 @@ class SRBCost(costs.StageCost):
         cost += _w(x) @ Q_w @ _w(x)
 
         for i, foot in enumerate(FEET):
+            # Track reference foot position (state)
+            pf_err = _pf(x, i) - self.p_ref[foot][0]
+            cost += pf_err @ Q_pf @ pf_err
+
             is_swing = self.p_ref[foot][1]
-            if is_swing:
-                # Swing: track reference foot position (state)
-                pf_err = _pf(x, i) - self.p_ref[foot][0]
-                cost += pf_err @ Q_pf @ pf_err
-            else:
-                if not self.terminal:
+            if not self.terminal:
+                if not is_swing:
                     # Stance: regularise contact force
                     f_i = u[_O_F + 3 * i : _O_F + 3 * i + 3]
                     cost += f_i @ Q_f @ f_i
+                fv_i = u[_O_V + 3 * i : _O_V + 3 * i + 3]
+                cost += fv_i @ Q_vf @ fv_i
 
         return cost
 
@@ -455,17 +449,16 @@ class SRBCost(costs.StageCost):
         dx[_O_OMEGA : _O_OMEGA + 3] += 2.0 * Q_w @ _w(x)
 
         for i, foot in enumerate(FEET):
-            is_swing = self.p_ref[foot][1]
             cs = _O_P_FEET + 3 * i
-            cv = _O_V + 3 * i
             cf = _O_F + 3 * i
-            if is_swing:
-                dx[cs : cs + 3] += (
-                    2.0 * Q_pf @ (_pf(x, i) - self.p_ref[foot][0])
-                )
-            else:
-                if not self.terminal:
+            cvf = _O_V + 3 * i
+            dx[cs : cs + 3] += 2.0 * Q_pf @ (_pf(x, i) - self.p_ref[foot][0])
+
+            is_swing = self.p_ref[foot][1]
+            if not self.terminal:
+                if not is_swing:
                     du[cf : cf + 3] += 2.0 * Q_f @ u[cf : cf + 3]
+                du[cvf : cvf + 3] += 2.0 * Q_vf @ u[cvf : cvf + 3]
 
         return dx, du
 
@@ -478,9 +471,8 @@ class SRBCost(costs.StageCost):
         )
         Hxx[_O_OMEGA : _O_OMEGA + 3, _O_OMEGA : _O_OMEGA + 3] += 2.0 * Q_w
         for i, foot in enumerate(FEET):
-            if self.p_ref[foot][1]:
-                cs = _O_P_FEET + 3 * i
-                Hxx[cs : cs + 3, cs : cs + 3] += 2.0 * Q_pf
+            cs = _O_P_FEET + 3 * i
+            Hxx[cs : cs + 3, cs : cs + 3] += 2.0 * Q_pf
         return Hxx
 
     def hessian_xu(self, x, u):
@@ -495,6 +487,8 @@ class SRBCost(costs.StageCost):
                 if not is_swing:
                     cf = _O_F + 3 * i
                     Huu[cf : cf + 3, cf : cf + 3] += 2.0 * Q_f
+                cvf = _O_V + 3 * i
+                Huu[cvf : cvf + 3, cvf : cvf + 3] += 2.0 * Q_vf
         return Huu
 
 
@@ -502,12 +496,11 @@ class SRBCost(costs.StageCost):
 # Constraints
 #
 # Per foot (8 entries):
-#   [0:5]  friction pyramid / force-zero  (same structure as before)
+#   [0:5]  friction pyramid / force-zero
 #   [5:8]  foot velocity vᵢ  (control): = 0 for stance, free for swing
 # Plus 1 CoM height.
 # Total: 8×4 + 1 = 33
 # ---------------------------------------------------------------------------
-
 MU = 0.6
 F_Z_MIN = 1.0
 F_Z_MAX = 250.0
