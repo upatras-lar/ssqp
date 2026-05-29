@@ -258,7 +258,11 @@ class ssqp
     // Write the current solution to the output file with the provided name
     bool write(const std::string &filepath);
 
+    // Get the SSQP solver's convergence data (after solving)
     const ConvergenceData convergenceData() const;
+
+    // Set the reduced SSQP output flag
+    void setReducedOutput(const bool reduced);
 
   protected:
     Params              _params;
@@ -275,6 +279,8 @@ class ssqp
     double _tolerance_init;
 
     ConvergenceData _convergence_data;
+
+    bool _reduced_output;
 
     template<bool withGradients, bool XMLModel = true>
     void _setup_qp();

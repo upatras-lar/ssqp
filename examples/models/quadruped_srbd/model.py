@@ -343,41 +343,30 @@ class SRBDynamics(dynamics.StageDynamics):
 
 
 # ---------------------------------------------------------------------------
-# Cost
+# Costs
 # ---------------------------------------------------------------------------
-w_p = 100.0
-w_o = 1.0
-w_w = 1.0
-w_pf = 100.0
-w_f = 1e-4
-w_vf = 1e-4
-
-Q_p = w_p * np.eye(3)
-Q_w = w_w * np.eye(3)
-Q_pf = w_pf * np.eye(3)
-Q_f = w_f * np.eye(3)
-Q_vf = w_vf * np.eye(3)
 
 
-# 1. CoM Position Tracking Cost
+# CoM Position Tracking Cost
 class CoMTrackingCost(costs.StageCost):
-    def __init__(self, com_ref):
+    def __init__(self, com_ref, weight):
         super().__init__()
         self.com_ref = com_ref
+        self.Q_p = weight * np.eye(3)
 
     def evaluate(self, x, u):
         p_err = _p(x) - self.com_ref
-        return p_err @ Q_p @ p_err
+        return p_err @ self.Q_p @ p_err
 
     def gradient(self, x, u):
         dx = np.zeros(config.SRBDParameters.ndq)
         du = np.zeros(config.SRBDParameters.nu)
-        dx[_O_P_COM : _O_P_COM + 3] = 2.0 * Q_p @ (_p(x) - self.com_ref)
+        dx[_O_P_COM : _O_P_COM + 3] = 2.0 * self.Q_p @ (_p(x) - self.com_ref)
         return dx, du
 
     def hessian_xx(self, x, u):
         Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
-        Hxx[_O_P_COM : _O_P_COM + 3, _O_P_COM : _O_P_COM + 3] = 2.0 * Q_p
+        Hxx[_O_P_COM : _O_P_COM + 3, _O_P_COM : _O_P_COM + 3] = 2.0 * self.Q_p
         return Hxx
 
     def hessian_xu(self, x, u):
@@ -387,17 +376,18 @@ class CoMTrackingCost(costs.StageCost):
         return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
 
 
-# 2. Orientation Tracking Cost
+# Orientation Tracking Cost
 class OrientationTrackingCost(costs.StageCost):
-    def __init__(self, xb_ref):
+    def __init__(self, xb_ref, weight):
         super().__init__()
         self.xb_ref = xb_ref
+        self.w_o = weight
 
     def evaluate(self, x, u):
         q_ref = self.xb_ref[3:7]
         q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
         q_err = utils.quat_mul(q_ref_inv, _q(x))
-        return w_o * np.dot(q_err[:3], q_err[:3])
+        return self.w_o * np.dot(q_err[:3], q_err[:3])
 
     def gradient(self, x, u):
         dx = np.zeros(config.SRBDParameters.ndq)
@@ -405,13 +395,13 @@ class OrientationTrackingCost(costs.StageCost):
         q_ref = self.xb_ref[3:7]
         q_ref_inv = np.array([-q_ref[0], -q_ref[1], -q_ref[2], q_ref[3]])
         q_err = utils.quat_mul(q_ref_inv, _q(x))
-        dx[_O_THETA : _O_THETA + 3] = 2.0 * w_o * q_err[:3]
+        dx[_O_THETA : _O_THETA + 3] = 2.0 * self.w_o * q_err[:3]
         return dx, du
 
     def hessian_xx(self, x, u):
         Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
         Hxx[_O_THETA : _O_THETA + 3, _O_THETA : _O_THETA + 3] = (
-            2.0 * w_o * np.eye(3)
+            2.0 * self.w_o * np.eye(3)
         )
         return Hxx
 
@@ -422,23 +412,24 @@ class OrientationTrackingCost(costs.StageCost):
         return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
 
 
-# 3. Angular Velocity Regularisation
-class AngularVelocityCost(costs.StageCost):
-    def __init__(self):
+# CoM Velocity Regularization
+class VelocityCost(costs.StageCost):
+    def __init__(self, weight):
         super().__init__()
+        self.Q_v = weight * np.eye(3)
 
     def evaluate(self, x, u):
-        return _w(x) @ Q_w @ _w(x)
+        return _v(x) @ self.Q_v @ _v(x)
 
     def gradient(self, x, u):
         dx = np.zeros(config.SRBDParameters.ndq)
         du = np.zeros(config.SRBDParameters.nu)
-        dx[_O_OMEGA : _O_OMEGA + 3] = 2.0 * Q_w @ _w(x)
+        dx[_O_V_COM : _O_V_COM + 3] = 2.0 * self.Q_v @ _v(x)
         return dx, du
 
     def hessian_xx(self, x, u):
         Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
-        Hxx[_O_OMEGA : _O_OMEGA + 3, _O_OMEGA : _O_OMEGA + 3] = 2.0 * Q_w
+        Hxx[_O_V_COM : _O_V_COM + 3, _O_V_COM : _O_V_COM + 3] = 2.0 * self.Q_v
         return Hxx
 
     def hessian_xu(self, x, u):
@@ -448,17 +439,45 @@ class AngularVelocityCost(costs.StageCost):
         return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
 
 
-# 4. Foot Position Tracking Cost
+# CoM Angular Velocity Regularization
+class AngularVelocityCost(costs.StageCost):
+    def __init__(self, weight):
+        super().__init__()
+        self.Q_w = weight * np.eye(3)
+
+    def evaluate(self, x, u):
+        return _w(x) @ self.Q_w @ _w(x)
+
+    def gradient(self, x, u):
+        dx = np.zeros(config.SRBDParameters.ndq)
+        du = np.zeros(config.SRBDParameters.nu)
+        dx[_O_OMEGA : _O_OMEGA + 3] = 2.0 * self.Q_w @ _w(x)
+        return dx, du
+
+    def hessian_xx(self, x, u):
+        Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+        Hxx[_O_OMEGA : _O_OMEGA + 3, _O_OMEGA : _O_OMEGA + 3] = 2.0 * self.Q_w
+        return Hxx
+
+    def hessian_xu(self, x, u):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessian_uu(self, x, u):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+# Foot Position Tracking Cost
 class FootTrackingCost(costs.StageCost):
-    def __init__(self, p_ref):
+    def __init__(self, p_ref, weight):
         super().__init__()
         self.p_ref = p_ref
+        self.Q_pf = weight * np.eye(3)
 
     def evaluate(self, x, u):
         cost = 0.0
         for i, foot in enumerate(FEET):
             pf_err = _pf(x, i) - self.p_ref[foot][0]
-            cost += pf_err @ Q_pf @ pf_err
+            cost += pf_err @ self.Q_pf @ pf_err
         return cost
 
     def gradient(self, x, u):
@@ -466,14 +485,16 @@ class FootTrackingCost(costs.StageCost):
         du = np.zeros(config.SRBDParameters.nu)
         for i, foot in enumerate(FEET):
             cs = _O_P_FEET + 3 * i
-            dx[cs : cs + 3] = 2.0 * Q_pf @ (_pf(x, i) - self.p_ref[foot][0])
+            dx[cs : cs + 3] = (
+                2.0 * self.Q_pf @ (_pf(x, i) - self.p_ref[foot][0])
+            )
         return dx, du
 
     def hessian_xx(self, x, u):
         Hxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
         for i, foot in enumerate(FEET):
             cs = _O_P_FEET + 3 * i
-            Hxx[cs : cs + 3, cs : cs + 3] = 2.0 * Q_pf
+            Hxx[cs : cs + 3, cs : cs + 3] = 2.0 * self.Q_pf
         return Hxx
 
     def hessian_xu(self, x, u):
@@ -483,11 +504,13 @@ class FootTrackingCost(costs.StageCost):
         return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
 
 
-# 5. Control Regularisation (Forces & Velocities)
+# Control Regularization (Forces & Velocities)
 class ControlRegularizationCost(costs.StageCost):
-    def __init__(self, p_ref, terminal=False):
+    def __init__(self, p_ref, weight_forces, weight_fvel, terminal=False):
         super().__init__()
         self.p_ref = p_ref
+        self.Q_f = weight_forces * np.eye(3)
+        self.Q_vf = weight_fvel * np.eye(3)
         self.terminal = terminal
 
     def evaluate(self, x, u):
@@ -495,12 +518,10 @@ class ControlRegularizationCost(costs.StageCost):
             return 0.0
         cost = 0.0
         for i, foot in enumerate(FEET):
-            is_swing = self.p_ref[foot][1]
-            if not is_swing:
-                f_i = u[_O_F + 3 * i : _O_F + 3 * i + 3]
-                cost += f_i @ Q_f @ f_i
+            f_i = u[_O_F + 3 * i : _O_F + 3 * i + 3]
+            cost += f_i @ self.Q_f @ f_i
             fv_i = u[_O_V + 3 * i : _O_V + 3 * i + 3]
-            cost += fv_i @ Q_vf @ fv_i
+            cost += fv_i @ self.Q_vf @ fv_i
         return cost
 
     def gradient(self, x, u):
@@ -510,12 +531,10 @@ class ControlRegularizationCost(costs.StageCost):
             return dx, du
 
         for i, foot in enumerate(FEET):
-            is_swing = self.p_ref[foot][1]
-            if not is_swing:
-                cf = _O_F + 3 * i
-                du[cf : cf + 3] = 2.0 * Q_f @ u[cf : cf + 3]
+            cf = _O_F + 3 * i
+            du[cf : cf + 3] = 2.0 * self.Q_f @ u[cf : cf + 3]
             cvf = _O_V + 3 * i
-            du[cvf : cvf + 3] = 2.0 * Q_vf @ u[cvf : cvf + 3]
+            du[cvf : cvf + 3] = 2.0 * self.Q_vf @ u[cvf : cvf + 3]
         return dx, du
 
     def hessian_xx(self, x, u):
@@ -529,31 +548,29 @@ class ControlRegularizationCost(costs.StageCost):
         if self.terminal:
             return Huu
         for i, foot in enumerate(FEET):
-            is_swing = self.p_ref[foot][1]
-            if not is_swing:
-                cf = _O_F + 3 * i
-                Huu[cf : cf + 3, cf : cf + 3] = 2.0 * Q_f
+            cf = _O_F + 3 * i
+            Huu[cf : cf + 3, cf : cf + 3] = 2.0 * self.Q_f
             cvf = _O_V + 3 * i
-            Huu[cvf : cvf + 3, cvf : cvf + 3] = 2.0 * Q_vf
+            Huu[cvf : cvf + 3, cvf : cvf + 3] = 2.0 * self.Q_vf
         return Huu
 
 
 # ---------------------------------------------------------------------------
 # Constraints
 # ---------------------------------------------------------------------------
-MU = 0.6
-F_Z_MIN = 1.0
-F_Z_MAX = 250.0
-Z_MIN = 0.20
 
 
 # 1. CoM Height Constraint
 class CoMHeightConstraint(constraints.StageConstraints):
+    def __init__(self, z_min):
+        super().__init__()
+        self.z_min = z_min
+
     def output_size(self):
         return 1
 
     def lower_bound(self):
-        return np.array([Z_MIN])
+        return np.array([self.z_min])
 
     def upper_bound(self):
         return np.array([np.inf])
@@ -579,11 +596,14 @@ class CoMHeightConstraint(constraints.StageConstraints):
 
 # 2. Friction Pyramid & Stance Force Constraint
 class FrictionAndForcesConstraint(constraints.StageConstraints):
-    def __init__(self, p_ref, foot_idx):
+    def __init__(self, p_ref, foot_idx, mu=0.6, fz_min=1.0, fz_max=250.0):
         super().__init__()
         self.p_ref = p_ref
         self.foot_idx = foot_idx
         self.foot_name = FEET[foot_idx]
+        self.mu = mu
+        self.fz_min = fz_min
+        self.fz_max = fz_max
 
     def _is_swing(self):
         return self.p_ref[self.foot_name][1]
@@ -594,7 +614,7 @@ class FrictionAndForcesConstraint(constraints.StageConstraints):
     def lower_bound(self):
         lb = np.zeros(5)
         if not self._is_swing():
-            lb[4] = F_Z_MIN
+            lb[4] = self.fz_min
         return lb
 
     def upper_bound(self):
@@ -602,7 +622,7 @@ class FrictionAndForcesConstraint(constraints.StageConstraints):
             return np.zeros(5)
         else:
             ub = np.full(5, np.inf)
-            ub[4] = F_Z_MAX
+            ub[4] = self.fz_max
             return ub
 
     def evaluate(self, x, u):
@@ -610,10 +630,10 @@ class FrictionAndForcesConstraint(constraints.StageConstraints):
         fx, fy, fz = u[cf], u[cf + 1], u[cf + 2]
 
         c = np.zeros(5)
-        c[0] = fx + MU * fz
-        c[1] = -fx + MU * fz
-        c[2] = fy + MU * fz
-        c[3] = -fy + MU * fz
+        c[0] = fx + self.mu * fz
+        c[1] = -fx + self.mu * fz
+        c[2] = fy + self.mu * fz
+        c[3] = -fy + self.mu * fz
         c[4] = fz
         return c
 
@@ -623,13 +643,13 @@ class FrictionAndForcesConstraint(constraints.StageConstraints):
 
         cf = _O_F + 3 * self.foot_idx
         dU[0, cf] = 1.0
-        dU[0, cf + 2] = MU
+        dU[0, cf + 2] = self.mu
         dU[1, cf] = -1.0
-        dU[1, cf + 2] = MU
+        dU[1, cf + 2] = self.mu
         dU[2, cf + 1] = 1.0
-        dU[2, cf + 2] = MU
+        dU[2, cf + 2] = self.mu
         dU[3, cf + 1] = -1.0
-        dU[3, cf + 2] = MU
+        dU[3, cf + 2] = self.mu
         dU[4, cf + 2] = 1.0
 
         return dX, dU
@@ -646,26 +666,17 @@ class FrictionAndForcesConstraint(constraints.StageConstraints):
 
 # 3. Foot Velocity Constraint
 class FootVelocityConstraint(constraints.StageConstraints):
-    def __init__(self, p_ref, foot_idx):
+    def __init__(self, foot_idx):
         super().__init__()
-        self.p_ref = p_ref
         self.foot_idx = foot_idx
-        self.foot_name = FEET[foot_idx]
-
-    def _is_swing(self):
-        return self.p_ref[self.foot_name][1]
 
     def output_size(self):
         return 3
 
     def lower_bound(self):
-        if self._is_swing():
-            return np.full(3, -np.inf)
         return np.zeros(3)
 
     def upper_bound(self):
-        if self._is_swing():
-            return np.full(3, np.inf)
         return np.zeros(3)
 
     def evaluate(self, x, u):

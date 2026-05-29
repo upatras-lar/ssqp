@@ -358,6 +358,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
   , _prev_cost_du(_guess.u, false)
   , _cost_du(_guess.u, false)
   , _tolerance_init(_params.tolerance)
+  , _reduced_output(false)
 {
     model::Dimensions              dims     = model.dims();
     const model::DynamicsContainer dynamics = model.dynamics();
@@ -889,6 +890,11 @@ const ssqp::ConvergenceData ssqp::convergenceData() const
     return _convergence_data;
 }
 
+void ssqp::setReducedOutput(bool reduced)
+{
+    _reduced_output = reduced;
+}
+
 void ssqp::_printIterationHeader() const
 {
     log_at(LogLevel::Info, std::setw(18));
@@ -898,15 +904,22 @@ void ssqp::_printIterationHeader() const
     log_at(LogLevel::Info, std::setw(18));
     log_at(LogLevel::Info, "Norm/du |");
     log_at(LogLevel::Info, std::setw(18));
-    log_at(LogLevel::Info, "Violation Stage |");
-    log_at(LogLevel::Info, std::setw(18));
     log_at(LogLevel::Info, "Violation |");
-    log_at(LogLevel::Info, std::setw(18));
-    log_at(LogLevel::Info, "QP Iterations |");
-    log_at(LogLevel::Info, std::setw(18));
-    log_at(LogLevel::Info, "QP Runtime (us) |");
-    log_at(LogLevel::Info, std::setw(18));
-    logln_at(LogLevel::Info, "Step Size");
+    if (!_reduced_output)
+    {
+        log_at(LogLevel::Info, std::setw(18));
+        log_at(LogLevel::Info, "Violation Stage |");
+        log_at(LogLevel::Info, std::setw(18));
+        log_at(LogLevel::Info, "QP Iterations |");
+        log_at(LogLevel::Info, std::setw(18));
+        log_at(LogLevel::Info, "QP Runtime (us) |");
+        log_at(LogLevel::Info, std::setw(18));
+        logln_at(LogLevel::Info, "Step Size");
+    }
+    else
+    {
+        log_at(LogLevel::Info, std::endl);
+    }
 }
 
 void ssqp::_printIterationInfo() const
@@ -920,23 +933,30 @@ void ssqp::_printIterationInfo() const
     log_at(LogLevel::Info, icd.norm_dx << " |");
     log_at(LogLevel::Info, std::setw(16) << std::setprecision(5));
     log_at(LogLevel::Info, icd.norm_du << " |");
-    log_at(LogLevel::Info, std::setw(16));
-    if (icd.first_violation_stage < 0.0)
+    log_at(LogLevel::Info, std::setw(16) << std::setprecision(5));
+    log_at(LogLevel::Info, icd.violation << " |");
+    if (!_reduced_output)
     {
-        log_at(LogLevel::Info, "-" << " |");
+        log_at(LogLevel::Info, std::setw(16));
+        if (icd.first_violation_stage < 0.0)
+        {
+            log_at(LogLevel::Info, "-" << " |");
+        }
+        else
+        {
+            log_at(LogLevel::Info, icd.first_violation_stage << " |");
+        }
+        log_at(LogLevel::Info, std::setw(16));
+        log_at(LogLevel::Info, icd.qp_iters << " |");
+        log_at(LogLevel::Info, std::setw(16));
+        log_at(LogLevel::Info, icd.qp_duration << " |");
+        log_at(LogLevel::Info, std::setw(16));
+        logln_at(LogLevel::Info, icd.step_size);
     }
     else
     {
-        log_at(LogLevel::Info, icd.first_violation_stage << " |");
+        log_at(LogLevel::Info, std::endl);
     }
-    log_at(LogLevel::Info, std::setw(16) << std::setprecision(5));
-    log_at(LogLevel::Info, icd.violation << " |");
-    log_at(LogLevel::Info, std::setw(16));
-    log_at(LogLevel::Info, icd.qp_iters << " |");
-    log_at(LogLevel::Info, std::setw(16));
-    log_at(LogLevel::Info, icd.qp_duration << " |");
-    log_at(LogLevel::Info, std::setw(16));
-    logln_at(LogLevel::Info, icd.step_size);
 }
 
 double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
