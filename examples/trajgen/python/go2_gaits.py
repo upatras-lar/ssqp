@@ -147,22 +147,18 @@ ssqp_params.loose_success = False
 ssqp_params.tolerance = 1e-2
 ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
-# admm_params =
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.max_iter = 500
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+ssqp_params.hpipmParams = hpipm_params
 
 # Create an SSQP solver for the model
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    tolerance=1e-2,
-    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    # accept_worse_update=True,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_max_iter=500,
-    # admm_reset_rho=False,
-    # admm_reset_y=False,
-    admm_warm_start=False,
-)
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 

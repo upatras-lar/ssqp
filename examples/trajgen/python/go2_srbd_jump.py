@@ -38,7 +38,7 @@ for k in range(H):
         )
         model.addConstraints(k, foot_reachability_constraint)
 
-        if k < 80 or k > 120:
+        if k < H // 3 or k > H // 3 + 40:
             foot_constraint = go2_srbd.FrictionConstraint(i)
             model.addConstraints(k, foot_constraint)
 
