@@ -506,9 +506,8 @@ class FootTrackingCost(costs.StageCost):
 
 # Control Regularization (Forces & Velocities)
 class ControlRegularizationCost(costs.StageCost):
-    def __init__(self, p_ref, weight_forces, weight_fvel, terminal=False):
+    def __init__(self, weight_forces, weight_fvel, terminal=False):
         super().__init__()
-        self.p_ref = p_ref
         self.Q_f = weight_forces * np.eye(3)
         self.Q_vf = weight_fvel * np.eye(3)
         self.terminal = terminal
@@ -594,52 +593,160 @@ class CoMHeightConstraint(constraints.StageConstraints):
         return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
 
 
-# Friction Pyramid & Stance Force Constraint
-class FrictionAndForcesConstraint(constraints.StageConstraints):
-    def __init__(self, p_ref, foot_idx, mu=0.6, fz_min=1.0, fz_max=250.0):
+# Direct constraint on feet forces
+class CoMPositionConstraint(constraints.StageConstraints):
+    def __init__(self, lb, ub):
         super().__init__()
-        self.p_ref = p_ref
+        self.lb = np.array(lb)
+        self.ub = np.array(ub)
+
+    def output_size(self):
+        return 3
+
+    def lower_bound(self):
+        return self.lb
+
+    def upper_bound(self):
+        return self.ub
+
+    def evaluate(self, x, u):
+        return _p(x)
+
+    def gradient(self, x, u):
+        dX = np.zeros((3, config.SRBDParameters.ndq))
+        dU = np.zeros((3, config.SRBDParameters.nu))
+
+        # Maps directly to the tangent space index for CoM position
+        dX[:, _O_P_COM : _O_P_COM + 3] = np.eye(3)
+
+        return dX, dU
+
+    def hessprod_xx(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+
+    def hessprod_xu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessprod_uu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+class CoMVelocityConstraint(constraints.StageConstraints):
+    def __init__(self, lb, ub):
+        super().__init__()
+        self.lb = np.array(lb)
+        self.ub = np.array(ub)
+
+    def output_size(self):
+        return 3
+
+    def lower_bound(self):
+        return self.lb
+
+    def upper_bound(self):
+        return self.ub
+
+    def evaluate(self, x, u):
+        return _v(x)
+
+    def gradient(self, x, u):
+        dX = np.zeros((3, config.SRBDParameters.ndq))
+        dU = np.zeros((3, config.SRBDParameters.nu))
+
+        dX[:, _O_V_COM : _O_V_COM + 3] = np.eye(3)
+
+        return dX, dU
+
+    def hessprod_xx(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+
+    def hessprod_xu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessprod_uu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+class ForceConstraint(constraints.StageConstraints):
+    def __init__(self, foot_idx, lb, ub):
+        super().__init__()
+        self.foot_idx = foot_idx
+        self.lb = np.array(lb)
+        self.ub = np.array(ub)
+
+    def output_size(self):
+        return 3
+
+    def lower_bound(self):
+        return self.lb
+
+    def upper_bound(self):
+        return self.ub
+
+    def evaluate(self, x, u):
+        cf = _O_F + 3 * self.foot_idx
+        return u[cf : cf + 3]
+
+    def gradient(self, x, u):
+        dX = np.zeros((3, config.SRBDParameters.ndq))
+        dU = np.zeros((3, config.SRBDParameters.nu))
+
+        cf = _O_F + 3 * self.foot_idx
+        dU[:3, cf : cf + 3] = np.eye(3)
+
+        return dX, dU
+
+    def hessprod_xx(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+
+    def hessprod_xu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessprod_uu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+# Friction Pyramid Constraint
+class FrictionConstraint(constraints.StageConstraints):
+    def __init__(self, foot_idx, mu=0.6, fz_min=1.0, fz_max=250.0):
+        super().__init__()
         self.foot_idx = foot_idx
         self.foot_name = FEET[foot_idx]
         self.mu = mu
         self.fz_min = fz_min
         self.fz_max = fz_max
 
-    def _is_swing(self):
-        return self.p_ref[self.foot_name][1]
-
     def output_size(self):
-        return 5
+        return 6
 
     def lower_bound(self):
-        lb = np.zeros(5)
-        if not self._is_swing():
-            lb[4] = self.fz_min
+        lb = np.zeros(6)
+        lb[4] = self.fz_min
+        lb[5] = -0.001
         return lb
 
     def upper_bound(self):
-        if self._is_swing():
-            return np.zeros(5)
-        else:
-            ub = np.full(5, np.inf)
-            ub[4] = self.fz_max
-            return ub
+        ub = np.full(6, np.inf)
+        ub[4] = self.fz_max
+        ub[5] = 0.001
+        return ub
 
     def evaluate(self, x, u):
         cf = _O_F + 3 * self.foot_idx
         fx, fy, fz = u[cf], u[cf + 1], u[cf + 2]
 
-        c = np.zeros(5)
+        c = np.zeros(6)
         c[0] = fx + self.mu * fz
         c[1] = -fx + self.mu * fz
         c[2] = fy + self.mu * fz
         c[3] = -fy + self.mu * fz
         c[4] = fz
+        c[5] = x[_O_P_FEET + 3 * self.foot_idx + 3]
         return c
 
     def gradient(self, x, u):
-        dX = np.zeros((5, config.SRBDParameters.ndq))
-        dU = np.zeros((5, config.SRBDParameters.nu))
+        dX = np.zeros((6, config.SRBDParameters.ndq))
+        dU = np.zeros((6, config.SRBDParameters.nu))
 
         cf = _O_F + 3 * self.foot_idx
         dU[0, cf] = 1.0
@@ -651,6 +758,8 @@ class FrictionAndForcesConstraint(constraints.StageConstraints):
         dU[3, cf + 1] = -1.0
         dU[3, cf + 2] = self.mu
         dU[4, cf + 2] = 1.0
+
+        dX[5, _O_P_FEET + 3 * self.foot_idx + 2] = 1.0
 
         return dX, dU
 

@@ -400,8 +400,11 @@ std::shared_ptr<StageConstraints> merge_constraints(
             dX       = MatX::Zero(ndc, ndx);
             dU       = MatX::Zero(ndc, u.size());
 
-            dX.block(0, 0, c1->constraint_diff_size(), ndx)      = tmp_dX;
-            dU.block(0, 0, c1->constraint_diff_size(), u.size()) = tmp_dU;
+            dX.block(0, 0, c1->constraint_diff_size(), ndx) = tmp_dX;
+            if (u.size())
+            {
+                dU.block(0, 0, c1->constraint_diff_size(), u.size()) = tmp_dU;
+            }
 
             if (c2->enabled())
             {
@@ -409,11 +412,14 @@ std::shared_ptr<StageConstraints> merge_constraints(
                 dX.block(c1->constraint_diff_size(),
                          0,
                          c2->constraint_diff_size(),
-                         ndx)      = tmp_dX;
-                dU.block(c1->constraint_diff_size(),
-                         0,
-                         c2->constraint_diff_size(),
-                         u.size()) = tmp_dU;
+                         ndx) = tmp_dX;
+                if (u.size())
+                {
+                    dU.block(c1->constraint_diff_size(),
+                             0,
+                             c2->constraint_diff_size(),
+                             u.size()) = tmp_dU;
+                }
             }
         }
         else
