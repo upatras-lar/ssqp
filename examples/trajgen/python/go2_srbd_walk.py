@@ -20,6 +20,7 @@ weight_force_vel = 1e-2
 
 # Constraint Parameters
 z_min = 0.3
+L_max = 0.8
 
 model = ssqpy.model.Model(H, dt)
 
@@ -55,9 +56,21 @@ for k in range(H):
         foot_constraint = go2_srbd.FrictionAndForcesConstraint(stage_p_ref, i)
         model.addConstraints(k, foot_constraint)
 
+        foot_reachability_constraint = go2_srbd.FootReachabilityConstraint(
+            i, L_max
+        )
+        model.addConstraints(k, foot_reachability_constraint)
+
         if not stage_p_ref[foot][1]:
-            foot_vel_constraint = go2_srbd.FootVelocityConstraint(i)
-            model.addConstraints(k, foot_vel_constraint)
+            foot_vel_constraint = go2_srbd.FootVelocityConstraint(
+                i, [0.0] * 3, [0.0] * 3
+            )
+        else:
+            foot_vel_constraint = go2_srbd.FootVelocityConstraint(
+                i, [-2.0] * 3, [2.0] * 3
+            )
+
+        model.addConstraints(k, foot_vel_constraint)
 
 
 stage_p_ref = {foot: p_ref[foot][H] for foot in p_ref}
