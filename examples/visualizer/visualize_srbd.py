@@ -31,8 +31,8 @@ def parse_args():
 
 
 def quat_to_rotmat(q):
-    """Convert quaternion [w, x, y, z] to a 3x3 rotation matrix."""
-    w, x, y, z = q / np.linalg.norm(q)
+    """Convert quaternion [x, y, z, w] to a 3x3 rotation matrix."""
+    x, y, z, w = q / np.linalg.norm(q)
     return np.array(
         [
             [
@@ -103,7 +103,7 @@ xmax, ymax, zmax = np.max(all_points, axis=0)
 pad = 0.1
 ax.set_xlim(xmin - pad, xmax + pad)
 ax.set_ylim(ymin - pad, ymax + pad)
-ax.set_zlim(min(0.0, zmin - pad), zmax + pad)
+ax.set_zlim(0.0, zmax + pad)
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("Z")
@@ -183,7 +183,7 @@ def update(frame):
     body_outline.set_3d_properties(loop[:, 2])
 
     # Front edge (indices 2 → 3, body -X end)
-    fe = verts[[2, 3]]
+    fe = verts[[0, 1]]
     front_line.set_data(fe[:, 0], fe[:, 1])
     front_line.set_3d_properties(fe[:, 2])
 

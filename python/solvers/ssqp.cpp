@@ -670,7 +670,10 @@ void bind_ssqp(nb::module_ &m)
            "path.")
       .def("getConvergenceData",
            &ssqp::convergenceData,
-           "Get the SSQP solver's convergence data (after solving).");
+           "Get the SSQP solver's convergence data (after solving).")
+      .def("setReducedOutput",
+           &ssqp::setReducedOutput,
+           "Set the reduced SSQP output flag.");
 }
 }
 }
