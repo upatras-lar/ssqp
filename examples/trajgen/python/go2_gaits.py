@@ -141,12 +141,20 @@ for k in range(HORIZON - FINAL_STANDING_STEPS, HORIZON):
 # Finalize the model
 model.finalize(init_states=init)
 
+# SSQP model parameters
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = False
+ssqp_params.tolerance = 1e-2
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+# admm_params =
+
 # Create an SSQP solver for the model
 solver = ssqpy.solvers.ssqp(
     model,
     loose_success=False,
     tolerance=1e-2,
-    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     # accept_worse_update=True,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-3,

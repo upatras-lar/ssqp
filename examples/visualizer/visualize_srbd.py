@@ -27,11 +27,23 @@ def parse_args():
         default=0.2,
         help="Body rectangle width along body-Y (default: 0.2)",
     )
+    parser.add_argument(
+        "--view-radius",
+        type=float,
+        default=0.6,
+        help="Half-extent of the camera window around the CoM (default: 0.8)",
+    )
+    parser.add_argument(
+        "--fixed-limits",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to fix axis limits",
+    )
+
     return parser.parse_args()
 
 
 def quat_to_rotmat(q):
-    """Convert quaternion [w, x, y, z] to a 3x3 rotation matrix."""
+    """Convert quaternion [x, y, z, w] to a 3x3 rotation matrix."""
     x, y, z, w = q / np.linalg.norm(q)
     return np.array(
         [
@@ -55,10 +67,7 @@ def quat_to_rotmat(q):
 
 
 def body_rect_world(com, R, L, W):
-    """
-    Four world-frame corners of the body rectangle, centred at `com`.
-    Order: front-left, front-right, rear-right, rear-left.
-    """
+    """Four world-frame corners centred at `com`: FL, FR, RR, RL."""
     corners_body = np.array(
         [
             [L / 2, W / 2, 0],
@@ -75,9 +84,7 @@ args = parse_args()
 with open(args.input, "r") as f:
     data = json.loads(f.read())
 
-# State: CoM pos (3) | quat (4) | vel (3) | ang_vel (3) | fp×4 (12)
 states = np.array([stage["state"] for stage in data["stage_data"]])
-
 com_pos = states[:, 0:3]
 quat = states[:, 3:7]
 com_vel = states[:, 7:10]
@@ -89,57 +96,55 @@ fp4 = states[:, 22:25]
 feet = [fp1, fp2, fp3, fp4]
 foot_labels = ["FL", "FR", "RL", "RR"]
 foot_colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
-# Index into body_rect_world corners (FL, FR, RR, RL) for each foot
 foot_corner_idx = [0, 1, 3, 2]  # FL→0, FR→1, RL→3, RR→2
 
 BODY_L = args.body_length
 BODY_W = args.body_width
+R_VIEW = args.view_radius  # fixed half-extent for every axis
 
 # ── Figure ────────────────────────────────────────────────────────────────────
 fig = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111, projection="3d")
 
-all_points = np.vstack([com_pos, fp1, fp2, fp3, fp4])
-xmin, ymin, zmin = np.min(all_points, axis=0)
-xmax, ymax, zmax = np.max(all_points, axis=0)
-pad = 0.1
-ax.set_xlim(xmin - pad, xmax + pad)
-ax.set_ylim(ymin - pad, ymax + pad)
-ax.set_zlim(min(0.0, zmin - pad), zmax + pad)
+if args.fixed_limits:
+    all_points = np.vstack([com_pos, fp1, fp2, fp3, fp4])
+    xmin, ymin, zmin = np.min(all_points, axis=0)
+    xmax, ymax, zmax = np.max(all_points, axis=0)
+    pad = 0.4
+    ax.set_xlim(xmin - pad, xmax + pad)
+    ax.set_ylim(ymin - pad, ymax + pad)
+    ax.set_zlim(0.0, zmax + pad)
+
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("Z")
 
-# ── Static artists (line-based, crash-proof) ──────────────────────────────────
-
+# ── Artists ───────────────────────────────────────────────────────────────────
 (com_artist,) = ax.plot(
     [], [], [], "o", markersize=6, color="black", label="CoM", zorder=5
 )
 (com_trail,) = ax.plot([], [], [], linewidth=1.5, color="gray", alpha=0.5)
 
-foot_artists, leg_lines = [], []
+foot_artists, leg_lines, leg_trails = [], [], []
 for label, color in zip(foot_labels, foot_colors):
     (fa,) = ax.plot([], [], [], "s", markersize=8, color=color, label=label)
     (ll,) = ax.plot([], [], [], linewidth=1.5, color=color, alpha=0.6)
+    (lt,) = ax.plot([], [], [], linewidth=1.5, color=color, alpha=0.3)
     foot_artists.append(fa)
     leg_lines.append(ll)
+    leg_trails.append(lt)
 
-# Rectangle outline: a closed 5-point loop (4 corners + wrap-around)
 (body_outline,) = ax.plot(
     [], [], [], linewidth=2, color="steelblue", label="Body"
 )
-
-# Front edge highlight (FL → FR)
 (front_line,) = ax.plot(
     [], [], [], linewidth=3, color="crimson", label="Front"
 )
 
-# ── Poly3DCollection fill — recreated each frame to avoid version crashes ──────
-body_fill = [None]  # mutable container so the closure can replace it
+body_fill = [None]
 
 
 def _refresh_fill(verts):
-    """Remove the old fill patch and add a fresh one."""
     if body_fill[0] is not None:
         body_fill[0].remove()
     poly = Poly3DCollection(
@@ -149,11 +154,9 @@ def _refresh_fill(verts):
     body_fill[0] = poly
 
 
-# Draw initial fill so the legend proxy exists from frame 0
 _refresh_fill(
     body_rect_world(com_pos[0], quat_to_rotmat(quat[0]), BODY_L, BODY_W)
 )
-
 ax.legend(loc="upper left", fontsize=8)
 
 # ── Animation update ──────────────────────────────────────────────────────────
@@ -162,36 +165,44 @@ ax.legend(loc="upper left", fontsize=8)
 def update(frame):
     cx, cy, cz = com_pos[frame]
 
+    # ── Follow camera: re-centre every axis on the current CoM ───────────────
+    if not args.fixed_limits:
+        ax.set_xlim(cx - R_VIEW, cx + R_VIEW)
+        ax.set_ylim(cy - R_VIEW, cy + R_VIEW)
+        ax.set_zlim(0.0, cz + R_VIEW)
+
+    # CoM
     com_artist.set_data([cx], [cy])
     com_artist.set_3d_properties([cz])
 
     com_trail.set_data(com_pos[: frame + 1, 0], com_pos[: frame + 1, 1])
     com_trail.set_3d_properties(com_pos[: frame + 1, 2])
 
-    # Body rectangle — computed first so corners are available for leg lines
+    # Body rectangle
     R = quat_to_rotmat(quat[frame])
     verts = body_rect_world(com_pos[frame], R, BODY_L, BODY_W)
 
+    # Feet + legs
     for i, foot in enumerate(feet):
         fx, fy, fz = foot[frame]
         foot_artists[i].set_data([fx], [fy])
         foot_artists[i].set_3d_properties([fz])
-        # Leg starts at the matching body corner, not the CoM
         kx, ky, kz = verts[foot_corner_idx[i]]
         leg_lines[i].set_data([kx, fx], [ky, fy])
         leg_lines[i].set_3d_properties([kz, fz])
+        leg_trails[i].set_data(foot[:frame, 0], foot[:frame, 1])
+        leg_trails[i].set_3d_properties(foot[:frame, 2])
 
-    # Closed outline loop
+    # Outline
     loop = np.vstack([verts, verts[0]])
     body_outline.set_data(loop[:, 0], loop[:, 1])
     body_outline.set_3d_properties(loop[:, 2])
 
-    # Front edge (indices 2 → 3, body -X end)
+    # Front edge
     fe = verts[[0, 1]]
     front_line.set_data(fe[:, 0], fe[:, 1])
     front_line.set_3d_properties(fe[:, 2])
 
-    # Recreate fill poly (avoids set_verts unpacking crash)
     _refresh_fill(verts)
 
     ax.set_title(f"SRBD Playback | Frame {frame}/{len(states)-1}")

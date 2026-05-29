@@ -6,7 +6,7 @@ import models.quadruped_srbd.model as go2_srbd
 
 v_cmd = np.array((1.0, 0.0, 0.0))
 
-H = 100
+H = 500
 dt = 0.01
 
 # Cost Weights
@@ -16,7 +16,7 @@ weight_vel = 1.0
 weight_angularvel = 1.0
 weight_feet = 100.0
 weight_forces = 1e-4
-weight_force_vel = 1e-2
+weight_foot_vel = 1e-2
 
 # Constraint Parameters
 z_min = 0.3
@@ -39,7 +39,7 @@ for k in range(H):
     angvel_cost = go2_srbd.AngularVelocityCost(weight_angularvel)
     foot_cost = go2_srbd.FootTrackingCost(stage_p_ref, weight_feet)
     control_cost = go2_srbd.ControlRegularizationCost(
-        stage_p_ref, weight_forces, weight_force_vel
+        weight_forces, weight_foot_vel
     )
 
     model.addCost(k, com_cost)
@@ -53,19 +53,24 @@ for k in range(H):
     model.addConstraints(k, height_constraint)
 
     for i, foot in enumerate(stage_p_ref):
-        foot_constraint = go2_srbd.FrictionAndForcesConstraint(stage_p_ref, i)
-        model.addConstraints(k, foot_constraint)
-
         foot_reachability_constraint = go2_srbd.FootReachabilityConstraint(
             i, L_max
         )
         model.addConstraints(k, foot_reachability_constraint)
 
         if not stage_p_ref[foot][1]:
+            friction_constraint = go2_srbd.FrictionConstraint(i)
+            model.addConstraints(k, friction_constraint)
+
             foot_vel_constraint = go2_srbd.FootVelocityConstraint(
                 i, [0.0] * 3, [0.0] * 3
             )
         else:
+            force_constraint = go2_srbd.ForceConstraint(
+                i, [0.0] * 3, [0.0] * 3
+            )
+            model.addConstraints(k, force_constraint)
+
             foot_vel_constraint = go2_srbd.FootVelocityConstraint(
                 i, [-2.0] * 3, [2.0] * 3
             )
@@ -118,12 +123,12 @@ ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
 ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
-# admm_params = ssqpy.solvers.admmParams()
+admm_params = ssqpy.solvers.admmParams()
 # admm_params.rho_update = False
-# admm_params.abs_tolerance = 1e-3
-# admm_params.rel_tolerance = 1e-3
-# admm_params.warm_start = True
-# ssqp_params.admmParams = admm_params
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.warm_start = True
+ssqp_params.admmParams = admm_params
 
 step = 0
 solver = ssqpy.solvers.ssqp(model, ssqp_params)
