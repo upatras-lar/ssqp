@@ -560,7 +560,7 @@ class ControlRegularizationCost(costs.StageCost):
 # ---------------------------------------------------------------------------
 
 
-# 1. CoM Height Constraint
+# CoM Height Constraint
 class CoMHeightConstraint(constraints.StageConstraints):
     def __init__(self, z_min):
         super().__init__()
@@ -594,7 +594,7 @@ class CoMHeightConstraint(constraints.StageConstraints):
         return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
 
 
-# 2. Friction Pyramid & Stance Force Constraint
+# Friction Pyramid & Stance Force Constraint
 class FrictionAndForcesConstraint(constraints.StageConstraints):
     def __init__(self, p_ref, foot_idx, mu=0.6, fz_min=1.0, fz_max=250.0):
         super().__init__()
@@ -664,20 +664,75 @@ class FrictionAndForcesConstraint(constraints.StageConstraints):
         return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
 
 
-# 3. Foot Velocity Constraint
-class FootVelocityConstraint(constraints.StageConstraints):
-    def __init__(self, foot_idx):
+class FootReachabilityConstraint(constraints.StageConstraints):
+    def __init__(self, foot_idx, L_max):
         super().__init__()
         self.foot_idx = foot_idx
+        self.L_max = L_max
+
+    def output_size(self):
+        return 1
+
+    def lower_bound(self):
+        return np.array((-np.inf,))
+
+    def upper_bound(self):
+        return np.array((self.L_max**2,))
+
+    def evaluate(self, x, u):
+        return np.array((np.linalg.norm(_pf(x, self.foot_idx) - _p(x)) ** 2,))
+
+    def gradient(self, x, u):
+        dX = np.zeros((1, config.SRBDParameters.ndq))
+        dU = np.zeros((1, config.SRBDParameters.nu))
+
+        r_i = _pf(x, self.foot_idx) - _p(x)
+
+        dX[0, _O_P_COM : _O_P_COM + 3] = -2.0 * r_i
+
+        cf = _O_P_FEET + 3 * self.foot_idx
+        dX[0, cf : cf + 3] = 2.0 * r_i
+
+        return dX, dU
+
+    def hessprod_xx(self, x, u, mu):
+        Pxx = np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.ndq))
+
+        H_block = 2.0 * mu[0] * np.eye(3)
+
+        Pxx[_O_P_COM : _O_P_COM + 3, _O_P_COM : _O_P_COM + 3] = H_block
+
+        cf = _O_P_FEET + 3 * self.foot_idx
+        Pxx[cf : cf + 3, cf : cf + 3] = H_block
+
+        Pxx[_O_P_COM : _O_P_COM + 3, cf : cf + 3] = -H_block
+        Pxx[cf : cf + 3, _O_P_COM : _O_P_COM + 3] = -H_block
+
+        return Pxx
+
+    def hessprod_xu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.ndq, config.SRBDParameters.nu))
+
+    def hessprod_uu(self, x, u, mu):
+        return np.zeros((config.SRBDParameters.nu, config.SRBDParameters.nu))
+
+
+# Foot Velocity Constraint
+class FootVelocityConstraint(constraints.StageConstraints):
+    def __init__(self, foot_idx, lower_bound, upper_bound):
+        super().__init__()
+        self.foot_idx = foot_idx
+        self.lb = np.array(lower_bound)
+        self.ub = np.array(upper_bound)
 
     def output_size(self):
         return 3
 
     def lower_bound(self):
-        return np.zeros(3)
+        return self.lb
 
     def upper_bound(self):
-        return np.zeros(3)
+        return self.ub
 
     def evaluate(self, x, u):
         cv = _O_V + 3 * self.foot_idx

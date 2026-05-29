@@ -31,7 +31,7 @@ def parse_args():
 
 
 def quat_to_rotmat(q):
-    """Convert quaternion [x, y, z, w] to a 3x3 rotation matrix."""
+    """Convert quaternion [w, x, y, z] to a 3x3 rotation matrix."""
     x, y, z, w = q / np.linalg.norm(q)
     return np.array(
         [
@@ -89,6 +89,8 @@ fp4 = states[:, 22:25]
 feet = [fp1, fp2, fp3, fp4]
 foot_labels = ["FL", "FR", "RL", "RR"]
 foot_colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
+# Index into body_rect_world corners (FL, FR, RR, RL) for each foot
+foot_corner_idx = [0, 1, 3, 2]  # FL→0, FR→1, RL→3, RR→2
 
 BODY_L = args.body_length
 BODY_W = args.body_width
@@ -103,7 +105,7 @@ xmax, ymax, zmax = np.max(all_points, axis=0)
 pad = 0.1
 ax.set_xlim(xmin - pad, xmax + pad)
 ax.set_ylim(ymin - pad, ymax + pad)
-ax.set_zlim(0.0, zmax + pad)
+ax.set_zlim(min(0.0, zmin - pad), zmax + pad)
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("Z")
@@ -166,16 +168,18 @@ def update(frame):
     com_trail.set_data(com_pos[: frame + 1, 0], com_pos[: frame + 1, 1])
     com_trail.set_3d_properties(com_pos[: frame + 1, 2])
 
+    # Body rectangle — computed first so corners are available for leg lines
+    R = quat_to_rotmat(quat[frame])
+    verts = body_rect_world(com_pos[frame], R, BODY_L, BODY_W)
+
     for i, foot in enumerate(feet):
         fx, fy, fz = foot[frame]
         foot_artists[i].set_data([fx], [fy])
         foot_artists[i].set_3d_properties([fz])
-        leg_lines[i].set_data([cx, fx], [cy, fy])
-        leg_lines[i].set_3d_properties([cz, fz])
-
-    # Body rectangle
-    R = quat_to_rotmat(quat[frame])
-    verts = body_rect_world(com_pos[frame], R, BODY_L, BODY_W)
+        # Leg starts at the matching body corner, not the CoM
+        kx, ky, kz = verts[foot_corner_idx[i]]
+        leg_lines[i].set_data([kx, fx], [ky, fy])
+        leg_lines[i].set_3d_properties([kz, fz])
 
     # Closed outline loop
     loop = np.vstack([verts, verts[0]])
