@@ -186,6 +186,9 @@ def _refresh_force_quivers(frame):
         return
 
     for i, (foot, color) in enumerate(zip(feet, foot_colors)):
+        if len(forces[i]) <= frame:
+            continue
+
         fx, fy, fz = foot[frame]
         dfx, dfy, dfz = forces[i][frame] * FORCE_SCALE
         # Only draw if the force is non-negligible
