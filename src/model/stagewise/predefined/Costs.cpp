@@ -21,6 +21,10 @@ SquaredJointAngleCost::SquaredJointAngleCost(const Model       &model,
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _weight(_free_flyer ? _nq - 7 : _nq)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredJointAngleCost with a custom Model with no custom properties set!");
+    // clang-format on
     _weight.setConstant(weight);
 }
 
@@ -34,6 +38,10 @@ SquaredJointAngleCost::SquaredJointAngleCost(const Model       &model,
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _weight(weight)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredJointAngleCost with a custom Model with no custom properties set!");
+    // clang-format on
     assert(_weight.size() == (_free_flyer ? _nq - 7 : _nq) &&
            "Invalid weight vector size");
 }
@@ -115,6 +123,10 @@ SquaredJointVelocityCost::SquaredJointVelocityCost(const Model       &model,
   , _njoints(model.floatingBase() ? _nv - 6 : _nv)
   , _weight(_njoints)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredJointVelocityCost with a custom Model with no custom properties set!");
+    // clang-format on
     _weight.setConstant(weight);
 }
 
@@ -126,6 +138,10 @@ SquaredJointVelocityCost::SquaredJointVelocityCost(const Model       &model,
   , _njoints(model.floatingBase() ? _nv - 6 : _nv)
   , _weight(weight)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredJointVelocityCost with a custom Model with no custom properties set!");
+    // clang-format on
     assert(weight.size() == _njoints && "Invalid weight vector size");
 }
 
@@ -192,6 +208,10 @@ SquaredControlCost::SquaredControlCost(const Model &model, const double weight,
                                                       : 2 * model.nv())
   , _weight(_nu)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredJointControlCost with a custom Model with no custom properties set!");
+    // clang-format on
     _weight.setConstant(weight);
 }
 
@@ -203,6 +223,10 @@ SquaredControlCost::SquaredControlCost(const Model &model, const VecX &weight,
                                                       : 2 * model.nv())
   , _weight(weight)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredJointControlCost with a custom Model with no custom properties set!");
+    // clang-format on
     assert(weight.size() == _nu && "Invalid weight vector size");
 }
 
@@ -271,6 +295,13 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model       &model,
   , _nu(model.nu())
   , _weight(_nu)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredIDTorqueCost with a custom Model with no custom properties set!");
+    // clang-format on
+    assert((model.solverMode() == SolverMode::InverseDynamics ||
+            model.solverMode() == SolverMode::ReducedInverseDynamics) &&
+           "Cannot use SquaredIDTorqueCost with a non-ID solver mode!");
     _weight.setConstant(weight);
 }
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const VecX &weight,
@@ -282,6 +313,13 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const VecX &weight,
   , _nu(model.nu())
   , _weight(weight)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredIDTorqueCost with a custom Model with no custom properties set!");
+    // clang-format on
+    assert((model.solverMode() == SolverMode::InverseDynamics ||
+            model.solverMode() == SolverMode::ReducedInverseDynamics) &&
+           "Cannot use SquaredIDTorqueCost with a non-ID solver mode!");
     assert(weight.size() == _nu && "Invalid weight vector size");
 }
 
@@ -398,6 +436,10 @@ SquaredForceCost::SquaredForceCost(const Model &model, const double weight,
   , _weight(weight)
   , _single_weight(true)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredForceCost with a custom Model with no custom properties set!");
+    // clang-format on
 }
 
 SquaredForceCost::SquaredForceCost(const Model &model, const VecX &weight,
@@ -409,6 +451,10 @@ SquaredForceCost::SquaredForceCost(const Model &model, const VecX &weight,
   , _weight_vec(weight)
   , _single_weight(false)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use SquaredForceCost with a custom Model with no custom properties set!");
+    // clang-format on
 }
 
 void SquaredForceCost::set_weight(const double weight)
@@ -504,6 +550,11 @@ SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   , _free_flyer(model.floatingBase())
   , _weight(_free_flyer ? _nv - 6 : _nv)
 {
+    // clang-format off
+    assert(
+      (model.xml() || model.hasCustomProperties()) &&
+      "Cannot use SquaredConfigurationErrorCost with a custom Model with no custom properties set!");
+    // clang-format on
     assert(desired_configuration.size() == (_free_flyer ? _nq - 7 : _nq) &&
            "Invalid desired configuration");
     _weight.setConstant(weight);
@@ -533,6 +584,11 @@ SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   , _free_flyer(model.floatingBase())
   , _weight(weight)
 {
+    // clang-format off
+    assert(
+      (model.xml() || model.hasCustomProperties()) &&
+      "Cannot use SquaredConfigurationErrorCost with a custom Model with no custom properties set!");
+    // clang-format on
     assert(desired_configuration.size() == (_free_flyer ? _nq - 7 : _nq) &&
            "Invalid desired configuration");
     assert(weight.size() == (_free_flyer ? _nv - 6 : _nv) &&
@@ -670,6 +726,8 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   , _frame(frame)
   , _desired_translation(desired_translation)
 {
+    assert(model.xml() &&
+           "Cannot use FrameSquaredTranslationErrorCost with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
@@ -686,6 +744,8 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   , _desired_translation(desired_translation)
   , _weight(weight)
 {
+    assert(model.xml() &&
+           "Cannot use FrameSquaredTranslationErrorCost with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
@@ -778,6 +838,8 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   , _desired_rotation(desired_rotation)
   , _weight(weight)
 {
+    assert(model.xml() &&
+           "Cannot use FrameSquaredRotationErrorCost with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
@@ -871,6 +933,8 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   , _desired_pose(desired_pose)
   , _weight(Mat6::Zero())
 {
+    assert(model.xml() &&
+           "Cannot use FrameSquaredPoseErrorCost with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.topLeftCorner<3, 3>()     = translation_weight * Mat3::Identity();
     _weight.bottomRightCorner<3, 3>() = rotation_weight * Mat3::Identity();
@@ -1020,6 +1084,8 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _frame(frame)
   , _desired_velocity(desired_velocity)
 {
+    assert(model.xml() &&
+           "Cannot use FrameSquaredVelocityErrorCost with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
@@ -1036,6 +1102,8 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _desired_velocity(desired_velocity)
   , _weight(weight)
 {
+    assert(model.xml() &&
+           "Cannot use FrameSquaredPoseErrorCost with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
@@ -1126,6 +1194,8 @@ FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
   , _frame(frame)
 
 {
+    assert(model.xml() &&
+           "Cannot use FrameSquaredVelocityCost with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
@@ -1142,6 +1212,8 @@ FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
   , _frame(frame)
   , _weight(weight)
 {
+    assert(model.xml() &&
+           "Cannot use FrameSquaredVelocityCost with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
@@ -1217,6 +1289,8 @@ CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model       &model,
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _cref(cref)
 {
+    assert(model.xml() &&
+           "Cannot use CenterOfMassTrackingCost with a custom Model");
     _weight.setConstant(weight);
 }
 
@@ -1232,6 +1306,8 @@ CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model       &model,
   , _cref(cref)
   , _weight(weight)
 {
+    assert(model.xml() &&
+           "Cannot use CenterOfMassTrackingCost with a custom Model");
 }
 
 void CenterOfMassTrackingCost::set_weight(const double weight)

@@ -56,7 +56,7 @@ model.finalize(
     init_states=[go2_planner.config.INIT_CONFIG],
 )
 
-custom_properties = ssqpy.model.customProperties()
+custom_properties = ssqpy.model.CustomProperties()
 custom_properties.nq = go2_planner.config.KinematicParameters.nq
 custom_properties.nv = go2_planner.config.KinematicParameters.ndq
 custom_properties.nu = go2_planner.config.KinematicParameters.ndq

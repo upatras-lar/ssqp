@@ -1,6 +1,7 @@
 #ifndef SSQP_MODEL_MODEL_HPP
 #define SSQP_MODEL_MODEL_HPP
 
+#include <unordered_set>
 #include <variant>
 #include <type_traits>
 #include <stdexcept>
@@ -302,7 +303,8 @@ class Model
     // Set the actuated joint indices vector
     void setActuatedJoints(const std::vector<uint> &actuated_joints);
 
-    // Below functions are undefined if no XML was used for initialization
+    // Below functions are undefined if no XML was used for initialization and
+    // no custom properties exist
     bool floatingBase() const;
     // Robot state size
     uint nq() const;

@@ -123,9 +123,9 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
           _bounded_joint_indices_to_config,
           _bounded_joint_indices_to_tangent,
           _free_flyer);
-    }
 
-    setActuatedJoints(structure.actuated_joints);
+        setActuatedJoints(structure.actuated_joints);
+    }
 }
 
 Model::Model(uint horizon, double dt, const Config &config) : Model(horizon, dt)
@@ -193,6 +193,21 @@ void Model::finalize(const Config &config)
         {
             throw std::runtime_error(
               "Invalid stage dynamics vector size for custom dynamics");
+        }
+
+        std::unordered_set<stagewise::StageDynamics *> dyn_set;
+        for (uint k = 0; k <= _dims.horizon + 1; ++k)
+        {
+            if (dyn_set.find(config.dynamics[k].get()) != dyn_set.end())
+            {
+                logln_at(LogLevel::Warning,
+                         "Warning: multiple uses of the same StageDynamics "
+                         "object is discouraged and can result in undefined "
+                         "behavior if different initial states are expected "
+                         "(e.g. in MPC)");
+                break;
+            }
+            dyn_set.emplace(config.dynamics[k].get());
         }
 
         if (config.init_states.size() == 1)
@@ -831,7 +846,6 @@ void Model::setActuatedJoints(const std::vector<uint> &actuated_joints)
 {
     if (actuated_joints.empty())
     {
-        _actuated_joints.clear();
         for (uint j = 0; j < (_solver_mode == SolverMode::ReducedInverseDynamics
                                 ? _dims.nu
                                 : _dims.njoints);
