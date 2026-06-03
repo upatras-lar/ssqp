@@ -11,8 +11,8 @@ option(WITH_HPIPM "Link against HPIPM and BLASFEO" OFF)
 option(PINOCCHIO_STATIC "Use a static Pinocchio build" OFF)
 option(ENABLE_PROFILING "Enable Tracy profiling" OFF)
 option(DISABLE_LOGGING "Add -DDISABLE_LOGGING compile flag" OFF)
-option(BUILD_EXAMPLES "Build example executables" ON)
-option(BUILD_TESTS "Build tests" ON)
+option(BUILD_EXAMPLES "Build example executables" OFF)
+option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_PYTHON "Build the Python extension" ON)
 
 # --- Output directories ---

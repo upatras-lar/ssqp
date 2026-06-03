@@ -29,6 +29,8 @@ NB_MODULE(ssqpy, m)
                               nb::is_arithmetic())
       .value("Info", ssqp::LogLevel::Info)
       .value("Debug", ssqp::LogLevel::Debug)
+      .value("Warning", ssqp::LogLevel::Warning)
+      .value("Error", ssqp::LogLevel::Error)
       .export_values();
 
     m.def("setSilentMode",

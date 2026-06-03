@@ -23,6 +23,10 @@ JointAngleConstraint::JointAngleConstraint(const Model &model, const VecX &lb,
   , _njoints(_free_flyer ? model.nq() - 7 : model.nq())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use JointAngleConstraint with a custom Model with no custom properties set!");
+    // clang-format on
     assert(lb.size() == ub.size() && lb.size() == _njoints &&
            "Invalid bound size");
 }
@@ -91,6 +95,10 @@ JointVelocityConstraint::JointVelocityConstraint(const Model &model,
   , _nv(model.nv())
   , _njoints(model.floatingBase() ? _nv - 6 : _nv)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use JointVelocityConstraint with a custom Model with no custom properties set!");
+    // clang-format on
     assert(lb.size() == ub.size() && lb.size() == _njoints &&
            "Invalid bound size");
 }
@@ -154,6 +162,10 @@ JointControlConstraint::JointControlConstraint(const Model &model,
   , _nu(model.nu())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
 {
+    // clang-format off
+    assert((model.xml() || model.hasCustomProperties()) &&
+           "Cannot use JointControlConstraint with a custom Model with no custom properties set!");
+    // clang-format on
     assert(lb.size() == ub.size() && lb.size() == _nu && "Invalid bound size");
 }
 
@@ -223,6 +235,7 @@ FramePositionBound::FramePositionBound(const Model       &model,
   , _lb(lb)
   , _ub(ub)
 {
+    assert(model.xml() && "Cannot use FramePositionBound with a custom Model");
     assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
@@ -300,6 +313,8 @@ FrameRotationBound::FrameRotationBound(const Model       &model,
   , _lb(lb)
   , _ub(ub)
 {
+    assert(model.xml() &&
+           "Cannot use FrameRotatationBound with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
@@ -379,6 +394,8 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(
   , _ub(ub)
   , _terminal(terminal)
 {
+    assert(model.xml() &&
+           "Cannot use FrameLinearVelocityBound with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
@@ -453,6 +470,7 @@ CenterOfMassBound::CenterOfMassBound(const Model &model, const Vec3 &lb,
   , _lb(lb)
   , _ub(ub)
 {
+    assert(model.xml() && "Cannot use CenterOfMassBound with a custom Model");
 }
 
 void CenterOfMassBound::set_lower_bound(const Vec3 &lb)
@@ -526,6 +544,7 @@ ContactConstraint::ContactConstraint(const Model       &model,
   , _mu(mu)
   , _eq_tol(eq_tol)
 {
+    assert(model.xml() && "Cannot use ContactConstraint with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 

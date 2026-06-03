@@ -126,7 +126,7 @@ void bind_Model(nb::module_ &m)
 
     nb::class_<Model::CustomProperties>(
       m,
-      "customProperties",
+      "CustomProperties",
       "Optional custom properties for non-XML models.")
       .def(nb::init())
       .def_rw("nq", &Model::CustomProperties::nq, "Joint configuration size.")
