@@ -11,6 +11,7 @@ void bind_terrain(nb::module_ &);
 void bind_costs(nb::module_ &);
 void bind_constraints(nb::module_ &);
 void bind_dynamics(nb::module_ &);
+void bind_custom(nb::module_ &);
 
 void bind_model(nb::module_ &m)
 {
@@ -35,12 +36,17 @@ void bind_model(nb::module_ &m)
         that the system model acts in. By default, this is the predefined
         `FlatTerrain` class.
         )doc");
+    auto custom      = m.def_submodule("custom", R"doc(
+        Submodule containing predefined custom implementations for various
+        models.
+        )doc");
 
     bind_Model(m);
     bind_terrain(terrain);
     bind_costs(costs);
     bind_constraints(constraints);
     bind_dynamics(dynamics);
+    bind_custom(custom);
 }
 }
 }

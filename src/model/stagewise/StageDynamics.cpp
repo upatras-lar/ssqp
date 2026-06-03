@@ -57,6 +57,23 @@ VecX StageDynamics::state_right_minus(const VecX &x, const VecX &y) const
 {
     return x - y;
 }
+
+uint StageDynamics::parameter_size() const
+{
+    return 0;
+}
+
+VecX StageDynamics::parameters() const
+{
+    return VecX::Zero(0);
+}
+
+MatX StageDynamics::parameter_gradient(const VecX &x, const VecX &u) const
+{
+    return MatX::Zero(state_diff_size(), 0);
+}
+
+void StageDynamics::update_parameters(const VecX &theta) {}
 }
 }
 }

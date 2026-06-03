@@ -81,6 +81,7 @@ using Vec4   = Eigen::Vector4d;
 using Vec6   = Eigen::Vector<double, 6>;
 using VecX   = Eigen::VectorXd;
 
+using Mat2  = Eigen::Matrix2d;
 using Mat3  = Eigen::Matrix3d;
 using Mat4  = Eigen::Matrix<double, 4, 4>;
 using Mat6  = Eigen::Matrix<double, 6, 6>;
