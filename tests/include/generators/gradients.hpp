@@ -11,6 +11,8 @@
 #include "model/stagewise/predefined/Costs.hpp"
 #include "model/stagewise/predefined/Constraints.hpp"
 
+#include "models/double_pendulum/DoublePendulum.hpp"
+
 namespace ssqp
 {
 namespace tests
@@ -35,6 +37,9 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
   const std::string &urdf_path, const bool floating_base,
   const model::SolverMode &sm, const bool forces, const bool unactuated_joints,
   const uint seed = 42);
+
+// Predefined Dynamics model gradients
+std::shared_ptr<Test> get_double_pendulum_dynamics_grad_test();
 
 // Predefined Constraint gradients
 std::shared_ptr<Test> get_joint_angle_constraint_grad_test();

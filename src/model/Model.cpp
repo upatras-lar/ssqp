@@ -846,6 +846,8 @@ void Model::setActuatedJoints(const std::vector<uint> &actuated_joints)
 {
     if (actuated_joints.empty())
     {
+        _actuated_joints.clear();
+
         for (uint j = 0; j < (_solver_mode == SolverMode::ReducedInverseDynamics
                                 ? _dims.nu
                                 : _dims.njoints);
@@ -1185,7 +1187,14 @@ VecX Model::randomState(const uint stage) const
     // TODO: Velocity limit
     VecX rx(_dynamics[stage]->state_size());
 
-    rx.head(_dims.nq) = pinocchio_wrapper::randomConfiguration(_impl);
+    if (_impl != nullptr)
+    {
+        rx.head(_dims.nq) = pinocchio_wrapper::randomConfiguration(_impl);
+    }
+    else
+    {
+        rx.head(_dims.nq) = _randomVector(_dims.nq);
+    }
 
     if (_solver_mode == SolverMode::ForwardDynamics ||
         _solver_mode == SolverMode::InverseDynamics ||
