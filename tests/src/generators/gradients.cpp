@@ -224,6 +224,41 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
                                                1e-4);
 }
 
+std::shared_ptr<Test> get_double_pendulum_dynamics_grad_test()
+{
+    model::Model::Structure       model_structure;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01);
+
+    std::shared_ptr<model::Model::CustomProperties> custom_properties =
+      std::make_shared<model::Model::CustomProperties>();
+    custom_properties->nq            = 2;
+    custom_properties->nv            = 2;
+    custom_properties->nu            = 2;
+    custom_properties->njoints       = 2;
+    custom_properties->floating_base = false;
+
+    model->setCustomProperties(custom_properties);
+
+    setup_model(model);
+
+    std::shared_ptr<model::custom::DoublePendulumDynamics> dynamics =
+      std::make_shared<model::custom::DoublePendulumDynamics>(
+        (Vec6() << 0.5, 0.2, 0.1, 0.05, 0.001, 0.02).finished());
+
+    model::Model::Config config;
+    config.dynamics = { dynamics, dynamics, dynamics };
+
+    model->finalize(config);
+
+    std::shared_ptr<FDGradDynamics> dynamics_test =
+      std::make_shared<FDGradDynamics>("DoublePendulumDynamicsGradTest",
+                                       model,
+                                       0);
+
+    return dynamics_test;
+}
+
 std::shared_ptr<Test> get_joint_angle_constraint_grad_test()
 {
     model::Model::Structure model_structure;
