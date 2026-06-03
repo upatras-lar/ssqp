@@ -357,7 +357,38 @@ void bind_Dynamics(nb::module_ &m)
         Get product $\nabla_{u} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
         Returns:
          Puu: Product, $n_u \times n_u$
-        )doc");
+        )doc")
+      .def("parameter_size",
+           &StageDynamics::parameter_size,
+           "Size of parameter vector $\theta$ (optional method)")
+      .def("parameters", &StageDynamics::parameters, R"doc(
+        Get parameter vector $\theta$
+
+        Note: Implementing this method is optional; this method allows for online
+        adaptation of any model parameters, $\theta$
+            )doc")
+      .def("parameter_gradient",
+           &StageDynamics::parameter_gradient,
+           nb::arg("x"),
+           nb::arg("u"),
+           R"doc(
+        Get dynamics Jacobian with respect to any model parameters, evaluated at
+        given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_{\theta} \boldsymbol{f}_{\theta, k}(\boldsymbol{x}, \boldsymbol{u})$
+        Returns:
+         gradient with respect to $\theta$, $n_{dx} \times n_{\theta}$
+
+        Note: Implementing this method is optional; this method allows for online
+        adaptation of any model parameters, $\theta$    
+            )doc")
+      .def("update_parameters",
+           &StageDynamics::update_parameters,
+           nb::arg("theta"),
+           R"doc(
+        Update parameter vector $\theta$
+            
+        Note: Implementing this method is optional; this method allows for online
+        adaptation of any model parameters, $\theta$     
+            )doc");
 }
 }
 }

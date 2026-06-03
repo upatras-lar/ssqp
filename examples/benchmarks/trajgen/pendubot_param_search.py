@@ -5,7 +5,9 @@ import generate_pendubot_problems
 
 
 def paramsearch_pendubot(
-    horizon, n_problems=10, dynamics_mode=ssqpy.model.SolverMode.InverseDynamics
+    horizon,
+    n_problems=10,
+    dynamics_mode=ssqpy.model.SolverMode.InverseDynamics,
 ):
     dynamics_mode_str = (
         "forward"
@@ -32,7 +34,7 @@ def paramsearch_pendubot(
         rho_update_iter_freqs=[1, 5, 10, 20],
         rho_updates=[True, False],
     )
-    param_search = ssqpy.solvers.ParamSearch(hyperparams_admm, problems)
+    param_search = ssqpy.solvers.HyperParamSearch(hyperparams_admm, problems)
 
     result_admm = param_search.search()
 
@@ -56,7 +58,7 @@ def paramsearch_pendubot(
         merit_mu_gammas=[0.1, 1.0],
         reg_prims=[1e-12],
     )
-    param_search = ssqpy.solvers.ParamSearch(hyperparams_hpipm, problems)
+    param_search = ssqpy.solvers.HyperParamSearch(hyperparams_hpipm, problems)
 
     result_hpipm = param_search.search()
 

@@ -217,6 +217,9 @@ void bind_Model(nb::module_ &m)
 
             new (self) Model(horizon, dt, structure);
         },
+        nb::arg("horizon"),
+        nb::arg("dt"),
+        nb::arg("kwargs"),
         R"doc(
         Initialize an SSQP Model.
 

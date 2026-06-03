@@ -27,7 +27,7 @@ def paramsearch_panda(dynamics_mode=ssqpy.model.SolverMode.InverseDynamics):
         adaptive_rho_tols=[5, 10, 25],
         rho_updates=[True, False],
     )
-    param_search = ssqpy.solvers.ParamSearch(hyperparams_admm, problems)
+    param_search = ssqpy.solvers.HyperParamSearch(hyperparams_admm, problems)
 
     result_admm = param_search.search()
 
@@ -51,7 +51,7 @@ def paramsearch_panda(dynamics_mode=ssqpy.model.SolverMode.InverseDynamics):
         merit_mu_gammas=[0.1, 0.5, 1.0],
         square_root_riccatis=[True, False],
     )
-    param_search = ssqpy.solvers.ParamSearch(hyperparams_hpipm, problems)
+    param_search = ssqpy.solvers.HyperParamSearch(hyperparams_hpipm, problems)
 
     result_hpipm = param_search.search()
 

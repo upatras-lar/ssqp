@@ -8,26 +8,24 @@ namespace ssqp
 {
 namespace model
 {
+namespace custom
+{
+/* Custom stagewise dynamics class for the double pendulum system
+ * Defines the double pendulum dynamics relative to 6 parameters:
+ *  1. Mass 1 (m1)
+ *  2. Mass 2 (m2)
+ *  3. Length 1 (l1)
+ *  4. Length 2 (l2)
+ *  5. Inertia 1 (I1)
+ *  6. Inertia 2 (I2)
+ */
 class DoublePendulumDynamics : public stagewise::StageDynamics
 {
   public:
-    struct Params
-    {
-        double m1, m2;
-        double l1, l2;
-        double I1, I2;
-        double g = 9.81;
-    };
-
-    DoublePendulumDynamics(const Params &params)
-      : StageDynamics()
+    DoublePendulumDynamics(const Vec6 &params, const std::string &name = "")
+      : StageDynamics(name)
       , _params(params)
     {
-    }
-
-    void updateParameters(const Params &params)
-    {
-        _params = params;
     }
 
     uint output_size() const override
@@ -55,13 +53,13 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
         const double tau2 = u(1);
 
         // Parameter aliases
-        const double m1 = _params.m1;
-        const double m2 = _params.m2;
-        const double l1 = _params.l1;
-        const double l2 = _params.l2;
-        const double I1 = _params.I1;
-        const double I2 = _params.I2;
-        const double g  = _params.g;
+        const double m1 = _params[0];
+        const double m2 = _params[1];
+        const double l1 = _params[2];
+        const double l2 = _params[3];
+        const double I1 = _params[4];
+        const double I2 = _params[5];
+        const double g  = 9.81;
 
         // Center of mass lengths (uniform mass)
         const double lc1 = 0.5 * l1;
@@ -135,13 +133,13 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
         double tau2 = u(1);
 
         // Parameter aliases
-        double m1 = _params.m1;
-        double m2 = _params.m2;
-        double l1 = _params.l1;
-        double l2 = _params.l2;
-        double I1 = _params.I1;
-        double I2 = _params.I2;
-        double g  = _params.g;
+        const double m1 = _params[0];
+        const double m2 = _params[1];
+        const double l1 = _params[2];
+        const double l2 = _params[3];
+        const double I1 = _params[4];
+        const double I2 = _params[5];
+        const double g  = 9.81;
 
         double lc1 = 0.5 * l1;
         double lc2 = 0.5 * l2;
@@ -155,7 +153,7 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
         double c12 = std::cos(q1 + q2);
 
         // --- Forward Dynamics (re-computed to get current accelerations ddq) ---
-        Eigen::Matrix2d M;
+        Mat2 M;
         M(0, 0) = I1 + I2 + m1 * lc1 * lc1 +
                   m2 * (l1 * l1 + lc2 * lc2 + 2.0 * l1 * lc2 * c2);
         M(0, 1) = I2 + m2 * (lc2 * lc2 + l1 * lc2 * c2);
@@ -167,55 +165,54 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
 
         double V2 = m2 * l1 * lc2 * dq1 * dq1 * s2 + m2 * g * lc2 * s12;
 
-        Eigen::Vector2d f(tau1 - V1, tau2 - V2);
-        Eigen::Matrix2d M_inv = M.inverse();
-        Eigen::Vector2d ddq   = M_inv * f;
+        Vec2 f(tau1 - V1, tau2 - V2);
+        Mat2 M_inv = M.inverse();
+        Vec2 ddq   = M_inv * f;
 
         // --- Analytical Partial Derivatives of M and V ---
 
         // 1. Partial derivatives with respect to q1
         // M does not depend on q1, so dM_dq1 = 0
-        Eigen::Vector2d dV_dq1((m1 * lc1 + m2 * l1) * g * c1 +
-                                 m2 * g * lc2 * c12,
-                               m2 * g * lc2 * c12);
+        Vec2 dV_dq1((m1 * lc1 + m2 * l1) * g * c1 + m2 * g * lc2 * c12,
+                    m2 * g * lc2 * c12);
 
         // 2. Partial derivatives with respect to q2
-        Eigen::Matrix2d dM_dq2;
+        Mat2 dM_dq2;
         dM_dq2(0, 0) = -2.0 * m2 * l1 * lc2 * s2;
         dM_dq2(0, 1) = -m2 * l1 * lc2 * s2;
         dM_dq2(1, 0) = dM_dq2(0, 1);
         dM_dq2(1, 1) = 0.0;
 
-        Eigen::Vector2d dV_dq2(
-          -m2 * l1 * lc2 * dq2 * (2.0 * dq1 + dq2) * c2 + m2 * g * lc2 * c12,
-          m2 * l1 * lc2 * dq1 * dq1 * c2 + m2 * g * lc2 * c12);
+        Vec2 dV_dq2(-m2 * l1 * lc2 * dq2 * (2.0 * dq1 + dq2) * c2 +
+                      m2 * g * lc2 * c12,
+                    m2 * l1 * lc2 * dq1 * dq1 * c2 + m2 * g * lc2 * c12);
 
         // 3. Partial derivatives with respect to dq1
-        Eigen::Vector2d dV_ddq1(-2.0 * m2 * l1 * lc2 * dq2 * s2,
-                                2.0 * m2 * l1 * lc2 * dq1 * s2);
+        Vec2 dV_ddq1(-2.0 * m2 * l1 * lc2 * dq2 * s2,
+                     2.0 * m2 * l1 * lc2 * dq1 * s2);
 
         // 4. Partial derivatives with respect to dq2
-        Eigen::Vector2d dV_ddq2(-2.0 * m2 * l1 * lc2 * (dq1 + dq2) * s2, 0.0);
+        Vec2 dV_ddq2(-2.0 * m2 * l1 * lc2 * (dq1 + dq2) * s2, 0.0);
 
         // --- Formulate partials of acceleration: ddq_dq and ddq_ddq ---
-        Eigen::Matrix2d ddq_dq;
+        Mat2 ddq_dq;
         // Column 0: partials w.r.t q1
         ddq_dq.col(0) = M_inv * (-dV_dq1);
         // Column 1: partials w.r.t q2 (includes dM/dq2 term)
         ddq_dq.col(1) = M_inv * (-dV_dq2 - dM_dq2 * ddq);
 
-        Eigen::Matrix2d ddq_ddq;
+        Mat2 ddq_ddq;
         // Column 0: partials w.r.t dq1, Column 1: partials w.r.t dq2
         ddq_ddq.col(0) = M_inv * (-dV_ddq1);
         ddq_ddq.col(1) = M_inv * (-dV_ddq2);
 
         // Partials w.r.t control u
-        Eigen::Matrix2d ddq_du = M_inv;
+        Mat2 ddq_du = M_inv;
 
         // --- Construct the final dX and dU block matrices using Semi-Implicit Euler relations ---
 
         // Identity matrix block helpers
-        Eigen::Matrix2d I = Eigen::Matrix2d::Identity();
+        Mat2 I = Mat2::Identity();
 
         // Upper rows of dX (partials of next_q)
         dX.block<2, 2>(0, 0) = I + ddq_dq * (_dt * _dt);
@@ -246,10 +243,18 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
         Puu.setZero(_nu, _nu);
     }
 
+    uint parameter_size() const override
+    {
+        return 6;
+    }
+
+    VecX parameters() const override
+    {
+        return _params;
+    }
+
     // TODO: verify
-    Eigen::Matrix<double, 4, 6> compute_param_jacobian(const VecX &x,
-                                                       const VecX &u,
-                                                       const VecX &next_x) const
+    MatX parameter_gradient(const VecX &x, const VecX &u) const override
     {
         // States & Controls
         const double q1  = x(0);
@@ -261,13 +266,13 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
         const double tau2 = u(1);
 
         // Parameter aliases
-        const double m1 = _params.m1;
-        const double m2 = _params.m2;
-        const double l1 = _params.l1;
-        const double l2 = _params.l2;
-        const double I1 = _params.I1;
-        const double I2 = _params.I2;
-        const double g  = _params.g;
+        const double m1 = _params[0];
+        const double m2 = _params[1];
+        const double l1 = _params[2];
+        const double l2 = _params[3];
+        const double I1 = _params[4];
+        const double I2 = _params[5];
+        const double g  = 9.81;
 
         // Center of mass lengths (uniform mass)
         const double lc1 = 0.5 * l1;
@@ -308,7 +313,7 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
         double ddq2 = (-M21 * f1 + M11 * f2) / det;
 
         // 1. Set up inverse Mass Matrix
-        Eigen::Matrix2d M_inv;
+        Mat2 M_inv;
         M_inv << M22 / det, -M12 / det, -M21 / det, M11 / det;
 
         // 2. Allocate Jacobian for accelerations w.r.t parameters (2 joints x 6 parameters)
@@ -317,8 +322,8 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
         // Loop through each parameter to compute partials: [m1, m2, l1, l2, I1, I2]
         for (int i = 0; i < 6; ++i)
         {
-            Eigen::Matrix2d dM = Eigen::Matrix2d::Zero();
-            Eigen::Vector2d dV = Eigen::Vector2d::Zero();
+            Mat2 dM = Mat2::Zero();
+            Vec2 dV = Vec2::Zero();
 
             switch (i)
             {
@@ -362,7 +367,7 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
             }
 
             // Accel derivative: d_ddq = -M^-1 * (dM * ddq + dV)
-            Eigen::Vector2d ddq(ddq1, ddq2);
+            Vec2 ddq(ddq1, ddq2);
             d_ddq_d_theta.col(i) = -M_inv * (dM * ddq + dV);
         }
 
@@ -378,7 +383,12 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
         J.row(0) = J.row(2) * _dt;
         J.row(1) = J.row(3) * _dt;
 
-        return J; // This maps exactly to d(next_x) / d(theta)
+        return J;
+    }
+
+    void update_parameters(const VecX &theta) override
+    {
+        _params = theta;
     }
 
   protected:
@@ -386,7 +396,8 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
     const uint   _nu = 2;
     const double _dt = 0.01;
 
-    Params _params;
+    Vec6 _params;
 };
+}
 }
 }
