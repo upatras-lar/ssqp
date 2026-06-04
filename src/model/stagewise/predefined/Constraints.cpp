@@ -48,6 +48,16 @@ uint JointAngleConstraint::output_size() const
     return _njoints;
 }
 
+VecX JointAngleConstraint::lower_bound() const
+{
+    return _lb;
+}
+
+VecX JointAngleConstraint::upper_bound() const
+{
+    return _ub;
+}
+
 VecX JointAngleConstraint::evaluate(const VecX &x, const VecX &u) const
 {
     return _free_flyer ? x.segment(7, _njoints) : x.head(_njoints);
@@ -120,6 +130,16 @@ uint JointVelocityConstraint::output_size() const
     return _njoints;
 }
 
+VecX JointVelocityConstraint::lower_bound() const
+{
+    return _lb;
+}
+
+VecX JointVelocityConstraint::upper_bound() const
+{
+    return _ub;
+}
+
 VecX JointVelocityConstraint::evaluate(const VecX &x, const VecX &u) const
 {
     return x.tail(_njoints);
@@ -184,6 +204,16 @@ void JointControlConstraint::set_upper_bound(const VecX &ub)
 uint JointControlConstraint::output_size() const
 {
     return _nu;
+}
+
+VecX JointControlConstraint::lower_bound() const
+{
+    return _lb;
+}
+
+VecX JointControlConstraint::upper_bound() const
+{
+    return _ub;
 }
 
 VecX JointControlConstraint::evaluate(const VecX &x, const VecX &u) const
