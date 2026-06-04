@@ -94,10 +94,8 @@ bool FDGradCost::run()
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
-               << "Norm dX: " << (dx - dxfd).lpNorm<Eigen::Infinity>()
-               << " at index: " << idx_dx << std::endl
-               << "Norm dU: " << (du - dufd).lpNorm<Eigen::Infinity>()
-               << " at index: " << idx_du << std::endl
+               << "Norm dX: " << dxdiff << " at index: " << idx_dx << std::endl
+               << "Norm dU: " << dudiff << " at index: " << idx_du << std::endl
                << "x: " << x.transpose() << std::endl
                << "u: " << u.transpose() << std::endl
                << "Gradient dx: " << dx.transpose() << std::endl
@@ -214,10 +212,10 @@ bool FDGradDynamics::run()
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
-               << "Norm dX: " << (dX - dXfd).lpNorm<Eigen::Infinity>()
-               << " at index: " << idx_dx_row << ", " << idx_dx_col << std::endl
-               << "Norm dU: " << (dU - dUfd).lpNorm<Eigen::Infinity>()
-               << " at index: " << idx_du_row << ", " << idx_du_col << std::endl
+               << "Norm dX: " << dXdiff << " at index: " << idx_dx_row << ", "
+               << idx_dx_col << std::endl
+               << "Norm dU: " << dUdiff << " at index: " << idx_du_row << ", "
+               << idx_du_col << std::endl
                << std::endl
                << "x: " << x.transpose() << std::endl
                << "u: " << u.transpose() << std::endl
@@ -229,6 +227,130 @@ bool FDGradDynamics::run()
                << dU << std::endl
                << "FD gradient dU: " << std::endl
                << dUfd << std::endl;
+
+            _failed_logs.push_back(ss.str());
+            pass = false;
+        }
+    }
+
+    return pass;
+}
+
+FDGradDynamicsParameters::FDGradDynamicsParameters(
+  const std::string &name, const std::shared_ptr<model::Model> &model,
+  const uint stage, const uint ninputs, const double h, const uint seed)
+  : Test(name)
+  , _model(model)
+  , _stage(stage)
+  , _dynamics(model->dynamics()[stage])
+  , _next_dynamics(model->dynamics()[stage + 1])
+  , _ninputs(ninputs)
+  , _h(h)
+  , _seed(seed)
+{
+}
+
+MatX FDGradDynamicsParameters::_fd_grad(const VecX &x, const VecX &u)
+{
+    uint ndx    = _dynamics->state_diff_size();
+    uint ntheta = _dynamics->parameter_size();
+
+    MatX dT(ndx, ntheta);
+
+    const VecX params           = _dynamics->parameters();
+    VecX       params_perturbed = params;
+
+    for (uint i = 0; i < ntheta; ++i)
+    {
+        VecX e(ntheta);
+        e.setUnit(i);
+
+        // Perturb parameter on one side
+        params_perturbed += _h * e;
+
+        // Update parameters and re-evaluate
+        _dynamics->update_parameters(params_perturbed);
+        VecX eval_plus = _dynamics->evaluate(x, u);
+
+        // Perturb parameter on other side
+        params_perturbed -= 2 * _h * e;
+
+        // Update and re-evaluate
+        _dynamics->update_parameters(params_perturbed);
+        VecX eval_minus = _dynamics->evaluate(x, u);
+
+        // Undo perturbation
+        params_perturbed += _h * e;
+
+        // Calculate column
+        dT.col(i) =
+          _next_dynamics->state_right_minus(eval_plus, eval_minus) / (2 * _h);
+    }
+
+    return dT;
+}
+
+bool FDGradDynamicsParameters::run()
+{
+    std::random_device dev;
+    std::mt19937       rng(dev());
+    rng.seed(_seed);
+    std::uniform_real_distribution<double> dist(0.1, 100.0);
+
+    const uint ntheta = _dynamics->parameter_size();
+
+    bool pass = true;
+
+    for (uint i = 0; i < _ninputs; ++i)
+    {
+        VecX x = _model->randomState(_stage);
+        VecX u = _model->randomControls(_stage);
+        VecX theta(ntheta);
+
+        for (uint j = 0; j < ntheta; ++j)
+        {
+            theta[j] = dist(rng);
+        }
+        _dynamics->update_parameters(theta);
+
+        MatX dT, dTfd;
+
+        dT   = _dynamics->parameter_gradient(x, u);
+        dTfd = _fd_grad(x, u);
+
+        double dTdiff = (dT - dTfd).lpNorm<Eigen::Infinity>();
+
+        if (std::isnan(dTdiff) || dTdiff > _h)
+        {
+            double max_diff   = 0.0;
+            int    idx_dt_row = -1, idx_dt_col = -1;
+
+            for (uint r = 0; r < dT.rows(); ++r)
+            {
+                for (uint c = 0; c < dT.cols(); ++c)
+                {
+                    double diff = std::abs(dT(r, c) - dTfd(r, c));
+                    if (diff > max_diff)
+                    {
+                        max_diff   = diff;
+                        idx_dt_row = r;
+                        idx_dt_col = c;
+                    }
+                }
+            }
+
+            std::stringstream ss;
+            ss << "Run " << i << " failed" << std::endl
+               << "Run input:" << std::endl
+               << "Norm dT: " << dTdiff << " at index: " << idx_dt_row << ", "
+               << idx_dt_col << std::endl
+               << "x: " << x.transpose() << std::endl
+               << "u: " << u.transpose() << std::endl
+               << "theta: " << _dynamics->parameters().transpose() << std::endl
+               << "Gradient dT: " << std::endl
+               << dT << std::endl
+               << "FD gradient dT: " << std::endl
+               << dTfd << std::endl;
 
             _failed_logs.push_back(ss.str());
             pass = false;
@@ -340,11 +462,11 @@ bool FDGradConstraints::run()
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
-               << "Norm dX: " << (dX - dXfd).lpNorm<Eigen::Infinity>()
-               << " at index: " << idx_dx_row << ", " << idx_dx_col << std::endl
+               << "Norm dX: " << dXdiff << " at index: " << idx_dx_row << ", "
+               << idx_dx_col << std::endl
                << std::endl
-               << "Norm dU: " << (dU - dUfd).lpNorm<Eigen::Infinity>()
-               << " at index: " << idx_du_row << ", " << idx_du_col << std::endl
+               << "Norm dU: " << dUdiff << " at index: " << idx_du_row << ", "
+               << idx_du_col << std::endl
                << std::endl
                << "x: " << x.transpose() << std::endl
                << "u: " << u.transpose() << std::endl
@@ -469,10 +591,8 @@ bool FDGradFullTrajectoryCost::run()
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
-               << "Norm dX: " << (dx - dxfd).vec.lpNorm<Eigen::Infinity>()
-               << std::endl
-               << "Norm dU: " << (du - dufd).vec.lpNorm<Eigen::Infinity>()
-               << std::endl
+               << "Norm dX: " << dxdiff << std::endl
+               << "Norm dU: " << dudiff << std::endl
                << "x:" << std::endl
                << x << std::endl
                << "u:" << std::endl
@@ -608,10 +728,8 @@ bool FDGradFullTrajectoryStageGap::run()
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
-               << "Norm dX: " << (dx - dxfd).vec.lpNorm<Eigen::Infinity>()
-               << std::endl
-               << "Norm dU: " << (du - dufd).vec.lpNorm<Eigen::Infinity>()
-               << std::endl
+               << "Norm dX: " << dxdiff << std::endl
+               << "Norm dU: " << dudiff << std::endl
                << "x:" << std::endl
                << x << std::endl
                << "u:" << std::endl
@@ -742,10 +860,8 @@ bool FDGradFullTrajectoryConstraintViolation::run()
             std::stringstream ss;
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
-               << "Norm dX: " << (dx - dxfd).vec.lpNorm<Eigen::Infinity>()
-               << std::endl
-               << "Norm dU: " << (du - dufd).vec.lpNorm<Eigen::Infinity>()
-               << std::endl
+               << "Norm dX: " << dxdiff << std::endl
+               << "Norm dU: " << dudiff << std::endl
                << "x:" << std::endl
                << x << std::endl
                << "u:" << std::endl

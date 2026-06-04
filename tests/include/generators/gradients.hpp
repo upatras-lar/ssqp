@@ -39,7 +39,12 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
   const uint seed = 42);
 
 // Predefined Dynamics model gradients
-std::shared_ptr<Test> get_double_pendulum_dynamics_grad_test();
+std::shared_ptr<Test> get_double_pendulum_dynamics_grad_test(
+  const uint seed = 42);
+
+// Predefined Dynamics model parameter gradients
+std::shared_ptr<Test> get_double_pendulum_dynamics_parameter_grad_test(
+  const uint seed = 42);
 
 // Predefined Constraint gradients
 std::shared_ptr<Test> get_joint_angle_constraint_grad_test();
