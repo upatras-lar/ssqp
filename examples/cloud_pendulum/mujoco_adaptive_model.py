@@ -5,12 +5,13 @@ import numpy as np
 from math import pi
 from time import time, sleep
 
-params = np.array([1.0, 0.5, 0.1, 0.1, 0.01, 0.01])
+params = np.array([0.5, 0.5, 0.1, 0.1, 0.01, 0.01])
 dyn = ssqpy.model.custom.DoublePendulumDynamics(params)
-gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=1000)
+gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
 
 # ssqpy.setSilentMode()
-ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
+# ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
+# ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
 ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
 MPC_H = 45
@@ -18,7 +19,6 @@ dt = 0.01
 
 V_WGT = 1e-3
 U_WGT = 1e-3
-TIP_WGT = 5.0
 
 model = ssqpy.model.Model(MPC_H, dt)
 
@@ -37,7 +37,7 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     model, np.array((pi, 0.0)), 1.0
 )
 
-torque_limits = np.array((0.15, 0.15))
+torque_limits = np.array((0.1, 0.1))
 torque_constraint = ssqpy.model.constraints.JointControlConstraint(
     model, -torque_limits, torque_limits
 )
@@ -62,7 +62,7 @@ ssqp_params.admmParams.abs_tolerance = 1e-3
 ssqp_params.admmParams.rel_tolerance = 1e-3
 ssqp_params.admmParams.warm_start = False
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=100)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
 mjmodel = mujoco.MjModel.from_xml_path(
     "../assets/mjcf/double_pendulum/double_pendulum.xml"
@@ -87,16 +87,16 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         if prev_state is not None:
             gn.addData(prev_state, control, state)
-            print("Adding data...")
-            print("x:", prev_state.tolist())
-            print("u:", control.tolist())
-            print("Next x:", state.tolist())
+            # print("Adding data...")
+            # print("x:", prev_state.tolist())
+            # print("u:", control.tolist())
+            # print("Next x:", state.tolist())
 
             new_params = dyn.parameters()
             print("New parameters:", new_params.tolist())
 
-            # for d in dynamics:
-            #     d.update_parameters(new_params)
+            for d in dynamics:
+                d.update_parameters(new_params)
 
         prev_state = state
 

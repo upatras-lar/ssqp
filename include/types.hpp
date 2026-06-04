@@ -33,7 +33,7 @@ enum LogLevel : int
 };
 
 inline uint GlobalLogMask =
-  LogLevel::Info || LogLevel::Warning || LogLevel::Error;
+  LogLevel::Info | LogLevel::Warning | LogLevel::Error;
 
 inline void set_silent_mode()
 {

@@ -29,18 +29,20 @@ class DynamicsParamGaussNewton
 
     struct DataPoint
     {
-        Eigen::Vector4d x_prev;
-        Eigen::Vector2d u;
-        Eigen::Vector4d x_pred, x_actual;
+        Vec4 x_prev;
+        Vec2 u;
+        Vec4 x_actual;
 
-        DataPoint(const VecX &x_prev, const VecX &u, const VecX &x_pred,
-                  const VecX &x_actual);
+        DataPoint(const VecX &x_prev, const VecX &u, const VecX &x_actual);
     };
 
     const uint            _state_size;
     const uint            _param_size;
     const uint            _window_size;
     std::deque<DataPoint> _window;
+
+    VecX _r;
+    MatX _J;
 };
 
 class HyperParamSearch
