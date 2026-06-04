@@ -5,7 +5,7 @@ import numpy as np
 from math import pi
 from time import time, sleep
 
-params = np.array([0.5, 0.5, 0.1, 0.1, 0.01, 0.01])
+params = np.array([0.1, 0.1, 0.1, 0.1, 0.01, 0.01])
 dyn = ssqpy.model.custom.DoublePendulumDynamics(params)
 gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
 

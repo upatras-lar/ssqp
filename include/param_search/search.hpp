@@ -4,7 +4,6 @@
 #include <omp.h>
 
 #include <vector>
-#include <deque>
 
 #include "solvers/ssqp.hpp"
 #include "solvers/admm_qp.hpp"
@@ -36,13 +35,15 @@ class DynamicsParamGaussNewton
         DataPoint(const VecX &x_prev, const VecX &u, const VecX &x_actual);
     };
 
-    const uint            _state_size;
-    const uint            _param_size;
-    const uint            _window_size;
-    std::deque<DataPoint> _window;
+    const uint             _state_size;
+    const uint             _param_size;
+    const uint             _window_size;
+    std::vector<DataPoint> _window;
 
     VecX _r;
     MatX _J;
+
+    double _jacobianSimilarity(const MatX &J1, const MatX &J2);
 };
 
 class HyperParamSearch

@@ -32,18 +32,49 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
 
     if (_window.size() > _window_size)
     {
-        _window.pop_front();
-    }
+        // Pre-calculate Jacobians for each data point
+        std::vector<MatX> jacobians(_window.size());
 
-    if (_window.size() == _window_size)
-    {
+        for (uint i = 0; i < _window.size(); ++i)
+        {
+            const DataPoint &p = _window[i];
+
+            jacobians[i] = _dynamics->parameter_gradient(p.x_prev, p.u);
+        }
+
+        // New point is the last
+        const MatX &J_new = jacobians.back();
+
+        // Find most similar data point using similarity in Jacobians
+        uint   closest_idx  = 0;
+        double closest_dist = _jacobianSimilarity(jacobians[0], J_new);
+
+        for (uint i = 1; i < _window_size; ++i)
+        {
+            const double dist = _jacobianSimilarity(jacobians[i], J_new);
+
+            if (dist < closest_dist)
+            {
+                closest_idx  = i;
+                closest_dist = dist;
+            }
+        }
+
+        // Replace most similar data point with new
+        _window[closest_idx] = _window.back();
+        _window.pop_back();
+
+        // Replace its Jacobian with the new one
+        jacobians[closest_idx] = jacobians.back();
+        jacobians.pop_back();
+
         _r.setZero();
         _J.setZero();
 
         VecX theta = _dynamics->parameters();
 
         // 2. Compute residuals and Jacobian
-        for (uint i = 0; i < _window.size(); ++i)
+        for (uint i = 0; i < _window_size; ++i)
         {
             const DataPoint &p       = _window[i];
             uint             row_idx = i * _state_size;
@@ -51,8 +82,9 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
             _r.segment(row_idx, _state_size) =
               p.x_actual - _dynamics->evaluate(p.x_prev, p.u);
 
+            // Use precalculated jacobians
             _J.block(i * _state_size, 0, _state_size, _param_size) =
-              -_dynamics->parameter_gradient(p.x_prev, p.u);
+              -jacobians[i];
         }
 
         // Map Jacobian to log-space
@@ -84,6 +116,12 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
 
         _dynamics->update_parameters(theta);
     }
+}
+
+double DynamicsParamGaussNewton::_jacobianSimilarity(const MatX &J1,
+                                                     const MatX &J2)
+{
+    return (J1 - J2).squaredNorm();
 }
 
 HyperParamSearch::HyperParamSearch(
