@@ -76,6 +76,9 @@ int main()
     tests.addTest(
       ssqp::tests::generators::get_double_pendulum_dynamics_grad_test());
 
+    tests.addTest(ssqp::tests::generators::
+                    get_double_pendulum_dynamics_parameter_grad_test());
+
     tests.addTest(
       ssqp::tests::generators::get_joint_angle_constraint_grad_test());
 

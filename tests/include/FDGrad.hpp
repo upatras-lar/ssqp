@@ -62,6 +62,28 @@ class FDGradDynamics : public Test
     void _fd_grad(const VecX &x, const VecX &u, MatX &dX, MatX &dU) const;
 };
 
+class FDGradDynamicsParameters : public Test
+{
+  public:
+    FDGradDynamicsParameters(const std::string                   &name,
+                             const std::shared_ptr<model::Model> &model,
+                             const uint stage, const uint ninputs = 100,
+                             const double h = 1e-6, const uint seed = 42);
+
+    bool run() override;
+
+  protected:
+    const std::shared_ptr<model::Model>                    _model;
+    const std::shared_ptr<model::stagewise::StageDynamics> _dynamics,
+      _next_dynamics;
+    const uint   _stage;
+    const uint   _ninputs;
+    const double _h;
+    const uint   _seed;
+
+    MatX _fd_grad(const VecX &x, const VecX &u);
+};
+
 /* Finite-differences gradient test for Constraints functions
  * Tests whether a constraints function's gradient is valid by comparing its 
  * output with that of the finite-differences gradient on random inputs
