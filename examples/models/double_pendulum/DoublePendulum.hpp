@@ -10,6 +10,8 @@ namespace model
 {
 namespace custom
 {
+namespace double_pendulum
+{
 /* Custom stagewise dynamics class for the double pendulum system
  * Defines the double pendulum dynamics relative to 6 parameters:
  *  1. Mass 1 (m1)
@@ -22,9 +24,11 @@ namespace custom
 class DoublePendulumDynamics : public stagewise::StageDynamics
 {
   public:
-    DoublePendulumDynamics(const Vec6 &params, const std::string &name = "")
+    DoublePendulumDynamics(const Vec6 &params, const double dt = 0.01,
+                           const std::string &name = "")
       : StageDynamics(name)
       , _params(params)
+      , _dt(dt)
     {
     }
 
@@ -394,10 +398,138 @@ class DoublePendulumDynamics : public stagewise::StageDynamics
   protected:
     const uint   _nq = 4;
     const uint   _nu = 2;
-    const double _dt = 0.01;
+    const double _dt;
 
     Vec6 _params;
 };
+
+class DoublePendulumTipCost : public stagewise::StageCost
+{
+  public:
+    DoublePendulumTipCost(const Vec2 &target, const double l1, const double l2,
+                          const double w_pos, const std::string &name = "")
+      : StageCost(name)
+      , _target(target)
+      , _l1(l1)
+      , _l2(l2)
+      , _w_pos(w_pos)
+    {
+    }
+
+    // Evaluate function: Returns a 1x1 vector containing the scalar cost
+    VecX evaluate(const VecX &x, const VecX &u) const override
+    {
+        const double q1 = x(0);
+        const double q2 = x(1);
+
+        // Forward kinematics for the tip
+        double x_tip = _l1 * std::sin(q1) + _l2 * std::sin(q1 + q2);
+        double y_tip = -_l1 * std::cos(q1) - _l2 * std::cos(q1 + q2);
+
+        // Position error
+        double dx = x_tip - _target(0);
+        double dy = y_tip - _target(1);
+
+        // Pure quadratic tracking cost
+        VecX cost(1);
+        cost(0) = 0.5 * _w_pos * (dx * dx + dy * dy);
+        return cost;
+    }
+
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override
+    {
+        dx.setZero(4); // State dimension is 4 (q1, q2, dq1, dq2)
+        du.setZero(u.size());
+
+        const double q1 = x(0);
+        const double q2 = x(1);
+
+        double s1  = std::sin(q1);
+        double c1  = std::cos(q1);
+        double s12 = std::sin(q1 + q2);
+        double c12 = std::cos(q1 + q2);
+
+        // Kinematics and tracking error
+        double x_tip = _l1 * s1 + _l2 * s12;
+        double y_tip = -_l1 * c1 - _l2 * c12;
+
+        double err_x = x_tip - _target(0);
+        double err_y = y_tip - _target(1);
+
+        // Kinematic Jacobian components (d(x_tip, y_tip) / d(q1, q2))
+        double dx_dq1 = _l1 * c1 + _l2 * c12;
+        double dx_dq2 = _l2 * c12;
+        double dy_dq1 = _l1 * s1 + _l2 * s12;
+        double dy_dq2 = _l2 * s12;
+
+        // Chain rule for state gradient (only affects positions q1, q2)
+        dx(0) = _w_pos * (err_x * dx_dq1 + err_y * dy_dq1);
+        dx(1) = _w_pos * (err_x * dx_dq2 + err_y * dy_dq2);
+        // dx(2) and dx(3) remain 0 (no velocity tracking penalty)
+        // du remains 0 (no control penalty)
+    }
+
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override
+    {
+        Hxx.setZero(4, 4);
+
+        const double q1 = x(0);
+        const double q2 = x(1);
+
+        double s1  = std::sin(q1);
+        double c1  = std::cos(q1);
+        double s12 = std::sin(q1 + q2);
+        double c12 = std::cos(q1 + q2);
+
+        double err_x = (_l1 * s1 + _l2 * s12) - _target(0);
+        double err_y = (-_l1 * c1 - _l2 * c12) - _target(1);
+
+        // Kinematic Jacobians
+        double dx_dq1 = _l1 * c1 + _l2 * c12;
+        double dx_dq2 = _l2 * c12;
+        double dy_dq1 = _l1 * s1 + _l2 * s12;
+        double dy_dq2 = _l2 * s12;
+
+        // Second derivatives of position coordinates w.r.t angles
+        double d2x_dq1q1 = -_l1 * s1 - _l2 * s12;
+        double d2x_dq1q2 = -_l2 * s12;
+        double d2x_dq2q2 = -_l2 * s12;
+
+        double d2y_dq1q1 = _l1 * c1 + _l2 * c12;
+        double d2y_dq1q2 = _l2 * c12;
+        double d2y_dq2q2 = _l2 * c12;
+
+        // Gauss-Newton term (J^T * J) + Exact curvature term
+        Hxx(0, 0) = _w_pos * ((dx_dq1 * dx_dq1 + dy_dq1 * dy_dq1) +
+                              (err_x * d2x_dq1q1 + err_y * d2y_dq1q1));
+        Hxx(0, 1) = _w_pos * ((dx_dq1 * dx_dq2 + dy_dq1 * dy_dq2) +
+                              (err_x * d2x_dq1q2 + err_y * d2y_dq1q2));
+        Hxx(1, 0) = Hxx(0, 1);
+        Hxx(1, 1) = _w_pos * ((dx_dq2 * dx_dq2 + dy_dq2 * dy_dq2) +
+                              (err_x * d2x_dq2q2 + err_y * d2y_dq2q2));
+
+        // Rows/cols 2 and 3 remain 0 because velocities are unconstrained
+    }
+
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override
+    {
+        Hxu.setZero(4, u.size());
+    }
+
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override
+    {
+        Huu.setZero(u.size(), u.size());
+    }
+
+  private:
+    Vec2   _target;
+    double _l1;
+    double _l2;
+    double _w_pos;
+};
+
+}
 }
 }
 }

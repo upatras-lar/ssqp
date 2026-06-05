@@ -777,9 +777,9 @@ std::vector<std::string> Model::jointTypes() const
 {
     if (_impl == nullptr)
     {
-        if (_custom_properties != nullptr)
+        if (_has_custom_properties)
         {
-            return _custom_properties->joint_types;
+            return _custom_properties.joint_types;
         }
         return {};
     }
@@ -821,9 +821,9 @@ std::vector<std::string> Model::orderedJoints() const
 {
     if (_impl == nullptr)
     {
-        if (_custom_properties != nullptr)
+        if (_has_custom_properties)
         {
-            return _custom_properties->ordered_joints;
+            return _custom_properties.ordered_joints;
         }
 
         return {};
@@ -1218,21 +1218,21 @@ VecX Model::randomControls(const uint stage) const
     return ru;
 }
 
-void Model::setCustomProperties(
-  const std::shared_ptr<CustomProperties> &custom_properties)
+void Model::setCustomProperties(const CustomProperties &custom_properties)
 {
-    _custom_properties = custom_properties;
+    _has_custom_properties = true;
+    _custom_properties     = custom_properties;
 
-    _dims.nq      = custom_properties->nq;
-    _dims.nv      = custom_properties->nv;
-    _dims.nu      = custom_properties->nu;
-    _dims.njoints = custom_properties->njoints;
-    _free_flyer   = custom_properties->floating_base;
+    _dims.nq      = custom_properties.nq;
+    _dims.nv      = custom_properties.nv;
+    _dims.nu      = custom_properties.nu;
+    _dims.njoints = custom_properties.njoints;
+    _free_flyer   = custom_properties.floating_base;
 }
 
 bool Model::hasCustomProperties() const
 {
-    return _custom_properties != nullptr;
+    return _has_custom_properties;
 }
 
 VecX Model::_randomVector(const uint size, const double start,

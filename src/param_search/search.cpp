@@ -38,8 +38,7 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
         for (uint i = 0; i < _window.size(); ++i)
         {
             const DataPoint &p = _window[i];
-
-            jacobians[i] = _dynamics->parameter_gradient(p.x_prev, p.u);
+            jacobians[i]       = _dynamics->parameter_gradient(p.x_prev, p.u);
         }
 
         // New point is the last
@@ -68,9 +67,6 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
         jacobians[closest_idx] = jacobians.back();
         jacobians.pop_back();
 
-        _r.setZero();
-        _J.setZero();
-
         VecX theta = _dynamics->parameters();
 
         // 2. Compute residuals and Jacobian
@@ -80,7 +76,8 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
             uint             row_idx = i * _state_size;
 
             _r.segment(row_idx, _state_size) =
-              p.x_actual - _dynamics->evaluate(p.x_prev, p.u);
+              _dynamics->state_right_minus(p.x_actual,
+                                           _dynamics->evaluate(p.x_prev, p.u));
 
             // Use precalculated jacobians
             _J.block(i * _state_size, 0, _state_size, _param_size) =

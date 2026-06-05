@@ -79,6 +79,18 @@ int main()
     tests.addTest(ssqp::tests::generators::
                     get_double_pendulum_dynamics_parameter_grad_test());
 
+    tests.addTest(ssqp::tests::generators::
+                    get_double_pendulum_ambient_dynamics_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_double_pendulum_ambient_dynamics_parameter_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_double_pendulum_ambient_tracking_cost_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_double_pendulum_tip_cost_grad_test());
+
     tests.addTest(
       ssqp::tests::generators::get_joint_angle_constraint_grad_test());
 
