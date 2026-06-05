@@ -15,11 +15,13 @@ DynamicsParamGaussNewton::DataPoint::DataPoint(const VecX &x_prev,
 
 DynamicsParamGaussNewton::DynamicsParamGaussNewton(
   const std::shared_ptr<model::stagewise::StageDynamics> &dynamics,
-  const uint                                              window_size)
+  const uint window_size, const double armijo_beta, const double armijo_c1)
   : _dynamics(dynamics)
   , _state_size(dynamics->state_diff_size())
   , _param_size(dynamics->parameter_size())
   , _window_size(window_size)
+  , _armijo_beta(armijo_beta)
+  , _armijo_c1(armijo_c1)
 {
     _r.resize(_window_size * _state_size);
     _J.resize(_window_size * _state_size, _param_size);
@@ -106,8 +108,6 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
 
         // 4. Armijo Line Search Parameters
         double       alpha = 1.0;
-        const double c1    = 1e-4;            // Sufficient decrease constant
-        const double rho   = 0.2;             // Backtracking contraction factor
         const VecX   g = _J.transpose() * _r; // Gradient of the cost function
         const double initial_cost = 0.5 * _r.squaredNorm();
         const double descent_slope =
@@ -138,12 +138,12 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
             }
 
             // Check Armijo Condition
-            if (new_cost <= initial_cost + c1 * alpha * descent_slope)
+            if (new_cost <= initial_cost + _armijo_c1 * alpha * descent_slope)
             {
                 break; // Sufficient decrease achieved
             }
 
-            alpha *= rho; // Shrink step size
+            alpha *= _armijo_beta; // Shrink step size
         }
 
         // Final update
