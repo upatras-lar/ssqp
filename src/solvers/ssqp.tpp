@@ -68,10 +68,17 @@ void ssqp::_setup_qp()
         costs[k]->hessian_xx(_guess.x.stage(k),
                              _guess.u.stage(k),
                              _qp.stages[k].Qxx);
+        logln_at(LogLevel::Debug,
+                 "Set Qxx via costs: size " << _qp.stages[k].Qxx.rows() << "x"
+                                            << _qp.stages[k].Qxx.cols());
         dynamics[k]->hessprod_xx(_guess.x.stage(k),
                                  _guess.u.stage(k),
                                  _guess.lambda.stage(k),
                                  tmpMat);
+        logln_at(LogLevel::Debug,
+                 "Got dynamics hessprod_xx, size " << tmpMat.rows() << "x"
+                                                   << tmpMat.cols());
+        logln_at(LogLevel::Debug, "Adding to Qxx...");
         _qp.stages[k].Qxx += tmpMat;
 
         logln_at(LogLevel::Debug, "Qxx: added costs & dynamics");
@@ -80,10 +87,17 @@ void ssqp::_setup_qp()
         costs[k]->hessian_xu(_guess.x.stage(k),
                              _guess.u.stage(k),
                              _qp.stages[k].Qxu);
+        logln_at(LogLevel::Debug,
+                 "Set Qxu via costs: size " << _qp.stages[k].Qxu.rows() << "x"
+                                            << _qp.stages[k].Qxu.cols());
         dynamics[k]->hessprod_xu(_guess.x.stage(k),
                                  _guess.u.stage(k),
                                  _guess.lambda.stage(k),
                                  tmpMat);
+        logln_at(LogLevel::Debug,
+                 "Got dynamics hessprod_xu, size " << tmpMat.rows() << "x"
+                                                   << tmpMat.cols());
+        logln_at(LogLevel::Debug, "Adding to Qxu...");
         _qp.stages[k].Qxu += tmpMat;
 
         logln_at(LogLevel::Debug, "Qxu: added costs & dynamics");
@@ -92,10 +106,17 @@ void ssqp::_setup_qp()
         costs[k]->hessian_uu(_guess.x.stage(k),
                              _guess.u.stage(k),
                              _qp.stages[k].Quu);
+        logln_at(LogLevel::Debug,
+                 "Set Quu via costs: size " << _qp.stages[k].Quu.rows() << "x"
+                                            << _qp.stages[k].Quu.cols());
         dynamics[k]->hessprod_uu(_guess.x.stage(k),
                                  _guess.u.stage(k),
                                  _guess.lambda.stage(k),
                                  tmpMat);
+        logln_at(LogLevel::Debug,
+                 "Got dynamics hessprod_uu, size " << tmpMat.rows() << "x"
+                                                   << tmpMat.cols());
+        logln_at(LogLevel::Debug, "Adding to Quu...");
         _qp.stages[k].Quu += tmpMat;
 
         logln_at(LogLevel::Debug, "Quu: added costs & dynamics");
@@ -119,6 +140,10 @@ void ssqp::_setup_qp()
                                         _guess.u.stage(k),
                                         _guess.mu.stage(k),
                                         tmpMat);
+            logln_at(LogLevel::Debug,
+                     "Got constraints hessprod_xx, size "
+                       << tmpMat.rows() << "x" << tmpMat.cols());
+            logln_at(LogLevel::Debug, "Adding to Qxx...");
             _qp.stages[k].Qxx += tmpMat;
 
             logln_at(LogLevel::Debug, "Qxx: added constraints");
@@ -127,6 +152,10 @@ void ssqp::_setup_qp()
                                         _guess.u.stage(k),
                                         _guess.mu.stage(k),
                                         tmpMat);
+            logln_at(LogLevel::Debug,
+                     "Got constraints hessprod_xu, size "
+                       << tmpMat.rows() << "x" << tmpMat.cols());
+            logln_at(LogLevel::Debug, "Adding to Qxu...");
             _qp.stages[k].Qxu += tmpMat;
 
             logln_at(LogLevel::Debug, "Qxu: added constraints");
@@ -135,6 +164,10 @@ void ssqp::_setup_qp()
                                         _guess.u.stage(k),
                                         _guess.mu.stage(k),
                                         tmpMat);
+            logln_at(LogLevel::Debug,
+                     "Got constraints hessprod_uu, size "
+                       << tmpMat.rows() << "x" << tmpMat.cols());
+            logln_at(LogLevel::Debug, "Adding to Quu...");
             _qp.stages[k].Quu += tmpMat;
 
             logln_at(LogLevel::Debug, "Quu: added constraints");
@@ -180,6 +213,9 @@ void ssqp::_setup_qp()
     costs[_qp.dims.horizon]->hessian_xx(_guess.x.stage(_qp.dims.horizon),
                                         _emptyVec,
                                         _qp.Qxx_t);
+    logln_at(LogLevel::Debug,
+             "Set Qxx_t via costs: size " << _qp.Qxx_t.rows() << "x"
+                                          << _qp.Qxx_t.cols());
 
     if constexpr (withGradients)
     {
@@ -196,6 +232,10 @@ void ssqp::_setup_qp()
           _emptyVec,
           _guess.mu.stage(_qp.dims.horizon),
           tmpMat);
+        logln_at(LogLevel::Debug,
+                 "Got constraints hessprod_xx, size " << tmpMat.rows() << "x"
+                                                      << tmpMat.cols());
+        logln_at(LogLevel::Debug, "Adding to Qxx_t...");
         _qp.Qxx_t += tmpMat;
 
         logln_at(LogLevel::Debug, "Qxx: added constraints");

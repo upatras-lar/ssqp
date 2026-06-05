@@ -28,9 +28,9 @@ class DynamicsParamGaussNewton
 
     struct DataPoint
     {
-        Vec4 x_prev;
-        Vec2 u;
-        Vec4 x_actual;
+        VecX x_prev;
+        VecX u;
+        VecX x_actual;
 
         DataPoint(const VecX &x_prev, const VecX &u, const VecX &x_actual);
     };

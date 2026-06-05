@@ -420,8 +420,7 @@ class Model
     VecX randomControls(const uint stage) const;
 
     // Set custom properties for non-XML models
-    void setCustomProperties(
-      const std::shared_ptr<CustomProperties> &custom_properties);
+    void setCustomProperties(const CustomProperties &custom_properties);
 
     // Whether custom properties have been set
     bool hasCustomProperties() const;
@@ -457,7 +456,8 @@ class Model
     std::vector<std::vector<Force>> _forces;
 
     // Optional custom properties for non-XML models
-    std::shared_ptr<CustomProperties> _custom_properties = nullptr;
+    bool             _has_custom_properties = false;
+    CustomProperties _custom_properties;
 
     // Helper functions
 

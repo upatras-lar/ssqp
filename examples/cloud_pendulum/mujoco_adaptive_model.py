@@ -5,8 +5,11 @@ import numpy as np
 from math import pi
 from time import time, sleep
 
-params = np.array([0.1, 0.1, 0.1, 0.1, 0.01, 0.01])
-dyn = ssqpy.model.custom.DoublePendulumDynamics(params)
+MPC_H = 45
+dt = 0.01
+
+params = np.array([0.1, 0.07, 0.05, 0.05, 0.004, 0.002])
+dyn = ssqpy.model.custom.double_pendulum.DoublePendulumDynamics(params, dt=dt)
 gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
 
 # ssqpy.setSilentMode()
@@ -14,11 +17,9 @@ gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
 ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
-MPC_H = 45
-dt = 0.01
-
-V_WGT = 1e-3
-U_WGT = 1e-3
+V_WGT = 1e-5
+U_WGT = 1e-5
+TIP_WGT = 5.0
 
 model = ssqpy.model.Model(MPC_H, dt)
 
@@ -33,11 +34,17 @@ model.setCustomProperties(custom_properties)
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
+target = np.array((0.0, params[2] + params[3] + 0.01))
+tip_cost = ssqpy.model.custom.double_pendulum.DoublePendulumTipCost(
+    target, params[2], params[3], TIP_WGT
+)
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, np.array((pi, 0.0)), 1.0
+    model,
+    np.array((pi, 0.0)),
+    np.array((0.0001, 0.0)),
 )
 
-torque_limits = np.array((0.1, 0.1))
+torque_limits = np.array((0.15, 0.0))
 torque_constraint = ssqpy.model.constraints.JointControlConstraint(
     model, -torque_limits, torque_limits
 )
@@ -45,17 +52,23 @@ torque_constraint = ssqpy.model.constraints.JointControlConstraint(
 for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
+
+    model.addCost(k, tip_cost)
     model.addConstraints(k, torque_constraint)
 
+# model.addCost(MPC_H, vel_cost)
+model.addCost(MPC_H, tip_cost)
 model.addCost(MPC_H, config_cost)
 
 dynamics = [
-    ssqpy.model.custom.DoublePendulumDynamics(params) for _ in range(MPC_H + 1)
+    ssqpy.model.custom.double_pendulum.DoublePendulumDynamics(params, dt=dt)
+    for _ in range(MPC_H + 1)
 ]
 
 model.finalize(dynamics=dynamics)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 ssqp_params.tolerance = 1e-2
 ssqp_params.admmParams.abs_tolerance = 1e-3
@@ -79,35 +92,40 @@ i = 0
 
 prev_state = None
 
+# mjdata.qpos = np.array((0.1, 0.0))
+
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         frame_start = time()
 
         state = np.hstack((mjdata.qpos, mjdata.qvel))
 
-        if prev_state is not None:
-            gn.addData(prev_state, control, state)
-            # print("Adding data...")
-            # print("x:", prev_state.tolist())
-            # print("u:", control.tolist())
-            # print("Next x:", state.tolist())
+        # if prev_state is not None:
+        #     gn.addData(prev_state, control, state)
+        # print("Adding data...")
+        # print("x:", prev_state.tolist())
+        # print("u:", control.tolist())
+        # print("Next x:", state.tolist())
 
-            new_params = dyn.parameters()
-            print("New parameters:", new_params.tolist())
+        # new_params = dyn.parameters()
+        # print("New parameters:", new_params.tolist())
 
-            for d in dynamics:
-                d.update_parameters(new_params)
+        # for d in dynamics:
+        #     d.update_parameters(new_params)
 
         prev_state = state
 
         pre = time()
-        try:
-            states, controls = mpc.step(state)
-            control = controls.stage(0)
-        except RuntimeError:
-            control = np.zeros(2)
+        states, controls = mpc.step(state)
+        # print("State:")
+        # states.print()
+        # print("Control:")
+        # controls.print()
+
+        control = controls.stage(0)
 
         control = np.clip(control, -0.15, 0.15)
+        # control[1] = 0.0
         mjdata.ctrl = control
 
         elapsed += time() - pre
@@ -115,3 +133,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
+
+        to_sleep = dt - (time() - frame_start)
+        if to_sleep > 0:
+            sleep(to_sleep)

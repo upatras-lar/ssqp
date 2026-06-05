@@ -125,7 +125,9 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         if NOISE:
             mjdata.ctrl[0] += (
-                np.random.uniform(0, 0.1) if np.random.uniform(0, 10) > 8 else 0.0
+                np.random.uniform(0, 0.1)
+                if np.random.uniform(0, 10) > 8
+                else 0.0
             )
 
         elapsed += time() - pre
