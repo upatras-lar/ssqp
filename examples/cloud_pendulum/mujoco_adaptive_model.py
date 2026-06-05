@@ -8,7 +8,7 @@ from time import time, sleep
 MPC_H = 45
 dt = 0.01
 
-params = np.array([0.1, 0.07, 0.05, 0.05, 0.004, 0.002])
+params = np.array([0.5, 0.4, 0.5, 0.5, 0.01, 0.001])
 dyn = ssqpy.model.custom.double_pendulum.DoublePendulumDynamics(params, dt=dt)
 gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
 
@@ -17,9 +17,9 @@ gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
 ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
-V_WGT = 1e-5
-U_WGT = 1e-5
-TIP_WGT = 5.0
+V_WGT = 1e-3
+U_WGT = 1e-3
+TIP_WGT = 10.0
 
 model = ssqpy.model.Model(MPC_H, dt)
 
@@ -34,9 +34,9 @@ model.setCustomProperties(custom_properties)
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
-target = np.array((0.0, params[2] + params[3] + 0.01))
+target = np.array((0.0, 0.25))
 tip_cost = ssqpy.model.custom.double_pendulum.DoublePendulumTipCost(
-    target, params[2], params[3], TIP_WGT
+    target, 0.1, 0.1, TIP_WGT
 )
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     model,
@@ -44,7 +44,7 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((0.0001, 0.0)),
 )
 
-torque_limits = np.array((0.15, 0.0))
+torque_limits = np.array((0.15, 0.15))
 torque_constraint = ssqpy.model.constraints.JointControlConstraint(
     model, -torque_limits, torque_limits
 )
@@ -100,29 +100,31 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         state = np.hstack((mjdata.qpos, mjdata.qvel))
 
-        # if prev_state is not None:
-        #     gn.addData(prev_state, control, state)
-        # print("Adding data...")
-        # print("x:", prev_state.tolist())
-        # print("u:", control.tolist())
-        # print("Next x:", state.tolist())
+        if prev_state is not None:
+            gn.addData(prev_state, control, state)
+            # print("Adding data...")
+            # print("x:", prev_state.tolist())
+            # print("u:", control.tolist())
+            # print("Next x:", state.tolist())
 
-        # new_params = dyn.parameters()
-        # print("New parameters:", new_params.tolist())
+            new_params = dyn.parameters()
+            print("New parameters:", new_params.tolist())
 
-        # for d in dynamics:
-        #     d.update_parameters(new_params)
+            for d in dynamics:
+                d.update_parameters(new_params)
 
         prev_state = state
 
         pre = time()
-        states, controls = mpc.step(state)
-        # print("State:")
-        # states.print()
-        # print("Control:")
-        # controls.print()
-
-        control = controls.stage(0)
+        try:
+            states, controls = mpc.step(state)
+            control = controls.stage(0)
+            # print("State:")
+            # states.print()
+            # print("Control:")
+            # controls.print()
+        except RuntimeError:
+            control = np.zeros(2)
 
         control = np.clip(control, -0.15, 0.15)
         # control[1] = 0.0
