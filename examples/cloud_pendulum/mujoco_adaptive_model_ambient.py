@@ -8,7 +8,7 @@ from time import time, sleep
 MPC_H = 45
 dt = 0.01
 
-params = np.array([0.1, 0.07, 0.05, 0.05, 0.004, 0.002])
+params = np.array([10.0, 5.0, 0.2, 0.1, 0.01, 0.01])
 dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
     params, dt=dt
 )
@@ -45,7 +45,7 @@ config_cost = (
     )
 )
 
-torque_limits = np.array((0.15, 0.0))
+torque_limits = np.array((0.15, 0.15))
 torque_constraint = ssqpy.model.constraints.JointControlConstraint(
     model, -torque_limits, torque_limits
 )
@@ -109,18 +109,14 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             )
         )
 
-        # if prev_state is not None:
-        #     gn.addData(prev_state, control, state)
-        # print("Adding data...")
-        # print("x:", prev_state.tolist())
-        # print("u:", control.tolist())
-        # print("Next x:", state.tolist())
+        if prev_state is not None:
+            gn.addData(prev_state, control, state)
 
-        # new_params = dyn.parameters()
-        # print("New parameters:", new_params.tolist())
+            new_params = dyn.parameters()
+            print("New parameters:", new_params.tolist())
 
-        # for d in dynamics:
-        #     d.update_parameters(new_params)
+            for d in dynamics:
+                d.update_parameters(new_params)
 
         prev_state = state
 
@@ -137,7 +133,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             control = np.zeros(2)
 
         control = np.clip(control, -0.15, 0.15)
-        control[1] = 0.0
+        # control[1] = 0.0
         mjdata.ctrl = control
 
         elapsed += time() - pre

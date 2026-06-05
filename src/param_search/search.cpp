@@ -104,14 +104,50 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
 
         VecX dTheta_log = ldlt.solve(-_J.transpose() * _r);
 
-        // 4. Update parameters
-        // TODO: line search
-        for (uint j = 0; j < _param_size; ++j)
+        // 4. Armijo Line Search Parameters
+        double       alpha = 1.0;
+        const double c1    = 1e-4;            // Sufficient decrease constant
+        const double rho   = 0.2;             // Backtracking contraction factor
+        const VecX   g = _J.transpose() * _r; // Gradient of the cost function
+        const double initial_cost = 0.5 * _r.squaredNorm();
+        const double descent_slope =
+          g.dot(dTheta_log); // Directional derivative
+
+        VecX theta_orig = _dynamics->parameters();
+        VecX theta_new  = theta_orig;
+
+        // Line search loop
+        while (alpha > 1e-3) // Minimum step size threshold
         {
-            theta[j] *= std::exp(dTheta_log[j]);
+            // New theta using log-space update
+            for (uint j = 0; j < _param_size; ++j)
+            {
+                theta_new[j] = theta_orig[j] * std::exp(alpha * dTheta_log[j]);
+            }
+
+            // Evaluate cost at theta_new
+            double new_cost = 0.0;
+            for (const auto &p : _window)
+            {
+                // Temporarily set parameters to evaluate
+                _dynamics->update_parameters(theta_new);
+                VecX r_i = _dynamics->state_right_minus(
+                  p.x_actual,
+                  _dynamics->evaluate(p.x_prev, p.u));
+                new_cost += 0.5 * r_i.squaredNorm();
+            }
+
+            // Check Armijo Condition
+            if (new_cost <= initial_cost + c1 * alpha * descent_slope)
+            {
+                break; // Sufficient decrease achieved
+            }
+
+            alpha *= rho; // Shrink step size
         }
 
-        _dynamics->update_parameters(theta);
+        // Final update
+        _dynamics->update_parameters(theta_new);
     }
 }
 
