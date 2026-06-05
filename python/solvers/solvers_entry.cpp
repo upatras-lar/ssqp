@@ -30,9 +30,14 @@ void bind_solvers(nb::module_ &m)
     nb::class_<param_search::DynamicsParamGaussNewton>(
       m,
       "DynamicsParamGaussNewton")
-      .def(nb::init<const std::shared_ptr<StageDynamics> &, const uint>(),
+      .def(nb::init<const std::shared_ptr<StageDynamics> &,
+                    const uint,
+                    const double,
+                    const double>(),
            nb::arg("dynamics"),
-           nb::arg("window_size") = 100)
+           nb::arg("window_size") = 100,
+           nb::arg("armijo_beta") = 0.5,
+           nb::arg("armijo_c1")   = 1e-4)
       .def("addData",
            &param_search::DynamicsParamGaussNewton::addData,
            nb::arg("x"),

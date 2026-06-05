@@ -19,7 +19,8 @@ class DynamicsParamGaussNewton
   public:
     DynamicsParamGaussNewton(
       const std::shared_ptr<model::stagewise::StageDynamics> &dynamics,
-      const uint window_size = 100);
+      const uint window_size = 100, const double armijo_beta = 0.5,
+      const double armijo_c1 = 1e-4);
 
     void addData(const VecX &x, const VecX &u, const VecX &x_next);
 
@@ -39,6 +40,9 @@ class DynamicsParamGaussNewton
     const uint             _param_size;
     const uint             _window_size;
     std::vector<DataPoint> _window;
+
+    const double _armijo_beta;
+    const double _armijo_c1;
 
     VecX _r;
     MatX _J;
