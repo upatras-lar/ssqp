@@ -22,7 +22,18 @@ class DynamicsParamGaussNewton
       const uint window_size = 100, const double armijo_beta = 0.5,
       const double armijo_c1 = 1e-4);
 
-    void addData(const VecX &x, const VecX &u, const VecX &x_next);
+    // Adds a new data point
+    // Returns: whether the parameters were updated
+    bool addData(const VecX &x, const VecX &u, const VecX &x_next);
+
+    // Clears window of all previously added data
+    void clearData();
+
+    /* Sets the window size to the given value
+     * If the window currently holds more data than the provided size,
+     * data is pruned such that only the most diverse data points remain
+     */
+    void setWindowSize(const uint window_size);
 
   protected:
     std::shared_ptr<model::stagewise::StageDynamics> _dynamics;
@@ -38,7 +49,7 @@ class DynamicsParamGaussNewton
 
     const uint             _state_size;
     const uint             _param_size;
-    const uint             _window_size;
+    uint                   _window_size;
     std::vector<DataPoint> _window;
 
     const double _armijo_beta;

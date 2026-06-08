@@ -5,14 +5,32 @@ import numpy as np
 from math import pi
 from time import time, sleep
 
-MPC_H = 45
+MPC_H = 60
 dt = 0.01
 
-params = np.array([10.0, 5.0, 0.2, 0.1, 0.01, 0.01])
+actual_params = np.array(
+    [
+        0.10548177618443695,
+        0.07619744360415454,
+        0.05,
+        0.05,
+        0.00046166221821039165,
+        0.00023702395072092597,
+    ]
+)
+
+params = np.array([0.4, 0.4, 0.1, 0.1, 0.01, 0.01])
+
+
 dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
     params, dt=dt
 )
-gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
+
+window_size = 500
+
+gn = ssqpy.solvers.DynamicsParamGaussNewton(
+    dyn, window_size=window_size, armijo_beta=0.5
+)
 
 # ssqpy.setSilentMode()
 # ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
@@ -20,8 +38,8 @@ gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
 ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
 V_WGT = 1e-3
-U_WGT = 1e-3
-C_WGT = np.array((5.0, 5.0, 0.0, 0.0))
+U_WGT = 1e-4
+C_WGT = np.array((100.0, 100.0, 0.0, 0.0))
 
 INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
 
@@ -45,7 +63,7 @@ config_cost = (
     )
 )
 
-torque_limits = np.array((0.15, 0.15))
+torque_limits = np.array((0.15, 0.0))
 torque_constraint = ssqpy.model.constraints.JointControlConstraint(
     model, -torque_limits, torque_limits
 )
@@ -70,11 +88,13 @@ dynamics = [
 model.finalize(dynamics=dynamics, init_states=[INIT_STATE])
 
 ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 ssqp_params.tolerance = 1e-2
 ssqp_params.admmParams.abs_tolerance = 1e-3
 ssqp_params.admmParams.rel_tolerance = 1e-3
-ssqp_params.admmParams.warm_start = False
+ssqp_params.admmParams.reset_rho = False
+ssqp_params.admmParams.reset_y = False
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
@@ -92,6 +112,7 @@ np.set_printoptions(suppress=True)
 i = 0
 
 prev_state = None
+last_update = time()
 
 # mjdata.qpos = np.array((0.1, 0.0))
 
@@ -109,14 +130,27 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             )
         )
 
-        if prev_state is not None:
-            gn.addData(prev_state, control, state)
-
+        if (
+            time() - last_update > 10.0
+            and prev_state is not None
+            and gn.addData(prev_state, control, state)
+        ):
             new_params = dyn.parameters()
+
             print("New parameters:", new_params.tolist())
 
             for d in dynamics:
                 d.update_parameters(new_params)
+
+            window_size += 500
+
+            if window_size > 5000:
+                window_size = 1000
+
+            gn.setWindowSize(window_size)
+            mpc.reinitialize(state)
+
+            last_update = time()
 
         prev_state = state
 
@@ -129,15 +163,23 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             # controls.print()
 
             control = controls.stage(0)
-        except RuntimeError:
+        except RuntimeError as exc:
+            print(exc)
             control = np.zeros(2)
 
         control = np.clip(control, -0.15, 0.15)
-        # control[1] = 0.0
+        control[1] = 0.0
         mjdata.ctrl = control
 
-        elapsed += time() - pre
+        elapsed = time() - pre
         steps += 1
+
+        if steps % 100 == 0:
+            print(f"\rFrequency: {1 / elapsed:.2f}Hz\t", end="")
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
+
+        # to_sleep = dt - (time() - frame_start)
+        # if to_sleep > 0:
+        #     sleep(to_sleep)

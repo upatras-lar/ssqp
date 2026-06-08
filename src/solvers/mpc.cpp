@@ -27,6 +27,35 @@ MPC::MPC(model::Model &model, const Params &params,
     }
 }
 
+// Sets MPC warm-start to the given state and zero controls
+void MPC::reinitialize(const VecX &state)
+{
+    const uint               H             = _model.horizon();
+    const std::vector<uint> &control_sizes = _model.dims().stage_control;
+
+    for (uint k = 0; k < H; ++k)
+    {
+        _model.setInitState(k, state);
+        _model.setInitControl(k, VecX::Zero(control_sizes[k]));
+    }
+
+    _model.setInitState(H, state);
+}
+
+// Sets MPC warm-start to the given states and controls
+void MPC::reinitialize(const FlatVec &states, const FlatVec &controls)
+{
+    const uint H = _model.horizon();
+
+    for (uint k = 0; k < H; ++k)
+    {
+        _model.setInitState(k, states.stage(k));
+        _model.setInitControl(k, controls.stage(k));
+    }
+
+    _model.setInitState(H, states.stage(H));
+}
+
 std::pair<FlatVec, FlatVec> MPC::step(const VecX &state)
 {
     if (_prev_states != nullptr)

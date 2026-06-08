@@ -45,6 +45,12 @@ class MPC
     MPC(model::Model &model, const Params &params = Params::Default(),
         const ssqp::Params &ssqp_params = ssqp::Params::Default());
 
+    // Sets MPC warm-start to the given state and zero controls
+    void reinitialize(const VecX &state);
+
+    // Sets MPC warm-start to the given states and controls
+    void reinitialize(const FlatVec &states, const FlatVec &controls);
+
     // Receding horizon initialization step
     // Uses the provided state as feedback and the previous solution for
     // warm-starting
