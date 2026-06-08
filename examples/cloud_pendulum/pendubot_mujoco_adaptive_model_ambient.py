@@ -5,8 +5,10 @@ import numpy as np
 from math import pi
 from time import time, sleep
 
-MPC_H = 60
+MPC_H = 100
 dt = 0.01
+
+USE_ACTUAL_PARAMS = False
 
 actual_params = np.array(
     [
@@ -37,9 +39,9 @@ gn = ssqpy.solvers.DynamicsParamGaussNewton(
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
 ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
-V_WGT = 1e-3
-U_WGT = 1e-4
-C_WGT = np.array((100.0, 100.0, 0.0, 0.0))
+V_WGT = 1e-2
+U_WGT = 1e-3
+C_WGT = np.array((10.0, 10.0, 0.01, 0.01))
 
 INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
 
@@ -57,9 +59,9 @@ model.setCustomProperties(custom_properties)
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
-config_cost = (
+terminal_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
-        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), C_WGT
+        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), 10.0 * C_WGT
     )
 )
 
@@ -72,15 +74,13 @@ for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
 
-    model.addCost(k, config_cost)
     model.addConstraints(k, torque_constraint)
 
-# model.addCost(MPC_H, vel_cost)
-model.addCost(MPC_H, config_cost)
+model.addCost(MPC_H, terminal_cost)
 
 dynamics = [
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-        params, dt=dt
+        actual_params if USE_ACTUAL_PARAMS else params, dt=dt
     )
     for _ in range(MPC_H + 1)
 ]
@@ -131,7 +131,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         )
 
         if (
-            time() - last_update > 10.0
+            not USE_ACTUAL_PARAMS
+            and time() - last_update > 10.0
             and prev_state is not None
             and gn.addData(prev_state, control, state)
         ):
@@ -180,6 +181,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 
-        # to_sleep = dt - (time() - frame_start)
-        # if to_sleep > 0:
-        #     sleep(to_sleep)
+        to_sleep = dt - (time() - frame_start)
+        if to_sleep > 0:
+            sleep(to_sleep)
