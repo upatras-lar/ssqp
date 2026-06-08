@@ -27,7 +27,7 @@ DynamicsParamGaussNewton::DynamicsParamGaussNewton(
     _J.resize(_window_size * _state_size, _param_size);
 }
 
-void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
+bool DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
                                        const VecX &x_next)
 {
     _window.push_back(DataPoint(x, u, x_next));
@@ -117,7 +117,7 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
         VecX theta_new  = theta_orig;
 
         // Line search loop
-        while (alpha > 1e-3) // Minimum step size threshold
+        while (alpha > 1e-6) // Minimum step size threshold
         {
             // New theta using log-space update
             for (uint j = 0; j < _param_size; ++j)
@@ -148,7 +148,77 @@ void DynamicsParamGaussNewton::addData(const VecX &x, const VecX &u,
 
         // Final update
         _dynamics->update_parameters(theta_new);
+
+        return true;
     }
+
+    return false;
+}
+
+void DynamicsParamGaussNewton::clearData()
+{
+    _window.clear();
+}
+
+void DynamicsParamGaussNewton::setWindowSize(const uint window_size)
+{
+    _window_size = window_size;
+
+    if (_window.size() > _window_size)
+    {
+        // If shrinking window, try to keep the data points that are furthest
+        // away from each other, according to jacobian similarity
+        std::vector<MatX> jacobians(_window.size());
+
+        for (uint i = 0; i < _window.size(); ++i)
+        {
+            const DataPoint &p = _window[i];
+            jacobians[i]       = _dynamics->parameter_gradient(p.x_prev, p.u);
+        }
+
+        std::vector<DataPoint>   selected;
+        std::unordered_set<uint> selected_indices;
+
+        selected.push_back(_window[0]);
+        selected_indices.emplace(0);
+
+        while (selected.size() < _window_size)
+        {
+            double best_distance = -1.0;
+            uint   best_index    = 0;
+
+            for (uint i = 0; i < _window.size(); ++i)
+            {
+                if (selected_indices.find(i) != selected_indices.end())
+                {
+                    continue;
+                }
+
+                double nearest = std::numeric_limits<double>::max();
+
+                for (uint j = 0; j < selected.size(); ++j)
+                {
+                    nearest =
+                      std::min(nearest,
+                               _jacobianSimilarity(jacobians[i], jacobians[j]));
+                }
+
+                if (nearest > best_distance)
+                {
+                    best_distance = nearest;
+                    best_index    = i;
+                }
+            }
+
+            selected.push_back(_window[best_index]);
+            selected_indices.emplace(best_index);
+        }
+
+        _window = selected;
+    }
+
+    _r.resize(_window_size * _state_size);
+    _J.resize(_window_size * _state_size, _param_size);
 }
 
 double DynamicsParamGaussNewton::_jacobianSimilarity(const MatX &J1,

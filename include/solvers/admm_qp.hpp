@@ -64,7 +64,7 @@ class admm_qp : public QPSolver
 
         // Whether to warm start ADMM with the unconstrained solution
         // Note: set to false if using Inverse Dynamics
-        bool warm_start = true;
+        bool warm_start = false;
         // Whether to reset the rho parameter between each new ADMM formulation
         // Note: setting to false may often cause oscillations
         bool reset_rho = true;

@@ -53,6 +53,16 @@ void bind_MPC(nb::module_ &m)
         Note that the max iterations used for SSQP and the QP solver will be 
         determined by the MPC parameters only.
         )doc")
+      .def("reinitialize",
+           static_cast<void (MPC::*)(const VecX &)>(&MPC::reinitialize),
+           nb::arg("state"),
+           "Sets MPC warm-start to the given state and zero controls")
+      .def("reinitialize",
+           static_cast<void (MPC::*)(const FlatVec &, const FlatVec &)>(
+             &MPC::reinitialize),
+           nb::arg("states"),
+           nb::arg("controls"),
+           "Sets MPC warm-start to the given states and controls")
       .def("step",
            static_cast<std::pair<FlatVec, FlatVec> (
              MPC::*)(const std::vector<VecX> &, const std::vector<VecX> &)>(

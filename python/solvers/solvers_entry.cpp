@@ -42,7 +42,22 @@ void bind_solvers(nb::module_ &m)
            &param_search::DynamicsParamGaussNewton::addData,
            nb::arg("x"),
            nb::arg("u"),
-           nb::arg("x_next"));
+           nb::arg("x_next"),
+           R"doc(
+        Adds a new data point
+        Returns: whether the parameters were updated
+           )doc")
+      .def("clearData",
+           &param_search::DynamicsParamGaussNewton::clearData,
+           "Clears window of all previously added data")
+      .def("setWindowSize",
+           &param_search::DynamicsParamGaussNewton::setWindowSize,
+           nb::arg("window_size"),
+           R"doc(
+        Sets the window size to the given value
+        If the window currently holds more data than the provided size,
+        data is pruned such that only the most diverse data points remain
+           )doc");
 
     nb::class_<param_search::HyperParamSearch>(m, "HyperParamSearch")
       .def(nb::init())
