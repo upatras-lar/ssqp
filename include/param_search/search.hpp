@@ -30,10 +30,15 @@ class DynamicsParamGaussNewton
     void clearData();
 
     /* Sets the window size to the given value
-     * If the window currently holds more data than the provided size,
-     * data is pruned such that only the most diverse data points remain
+     * Parameters:
+     *  - window_size: The size to resize the window to
+     *  - prune_last: Whether to remove the most recent data points, in case 
+     *    the window currently holds more data than the provided size; if false,
+     *    an algorithm is used to instead prune the most similar data points
+     *    has no effect if the provided size is larger than the data currently
+     *    held
      */
-    void setWindowSize(const uint window_size);
+    void setWindowSize(const uint window_size, bool prune_last = false);
 
   protected:
     std::shared_ptr<model::stagewise::StageDynamics> _dynamics;

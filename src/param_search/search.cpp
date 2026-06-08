@@ -160,12 +160,21 @@ void DynamicsParamGaussNewton::clearData()
     _window.clear();
 }
 
-void DynamicsParamGaussNewton::setWindowSize(const uint window_size)
+void DynamicsParamGaussNewton::setWindowSize(const uint window_size,
+                                             bool       prune_last)
 {
     _window_size = window_size;
+    _r.resize(_window_size * _state_size);
+    _J.resize(_window_size * _state_size, _param_size);
 
     if (_window.size() > _window_size)
     {
+        if (prune_last)
+        {
+            _window.erase(_window.begin() + _window_size, _window.end());
+            return;
+        }
+
         // If shrinking window, try to keep the data points that are furthest
         // away from each other, according to jacobian similarity
         std::vector<MatX> jacobians(_window.size());
@@ -216,9 +225,6 @@ void DynamicsParamGaussNewton::setWindowSize(const uint window_size)
 
         _window = selected;
     }
-
-    _r.resize(_window_size * _state_size);
-    _J.resize(_window_size * _state_size, _param_size);
 }
 
 double DynamicsParamGaussNewton::_jacobianSimilarity(const MatX &J1,
