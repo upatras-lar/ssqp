@@ -10,7 +10,7 @@ dt = 0.01
 
 params = np.array([0.5, 0.4, 0.5, 0.5, 0.01, 0.001])
 dyn = ssqpy.model.custom.double_pendulum.DoublePendulumDynamics(params, dt=dt)
-gn = ssqpy.solvers.DynamicsParamGaussNewton(dyn, window_size=500)
+gn = ssqpy.solvers.search.DynamicsParamGaussNewton(dyn, window_size=500)
 
 # ssqpy.setSilentMode()
 # ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
