@@ -21,7 +21,7 @@ actual_params = np.array(
     ]
 )
 
-params = np.array([0.4, 0.4, 0.01, 0.01, 0.01, 0.01])
+params = np.array([0.4, 0.4, 0.01, 0.01, 0.005, 0.005])
 
 
 dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
@@ -30,8 +30,8 @@ dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
 
 window_size = 2000
 
-gn = ssqpy.solvers.DynamicsParamGaussNewton(
-    dyn, window_size=window_size, armijo_beta=0.2
+search = ssqpy.solvers.search.DynamicsParamGaussNewton(
+    dyn, window_size, armijo_beta=0.5
 )
 
 # ssqpy.setSilentMode()
@@ -41,7 +41,7 @@ ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
 V_WGT = 1e-2
 U_WGT = 1e-3
-C_WGT = np.array((100.0, 100.0, 0.001, 0.001))
+C_WGT = np.array((10.0, 1.0, 0.01, 0.01))
 
 INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
 
@@ -132,20 +132,24 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         if (
             not USE_ACTUAL_PARAMS
-            and time() - last_update > 5.0
+            and time() - last_update > 0.0
             and prev_state is not None
-            and gn.addData(prev_state, control, state)
+            and search.addData(prev_state, control, state)
         ):
             new_params = dyn.parameters()
 
             print("New parameters:", new_params.tolist())
 
             for d in dynamics:
-                d.update_parameters(actual_params)
+                d.update_parameters(new_params)
 
             window_size += 500
 
-            gn.setWindowSize(window_size)
+            if window_size > 5000:
+                window_size = 1000
+            search.setWindowSize(window_size)
+
+            # search.setMinimumDataSize(window_size)
             mpc.reinitialize(state)
 
             last_update = time()

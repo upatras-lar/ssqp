@@ -12,7 +12,7 @@ params = np.array([10.0, 5.0, 0.2, 0.5, 0.01, 0.01])
 dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
     params, dt=dt
 )
-gn = ssqpy.solvers.DynamicsParamGaussNewton(
+gn = ssqpy.solvers.search.DynamicsParamGaussNewton(
     dyn, window_size=1000, armijo_beta=0.1
 )
 
@@ -59,7 +59,6 @@ for k in range(MPC_H):
     model.addCost(k, config_cost)
     model.addConstraints(k, torque_constraint)
 
-# model.addCost(MPC_H, vel_cost)
 model.addCost(MPC_H, config_cost)
 
 dynamics = [
@@ -95,8 +94,6 @@ i = 0
 
 prev_state = None
 
-# mjdata.qpos = np.array((0.1, 0.0))
-
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         frame_start = time()
@@ -125,17 +122,12 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         pre = time()
         try:
             states, controls = mpc.step(state)
-            # print("State:")
-            # states.print()
-            # print("Control:")
-            # controls.print()
-
             control = controls.stage(0)
-        except RuntimeError:
+        except RuntimeError as exc:
+            print(exc)
             control = np.zeros(2)
 
         control = np.clip(control, -0.15, 0.15)
-        # control[1] = 0.0
         mjdata.ctrl = control
 
         elapsed += time() - pre

@@ -166,7 +166,7 @@ void bind_Model(nb::module_ &m)
         ignore them. Predefined functions all have constructors to account for this.
 
         Models may be defined either by passing custom function implementations, or
-        by using XML descrtiption files. Some constructors allow for defining a model
+        by using XML description files. Some constructors allow for defining a model
         using an XML file, but without passing the required cost functions. This is 
         done to allow access to robot-related algorithms such as forward dynamics,
         which may be used to define model costs. Note that, if such constructors are

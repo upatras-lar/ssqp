@@ -101,34 +101,6 @@ if(BUILD_EXAMPLES)
             )
         endif()
     endforeach()
-
-    # file(GLOB_RECURSE CLOUD_PENDULUM_SOURCES "examples/cloud_pendulum/*.cpp")
-
-    # foreach(CLOUD_PENDULUM_SOURCE ${CLOUD_PENDULUM_SOURCES})
-    #     file(RELATIVE_PATH REL_PATH
-    #         "${CMAKE_CURRENT_SOURCE_DIR}/examples/cloud_pendulum"
-    #         ${CLOUD_PENDULUM_SOURCE}
-    #     )
-    #     string(REGEX REPLACE "\\.cpp$" "" REL_BASE ${REL_PATH})
-    #     string(REPLACE "/" "-" TARGET_NAME ${REL_BASE})
-    #     get_filename_component(EXE_NAME ${REL_BASE} NAME)
-    #     get_filename_component(EXE_DIR ${REL_BASE} DIRECTORY)
-
-    #     add_executable(${TARGET_NAME} ${CLOUD_PENDULUM_SOURCE})
-    #     target_link_libraries(${TARGET_NAME} PRIVATE ssqp)
-
-    #     if(EXE_DIR)
-    #         set_target_properties(${TARGET_NAME} PROPERTIES
-    #             OUTPUT_NAME ${EXE_NAME}
-    #             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/${EXE_DIR}"
-    #         )
-    #     else()
-    #         set_target_properties(${TARGET_NAME} PROPERTIES
-    #             OUTPUT_NAME ${EXE_NAME}
-    #             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    #         )
-    #     endif()
-    # endforeach()
 endif()
 
 # --- Tests ---
