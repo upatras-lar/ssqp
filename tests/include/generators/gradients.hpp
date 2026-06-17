@@ -44,6 +44,10 @@ std::shared_ptr<Test> get_double_pendulum_dynamics_grad_test(
   const uint seed = 42);
 std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
   const uint seed = 42);
+std::shared_ptr<Test> get_pendubot_ambient_dynamics_grad_test(
+  const uint seed = 42);
+std::shared_ptr<Test> get_acrobot_ambient_dynamics_grad_test(
+  const uint seed = 42);
 
 // Predefined cost gradients for predefined dynamics models
 std::shared_ptr<Test> get_double_pendulum_tip_cost_grad_test(

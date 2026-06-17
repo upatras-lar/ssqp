@@ -136,6 +136,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 
-        to_sleep = dt - (time() - frame_start)
+        to_sleep = mjmodel.opt.timestep - (time() - frame_start)
         if to_sleep > 0:
             sleep(to_sleep)

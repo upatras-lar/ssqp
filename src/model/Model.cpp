@@ -196,7 +196,7 @@ void Model::finalize(const Config &config)
         }
 
         std::unordered_set<stagewise::StageDynamics *> dyn_set;
-        for (uint k = 0; k <= _dims.horizon + 1; ++k)
+        for (uint k = 0; k <= _dims.horizon; ++k)
         {
             if (dyn_set.find(config.dynamics[k].get()) != dyn_set.end())
             {

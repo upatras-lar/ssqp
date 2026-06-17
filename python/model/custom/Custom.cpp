@@ -20,6 +20,22 @@ void bind_Custom(nb::module_ &m)
 {
     nb::module_ double_pendulum = m.def_submodule("double_pendulum");
 
+    nb::enum_<double_pendulum::ActuationMode>(double_pendulum,
+                                              "ActuationMode",
+                                              R"doc(
+        Enum used to select the mode of actuation for the double pendulum ambient
+        model
+
+        Options:
+          - FULLY_ACTUATED : both joints actuated (classic double pendulum)
+          - PENDUBOT       : only the first joint actuated, second passive
+          - ACROBOT        : only the second joint actuated, first passive
+        )doc")
+      .value("Full", double_pendulum::ActuationMode::Full)
+      .value("Pendubot", double_pendulum::ActuationMode::Pendubot)
+      .value("Acrobot", double_pendulum::ActuationMode::Acrobot)
+      .export_values();
+
     nb::class_<double_pendulum::DoublePendulumDynamics, StageDynamics>(
       double_pendulum,
       "DoublePendulumDynamics",
@@ -56,19 +72,29 @@ void bind_Custom(nb::module_ &m)
       double_pendulum,
       "DoublePendulumAmbientDynamics",
       R"doc(
-        Custom stagewise dynamics class for the double pendulum system
-        Defines the double pendulum dynamics relative to 6 parameters:
+        Two-Link Pendulum Ambient Dynamics
+        Represents the system's state in ambient space: (sin(a), cos(a))
+        for each angle a.
+
+        A single class spanning all three actuation patterns of a two-link
+        pendulum, selected via ActuationMode at construction time.
+
+        Defines the dynamics relative to 6 parameters:
          1. Mass 1 (m1)
          2. Mass 2 (m2)
          3. Length 1 (l1)
          4. Length 2 (l2)
          5. Inertia 1 (I1)
          6. Inertia 2 (I2)    
-                                                      )doc")
-      .def(nb::init<const Vec6 &, const double, const std::string &>(),
+      )doc")
+      .def(nb::init<const Vec6 &,
+                    const double_pendulum::ActuationMode,
+                    const double,
+                    const std::string &>(),
            nb::arg("params"),
-           nb::arg("dt")   = 0.01,
-           nb::arg("name") = "");
+           nb::arg("actuation_mode") = double_pendulum::ActuationMode::Full,
+           nb::arg("dt")             = 0.01,
+           nb::arg("name")           = "");
 
     nb::class_<double_pendulum::DoublePendulumAmbientTrackingCost, StageCost>(
       double_pendulum,

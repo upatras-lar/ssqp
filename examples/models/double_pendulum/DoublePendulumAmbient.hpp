@@ -12,11 +12,29 @@ namespace custom
 {
 namespace double_pendulum
 {
-/* Double Pendulum Ambient Dynamics
- * Represents the double pendulum's state in ambient space: (sin(a), cos(a))
- * for each angle a
- * Custom stagewise dynamics class for the double pendulum system
- * Defines the double pendulum dynamics relative to 6 parameters:
+/* Enum used to select the mode of actuation for the double pendulum ambient
+ * model
+ *
+ * Options:
+ *   - Full : both joints actuated (classic double pendulum)
+ *   - Pendubot       : only the first joint actuated, second passive
+ *   - Acrobot        : only the second joint actuated, first passive
+ */
+enum ActuationMode
+{
+    Full,
+    Pendubot,
+    Acrobot
+};
+
+/* Two-Link Pendulum Ambient Dynamics
+ * Represents the system's state in ambient space: (sin(a), cos(a))
+ * for each angle a.
+ *
+ * A single class spanning all three actuation patterns of a two-link
+ * pendulum, selected via ActuationMode at construction time.
+ *
+ * Defines the dynamics relative to 6 parameters:
  *  1. Mass 1 (m1)
  *  2. Mass 2 (m2)
  *  3. Length 1 (l1)
@@ -27,12 +45,15 @@ namespace double_pendulum
 class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
 {
   public:
-    DoublePendulumAmbientDynamics(const Vec6 &params, const double dt = 0.01,
+    DoublePendulumAmbientDynamics(const Vec6   &params,
+                                  ActuationMode mode      = ActuationMode::Full,
+                                  const double dt         = 0.01,
                                   const std::string &name = "")
       : StageDynamics(name)
+      , _mode(mode)
+      , _nu(mode == ActuationMode::Full ? 2 : 1)
       , _dt(dt)
     {
-        // Compute constants immediately upon initialization
         update_parameters(params);
     }
 
@@ -95,11 +116,12 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         const double s1 = x(0), c1 = x(1);
         const double s2 = x(2), c2 = x(3);
         const double dq1 = x(4), dq2 = x(5);
-        const double tau1 = u(0), tau2 = u(1);
+
+        double tau1, tau2;
+        get_torques(u, tau1, tau2);
 
         const double s12 = s1 * c2 + c1 * s2;
 
-        // Mass matrix (using precalculated parameter bundles)
         Mat2 M;
         M(0, 0) = _M11_const + _m2_l1_lc2_2 * c2;
         M(0, 1) = _M12_const + _m2_l1_lc2 * c2;
@@ -135,7 +157,9 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         const double s1 = x(0), c1 = x(1);
         const double s2 = x(2), c2 = x(3);
         const double dq1 = x(4), dq2 = x(5);
-        const double tau1 = u(0), tau2 = u(1);
+
+        double tau1, tau2;
+        get_torques(u, tau1, tau2);
 
         const double s12 = s1 * c2 + c1 * s2;
         const double c12 = c1 * c2 - s1 * s2;
@@ -181,16 +205,34 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         ddq_ddq.col(0) = M_inv * (-dV_ddq1);
         ddq_ddq.col(1) = M_inv * (-dV_ddq2);
 
-        const Mat2 ddq_du = M_inv;
-
         const Mat2 I         = Mat2::Identity();
         dX.block<2, 2>(0, 0) = I + ddq_dq * (_dt * _dt);
         dX.block<2, 2>(0, 2) = I * _dt + ddq_ddq * (_dt * _dt);
         dX.block<2, 2>(2, 0) = ddq_dq * _dt;
         dX.block<2, 2>(2, 2) = I + ddq_ddq * _dt;
 
-        dU.block<2, 2>(0, 0) = ddq_du * (_dt * _dt);
-        dU.block<2, 2>(2, 0) = ddq_du * _dt;
+        // --- Control Jacobian: depends on which joint(s) are actuated ---
+        switch (_mode)
+        {
+        case ActuationMode::Full:
+            dU.block<2, 2>(0, 0) = M_inv * (_dt * _dt);
+            dU.block<2, 2>(2, 0) = M_inv * _dt;
+            break;
+        case ActuationMode::Pendubot:
+        {
+            const Vec2 ddq_dtau1 = M_inv.col(0);
+            dU.block<2, 1>(0, 0) = ddq_dtau1 * (_dt * _dt);
+            dU.block<2, 1>(2, 0) = ddq_dtau1 * _dt;
+            break;
+        }
+        case ActuationMode::Acrobot:
+        {
+            const Vec2 ddq_dtau2 = M_inv.col(1);
+            dU.block<2, 1>(0, 0) = ddq_dtau2 * (_dt * _dt);
+            dU.block<2, 1>(2, 0) = ddq_dtau2 * _dt;
+            break;
+        }
+        }
     }
 
     void hessprod_xx(const VecX &, const VecX &, const VecX &,
@@ -223,7 +265,9 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         const double s1 = x(0), c1 = x(1);
         const double s2 = x(2), c2 = x(3);
         const double dq1 = x(4), dq2 = x(5);
-        const double tau1 = u(0), tau2 = u(1);
+
+        double tau1, tau2;
+        get_torques(u, tau1, tau2);
 
         const double s12 = s1 * c2 + c1 * s2;
 
@@ -331,12 +375,41 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         _g_m2lc2      = m2 * g * lc2;
     }
 
+    // Which actuation pattern this instance represents.
+    ActuationMode actuation_mode() const
+    {
+        return _mode;
+    }
+
   protected:
-    const uint   _nx  = 6;
-    const uint   _ndx = 4;
-    const uint   _nu  = 2;
-    const double _dt;
-    Vec6         _params;
+    // Resolves (tau1, tau2) from the control vector according to _mode.
+    // `u` only ever holds the *actuated* torque(s): size 2 for
+    // FULLY_ACTUATED, size 1 for PENDUBOT / ACROBOT.
+    void get_torques(const VecX &u, double &tau1, double &tau2) const
+    {
+        switch (_mode)
+        {
+        case ActuationMode::Full:
+            tau1 = u(0);
+            tau2 = u(1);
+            break;
+        case ActuationMode::Pendubot:
+            tau1 = u(0);
+            tau2 = 0.0;
+            break;
+        case ActuationMode::Acrobot:
+            tau1 = 0.0;
+            tau2 = u(0);
+            break;
+        }
+    }
+
+    const uint          _nx  = 6;
+    const uint          _ndx = 4;
+    const ActuationMode _mode;
+    const uint          _nu;
+    const double        _dt;
+    Vec6                _params;
 
     // Invariant cached calculation bundles
     double _m2_l1_lc2;
@@ -394,7 +467,7 @@ class DoublePendulumAmbientTrackingCost : public stagewise::StageCost
                   VecX &du) const override
     {
         dx.resize(_ndx); // size 4
-        du.setZero(_nu); // size 2
+        du.setZero(u.size());
 
         // Tangent space position/velocity errors
         const double dq1 = std::atan2(x(0) * _x_des(1) - x(1) * _x_des(0),
@@ -419,22 +492,22 @@ class DoublePendulumAmbientTrackingCost : public stagewise::StageCost
     // State-control cross terms are zero
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override
     {
-        Hxu.setZero(_ndx, _nu);
+        Hxu.setZero(_ndx, u.size());
     }
 
     // Constant diagonal Hessian block for control effort
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override
     {
-        Huu.setZero(_nu, _nu);
+        Huu.setZero(u.size(), u.size());
     }
 
   private:
     const uint _ndx = 4; // Tangent size
-    const uint _nu  = 2; // Control size
 
     Vec6 _x_des;
     Vec4 _q_weight;
 };
+
 }
 }
 }
