@@ -82,6 +82,12 @@ int main()
     tests.addTest(ssqp::tests::generators::
                     get_double_pendulum_ambient_dynamics_grad_test());
 
+    tests.addTest(
+      ssqp::tests::generators::get_pendubot_ambient_dynamics_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_acrobot_ambient_dynamics_grad_test());
+
     tests.addTest(ssqp::tests::generators::
                     get_double_pendulum_ambient_dynamics_parameter_grad_test());
 

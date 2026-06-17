@@ -2,10 +2,9 @@ import mujoco
 import mujoco.viewer
 import ssqpy
 import numpy as np
-from math import pi
 from time import time, sleep
 
-MPC_H = 100
+MPC_H = 150
 dt = 0.01
 
 USE_ACTUAL_PARAMS = False
@@ -25,7 +24,9 @@ params = np.array([0.4, 0.4, 0.1, 0.1, 0.01, 0.01])
 
 
 dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-    params, dt=dt
+    params,
+    actuation_mode=ssqpy.model.custom.double_pendulum.ActuationMode.Acrobot,
+    dt=dt,
 )
 
 window_size = 2000
@@ -50,7 +51,7 @@ model = ssqpy.model.Model(MPC_H, dt)
 custom_properties = ssqpy.model.CustomProperties()
 custom_properties.nq = 4
 custom_properties.nv = 2
-custom_properties.nu = 2
+custom_properties.nu = 1
 custom_properties.njoints = 2
 custom_properties.floating_base = False
 
@@ -65,7 +66,7 @@ terminal_cost = (
     )
 )
 
-torque_limits = np.array((0.0, 0.15))
+torque_limits = np.array((0.15,))
 torque_constraint = ssqpy.model.constraints.JointControlConstraint(
     model, -torque_limits, torque_limits
 )
@@ -80,7 +81,9 @@ model.addCost(MPC_H, terminal_cost)
 
 dynamics = [
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-        actual_params if USE_ACTUAL_PARAMS else params, dt=dt
+        actual_params if USE_ACTUAL_PARAMS else params,
+        actuation_mode=ssqpy.model.custom.double_pendulum.ActuationMode.Acrobot,
+        dt=dt,
     )
     for _ in range(MPC_H + 1)
 ]
@@ -159,19 +162,13 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         pre = time()
         try:
             states, controls = mpc.step(state)
-            # print("State:")
-            # states.print()
-            # print("Control:")
-            # controls.print()
-
             control = controls.stage(0)
         except RuntimeError as exc:
             print(exc)
             control = np.zeros(2)
 
         control = np.clip(control, -0.15, 0.15)
-        control[0] = 0.0
-        mjdata.ctrl = control
+        mjdata.ctrl[1] = control[0]
 
         elapsed = time() - pre
         steps += 1
@@ -182,6 +179,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 
-        to_sleep = dt - (time() - frame_start)
+        to_sleep = mjmodel.opt.timestep - (time() - frame_start)
         if to_sleep > 0:
             sleep(to_sleep)

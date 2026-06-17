@@ -2,13 +2,25 @@ import mujoco
 import mujoco.viewer
 import ssqpy
 import numpy as np
-from math import pi
 from time import time, sleep
 
 MPC_H = 45
 dt = 0.01
 
-params = np.array([10.0, 5.0, 0.2, 0.5, 0.01, 0.01])
+USE_ACTUAL_PARAMS = False
+
+actual_params = np.array(
+    [
+        0.10548177618443695,
+        0.07619744360415454,
+        0.05,
+        0.05,
+        0.00046166221821039165,
+        0.00023702395072092597,
+    ]
+)
+
+params = np.array([0.2, 0.15, 0.1, 0.03, 0.001, 0.0006])
 dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
     params, dt=dt
 )
@@ -63,7 +75,7 @@ model.addCost(MPC_H, config_cost)
 
 dynamics = [
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-        params, dt=dt
+        actual_params if USE_ACTUAL_PARAMS else params, dt=dt
     )
     for _ in range(MPC_H + 1)
 ]
@@ -108,7 +120,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             )
         )
 
-        if prev_state is not None:
+        if not USE_ACTUAL_PARAMS and prev_state is not None:
             gn.addData(prev_state, control, state)
 
             new_params = dyn.parameters()
@@ -135,3 +147,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
+
+        to_sleep = mjmodel.opt.timestep - (time() - frame_start)
+        if to_sleep > 0:
+            sleep(to_sleep)
