@@ -20,6 +20,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        "-a",
+        "--acrobot",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to actuate only elbow joint (acrobot)",
+    )
+
+    parser.add_argument(
         "-t",
         "--torque-limit",
         type=float,
@@ -47,14 +54,19 @@ ids = candle.ping()
 for id in ids:
     candle.addMd80(id)
 
+if args.pendubot and args.acrobot:
+    raise RuntimeError("Cannot start with both pendubot and acrobot flags!")
+
 if not args.pendubot:
     candle.controlMd80SetEncoderZero(ids[0])
     candle.controlMd80Mode(ids[0], pyCandle.RAW_TORQUE)
     candle.controlMd80Enable(ids[0], True)
 
-candle.controlMd80SetEncoderZero(ids[1])
-candle.controlMd80Mode(ids[1], pyCandle.RAW_TORQUE)
-candle.controlMd80Enable(ids[1], True)
+if not args.acrobot:
+    candle.controlMd80SetEncoderZero(ids[1])
+    candle.controlMd80Mode(ids[1], pyCandle.RAW_TORQUE)
+    candle.controlMd80Enable(ids[1], True)
+
 candle.begin()
 
 dt = 0.01
@@ -87,7 +99,9 @@ while True:
 
     if not args.pendubot:
         candle.md80s[0].setTargetTorque(tau[1])
-    candle.md80s[1].setTargetTorque(tau[0])
+
+    if not args.acrobot:
+        candle.md80s[1].setTargetTorque(tau[0])
 
     steps += 1
 

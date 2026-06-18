@@ -145,7 +145,7 @@ model.finalize(init_states=init)
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.loose_success = False
 ssqp_params.tolerance = 1e-2
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3

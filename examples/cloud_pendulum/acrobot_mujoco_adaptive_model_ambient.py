@@ -7,7 +7,7 @@ from time import time, sleep
 MPC_H = 150
 dt = 0.01
 
-USE_ACTUAL_PARAMS = False
+USE_ACTUAL_PARAMS = True
 
 actual_params = np.array(
     [
@@ -40,6 +40,7 @@ search = ssqpy.solvers.search.DynamicsParamGaussNewton(
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
 ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
+A_WGT = 1e-3
 V_WGT = 1e-2
 U_WGT = 1e-3
 C_WGT = np.array((100.0, 10.0, 0.01, 0.01))
@@ -60,10 +61,20 @@ model.setCustomProperties(custom_properties)
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
+stage_cost = (
+    ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
+        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), np.array([A_WGT] * 4)
+    )
+)
 terminal_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
         np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), 10.0 * C_WGT
     )
+)
+
+velocity_limits = np.array((25.0, 25.0))
+velocity_constraint = ssqpy.model.constraints.JointVelocityConstraint(
+    model, -velocity_limits, velocity_limits
 )
 
 torque_limits = np.array((0.15,))
@@ -72,12 +83,17 @@ torque_constraint = ssqpy.model.constraints.JointControlConstraint(
 )
 
 for k in range(MPC_H):
+    model.addCost(k, stage_cost)
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
 
+    model.addConstraints(k, velocity_constraint)
     model.addConstraints(k, torque_constraint)
 
+model.addCost(MPC_H, vel_cost)
 model.addCost(MPC_H, terminal_cost)
+
+model.addConstraints(MPC_H, velocity_constraint)
 
 dynamics = [
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(

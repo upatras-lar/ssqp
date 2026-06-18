@@ -24,7 +24,7 @@ def convert_state(mq, mv):
     )
 
 
-MPC_H = 140
+MPC_H = 125
 dt = 0.01
 
 USE_ACTUAL_PARAMS = True
@@ -58,11 +58,12 @@ search = ssqpy.solvers.search.DynamicsParamGaussNewton(
 # ssqpy.setSilentMode()
 # ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
-# ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
+ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
-V_WGT = 5e-3
-U_WGT = 1e-4
-C_WGT = np.array((100.0, 10.0, 0.0, 0.0))
+A_WGT = np.array((1e-2, 10.0, 0.0, 0.0))
+V_WGT = 1e-1
+U_WGT = 1e-3
+C_WGT = np.array((100.0, 50.0, 1.0, 1.0))
 
 INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
 
@@ -80,29 +81,45 @@ model.setCustomProperties(custom_properties)
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
+stage_cost = (
+    ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
+        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), A_WGT
+    )
+)
 terminal_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
-        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), C_WGT / 10.0
+        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), C_WGT
     )
 )
 
-torque_limits = np.array((0.1,))
+velocity_limits = np.array((25.0, 25.0))
+velocity_constraint = ssqpy.model.constraints.JointVelocityConstraint(
+    model, -velocity_limits, velocity_limits
+)
+
+torque_limits = np.array((0.15,))
 torque_constraint = ssqpy.model.constraints.JointControlConstraint(
     model, -torque_limits, torque_limits
 )
 
 for k in range(MPC_H):
+    model.addCost(k, stage_cost)
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
 
+    model.addConstraints(k, velocity_constraint)
     model.addConstraints(k, torque_constraint)
 
+model.addCost(MPC_H, vel_cost)
 model.addCost(MPC_H, terminal_cost)
+
+model.addConstraints(MPC_H, velocity_constraint)
 
 dynamics = [
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
         actual_params if USE_ACTUAL_PARAMS else params,
         actuation_mode=ssqpy.model.custom.double_pendulum.ActuationMode.Pendubot,
+        damping=np.array((7.634058385430087e-12, 0.0005106535523065844)),
         dt=dt,
     )
     for _ in range(MPC_H + 1)
@@ -114,7 +131,10 @@ ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
 ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
+ssqp_params.admmParams.abs_tolerance = 1e-3
+ssqp_params.admmParams.rel_tolerance = 1e-3
+
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=100)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

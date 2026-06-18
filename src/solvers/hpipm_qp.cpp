@@ -431,6 +431,7 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
     d_ocp_qp_ipm_get_status(&_hpipm_data->ws, &_status);
     d_ocp_qp_ipm_get_iter(&_hpipm_data->ws, &_iter);
 
+    // logln("HPIPM status: " << _status);
     logln_at(LogLevel::Debug, "HPIPM status: " << _status);
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)

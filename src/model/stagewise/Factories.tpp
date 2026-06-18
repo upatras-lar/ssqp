@@ -143,6 +143,10 @@ std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
             {
                 VecX tmp_x, tmp_u;
                 l2->gradient(x, u, tmp_x, tmp_u);
+                assert(dx.size() == tmp_x.size() &&
+                       "Merged cost gradient: dx sizes do not match");
+                assert(du.size() == tmp_u.size() &&
+                       "Merged cost gradient: du sizes do not match");
                 dx += tmp_x;
                 du += tmp_u;
             }
@@ -163,6 +167,9 @@ std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
             {
                 MatX tmp_Hxx;
                 l2->hessian_xx(x, u, tmp_Hxx);
+                assert(Hxx.rows() == tmp_Hxx.rows() &&
+                       Hxx.cols() == tmp_Hxx.cols() &&
+                       "Merged cost hess_xx: Hxx sizes do not match");
                 Hxx += tmp_Hxx;
             }
         }
@@ -182,6 +189,9 @@ std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
             {
                 MatX tmp_Hxu;
                 l2->hessian_xu(x, u, tmp_Hxu);
+                assert(Hxu.rows() == tmp_Hxu.rows() &&
+                       Hxu.cols() == tmp_Hxu.cols() &&
+                       "Merged cost hess_xu: Hxu sizes do not match");
                 Hxu += tmp_Hxu;
             }
         }
@@ -201,6 +211,9 @@ std::shared_ptr<StageCost> merge_costs(const std::shared_ptr<StageCost> &l1,
             {
                 MatX tmp_Huu;
                 l2->hessian_uu(x, u, tmp_Huu);
+                assert(Huu.rows() == tmp_Huu.rows() &&
+                       Huu.cols() == tmp_Huu.cols() &&
+                       "Merged cost hess_uu: Huu sizes do not match");
                 Huu += tmp_Huu;
             }
         }
