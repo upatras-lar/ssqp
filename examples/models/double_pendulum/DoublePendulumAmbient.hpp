@@ -47,12 +47,15 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
   public:
     DoublePendulumAmbientDynamics(const Vec6   &params,
                                   ActuationMode mode      = ActuationMode::Full,
+                                  const Vec2 &damping     = Vec2::Zero(),
                                   const double dt         = 0.01,
                                   const std::string &name = "")
       : StageDynamics(name)
       , _mode(mode)
       , _nu(mode == ActuationMode::Full ? 2 : 1)
       , _dt(dt)
+      , _b1(damping(0))
+      , _b2(damping(1))
     {
         update_parameters(params);
     }
@@ -129,11 +132,14 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         M(1, 1) = _M22_const;
 
         const double V1 = -_m2_l1_lc2 * dq2 * (2.0 * dq1 + dq2) * s2 +
-                          _g_m1lc1_m2l1 * s1 + _g_m2lc2 * s12;
-        const double V2 = _m2_l1_lc2 * dq1 * dq1 * s2 + _g_m2lc2 * s12;
+                          _g_m1lc1_m2l1 * s1 + _g_m2lc2 * s12 + _b1 * dq1;
 
-        const Mat2 M_inv = M.inverse();
-        const Vec2 ddq   = M_inv * Vec2(tau1 - V1, tau2 - V2);
+        const double V2 =
+          _m2_l1_lc2 * dq1 * dq1 * s2 + _g_m2lc2 * s12 + _b2 * dq2;
+
+        Eigen::LDLT<Mat2> ldlt(M);
+        const Vec2        rhs = Vec2(tau1 - V1, tau2 - V2);
+        const Vec2        ddq = ldlt.solve(rhs);
 
         const double ndq1 = dq1 + ddq[0] * _dt;
         const double ndq2 = dq2 + ddq[1] * _dt;
@@ -145,6 +151,7 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         VecX nx(_nx);
         nx << s1 * cd1 + c1 * sd1, c1 * cd1 - s1 * sd1, s2 * cd2 + c2 * sd2,
           c2 * cd2 - s2 * sd2, ndq1, ndq2;
+
         return nx;
     }
 
@@ -172,16 +179,18 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         M(1, 1) = _M22_const;
 
         const double V1 = -_m2_l1_lc2 * dq2 * (2.0 * dq1 + dq2) * s2 +
-                          _g_m1lc1_m2l1 * s1 + _g_m2lc2 * s12;
-        const double V2 = _m2_l1_lc2 * dq1 * dq1 * s2 + _g_m2lc2 * s12;
+                          _g_m1lc1_m2l1 * s1 + _g_m2lc2 * s12 + _b1 * dq1;
+        const double V2 =
+          _m2_l1_lc2 * dq1 * dq1 * s2 + _g_m2lc2 * s12 + _b2 * dq2;
 
-        const Mat2 M_inv = M.inverse();
-        const Vec2 ddq   = M_inv * Vec2(tau1 - V1, tau2 - V2);
+        Eigen::LDLT<Mat2> ldlt(M);
+        const Vec2        rhs = Vec2(tau1 - V1, tau2 - V2);
+        const Vec2        ddq = ldlt.solve(rhs);
 
-        // 1. w.r.t. q1
+        // 1. w.r.t. q1 (damping has no position dependence)
         const Vec2 dV_dq1(_g_m1lc1_m2l1 * c1 + _g_m2lc2 * c12, _g_m2lc2 * c12);
 
-        // 2. w.r.t. q2
+        // 2. w.r.t. q2 (damping has no position dependence)
         Mat2 dM_dq2;
         dM_dq2(0, 0) = -2.0 * _m2_l1_lc2 * s2;
         dM_dq2(0, 1) = dM_dq2(1, 0) = -_m2_l1_lc2 * s2;
@@ -191,19 +200,19 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
                             _g_m2lc2 * c12,
                           _m2_l1_lc2 * dq1 * dq1 * c2 + _g_m2lc2 * c12);
 
-        // 3. w.r.t. dq1
-        const Vec2 dV_ddq1(-2.0 * _m2_l1_lc2 * dq2 * s2,
+        // 3. w.r.t. dq1 -- damping adds +_b1 to the joint-1 entry
+        const Vec2 dV_ddq1(-2.0 * _m2_l1_lc2 * dq2 * s2 + _b1,
                            2.0 * _m2_l1_lc2 * dq1 * s2);
 
-        // 4. w.r.t. dq2
-        const Vec2 dV_ddq2(-2.0 * _m2_l1_lc2 * (dq1 + dq2) * s2, 0.0);
+        // 4. w.r.t. dq2 -- damping adds +_b2 to the joint-2 entry
+        const Vec2 dV_ddq2(-2.0 * _m2_l1_lc2 * (dq1 + dq2) * s2, _b2);
 
         // --- Tangent-space acceleration Jacobians ---
         Mat2 ddq_dq, ddq_ddq;
-        ddq_dq.col(0)  = M_inv * (-dV_dq1);
-        ddq_dq.col(1)  = M_inv * (-dV_dq2 - dM_dq2 * ddq);
-        ddq_ddq.col(0) = M_inv * (-dV_ddq1);
-        ddq_ddq.col(1) = M_inv * (-dV_ddq2);
+        ddq_dq.col(0)  = ldlt.solve(-dV_dq1);
+        ddq_dq.col(1)  = ldlt.solve(-dV_dq2 - dM_dq2 * ddq);
+        ddq_ddq.col(0) = ldlt.solve(-dV_ddq1);
+        ddq_ddq.col(1) = ldlt.solve(-dV_ddq2);
 
         const Mat2 I         = Mat2::Identity();
         dX.block<2, 2>(0, 0) = I + ddq_dq * (_dt * _dt);
@@ -215,19 +224,29 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         switch (_mode)
         {
         case ActuationMode::Full:
-            dU.block<2, 2>(0, 0) = M_inv * (_dt * _dt);
-            dU.block<2, 2>(2, 0) = M_inv * _dt;
+        {
+            Mat2 I = Mat2::Identity();
+
+            Mat2 Minv = ldlt.solve(I);
+
+            dU.block<2, 2>(0, 0) = Minv * (_dt * _dt);
+            dU.block<2, 2>(2, 0) = Minv * _dt;
             break;
+        }
         case ActuationMode::Pendubot:
         {
-            const Vec2 ddq_dtau1 = M_inv.col(0);
+            const Vec2 e1        = Vec2(1.0, 0.0);
+            const Vec2 ddq_dtau1 = ldlt.solve(e1);
+
             dU.block<2, 1>(0, 0) = ddq_dtau1 * (_dt * _dt);
             dU.block<2, 1>(2, 0) = ddq_dtau1 * _dt;
             break;
         }
         case ActuationMode::Acrobot:
         {
-            const Vec2 ddq_dtau2 = M_inv.col(1);
+            const Vec2 e2        = Vec2(0.0, 1.0);
+            const Vec2 ddq_dtau2 = ldlt.solve(e2);
+
             dU.block<2, 1>(0, 0) = ddq_dtau2 * (_dt * _dt);
             dU.block<2, 1>(2, 0) = ddq_dtau2 * _dt;
             break;
@@ -238,6 +257,7 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
     void hessprod_xx(const VecX &, const VecX &, const VecX &,
                      MatX &Pxx) const override
     {
+        // Damping is exactly linear in dq, so it adds no curvature here.
         Pxx.setZero(_ndx, _ndx);
     }
     void hessprod_xu(const VecX &, const VecX &, const VecX &,
@@ -277,16 +297,23 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         const double M22 = _M22_const;
 
         const double V1 = -_m2_l1_lc2 * dq2 * (2.0 * dq1 + dq2) * s2 +
-                          _g_m1lc1_m2l1 * s1 + _g_m2lc2 * s12;
-        const double V2 = _m2_l1_lc2 * dq1 * dq1 * s2 + _g_m2lc2 * s12;
+                          _g_m1lc1_m2l1 * s1 + _g_m2lc2 * s12 + _b1 * dq1;
+        const double V2 =
+          _m2_l1_lc2 * dq1 * dq1 * s2 + _g_m2lc2 * s12 + _b2 * dq2;
 
         double det = M11 * M22 - M12 * M12;
         if (std::abs(det) < 1e-9) det = (det >= 0) ? 1e-9 : -1e-9;
 
-        Mat2 M_inv;
-        M_inv << M22 / det, -M12 / det, -M12 / det, M11 / det;
+        Mat2 M;
+        M(0, 0) = _M11_const + _m2_l1_lc2_2 * c2;
+        M(0, 1) = _M12_const + _m2_l1_lc2 * c2;
+        M(1, 0) = M(0, 1);
+        M(1, 1) = _M22_const;
 
-        const Vec2 ddq = M_inv * Vec2(tau1 - V1, tau2 - V2);
+        Eigen::LDLT<Mat2> ldlt(M);
+
+        const Vec2 rhs = Vec2(tau1 - V1, tau2 - V2);
+        const Vec2 ddq = ldlt.solve(rhs);
 
         Eigen::Matrix<double, 2, 6> d_ddq_d_theta;
 
@@ -342,7 +369,7 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
                 break;
             }
 
-            d_ddq_d_theta.col(i) = -M_inv * (dM * ddq + dV);
+            d_ddq_d_theta.col(i) = -ldlt.solve(dM * ddq + dV);
         }
 
         Eigen::Matrix<double, 4, 6> J = Eigen::Matrix<double, 4, 6>::Zero();
@@ -381,6 +408,18 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         return _mode;
     }
 
+    // Viscous joint damping coefficients [b1, b2]. Fixed property of the
+    // model, independent of the 6-parameter vector above.
+    void set_damping(const Vec2 &damping)
+    {
+        _b1 = damping(0);
+        _b2 = damping(1);
+    }
+    Vec2 damping() const
+    {
+        return Vec2(_b1, _b2);
+    }
+
   protected:
     // Resolves (tau1, tau2) from the control vector according to _mode.
     // `u` only ever holds the *actuated* torque(s): size 2 for
@@ -409,6 +448,8 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
     const ActuationMode _mode;
     const uint          _nu;
     const double        _dt;
+    double              _b1; // joint 1 viscous damping coefficient
+    double              _b2; // joint 2 viscous damping coefficient
     Vec6                _params;
 
     // Invariant cached calculation bundles

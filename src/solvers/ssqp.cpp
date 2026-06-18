@@ -440,6 +440,15 @@ SolverState ssqp::solve(Guess &guess)
 
         auto        start_iter_time = std::chrono::high_resolution_clock::now();
         SolverState state           = qp_solver->solve(sol);
+
+        if (GlobalLogMask & LogLevel::Warning &&
+            (sol.dx.vec.hasNaN() || sol.du.vec.hasNaN() ||
+             sol.lambda.vec.hasNaN() || sol.mu.vec.hasNaN()))
+        {
+            logln_at(LogLevel::Warning,
+                     "Warning: NaN detected in QP solver solution");
+        }
+
         _convergence_data.iteration_data.back().qp_duration =
           std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::high_resolution_clock::now() - start_iter_time)

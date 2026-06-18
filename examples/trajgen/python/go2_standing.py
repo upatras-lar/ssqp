@@ -85,16 +85,30 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     name="RR foot velocity bound",
 )
 
+b1 = constraints.FramePositionBound(
+    model,
+    "FL_foot",
+    np.array((-np.inf, -np.inf, 0.0)),
+    np.array((np.inf, np.inf, np.inf)),
+)
+
+b2 = constraints.FramePositionBound(
+    model,
+    "FL_foot",
+    np.array((-np.inf, -np.inf, 0.0)),
+    np.array((np.inf, np.inf, np.inf)),
+)
+
 for k in range(HORIZON):
     # Add regularization costs
-    model.addCost(k, config_cost)
+    # model.addCost(k, config_cost)
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
 
     # Add a standing phase (4 feet on the ground)
-    model.addContactConstraint(k, "FL_foot", name="FL foot contact constraint")
-    model.addConstraints(k, fl_foot_vel_bound)
+    # model.addContactConstraint(k, "FL_foot", name="FL foot contact constraint")
+    # model.addConstraints(k, fl_foot_vel_bound)
 
     model.addContactConstraint(k, "FR_foot", name="FR foot contact constraint")
     model.addConstraints(k, fr_foot_vel_bound)
@@ -102,8 +116,11 @@ for k in range(HORIZON):
     model.addContactConstraint(k, "RL_foot", name="RL foot contact constraint")
     model.addConstraints(k, rl_foot_vel_bound)
 
-    model.addContactConstraint(k, "RR_foot", name="RR foot contact constraint")
-    model.addConstraints(k, rr_foot_vel_bound)
+    # model.addContactConstraint(k, "RR_foot", name="RR foot contact constraint")
+    # model.addConstraints(k, rr_foot_vel_bound)
+
+    model.addConstraints(k, b1)
+    model.addConstraints(k, b2)
 
 model.addCost(HORIZON, config_cost)
 # model.addConstraints(
@@ -116,26 +133,29 @@ model.addCost(HORIZON, config_cost)
 # Finalize the model with our state and controls
 model.finalize(init_states=init)
 
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = False
+ssqp_params.tolerance = 1e-2
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+# ssqp_params.stop_after_constraint_satisfaction = True
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.max_iter = 200
+hpipm_params.tol_stat = 1e-4
+hpipm_params.tol_comp = 1e-4
+hpipm_params.tol_eq = 1e-4
+hpipm_params.tol_ineq = 1e-4
+ssqp_params.hpipmParams = hpipm_params
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.max_iter = 500
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
 # Create a solver with the model
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    tolerance=1e-2,
-    # line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    merit_mu_c=1.0,
-    merit_mu_gamma=1.0,
-    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    hpipm_max_iter=500,
-    hpipm_warm_start=False,
-    hpipm_tol_stat=1e-3,
-    hpipm_tol_comp=1e-3,
-    hpipm_tol_eq=1e-3,
-    hpipm_tol_ineq=1e-3,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_max_iter=500,
-    admm_warm_start=False,
-)
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 

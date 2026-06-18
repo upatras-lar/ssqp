@@ -89,10 +89,12 @@ void bind_Custom(nb::module_ &m)
       )doc")
       .def(nb::init<const Vec6 &,
                     const double_pendulum::ActuationMode,
+                    const Vec2 &,
                     const double,
                     const std::string &>(),
            nb::arg("params"),
            nb::arg("actuation_mode") = double_pendulum::ActuationMode::Full,
+           nb::arg("damping")        = Vec2::Zero(),
            nb::arg("dt")             = 0.01,
            nb::arg("name")           = "");
 

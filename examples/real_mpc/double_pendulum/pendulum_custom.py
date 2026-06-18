@@ -24,8 +24,8 @@ def convert_state(mq, mv):
 
 
 # Build MPC
-MPC_H = 45
-dt = 0.01
+MPC_H = 90
+dt = 0.005
 
 params = np.array(
     [
@@ -33,8 +33,8 @@ params = np.array(
         0.07619744360415454,
         0.05,
         0.05,
-        0.00046166221821039165,
-        0.00023702395072092597,
+        0.0,
+        0.0,
     ]
 )
 
@@ -71,6 +71,11 @@ terminal_cost = (
     )
 )
 
+velocity_limits = np.array((30.0, 30.0))
+velocity_constraint = ssqpy.model.constraints.JointVelocityConstraint(
+    model, -velocity_limits, velocity_limits
+)
+
 torque_limits = np.array((0.1, 0.1))
 torque_constraint = ssqpy.model.constraints.JointControlConstraint(
     model, -torque_limits, torque_limits
@@ -81,13 +86,18 @@ for k in range(MPC_H):
     model.addCost(k, u_cost)
 
     model.addCost(k, config_cost)
+
+    model.addConstraints(k, velocity_constraint)
     model.addConstraints(k, torque_constraint)
 
 model.addCost(MPC_H, terminal_cost)
+model.addConstraints(MPC_H, velocity_constraint)
 
 dynamics = [
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-        params, dt=dt
+        params,
+        damping=np.array((7.634058385430087e-12, 0.0005106535523065844)),
+        dt=dt,
     )
     for _ in range(MPC_H + 1)
 ]

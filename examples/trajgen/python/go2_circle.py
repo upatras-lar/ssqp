@@ -53,7 +53,9 @@ traj = make_trajectory(HORIZON)
 # Initial configuration
 # ----------------------------
 
-base_pos = np.array((0.00977120909615503, 0.0010149333444776712, 0.3699871267409014))
+base_pos = np.array(
+    (0.00977120909615503, 0.0010149333444776712, 0.3699871267409014)
+)
 base_config = np.array(
     (
         -0.00301867560886747,
@@ -86,7 +88,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    solver_mode=ssqpy.model.SolverMode.InverseDynamics,
+    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -123,7 +125,7 @@ for k in range(HORIZON):
     # 4-foot contact phase (standing)
     for foot in ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]:
 
-        model.addContactConstraint(k, foot)
+        model.addContactConstraint(k, foot, eq_tol=0.1)
 
         vel_bound = constraints.FrameLinearVelocityBound(
             model, foot, np.zeros(3), np.zeros(3)
@@ -164,7 +166,7 @@ solver = ssqpy.solvers.ssqp(
     merit_mu_c=2.0,
     merit_mu_gamma=0.1,
     admm_max_iter=250,
-    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     hpipm_max_iter=500,
 )
 
