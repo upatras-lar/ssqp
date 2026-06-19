@@ -71,7 +71,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    # solver_mode=ssqpy.model.SolverMode.InverseDynamics,
+    # solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -164,16 +164,16 @@ for k in range(HORIZON):
     # If at start or end of horizon
     if k < JUMP_STEPS[0][0] or k >= JUMP_STEPS[-1][-1]:
         # Add a standing phase (4 feet on the ground)
-        model.addContactConstraint(k, "FL_foot")
+        model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
         model.addConstraints(k, fl_foot_vel_bound)
 
-        model.addContactConstraint(k, "FR_foot")
+        model.addContactConstraint(k, "FR_foot", eq_tol=0.01)
         model.addConstraints(k, fr_foot_vel_bound)
 
-        model.addContactConstraint(k, "RL_foot")
+        model.addContactConstraint(k, "RL_foot", eq_tol=0.01)
         model.addConstraints(k, rl_foot_vel_bound)
 
-        model.addContactConstraint(k, "RR_foot")
+        model.addContactConstraint(k, "RR_foot", eq_tol=0.01)
         model.addConstraints(k, rr_foot_vel_bound)
 
         init_controls.append(init_control)
@@ -196,54 +196,54 @@ for k in range(HORIZON):
     # and add constraints for them
     if not on_air:
         if LAND_SEQ[i - 1] == "B":
-            model.addContactConstraint(k, "RL_foot")
+            model.addContactConstraint(k, "RL_foot", eq_tol=0.01)
             model.addConstraints(k, rl_foot_vel_bound)
 
-            model.addContactConstraint(k, "RR_foot")
+            model.addContactConstraint(k, "RR_foot", eq_tol=0.01)
             model.addConstraints(k, rr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "F":
-            model.addContactConstraint(k, "FL_foot")
+            model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
             model.addConstraints(k, fl_foot_vel_bound)
 
-            model.addContactConstraint(k, "FR_foot")
+            model.addContactConstraint(k, "FR_foot", eq_tol=0.01)
             model.addConstraints(k, fr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "L":
-            model.addContactConstraint(k, "FL_foot")
+            model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
             model.addConstraints(k, fl_foot_vel_bound)
 
-            model.addContactConstraint(k, "RL_foot")
+            model.addContactConstraint(k, "RL_foot", eq_tol=0.01)
             model.addConstraints(k, rl_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "R":
-            model.addContactConstraint(k, "FR_foot")
+            model.addContactConstraint(k, "FR_foot", eq_tol=0.01)
             model.addConstraints(k, fr_foot_vel_bound)
 
-            model.addContactConstraint(k, "RR_foot")
+            model.addContactConstraint(k, "RR_foot", eq_tol=0.01)
             model.addConstraints(k, rr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "FL":
-            model.addContactConstraint(k, "FL_foot")
+            model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
             model.addConstraints(k, fl_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "FR":
-            model.addContactConstraint(k, "FR_foot")
+            model.addContactConstraint(k, "FR_foot", eq_tol=0.01)
             model.addConstraints(k, fr_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "RL":
-            model.addContactConstraint(k, "RL_foot")
+            model.addContactConstraint(k, "RL_foot", eq_tol=0.01)
             model.addConstraints(k, rl_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "RR":
-            model.addContactConstraint(k, "RR_foot")
+            model.addContactConstraint(k, "RR_foot", eq_tol=0.01)
             model.addConstraints(k, rr_foot_vel_bound)
 
             init_controls.append(init_control_1)
@@ -269,24 +269,28 @@ model.addConstraints(
 # Finalize the model with our state and controls
 model.finalize(init_states=init, init_controls=init_controls)
 
+# SSQP model parameters
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = False
+ssqp_params.tolerance = 1e-2
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.max_iter = 500
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_stat = 1e-4
+hpipm_params.tol_comp = 1e-4
+hpipm_params.tol_eq = 1e-4
+hpipm_params.tol_ineq = 1e-4
+ssqp_params.hpipmParams = hpipm_params
+
 # Create a solver with the model
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    tolerance=1e-1,
-    tolerance_final=5e-2,
-    tolerance_update_steps=25,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    merit_mu_c=2.0,
-    merit_mu_gamma=1.0,
-    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    # hpipm_max_iter=250,
-    admm_abs_tolerance=1e-2,
-    admm_abs_tolerance_final=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_tolerance_update_steps=250,
-    admm_max_iter=500,
-)
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 
