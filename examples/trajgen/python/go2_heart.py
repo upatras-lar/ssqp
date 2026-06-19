@@ -37,7 +37,11 @@ traj_l = []
 traj_r = []
 
 x = lambda t: 0.02 * (16 * sin(t) ** 3)
-y = lambda t: 0.02 * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)) + 0.5
+y = (
+    lambda t: 0.02
+    * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t))
+    + 0.5
+)
 
 for t in np.arange(0, pi, pi / trace_steps):
     traj_l.append((x(t), y(t)))
@@ -130,18 +134,18 @@ for k in range(HORIZON):
     model.addCost(k, force_cost)
 
     # Add rear feet contacts
-    model.addContactConstraint(k, "RL_foot")
+    model.addContactConstraint(k, "RL_foot", eq_tol=0.01)
     model.addConstraints(k, rl_foot_vel_bound)
 
-    model.addContactConstraint(k, "RR_foot")
+    model.addContactConstraint(k, "RR_foot", eq_tol=0.01)
     model.addConstraints(k, rr_foot_vel_bound)
 
     # If at start or end of trajectory, add front feet contacts
     if k < STANDING_STEPS or k > HORIZON - STANDING_STEPS:
-        model.addContactConstraint(k, "FL_foot")
+        model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
         model.addConstraints(k, fl_foot_vel_bound)
 
-        model.addContactConstraint(k, "FR_foot")
+        model.addContactConstraint(k, "FR_foot", eq_tol=0.01)
         model.addConstraints(k, fr_foot_vel_bound)
 
         init_controls.append(init_control)
@@ -155,7 +159,9 @@ for k in range(HORIZON):
             costs.FrameSquaredTranslationErrorCost(
                 model,
                 "FL_foot",
-                np.array((TRACE_X_COORD, traj_l[trace_k][0], traj_l[trace_k][1])),
+                np.array(
+                    (TRACE_X_COORD, traj_l[trace_k][0], traj_l[trace_k][1])
+                ),
                 TRACE_ARM_WGT,
             ),
         )
@@ -165,7 +171,9 @@ for k in range(HORIZON):
             costs.FrameSquaredTranslationErrorCost(
                 model,
                 "FR_foot",
-                np.array((TRACE_X_COORD, traj_r[trace_k][0], traj_r[trace_k][1])),
+                np.array(
+                    (TRACE_X_COORD, traj_r[trace_k][0], traj_r[trace_k][1])
+                ),
                 TRACE_ARM_WGT,
             ),
         )
@@ -186,25 +194,36 @@ model.addCost(
 # Add a bound such that the base has no velocity at the end of the trajectory
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
+    constraints.FrameLinearVelocityBound(
+        model, "base", np.zeros(3), np.zeros(3), True
+    ),
 )
 
 # Finalize the model
 model.finalize(init_states=init, init_controls=init_controls)
 
+# SSQP model parameters
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = False
+ssqp_params.tolerance = 1e-2
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.max_iter = 500
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_stat = 1e-4
+hpipm_params.tol_comp = 1e-4
+hpipm_params.tol_eq = 1e-4
+hpipm_params.tol_ineq = 1e-4
+ssqp_params.hpipmParams = hpipm_params
+
 # Create an SSQP solver for the model
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    tolerance=5e-2,
-    filter_size=10,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_max_iter=500,
-    # admm_reset_rho=False,
-    # admm_reset_y=False,
-    # admm_warm_start=False,
-)
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 

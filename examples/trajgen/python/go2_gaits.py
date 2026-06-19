@@ -20,7 +20,7 @@ C_WGT = 1e-1
 V_WGT = 1e-2
 U_WGT = 1e-3
 F_WGT = 1e-5
-ROT_WGT = 1.0
+ROT_WGT = 1e-1
 TF_WGT = 5.0
 
 # @script-parameter
@@ -33,20 +33,20 @@ TF_WGT = 5.0
 #  - `setCanter`
 #  - `setGallop`
 #  - `setRotatoryGallop`
-GAIT = GaitManager.setWalk
+GAIT = GaitManager.setRotatoryGallop
 
 # @script-parameter
 # How many steps to take per gait cycle
 # With `None`, the default cycle step value for the gait being used is used
-CYCLE_STEPS = 60
+CYCLE_STEPS = None
 
 # @script-parameter
 # The number of steps to stand on all 4 feet for at the end of the trajectory
 FINAL_STANDING_STEPS = 10
 
 # Initial and final positions
-base_pos = np.array([-0.5, 0.0, 0.3689268220122])
-final_pos = np.array([0.5, 0.0, 0.3689268220122])
+base_pos = np.array([-4.0, 0.0, 0.3689268220122])
+final_pos = np.array([4.0, 0.0, 0.3689268220122])
 
 # Initial configuration
 init = np.zeros(37)
@@ -114,7 +114,12 @@ init_controls = []
 # Create a `GaitManager`, passing the model, the configuration and velocity
 # sizes and the ordered frames for each of the 4 feet
 gait_manager = GaitManager(
-    model, nq, nv, ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
+    model,
+    nq,
+    nv,
+    ["FL_foot", "FR_foot", "RL_foot", "RR_foot"],
+    # swing_cost_height=0.05,
+    contact_equality_tolerance=0.01,
 )
 
 # Add a gait of the specified type for the range [0, H - FSS - 1]
@@ -145,7 +150,7 @@ model.finalize(init_states=init)
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.loose_success = False
 ssqp_params.tolerance = 1e-2
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
@@ -155,6 +160,10 @@ admm_params.warm_start = False
 ssqp_params.admmParams = admm_params
 
 hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_stat = 1e-4
+hpipm_params.tol_comp = 1e-4
+hpipm_params.tol_eq = 1e-4
+hpipm_params.tol_ineq = 1e-4
 ssqp_params.hpipmParams = hpipm_params
 
 # Create an SSQP solver for the model

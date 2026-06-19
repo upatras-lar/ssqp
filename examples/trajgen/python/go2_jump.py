@@ -31,7 +31,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
+    solver_mode=ssqpy.model.SolverMode.InverseDynamics,
 )
 
 nq = model.getnq()
@@ -78,7 +78,10 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
 )
 
 fl_foot_pos_bound = constraints.FramePositionBound(
-    model, "FL_foot", np.array((-np.inf, 0.1, 0.0)), np.array((np.inf, np.inf, np.inf))
+    model,
+    "FL_foot",
+    np.array((-np.inf, 0.1, 0.0)),
+    np.array((np.inf, np.inf, np.inf)),
 )
 
 fr_foot_pos_bound = constraints.FramePositionBound(
@@ -89,7 +92,10 @@ fr_foot_pos_bound = constraints.FramePositionBound(
 )
 
 rl_foot_pos_bound = constraints.FramePositionBound(
-    model, "RL_foot", np.array((-np.inf, 0.1, 0.0)), np.array((np.inf, np.inf, np.inf))
+    model,
+    "RL_foot",
+    np.array((-np.inf, 0.1, 0.0)),
+    np.array((np.inf, np.inf, np.inf)),
 )
 
 rr_foot_pos_bound = constraints.FramePositionBound(
@@ -115,16 +121,16 @@ for k in range(HORIZON):
     model.addConstraints(k, rr_foot_pos_bound)
 
     if k < START_STEP or k >= END_STEP:
-        model.addContactConstraint(k, "FL_foot")
+        model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
         model.addConstraints(k, fl_foot_vel_bound)
 
-        model.addContactConstraint(k, "FR_foot")
+        model.addContactConstraint(k, "FR_foot", eq_tol=0.01)
         model.addConstraints(k, fr_foot_vel_bound)
 
-        model.addContactConstraint(k, "RL_foot")
+        model.addContactConstraint(k, "RL_foot", eq_tol=0.01)
         model.addConstraints(k, rl_foot_vel_bound)
 
-        model.addContactConstraint(k, "RR_foot")
+        model.addContactConstraint(k, "RR_foot", eq_tol=0.01)
         model.addConstraints(k, rr_foot_vel_bound)
 
         init_controls.append(init_control)
@@ -136,7 +142,9 @@ model.addCost(HORIZON, joint_vel_cost)
 
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
+    constraints.FrameLinearVelocityBound(
+        model, "base", np.zeros(3), np.zeros(3), True
+    ),
 )
 
 model.addConstraints(
@@ -182,25 +190,28 @@ model.addConstraints(
 # Finalize the model with our state and controls
 model.finalize(init_states=init, init_controls=init_controls)
 
+# SSQP model parameters
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = False
+ssqp_params.tolerance = 1e-2
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.max_iter = 500
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_stat = 1e-4
+hpipm_params.tol_comp = 1e-4
+hpipm_params.tol_eq = 1e-4
+hpipm_params.tol_ineq = 1e-4
+ssqp_params.hpipmParams = hpipm_params
+
 # Create a solver with the model
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    stop_after_constraint_satisfaction=True,
-    tolerance=1e-2,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    merit_mu_c=4.0,
-    merit_mu_gamma=0.1,
-    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    hpipm_tol_stat=1e-3,
-    hpipm_tol_eq=1e-3,
-    hpipm_tol_ineq=1e-3,
-    hpipm_tol_comp=1e-3,
-    # hpipm_max_iter=250,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_max_iter=500,
-)
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 

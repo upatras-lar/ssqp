@@ -125,7 +125,7 @@ for k in range(HORIZON):
     # 4-foot contact phase (standing)
     for foot in ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]:
 
-        model.addContactConstraint(k, foot, eq_tol=0.1)
+        model.addContactConstraint(k, foot, eq_tol=0.01)
 
         vel_bound = constraints.FrameLinearVelocityBound(
             model, foot, np.zeros(3), np.zeros(3)
@@ -153,22 +153,30 @@ model.addCost(HORIZON, terminal_cost)
 
 model.finalize(init_states=init)
 
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = False
+ssqp_params.tolerance = 1e-2
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.max_iter = 500
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+# hpipm_params.tol_stat = 1e-4
+# hpipm_params.tol_comp = 1e-4
+# hpipm_params.tol_eq = 1e-4
+# hpipm_params.tol_ineq = 1e-4
+ssqp_params.hpipmParams = hpipm_params
 
 # ----------------------------
 # Create solver
 # ----------------------------
 
-solver = ssqpy.solvers.ssqp(
-    model,
-    tolerance=1e-2,
-    stop_after_constraint_satisfaction=True,
-    # line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    merit_mu_c=2.0,
-    merit_mu_gamma=0.1,
-    admm_max_iter=250,
-    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    hpipm_max_iter=500,
-)
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 

@@ -225,7 +225,7 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     int split_step_int = _params.split_step ? 1 : 0;
     d_ocp_qp_ipm_arg_set_split_step(&split_step_int, &_hpipm_data->arg);
 
-    // Allocate workspace (size depends on arg settings)
+    // Allocate _hpipm_data->ws (size depends on arg settings)
     int ws_size = d_ocp_qp_ipm_ws_memsize(&_hpipm_data->dim, &_hpipm_data->arg);
     _hpipm_ws_mem = malloc(ws_size);
     d_ocp_qp_ipm_ws_create(&_hpipm_data->dim,
@@ -431,7 +431,12 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
     d_ocp_qp_ipm_get_status(&_hpipm_data->ws, &_status);
     d_ocp_qp_ipm_get_iter(&_hpipm_data->ws, &_iter);
 
-    // logln("HPIPM status: " << _status);
+    if (GlobalLogMask & LogLevel::Warning && _status != 0)
+    {
+        logln_at(LogLevel::Warning,
+                 "Warning: HPIPM returned status " << _status);
+    }
+
     logln_at(LogLevel::Debug, "HPIPM status: " << _status);
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
