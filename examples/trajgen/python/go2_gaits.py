@@ -33,7 +33,7 @@ TF_WGT = 5.0
 #  - `setCanter`
 #  - `setGallop`
 #  - `setRotatoryGallop`
-GAIT = GaitManager.setRotatoryGallop
+GAIT = GaitManager.setWalk
 
 # @script-parameter
 # How many steps to take per gait cycle
@@ -45,8 +45,8 @@ CYCLE_STEPS = None
 FINAL_STANDING_STEPS = 10
 
 # Initial and final positions
-base_pos = np.array([-4.0, 0.0, 0.3689268220122])
-final_pos = np.array([4.0, 0.0, 0.3689268220122])
+base_pos = np.array([-1.0, 0.0, 0.3689268220122])
+final_pos = np.array([1.0, 0.0, 0.3689268220122])
 
 # Initial configuration
 init = np.zeros(37)
@@ -60,7 +60,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
+    # solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -119,7 +119,9 @@ gait_manager = GaitManager(
     nv,
     ["FL_foot", "FR_foot", "RL_foot", "RR_foot"],
     # swing_cost_height=0.05,
+    max_normal_force=60,
     contact_equality_tolerance=0.01,
+    swing_cost_height=0.1,
 )
 
 # Add a gait of the specified type for the range [0, H - FSS - 1]
@@ -148,15 +150,17 @@ model.finalize(init_states=init)
 
 # SSQP model parameters
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.loose_success = False
+ssqp_params.loose_success = True
 ssqp_params.tolerance = 1e-2
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
-admm_params.max_iter = 500
-admm_params.warm_start = False
+admm_params.max_iter = 200
+admm_params.reset_rho = False
+admm_params.reset_y = False
+admm_params.warm_start = True
 ssqp_params.admmParams = admm_params
 
 hpipm_params = ssqpy.solvers.hpipmParams()

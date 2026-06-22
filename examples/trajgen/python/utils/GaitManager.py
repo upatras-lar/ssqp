@@ -16,6 +16,7 @@ class GaitManager:
         nv,
         foot_frames,
         swing_cost_height=-1.0,
+        max_normal_force=np.inf,
         contact_equality_tolerance=0.0,
     ):
         """
@@ -35,6 +36,7 @@ class GaitManager:
         self.nq = nq
         self.nv = nv
         self.swing_cost_height = swing_cost_height
+        self.max_normal_force = max_normal_force
         self.contact_equality_tolerance = contact_equality_tolerance
 
         self.fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
@@ -111,19 +113,31 @@ class GaitManager:
 
     def addStandingStage(self, k):
         self.model.addContactConstraint(
-            k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+            k,
+            self.fl_foot,
+            max_normal_force=self.max_normal_force,
+            eq_tol=self.contact_equality_tolerance,
         )
         self.model.addConstraints(k, self.fl_foot_vel_bound)
         self.model.addContactConstraint(
-            k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+            k,
+            self.fr_foot,
+            max_normal_force=self.max_normal_force,
+            eq_tol=self.contact_equality_tolerance,
         )
         self.model.addConstraints(k, self.fr_foot_vel_bound)
         self.model.addContactConstraint(
-            k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+            k,
+            self.rl_foot,
+            max_normal_force=self.max_normal_force,
+            eq_tol=self.contact_equality_tolerance,
         )
         self.model.addConstraints(k, self.rl_foot_vel_bound)
         self.model.addContactConstraint(
-            k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+            k,
+            self.rr_foot,
+            max_normal_force=self.max_normal_force,
+            eq_tol=self.contact_equality_tolerance,
         )
         self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -138,15 +152,24 @@ class GaitManager:
 
             if gait_stage == 0:
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -156,15 +179,24 @@ class GaitManager:
 
             elif gait_stage == 1:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
@@ -174,15 +206,24 @@ class GaitManager:
 
             elif gait_stage == 2:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -192,15 +233,24 @@ class GaitManager:
 
             elif gait_stage == 3:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -221,11 +271,17 @@ class GaitManager:
 
             if gait_stage == 0:
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
@@ -237,11 +293,17 @@ class GaitManager:
 
             elif gait_stage == 1:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
@@ -253,11 +315,17 @@ class GaitManager:
 
             elif gait_stage == 2:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -269,11 +337,17 @@ class GaitManager:
 
             elif gait_stage == 3:
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -296,11 +370,17 @@ class GaitManager:
 
             if gait_stage < 0.3 * cycle_steps:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -316,11 +396,17 @@ class GaitManager:
                 and gait_stage < 0.8 * cycle_steps
             ):
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
@@ -355,11 +441,17 @@ class GaitManager:
 
             if gait_stage < 0.3 * cycle_steps:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
@@ -375,11 +467,17 @@ class GaitManager:
                 and gait_stage < 0.8 * cycle_steps
             ):
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -414,7 +512,10 @@ class GaitManager:
 
             if gait_stage == 0:
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -429,11 +530,17 @@ class GaitManager:
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 1:
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
@@ -446,7 +553,10 @@ class GaitManager:
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 2:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
 
@@ -483,7 +593,10 @@ class GaitManager:
 
             if gait_stage == 0:
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
@@ -498,11 +611,17 @@ class GaitManager:
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 1:
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -515,15 +634,24 @@ class GaitManager:
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 2:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -534,11 +662,17 @@ class GaitManager:
                 init_controls.append(self._getInitControl(3))
             elif gait_stage == 3:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
 
@@ -573,7 +707,10 @@ class GaitManager:
 
             if gait_stage == 0:
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -588,11 +725,17 @@ class GaitManager:
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 1:
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.rr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rr_foot_vel_bound)
 
@@ -605,7 +748,10 @@ class GaitManager:
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 2:
                 self.model.addContactConstraint(
-                    k, self.rl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.rl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.rl_foot_vel_bound)
 
@@ -632,7 +778,10 @@ class GaitManager:
                 init_controls.append(self._getInitControl(0))
             elif gait_stage == 4:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
 
@@ -647,11 +796,17 @@ class GaitManager:
                 init_controls.append(self._getInitControl(1))
             elif gait_stage == 5:
                 self.model.addContactConstraint(
-                    k, self.fl_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fl_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fl_foot_vel_bound)
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
 
@@ -664,7 +819,10 @@ class GaitManager:
                 init_controls.append(self._getInitControl(2))
             elif gait_stage == 6:
                 self.model.addContactConstraint(
-                    k, self.fr_foot, eq_tol=self.contact_equality_tolerance
+                    k,
+                    self.fr_foot,
+                    max_normal_force=self.max_normal_force,
+                    eq_tol=self.contact_equality_tolerance,
                 )
                 self.model.addConstraints(k, self.fr_foot_vel_bound)
 

@@ -13,17 +13,19 @@ Performs a simple jump with the Go2 robot
 HORIZON = 150
 dt = 0.01
 
-START_STEP = 50
-END_STEP = 100
+START_STEP = 60
+END_STEP = 90
 
 # Weights
-A_WGT = 0.0
+A_WGT = 1e-3
 V_WGT = 1e-2
 U_WGT = 1e-4
-F_WGT = 1e-4
+F_WGT = 1e-3
 TF_WGT = 1.0
 RF_WGT = 1.0
 C_WGT = 1e-3
+
+MAX_NORMAL_FORCE = 100
 
 # Create an SSQP model for the Go2
 model = ssqpy.model.Model(
@@ -31,7 +33,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    solver_mode=ssqpy.model.SolverMode.InverseDynamics,
+    # solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -39,9 +41,8 @@ nv = model.getnv()
 nu = model.getnu()
 
 # Initial and final positions
-base_pos = np.array([0.0, 0.0, 0.3689])
+base_pos = np.array([0.0, 0.0, 0.3689268220122])
 base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
-final_pos = np.array([0.0, 0.0, 0.3689])
 
 # Initial configuration
 init = np.zeros(nq + nv)
@@ -80,29 +81,36 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
 fl_foot_pos_bound = constraints.FramePositionBound(
     model,
     "FL_foot",
-    np.array((-np.inf, 0.1, 0.0)),
+    np.array((-np.inf, 0.1, -0.01)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
 fr_foot_pos_bound = constraints.FramePositionBound(
     model,
     "FR_foot",
-    np.array((-np.inf, -np.inf, 0.0)),
+    np.array((-np.inf, -np.inf, -0.01)),
     np.array((np.inf, -0.1, np.inf)),
 )
 
 rl_foot_pos_bound = constraints.FramePositionBound(
     model,
     "RL_foot",
-    np.array((-np.inf, 0.1, 0.0)),
+    np.array((-np.inf, 0.1, -0.01)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
 rr_foot_pos_bound = constraints.FramePositionBound(
     model,
     "RR_foot",
-    np.array((-np.inf, -np.inf, 0.0)),
+    np.array((-np.inf, -np.inf, -0.01)),
     np.array((np.inf, -0.1, np.inf)),
+)
+
+head_constraint = constraints.FramePositionBound(
+    model,
+    "Head_lower",
+    np.array((-np.inf, -np.inf, 0.1)),
+    np.array((np.inf, np.inf, np.inf)),
 )
 
 init_controls = []
@@ -120,17 +128,27 @@ for k in range(HORIZON):
     model.addConstraints(k, rl_foot_pos_bound)
     model.addConstraints(k, rr_foot_pos_bound)
 
+    model.addConstraints(k, head_constraint)
+
     if k < START_STEP or k >= END_STEP:
-        model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
+        model.addContactConstraint(
+            k, "FL_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
+        )
         model.addConstraints(k, fl_foot_vel_bound)
 
-        model.addContactConstraint(k, "FR_foot", eq_tol=0.01)
+        model.addContactConstraint(
+            k, "FR_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
+        )
         model.addConstraints(k, fr_foot_vel_bound)
 
-        model.addContactConstraint(k, "RL_foot", eq_tol=0.01)
+        model.addContactConstraint(
+            k, "RL_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
+        )
         model.addConstraints(k, rl_foot_vel_bound)
 
-        model.addContactConstraint(k, "RR_foot", eq_tol=0.01)
+        model.addContactConstraint(
+            k, "RR_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
+        )
         model.addConstraints(k, rr_foot_vel_bound)
 
         init_controls.append(init_control)
@@ -146,6 +164,8 @@ model.addConstraints(
         model, "base", np.zeros(3), np.zeros(3), True
     ),
 )
+
+model.addConstraints(HORIZON, head_constraint)
 
 model.addConstraints(
     HORIZON,
@@ -192,22 +212,27 @@ model.finalize(init_states=init, init_controls=init_controls)
 
 # SSQP model parameters
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.loose_success = False
+ssqp_params.loose_success = True
 ssqp_params.tolerance = 1e-2
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
-admm_params.max_iter = 500
+admm_params.max_iter = 25
+admm_params.reset_rho = False
+admm_params.reset_y = False
 admm_params.warm_start = False
 ssqp_params.admmParams = admm_params
 
 hpipm_params = ssqpy.solvers.hpipmParams()
-hpipm_params.tol_stat = 1e-4
-hpipm_params.tol_comp = 1e-4
-hpipm_params.tol_eq = 1e-4
-hpipm_params.tol_ineq = 1e-4
+hpipm_params.max_iter = 25
+hpipm_params.split_step = True
+hpipm_params.prediction_correction = True
+hpipm_params.tol_stat = 1e-3
+hpipm_params.tol_comp = 1e-3
+hpipm_params.tol_eq = 1e-3
+hpipm_params.tol_ineq = 1e-3
 ssqp_params.hpipmParams = hpipm_params
 
 # Create a solver with the model
