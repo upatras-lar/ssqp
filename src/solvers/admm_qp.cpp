@@ -243,20 +243,17 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
         logln_at(LogLevel::Debug, "=============");
         log_wait_at(LogLevel::Debug);
 
-        if (!((_iter) % _params.rho_update_iter_freq))
+        _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
+
+        // Termination
+        if ((admm_state = _check_termination()) != ONGOING)
         {
-            _calculate_residuals(x_prev, u_prev, z_prev, y_prev);
+            break;
+        }
 
-            // Termination
-            if ((admm_state = _check_termination()) != ONGOING)
-            {
-                break;
-            }
-
-            if (_params.rho_update)
-            {
-                _update_rho();
-            }
+        if (_params.rho_update && !((_iter) % _params.rho_update_iter_freq))
+        {
+            _update_rho();
         }
 
         if (_params.abs_tolerance_final > 0.0 &&

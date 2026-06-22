@@ -378,9 +378,10 @@ class CenterOfMassBound : public StageConstraints
 class ContactConstraint : public StageConstraints
 {
   public:
-    ContactConstraint(const Model &model, const std::string &frame,
-                      const double mu = 0.6, const double eq_tol = 0.0,
-                      const std::string &name = "");
+    ContactConstraint(
+      const Model &model, const std::string &frame, const double mu = 0.6,
+      const double max_normal_force = std::numeric_limits<double>::infinity(),
+      const double eq_tol = 0.0, const std::string &name = "");
 
     void set_mu(const double mu);
 
@@ -418,6 +419,7 @@ class ContactConstraint : public StageConstraints
     const std::string            _frame;
     std::vector<Force>           _forces;
     double                       _mu;
+    const double                 _max_normal_force;
     const double                 _eq_tol;
 };
 

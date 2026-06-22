@@ -4,7 +4,7 @@ import ssqpy
 import numpy as np
 from time import time, sleep
 
-MPC_H = 160
+MPC_H = 100
 dt = 0.01
 
 USE_ACTUAL_PARAMS = True
@@ -38,12 +38,12 @@ search = ssqpy.solvers.search.DynamicsParamGaussNewton(
 # ssqpy.setSilentMode()
 # ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
-ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
+# ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
 A_WGT = np.array((1e-2, 1e-2, 0.0, 0.0))
 V_WGT = 1e-1
 U_WGT = 1e-3
-C_WGT = np.array((100.0, 100.0, 1.0, 1.0))
+C_WGT = np.array((100.0, 200.0, 1.0, 1.0))
 
 INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
 
@@ -108,7 +108,7 @@ dynamics = [
 model.finalize(dynamics=dynamics, init_states=[INIT_STATE])
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 ssqp_params.tolerance = 1e-2
 ssqp_params.admmParams.abs_tolerance = 1e-3
@@ -116,7 +116,7 @@ ssqp_params.admmParams.rel_tolerance = 1e-3
 ssqp_params.admmParams.reset_rho = False
 ssqp_params.admmParams.reset_y = False
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
 
 mjmodel = mujoco.MjModel.from_xml_path(
     "../assets/mjcf/double_pendulum/double_pendulum.xml"

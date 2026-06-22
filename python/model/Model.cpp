@@ -347,6 +347,7 @@ void bind_Model(nb::module_ &m)
            const uint         k,
            const std::string &frame,
            const double       mu,
+           const double       max_normal_force,
            const double       eq_tol,
            const std::string &name)
         {
@@ -354,14 +355,16 @@ void bind_Model(nb::module_ &m)
                                                           self,
                                                           frame,
                                                           mu,
+                                                          max_normal_force,
                                                           eq_tol,
                                                           name);
         },
         nb::arg("k"),
         nb::arg("frame"),
-        nb::arg("mu")     = 0.6,
-        nb::arg("eq_tol") = 0.0,
-        nb::arg("name")   = "",
+        nb::arg("mu")               = 0.6,
+        nb::arg("max_normal_force") = std::numeric_limits<double>::infinity(),
+        nb::arg("eq_tol")           = 0.0,
+        nb::arg("name")             = "",
         R"doc(
         Add a contact constraint for a frame to a stage.
         This includes adding a force for the contact constraint at that stage.

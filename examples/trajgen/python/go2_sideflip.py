@@ -14,6 +14,8 @@ F_WGT = 1e-4
 T_WGT = 4.4
 R_WGT = 1.0
 
+MAX_NORMAL_FORCE = 140
+
 STEPS_BEFORE = 60
 STEPS_AFTER = 60
 
@@ -102,16 +104,24 @@ for k in range(HORIZON):
     model.addConstraints(k, head_above_ground_bound)
 
     if k < STEPS_BEFORE or k >= HORIZON - STEPS_AFTER:
-        model.addContactConstraint(k, "FL_foot")
+        model.addContactConstraint(
+            k, "FL_foot", max_normal_force=MAX_NORMAL_FORCE
+        )
         model.addConstraints(k, fl_foot_vel_bound)
 
-        model.addContactConstraint(k, "FR_foot")
+        model.addContactConstraint(
+            k, "FR_foot", max_normal_force=MAX_NORMAL_FORCE
+        )
         model.addConstraints(k, fr_foot_vel_bound)
 
-        model.addContactConstraint(k, "RL_foot")
+        model.addContactConstraint(
+            k, "RL_foot", max_normal_force=MAX_NORMAL_FORCE
+        )
         model.addConstraints(k, rl_foot_vel_bound)
 
-        model.addContactConstraint(k, "RR_foot")
+        model.addContactConstraint(
+            k, "RR_foot", max_normal_force=MAX_NORMAL_FORCE
+        )
         model.addConstraints(k, rr_foot_vel_bound)
 
         init_states.append(init)
@@ -143,24 +153,32 @@ init_states.append(init)
 
 model.finalize(init_states=init_states, init_controls=init_controls)
 
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    merit_mu_c=3.0,
-    tolerance=5e-2,
-    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    hpipm_tol_comp=1e-3,
-    hpipm_tol_stat=1e-3,
-    hpipm_tol_eq=1e-3,
-    hpipm_tol_ineq=1e-3,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_max_iter=500,
-    admm_adaptive_rho_tolerance=15,
-    admm_warm_start=False,
-    admm_reset_rho=False,
-)
+# SSQP model parameters
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = True
+ssqp_params.tolerance = 5e-2
+ssqp_params.line_search_method = ssqpy.solvers.LineSearchMethod.Merit
+ssqp_params.merit_mu_c = 3.0
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.max_iter = 500
+admm_params.adaptive_rho_tolerance = 15
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.split_step = True
+hpipm_params.prediction_correction = True
+hpipm_params.tol_stat = 1e-3
+hpipm_params.tol_comp = 1e-3
+hpipm_params.tol_eq = 1e-3
+hpipm_params.tol_ineq = 1e-3
+ssqp_params.hpipmParams = hpipm_params
+
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 

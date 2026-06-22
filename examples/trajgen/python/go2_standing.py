@@ -36,7 +36,7 @@ model = ssqpy.model.Model(
     urdf_path="../../assets/urdf/go2/go2.urdf",
     # mjcf_path="../../assets/mjcf/go2/go2.xml",
     free_flyer=True,
-    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
+    # solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -107,8 +107,8 @@ for k in range(HORIZON):
     model.addCost(k, force_cost)
 
     # Add a standing phase (4 feet on the ground)
-    # model.addContactConstraint(k, "FL_foot", name="FL foot contact constraint")
-    # model.addConstraints(k, fl_foot_vel_bound)
+    model.addContactConstraint(k, "FL_foot", name="FL foot contact constraint")
+    model.addConstraints(k, fl_foot_vel_bound)
 
     model.addContactConstraint(k, "FR_foot", name="FR foot contact constraint")
     model.addConstraints(k, fr_foot_vel_bound)
@@ -116,19 +116,19 @@ for k in range(HORIZON):
     model.addContactConstraint(k, "RL_foot", name="RL foot contact constraint")
     model.addConstraints(k, rl_foot_vel_bound)
 
-    # model.addContactConstraint(k, "RR_foot", name="RR foot contact constraint")
-    # model.addConstraints(k, rr_foot_vel_bound)
+    model.addContactConstraint(k, "RR_foot", name="RR foot contact constraint")
+    model.addConstraints(k, rr_foot_vel_bound)
 
     model.addConstraints(k, b1)
     model.addConstraints(k, b2)
 
 model.addCost(HORIZON, config_cost)
-# model.addConstraints(
-#     HORIZON,
-#     constraints.FrameLinearVelocityBound(
-#         model, "base", np.zeros(3), np.zeros(3), True
-#     ),
-# )
+model.addConstraints(
+    HORIZON,
+    constraints.FrameLinearVelocityBound(
+        model, "base", np.zeros(3), np.zeros(3), True
+    ),
+)
 
 # Finalize the model with our state and controls
 model.finalize(init_states=init)

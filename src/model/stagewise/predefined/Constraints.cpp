@@ -563,6 +563,7 @@ void CenterOfMassBound::hessprod_uu(const VecX &x, const VecX &u,
 // ContactConstraint
 ContactConstraint::ContactConstraint(const Model       &model,
                                      const std::string &frame, const double mu,
+                                     const double       max_normal_force,
                                      const double       eq_tol,
                                      const std::string &name)
   : StageConstraints(name)
@@ -572,10 +573,13 @@ ContactConstraint::ContactConstraint(const Model       &model,
   , _nu(model.nu())
   , _frame(frame)
   , _mu(mu)
+  , _max_normal_force(max_normal_force)
   , _eq_tol(eq_tol)
 {
     assert(model.xml() && "Cannot use ContactConstraint with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
+    assert(max_normal_force >= 0.0 &&
+           "Max normal force value must be positive");
 }
 
 void ContactConstraint::set_mu(const double mu)
@@ -616,7 +620,7 @@ VecX ContactConstraint::lower_bound() const
 
 VecX ContactConstraint::upper_bound() const
 {
-    return (Vec6() << std::numeric_limits<double>::infinity(),
+    return (Vec6() << _max_normal_force,
             0.0,
             std::numeric_limits<double>::infinity(),
             0.0,
