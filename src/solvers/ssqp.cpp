@@ -441,6 +441,8 @@ SolverState ssqp::solve(Guess &guess)
         auto        start_iter_time = std::chrono::high_resolution_clock::now();
         SolverState state           = qp_solver->solve(sol);
 
+        sol.dx.stage(0).setZero();
+
         if (GlobalLogMask & LogLevel::Warning &&
             (sol.dx.vec.hasNaN() || sol.du.vec.hasNaN() ||
              sol.lambda.vec.hasNaN() || sol.mu.vec.hasNaN()))

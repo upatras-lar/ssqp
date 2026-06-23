@@ -51,7 +51,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
     CYCLE_STEPS = 60
     FINAL_STANDING_STEPS = 10
 
-    z_height = 0.3689268220122
+    z_height = 0.3879793820122
 
     for i in range(n_problems):
 

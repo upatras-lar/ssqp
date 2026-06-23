@@ -15,10 +15,10 @@ import models.quadruped_hlplanner.planner as go2_planner
 
 go2_planner.config.ContactScheduling.T = 25
 go2_planner.config.ContactScheduling.hip_to_foot_offsets = {
-    "FL": np.array((0.3, 0.14, -0.36892682)),
-    "FR": np.array((0.3, -0.14, -0.36892682)),
-    "RL": np.array((-0.15, 0.14, -0.36892682)),
-    "RR": np.array((-0.15, -0.14, -0.36892682)),
+    "FL": np.array((0.3, 0.14, -0.38797938)),
+    "FR": np.array((0.3, -0.14, -0.38797938)),
+    "RL": np.array((-0.15, 0.14, -0.38797938)),
+    "RR": np.array((-0.15, -0.14, -0.38797938)),
 }
 go2_planner.config.ContactScheduling.calculate()
 

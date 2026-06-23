@@ -40,8 +40,8 @@ JUMP_STEPS = [(50, 70), (100, 120), (150, 180)]
 LAND_SEQ = ["F", "B"]
 
 # Initial and final positions
-base_pos = np.array([0.0, 0.0, 0.3689268220122])
-final_pos = np.array([0.0, 0.0, 0.3689268220122])
+base_pos = np.array([0.0, 0.0, 0.3879793820122])
+final_pos = np.array([0.0, 0.0, 0.3879793820122])
 
 # Initial configuration
 init = np.zeros(37)

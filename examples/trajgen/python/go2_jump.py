@@ -41,7 +41,7 @@ nv = model.getnv()
 nu = model.getnu()
 
 # Initial and final positions
-base_pos = np.array([0.0, 0.0, 0.3689268220122])
+base_pos = np.array([0.0, 0.0, 0.3879793820122])
 base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Initial configuration
@@ -214,7 +214,7 @@ model.finalize(init_states=init, init_controls=init_controls)
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.loose_success = True
 ssqp_params.tolerance = 1e-2
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
