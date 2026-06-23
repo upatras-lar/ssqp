@@ -23,15 +23,15 @@ RF_WGT = 3.0
 FINAL_STANDING_STEPS = 20
 
 # Number of steps for each swing
-FOOT_SWING_STEPS = 20
+FOOT_SWING_STEPS = 40
 
 # Create an SSQP model for Talos
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../assets/urdf/talos/talos.urdf",
+    urdf_path="../../assets/urdf/talos/talos_reduced.urdf",
     free_flyer=True,
-    solver_mode=ssqpy.model.SolverMode.InverseDynamics,
+    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -42,7 +42,7 @@ nu = model.getnu()
 base_pos = np.array((0, 0, 1.0611))
 
 # Final position
-final_pos = np.array((1.0, 0.0, 1.0611))
+final_pos = np.array((2.0, 0.0, 1.0611))
 
 # Initial configuration
 init = np.zeros(nq + nv)
@@ -105,16 +105,16 @@ init[7:51] = [
 
 
 # Initial forces for 2 feet on the ground
-init_control = np.zeros(nv + 24)
+init_control = np.zeros(nu + 24)
 for f in range(1, 9):
-    init_control[nv + 3 * f - 1] = 116
+    init_control[nu + 3 * f - 1] = 116
 
 # Initial forces for 1 foot on the ground
-init_control_left = np.zeros(nv + 12)
-init_control_right = np.zeros(nv + 12)
+init_control_left = np.zeros(nu + 12)
+init_control_right = np.zeros(nu + 12)
 for f in range(1, 5):
-    init_control_left[nv + 3 * f - 1] = 232
-    init_control_right[nv + 3 * f - 1] = 232
+    init_control_left[nu + 3 * f - 1] = 232
+    init_control_right[nu + 3 * f - 1] = 232
 
 # forces_left = {}
 # forces_left["left_mm"] = [init_control_left[nv : nv + 3]]
@@ -193,10 +193,10 @@ for k in range(H - FINAL_STANDING_STEPS):
 
     # Add contact for the appropriate foot
     if (k // FOOT_SWING_STEPS) % 2 == 0:
-        model.addContactConstraint(k, "left_mm")
-        model.addContactConstraint(k, "left_mp")
-        model.addContactConstraint(k, "left_pp")
-        model.addContactConstraint(k, "left_pm")
+        model.addContactConstraint(k, "left_mm", eq_tol=0.01)
+        model.addContactConstraint(k, "left_mp", eq_tol=0.01)
+        model.addContactConstraint(k, "left_pp", eq_tol=0.01)
+        model.addContactConstraint(k, "left_pm", eq_tol=0.01)
         model.addConstraints(k, left_mm_vel_bound)
         model.addConstraints(k, left_mp_vel_bound)
         model.addConstraints(k, left_pp_vel_bound)
@@ -204,10 +204,10 @@ for k in range(H - FINAL_STANDING_STEPS):
 
         init_controls.append(init_control_left)
     else:
-        model.addContactConstraint(k, "right_mm")
-        model.addContactConstraint(k, "right_mp")
-        model.addContactConstraint(k, "right_pp")
-        model.addContactConstraint(k, "right_pm")
+        model.addContactConstraint(k, "right_mm", eq_tol=0.01)
+        model.addContactConstraint(k, "right_mp", eq_tol=0.01)
+        model.addContactConstraint(k, "right_pp", eq_tol=0.01)
+        model.addContactConstraint(k, "right_pm", eq_tol=0.01)
         model.addConstraints(k, right_mm_vel_bound)
         model.addConstraints(k, right_mp_vel_bound)
         model.addConstraints(k, right_pp_vel_bound)
@@ -223,19 +223,19 @@ for k in range(H - FINAL_STANDING_STEPS, H):
     model.addCost(k, force_cost)
 
     # Add contacts for both feet
-    model.addContactConstraint(k, "left_mm")
-    model.addContactConstraint(k, "left_mp")
-    model.addContactConstraint(k, "left_pp")
-    model.addContactConstraint(k, "left_pm")
+    model.addContactConstraint(k, "left_mm", eq_tol=0.01)
+    model.addContactConstraint(k, "left_mp", eq_tol=0.01)
+    model.addContactConstraint(k, "left_pp", eq_tol=0.01)
+    model.addContactConstraint(k, "left_pm", eq_tol=0.01)
     model.addConstraints(k, left_mm_vel_bound)
     model.addConstraints(k, left_mp_vel_bound)
     model.addConstraints(k, left_pp_vel_bound)
     model.addConstraints(k, left_pm_vel_bound)
 
-    model.addContactConstraint(k, "right_mm")
-    model.addContactConstraint(k, "right_mp")
-    model.addContactConstraint(k, "right_pp")
-    model.addContactConstraint(k, "right_pm")
+    model.addContactConstraint(k, "right_mm", eq_tol=0.01)
+    model.addContactConstraint(k, "right_mp", eq_tol=0.01)
+    model.addContactConstraint(k, "right_pp", eq_tol=0.01)
+    model.addContactConstraint(k, "right_pm", eq_tol=0.01)
     model.addConstraints(k, right_mm_vel_bound)
     model.addConstraints(k, right_mp_vel_bound)
     model.addConstraints(k, right_pp_vel_bound)
@@ -275,18 +275,30 @@ model.addConstraints(
 
 model.finalize(init_states=init, init_controls=init_controls)
 
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Merit,
-    tolerance=5e-2,
-    admm_abs_tolerance=5e-3,
-    admm_rel_tolerance=5e-3,
-    admm_max_iter=500,
-    admm_reset_rho=False,
-    admm_reset_y=False,
-    admm_warm_start=False,
-)
+# SSQP model parameters
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = False
+ssqp_params.filter_size = 20
+ssqp_params.tolerance = 5e-2
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 5e-3
+admm_params.rel_tolerance = 5e-3
+admm_params.max_iter = 100
+admm_params.reset_rho = False
+admm_params.reset_y = False
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_stat = 1e-2
+hpipm_params.tol_comp = 1e-2
+hpipm_params.tol_eq = 1e-2
+hpipm_params.tol_ineq = 1e-2
+ssqp_params.hpipmParams = hpipm_params
+
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 solver.write("../data/talos_walk.json")

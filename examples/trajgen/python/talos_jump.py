@@ -9,12 +9,12 @@ Performs an in-place jump with the Talos robot
 """
 
 # Model Parameters
-H = 70
+H = 120
 dt = 0.01
 
 # Steps before and after jump
-STEPS_BEFORE = 20
-STEPS_AFTER = 20
+STEPS_BEFORE = 45
+STEPS_AFTER = 45
 
 # Weights
 A_WGT = 1e-1
@@ -30,7 +30,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/talos/talos.urdf",
     free_flyer=True,
-    solver_mode=ssqpy.model.SolverMode.InverseDynamics,
+    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -100,9 +100,9 @@ init[7:51] = [
 ]
 
 # Initial forces
-init_control = np.zeros(nv + 24)
+init_control = np.zeros(nu + 24)
 for f in range(1, 9):
-    init_control[nv + 3 * f - 1] = 116
+    init_control[nu + 3 * f - 1] = 116
 
 # To make convergence easier, we would like to provide more initialization for
 # the controls than just initial force values
@@ -187,19 +187,35 @@ for k in range(H):
     # If on the ground
     if k < STEPS_BEFORE or k > H - STEPS_AFTER:
         # Add contact and velocity constraints for feet frames
-        model.addContactConstraint(k, "left_mm")
-        model.addContactConstraint(k, "left_mp")
-        model.addContactConstraint(k, "left_pp")
-        model.addContactConstraint(k, "left_pm")
+        model.addContactConstraint(
+            k, "left_mm", max_normal_force=900, eq_tol=0.01
+        )
+        model.addContactConstraint(
+            k, "left_mp", max_normal_force=900, eq_tol=0.01
+        )
+        model.addContactConstraint(
+            k, "left_pp", max_normal_force=900, eq_tol=0.01
+        )
+        model.addContactConstraint(
+            k, "left_pm", max_normal_force=900, eq_tol=0.01
+        )
         model.addConstraints(k, left_mm_vel_bound)
         model.addConstraints(k, left_mp_vel_bound)
         model.addConstraints(k, left_pp_vel_bound)
         model.addConstraints(k, left_pm_vel_bound)
 
-        model.addContactConstraint(k, "right_mm")
-        model.addContactConstraint(k, "right_mp")
-        model.addContactConstraint(k, "right_pp")
-        model.addContactConstraint(k, "right_pm")
+        model.addContactConstraint(
+            k, "right_mm", max_normal_force=900, eq_tol=0.01
+        )
+        model.addContactConstraint(
+            k, "right_mp", max_normal_force=900, eq_tol=0.01
+        )
+        model.addContactConstraint(
+            k, "right_pp", max_normal_force=900, eq_tol=0.01
+        )
+        model.addContactConstraint(
+            k, "right_pm", max_normal_force=900, eq_tol=0.01
+        )
         model.addConstraints(k, right_mm_vel_bound)
         model.addConstraints(k, right_mp_vel_bound)
         model.addConstraints(k, right_pp_vel_bound)
@@ -207,7 +223,7 @@ for k in range(H):
 
         init_controls.append(init_control)
     else:
-        init_controls.append(np.zeros(nv))
+        init_controls.append(np.zeros(nu))
 
 # Add regularization cost
 model.addCost(H, joint_vel_cost)
@@ -224,20 +240,30 @@ model.addConstraints(
 
 model.finalize(init_states=init, init_controls=init_controls)
 
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    filter_size=20,
-    tolerance=1e-1,
-    tolerance_final=5e-2,
-    tolerance_update_steps=25,
-    admm_abs_tolerance=1e-2,
-    admm_abs_tolerance_final=1e-3,
-    admm_rel_tolerance=1e-2,
-    admm_rel_tolerance_final=1e-3,
-    admm_tolerance_update_steps=250,
-    admm_max_iter=750,
-)
+# SSQP model parameters
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = False
+ssqp_params.filter_size = 20
+ssqp_params.tolerance = 5e-2
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 5e-3
+admm_params.rel_tolerance = 5e-3
+admm_params.max_iter = 100
+admm_params.reset_rho = False
+admm_params.reset_y = False
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_stat = 1e-4
+hpipm_params.tol_comp = 1e-4
+hpipm_params.tol_eq = 1e-4
+hpipm_params.tol_ineq = 1e-4
+ssqp_params.hpipmParams = hpipm_params
+
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 solver.write("../data/talos_jump.json")

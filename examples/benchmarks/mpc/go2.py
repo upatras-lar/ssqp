@@ -70,7 +70,7 @@ def run(dynamics_mode):
     nv = model.getnv()
     nu = model.getnu()
 
-    base_pos = np.array([0.0, 0.0, 0.3689268220122])
+    base_pos = np.array([0.0, 0.0, 0.3879793820122])
     base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 
     # Initial configuration

@@ -20,7 +20,7 @@ U_WGT = 1e-4
 F_WGT = 1e-6
 
 # Initial and final positions
-base_pos = np.array([0.0, 0.0, 0.3689268220122])
+base_pos = np.array([0.0, 0.0, 0.3879793820122])
 base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Initial configuration
@@ -136,8 +136,8 @@ model.finalize(init_states=init)
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.loose_success = False
 ssqp_params.tolerance = 1e-2
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
-# ssqp_params.stop_after_constraint_satisfaction = True
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.stop_after_constraint_satisfaction = True
 
 hpipm_params = ssqpy.solvers.hpipmParams()
 hpipm_params.max_iter = 200

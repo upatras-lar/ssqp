@@ -42,11 +42,19 @@ CYCLE_STEPS = None
 
 # @script-parameter
 # The number of steps to stand on all 4 feet for at the end of the trajectory
-FINAL_STANDING_STEPS = 10
+FINAL_STANDING_STEPS = 30
 
 # Initial and final positions
-base_pos = np.array([-1.0, 0.0, 0.3689268220122])
-final_pos = np.array([1.0, 0.0, 0.3689268220122])
+base_pos = np.array([1.0, 0.0, 0.3879793820122])
+final_pos = np.array([-1.0, 0.0, 0.3879793820122])
+final_yaw = 0.0
+final_R = np.array(
+    (
+        (np.cos(final_yaw), -np.sin(final_yaw), 0.0),
+        (np.sin(final_yaw), np.cos(final_yaw), 0.0),
+        (0.0, 0.0, 1.0),
+    )
+)
 
 # Initial configuration
 init = np.zeros(37)
@@ -97,7 +105,9 @@ model.addCost(HORIZON, costs.SquaredJointVelocityCost(model, 1e3))
 # position
 model.addCost(
     HORIZON,
-    costs.FrameSquaredTranslationErrorCost(model, "base", final_pos, TF_WGT),
+    costs.FrameSquaredPoseErrorCost(
+        model, "base", final_pos, final_R, TF_WGT, TF_WGT
+    ),
 )
 
 # Add a bound such that the base has no velocity at the end of the trajectory
@@ -152,11 +162,11 @@ model.finalize(init_states=init)
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.loose_success = True
 ssqp_params.tolerance = 1e-2
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.abs_tolerance = 1e-3
-admm_params.rel_tolerance = 1e-3
+admm_params.abs_tolerance = 1e-2
+admm_params.rel_tolerance = 1e-2
 admm_params.max_iter = 200
 admm_params.reset_rho = False
 admm_params.reset_y = False

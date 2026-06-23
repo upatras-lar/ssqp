@@ -31,7 +31,7 @@ N_circles = 1
 
 
 def make_trajectory(H):
-    z = 0.3689268220122  # Go2 nominal base height
+    z = 0.3879793820122  # Go2 nominal base height
     r = 0.15
 
     traj = []

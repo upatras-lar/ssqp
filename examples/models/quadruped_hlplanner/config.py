@@ -77,10 +77,10 @@ class ContactScheduling:
 
     # Offsets of the positions of each foot relative to the hip
     hip_to_foot_offsets = {
-        "FL": np.array((0.3, 0.14, -0.36892682)),
-        "FR": np.array((0.3, -0.14, -0.36892682)),
-        "RL": np.array((-0.15, 0.14, -0.36892682)),
-        "RR": np.array((-0.15, -0.14, -0.36892682)),
+        "FL": np.array((0.3, 0.14, -0.38797938)),
+        "FR": np.array((0.3, -0.14, -0.38797938)),
+        "RL": np.array((-0.15, 0.14, -0.38797938)),
+        "RR": np.array((-0.15, -0.14, -0.38797938)),
     }
 
     @staticmethod
