@@ -10,17 +10,17 @@ Performs a simple jump with the Go2 robot
 """
 
 # Model Parameters
-HORIZON = 100
-dt = 0.03
+HORIZON = 300
+dt = 0.01
 
 # Weights
-A_WGT = 1e-3
-V_WGT = 1e-3
-U_WGT = 1e-4
-F_WGT = 1e-4
+A_WGT = 1e-7
+V_WGT = 1e-4
+U_WGT = 5e-5
+F_WGT = 1e-5
 
-MAX_NORMAL_FORCE = 145
-FOOT_EQ_TOL = 0.02
+MAX_NORMAL_FORCE = 100
+FOOT_EQ_TOL = 0.01
 
 # ssqpy.unsetLogLevel(ssqpy.LogLevel.Warning)
 
@@ -148,84 +148,92 @@ def add_cc_to_foot(k, foot_frame):
     )
 
 
-for k in range(0, 10):
+for k in range(0, round(0.08 * HORIZON)):
     add_cc_to_foot(k, "FL_foot")
     add_cc_to_foot(k, "FR_foot")
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(10, 12):
+for k in range(round(0.08 * HORIZON), round(0.1 * HORIZON)):
     add_cc_to_foot(k, "FR_foot")
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(12, 18):
+for k in range(round(0.1 * HORIZON), round(0.15 * HORIZON)):
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(18, 22):
-    pass
-
-for k in range(22, 28):
+for k in range(round(0.18 * HORIZON), round(0.23 * HORIZON)):
     add_cc_to_foot(k, "FL_foot")
     add_cc_to_foot(k, "FR_foot")
 
-for k in range(28, 33):
+for k in range(round(0.23 * HORIZON), round(0.27 * HORIZON)):
     add_cc_to_foot(k, "FL_foot")
     add_cc_to_foot(k, "FR_foot")
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(33, 35):
+for k in range(round(0.27 * HORIZON), round(0.29 * HORIZON)):
     add_cc_to_foot(k, "FR_foot")
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(35, 39):
+for k in range(round(0.29 * HORIZON), round(0.32 * HORIZON)):
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(39, 45):
-    pass
-
-for k in range(45, 47):
+for k in range(round(0.37 * HORIZON), round(0.39 * HORIZON)):
     add_cc_to_foot(k, "FL_foot")
 
-for k in range(47, 52):
+for k in range(round(0.39 * HORIZON), round(0.43 * HORIZON)):
     add_cc_to_foot(k, "FL_foot")
     add_cc_to_foot(k, "FR_foot")
 
-for k in range(52, 57):
+for k in range(round(0.43 * HORIZON), round(0.47 * HORIZON)):
     add_cc_to_foot(k, "FL_foot")
     add_cc_to_foot(k, "FR_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(57, 70):
+for k in range(round(0.47 * HORIZON), round(0.58 * HORIZON)):
     add_cc_to_foot(k, "FL_foot")
     add_cc_to_foot(k, "FR_foot")
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(70, 71):
+for k in range(round(0.58 * HORIZON), round(0.59 * HORIZON)):
     add_cc_to_foot(k, "FR_foot")
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(71, 74):
+for k in range(round(0.59 * HORIZON), round(0.61 * HORIZON)):
     add_cc_to_foot(k, "RL_foot")
     add_cc_to_foot(k, "RR_foot")
 
-for k in range(74, 82):
-    pass
-
-for k in range(82, 84):
+for k in range(round(0.68 * HORIZON), round(0.7 * HORIZON)):
     add_cc_to_foot(k, "FR_foot")
 
-for k in range(84, 85):
+for k in range(round(0.7 * HORIZON), round(0.71 * HORIZON)):
     add_cc_to_foot(k, "FL_foot")
     add_cc_to_foot(k, "FR_foot")
 
-for k in range(85, 100):
+for k in range(round(0.71 * HORIZON), round(0.76 * HORIZON)):
+    add_cc_to_foot(k, "FL_foot")
+    add_cc_to_foot(k, "FR_foot")
+    add_cc_to_foot(k, "RL_foot")
+    add_cc_to_foot(k, "RR_foot")
+
+for k in range(round(0.76 * HORIZON), round(0.78 * HORIZON)):
+    add_cc_to_foot(k, "FL_foot")
+    add_cc_to_foot(k, "RR_foot")
+
+for k in range(round(0.8 * HORIZON), round(0.81 * HORIZON)):
+    add_cc_to_foot(k, "FR_foot")
+
+for k in range(round(0.81 * HORIZON), round(0.83 * HORIZON)):
+    add_cc_to_foot(k, "FR_foot")
+    add_cc_to_foot(k, "RL_foot")
+
+for k in range(round(0.84 * HORIZON), HORIZON):
     add_cc_to_foot(k, "FL_foot")
     add_cc_to_foot(k, "FR_foot")
     add_cc_to_foot(k, "RL_foot")
@@ -246,6 +254,13 @@ model.addConstraints(
     ),
 )
 
+model.addConstraints(
+    HORIZON,
+    constraints.FrameRotationBound(
+        model, "base", np.eye(3), np.zeros(3), np.zeros(3)
+    ),
+)
+
 # Finalize the model with our state and controls
 model.finalize(init_states=init)
 
@@ -255,8 +270,8 @@ ssqp_params.tolerance = 1e-2
 # ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.abs_tolerance = 1e-2
-admm_params.rel_tolerance = 1e-2
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
 admm_params.max_iter = 100
 admm_params.reset_rho = False
 admm_params.reset_y = False

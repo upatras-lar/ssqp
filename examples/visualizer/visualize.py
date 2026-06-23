@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import argparse
 import json
-from time import sleep
+from time import sleep, time
 
 
 def quaternion_to_rotation_matrix(q):
@@ -309,7 +309,10 @@ def process_state(state):
 while True:
     # Animate each stage
     for k in range(data["properties"]["horizon"]):
-        configuration = process_state(data["stage_data"][k]["state"])
+        start = time()
+        configuration = process_state(
+            data["stage_data"][k]["joint_configuration"]
+        )
 
         urdf.update_cfg(configuration)
 
@@ -353,7 +356,13 @@ while True:
 
                 forces.visible = True
 
-        sleep(data["properties"]["dt"] * args.delay_factor)
+        sleep(
+            max(
+                0,
+                data["properties"]["dt"] * args.delay_factor
+                - (time() - start),
+            )
+        )
 
     if not args.loop:
         break
