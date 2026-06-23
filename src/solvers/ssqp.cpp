@@ -795,15 +795,16 @@ bool ssqp::write(const std::string &filepath)
     }
     j["properties"]["xml"] = loaded_from_xml;
     bool floating_base;
-    uint nv, nu, njoints;
+    uint nq, nv, nu, njoints;
     if (loaded_from_xml || _model.hasCustomProperties())
     {
         floating_base = _model.floatingBase();
+        nq            = _model.nq();
         nv            = _model.nv();
         nu            = _model.nu();
         njoints       = _model.njoints();
 
-        j["properties"]["nq"]            = _model.nq();
+        j["properties"]["nq"]            = nq;
         j["properties"]["nv"]            = nv;
         j["properties"]["nu"]            = nu;
         j["properties"]["njoints"]       = njoints;
@@ -838,9 +839,12 @@ bool ssqp::write(const std::string &filepath)
             VecX x = _guess.x.stage(k);
             u      = _guess.u.stage(k);
 
-            stage_data["position"]    = x.head(3);
-            stage_data["orientation"] = x.segment(3, 4);
-            stage_data["state"]       = x.segment(7, njoints);
+            stage_data["position"]            = x.head(3);
+            stage_data["orientation"]         = x.segment(3, 4);
+            stage_data["linear_velocity"]     = x.segment(nq, 3);
+            stage_data["angular_velocity"]    = x.segment(nq + 3, 3);
+            stage_data["joint_configuration"] = x.segment(7, njoints);
+            stage_data["joint_velocity"]      = x.segment(nq + 6, njoints);
             if (solver_mode == model::SolverMode::ReducedInverseDynamics)
             {
                 stage_data["control"] = u.head(nu);
@@ -879,9 +883,12 @@ bool ssqp::write(const std::string &filepath)
     {
         VecX x = _guess.x.stage(dims.horizon);
 
-        stage_data["position"]    = x.head(3);
-        stage_data["orientation"] = x.segment(3, 4);
-        stage_data["state"]       = x.segment(7, njoints);
+        stage_data["position"]            = x.head(3);
+        stage_data["orientation"]         = x.segment(3, 4);
+        stage_data["linear_velocity"]     = x.segment(nq, 3);
+        stage_data["angular_velocity"]    = x.segment(nq + 3, 3);
+        stage_data["joint_configuration"] = x.segment(7, njoints);
+        stage_data["joint_velocity"]      = x.segment(nq + 6, njoints);
     }
     else
     {

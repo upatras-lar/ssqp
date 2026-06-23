@@ -45,8 +45,8 @@ CYCLE_STEPS = None
 FINAL_STANDING_STEPS = 30
 
 # Initial and final positions
-base_pos = np.array([1.0, 0.0, 0.3879793820122])
-final_pos = np.array([-1.0, 0.0, 0.3879793820122])
+base_pos = np.array([-1.0, 0.0, 0.3879793820122])
+final_pos = np.array([1.0, 0.0, 0.3879793820122])
 final_yaw = 0.0
 final_R = np.array(
     (
