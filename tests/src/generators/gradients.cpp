@@ -1279,6 +1279,40 @@ std::shared_ptr<Test> get_center_of_mass_tracking_cost_grad_test()
     return cost_test;
 }
 
+std::shared_ptr<Test> get_frames_inverse_squared_distance_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/assets/urdf/go2/go2.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    std::vector<std::string> frames { "FL_foot",
+                                      "FR_foot",
+                                      "RL_foot",
+                                      "RR_foot" };
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<model::stagewise::predefined::costs::
+                         FramesInverseSquaredDistanceCost>(
+          k,
+          *model.get(),
+          frames,
+          5.67,
+          (Eigen::Vector3d() << 10.0, 100.0, 0.1).finished());
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("FramesInverseSquaredDistanceCostGradTest",
+                                   model,
+                                   0);
+
+    return cost_test;
+}
+
 std::shared_ptr<Test> get_lf_grad_test()
 {
     const uint              horizon = 40;

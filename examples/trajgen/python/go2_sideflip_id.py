@@ -143,7 +143,9 @@ model.addCost(HORIZON, config_cost)
 
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(model, "base", np.zeros(3), np.zeros(3), True),
+    constraints.FrameLinearVelocityBound(
+        model, "base", np.zeros(3), np.zeros(3), True
+    ),
 )
 
 fl_pos = np.array((0.1934, 0.142, 0.0))
@@ -175,19 +177,33 @@ init_states.append(init)
 
 model.finalize(init_states=init_states, init_controls=init_controls)
 
-solver = ssqpy.solvers.ssqp(
-    model,
-    loose_success=False,
-    line_search_method=ssqpy.solvers.LineSearchMethod.Filter,
-    merit_mu_c=4.0,
-    tolerance=1e-1,
-    admm_abs_tolerance=1e-3,
-    admm_rel_tolerance=1e-3,
-    admm_max_iter=500,
-    admm_adaptive_rho_tolerance=15,
-    admm_warm_start=False,
-    # admm_reset_rho=False,
-)
+ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.loose_success = True
+ssqp_params.tolerance = 5e-2
+ssqp_params.line_search_method = ssqpy.solvers.LineSearchMethod.Merit
+ssqp_params.merit_mu_c = 3.0
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.max_iter = 50
+admm_params.adaptive_rho_tolerance = 15
+admm_params.reset_rho = False
+admm_params.reset_y = False
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.split_step = True
+hpipm_params.prediction_correction = True
+hpipm_params.tol_stat = 1e-3
+hpipm_params.tol_comp = 1e-3
+hpipm_params.tol_eq = 1e-3
+hpipm_params.tol_ineq = 1e-3
+ssqp_params.hpipmParams = hpipm_params
+
+solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 

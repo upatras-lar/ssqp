@@ -165,6 +165,9 @@ int main()
     tests.addTest(
       ssqp::tests::generators::get_center_of_mass_tracking_cost_grad_test());
 
+    tests.addTest(ssqp::tests::generators::
+                    get_frames_inverse_squared_distance_cost_grad_test());
+
     tests.addTest(ssqp::tests::generators::get_lf_grad_test());
 
     tests.addTest(ssqp::tests::generators::get_gammaf_grad_test());

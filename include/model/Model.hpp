@@ -329,10 +329,10 @@ class Model
     const VecX neutralPose() const;
 
     // Perform forward kinematics with the XML model dynamics
-    const std::pair<VecX, MatX> forwardKinematics(
+    const std::pair<Vec3, Mat3> forwardKinematics(
       const VecX &q, const std::string &frame) const;
 
-    const MatX forwardKinematicsSE3(const VecX        &q,
+    const Mat4 forwardKinematicsSE3(const VecX        &q,
                                     const std::string &frame) const;
 
     // Get the velocity for a given frame

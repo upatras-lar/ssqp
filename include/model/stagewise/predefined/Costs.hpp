@@ -517,6 +517,56 @@ class CenterOfMassTrackingCost : public StageCost
     const uint _nq, _nv, _ndx;
     Vec3       _weight;
 };
+
+/* Predefined frames squared inverse distance cost
+ *
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \sum_{i < j} \frac{w}{2 \lVert \boldsymbol{\sigma} \odot (\boldsymbol{t}_i - \boldsymbol{t}_j)\rVert_2^2}$
+ *
+ * where:
+ *  - $\boldsymbol{t}_i$ is the frame translation for frame $i$ of the model (in $\mathcal{R}^3$)
+ *  - $w$ is the weight on the translation error
+ *  - $\boldsymbol{\sigma}$ is the distance scale, a per-axis vector (in $\mathcal{R}^3$) determining the
+ *    scaling factor for each axis; the factors work in an inverse manner, i.e.
+ *    larger values place less importance on an axis, while smaller ones place
+ *    more
+ * 
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size 
+ *    `model.nq()`)
+ */
+class FramesInverseSquaredDistanceCost : public StageCost
+{
+  public:
+    FramesInverseSquaredDistanceCost(const Model                    &model,
+                                     const std::vector<std::string> &frames,
+                                     const double                    weight,
+                                     const double distance_scale = 100.0,
+                                     const std::string &name     = "");
+    FramesInverseSquaredDistanceCost(const Model                    &model,
+                                     const std::vector<std::string> &frames,
+                                     const double                    weight,
+                                     const Vec3        &distance_scale,
+                                     const std::string &name = "");
+
+    void set_weight(const double weight);
+
+    void set_distance_scale(const double distance_scale);
+    void set_distance_scale(const Vec3 &distance_scale);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const std::shared_ptr<Model>   _model;
+    const uint                     _nq, _nv, _ndx;
+    const std::vector<std::string> _frames;
+    double                         _weight;
+    Vec3                           _distance_scale;
+};
 }
 }
 }
