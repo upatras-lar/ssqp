@@ -158,16 +158,16 @@ void dDifference(const std::shared_ptr<ModelImpl> &impl,
 void updateFramePlacements(const std::shared_ptr<ModelImpl> &impl);
 
 // FK including updateFramePlacement
-std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
+std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const std::string &frame);
 
 // FK including updateFramePlacement, returning SE3 matrix
-Eigen::MatrixXd forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
+Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
                                      const Eigen::VectorXd            &q,
                                      const std::string                &frame);
 
-std::pair<Eigen::VectorXd, Eigen::MatrixXd> forwardKinematics(
+std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const Eigen::VectorXd &v, const std::string &frame);
 

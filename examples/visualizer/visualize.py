@@ -353,8 +353,6 @@ while True:
                     p0 = R_base @ frame_t + robot_base.position
                     p1 = p0 + 0.005 * R_base @ frame_R @ f_local
 
-                    # p0 += 0.001 * (p1 - p0)
-
                     all_forces.append([p0, p1])
 
                 forces.points = np.array(all_forces)

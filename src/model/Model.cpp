@@ -928,13 +928,13 @@ const VecX Model::neutralPose() const
     return pinocchio_wrapper::neutralPose(_impl);
 }
 
-const std::pair<VecX, MatX> Model::forwardKinematics(
+const std::pair<Vec3, Mat3> Model::forwardKinematics(
   const VecX &q, const std::string &frame) const
 {
     return pinocchio_wrapper::forwardKinematics(_impl, q, frame);
 }
 
-const MatX Model::forwardKinematicsSE3(const VecX        &q,
+const Mat4 Model::forwardKinematicsSE3(const VecX        &q,
                                        const std::string &frame) const
 {
     return pinocchio_wrapper::forwardKinematicsSE3(_impl, q, frame);

@@ -7,10 +7,10 @@ from math import pi, sin, cos
 HORIZON = 180
 dt = 0.01
 
-A_WGT = 1e-2
-V_WGT = 2e-2
-U_WGT = 1e-4
-F_WGT = 1e-4
+A_WGT = 1e-4
+V_WGT = 1e-4
+U_WGT = 1e-5
+F_WGT = 1e-5
 T_WGT = 4.4
 R_WGT = 1.0
 
@@ -135,12 +135,24 @@ for k in range(HORIZON):
     #     ),
     # )
 
+    model.addConstraints(
+        k,
+        constraints.FrameRotationBound(
+            model,
+            "base",
+            rotation_traj[k - STEPS_BEFORE],
+            np.array((1e-2, 1e-2, 1e-2)),
+            np.array((1e-2, 1e-2, 1e-2)),
+        ),
+    )
+
     init_states.append(np.zeros(nq + nv))
     init_states[-1][3] = 1.0
     init_states[-1][7:19] = np.array([0.0, 0.0, -pi / 3] * 4)
     init_controls.append(np.zeros(nu))
 
 model.addCost(HORIZON, pose_cost)
+model.addCost(HORIZON, joint_angle_cost)
 model.addCost(HORIZON, joint_vel_cost)
 model.addConstraints(
     HORIZON,
@@ -159,13 +171,15 @@ ssqp_params.loose_success = True
 ssqp_params.tolerance = 5e-2
 ssqp_params.line_search_method = ssqpy.solvers.LineSearchMethod.Merit
 ssqp_params.merit_mu_c = 3.0
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
-admm_params.max_iter = 500
+admm_params.max_iter = 100
 admm_params.adaptive_rho_tolerance = 15
+admm_params.reset_rho = False
+admm_params.reset_y = False
 admm_params.warm_start = False
 ssqp_params.admmParams = admm_params
 

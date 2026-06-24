@@ -687,6 +687,62 @@ void bind_Costs(nb::module_ &m)
              &CenterOfMassTrackingCost::set_weight),
            nb::arg("weight"))
       .def("set_cref", &CenterOfMassTrackingCost::set_cref, nb::arg("cref"));
+
+    nb::class_<FramesInverseSquaredDistanceCost, StageCost>(
+      m,
+      "FramesInverseSquaredDistanceCost",
+      R"doc(
+        Predefined frames squared inverse distance cost
+
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \sum_{i < j} \frac{w}{2 \lVert \boldsymbol{\sigma} \odot (\boldsymbol{t}_i - \boldsymbol{t}_j)\rVert_2^2}$
+
+        where:
+         - $\boldsymbol{t}_i$ is the frame translation for frame $i$ of the model (in $\mathcal{R}^3$)
+         - $w$ is the weight on the translation error
+         - $\boldsymbol{\sigma}$ is the distance scale, a per-axis vector (in $\mathcal{R}^3$) determining the
+           scaling factor for each axis; the factors work in an inverse manner, i.e.
+           larger values place less importance on an axis, while smaller ones place
+           more
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size 
+           `model.nq()`)
+      )doc")
+      .def(nb::init<const Model &,
+                    const std::vector<std::string> &,
+                    const double,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frames"),
+           nb::arg("weight"),
+           nb::arg("distance_scale") = 100.0,
+           nb::arg("name")           = "")
+      .def(nb::init<const Model &,
+                    const std::vector<std::string> &,
+                    const double,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frames"),
+           nb::arg("weight"),
+           nb::arg("distance_scale"),
+           nb::arg("name") = "")
+      .def(
+        "set_weight",
+        static_cast<void (FramesInverseSquaredDistanceCost::*)(const double)>(
+          &FramesInverseSquaredDistanceCost::set_weight),
+        nb::arg("weight"))
+      .def(
+        "set_distance_scale",
+        static_cast<void (FramesInverseSquaredDistanceCost::*)(const double)>(
+          &FramesInverseSquaredDistanceCost::set_distance_scale),
+        nb::arg("distance_scale"))
+      .def(
+        "set_distance_scale",
+        static_cast<void (FramesInverseSquaredDistanceCost::*)(const Vec3 &)>(
+          &FramesInverseSquaredDistanceCost::set_distance_scale),
+        nb::arg("distance_scale"));
 }
 }
 }

@@ -9,6 +9,8 @@ Go2 Jump example
 Performs a simple jump with the Go2 robot
 """
 
+# ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
+
 # Model Parameters
 HORIZON = 300
 dt = 0.01
@@ -18,7 +20,7 @@ A_WGT = 1e-7
 V_WGT = 1e-4
 U_WGT = 5e-5
 F_WGT = 5e-4
-FG_WGT = 1e-1
+FEET_GROUND_WGT = 1e-1
 
 MAX_NORMAL_FORCE = 100
 FOOT_EQ_TOL = 0.01
@@ -113,19 +115,31 @@ fl_foot_pos_bound = constraints.FramePositionBound(
 )
 
 fl_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
-    model, "FL_foot", np.array((0.0, 0.0, 0.0)), np.array((0.0, 0.0, FG_WGT))
+    model,
+    "FL_foot",
+    np.array((0.0, 0.0, 0.0)),
+    np.array((0.0, 0.0, FEET_GROUND_WGT)),
 )
 
 fr_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
-    model, "FR_foot", np.array((0.0, 0.0, 0.0)), np.array((0.0, 0.0, FG_WGT))
+    model,
+    "FR_foot",
+    np.array((0.0, 0.0, 0.0)),
+    np.array((0.0, 0.0, FEET_GROUND_WGT)),
 )
 
 rl_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
-    model, "RL_foot", np.array((0.0, 0.0, 0.0)), np.array((0.0, 0.0, FG_WGT))
+    model,
+    "RL_foot",
+    np.array((0.0, 0.0, 0.0)),
+    np.array((0.0, 0.0, FEET_GROUND_WGT)),
 )
 
 rr_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
-    model, "RR_foot", np.array((0.0, 0.0, 0.0)), np.array((0.0, 0.0, FG_WGT))
+    model,
+    "RR_foot",
+    np.array((0.0, 0.0, 0.0)),
+    np.array((0.0, 0.0, FEET_GROUND_WGT)),
 )
 
 # Disallow pitch and yaw at differing limits
@@ -262,6 +276,7 @@ for k in range(round(0.84 * HORIZON), HORIZON):
     add_cc_to_foot(k, "RR_foot")
 
 
+model.addCost(HORIZON, joint_angle_cost)
 model.addCost(HORIZON, joint_vel_cost)
 
 model.addConstraints(

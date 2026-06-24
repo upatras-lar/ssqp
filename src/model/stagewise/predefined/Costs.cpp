@@ -770,10 +770,8 @@ VecX FrameSquaredTranslationErrorCost::evaluate(const VecX &x,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    VecX pos;
+    Vec3 pos;
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
-
-    Scalar res;
 
     return (Scalar() << 0.5 * (_weight.array() *
                                (pos - _desired_translation).array())
@@ -787,7 +785,7 @@ void FrameSquaredTranslationErrorCost::gradient(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    VecX pos;
+    Vec3 pos;
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
     MatX Jfk                   = _model->frameJacobian(x.head(_nq), _frame);
 
@@ -800,6 +798,7 @@ void FrameSquaredTranslationErrorCost::gradient(const VecX &x, const VecX &u,
 
     du = VecX::Zero(u.size());
 }
+
 void FrameSquaredTranslationErrorCost::hessian_xx(const VecX &x, const VecX &u,
                                                   MatX &Hxx) const
 {
@@ -858,7 +857,7 @@ VecX FrameSquaredRotationErrorCost::evaluate(const VecX &x, const VecX &u) const
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    MatX rot;
+    Mat3 rot;
     std::tie(std::ignore, rot) = _model->forwardKinematics(x.head(_nq), _frame);
 
     return (Scalar() << 0.5 * _weight *
@@ -873,7 +872,7 @@ void FrameSquaredRotationErrorCost::gradient(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    MatX rot;
+    Mat3 rot;
     std::tie(std::ignore, rot) = _model->forwardKinematics(x.head(_nq), _frame);
     MatX Jfk = _model->frameJacobian(x.head(_nq), _frame, true);
 
@@ -893,7 +892,7 @@ void FrameSquaredRotationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    MatX rot;
+    Mat3 rot;
     std::tie(std::ignore, rot) = _model->forwardKinematics(x.head(_nq), _frame);
     MatX Jfk     = _model->frameJacobian(x.head(_nq), _frame, true);
     MatX d       = rot.transpose() * _desired_rotation;
@@ -1369,6 +1368,186 @@ void CenterOfMassTrackingCost::hessian_xu(const VecX &x, const VecX &u,
 
 void CenterOfMassTrackingCost::hessian_uu(const VecX &x, const VecX &u,
                                           MatX &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+}
+
+// FramesInverseSquaredDistanceCost
+FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
+  const Model &model, const std::vector<std::string> &frames,
+  const double weight, const double distance_scale, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _frames(frames)
+  , _weight(weight)
+{
+    assert(model.xml() &&
+           "Cannot use FramesInverseSquaredDistanceCost with a custom Model");
+    for (uint i = 0; i < frames.size(); ++i)
+    {
+        assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
+    }
+    set_distance_scale(distance_scale);
+}
+
+FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
+  const Model &model, const std::vector<std::string> &frames,
+  const double weight, const Vec3 &distance_scale, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _frames(frames)
+  , _weight(weight)
+{
+    assert(model.xml() &&
+           "Cannot use FramesInverseSquaredDistanceCost with a custom Model");
+    for (uint i = 0; i < frames.size(); ++i)
+    {
+        assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
+    }
+    set_distance_scale(distance_scale);
+}
+
+void FramesInverseSquaredDistanceCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
+void FramesInverseSquaredDistanceCost::set_distance_scale(
+  const double distance_scale)
+{
+    assert(distance_scale > 0.0 && "Distance scale must be positive");
+    _distance_scale.setConstant(distance_scale);
+}
+
+void FramesInverseSquaredDistanceCost::set_distance_scale(
+  const Vec3 &distance_scale)
+{
+    assert((distance_scale.array() > 0.0).all() &&
+           "Distance scale must be positive");
+    _distance_scale = distance_scale;
+}
+
+VecX FramesInverseSquaredDistanceCost::evaluate(const VecX &x,
+                                                const VecX &u) const
+{
+    assert(x.size() >= _nq && "Invalid state passed (size < nq)");
+
+    std::vector<Vec3> translations(_frames.size());
+
+    for (uint i = 0; i < _frames.size(); ++i)
+    {
+        std::tie(translations[i], std::ignore) =
+          _model->forwardKinematics(x.head(_nq), _frames[i]);
+    }
+
+    Scalar res = Scalar::Zero();
+
+    for (uint i = 0; i < _frames.size(); ++i)
+    {
+        for (uint j = i + 1; j < _frames.size(); ++j)
+        {
+            res[0] +=
+              _weight / (2 * (_distance_scale.array() *
+                              (translations[i] - translations[j]).array())
+                               .matrix()
+                               .squaredNorm());
+        }
+    }
+
+    return res;
+}
+
+void FramesInverseSquaredDistanceCost::gradient(const VecX &x, const VecX &u,
+                                                VecX &dx, VecX &du) const
+{
+    assert(x.size() >= _nq && "Invalid state passed (size < nq)");
+
+    std::vector<Vec3> translations(_frames.size());
+    std::vector<MatX> jacobians(_frames.size());
+
+    for (uint i = 0; i < _frames.size(); ++i)
+    {
+        std::tie(translations[i], std::ignore) =
+          _model->forwardKinematics(x.head(_nq), _frames[i]);
+        jacobians[i] =
+          _model->frameJacobian(x.head(_nq), _frames[i]).topRows<3>();
+    }
+
+    dx = VecX::Zero(_ndx);
+
+    Vec3 d2 = _distance_scale.array().square();
+
+    for (uint i = 0; i < _frames.size(); ++i)
+    {
+        for (uint j = i + 1; j < _frames.size(); ++j)
+        {
+            Vec3 d = translations[i] - translations[j];
+
+            double s =
+              (_distance_scale.array() * d.array()).matrix().squaredNorm();
+
+            Vec3 g_d = -(d2.array() * d.array()).matrix() / (s * s);
+
+            dx.head(_nv) +=
+              _weight * (jacobians[i] - jacobians[j]).transpose() * g_d;
+        }
+    }
+
+    du = VecX::Zero(u.size());
+}
+
+void FramesInverseSquaredDistanceCost::hessian_xx(const VecX &x, const VecX &u,
+                                                  MatX &Hxx) const
+{
+    std::vector<Vec3> translations(_frames.size());
+    std::vector<MatX> jacobians(_frames.size());
+
+    for (uint i = 0; i < _frames.size(); ++i)
+    {
+        std::tie(translations[i], std::ignore) =
+          _model->forwardKinematics(x.head(_nq), _frames[i]);
+        jacobians[i] =
+          _model->frameJacobian(x.head(_nq), _frames[i]).topRows<3>();
+    }
+
+    Hxx = MatX::Zero(_ndx, _ndx);
+
+    Vec3 d2 = _distance_scale.array().square();
+
+    for (uint i = 0; i < _frames.size(); ++i)
+    {
+        for (uint j = i + 1; j < _frames.size(); ++j)
+        {
+            Vec3 d  = translations[i] - translations[j];
+            MatX Jd = jacobians[i] - jacobians[j];
+
+            double s =
+              (_distance_scale.array() * d.array()).matrix().squaredNorm();
+
+            Vec3 Ad = d2.array() * d.array();
+
+            Mat3 Hd  = (-d2 / (s * s)).asDiagonal();
+            Hd      += 4.0 * (Ad * Ad.transpose()) / (s * s * s);
+
+            Hxx.topLeftCorner(_nv, _nv) += _weight * Jd.transpose() * Hd * Jd;
+        }
+    }
+}
+
+void FramesInverseSquaredDistanceCost::hessian_xu(const VecX &x, const VecX &u,
+                                                  MatX &Hxu) const
+{
+    Hxu = MatX::Zero(_ndx, u.size());
+}
+
+void FramesInverseSquaredDistanceCost::hessian_uu(const VecX &x, const VecX &u,
+                                                  MatX &Huu) const
 {
     Huu = MatX::Zero(u.size(), u.size());
 }

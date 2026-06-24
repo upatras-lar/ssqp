@@ -88,6 +88,7 @@ std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test();
 std::shared_ptr<Test> get_center_of_mass_tracking_cost_grad_test();
+std::shared_ptr<Test> get_frames_inverse_squared_distance_cost_grad_test();
 
 // Full trajectory cost gradients
 std::shared_ptr<Test> get_lf_grad_test();
