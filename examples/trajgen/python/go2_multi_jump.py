@@ -11,20 +11,34 @@ steps, as well as which (combinations of) feet to land on in between the jumps
 """
 
 # Model Parameters
-HORIZON = 200
+HORIZON = 340
 dt = 0.01
 
 # Weights
-A_WGT = 1e-1
-V_WGT = 1e-2
+A_WGT = 1e-5
+V_WGT = 1e-3
 U_WGT = 1e-4
-F_WGT = 1e-3
-TF_WGT = 1.0
-RF_WGT = 1.0
+F_WGT = 1e-4
+TF_WGT = 1e-1
+RF_WGT = 1e-1
+
+MAX_FORCE_NORMAL = 147
 
 # @script-parameter
 # List of tuples defining the step ranges for which the robot should be on air
-JUMP_STEPS = [(50, 70), (100, 120), (150, 180)]
+JUMP_STEPS = [
+    (50, 70),
+    (100, 120),
+    (150, 180),
+    (210, 240),
+    (270, 300),
+]
+
+multiplier = 1
+
+HORIZON = int(multiplier * HORIZON)
+JUMP_STEPS = [(multiplier * x, multiplier * y) for (x, y) in JUMP_STEPS]
+
 # @script-parameter
 # List of strings defining which feet the robot should land on in between
 # the above sequences
@@ -37,7 +51,7 @@ JUMP_STEPS = [(50, 70), (100, 120), (150, 180)]
 #  - `"FR"`: Front right foot
 #  - `"RL"`: Rear left foot
 #  - `"RR"`: Rear right foot
-LAND_SEQ = ["F", "B"]
+LAND_SEQ = ["B", "R", "L", "F"]
 
 # Initial and final positions
 base_pos = np.array([0.0, 0.0, 0.3879793820122])
@@ -71,7 +85,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    # solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
+    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -144,6 +158,14 @@ head_pos_bound = constraints.FramePositionBound(
     np.array((np.inf, np.inf, np.inf)),
 )
 
+# Define a bound to keep base above a certain height
+base_pos_bound = constraints.FramePositionBound(
+    model,
+    "base",
+    np.array((-np.inf, -np.inf, 0.2)),
+    np.array((np.inf, np.inf, np.inf)),
+)
+
 init_controls = []
 
 for k in range(HORIZON):
@@ -161,26 +183,28 @@ for k in range(HORIZON):
     model.addConstraints(k, rl_foot_pos_bound)
     model.addConstraints(k, rr_foot_pos_bound)
 
+    model.addConstraints(k, base_pos_bound)
+
     # If at start or end of horizon
     if k < JUMP_STEPS[0][0] or k >= JUMP_STEPS[-1][-1]:
         # Add a standing phase (4 feet on the ground)
         model.addContactConstraint(
-            k, "FL_foot", max_normal_force=120, eq_tol=0.01
+            k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
         )
         model.addConstraints(k, fl_foot_vel_bound)
 
         model.addContactConstraint(
-            k, "FR_foot", max_normal_force=120, eq_tol=0.01
+            k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
         )
         model.addConstraints(k, fr_foot_vel_bound)
 
         model.addContactConstraint(
-            k, "RL_foot", max_normal_force=120, eq_tol=0.01
+            k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
         )
         model.addConstraints(k, rl_foot_vel_bound)
 
         model.addContactConstraint(
-            k, "RR_foot", max_normal_force=120, eq_tol=0.01
+            k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
         )
         model.addConstraints(k, rr_foot_vel_bound)
 
@@ -205,76 +229,76 @@ for k in range(HORIZON):
     if not on_air:
         if LAND_SEQ[i - 1] == "B":
             model.addContactConstraint(
-                k, "RL_foot", max_normal_force=120, eq_tol=0.01
+                k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, rl_foot_vel_bound)
 
             model.addContactConstraint(
-                k, "RR_foot", max_normal_force=120, eq_tol=0.01
+                k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, rr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "F":
             model.addContactConstraint(
-                k, "FL_foot", max_normal_force=120, eq_tol=0.01
+                k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, fl_foot_vel_bound)
 
             model.addContactConstraint(
-                k, "FR_foot", max_normal_force=120, eq_tol=0.01
+                k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, fr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "L":
             model.addContactConstraint(
-                k, "FL_foot", max_normal_force=120, eq_tol=0.01
+                k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, fl_foot_vel_bound)
 
             model.addContactConstraint(
-                k, "RL_foot", max_normal_force=120, eq_tol=0.01
+                k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, rl_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "R":
             model.addContactConstraint(
-                k, "FR_foot", max_normal_force=120, eq_tol=0.01
+                k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, fr_foot_vel_bound)
 
             model.addContactConstraint(
-                k, "RR_foot", max_normal_force=120, eq_tol=0.01
+                k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, rr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "FL":
             model.addContactConstraint(
-                k, "FL_foot", max_normal_force=120, eq_tol=0.01
+                k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, fl_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "FR":
             model.addContactConstraint(
-                k, "FR_foot", max_normal_force=120, eq_tol=0.01
+                k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, fr_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "RL":
             model.addContactConstraint(
-                k, "RL_foot", max_normal_force=120, eq_tol=0.01
+                k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, rl_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "RR":
             model.addContactConstraint(
-                k, "RR_foot", max_normal_force=120, eq_tol=0.01
+                k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
             model.addConstraints(k, rr_foot_vel_bound)
 
@@ -299,7 +323,7 @@ model.addConstraints(
 )
 
 # Finalize the model with our state and controls
-model.finalize(init_states=init, init_controls=init_controls)
+model.finalize(init_states=init)
 
 # SSQP model parameters
 ssqp_params = ssqpy.solvers.ssqpParams()
@@ -317,6 +341,7 @@ admm_params.warm_start = False
 ssqp_params.admmParams = admm_params
 
 hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.square_root_riccati = True
 hpipm_params.tol_stat = 1e-4
 hpipm_params.tol_comp = 1e-4
 hpipm_params.tol_eq = 1e-4
