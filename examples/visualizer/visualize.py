@@ -337,7 +337,10 @@ while True:
                 for force_idx, frame in enumerate(
                     data["properties"]["stages"][k]["ordered_force_frames"]
                 ):
-                    frame_T = urdf._urdf.get_transform(frame)
+                    frame_T_visual = (
+                        urdf._urdf.link_map[frame].visuals[0].origin
+                    )
+                    frame_T = urdf._urdf.get_transform(frame) @ frame_T_visual
                     frame_R = frame_T[:3, :3]
                     frame_t = frame_T[:3, 3]
 
@@ -349,6 +352,8 @@ while True:
 
                     p0 = R_base @ frame_t + robot_base.position
                     p1 = p0 + 0.005 * R_base @ frame_R @ f_local
+
+                    # p0 += 0.001 * (p1 - p0)
 
                     all_forces.append([p0, p1])
 

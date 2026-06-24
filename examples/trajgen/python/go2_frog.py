@@ -17,7 +17,8 @@ dt = 0.01
 A_WGT = 1e-7
 V_WGT = 1e-4
 U_WGT = 5e-5
-F_WGT = 1e-5
+F_WGT = 5e-4
+FG_WGT = 1e-1
 
 MAX_NORMAL_FORCE = 100
 FOOT_EQ_TOL = 0.01
@@ -111,6 +112,22 @@ fl_foot_pos_bound = constraints.FramePositionBound(
     np.array((np.inf, np.inf, np.inf)),
 )
 
+fl_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
+    model, "FL_foot", np.array((0.0, 0.0, 0.0)), np.array((0.0, 0.0, FG_WGT))
+)
+
+fr_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
+    model, "FR_foot", np.array((0.0, 0.0, 0.0)), np.array((0.0, 0.0, FG_WGT))
+)
+
+rl_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
+    model, "RL_foot", np.array((0.0, 0.0, 0.0)), np.array((0.0, 0.0, FG_WGT))
+)
+
+rr_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
+    model, "RR_foot", np.array((0.0, 0.0, 0.0)), np.array((0.0, 0.0, FG_WGT))
+)
+
 # Disallow pitch and yaw at differing limits
 rot_constraint = constraints.FrameRotationBound(
     model,
@@ -128,6 +145,11 @@ for k in range(HORIZON):
     model.addCost(k, joint_vel_cost)
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
+
+    model.addCost(k, fl_foot_z_cost)
+    model.addCost(k, fr_foot_z_cost)
+    model.addCost(k, rl_foot_z_cost)
+    model.addCost(k, rr_foot_z_cost)
 
     model.addConstraints(k, rot_constraint)
     model.addConstraints(k, fl_foot_ag_bound)
@@ -267,7 +289,7 @@ model.finalize(init_states=init)
 # SSQP model parameters
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
