@@ -53,10 +53,10 @@ for k in range(mpc_H):
     model.addCost(k, v_cost)
     model.addCost(k, u_cost)
 
-    model.addContactConstraint(k, "FL_foot", CONTACT_MU)
-    model.addContactConstraint(k, "FR_foot", CONTACT_MU)
-    model.addContactConstraint(k, "RL_foot", CONTACT_MU)
-    model.addContactConstraint(k, "RR_foot", CONTACT_MU)
+    model.addContactConstraint(k, "FL_foot", CONTACT_MU, max_normal_force=100)
+    model.addContactConstraint(k, "FR_foot", CONTACT_MU, max_normal_force=100)
+    model.addContactConstraint(k, "RL_foot", CONTACT_MU, max_normal_force=100)
+    model.addContactConstraint(k, "RR_foot", CONTACT_MU, max_normal_force=100)
 
 model.addCost(mpc_H, v_cost)
 
@@ -81,7 +81,7 @@ mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
 
 joint_space_pd_controller = JointSpacePD(mpc, init_state, Kp=2.0, Kd=0.05)
 
-mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/scene.xml")
+mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = init_state[:nq].copy()
