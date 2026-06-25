@@ -22,7 +22,7 @@ class StageConstraints : public Function
     StageConstraints(const std::string &name);
 
     // Set enabled status for StageConstraints
-    void set_enabled(const bool enabled);
+    virtual void set_enabled(const bool enabled);
 
     // Whether this constraint is enabled
     virtual bool enabled() const;
@@ -34,7 +34,7 @@ class StageConstraints : public Function
     virtual std::string force_frame(const uint i) const;
 
     // Set the model Forces associated with this constraint
-    virtual void set_forces(const std::vector<Force> &forces);
+    virtual void set_forces(const std::vector<std::shared_ptr<Force>> &forces);
 
     // Check constraint satisfaction norm at $(\boldsymbol{x}, \boldsymbol{u})$
     // Default implementation: Checks violation within some given tolerance

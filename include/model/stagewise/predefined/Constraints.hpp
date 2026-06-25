@@ -385,6 +385,8 @@ class ContactConstraint : public StageConstraints
 
     void set_mu(const double mu);
 
+    void set_enabled(const bool enabled) override;
+
     uint output_size() const override;
 
     // Required number of forces for this constraint
@@ -396,7 +398,7 @@ class ContactConstraint : public StageConstraints
     std::string force_frame(const uint i) const override;
 
     // Used to set the required force for this contact constraint
-    void set_forces(const std::vector<Force> &forces) override;
+    void set_forces(const std::vector<std::shared_ptr<Force>> &forces) override;
 
     VecX lower_bound() const override;
     VecX upper_bound() const override;
@@ -417,7 +419,7 @@ class ContactConstraint : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _nu;
     const std::string            _frame;
-    std::vector<Force>           _forces;
+    std::shared_ptr<Force>       _force;
     double                       _mu;
     const double                 _max_normal_force;
     const double                 _eq_tol;

@@ -18,37 +18,37 @@ def quat_xyzw_to_wxyz(xyzw):
 def ssqp_to_mujoco_state(ssqp_state):
     mujoco_state = ssqp_state.copy()
     mujoco_state[3:7] = quat_xyzw_to_wxyz(ssqp_state[3:7])
-    mujoco_state[7:10] = ssqp_state[10:13]
-    mujoco_state[10:13] = ssqp_state[7:10]
-    mujoco_state[13:16] = ssqp_state[16:19]
-    mujoco_state[16:19] = ssqp_state[13:16]
-    mujoco_state[25:28] = ssqp_state[28:31]
-    mujoco_state[28:31] = ssqp_state[25:28]
-    mujoco_state[31:34] = ssqp_state[34:37]
-    mujoco_state[34:37] = ssqp_state[31:34]
+    # mujoco_state[7:10] = ssqp_state[10:13]
+    # mujoco_state[10:13] = ssqp_state[7:10]
+    # mujoco_state[13:16] = ssqp_state[16:19]
+    # mujoco_state[16:19] = ssqp_state[13:16]
+    # mujoco_state[25:28] = ssqp_state[28:31]
+    # mujoco_state[28:31] = ssqp_state[25:28]
+    # mujoco_state[31:34] = ssqp_state[34:37]
+    # mujoco_state[34:37] = ssqp_state[31:34]
     return mujoco_state
 
 
 def ssqp_to_mujoco_control(ssqp_control):
     mujoco_control = ssqp_control.copy()
-    mujoco_control[6:9] = ssqp_control[9:12]
-    mujoco_control[9:12] = ssqp_control[6:9]
-    mujoco_control[12:15] = ssqp_control[15:18]
-    mujoco_control[15:18] = ssqp_control[12:15]
+    # mujoco_control[6:9] = ssqp_control[9:12]
+    # mujoco_control[9:12] = ssqp_control[6:9]
+    # mujoco_control[12:15] = ssqp_control[15:18]
+    # mujoco_control[15:18] = ssqp_control[12:15]
     return mujoco_control
 
 
 def mujoco_to_ssqp_state(mujoco_state):
     ssqp_state = mujoco_state.copy()
     ssqp_state[3:7] = quat_wxyz_to_xyzw(mujoco_state[3:7])
-    ssqp_state[7:10] = mujoco_state[10:13]
-    ssqp_state[10:13] = mujoco_state[7:10]
-    ssqp_state[13:16] = mujoco_state[16:19]
-    ssqp_state[16:19] = mujoco_state[13:16]
-    ssqp_state[25:28] = mujoco_state[28:31]
-    ssqp_state[28:31] = mujoco_state[25:28]
-    ssqp_state[31:34] = mujoco_state[34:37]
-    ssqp_state[34:37] = mujoco_state[31:34]
+    # ssqp_state[7:10] = mujoco_state[10:13]
+    # ssqp_state[10:13] = mujoco_state[7:10]
+    # ssqp_state[13:16] = mujoco_state[16:19]
+    # ssqp_state[16:19] = mujoco_state[13:16]
+    # ssqp_state[25:28] = mujoco_state[28:31]
+    # ssqp_state[28:31] = mujoco_state[25:28]
+    # ssqp_state[31:34] = mujoco_state[34:37]
+    # ssqp_state[34:37] = mujoco_state[31:34]
     return ssqp_state
 
 

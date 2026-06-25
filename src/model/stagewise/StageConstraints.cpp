@@ -40,7 +40,10 @@ std::string StageConstraints::force_frame(const uint i) const
     return "";
 }
 
-void StageConstraints::set_forces(const std::vector<Force> &forces) {}
+void StageConstraints::set_forces(
+  const std::vector<std::shared_ptr<Force>> &forces)
+{
+}
 
 double StageConstraints::violation(const VecX &x, const VecX &u) const
 {

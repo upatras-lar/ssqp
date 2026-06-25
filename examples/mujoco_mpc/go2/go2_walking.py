@@ -11,20 +11,21 @@ from utils_go2_mujoco import (
 )
 
 ssqpy.setSilentMode()
+np.set_printoptions(suppress=True)
 
 
 dt = 0.002
 mpc_H = 20
-mpc_dt = 0.1
+mpc_dt = 0.01
 
-T_WGT = 20.0
+T_WGT = 1.0
 R_WGT = 1.0
 C_WGT = 1e-2
-V_WGT = 1e-1
-U_WGT = 1e-3
+V_WGT = 1e-3
+U_WGT = 1e-4
 
 CONTACT_MU = 0.6
-GAIT_PERIOD = 60
+GAIT_PERIOD = 25
 
 dynamics_mode = ssqpy.model.SolverMode.ForwardDynamics
 
@@ -32,6 +33,7 @@ model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
     mjcf_path="../../assets/mjcf/go2/go2.xml",
+    # urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
     solver_mode=dynamics_mode,
 )
@@ -40,8 +42,8 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-base_pos = np.array([0.0, 0.0, 0.389])
-target_pos = np.array([-0.5, 0.0, 0.389])
+base_pos = np.array([0.0, 0.0, 0.3879793820122])
+target_pos = np.array([0.0, 0.0, 0.3879793820122])
 
 base_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
 
@@ -74,7 +76,7 @@ def swing_trajectory(p0, pf, phase, height=0.05):
     return p
 
 
-STEP_LENGTH = 0.1
+STEP_LENGTH = 0.0
 
 
 def compute_next_foothold(current_pos):
@@ -164,14 +166,17 @@ for k in range(mpc_H):
     for name in foot_names:
         # add swing tracking
         foot_pos = foot_trajs[name][k]
-        foot_funcs[name].append(
-            (
-                ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-                    model, name, foot_pos, T_WGT
-                ),
-                model.addContactConstraint(k, name, CONTACT_MU),
-            )
+
+        foot_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
+            model, name, foot_pos, T_WGT
         )
+        foot_constraint = model.addContactConstraint(
+            k, name, CONTACT_MU, eq_tol=0.01, max_normal_force=140
+        )
+
+        model.addCost(k, foot_cost)
+
+        foot_funcs[name].append((foot_cost, foot_constraint))
 
     # Feet translation costs
     foot_funcs["FR_foot"][-1][0].set_enabled(False)
@@ -180,6 +185,8 @@ for k in range(mpc_H):
     # Feet contact constraints
     foot_funcs["FL_foot"][-1][1].set_enabled(False)
     foot_funcs["RR_foot"][-1][1].set_enabled(False)
+    foot_funcs["FR_foot"][-1][1].set_enabled(False)
+    foot_funcs["RL_foot"][-1][1].set_enabled(False)
 
 model.addCost(mpc_H, v_cost)
 
@@ -196,18 +203,21 @@ def update_model(current_stage):
         )
 
         swing_feet = get_swing_feet(k)
+        print(swing_feet)
 
         for name in foot_names:
             if name in swing_feet:
+                print(f"For {k}, {name} is swinging")
                 # disable contact
                 foot_funcs[name][idx][1].set_enabled(False)
 
                 # update swing tracking point
                 foot_funcs[name][idx][0].set_enabled(True)
                 foot_funcs[name][idx][0].set_desired_translation(
-                    foot_trajs[name][k]
+                    foot_trajs[name][k % H]
                 )
             else:
+                print(f"For {k}, {name} is standing")
                 # enable contact
                 foot_funcs[name][idx][1].set_enabled(True)
                 foot_funcs[name][idx][0].set_enabled(False)
@@ -216,24 +226,29 @@ def update_model(current_stage):
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
 # ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
-# ssqp_params.line_search_method = ssqpy.solvers.LineSearchMethod.Merit
-# ssqp_params.stop_after_constraint_satisfaction = True
-# ssqp_params.skip_regularization = True
 
 admm_params = ssqpy.solvers.admmParams()
-# admm_params.init_rho = 1.0
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
 admm_params.warm_start = False
 
 ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_stat = 1e-3
+hpipm_params.tol_comp = 1e-3
+hpipm_params.tol_eq = 1e-3
+hpipm_params.tol_ineq = 1e-3
+ssqp_params.hpipmParams = hpipm_params
+
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
 # joint_space_pd_controller = JointSpacePD(mpc, init_state, Kp=2.0, Kd=0.05)
 
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
+
+# mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]
 
 mjdata.qpos = ssqp_to_mujoco_state(init_state)[:nq]
 
@@ -242,16 +257,14 @@ np.set_printoptions(suppress=True)
 Kp = 0.0
 Kd = 0.0
 
-states = []
-
 stage = 0
+
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         print(f"\rSimulation time: {mjdata.time:.2f}s")
         frame_start = time()
 
         state = mujoco_to_ssqp_state(np.hstack((mjdata.qpos, mjdata.qvel)))
-        states.append(state)
 
         # try:
         #     mjdata.ctrl = joint_space_pd_controller.step(state)
@@ -270,7 +283,11 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         # mjdata.qpos = xk[:nq]
 
-        # mjdata.qpos[:3] = np.array((0.0, 0.0, 0.5))
+        print(stage)
+        print("uk:")
+        u.print()
+        exit(0)
+
         mjdata.ctrl = (
             Kp * (xk[7:19] - state[7:19])
             + Kd * (xk[25:] - state[25:])

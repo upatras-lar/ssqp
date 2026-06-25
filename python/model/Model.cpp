@@ -594,8 +594,8 @@ void bind_Model(nb::module_ &m)
                 throw std::runtime_error("Provided frame does not exist");
             }
 
-            Force f = self.addForce(k, frame);
-            return f.force_index;
+            std::shared_ptr<Force> f = self.addForce(k, frame);
+            return f->force_index;
         },
         nb::arg("k"),
         nb::arg("frame"),

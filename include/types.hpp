@@ -150,6 +150,7 @@ struct Force
 {
     std::string frame;
     uint        force_index;
+    bool        ignore = false;
 
     Force() = default;
     Force(const std::string &frame, const uint force_index);

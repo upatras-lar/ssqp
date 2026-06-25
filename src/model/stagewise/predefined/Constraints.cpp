@@ -587,6 +587,12 @@ void ContactConstraint::set_mu(const double mu)
     _mu = mu;
 }
 
+void ContactConstraint::set_enabled(const bool enabled)
+{
+    StageConstraints::set_enabled(enabled);
+    _force->ignore = !enabled;
+}
+
 uint ContactConstraint::output_size() const
 {
     return 6;
@@ -602,9 +608,12 @@ std::string ContactConstraint::force_frame(const uint i) const
     return _frame;
 }
 
-void ContactConstraint::set_forces(const std::vector<Force> &forces)
+void ContactConstraint::set_forces(
+  const std::vector<std::shared_ptr<Force>> &forces)
 {
-    _forces = forces;
+    assert(_frame == forces[0]->frame &&
+           "Force frame does not match constraint frame");
+    _force = forces[0];
 }
 
 VecX ContactConstraint::lower_bound() const
@@ -639,7 +648,7 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
-    Vec3 f_global = R * u.segment(_nu + 3 * _forces[0].force_index, 3);
+    Vec3 f_global = R * u.segment(_nu + 3 * _force->force_index, 3);
 
     double fn  = (f_global.transpose() * tp.normal)[0];
     double ft1 = (f_global.transpose() * tp.t1)[0];
@@ -671,7 +680,7 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
     MatX Jfw = _model->frameJacobian(x.head(_nq), _frame).topRows<3>();
     MatX Jfl = _model->frameJacobian(x.head(_nq), _frame, true).bottomRows<3>();
 
-    uint total_force_index = _nu + 3 * _forces[0].force_index;
+    uint total_force_index = _nu + 3 * _force->force_index;
 
     Vec3 f_local = u.segment(total_force_index, 3);
 
