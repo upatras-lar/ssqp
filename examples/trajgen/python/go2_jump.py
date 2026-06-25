@@ -33,7 +33,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    # solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
+    # solver_mode=ssqpy.model.SolverMode.InverseDynamics,
 )
 
 nq = model.getnq()
@@ -131,24 +131,28 @@ for k in range(HORIZON):
     model.addConstraints(k, head_constraint)
 
     if k < START_STEP or k >= END_STEP:
-        model.addContactConstraint(
+        t1 = model.addContactConstraint(
             k, "FL_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
         )
+        # t1.set_enabled(False)
         model.addConstraints(k, fl_foot_vel_bound)
 
-        model.addContactConstraint(
+        t2 = model.addContactConstraint(
             k, "FR_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
         )
+        # t2.set_enabled(False)
         model.addConstraints(k, fr_foot_vel_bound)
 
-        model.addContactConstraint(
+        t3 = model.addContactConstraint(
             k, "RL_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
         )
+        # t3.set_enabled(False)
         model.addConstraints(k, rl_foot_vel_bound)
 
-        model.addContactConstraint(
+        t4 = model.addContactConstraint(
             k, "RR_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
         )
+        # t4.set_enabled(False)
         model.addConstraints(k, rr_foot_vel_bound)
 
         init_controls.append(init_control)
@@ -208,7 +212,7 @@ model.addConstraints(
 )
 
 # Finalize the model with our state and controls
-model.finalize(init_states=init, init_controls=init_controls)
+model.finalize(init_states=init)
 
 # SSQP model parameters
 ssqp_params = ssqpy.solvers.ssqpParams()

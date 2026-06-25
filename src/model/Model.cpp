@@ -724,7 +724,7 @@ void Model::addConstraints(
       stagewise::factory::merge_constraints(_constraints[k], constraints);
 }
 
-Force Model::addForce(const uint k, const std::string &frame)
+std::shared_ptr<Force> Model::addForce(const uint k, const std::string &frame)
 {
     if (_finalized)
     {
@@ -732,7 +732,10 @@ Force Model::addForce(const uint k, const std::string &frame)
           "Cannot add a force to a model that is already finalized");
     }
 
-    _forces[k].push_back(Force(frame, _forces[k].size()));
+    std::shared_ptr<Force> force =
+      std::make_shared<Force>(frame, _forces[k].size());
+
+    _forces[k].push_back(force);
     return _forces[k].back();
 }
 
@@ -747,7 +750,7 @@ std::vector<std::string> Model::orderedForceFrames(const uint k) const
 
     for (uint i = 0; i < _forces[k].size(); ++i)
     {
-        frames.push_back(_forces[k][i].frame);
+        frames.push_back(_forces[k][i]->frame);
     }
 
     return frames;
@@ -1242,18 +1245,24 @@ VecX Model::_randomVector(const uint size, const double start,
 }
 
 std::vector<Vec6> Model::_calculateJointForces(
-  const VecX &q, const VecX &f, const std::vector<Force> &force_data) const
+  const VecX &q, const VecX &f,
+  const std::vector<std::shared_ptr<Force>> &force_data) const
 {
     pinocchio_wrapper::computeJointJacobians(_impl, q);
     std::vector<Vec6> joint_forces(_dims.total_joints, Vec6::Zero());
 
     for (uint i = 0; i < force_data.size(); ++i)
     {
+        if (force_data[i]->ignore)
+        {
+            continue;
+        }
+
         Vec3 fi = f.segment(3 * i, 3);
 
         uint joint_id;
         Vec6 f_res = pinocchio_wrapper::framejMfAct(_impl,
-                                                    force_data[i].frame,
+                                                    force_data[i]->frame,
                                                     fi,
                                                     joint_id);
 
@@ -1264,7 +1273,8 @@ std::vector<Vec6> Model::_calculateJointForces(
 }
 
 std::pair<std::vector<Vec6>, MatX> Model::_calculateJointForcesAndJacobian(
-  const VecX &q, const VecX &f, const std::vector<Force> &force_data) const
+  const VecX &q, const VecX &f,
+  const std::vector<std::shared_ptr<Force>> &force_data) const
 {
     pinocchio_wrapper::computeJointJacobians(_impl, q);
 
@@ -1273,14 +1283,19 @@ std::pair<std::vector<Vec6>, MatX> Model::_calculateJointForcesAndJacobian(
 
     for (uint i = 0; i < force_data.size(); ++i)
     {
-        MatX Jf = frameJacobian(force_data[i].frame, true).topRows<3>();
+        if (force_data[i]->ignore)
+        {
+            continue;
+        }
+
+        MatX Jf = frameJacobian(force_data[i]->frame, true).topRows<3>();
         Jf_full.block(3 * i, 0, 3, _dims.nv) = Jf;
 
         Vec3 fi = f.segment(3 * i, 3);
 
         uint joint_id;
         Vec6 f_res = pinocchio_wrapper::framejMfAct(_impl,
-                                                    force_data[i].frame,
+                                                    force_data[i]->frame,
                                                     fi,
                                                     joint_id);
 

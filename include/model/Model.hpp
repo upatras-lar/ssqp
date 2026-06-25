@@ -274,7 +274,7 @@ class Model
     // Add a new external force as an additional decision variable for stage k
     // on the given frame
     // Returns the newly created force
-    Force addForce(const uint k, const std::string &frame);
+    std::shared_ptr<Force> addForce(const uint k, const std::string &frame);
 
     // Returns the number of external forces added for a given stage
     uint nforces(const uint k) const;
@@ -448,12 +448,12 @@ class Model
     std::unordered_map<uint, uint> _bounded_joint_indices_to_tangent;
 
     // Configuration properties
-    bool                            _finalized = false;
-    bool                            _xml;
-    CostsContainer                  _costs;
-    DynamicsContainer               _dynamics;
-    ConstraintsContainer            _constraints;
-    std::vector<std::vector<Force>> _forces;
+    bool                                             _finalized = false;
+    bool                                             _xml;
+    CostsContainer                                   _costs;
+    DynamicsContainer                                _dynamics;
+    ConstraintsContainer                             _constraints;
+    std::vector<std::vector<std::shared_ptr<Force>>> _forces;
 
     // Optional custom properties for non-XML models
     bool             _has_custom_properties = false;
@@ -472,7 +472,8 @@ class Model
      * Output: A vector of 6D forces, one for each of the model's joints
      */
     std::vector<Vec6> _calculateJointForces(
-      const VecX &q, const VecX &f, const std::vector<Force> &force_data) const;
+      const VecX &q, const VecX &f,
+      const std::vector<std::shared_ptr<Force>> &force_data) const;
 
     /* Calculates joint forces and total force jacobian given a configuration
      * and an external force vector
@@ -481,7 +482,8 @@ class Model
      * jacobian
      */
     std::pair<std::vector<Vec6>, MatX> _calculateJointForcesAndJacobian(
-      const VecX &q, const VecX &f, const std::vector<Force> &force_data) const;
+      const VecX &q, const VecX &f,
+      const std::vector<std::shared_ptr<Force>> &force_data) const;
 
     /* Calculates the full acceleration vector for ReducedInverseDynamics mode
      * Input:
@@ -508,8 +510,8 @@ class Model
     template<bool FloatingBase, bool WithForces>
     VecX _calculateReducedInverseFullAcceleration(
       const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-      const std::vector<Force> &force_data,
-      const std::vector<uint>  &actuated_joints,
+      const std::vector<std::shared_ptr<Force>> &force_data,
+      const std::vector<uint>                   &actuated_joints,
       const std::vector<uint> &unactuated_joints, MatX &Muu, MatX &Muj,
       Eigen::LDLT<MatX> &Muu_ldlt, std::vector<Vec6> &joint_forces,
       MatX &Jf_full) const;
@@ -520,9 +522,9 @@ class Model
     template<bool FloatingBase, bool WithForces>
     VecX _calculateReducedInverseFullAcceleration(
       const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-      const std::vector<Force> &force_data,
-      const std::vector<uint>  &actuated_joints,
-      const std::vector<uint>  &unactuated_joints) const;
+      const std::vector<std::shared_ptr<Force>> &force_data,
+      const std::vector<uint>                   &actuated_joints,
+      const std::vector<uint>                   &unactuated_joints) const;
 
     /* Calculates the derivatives of the acceleration vector for ReducedInverseDynamics
      * mode, with respect to q, v, aj (the actual actuated controls) and f
@@ -564,8 +566,8 @@ class Model
     template<bool FloatingBase, bool WithForces>
     void _calculateReducedInverseFullAccelerationDerivatives(
       const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-      const std::vector<Force> &force_data,
-      const std::vector<uint>  &actuated_joints,
+      const std::vector<std::shared_ptr<Force>> &force_data,
+      const std::vector<uint>                   &actuated_joints,
       const std::vector<uint> &unactuated_joints, const VecX &ddq,
       const MatX &Muu, const MatX &Muj, const Eigen::LDLT<MatX> &Muu_ldlt,
       const std::vector<Vec6> &joint_forces, const MatX &Jf_full, MatX &dtau_dq,
@@ -602,13 +604,13 @@ class Model
      */
     struct _StageDynamicsContext
     {
-        const MatX         S;
-        std::vector<Force> force_data;
-        VecX               init_state;
-        VecX               init_control;
-        uint               nq, nv, nu, nf;
-        std::vector<uint>  actuated_joints, unactuated_joints;
-        std::string        stage_dynamics_name;
+        const MatX                          S;
+        std::vector<std::shared_ptr<Force>> force_data;
+        VecX                                init_state;
+        VecX                                init_control;
+        uint                                nq, nv, nu, nf;
+        std::vector<uint>                   actuated_joints, unactuated_joints;
+        std::string                         stage_dynamics_name;
     };
 
     /* Makes the dynamics for a given stage with context `ctx` based on the
@@ -631,10 +633,10 @@ class Model
      */
     struct _StageInnateConstraintsContext
     {
-        std::vector<Force> force_data;
-        uint               nq, nv, nu, nf, njoints;
-        std::vector<uint>  actuated_joints, unactuated_joints;
-        std::string        stage_constraints_name;
+        std::vector<std::shared_ptr<Force>> force_data;
+        uint                                nq, nv, nu, nf, njoints;
+        std::vector<uint>                   actuated_joints, unactuated_joints;
+        std::string                         stage_constraints_name;
     };
 
     /* Makes the innate constraints for a given stage with context `ctx` based

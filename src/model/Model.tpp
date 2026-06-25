@@ -26,8 +26,10 @@ std::shared_ptr<stagewise::StageConstraints> Model::addConstraints(const uint k,
     std::shared_ptr<stagewise::StageConstraints> constraints =
       std::make_shared<C>(args...);
 
-    std::vector<Force> forces(constraints->required_forces());
-    for (uint i = 0; i < constraints->required_forces(); ++i)
+    uint nf = constraints->required_forces();
+
+    std::vector<std::shared_ptr<Force>> forces(nf);
+    for (uint i = 0; i < nf; ++i)
     {
         forces[i] = addForce(k, constraints->force_frame(i));
     }
@@ -1137,8 +1139,8 @@ Model::_makeStageIDTorqueConstraints(
 template<bool FloatingBase, bool WithForces>
 VecX Model::_calculateReducedInverseFullAcceleration(
   const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-  const std::vector<Force> &force_data,
-  const std::vector<uint>  &actuated_joints,
+  const std::vector<std::shared_ptr<Force>> &force_data,
+  const std::vector<uint>                   &actuated_joints,
   const std::vector<uint> &unactuated_joints, MatX &Muu, MatX &Muj,
   Eigen::LDLT<MatX> &Muu_ldlt, std::vector<Vec6> &joint_forces,
   MatX &Jf_full) const
@@ -1244,9 +1246,9 @@ VecX Model::_calculateReducedInverseFullAcceleration(
 template<bool FloatingBase, bool WithForces>
 VecX Model::_calculateReducedInverseFullAcceleration(
   const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-  const std::vector<Force> &force_data,
-  const std::vector<uint>  &actuated_joints,
-  const std::vector<uint>  &unactuated_joints) const
+  const std::vector<std::shared_ptr<Force>> &force_data,
+  const std::vector<uint>                   &actuated_joints,
+  const std::vector<uint>                   &unactuated_joints) const
 {
     MatX              Muu, Muj;
     Eigen::LDLT<MatX> Muu_ldlt;
@@ -1270,8 +1272,8 @@ VecX Model::_calculateReducedInverseFullAcceleration(
 template<bool FloatingBase, bool WithForces>
 void Model::_calculateReducedInverseFullAccelerationDerivatives(
   const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-  const std::vector<Force> &force_data,
-  const std::vector<uint>  &actuated_joints,
+  const std::vector<std::shared_ptr<Force>> &force_data,
+  const std::vector<uint>                   &actuated_joints,
   const std::vector<uint> &unactuated_joints, const VecX &ddq, const MatX &Muu,
   const MatX &Muj, const Eigen::LDLT<MatX> &Muu_ldlt,
   const std::vector<Vec6> &joint_forces, const MatX &Jf_full, MatX &dtau_dq,
