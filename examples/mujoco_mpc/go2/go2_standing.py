@@ -78,7 +78,7 @@ ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=400)
 
-mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/go2/scene.xml")
+mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = init_state[:nq].copy()

@@ -31,10 +31,10 @@ def ssqp_to_mujoco_state(ssqp_state):
 
 def ssqp_to_mujoco_control(ssqp_control):
     mujoco_control = ssqp_control.copy()
-    # mujoco_control[6:9] = ssqp_control[9:12]
-    # mujoco_control[9:12] = ssqp_control[6:9]
-    # mujoco_control[12:15] = ssqp_control[15:18]
-    # mujoco_control[15:18] = ssqp_control[12:15]
+    mujoco_control[6:9] = ssqp_control[9:12]
+    mujoco_control[9:12] = ssqp_control[6:9]
+    mujoco_control[12:15] = ssqp_control[15:18]
+    mujoco_control[15:18] = ssqp_control[12:15]
     return mujoco_control
 
 

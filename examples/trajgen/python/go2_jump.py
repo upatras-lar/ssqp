@@ -33,7 +33,7 @@ model = ssqpy.model.Model(
     dt,
     urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
-    # solver_mode=ssqpy.model.SolverMode.InverseDynamics,
+    solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
 nq = model.getnq()
@@ -134,8 +134,9 @@ for k in range(HORIZON):
         t1 = model.addContactConstraint(
             k, "FL_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01
         )
-        # t1.set_enabled(False)
+        t1.set_enabled(False)
         model.addConstraints(k, fl_foot_vel_bound)
+        fl_foot_vel_bound.set_enabled(False)
 
         t2 = model.addContactConstraint(
             k, "FR_foot", max_normal_force=MAX_NORMAL_FORCE, eq_tol=0.01

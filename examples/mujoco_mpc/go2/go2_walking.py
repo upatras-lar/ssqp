@@ -15,17 +15,18 @@ np.set_printoptions(suppress=True)
 
 
 dt = 0.002
-mpc_H = 20
-mpc_dt = 0.01
+mpc_H = 25
+mpc_dt = 0.05
 
 T_WGT = 1.0
 R_WGT = 1.0
 C_WGT = 1e-2
 V_WGT = 1e-3
 U_WGT = 1e-4
+F_WGT = 1e-6
 
 CONTACT_MU = 0.6
-GAIT_PERIOD = 25
+GAIT_PERIOD = 30
 
 dynamics_mode = ssqpy.model.SolverMode.ForwardDynamics
 
@@ -42,8 +43,8 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
-base_pos = np.array([0.0, 0.0, 0.3879793820122])
-target_pos = np.array([0.0, 0.0, 0.3879793820122])
+base_pos = np.array([0.0, 0.0, 0.3892611020122])
+target_pos = np.array([0.0, 0.0, 0.3892611020122])
 
 base_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
 
@@ -65,7 +66,7 @@ def get_swing_feet(k):
         return ["FR_foot", "RL_foot"]
 
 
-def swing_trajectory(p0, pf, phase, height=0.05):
+def swing_trajectory(p0, pf, phase, height=0.02):
     """
     p0: lift-off position
     pf: landing position
@@ -143,6 +144,7 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
 )
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
+f_cost = ssqpy.model.costs.SquaredForceCost(model, F_WGT)
 
 base_costs = []
 foot_funcs = {name: [] for name in foot_names}
@@ -155,6 +157,7 @@ for k in range(mpc_H):
     model.addCost(k, config_cost)
     model.addCost(k, v_cost)
     model.addCost(k, u_cost)
+    model.addCost(k, f_cost)
 
     base_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
@@ -171,7 +174,7 @@ for k in range(mpc_H):
             model, name, foot_pos, T_WGT
         )
         foot_constraint = model.addContactConstraint(
-            k, name, CONTACT_MU, eq_tol=0.01, max_normal_force=140
+            k, name, CONTACT_MU, eq_tol=0.02, max_normal_force=150
         )
 
         model.addCost(k, foot_cost)
@@ -185,8 +188,6 @@ for k in range(mpc_H):
     # Feet contact constraints
     foot_funcs["FL_foot"][-1][1].set_enabled(False)
     foot_funcs["RR_foot"][-1][1].set_enabled(False)
-    foot_funcs["FR_foot"][-1][1].set_enabled(False)
-    foot_funcs["RL_foot"][-1][1].set_enabled(False)
 
 model.addCost(mpc_H, v_cost)
 
@@ -203,11 +204,9 @@ def update_model(current_stage):
         )
 
         swing_feet = get_swing_feet(k)
-        print(swing_feet)
 
         for name in foot_names:
             if name in swing_feet:
-                print(f"For {k}, {name} is swinging")
                 # disable contact
                 foot_funcs[name][idx][1].set_enabled(False)
 
@@ -217,7 +216,6 @@ def update_model(current_stage):
                     foot_trajs[name][k % H]
                 )
             else:
-                print(f"For {k}, {name} is standing")
                 # enable contact
                 foot_funcs[name][idx][1].set_enabled(True)
                 foot_funcs[name][idx][0].set_enabled(False)
@@ -225,7 +223,7 @@ def update_model(current_stage):
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
@@ -235,10 +233,10 @@ admm_params.warm_start = False
 ssqp_params.admmParams = admm_params
 
 hpipm_params = ssqpy.solvers.hpipmParams()
-hpipm_params.tol_stat = 1e-3
-hpipm_params.tol_comp = 1e-3
-hpipm_params.tol_eq = 1e-3
-hpipm_params.tol_ineq = 1e-3
+hpipm_params.tol_stat = 1e-4
+hpipm_params.tol_comp = 1e-4
+hpipm_params.tol_eq = 1e-4
+hpipm_params.tol_ineq = 1e-4
 ssqp_params.hpipmParams = hpipm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
@@ -254,8 +252,8 @@ mjdata.qpos = ssqp_to_mujoco_state(init_state)[:nq]
 
 np.set_printoptions(suppress=True)
 
-Kp = 0.0
-Kd = 0.0
+Kp = 0.01
+Kd = 2 * np.sqrt(Kp)
 
 stage = 0
 
@@ -274,23 +272,26 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         try:
             x, u = mpc.step(state)
-            xk, uk = ssqp_to_mujoco_state(x.stage(1)), ssqp_to_mujoco_control(
-                u.stage(0)
-            )
+            xk = ssqp_to_mujoco_state(x.stage(1))
+
+            if dynamics_mode == ssqpy.model.SolverMode.ForwardDynamics:
+                uk = ssqp_to_mujoco_control(u.stage(0))
+            elif (
+                dynamics_mode == ssqpy.model.SolverMode.ReducedInverseDynamics
+            ):
+                uk = ssqp_to_mujoco_control(
+                    np.hstack((np.zeros(6), u.stage(0)))
+                )
+
         except RuntimeError:
             print("Exiting after regularization failure")
             break
 
         # mjdata.qpos = xk[:nq]
 
-        print(stage)
-        print("uk:")
-        u.print()
-        exit(0)
-
         mjdata.ctrl = (
-            Kp * (xk[7:19] - state[7:19])
-            + Kd * (xk[25:] - state[25:])
+            ssqp_to_mujoco_control(Kp * (xk[7:19] - state[7:19]))
+            + ssqp_to_mujoco_control(Kd * (xk[25:] - state[25:]))
             + uk[6:18]
         )
 
@@ -303,7 +304,5 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         to_sleep = dt - (time() - frame_start)
         if to_sleep > 0:
             sleep(to_sleep)
-
-        # sleep(0.1)
 
 print()
