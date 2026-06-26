@@ -374,6 +374,10 @@ void bind_Model(nb::module_ &m)
         [](Model &self) { return self.finalized(); },
         "Whether the model has been finalized.")
       .def_prop_ro(
+        "xml",
+        [](Model &self) { return self.xml(); },
+        "Whether the model has been loaded from an XML file.")
+      .def_prop_ro(
         "horizon",
         [](Model &self) { return self.horizon(); },
         "Get the optimization horizon.")
@@ -524,6 +528,9 @@ void bind_Model(nb::module_ &m)
         Whether the model has a floating base.
         Only defined if the model was initialized using an XML file.
         )doc")
+      .def("getSolverMode",
+           &Model::solverMode,
+           "Get the solver mode formulation")
       .def(
         "getCost",
         [](Model &self, const uint k) { return self.costs()[k]; },
@@ -608,6 +615,10 @@ void bind_Model(nb::module_ &m)
         Get the current number of forces for a stage.
         Only defined if the model was initialized using an XML file.
         )doc")
+      .def("getOrderedForceFrames",
+           &Model::orderedForceFrames,
+           nb::arg("k"),
+           "Vector containing frame names, ordered 1-1 with forces for stage k")
       .def("printFramesAndJoints", &Model::printFramesAndJoints, R"doc(
         Print the frames and joints of the model.
         Only defined if the model was initialized using an XML file.
@@ -616,6 +627,18 @@ void bind_Model(nb::module_ &m)
         Get an ordered list of the actuated joints of the model.
         Only defined if the model was initialized using an XML file.
         )doc")
+      .def(
+        "getJointTypes",
+        &Model::jointTypes,
+        "Types for each joint that is part of the state (including unactuated)")
+      .def("hasFrame",
+           &Model::hasFrame,
+           nb::arg("frame"),
+           "Whether the model has a frame with the given name")
+      .def("setActuatedJoints",
+           &Model::setActuatedJoints,
+           nb::arg("actuated_joints"),
+           "Set the actuated joint indices vector")
       .def(
         "forwardKinematics",
         [](Model &self, const VecX &q, const std::string &frame)
@@ -817,7 +840,10 @@ void bind_Model(nb::module_ &m)
         )doc")
       .def("setCustomProperties",
            &Model::setCustomProperties,
-           "Set custom properties for non-XML models");
+           "Set custom properties for non-XML models")
+      .def("hasCustomProperties",
+           &Model::hasCustomProperties,
+           "Whether custom properties have been set");
 }
 }
 }
