@@ -237,6 +237,32 @@
     <axis xyz="1 0 0"/>
     <limit lower="-0.2618" upper="0.2618" effort="35" velocity="30"/>
   </joint>
+
+  <link name="left_mm" />
+  <link name="left_mp" />
+  <link name="left_pp" />
+  <link name="left_pm" />
+  <joint name="left_mm_fix_joint" type="fixed">
+      <parent link="left_ankle_roll_link" />
+      <child link="left_mm" />
+      <origin rpy="0 0 0" xyz="-0.04 -0.03 -0.03" />
+  </joint>
+  <joint name="left_mp_fix_joint" type="fixed">
+      <parent link="left_ankle_roll_link" />
+      <child link="left_mp" />
+      <origin rpy="0 0 0" xyz="-0.04 0.03 -0.03" />
+  </joint>
+  <joint name="left_pp_fix_joint" type="fixed">
+      <parent link="left_ankle_roll_link" />
+      <child link="left_pp" />
+      <origin rpy="0 0 0" xyz="0.12 0.03 -0.03" />
+  </joint>
+  <joint name="left_pm_fix_joint" type="fixed">
+      <parent link="left_ankle_roll_link" />
+      <child link="left_pm" />
+      <origin rpy="0 0 0" xyz="0.12 -0.03 -0.03" />
+  </joint>
+
   <link name="right_hip_pitch_link">
     <inertial>
       <origin xyz="0.002741 -0.047791 -0.02606" rpy="0 0 0"/>
@@ -416,6 +442,31 @@
     <child link="right_ankle_roll_link"/>
     <axis xyz="1 0 0"/>
     <limit lower="-0.2618" upper="0.2618" effort="35" velocity="30"/>
+  </joint>
+
+  <link name="right_mm" />
+  <link name="right_mp" />
+  <link name="right_pp" />
+  <link name="right_pm" />
+  <joint name="right_mm_fix_joint" type="fixed">
+      <parent link="right_ankle_roll_link" />
+      <child link="right_mm" />
+      <origin rpy="0 0 0" xyz="-0.04 -0.03 -0.03" />
+  </joint>
+  <joint name="right_mp_fix_joint" type="fixed">
+      <parent link="right_ankle_roll_link" />
+      <child link="right_mp" />
+      <origin rpy="0 0 0" xyz="-0.04 0.03 -0.03" />
+  </joint>
+  <joint name="right_pp_fix_joint" type="fixed">
+      <parent link="right_ankle_roll_link" />
+      <child link="right_pp" />
+      <origin rpy="0 0 0" xyz="0.12 0.03 -0.03" />
+  </joint>
+  <joint name="right_pm_fix_joint" type="fixed">
+      <parent link="right_ankle_roll_link" />
+      <child link="right_pm" />
+      <origin rpy="0 0 0" xyz="0.12 -0.03 -0.03" />
   </joint>
 
   <!-- Torso -->
