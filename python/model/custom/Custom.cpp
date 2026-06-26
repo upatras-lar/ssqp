@@ -1,10 +1,10 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/eigen/dense.h>
 
 #include "model/stagewise/StageDynamics.hpp"
 #include "model/stagewise/StageCost.hpp"
-#include "models/double_pendulum/DoublePendulum.hpp"
 #include "models/double_pendulum/DoublePendulumAmbient.hpp"
 
 namespace ssqp
@@ -36,38 +36,6 @@ void bind_Custom(nb::module_ &m)
       .value("Acrobot", double_pendulum::ActuationMode::Acrobot)
       .export_values();
 
-    nb::class_<double_pendulum::DoublePendulumDynamics, StageDynamics>(
-      double_pendulum,
-      "DoublePendulumDynamics",
-      R"doc(
-        Custom stagewise dynamics class for the double pendulum system
-        Defines the double pendulum dynamics relative to 6 parameters:
-         1. Mass 1 (m1)
-         2. Mass 2 (m2)
-         3. Length 1 (l1)
-         4. Length 2 (l2)
-         5. Inertia 1 (I1)
-         6. Inertia 2 (I2)
-    )doc")
-      .def(nb::init<const Vec6 &, const double, const std::string &>(),
-           nb::arg("params"),
-           nb::arg("dt")   = 0.01,
-           nb::arg("name") = "");
-
-    nb::class_<double_pendulum::DoublePendulumTipCost, StageCost>(
-      double_pendulum,
-      "DoublePendulumTipCost")
-      .def(nb::init<const Vec2 &,
-                    const double,
-                    const double,
-                    const double,
-                    const std::string &>(),
-           nb::arg("target"),
-           nb::arg("l1"),
-           nb::arg("l2"),
-           nb::arg("weight"),
-           nb::arg("name") = "");
-
     nb::class_<double_pendulum::DoublePendulumAmbientDynamics, StageDynamics>(
       double_pendulum,
       "DoublePendulumAmbientDynamics",
@@ -77,26 +45,31 @@ void bind_Custom(nb::module_ &m)
         for each angle a.
 
         A single class spanning all three actuation patterns of a two-link
-        pendulum, selected via ActuationMode at construction time.
-
-        Defines the dynamics relative to 6 parameters:
-         1. Mass 1 (m1)
-         2. Mass 2 (m2)
-         3. Length 1 (l1)
-         4. Length 2 (l2)
-         5. Inertia 1 (I1)
-         6. Inertia 2 (I2)    
+        pendulum, selected via ActuationMode at construction time. 
       )doc")
-      .def(nb::init<const Vec6 &,
+      .def(nb::init<const Eigen::Vector<double, 9> &,
                     const double_pendulum::ActuationMode,
-                    const Vec2 &,
                     const double,
                     const std::string &>(),
            nb::arg("params"),
            nb::arg("actuation_mode") = double_pendulum::ActuationMode::Full,
-           nb::arg("damping")        = Vec2::Zero(),
            nb::arg("dt")             = 0.01,
-           nb::arg("name")           = "");
+           nb::arg("name")           = "")
+      .def(
+        "computeRegressorAndTorque",
+        [](double_pendulum::DoublePendulumAmbientDynamics *self,
+           const VecX &x,
+           const Vec2 &ddq,
+           const VecX &u)
+        {
+            Eigen::Matrix<double, 2, 9> Y;
+            Vec2                        tau;
+            self->compute_regressor_and_torque(x, ddq, u, Y, tau);
+            return std::pair<MatX, VecX>(Y, tau);
+        },
+        nb::arg("x"),
+        nb::arg("ddq"),
+        nb::arg("u"));
 
     nb::class_<double_pendulum::DoublePendulumAmbientTrackingCost, StageCost>(
       double_pendulum,
