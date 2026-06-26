@@ -337,9 +337,13 @@ while True:
                 for force_idx, frame in enumerate(
                     data["properties"]["stages"][k]["ordered_force_frames"]
                 ):
-                    frame_T_visual = (
-                        urdf._urdf.link_map[frame].visuals[0].origin
-                    )
+                    frame_visuals = urdf._urdf.link_map[frame].visuals
+                    if frame_visuals:
+                        frame_T_visual = (
+                            urdf._urdf.link_map[frame].visuals[0].origin
+                        )
+                    else:
+                        frame_T_visual = np.eye(4)
                     frame_T = urdf._urdf.get_transform(frame) @ frame_T_visual
                     frame_R = frame_T[:3, :3]
                     frame_t = frame_T[:3, 3]
