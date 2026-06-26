@@ -45,17 +45,14 @@ enum ActuationMode
 class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
 {
   public:
-    DoublePendulumAmbientDynamics(const Vec6   &params,
+    DoublePendulumAmbientDynamics(const Eigen::Vector<double, 9> &params,
                                   ActuationMode mode      = ActuationMode::Full,
-                                  const Vec2 &damping     = Vec2::Zero(),
                                   const double dt         = 0.01,
                                   const std::string &name = "")
       : StageDynamics(name)
       , _mode(mode)
       , _nu(mode == ActuationMode::Full ? 2 : 1)
       , _dt(dt)
-      , _b1(damping(0))
-      , _b2(damping(1))
     {
         update_parameters(params);
     }
@@ -271,135 +268,117 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         Puu.setZero(_nu, _nu);
     }
 
-    uint parameter_size() const override
+    /**
+     * @brief Computes the Regressor Matrix (Y) and Measured Torques (tau) 
+     * * Parameter Vector order: 
+     * Phi = [ m1*r1, I1, cf1, b1, m2*r2, m2, I2, cf2, b2 ]  (Size: 9)
+     * * @param x       Ambient State vector [sin(q1), cos(q1), sin(q2), cos(q2), dq1, dq2]
+     * @param ddq     Calculated/measured joint accelerations [ddq1, ddq2]
+     * @param u       Control/measured torque input
+     * @param Y       Output Regressor Matrix (2 rows x 9 columns)
+     * @param tau     Output Torque vector (Size: 2)
+     */
+    void compute_regressor_and_torque(const VecX &x, const Vec2 &ddq,
+                                      const VecX                  &u,
+                                      Eigen::Matrix<double, 2, 9> &Y,
+                                      Vec2                        &tau) const
     {
-        return 6;
-    }
-    VecX parameters() const override
-    {
-        return _params;
-    }
-
-    MatX parameter_gradient(const VecX &x, const VecX &u) const override
-    {
+        // 1. Extract states from ambient vector
         const double s1 = x(0), c1 = x(1);
         const double s2 = x(2), c2 = x(3);
         const double dq1 = x(4), dq2 = x(5);
+        const double ddq1 = ddq(0), ddq2 = ddq(1);
 
-        double tau1, tau2;
-        get_torques(u, tau1, tau2);
+        // 2. Resolve target torques based on actuation pattern
+        double tau1_meas = 0.0, tau2_meas = 0.0;
+        get_torques(u, tau1_meas, tau2_meas);
+        tau << tau1_meas, tau2_meas;
 
+        // Constants
+        const double g = 9.81;
+        const double l1 =
+          _params[2]; // Fixed geometric length from known parameters
+
+        // Precompute trig combinations matching manipulator equations
         const double s12 = s1 * c2 + c1 * s2;
 
-        // Reconstruct using cache variables where applicable
-        const double M11 = _M11_const + _m2_l1_lc2_2 * c2;
-        const double M12 = _M12_const + _m2_l1_lc2 * c2;
-        const double M22 = _M22_const;
+        // 3. Initialize Regressor Matrix to Zero
+        Y.setZero();
 
-        const double V1 = -_m2_l1_lc2 * dq2 * (2.0 * dq1 + dq2) * s2 +
-                          _g_m1lc1_m2l1 * s1 + _g_m2lc2 * s12 + _b1 * dq1;
-        const double V2 =
-          _m2_l1_lc2 * dq1 * dq1 * s2 + _g_m2lc2 * s12 + _b2 * dq2;
+        // --- ROW 1: Joint 1 Dynamics ---
+        Y(0, 0) = -g * s1;                // m1*r1 (Gravity)
+        Y(0, 1) = ddq1;                   // I1 (Inertia)
+        Y(0, 2) = std::atan(100.0 * dq1); // cf1 (Coulomb Friction)
+        Y(0, 3) = dq1;                    // b1 (Viscous Friction)
+        Y(0, 4) = 2.0 * l1 * c2 * ddq1 + l1 * c2 * ddq2 -
+                  2.0 * dq2 * l1 * s2 * dq1 - dq2 * dq2 * l1 * s2 -
+                  g * s12;                      // m2*r2
+        Y(0, 5) = l1 * l1 * ddq1 - g * l1 * s1; // m2
+        Y(0, 6) = ddq1 + ddq2;                  // I2
+        Y(0, 7) = 0.0;                          // cf2 (No impact on Joint 1)
+        Y(0, 8) = 0.0;                          // b2 (No impact on Joint 1)
 
-        double det = M11 * M22 - M12 * M12;
-        if (std::abs(det) < 1e-9) det = (det >= 0) ? 1e-9 : -1e-9;
+        // --- ROW 2: Joint 2 Dynamics ---
+        Y(1, 0) = 0.0; // m1*r1 (No impact on Joint 2)
+        Y(1, 1) = 0.0; // I1 (No impact on Joint 2)
+        Y(1, 2) = 0.0; // cf1 (No impact on Joint 2)
+        Y(1, 3) = 0.0; // b1
+        Y(1, 4) = l1 * c2 * ddq1 + l1 * s2 * dq1 * dq1 - g * s12; // m2*r2
+        Y(1, 5) = 0.0;                                            // m2
+        Y(1, 6) = ddq1 + ddq2;                                    // I2
+        Y(1, 7) = std::atan(100.0 * dq2);                         // cf2
+        Y(1, 8) = dq2;                                            // b2
+    }
 
-        Mat2 M;
-        M(0, 0) = _M11_const + _m2_l1_lc2_2 * c2;
-        M(0, 1) = _M12_const + _m2_l1_lc2 * c2;
-        M(1, 0) = M(0, 1);
-        M(1, 1) = _M22_const;
+    uint parameter_size() const override
+    {
+        return 9;
+    }
 
-        Eigen::LDLT<Mat2> ldlt(M);
-
-        const Vec2 rhs = Vec2(tau1 - V1, tau2 - V2);
-        const Vec2 ddq = ldlt.solve(rhs);
-
-        Eigen::Matrix<double, 2, 6> d_ddq_d_theta;
-
-        // Recompute localized elements for partial parameter derivatives
-        const double m1 = _params[0], m2 = _params[1];
-        const double l1 = _params[2], l2 = _params[3];
-        const double g   = 9.81;
-        const double lc1 = 0.5 * l1, lc2 = 0.5 * l2;
-
-        for (int i = 0; i < 6; ++i)
-        {
-            Mat2 dM = Mat2::Zero();
-            Vec2 dV = Vec2::Zero();
-
-            switch (i)
-            {
-            case 0: // m1
-                dM(0, 0) = lc1 * lc1;
-                dV(0)    = lc1 * g * s1;
-                break;
-            case 1: // m2
-                dM(0, 0) = l1 * l1 + lc2 * lc2 + 2.0 * l1 * lc2 * c2;
-                dM(0, 1) = dM(1, 0) = lc2 * lc2 + l1 * lc2 * c2;
-                dM(1, 1)            = lc2 * lc2;
-                dV(0) = -l1 * lc2 * dq2 * (2.0 * dq1 + dq2) * s2 + l1 * g * s1 +
-                        g * lc2 * s12;
-                dV(1) = l1 * lc2 * dq1 * dq1 * s2 + g * lc2 * s12;
-                break;
-            case 2: // l1
-                dM(0, 0) =
-                  2.0 * m1 * lc1 * 0.5 + m2 * (2.0 * l1 + 2.0 * lc2 * c2);
-                dM(0, 1) = dM(1, 0) = m2 * lc2 * c2;
-                dV(0)               = -m2 * lc2 * dq2 * (2.0 * dq1 + dq2) * s2 +
-                        (m1 * 0.5 + m2) * g * s1;
-                dV(1) = m2 * lc2 * dq1 * dq1 * s2;
-                break;
-            case 3: // l2
-                dM(0, 0) = m2 * (lc2 + l1 * c2);
-                dM(0, 1) = dM(1, 0) = m2 * (lc2 + l1 * 0.5 * c2);
-                dM(1, 1)            = m2 * lc2;
-                dV(0) = -m2 * l1 * 0.5 * dq2 * (2.0 * dq1 + dq2) * s2 +
-                        m2 * g * 0.5 * s12;
-                dV(1) = m2 * l1 * 0.5 * dq1 * dq1 * s2 + m2 * g * 0.5 * s12;
-                break;
-            case 4: // I1
-                dM(0, 0) = 1.0;
-                break;
-            case 5: // I2
-                dM(0, 0) = 1.0;
-                dM(0, 1) = 1.0;
-                dM(1, 0) = 1.0;
-                dM(1, 1) = 1.0;
-                break;
-            }
-
-            d_ddq_d_theta.col(i) = -ldlt.solve(dM * ddq + dV);
-        }
-
-        Eigen::Matrix<double, 4, 6> J = Eigen::Matrix<double, 4, 6>::Zero();
-        J.row(2)                      = d_ddq_d_theta.row(0) * _dt;
-        J.row(3)                      = d_ddq_d_theta.row(1) * _dt;
-        J.row(0)                      = J.row(2) * _dt;
-        J.row(1)                      = J.row(3) * _dt;
-        return J;
+    VecX parameters() const override
+    {
+        return _params;
     }
 
     void update_parameters(const VecX &theta) override
     {
         _params = theta;
 
-        const double m1 = _params[0], m2 = _params[1];
-        const double l1 = _params[2], l2 = _params[3];
-        const double I1 = _params[4], I2 = _params[5];
-        const double g   = 9.81;
-        const double lc1 = 0.5 * l1, lc2 = 0.5 * l2;
+        // Extract exact symbols from the identified vector
+        const double m1r1 = _params[0]; // Phi[0]
+        const double I1   = _params[1]; // Phi[1]
+        const double cf1  = _params[2]; // Phi[2] (Coulomb friction, if used)
+        const double b1   = _params[3]; // Phi[3]
+        const double m2r2 = _params[4]; // Phi[4]
+        const double m2   = _params[5]; // Phi[5]
+        const double I2   = _params[6]; // Phi[6]
+        const double cf2  = _params[7]; // Phi[7]
+        const double b2   = _params[8]; // Phi[8]
 
-        // Cache parameters bundle constants
-        _m2_l1_lc2   = m2 * l1 * lc2;
+        const double g  = 9.81;
+        const double l1 = 0.05; // Known fixed geometric link length
+        const double l2 = 0.05; // Known fixed geometric link length
+
+        // Implicit center of mass locations
+        const double rc1 = 0.5 * l1;
+        const double rc2 = 0.5 * l2;
+
+        // Update internal damping fields
+        _b1 = b1;
+        _b2 = b2;
+
+        // Direct mathematical substitution
+        _m2_l1_lc2   = l1 * m2r2; // m2 * l1 * lc2
         _m2_l1_lc2_2 = 2.0 * _m2_l1_lc2;
 
-        _M11_const = I1 + I2 + m1 * lc1 * lc1 + m2 * (l1 * l1 + lc2 * lc2);
-        _M12_const = I2 + m2 * lc2 * lc2;
-        _M22_const = I2 + m2 * lc2 * lc2;
+        // Explicitly mapped inertia matrix combinations
+        _M11_const = I1 + I2 + (m1r1 * rc1) + m2 * (l1 * l1) + (m2r2 * rc2);
+        _M12_const = I2 + (m2r2 * rc2); // I2 + m2 * lc2^2
+        _M22_const = I2 + (m2r2 * rc2); // I2 + m2 * lc2^2
 
-        _g_m1lc1_m2l1 = (m1 * lc1 + m2 * l1) * g;
-        _g_m2lc2      = m2 * g * lc2;
+        // Gravity vector components
+        _g_m1lc1_m2l1 = (m1r1 + m2 * l1) * g; // (m1*lc1 + m2*l1) * g
+        _g_m2lc2      = m2r2 * g;             // m2 * lc2 * g
     }
 
     // Which actuation pattern this instance represents.
@@ -443,14 +422,14 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         }
     }
 
-    const uint          _nx  = 6;
-    const uint          _ndx = 4;
-    const ActuationMode _mode;
-    const uint          _nu;
-    const double        _dt;
-    double              _b1; // joint 1 viscous damping coefficient
-    double              _b2; // joint 2 viscous damping coefficient
-    Vec6                _params;
+    const uint               _nx  = 6;
+    const uint               _ndx = 4;
+    const ActuationMode      _mode;
+    const uint               _nu;
+    const double             _dt;
+    double                   _b1; // joint 1 viscous damping coefficient
+    double                   _b2; // joint 2 viscous damping coefficient
+    Eigen::Vector<double, 9> _params;
 
     // Invariant cached calculation bundles
     double _m2_l1_lc2;
@@ -542,7 +521,7 @@ class DoublePendulumAmbientTrackingCost : public stagewise::StageCost
         Huu.setZero(u.size(), u.size());
     }
 
-  private:
+  protected:
     const uint _ndx = 4; // Tangent size
 
     Vec6 _x_des;

@@ -7,43 +7,47 @@ from time import time, sleep
 MPC_H = 150
 dt = 0.01
 
-USE_ACTUAL_PARAMS = True
+DATA_COLLECTION_STEPS = 500
 
-actual_params = np.array(
+# Initial Parameter Guess
+m1 = 0.100
+m2 = 0.070
+I1 = 0.0005
+I2 = 0.0001
+r1 = 0.012
+r2 = 0.02
+b1 = 0.0004
+b2 = 0.0004
+cf1 = 0.00305
+cf2 = 0.000777
+
+initial_params = np.array((r1 * m1, I1, cf1, b1, r2 * m2, m2, I2, cf2, b2))
+
+bounds = np.array(
     [
-        0.10548177618443695,
-        0.07619744360415454,
-        0.05,
-        0.05,
-        0.00046166221821039165,
-        0.00023702395072092597,
+        [0.0001, 0.5],  # r1*m1
+        [0.00001, 0.2],  # I1
+        [0.0, 0.5],  # cf1
+        [0.0, 0.5],  # b1
+        [0.0001, 0.5],  # r2*m2
+        [0.06, 1.0],  # m2
+        [0.00001, 0.2],  # I2
+        [0.0, 0.5],  # cf2
+        [0.0, 0.5],  # b2
     ]
-)
+).T
 
-params = np.array([0.4, 0.4, 0.1, 0.1, 0.01, 0.01])
+print("Initial parameters:", initial_params)
 
-
-dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-    params,
-    actuation_mode=ssqpy.model.custom.double_pendulum.ActuationMode.Acrobot,
-    dt=dt,
-)
-
-window_size = 2000
-
-search = ssqpy.solvers.search.DynamicsParamGaussNewton(
-    dyn, window_size, armijo_beta=0.5
-)
-
-# ssqpy.setSilentMode()
-# ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
+ssqpy.setSilentMode()
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
-ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
+# ssqpy.unsetLogLevel(ssqpy.LogLevel.Warning)
+# ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
-A_WGT = 1e-3
+A_WGT = np.array((1e-2, 1e-2, 0.0, 0.0))
 V_WGT = 1e-2
-U_WGT = 1e-3
-C_WGT = np.array((100.0, 10.0, 0.01, 0.01))
+U_WGT = 1e-4
+C_WGT = np.array((100.0, 20.0, 1.0, 1.0))
 
 INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
 
@@ -63,7 +67,7 @@ u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
 stage_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
-        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), np.array([A_WGT] * 4)
+        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), np.array(A_WGT)
     )
 )
 terminal_cost = (
@@ -72,7 +76,7 @@ terminal_cost = (
     )
 )
 
-velocity_limits = np.array((25.0, 25.0))
+velocity_limits = np.array((20.0, 20.0))
 velocity_constraint = ssqpy.model.constraints.JointVelocityConstraint(
     model, -velocity_limits, velocity_limits
 )
@@ -97,7 +101,7 @@ model.addConstraints(MPC_H, velocity_constraint)
 
 dynamics = [
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-        actual_params if USE_ACTUAL_PARAMS else params,
+        initial_params,
         actuation_mode=ssqpy.model.custom.double_pendulum.ActuationMode.Acrobot,
         dt=dt,
     )
@@ -108,12 +112,22 @@ model.finalize(dynamics=dynamics, init_states=[INIT_STATE])
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
-
 ssqp_params.tolerance = 1e-2
-ssqp_params.admmParams.abs_tolerance = 1e-3
-ssqp_params.admmParams.rel_tolerance = 1e-3
-ssqp_params.admmParams.reset_rho = False
-ssqp_params.admmParams.reset_y = False
+ssqp_params.skip_regularization = True
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.reset_rho = False
+admm_params.reset_y = False
+ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_stat = 1e-4
+hpipm_params.tol_comp = 1e-4
+hpipm_params.tol_eq = 1e-4
+hpipm_params.tol_ineq = 1e-4
+ssqp_params.hpipmParams = hpipm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
@@ -128,12 +142,9 @@ total_steps = int(1 / dt)
 
 np.set_printoptions(suppress=True)
 
-i = 0
-
-prev_state = None
-last_update = time()
-
-# mjdata.qpos = np.array((0.1, 0.0))
+data_states = []
+data_controls = []
+data_accelerations = []
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
@@ -149,30 +160,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             )
         )
 
-        if (
-            not USE_ACTUAL_PARAMS
-            and time() - last_update > 0.0
-            and prev_state is not None
-            and search.addData(prev_state, control, state)
-        ):
-            new_params = dyn.parameters()
-
-            print("New parameters:", new_params.tolist())
-
-            for d in dynamics:
-                d.update_parameters(new_params)
-
-            window_size += 1000
-
-            if window_size > 5000:
-                window_size = 1000
-            search.setWindowSize(window_size)
-
-            # search.setMinimumDataSize(window_size)
-            mpc.reinitialize(state)
-
-            last_update = time()
-
         prev_state = state
 
         pre = time()
@@ -180,7 +167,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             states, controls = mpc.step(state)
             control = controls.stage(0)
         except RuntimeError as exc:
-            print(exc)
+            # print(exc)
             control = np.zeros(2)
 
         control = np.clip(control, -0.15, 0.15)
@@ -189,12 +176,37 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         elapsed = time() - pre
         steps += 1
 
-        if steps % 100 == 0:
-            print(f"\rFrequency: {1 / elapsed:.2f}Hz\t", end="")
-
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
+
+        data_states.append(state)
+        data_controls.append(control)
+        data_accelerations.append(mjdata.qacc)
 
         to_sleep = mjmodel.opt.timestep - (time() - frame_start)
         if to_sleep > 0:
             sleep(to_sleep)
+
+        if steps == DATA_COLLECTION_STEPS:
+            Y_stacked = np.zeros((2 * DATA_COLLECTION_STEPS, 9))
+            tau_stacked = np.zeros((2 * DATA_COLLECTION_STEPS))
+
+            for i, z in enumerate(
+                zip(data_states, data_controls, data_accelerations)
+            ):
+                state, control, accel = z
+
+                Y, tau = dynamics[0].computeRegressorAndTorque(
+                    state, accel, control
+                )
+
+                Y_stacked[2 * i : 2 * i + 2, :] = Y
+                tau_stacked[2 * i : 2 * i + 2] = tau
+
+            phi = np.linalg.lstsq(Y_stacked, tau_stacked)[0]
+            phi = np.clip(phi, bounds[0, :], bounds[1, :])
+
+            print("Optimal parameters:", phi)
+
+            for d in dynamics:
+                d.update_parameters(phi)

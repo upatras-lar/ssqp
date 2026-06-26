@@ -7,26 +7,37 @@ from time import time, sleep
 MPC_H = 45
 dt = 0.01
 
-USE_ACTUAL_PARAMS = False
+DATA_COLLECTION_STEPS = 500
 
-actual_params = np.array(
+# Initial Parameter Guess
+m1 = 0.100
+m2 = 0.070
+I1 = 0.0005
+I2 = 0.0001
+r1 = 0.012
+r2 = 0.02
+b1 = 0.0004
+b2 = 0.0004
+cf1 = 0.00305
+cf2 = 0.000777
+
+initial_params = np.array((r1 * m1, I1, cf1, b1, r2 * m2, m2, I2, cf2, b2))
+
+bounds = np.array(
     [
-        0.10548177618443695,
-        0.07619744360415454,
-        0.05,
-        0.05,
-        0.00046166221821039165,
-        0.00023702395072092597,
+        [0.0001, 0.5],  # r1*m1
+        [0.00001, 0.2],  # I1
+        [0.0, 0.5],  # cf1
+        [0.0, 0.5],  # b1
+        [0.0001, 0.5],  # r2*m2
+        [0.06, 1.0],  # m2
+        [0.00001, 0.2],  # I2
+        [0.0, 0.5],  # cf2
+        [0.0, 0.5],  # b2
     ]
-)
+).T
 
-params = np.array([0.2, 0.15, 0.1, 0.03, 0.001, 0.0006])
-dyn = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-    params, dt=dt
-)
-gn = ssqpy.solvers.search.DynamicsParamGaussNewton(
-    dyn, window_size=1000, armijo_beta=0.1
-)
+print("Initial parameters:", initial_params)
 
 # ssqpy.setSilentMode()
 # ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
@@ -75,7 +86,7 @@ model.addCost(MPC_H, config_cost)
 
 dynamics = [
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
-        actual_params if USE_ACTUAL_PARAMS else params, dt=dt
+        initial_params, dt=dt
     )
     for _ in range(MPC_H + 1)
 ]
@@ -102,9 +113,9 @@ total_steps = int(1 / dt)
 
 np.set_printoptions(suppress=True)
 
-i = 0
-
-prev_state = None
+data_states = []
+data_controls = []
+data_accelerations = []
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
@@ -119,17 +130,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
                 mjdata.qvel,
             )
         )
-
-        if not USE_ACTUAL_PARAMS and prev_state is not None:
-            gn.addData(prev_state, control, state)
-
-            new_params = dyn.parameters()
-            print("New parameters:", new_params.tolist())
-
-            for d in dynamics:
-                d.update_parameters(new_params)
-
-        prev_state = state
 
         pre = time()
         try:
@@ -148,6 +148,34 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()
 
+        data_states.append(state)
+        data_controls.append(control)
+        data_accelerations.append(mjdata.qacc)
+
         to_sleep = mjmodel.opt.timestep - (time() - frame_start)
         if to_sleep > 0:
             sleep(to_sleep)
+
+        if steps == DATA_COLLECTION_STEPS:
+            Y_stacked = np.zeros((2 * DATA_COLLECTION_STEPS, 9))
+            tau_stacked = np.zeros((2 * DATA_COLLECTION_STEPS))
+
+            for i, z in enumerate(
+                zip(data_states, data_controls, data_accelerations)
+            ):
+                state, control, accel = z
+
+                Y, tau = dynamics[0].computeRegressorAndTorque(
+                    state, accel, control
+                )
+
+                Y_stacked[2 * i : 2 * i + 2, :] = Y
+                tau_stacked[2 * i : 2 * i + 2] = tau
+
+            phi = np.linalg.lstsq(Y_stacked, tau_stacked)[0]
+            phi = np.clip(phi, bounds[0, :], bounds[1, :])
+
+            print("Optimal parameters:", phi)
+
+            for d in dynamics:
+                d.update_parameters(phi)

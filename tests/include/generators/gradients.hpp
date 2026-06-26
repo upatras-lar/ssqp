@@ -11,7 +11,6 @@
 #include "model/stagewise/predefined/Costs.hpp"
 #include "model/stagewise/predefined/Constraints.hpp"
 
-#include "models/double_pendulum/DoublePendulum.hpp"
 #include "models/double_pendulum/DoublePendulumAmbient.hpp"
 
 namespace ssqp
@@ -40,8 +39,6 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
   const uint seed = 42);
 
 // Predefined dynamics model gradients
-std::shared_ptr<Test> get_double_pendulum_dynamics_grad_test(
-  const uint seed = 42);
 std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
   const uint seed = 42);
 std::shared_ptr<Test> get_pendubot_ambient_dynamics_grad_test(
@@ -50,14 +47,10 @@ std::shared_ptr<Test> get_acrobot_ambient_dynamics_grad_test(
   const uint seed = 42);
 
 // Predefined cost gradients for predefined dynamics models
-std::shared_ptr<Test> get_double_pendulum_tip_cost_grad_test(
-  const uint seed = 42);
 std::shared_ptr<Test> get_double_pendulum_ambient_tracking_cost_grad_test(
   const uint seed = 42);
 
 // Predefined Dynamics model parameter gradients
-std::shared_ptr<Test> get_double_pendulum_dynamics_parameter_grad_test(
-  const uint seed = 42);
 std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_parameter_grad_test(
   const uint seed = 42);
 
