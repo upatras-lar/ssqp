@@ -91,7 +91,7 @@ def get_constraint_bounds(current_pos, current_target):
     return obstacle_lower, obstacle_upper
 
 
-obstacle_box = ssqpy.model.constraints.FramePositionBound(
+obstacle_box = ssqpy.model.constraints.FrameTranslationBound(
     model, "panda_ee", *get_constraint_bounds(start_pos, target_pos)
 )
 

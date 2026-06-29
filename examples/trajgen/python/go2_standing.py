@@ -85,14 +85,14 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     name="RR foot velocity bound",
 )
 
-b1 = constraints.FramePositionBound(
+b1 = constraints.FrameTranslationBound(
     model,
     "FL_foot",
     np.array((-np.inf, -np.inf, 0.0)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
-b2 = constraints.FramePositionBound(
+b2 = constraints.FrameTranslationBound(
     model,
     "FL_foot",
     np.array((-np.inf, -np.inf, 0.0)),

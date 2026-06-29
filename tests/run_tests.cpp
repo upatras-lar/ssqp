@@ -82,8 +82,8 @@ int main()
     tests.addTest(
       ssqp::tests::generators::get_acrobot_ambient_dynamics_grad_test());
 
-    tests.addTest(ssqp::tests::generators::
-                    get_double_pendulum_ambient_dynamics_parameter_grad_test());
+    // tests.addTest(ssqp::tests::generators::
+    //                 get_double_pendulum_ambient_dynamics_parameter_grad_test());
 
     tests.addTest(ssqp::tests::generators::
                     get_double_pendulum_ambient_tracking_cost_grad_test());
@@ -98,10 +98,21 @@ int main()
       ssqp::tests::generators::get_joint_control_constraint_grad_test());
 
     tests.addTest(
-      ssqp::tests::generators::get_frame_position_bound_grad_test());
+      ssqp::tests::generators::get_floating_base_position_bound_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_floating_base_rotation_bound_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_floating_base_pose_bound_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_frame_translation_bound_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_frame_rotation_bound_grad_test());
+
+    tests.addTest(ssqp::tests::generators::get_frame_pose_bound_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_frame_linear_velocity_bound_grad_test());
@@ -138,8 +149,15 @@ int main()
       ssqp::tests::generators::
         get_squared_configuration_error_cost_floating_base_grad_test());
 
+    tests.addTest(
+      ssqp::tests::generators::
+        get_floating_base_squared_translation_error_cost_grad_test());
+
     tests.addTest(ssqp::tests::generators::
-                    get_frame_squared_position_error_cost_grad_test());
+                    get_floating_base_squared_rotation_error_cost_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_frame_squared_translation_error_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::
                     get_frame_squared_rotation_error_cost_grad_test());

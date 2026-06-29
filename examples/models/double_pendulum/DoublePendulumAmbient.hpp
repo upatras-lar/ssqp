@@ -149,6 +149,13 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
         nx << s1 * cd1 + c1 * sd1, c1 * cd1 - s1 * sd1, s2 * cd2 + c2 * sd2,
           c2 * cd2 - s2 * sd2, ndq1, ndq2;
 
+        double norm1  = std::sqrt(nx(0) * nx(0) + nx(1) * nx(1));
+        double norm2  = std::sqrt(nx(2) * nx(2) + nx(3) * nx(3));
+        nx(0)        /= norm1;
+        nx(1)        /= norm1;
+        nx(2)        /= norm2;
+        nx(3)        /= norm2;
+
         return nx;
     }
 

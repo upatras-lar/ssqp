@@ -252,10 +252,302 @@ void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
     Puu = MatX::Zero(u.size(), u.size());
 }
 
-// FramePositionBound
-FramePositionBound::FramePositionBound(const Model       &model,
-                                       const std::string &frame, const Vec3 &lb,
-                                       const Vec3 &ub, const std::string &name)
+// FloatingBaseTranslationBound
+FloatingBaseTranslationBound::FloatingBaseTranslationBound(
+  const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _lb(lb)
+  , _ub(ub)
+{
+    assert(model.xml() &&
+           "Cannot use FloatingBaseTranslationBound with a custom Model");
+    assert(model.floatingBase() && "Provided Model has no floating base");
+}
+
+uint FloatingBaseTranslationBound::output_size() const
+{
+    return 3;
+}
+
+void FloatingBaseTranslationBound::set_lower_bound(const Vec3 &lb)
+{
+    _lb = lb;
+}
+
+void FloatingBaseTranslationBound::set_upper_bound(const Vec3 &ub)
+{
+    _ub = ub;
+}
+
+VecX FloatingBaseTranslationBound::lower_bound() const
+{
+    return _lb;
+}
+
+VecX FloatingBaseTranslationBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FloatingBaseTranslationBound::evaluate(const VecX &x, const VecX &u) const
+{
+    return x.head<3>();
+}
+
+// TODO: is this valid? recheck
+void FloatingBaseTranslationBound::gradient(const VecX &x, const VecX &u,
+                                            MatX &dX, MatX &dU) const
+{
+    dX.setZero(output_size(), _ndx);
+
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+    Mat3               R = q.toRotationMatrix();
+
+    dX.leftCols<3>() = R;
+
+    dU.setZero(output_size(), u.size());
+}
+
+void FloatingBaseTranslationBound::hessprod_xx(const VecX &x, const VecX &u,
+                                               const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(_ndx, _ndx);
+}
+
+void FloatingBaseTranslationBound::hessprod_xu(const VecX &x, const VecX &u,
+                                               const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(_ndx, u.size());
+}
+
+void FloatingBaseTranslationBound::hessprod_uu(const VecX &x, const VecX &u,
+                                               const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// FloatingBaseRotationBound
+FloatingBaseRotationBound::FloatingBaseRotationBound(const Model       &model,
+                                                     const Mat3        &Rref,
+                                                     const Vec3        &lb,
+                                                     const Vec3        &ub,
+                                                     const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _Rref(Rref)
+  , _lb(lb)
+  , _ub(ub)
+{
+    assert(model.xml() &&
+           "Cannot use FloatingBaseRotationBound with a custom Model");
+    assert(model.floatingBase() && "Provided Model has no floating base");
+}
+
+void FloatingBaseRotationBound::set_Rref(const Mat3 &Rref)
+{
+    _Rref = Rref;
+}
+
+void FloatingBaseRotationBound::set_lower_bound(const Vec3 &lb)
+{
+    _lb = lb;
+}
+
+void FloatingBaseRotationBound::set_upper_bound(const Vec3 &ub)
+{
+    _ub = ub;
+}
+
+uint FloatingBaseRotationBound::output_size() const
+{
+    return 3;
+}
+
+VecX FloatingBaseRotationBound::lower_bound() const
+{
+    return _lb;
+}
+
+VecX FloatingBaseRotationBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FloatingBaseRotationBound::evaluate(const VecX &x, const VecX &u) const
+{
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+
+    return pinocchio_wrapper::logSO3(_Rref.transpose() * q.toRotationMatrix());
+}
+
+void FloatingBaseRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                         MatX &dU) const
+{
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+
+    dX = MatX::Zero(3, _ndx);
+
+    dX.block<3, 3>(0, 3) =
+      pinocchio_wrapper::JlogSO3(_Rref.transpose() * q.toRotationMatrix());
+
+    dU = MatX::Zero(3, u.size());
+}
+
+void FloatingBaseRotationBound::hessprod_xx(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(_ndx, _ndx);
+}
+
+void FloatingBaseRotationBound::hessprod_xu(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(_ndx, u.size());
+}
+void FloatingBaseRotationBound::hessprod_uu(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// FloatingBasePoseBound
+FloatingBasePoseBound::FloatingBasePoseBound(const Model &model,
+                                             const Mat4 &Tref, const Vec6 &lb,
+                                             const Vec6        &ub,
+                                             const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _Tref(Tref)
+  , _Tref_inv(Tref.inverse())
+  , _lb(lb)
+  , _ub(ub)
+{
+    assert(model.xml() &&
+           "Cannot use FloatingBasePoseBound with a custom Model");
+    assert(model.floatingBase() && "Provided Model has no floating base");
+}
+
+FloatingBasePoseBound::FloatingBasePoseBound(const Model &model,
+                                             const Vec3 &tref, const Mat3 &Rref,
+                                             const Vec6 &lb, const Vec6 &ub,
+                                             const std::string &name)
+  : FloatingBasePoseBound(model,
+                          Mat4 {
+                            { Rref(0, 0), Rref(0, 1), Rref(0, 2), tref(0) },
+                            { Rref(1, 0), Rref(1, 1), Rref(1, 2), tref(1) },
+                            { Rref(2, 0), Rref(2, 1), Rref(2, 2), tref(2) },
+                            { 0.0, 0.0, 0.0, 1.0 }
+},
+                          lb, ub, name)
+{
+}
+
+void FloatingBasePoseBound::set_Tref(const Mat4 &Tref)
+{
+    _Tref     = Tref;
+    _Tref_inv = Tref.inverse();
+}
+
+void FloatingBasePoseBound::set_tref(const Vec3 &tref)
+{
+    _Tref.block<3, 1>(0, 3) = tref.transpose();
+    _Tref_inv               = _Tref.inverse();
+}
+
+void FloatingBasePoseBound::set_Rref(const Mat3 &Rref)
+{
+    _Tref.block<3, 3>(0, 0) = Rref;
+    _Tref_inv               = _Tref.inverse();
+}
+
+void FloatingBasePoseBound::set_lower_bound(const Vec6 &lb)
+{
+    _lb = lb;
+}
+
+void FloatingBasePoseBound::set_upper_bound(const Vec6 &ub)
+{
+    _ub = ub;
+}
+
+uint FloatingBasePoseBound::output_size() const
+{
+    return 6;
+}
+
+VecX FloatingBasePoseBound::lower_bound() const
+{
+    return _lb;
+}
+
+VecX FloatingBasePoseBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FloatingBasePoseBound::evaluate(const VecX &x, const VecX &u) const
+{
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+
+    Mat4 Tfl              = Mat4::Zero();
+    Tfl.block<3, 3>(0, 0) = q.toRotationMatrix();
+    Tfl.block<3, 1>(0, 3) = x.head<3>();
+    Tfl(3, 3)             = 1.0;
+
+    return pinocchio_wrapper::logSE3(_Tref_inv * Tfl);
+}
+
+void FloatingBasePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                     MatX &dU) const
+{
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+
+    Mat4 Tfl              = Mat4::Zero();
+    Tfl.block<3, 3>(0, 0) = q.toRotationMatrix();
+    Tfl.block<3, 1>(0, 3) = x.head<3>();
+    Tfl(3, 3)             = 1.0;
+
+    Mat6 Jlog = pinocchio_wrapper::JlogSE3(_Tref_inv * Tfl);
+
+    dX                       = MatX::Zero(6, _ndx);
+    dX.topLeftCorner<6, 6>() = Jlog;
+
+    dU = MatX::Zero(6, u.size());
+}
+
+void FloatingBasePoseBound::hessprod_xx(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(_ndx, _ndx);
+}
+
+void FloatingBasePoseBound::hessprod_xu(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(_ndx, u.size());
+}
+
+void FloatingBasePoseBound::hessprod_uu(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// FrameTranslationBound
+FrameTranslationBound::FrameTranslationBound(const Model       &model,
+                                             const std::string &frame,
+                                             const Vec3 &lb, const Vec3 &ub,
+                                             const std::string &name)
   : StageConstraints(name)
   , _model(std::make_shared<Model>(model))
   , _nq(model.nq())
@@ -265,44 +557,44 @@ FramePositionBound::FramePositionBound(const Model       &model,
   , _lb(lb)
   , _ub(ub)
 {
-    assert(model.xml() && "Cannot use FramePositionBound with a custom Model");
-    assert(lb.size() == 3 && ub.size() == 3 && "Bound vector size must be 3");
+    assert(model.xml() &&
+           "Cannot use FrameTranslationBound with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
-void FramePositionBound::set_lower_bound(const Vec3 &lb)
+void FrameTranslationBound::set_lower_bound(const Vec3 &lb)
 {
     _lb = lb;
 }
 
-void FramePositionBound::set_upper_bound(const Vec3 &ub)
+void FrameTranslationBound::set_upper_bound(const Vec3 &ub)
 {
     _ub = ub;
 }
 
-uint FramePositionBound::output_size() const
+uint FrameTranslationBound::output_size() const
 {
     return 3;
 }
 
-VecX FramePositionBound::lower_bound() const
+VecX FrameTranslationBound::lower_bound() const
 {
     return _lb;
 }
-VecX FramePositionBound::upper_bound() const
+VecX FrameTranslationBound::upper_bound() const
 {
     return _ub;
 }
 
-VecX FramePositionBound::evaluate(const VecX &x, const VecX &u) const
+VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
 {
     Vec3 pos;
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
     return pos;
 }
 
-void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                  MatX &dU) const
+void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                     MatX &dU) const
 {
     MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
@@ -312,18 +604,18 @@ void FramePositionBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     dU = MatX::Zero(3, u.size());
 }
 
-void FramePositionBound::hessprod_xx(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Pxx) const
+void FrameTranslationBound::hessprod_xx(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatX &Pxx) const
 {
     Pxx = MatX::Zero(_ndx, _ndx);
 }
-void FramePositionBound::hessprod_xu(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Pxu) const
+void FrameTranslationBound::hessprod_xu(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatX &Pxu) const
 {
     Pxu = MatX::Zero(_ndx, u.size());
 }
-void FramePositionBound::hessprod_uu(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Puu) const
+void FrameTranslationBound::hessprod_uu(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatX &Puu) const
 {
     Puu = MatX::Zero(u.size(), u.size());
 }
@@ -346,6 +638,11 @@ FrameRotationBound::FrameRotationBound(const Model       &model,
     assert(model.xml() &&
            "Cannot use FrameRotatationBound with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
+}
+
+void FrameRotationBound::set_Rref(const Mat3 &Rref)
+{
+    _Rref = Rref;
 }
 
 void FrameRotationBound::set_lower_bound(const Vec3 &lb)
@@ -406,6 +703,121 @@ void FrameRotationBound::hessprod_xu(const VecX &x, const VecX &u,
 }
 void FrameRotationBound::hessprod_uu(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// FramePoseBound
+FramePoseBound::FramePoseBound(const Model &model, const std::string &frame,
+                               const Mat4 &Tref, const Vec6 &lb, const Vec6 &ub,
+                               const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _frame(frame)
+  , _Tref(Tref)
+  , _Tref_inv(Tref.inverse())
+  , _lb(lb)
+  , _ub(ub)
+{
+    assert(model.xml() && "Cannot use FramePoseBound with a custom Model");
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
+}
+
+FramePoseBound::FramePoseBound(const Model &model, const std::string &frame,
+                               const Vec3 &tref, const Mat3 &Rref,
+                               const Vec6 &lb, const Vec6 &ub,
+                               const std::string &name)
+  : FramePoseBound(model, frame,
+                   Mat4 {
+                     { Rref(0, 0), Rref(0, 1), Rref(0, 2), tref(0) },
+                     { Rref(1, 0), Rref(1, 1), Rref(1, 2), tref(1) },
+                     { Rref(2, 0), Rref(2, 1), Rref(2, 2), tref(2) },
+                     { 0.0, 0.0, 0.0, 1.0 }
+},
+                   lb, ub, name)
+{
+}
+
+void FramePoseBound::set_Tref(const Mat4 &Tref)
+{
+    _Tref     = Tref;
+    _Tref_inv = Tref.inverse();
+}
+
+void FramePoseBound::set_tref(const Vec3 &tref)
+{
+    _Tref.block<3, 1>(0, 3) = tref.transpose();
+    _Tref_inv               = _Tref.inverse();
+}
+
+void FramePoseBound::set_Rref(const Mat3 &Rref)
+{
+    _Tref.block<3, 3>(0, 0) = Rref;
+    _Tref_inv               = _Tref.inverse();
+}
+
+void FramePoseBound::set_lower_bound(const Vec6 &lb)
+{
+    _lb = lb;
+}
+
+void FramePoseBound::set_upper_bound(const Vec6 &ub)
+{
+    _ub = ub;
+}
+
+uint FramePoseBound::output_size() const
+{
+    return 6;
+}
+
+VecX FramePoseBound::lower_bound() const
+{
+    return _lb;
+}
+
+VecX FramePoseBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FramePoseBound::evaluate(const VecX &x, const VecX &u) const
+{
+    Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame);
+    return pinocchio_wrapper::logSE3(_Tref_inv * Tf);
+}
+
+void FramePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                              MatX &dU) const
+{
+    Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame);
+
+    MatX Jw   = _model->frameJacobian(x.head(_nq), _frame, true);
+    Mat6 Jlog = pinocchio_wrapper::JlogSE3(_Tref_inv * Tf);
+
+    dX               = MatX::Zero(6, _ndx);
+    dX.leftCols(_nv) = Jlog * Jw;
+
+    dU = MatX::Zero(6, u.size());
+}
+
+void FramePoseBound::hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                                 MatX &Pxx) const
+{
+    Pxx = MatX::Zero(_ndx, _ndx);
+}
+
+void FramePoseBound::hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                                 MatX &Pxu) const
+{
+    Pxu = MatX::Zero(_ndx, u.size());
+}
+
+void FramePoseBound::hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                                 MatX &Puu) const
 {
     Puu = MatX::Zero(u.size(), u.size());
 }

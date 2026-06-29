@@ -82,7 +82,9 @@ pose_costs = []
 
 lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
 ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
-box_constraint = ssqpy.model.constraints.FramePositionBound(model, "panda_ee", lb, ub)
+box_constraint = ssqpy.model.constraints.FrameTranslationBound(
+    model, "panda_ee", lb, ub
+)
 
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     model, init_state[:nq], C_WGT
@@ -164,7 +166,9 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             #     f"Stage: {stage}, Mujoco: {mjdata.xpos[9]}, Ours: {model.forwardKinematics(mjdata.qpos, "panda_ee")[0]}"
             # )
             # state_data.append(mjdata.xpos[9].copy())
-            state_data.append(model.forwardKinematics(mjdata.qpos, "panda_ee")[0])
+            state_data.append(
+                model.forwardKinematics(mjdata.qpos, "panda_ee")[0]
+            )
 
             if stage == H:
                 break

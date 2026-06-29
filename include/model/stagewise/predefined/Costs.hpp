@@ -253,6 +253,54 @@ class SquaredConfigurationErrorCost : public StageCost
     VecX                         _weight;
 };
 
+/* Predefined squared floating base translation error cost
+ *
+ * Defines the cost term:
+ * $\ell(\boldsymbol{x}, \boldsymbol{u}) =
+ * \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t}_f - \boldsymbol{t}_d)\rVert_2^2$
+ *
+ * where:
+ *  - $\boldsymbol{t}_f$ is the floating base translation (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{t}_d$ is the desired translation of the floating base (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{w}$ is the weight on the translation error
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ *  - The floating base translation is extracted from the base pose of the model
+ *    state representation
+ */
+class FloatingBaseSquaredTranslationErrorCost : public StageCost
+{
+  public:
+    FloatingBaseSquaredTranslationErrorCost(const Model &model,
+                                            const Vec3  &desired_translation,
+                                            const double weight,
+                                            const std::string &name = "");
+
+    FloatingBaseSquaredTranslationErrorCost(const Model &model,
+                                            const Vec3  &desired_translation,
+                                            const Vec3  &weight,
+                                            const std::string &name = "");
+
+    void set_desired_translation(const Vec3 &desired_translation);
+    void set_weight(const double weight);
+    void set_weight(const Vec3 &weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    Vec3                         _desired_translation;
+    Vec3                         _weight;
+};
+
 /* Predefined squared frame translation error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
@@ -297,6 +345,50 @@ class FrameSquaredTranslationErrorCost : public StageCost
     Vec3                         _desired_translation;
     const std::string            _frame;
     Vec3                         _weight;
+};
+
+/* Predefined squared floating base rotation error cost
+ *
+ * Defines the cost term:
+ * $\ell(\boldsymbol{x}, \boldsymbol{u}) =
+ * \frac{1}{2} \lVert w \log_{SO(3)}(R_f^\top R_d)\rVert_2^2$
+ *
+ * where:
+ *  - $R_f$ is the floating base rotation (in $\mathit{SO3}$)
+ *  - $R_d$ is the desired rotation of the floating base (in $\mathit{SO3}$)
+ *  - $w$ is the weight on the rotation error
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ *  - The floating base orientation is extracted from the base pose of the model
+ *    state representation
+ */
+class FloatingBaseSquaredRotationErrorCost : public StageCost
+{
+  public:
+    FloatingBaseSquaredRotationErrorCost(const Model       &model,
+                                         const Mat3        &desired_rotation,
+                                         const double       weight,
+                                         const std::string &name = "");
+
+    void set_desired_rotation(const Mat3 &desired_rotation);
+    void set_weight(const double weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+
+    // Hessians use GN approximation
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    Mat3                         _desired_rotation;
+    double                       _weight;
 };
 
 /* Predefined squared frame rotation error cost
@@ -387,7 +479,7 @@ class FrameSquaredPoseErrorCost : public StageCost
   protected:
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
-    Mat4                         _desired_pose;
+    Mat4                         _desired_pose, _desired_pose_inv;
     const std::string            _frame;
     Mat6                         _weight;
 };

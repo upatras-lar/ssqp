@@ -417,9 +417,131 @@ void bind_Constraints(nb::module_ &m)
            &JointControlConstraint::set_upper_bound,
            nb::arg("upper_bound"));
 
-    nb::class_<FramePositionBound, StageConstraints>(m,
-                                                     "FramePositionBound",
-                                                     R"doc(
+    nb::class_<FloatingBaseTranslationBound, StageConstraints>(
+      m,
+      "FloatingBaseTranslationBound",
+      R"doc(
+        Floating base position bound constraint
+
+        Creates a linear bound constraint on the position of the floating base:
+        $\boldsymbol{b}_l \leq p_f \leq \boldsymbol{b}_u$
+
+        where:
+        - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the base position (in $\mathcal{R}^3$)
+        - $p_f$: Floating base position extracted from the system state
+
+        Assumes:
+        - The Model contains a floating-base where the base position is the first
+        part of the configuration vector (first 3 elements of size `model.nq()`)
+        )doc")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
+      .def("set_lower_bound",
+           &FloatingBaseTranslationBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FloatingBaseTranslationBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<FloatingBaseRotationBound, StageConstraints>(
+      m,
+      "FloatingBaseRotationBound",
+      R"doc(
+        Predefined floating base orientation bound
+
+        Creates a nonlinear bound constraint on the orientation of the floating base:
+        $\boldsymbol{b}_l \leq \log_{SO3}(R_{ref}^\top R_f) \leq \boldsymbol{b}_u$
+
+        where:
+        - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the orientation error (in $\mathcal{R}^3$)
+        - $R_f$: Floating base rotation matrix
+        - $R_{ref}$: Reference rotation matrix
+
+        Assumes:
+        - The model joint configuration is the first part of the state vector (size
+        `model.nq()`)
+        - The floating base orientation is represented as a rotation matrix in SE(3)
+        and can be extracted from the base pose in the system state
+        )doc")
+      .def(nb::init<const Model &,
+                    const Mat3 &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("Rref"),
+           nb::arg("lb")   = Vec3::Zero(),
+           nb::arg("ub")   = Vec3::Zero(),
+           nb::arg("name") = "")
+      .def("set_Rref", &FloatingBaseRotationBound::set_Rref, nb::arg("Rref"))
+      .def("set_lower_bound",
+           &FloatingBaseRotationBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FloatingBaseRotationBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<FloatingBasePoseBound, StageConstraints>(m,
+                                                        "FloatingBasePoseBound",
+                                                        R"doc(
+        Predefined floating base SE(3) pose bound
+
+        Creates a nonlinear bound constraint on the full pose (position + orientation)
+        of the floating base:
+        $\boldsymbol{b}_l \leq \log_{SE3}(T_{ref}^{-1} T_f) \leq \boldsymbol{b}_u$
+
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the pose error (in $\mathcal{R}^6$)
+         - $T_f$: Floating base pose in SE(3)
+         - $T_{ref}$: Reference pose in SE(3)
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+         - The floating base pose is represented as an SE(3) transform and can be
+           extracted from the base state in the system model
+        )doc")
+      .def(nb::init<const Model &,
+                    const Mat4 &,
+                    const Vec6 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("Tref"),
+           nb::arg("lb")   = Vec6::Zero(),
+           nb::arg("ub")   = Vec6::Zero(),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Mat3 &,
+                    const Vec6 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("tref"),
+           nb::arg("Rref"),
+           nb::arg("lb")   = Vec6::Zero(),
+           nb::arg("ub")   = Vec6::Zero(),
+           nb::arg("name") = "")
+      .def("set_Tref", &FloatingBasePoseBound::set_Tref, nb::arg("Tref"))
+      .def("set_tref", &FloatingBasePoseBound::set_tref, nb::arg("tref"))
+      .def("set_Rref", &FloatingBasePoseBound::set_Rref, nb::arg("Rref"))
+      .def("set_lower_bound",
+           &FloatingBasePoseBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FloatingBasePoseBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<FrameTranslationBound, StageConstraints>(m,
+                                                        "FrameTranslationBound",
+                                                        R"doc(
         Predefined 3D position bound for a given frame
 
         Creates a linear bound constraint on the position of a frame of the given
@@ -444,10 +566,10 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("ub"),
            nb::arg("name") = "")
       .def("set_lower_bound",
-           &FramePositionBound::set_lower_bound,
+           &FrameTranslationBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
-           &FramePositionBound::set_upper_bound,
+           &FrameTranslationBound::set_upper_bound,
            nb::arg("upper_bound"));
 
     nb::class_<FrameRotationBound, StageConstraints>(m,
@@ -476,14 +598,66 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("Rref"),
-           nb::arg("lb"),
-           nb::arg("ub"),
+           nb::arg("lb")   = Vec3::Zero(),
+           nb::arg("ub")   = Vec3::Zero(),
            nb::arg("name") = "")
+      .def("set_Rref", &FrameRotationBound::set_Rref, nb::arg("Rref"))
       .def("set_lower_bound",
            &FrameRotationBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
            &FrameRotationBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<FramePoseBound, StageConstraints>(m, "FramePoseBound", R"doc(
+        Predefined SE(3) pose bound for a given frame
+
+        Creates a nonlinear bound constraint on the pose of a frame:
+        $\boldsymbol{b}_l \leq \log_{SE3}(T_{ref}^{-1} T_f) \leq \boldsymbol{b}_u$
+
+        where:
+        - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the pose error (in $\mathcal{R}^6$)
+        - $T_f$: Frame pose in SE(3)
+        - $T_{ref}$: Reference pose in SE(3)
+
+        Assumes:
+        - The model joint configuration is the first part of the state vector (size
+        `model.nq()`)
+        )doc")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Mat4 &,
+                    const Vec6 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("Tref"),
+           nb::arg("lb")   = Vec6::Zero(),
+           nb::arg("ub")   = Vec6::Zero(),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Vec3 &,
+                    const Mat3 &,
+                    const Vec6 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("tref"),
+           nb::arg("Rref"),
+           nb::arg("lb")   = Vec6::Zero(),
+           nb::arg("ub")   = Vec6::Zero(),
+           nb::arg("name") = "")
+      .def("set_Tref", &FramePoseBound::set_Tref, nb::arg("Tref"))
+      .def("set_tref", &FramePoseBound::set_tref, nb::arg("tref"))
+      .def("set_Rref", &FramePoseBound::set_Rref, nb::arg("Rref"))
+      .def("set_lower_bound",
+           &FramePoseBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FramePoseBound::set_upper_bound,
            nb::arg("upper_bound"));
 
     nb::class_<FrameLinearVelocityBound, StageConstraints>(
@@ -522,6 +696,37 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("lower_bound"))
       .def("set_upper_bound",
            &FrameLinearVelocityBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<CenterOfMassBound, StageConstraints>(m,
+                                                    "CenterOfMassBound",
+                                                    R"doc(
+        Predefined center of mass bound
+
+        Creates a linear bound constraint on the center of mass of the model:
+        $\boldsymbol{b}_l \leq \boldsymbol{c} \leq \boldsymbol{b}_u$
+
+        where:
+        - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+        - $\boldsymbol{c}$ is the center of mass of the model
+
+        Assumes:
+        - The model joint configuration is the first part of the state vector (size 
+        `model.nq()`)
+        )doc")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
+      .def("set_lower_bound",
+           &CenterOfMassBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &CenterOfMassBound::set_upper_bound,
            nb::arg("upper_bound"));
 }
 }

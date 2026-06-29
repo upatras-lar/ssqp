@@ -153,11 +153,21 @@ ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 hpipm_params = ssqpy.solvers.hpipmParams()
 hpipm_params.max_iter = 20
+hpipm_params.square_root_riccati = True
 hpipm_params.tol_stat = 1e-3
 hpipm_params.tol_comp = 1e-3
 hpipm_params.tol_eq = 1e-3
 hpipm_params.tol_ineq = 1e-3
 ssqp_params.hpipmParams = hpipm_params
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.max_iter = 100
+admm_params.abs_tolerance = 1e-2
+admm_params.rel_tolerance = 1e-2
+admm_params.reset_rho = False
+admm_params.reset_y = False
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
 
 solver = ssqpy.solvers.ssqp(model, ssqp_params)
 

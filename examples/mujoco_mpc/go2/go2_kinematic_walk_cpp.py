@@ -67,7 +67,7 @@ config_cost = costs.SquaredConfigurationErrorCost(
 
 vel_cost = costs.SquaredControlCost(model, q_v, "Velocity Regularization Cost")
 
-base_height_constraint = constraints.FramePositionBound(
+base_height_constraint = constraints.FrameTranslationBound(
     model,
     "base_link",
     np.array(
@@ -116,7 +116,7 @@ for k in range(MPC_H + 1):
         feet_costs[foot].append(foot_translation_cost)
         model.addCost(k, foot_translation_cost)
 
-        foot_translation_bound = constraints.FramePositionBound(
+        foot_translation_bound = constraints.FrameTranslationBound(
             model,
             go2_planner.config.FRAME_NAMES[foot],
             p_ref[foot][k][0],

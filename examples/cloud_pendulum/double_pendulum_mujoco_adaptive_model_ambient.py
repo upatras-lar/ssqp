@@ -49,6 +49,7 @@ U_WGT = 1e-3
 C_WGT = np.array((5.0, 5.0, 0.0, 0.0))
 
 INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
+FINAL_STATE = np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0))
 
 model = ssqpy.model.Model(MPC_H, dt)
 
@@ -66,7 +67,7 @@ u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
 config_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
-        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), C_WGT
+        FINAL_STATE, C_WGT
     )
 )
 

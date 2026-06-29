@@ -94,7 +94,7 @@ init_state[:nq] = [
 # of the horizon, we actually have to add it to the model
 lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
 ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
-box_constraint = ssqpy.model.constraints.FramePositionBound(
+box_constraint = ssqpy.model.constraints.FrameTranslationBound(
     model, "panda_ee", lb, ub
 )
 

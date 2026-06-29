@@ -73,11 +73,11 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
 above_ground_lb = np.array((-np.inf, -np.inf, 0.1))
 above_ground_ub = np.array((np.inf, np.inf, np.inf))
 
-base_above_ground_bound = constraints.FramePositionBound(
+base_above_ground_bound = constraints.FrameTranslationBound(
     model, "base", above_ground_lb, above_ground_ub
 )
 
-head_above_ground_bound = constraints.FramePositionBound(
+head_above_ground_bound = constraints.FrameTranslationBound(
     model, "Head_lower", above_ground_lb, above_ground_ub
 )
 
@@ -155,22 +155,22 @@ rr_pos = np.array((-0.1934, -0.142, 0.0))
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(model, "FL_foot", fl_pos, fl_pos),
+    constraints.FrameTranslationBound(model, "FL_foot", fl_pos, fl_pos),
 )
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(model, "FR_foot", fr_pos, fr_pos),
+    constraints.FrameTranslationBound(model, "FR_foot", fr_pos, fr_pos),
 )
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(model, "RL_foot", rl_pos, rl_pos),
+    constraints.FrameTranslationBound(model, "RL_foot", rl_pos, rl_pos),
 )
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(model, "RR_foot", rr_pos, rr_pos),
+    constraints.FrameTranslationBound(model, "RR_foot", rr_pos, rr_pos),
 )
 
 init_states.append(init)

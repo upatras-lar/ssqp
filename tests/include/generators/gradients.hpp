@@ -58,8 +58,12 @@ std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_parameter_grad_test(
 std::shared_ptr<Test> get_joint_angle_constraint_grad_test();
 std::shared_ptr<Test> get_joint_velocity_constraint_grad_test();
 std::shared_ptr<Test> get_joint_control_constraint_grad_test();
-std::shared_ptr<Test> get_frame_position_bound_grad_test();
+std::shared_ptr<Test> get_floating_base_position_bound_grad_test();
+std::shared_ptr<Test> get_floating_base_rotation_bound_grad_test();
+std::shared_ptr<Test> get_floating_base_pose_bound_grad_test();
+std::shared_ptr<Test> get_frame_translation_bound_grad_test();
 std::shared_ptr<Test> get_frame_rotation_bound_grad_test();
+std::shared_ptr<Test> get_frame_pose_bound_grad_test();
 std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test();
 std::shared_ptr<Test> get_center_of_mass_bound_grad_test();
 std::shared_ptr<Test> get_contact_constraint_grad_test();
@@ -75,7 +79,10 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test();
 std::shared_ptr<Test> get_squared_configuration_error_cost_grad_test();
 std::shared_ptr<Test>
 get_squared_configuration_error_cost_floating_base_grad_test();
-std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test();
+std::shared_ptr<Test>
+get_floating_base_squared_translation_error_cost_grad_test();
+std::shared_ptr<Test> get_floating_base_squared_rotation_error_cost_grad_test();
+std::shared_ptr<Test> get_frame_squared_translation_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test();

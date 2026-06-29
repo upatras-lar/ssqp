@@ -55,7 +55,7 @@ class GaitManager:
             model, self.rr_foot, np.zeros(3), np.zeros(3)
         )
 
-        self.fl_foot_ag_bound = constraints.FramePositionBound(
+        self.fl_foot_ag_bound = constraints.FrameTranslationBound(
             model,
             self.fl_foot,
             np.array((-np.inf, -np.inf, 0.0)),
@@ -69,7 +69,7 @@ class GaitManager:
             np.array((0.0, 0.0, 1.0)),
         )
 
-        self.fr_foot_ag_bound = constraints.FramePositionBound(
+        self.fr_foot_ag_bound = constraints.FrameTranslationBound(
             model,
             self.fr_foot,
             np.array((-np.inf, -np.inf, 0.0)),
@@ -83,7 +83,7 @@ class GaitManager:
             np.array((0.0, 0.0, 1.0)),
         )
 
-        self.rl_foot_ag_bound = constraints.FramePositionBound(
+        self.rl_foot_ag_bound = constraints.FrameTranslationBound(
             model,
             self.rl_foot,
             np.array((-np.inf, -np.inf, 0.0)),
@@ -97,7 +97,7 @@ class GaitManager:
             np.array((0.0, 0.0, 1.0)),
         )
 
-        self.rr_foot_ag_bound = constraints.FramePositionBound(
+        self.rr_foot_ag_bound = constraints.FrameTranslationBound(
             model,
             self.rr_foot,
             np.array((-np.inf, -np.inf, 0.0)),

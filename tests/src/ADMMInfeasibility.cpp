@@ -20,7 +20,7 @@ ADMMInfeasibility::ADMMInfeasibility(const std::string &name)
           1e-3);
 
         _model.addConstraints<
-          model::stagewise::predefined::constraints::FramePositionBound>(
+          model::stagewise::predefined::constraints::FrameTranslationBound>(
           k,
           _model,
           "panda_ee",

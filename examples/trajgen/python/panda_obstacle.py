@@ -47,12 +47,14 @@ init_state[:nq] = [
 
 joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
-rot_cost = ssqpy.model.costs.FrameSquaredRotationErrorCost(model, "panda_ee", Rd, R_WGT)
+rot_cost = ssqpy.model.costs.FrameSquaredRotationErrorCost(
+    model, "panda_ee", Rd, R_WGT
+)
 pose_cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
     model, "panda_ee", np.array((0.3, 0.3, 0.1)), Rd, T_WGT, R_WGT
 )
 
-eef_bound = ssqpy.model.constraints.FramePositionBound(
+eef_bound = ssqpy.model.constraints.FrameTranslationBound(
     model,
     "panda_ee",
     np.array((-np.inf, -np.inf, 0.4)),

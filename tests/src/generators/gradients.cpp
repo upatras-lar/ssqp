@@ -562,7 +562,7 @@ std::shared_ptr<Test> get_joint_control_constraint_grad_test()
     return constraints_test;
 }
 
-std::shared_ptr<Test> get_frame_position_bound_grad_test()
+std::shared_ptr<Test> get_floating_base_position_bound_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.ignore_innate_constraints = true;
@@ -573,7 +573,97 @@ std::shared_ptr<Test> get_frame_position_bound_grad_test()
     setup_model(model);
 
     model->addConstraints<
-      model::stagewise::predefined::constraints::FramePositionBound>(
+      model::stagewise::predefined::constraints::FloatingBaseTranslationBound>(
+      0,
+      *model.get(),
+      Vec3::Zero(),
+      Vec3::Zero());
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>(
+        "FloatingBaseTranslationBoundGradTest",
+        model,
+        0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test> get_floating_base_rotation_bound_grad_test()
+
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::FloatingBaseRotationBound>(
+      0,
+      *model.get(),
+      MatX::Identity(3, 3),
+      Vec3::Zero(),
+      Vec3::Zero());
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("FloatingBaseRotationBoundGradTest",
+                                          model,
+                                          0,
+                                          100,
+                                          1e-5);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test> get_floating_base_pose_bound_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::FloatingBasePoseBound>(
+      0,
+      *model.get(),
+      Vec3::Zero(),
+      MatX::Identity(3, 3),
+      Vec6::Zero(),
+      Vec6::Zero());
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("FloatingBasePoseBoundGradTest",
+                                          model,
+                                          0,
+                                          100,
+                                          1e-5);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test> get_frame_translation_bound_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::FrameTranslationBound>(
       0,
       *model.get(),
       "trunk",
@@ -583,7 +673,7 @@ std::shared_ptr<Test> get_frame_position_bound_grad_test()
     model->finalize();
 
     std::shared_ptr<FDGradConstraints> constraints_test =
-      std::make_shared<FDGradConstraints>("FramePositionBoundGradTest",
+      std::make_shared<FDGradConstraints>("FrameTranslationBoundGradTest",
                                           model,
                                           0);
 
@@ -613,6 +703,38 @@ std::shared_ptr<Test> get_frame_rotation_bound_grad_test()
 
     std::shared_ptr<FDGradConstraints> constraints_test =
       std::make_shared<FDGradConstraints>("FrameRotationBoundGradTest",
+                                          model,
+                                          0,
+                                          100,
+                                          1e-5);
+
+    return constraints_test;
+}
+
+std::shared_ptr<Test> get_frame_pose_bound_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::FramePoseBound>(
+      0,
+      *model.get(),
+      "trunk",
+      Vec3::Zero(),
+      MatX::Identity(3, 3),
+      Vec6::Zero(),
+      Vec6::Zero());
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("FramePoseBoundGradTest",
                                           model,
                                           0,
                                           100,
@@ -959,7 +1081,62 @@ get_squared_configuration_error_cost_floating_base_grad_test()
     return cost_test;
 }
 
-std::shared_ptr<Test> get_frame_squared_position_error_cost_grad_test()
+std::shared_ptr<Test>
+get_floating_base_squared_translation_error_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<model::stagewise::predefined::costs::
+                         FloatingBaseSquaredTranslationErrorCost>(k,
+                                                                  *model.get(),
+                                                                  Vec3::Zero(),
+                                                                  3.58);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
+      "FloatingBaseSquaredTranslationErrorCostGradTest",
+      model,
+      0);
+
+    return cost_test;
+}
+
+std::shared_ptr<Test> get_floating_base_squared_rotation_error_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<model::stagewise::predefined::costs::
+                         FloatingBaseSquaredRotationErrorCost>(k,
+                                                               *model.get(),
+                                                               Mat3::Identity(),
+                                                               3.58);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
+      "FloatingBaseSquaredRotationErrorCostGradTest",
+      model,
+      0);
+
+    return cost_test;
+}
+
+std::shared_ptr<Test> get_frame_squared_translation_error_cost_grad_test()
 {
     model::Model::Structure model_structure;
     model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
@@ -1277,7 +1454,7 @@ std::shared_ptr<Test> get_cf_grad_test()
           7.53);
 
         model->addConstraints<
-          model::stagewise::predefined::constraints::FramePositionBound>(
+          model::stagewise::predefined::constraints::FrameTranslationBound>(
           k,
           *model.get(),
           "FL_foot",
@@ -1292,7 +1469,7 @@ std::shared_ptr<Test> get_cf_grad_test()
         2.16);
 
     model->addConstraints<
-      model::stagewise::predefined::constraints::FramePositionBound>(
+      model::stagewise::predefined::constraints::FrameTranslationBound>(
       horizon,
       *model.get(),
       "FL_foot",
