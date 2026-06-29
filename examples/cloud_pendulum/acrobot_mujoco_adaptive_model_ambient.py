@@ -4,7 +4,7 @@ import ssqpy
 import numpy as np
 from time import time, sleep
 
-MPC_H = 150
+MPC_H = 100
 dt = 0.01
 
 DATA_COLLECTION_STEPS = 500
@@ -50,6 +50,7 @@ U_WGT = 1e-4
 C_WGT = np.array((100.0, 20.0, 1.0, 1.0))
 
 INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
+FINAL_STATE = np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0))
 
 model = ssqpy.model.Model(MPC_H, dt)
 
@@ -67,12 +68,12 @@ u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
 stage_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
-        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), np.array(A_WGT)
+        FINAL_STATE, A_WGT
     )
 )
 terminal_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
-        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), 10.0 * C_WGT
+        FINAL_STATE, C_WGT
     )
 )
 

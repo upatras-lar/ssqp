@@ -122,28 +122,28 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
 # This is done so that:
 #  1) Feet that are on the air stay above the ground
 #  2) Front and back feet don't get too close to each other
-fl_foot_pos_bound = constraints.FramePositionBound(
+fl_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "FL_foot",
     np.array((-np.inf, 0.1, -0.01)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
-fr_foot_pos_bound = constraints.FramePositionBound(
+fr_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "FR_foot",
     np.array((-np.inf, -np.inf, -0.01)),
     np.array((np.inf, -0.1, np.inf)),
 )
 
-rl_foot_pos_bound = constraints.FramePositionBound(
+rl_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "RL_foot",
     np.array((-np.inf, 0.1, -0.01)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
-rr_foot_pos_bound = constraints.FramePositionBound(
+rr_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "RR_foot",
     np.array((-np.inf, -np.inf, -0.01)),
@@ -151,7 +151,7 @@ rr_foot_pos_bound = constraints.FramePositionBound(
 )
 
 # Define a bound to keep the head position above the ground
-head_pos_bound = constraints.FramePositionBound(
+head_pos_bound = constraints.FrameTranslationBound(
     model,
     "Head_lower",
     np.array((-np.inf, -np.inf, 0.01)),
@@ -159,7 +159,7 @@ head_pos_bound = constraints.FramePositionBound(
 )
 
 # Define a bound to keep base above a certain height
-base_pos_bound = constraints.FramePositionBound(
+base_pos_bound = constraints.FrameTranslationBound(
     model,
     "base",
     np.array((-np.inf, -np.inf, 0.2)),

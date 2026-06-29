@@ -179,17 +179,19 @@ int main()
             if (k > current_step + INPLACE_STEPS / 4 &&
                 k < current_step + 3 * INPLACE_STEPS / 4)
             {
-                model.addConstraints<constraints::FramePositionBound>(k,
-                                                                      model,
-                                                                      "FR_foot",
-                                                                      l,
-                                                                      u);
+                model.addConstraints<constraints::FrameTranslationBound>(
+                  k,
+                  model,
+                  "FR_foot",
+                  l,
+                  u);
 
-                model.addConstraints<constraints::FramePositionBound>(k,
-                                                                      model,
-                                                                      "RL_foot",
-                                                                      l,
-                                                                      u);
+                model.addConstraints<constraints::FrameTranslationBound>(
+                  k,
+                  model,
+                  "RL_foot",
+                  l,
+                  u);
             }
 
             init_controls.push_back(init_control_2);
@@ -239,17 +241,19 @@ int main()
             if (k > current_step + INPLACE_STEPS / 4 &&
                 k < current_step + 3 * INPLACE_STEPS / 4)
             {
-                model.addConstraints<constraints::FramePositionBound>(k,
-                                                                      model,
-                                                                      "FL_foot",
-                                                                      l,
-                                                                      u);
+                model.addConstraints<constraints::FrameTranslationBound>(
+                  k,
+                  model,
+                  "FL_foot",
+                  l,
+                  u);
 
-                model.addConstraints<constraints::FramePositionBound>(k,
-                                                                      model,
-                                                                      "RR_foot",
-                                                                      l,
-                                                                      u);
+                model.addConstraints<constraints::FrameTranslationBound>(
+                  k,
+                  model,
+                  "RR_foot",
+                  l,
+                  u);
             }
 
             init_controls.push_back(init_control_2);

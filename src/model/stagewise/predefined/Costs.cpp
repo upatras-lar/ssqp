@@ -714,6 +714,198 @@ void SquaredConfigurationErrorCost::hessian_uu(const VecX &x, const VecX &u,
     Huu = MatX::Zero(u.size(), u.size());
 }
 
+// FloatingBaseSquaredTranslationErrorCost
+FloatingBaseSquaredTranslationErrorCost::
+  FloatingBaseSquaredTranslationErrorCost(const Model &model,
+                                          const Vec3  &desired_translation,
+                                          const double weight,
+                                          const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _desired_translation(desired_translation)
+{
+    assert(
+      model.xml() &&
+      "Cannot use FloatingBaseSquaredTranslationErrorCost with a custom Model");
+    assert(model.floatingBase() && "Provided Model has no floating base");
+    _weight.setConstant(weight);
+}
+
+FloatingBaseSquaredTranslationErrorCost::
+  FloatingBaseSquaredTranslationErrorCost(const Model &model,
+                                          const Vec3  &desired_translation,
+                                          const Vec3  &weight,
+                                          const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _desired_translation(desired_translation)
+  , _weight(weight)
+{
+    assert(
+      model.xml() &&
+      "Cannot use FloatingBaseSquaredTranslationErrorCost with a custom Model");
+    assert(model.floatingBase() && "Provided Model has no floating base");
+}
+
+void FloatingBaseSquaredTranslationErrorCost::set_desired_translation(
+  const Vec3 &desired_translation)
+{
+    _desired_translation = desired_translation;
+}
+
+void FloatingBaseSquaredTranslationErrorCost::set_weight(const double weight)
+{
+    _weight.setConstant(weight);
+}
+
+void FloatingBaseSquaredTranslationErrorCost::set_weight(const Vec3 &weight)
+{
+    _weight = weight;
+}
+
+VecX FloatingBaseSquaredTranslationErrorCost::evaluate(const VecX &x,
+                                                       const VecX &u) const
+{
+    return (Scalar() << 0.5 * (_weight.array() *
+                               (x.head<3>() - _desired_translation).array())
+                                .matrix()
+                                .squaredNorm())
+      .finished();
+}
+
+// TODO: Figure out this gradient!
+void FloatingBaseSquaredTranslationErrorCost::gradient(const VecX &x,
+                                                       const VecX &u, VecX &dx,
+                                                       VecX &du) const
+{
+    dx = VecX::Zero(_ndx);
+    dx.head<3>() =
+      (_weight.array().square() * (x.head<3>() - _desired_translation).array())
+        .matrix();
+
+    du = VecX::Zero(u.size());
+}
+
+// TODO: This hessian also!
+void FloatingBaseSquaredTranslationErrorCost::hessian_xx(const VecX &x,
+                                                         const VecX &u,
+                                                         MatX       &Hxx) const
+{
+    Hxx                      = MatX::Zero(_ndx, _ndx);
+    Hxx.diagonal().head<3>() = _weight.array().square();
+}
+
+void FloatingBaseSquaredTranslationErrorCost::hessian_xu(const VecX &x,
+                                                         const VecX &u,
+                                                         MatX       &Hxu) const
+{
+    Hxu = MatX::Zero(_ndx, u.size());
+}
+
+void FloatingBaseSquaredTranslationErrorCost::hessian_uu(const VecX &x,
+                                                         const VecX &u,
+                                                         MatX       &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+}
+
+// FloatingBaseSquaredRotationErrorCost
+FloatingBaseSquaredRotationErrorCost::FloatingBaseSquaredRotationErrorCost(
+  const Model &model, const Mat3 &desired_rotation, const double weight,
+  const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _desired_rotation(desired_rotation)
+  , _weight(weight)
+{
+    assert(
+      model.xml() &&
+      "Cannot use FloatingBaseSquaredRotationErrorCost with a custom Model");
+    assert(model.floatingBase() && "Provided Model has no floating base");
+}
+
+void FloatingBaseSquaredRotationErrorCost::set_desired_rotation(
+  const Mat3 &desired_rotation)
+{
+    _desired_rotation = desired_rotation;
+}
+
+void FloatingBaseSquaredRotationErrorCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
+VecX FloatingBaseSquaredRotationErrorCost::evaluate(const VecX &x,
+                                                    const VecX &u) const
+{
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+    Mat3               R = q.toRotationMatrix();
+
+    return (Scalar() << 0.5 * _weight *
+                          pinocchio_wrapper::logSO3(R.transpose() *
+                                                    _desired_rotation)
+                            .squaredNorm())
+      .finished();
+}
+
+void FloatingBaseSquaredRotationErrorCost::gradient(const VecX &x,
+                                                    const VecX &u, VecX &dx,
+                                                    VecX &du) const
+{
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+    Mat3               R = q.toRotationMatrix();
+
+    dx = VecX::Zero(_ndx);
+
+    Mat3 d           = R.transpose() * _desired_rotation;
+    Vec3 phi         = pinocchio_wrapper::logSO3(d);
+    Mat3 j_r_inv     = pinocchio_wrapper::JlogSO3(d);
+    dx.segment<3>(3) = _weight * (-j_r_inv * d.transpose()).transpose() * phi;
+
+    du = VecX::Zero(u.size());
+}
+
+// Hessians use GN approximation
+void FloatingBaseSquaredRotationErrorCost::hessian_xx(const VecX &x,
+                                                      const VecX &u,
+                                                      MatX       &Hxx) const
+{
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+    Mat3               R = q.toRotationMatrix();
+
+    Mat3 d       = R.transpose() * _desired_rotation;
+    Vec3 phi     = pinocchio_wrapper::logSO3(d);
+    Mat3 j_r_inv = pinocchio_wrapper::JlogSO3(d);
+
+    Mat3 J = -j_r_inv * d.transpose();
+
+    Hxx                         = MatX::Zero(_ndx, _ndx);
+    Hxx.topLeftCorner(_nv, _nv) = _weight * J.transpose() * J;
+}
+
+void FloatingBaseSquaredRotationErrorCost::hessian_xu(const VecX &x,
+                                                      const VecX &u,
+                                                      MatX       &Hxu) const
+{
+    Hxu = MatX::Zero(_ndx, u.size());
+}
+
+void FloatingBaseSquaredRotationErrorCost::hessian_uu(const VecX &x,
+                                                      const VecX &u,
+                                                      MatX       &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+}
+
 // FrameSquaredTranslationErrorCost
 FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
@@ -878,9 +1070,9 @@ void FrameSquaredRotationErrorCost::gradient(const VecX &x, const VecX &u,
 
     dx = VecX::Zero(_ndx);
 
-    MatX d       = rot.transpose() * _desired_rotation;
-    VecX phi     = pinocchio_wrapper::logSO3(d);
-    MatX j_r_inv = pinocchio_wrapper::JlogSO3(d);
+    Mat3 d       = rot.transpose() * _desired_rotation;
+    Vec3 phi     = pinocchio_wrapper::logSO3(d);
+    Mat3 j_r_inv = pinocchio_wrapper::JlogSO3(d);
     MatX jac     = Jfk.bottomRows(3);
     dx.head(_nv) = _weight * (-j_r_inv * d.transpose() * jac).transpose() * phi;
 
@@ -895,9 +1087,9 @@ void FrameSquaredRotationErrorCost::hessian_xx(const VecX &x, const VecX &u,
     Mat3 rot;
     std::tie(std::ignore, rot) = _model->forwardKinematics(x.head(_nq), _frame);
     MatX Jfk     = _model->frameJacobian(x.head(_nq), _frame, true);
-    MatX d       = rot.transpose() * _desired_rotation;
-    VecX phi     = pinocchio_wrapper::logSO3(d);
-    MatX j_r_inv = pinocchio_wrapper::JlogSO3(d);
+    Mat3 d       = rot.transpose() * _desired_rotation;
+    Vec3 phi     = pinocchio_wrapper::logSO3(d);
+    Mat3 j_r_inv = pinocchio_wrapper::JlogSO3(d);
     MatX jac     = Jfk.bottomRows(3);
 
     MatX J = -j_r_inv * d.transpose() * jac;
@@ -961,7 +1153,6 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
 },
                               translation_weight, rotation_weight, name)
 {
-    assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
 void FrameSquaredPoseErrorCost::set_desired_pose(const Mat4 &desired_pose)

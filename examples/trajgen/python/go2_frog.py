@@ -63,28 +63,28 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-fl_foot_ag_bound = constraints.FramePositionBound(
+fl_foot_ag_bound = constraints.FrameTranslationBound(
     model,
     "FL_foot",
     np.array((-np.inf, -np.inf, -FOOT_EQ_TOL)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
-fr_foot_ag_bound = constraints.FramePositionBound(
+fr_foot_ag_bound = constraints.FrameTranslationBound(
     model,
     "FR_foot",
     np.array((-np.inf, -np.inf, -FOOT_EQ_TOL)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
-rl_foot_ag_bound = constraints.FramePositionBound(
+rl_foot_ag_bound = constraints.FrameTranslationBound(
     model,
     "RL_foot",
     np.array((-np.inf, -np.inf, -FOOT_EQ_TOL)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
-rr_foot_ag_bound = constraints.FramePositionBound(
+rr_foot_ag_bound = constraints.FrameTranslationBound(
     model,
     "RR_foot",
     np.array((-np.inf, -np.inf, -FOOT_EQ_TOL)),
@@ -107,7 +107,7 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RR_foot", np.zeros(3), np.zeros(3)
 )
 
-fl_foot_pos_bound = constraints.FramePositionBound(
+fl_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "FL_foot",
     np.array((-np.inf, 0.1, -0.01)),
@@ -281,7 +281,7 @@ model.addCost(HORIZON, joint_vel_cost)
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(model, "base", final_pos, final_pos),
+    constraints.FrameTranslationBound(model, "base", final_pos, final_pos),
 )
 
 model.addConstraints(

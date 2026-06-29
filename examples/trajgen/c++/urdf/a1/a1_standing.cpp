@@ -161,17 +161,17 @@ int main()
             // If the remaining two feet are on the air, add position bounds
             // to keep them above ground
 
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "FR_foot",
-                                                                  l,
-                                                                  u);
+            model.addConstraints<constraints::FrameTranslationBound>(k,
+                                                                     model,
+                                                                     "FR_foot",
+                                                                     l,
+                                                                     u);
 
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "RL_foot",
-                                                                  l,
-                                                                  u);
+            model.addConstraints<constraints::FrameTranslationBound>(k,
+                                                                     model,
+                                                                     "RL_foot",
+                                                                     l,
+                                                                     u);
         }
     }
 

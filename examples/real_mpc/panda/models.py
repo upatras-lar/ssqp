@@ -44,7 +44,7 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
 
     lb = np.array((-np.inf, constraint_vlines[0], -np.inf))
     ub = np.array((np.inf, constraint_vlines[1], np.inf))
-    box_constraint = ssqpy.model.constraints.FramePositionBound(
+    box_constraint = ssqpy.model.constraints.FrameTranslationBound(
         model, "panda_ee", lb, ub
     )
 
@@ -204,7 +204,7 @@ def get_circle_model(dynamics_mode, constrain=False):
 
     lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
     ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
-    box_constraint = ssqpy.model.constraints.FramePositionBound(
+    box_constraint = ssqpy.model.constraints.FrameTranslationBound(
         model, "panda_ee", lb, ub
     )
 

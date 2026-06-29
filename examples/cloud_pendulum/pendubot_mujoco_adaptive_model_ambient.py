@@ -45,11 +45,14 @@ print("Initial parameters:", initial_params)
 ssqpy.unsetLogLevel(ssqpy.LogLevel.Info)
 
 A_WGT = np.array((1e-2, 1e-2, 0.0, 0.0))
-V_WGT = 1e-1
-U_WGT = 1e-3
+V_WGT = 1e-2
+U_WGT = 1e-4
 C_WGT = np.array((100.0, 20.0, 1.0, 1.0))
 
-INIT_STATE = np.array((0.0, 1.0, 0.0, 1.0, 0.0, 0.0))
+INIT_STATE = np.array(
+    (np.sin(np.pi / 32), np.cos(np.pi / 32), 0.0, 1.0, 0.0, 0.0)
+)
+FINAL_STATE = np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0))
 
 model = ssqpy.model.Model(MPC_H, dt)
 
@@ -67,12 +70,12 @@ u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
 stage_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
-        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), A_WGT
+        FINAL_STATE, A_WGT
     )
 )
 terminal_cost = (
     ssqpy.model.custom.double_pendulum.DoublePendulumAmbientTrackingCost(
-        np.array((0.0, -1.0, 0.0, 1.0, 0.0, 0.0)), C_WGT
+        FINAL_STATE, C_WGT
     )
 )
 
@@ -114,13 +117,19 @@ ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 hpipm_params = ssqpy.solvers.hpipmParams()
-hpipm_params.tol_stat = 1e-4
-hpipm_params.tol_comp = 1e-4
-hpipm_params.tol_eq = 1e-4
-hpipm_params.tol_ineq = 1e-4
+hpipm_params.tol_stat = 1e-3
+hpipm_params.tol_comp = 1e-3
+hpipm_params.tol_eq = 1e-3
+hpipm_params.tol_ineq = 1e-3
 ssqp_params.hpipmParams = hpipm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=200)
+admm_params = ssqpy.solvers.admmParams()
+admm_params.abs_tolerance = 1e-2
+admm_params.rel_tolerance = 1e-2
+admm_params.reset_rho = False
+ssqp_params.admmParams = admm_params
+
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=25)
 
 mjmodel = mujoco.MjModel.from_xml_path(
     "../assets/mjcf/double_pendulum/double_pendulum.xml"
@@ -158,8 +167,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             states, controls = mpc.step(state)
             control = controls.stage(0)
         except RuntimeError as exc:
-            print(exc)
             control = np.zeros(2)
+            mpc.reinitialize(state)
 
         control = np.clip(control, -0.15, 0.15)
         mjdata.ctrl[0] = control[0]

@@ -155,6 +155,165 @@ class JointControlConstraint : public StageConstraints
     const uint _nv, _nu, _ndx;
 };
 
+/* Floating base position bound constraint
+ *
+ * Creates a linear bound constraint on the position of the floating base:
+ * $\boldsymbol{b}_l \leq p_f \leq \boldsymbol{b}_u$
+ *
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the base position (in $\mathcal{R}^3$)
+ *  - $p_f$: Floating base position extracted from the system state
+ *
+ * Assumes:
+ *  - The Model contains a floating-base where the base position is the first
+ *    part of the configuration vector (first 3 elements of size `model.nq()`)
+ */
+class FloatingBaseTranslationBound : public StageConstraints
+{
+  public:
+    FloatingBaseTranslationBound(const Model &model, const Vec3 &lb,
+                                 const Vec3 &ub, const std::string &name = "");
+
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    Vec3                         _lb, _ub;
+};
+
+/* Predefined floating base orientation bound
+ *
+ * Creates a nonlinear bound constraint on the orientation of the floating base:
+ * $\boldsymbol{b}_l \leq \log_{SO3}(R_{ref}^\top R_f) \leq \boldsymbol{b}_u$
+ *
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the orientation error (in $\mathcal{R}^3$)
+ *  - $R_f$: Floating base rotation matrix
+ *  - $R_{ref}$: Reference rotation matrix
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ *  - The floating base orientation is represented as a rotation matrix in SE(3)
+ *    and can be extracted from the base pose in the system state
+ */
+class FloatingBaseRotationBound : public StageConstraints
+{
+  public:
+    FloatingBaseRotationBound(const Model &model, const Mat3 &Rref,
+                              const Vec3 &lb          = Vec3::Zero(),
+                              const Vec3 &ub          = Vec3::Zero(),
+                              const std::string &name = "");
+
+    void set_Rref(const Mat3 &Rref);
+
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    Mat3                         _Rref;
+    Vec3                         _lb, _ub;
+};
+
+/* Predefined floating base SE(3) pose bound
+ *
+ * Creates a nonlinear bound constraint on the full pose (position + orientation)
+ * of the floating base:
+ * $\boldsymbol{b}_l \leq \log_{SE3}(T_{ref}^{-1} T_f) \leq \boldsymbol{b}_u$
+ *
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the pose error (in $\mathcal{R}^6$)
+ *  - $T_f$: Floating base pose in SE(3)
+ *  - $T_{ref}$: Reference pose in SE(3)
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ *  - The floating base pose is represented as an SE(3) transform and can be
+ *    extracted from the base state in the system model
+ */
+class FloatingBasePoseBound : public StageConstraints
+{
+  public:
+    FloatingBasePoseBound(const Model &model, const Mat4 &Tref,
+                          const Vec6 &lb          = Vec6::Zero(),
+                          const Vec6 &ub          = Vec6::Zero(),
+                          const std::string &name = "");
+
+    FloatingBasePoseBound(const Model &model, const Vec3 &tref,
+                          const Mat3 &Rref, const Vec6 &lb = Vec6::Zero(),
+                          const Vec6 &ub          = Vec6::Zero(),
+                          const std::string &name = "");
+
+    void set_Tref(const Mat4 &Tref);
+    void set_tref(const Vec3 &tref);
+    void set_Rref(const Mat3 &Rref);
+
+    void set_lower_bound(const Vec6 &lb);
+    void set_upper_bound(const Vec6 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    Mat4                         _Tref, _Tref_inv;
+    Vec6                         _lb, _ub;
+};
+
 /* Predefined 3D position bound for a given frame
  *
  * Creates a linear bound constraint on the position of a frame of the given
@@ -168,13 +327,13 @@ class JointControlConstraint : public StageConstraints
  *  - The model joint configuration is the first part of the state vector (size 
  *    `model.nq()`)
  */
-class FramePositionBound : public StageConstraints
+class FrameTranslationBound : public StageConstraints
 {
   public:
     // Regular constructor
-    FramePositionBound(const Model &model, const std::string &frame,
-                       const Vec3 &lb, const Vec3 &ub,
-                       const std::string &name = "");
+    FrameTranslationBound(const Model &model, const std::string &frame,
+                          const Vec3 &lb, const Vec3 &ub,
+                          const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
@@ -221,8 +380,11 @@ class FrameRotationBound : public StageConstraints
 {
   public:
     FrameRotationBound(const Model &model, const std::string &frame,
-                       const Mat3 &Rref, const Vec3 &lb, const Vec3 &ub,
+                       const Mat3 &Rref, const Vec3 &lb = Vec3::Zero(),
+                       const Vec3 &ub          = Vec3::Zero(),
                        const std::string &name = "");
+
+    void set_Rref(const Mat3 &Rref);
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
@@ -250,6 +412,64 @@ class FrameRotationBound : public StageConstraints
     const std::string            _frame;
     Mat3                         _Rref;
     Vec3                         _lb, _ub;
+};
+
+/* Predefined SE(3) pose bound for a given frame
+ *
+ * Creates a nonlinear bound constraint on the pose of a frame:
+ * $\boldsymbol{b}_l \leq \log_{SE3}(T_{ref}^{-1} T_f) \leq \boldsymbol{b}_u$
+ *
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the pose error (in $\mathcal{R}^6$)
+ *  - $T_f$: Frame pose in SE(3)
+ *  - $T_{ref}$: Reference pose in SE(3)
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ */
+class FramePoseBound : public StageConstraints
+{
+  public:
+    FramePoseBound(const Model &model, const std::string &frame,
+                   const Mat4 &Tref, const Vec6 &lb = Vec6::Zero(),
+                   const Vec6 &ub = Vec6::Zero(), const std::string &name = "");
+
+    FramePoseBound(const Model &model, const std::string &frame,
+                   const Vec3 &tref, const Mat3 &Rref,
+                   const Vec6 &lb = Vec6::Zero(), const Vec6 &ub = Vec6::Zero(),
+                   const std::string &name = "");
+
+    void set_Tref(const Mat4 &Tref);
+    void set_tref(const Vec3 &tref);
+    void set_Rref(const Mat3 &Rref);
+
+    void set_lower_bound(const Vec6 &lb);
+    void set_upper_bound(const Vec6 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    const std::string            _frame;
+    Mat4                         _Tref, _Tref_inv;
+    Vec6                         _lb, _ub;
 };
 
 /* Predefined 3D velocity bound for a given frame

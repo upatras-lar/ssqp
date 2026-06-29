@@ -94,7 +94,7 @@ def run(dynamics_mode, constrain):
 
     lb = np.array((-np.inf, constraint_vlines[0], constraint_hlines[0]))
     ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
-    box_constraint = ssqpy.model.constraints.FramePositionBound(
+    box_constraint = ssqpy.model.constraints.FrameTranslationBound(
         model, "panda_ee", lb, ub
     )
 
@@ -175,7 +175,9 @@ def run(dynamics_mode, constrain):
 
         elapsed = time() - pre
 
-        state_data.append(model.forwardKinematics(simulator.state[:nq], "panda_ee")[0])
+        state_data.append(
+            model.forwardKinematics(simulator.state[:nq], "panda_ee")[0]
+        )
         frequency_data.append(1 / elapsed)
 
         simulator.step(sim_ctrl)
@@ -260,7 +262,9 @@ def add_plots(state_data, frequency_data, ref_traj, legend_pref=""):
     ax_top.legend()
     ax_top.grid(True)
 
-    ax_bottom.plot(np.arange(H), np.array(frequency_data), label=f"{legend_pref} - f")
+    ax_bottom.plot(
+        np.arange(H), np.array(frequency_data), label=f"{legend_pref} - f"
+    )
     ax_bottom.set_title("Frequency")
     ax_bottom.set_xlabel("Time (s)")
     ax_bottom.set_ylabel("Frequency (Hz)")

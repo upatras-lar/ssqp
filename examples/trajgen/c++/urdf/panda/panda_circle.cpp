@@ -146,12 +146,12 @@ int main()
             std::tie(lb, ub) =
               square_point_bounds(circle_to_square_point(traj[k]));
 
-            // Add a FramePositionBound for the panda_ee frame
-            model.addConstraints<constraints::FramePositionBound>(k,
-                                                                  model,
-                                                                  "panda_ee",
-                                                                  lb,
-                                                                  ub);
+            // Add a FrameTranslationBound for the panda_ee frame
+            model.addConstraints<constraints::FrameTranslationBound>(k,
+                                                                     model,
+                                                                     "panda_ee",
+                                                                     lb,
+                                                                     ub);
         }
     }
 
@@ -175,11 +175,11 @@ int main()
         std::tie(lb, ub) =
           square_point_bounds(circle_to_square_point(traj[HORIZON]));
 
-        model.addConstraints<constraints::FramePositionBound>(HORIZON,
-                                                              model,
-                                                              "panda_ee",
-                                                              lb,
-                                                              ub);
+        model.addConstraints<constraints::FrameTranslationBound>(HORIZON,
+                                                                 model,
+                                                                 "panda_ee",
+                                                                 lb,
+                                                                 ub);
     }
 
     ssqp::model::Model::Config model_config;

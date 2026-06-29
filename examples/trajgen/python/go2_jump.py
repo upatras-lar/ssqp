@@ -78,35 +78,35 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     model, "RR_foot", np.zeros(3), np.zeros(3)
 )
 
-fl_foot_pos_bound = constraints.FramePositionBound(
+fl_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "FL_foot",
     np.array((-np.inf, 0.1, -0.01)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
-fr_foot_pos_bound = constraints.FramePositionBound(
+fr_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "FR_foot",
     np.array((-np.inf, -np.inf, -0.01)),
     np.array((np.inf, -0.1, np.inf)),
 )
 
-rl_foot_pos_bound = constraints.FramePositionBound(
+rl_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "RL_foot",
     np.array((-np.inf, 0.1, -0.01)),
     np.array((np.inf, np.inf, np.inf)),
 )
 
-rr_foot_pos_bound = constraints.FramePositionBound(
+rr_foot_pos_bound = constraints.FrameTranslationBound(
     model,
     "RR_foot",
     np.array((-np.inf, -np.inf, -0.01)),
     np.array((np.inf, -0.1, np.inf)),
 )
 
-head_constraint = constraints.FramePositionBound(
+head_constraint = constraints.FrameTranslationBound(
     model,
     "Head_lower",
     np.array((-np.inf, -np.inf, 0.1)),
@@ -174,7 +174,7 @@ model.addConstraints(HORIZON, head_constraint)
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(
+    constraints.FrameTranslationBound(
         model,
         "FL_foot",
         np.array((0.1934, 0.142, -0.00002682)),
@@ -184,7 +184,7 @@ model.addConstraints(
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(
+    constraints.FrameTranslationBound(
         model,
         "FR_foot",
         np.array((0.1934, -0.142, -0.00002682)),
@@ -194,7 +194,7 @@ model.addConstraints(
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(
+    constraints.FrameTranslationBound(
         model,
         "RL_foot",
         np.array((-0.1934, 0.142, -0.00002682)),
@@ -204,7 +204,7 @@ model.addConstraints(
 
 model.addConstraints(
     HORIZON,
-    constraints.FramePositionBound(
+    constraints.FrameTranslationBound(
         model,
         "RR_foot",
         np.array((-0.1934, -0.142, -0.00002682)),
