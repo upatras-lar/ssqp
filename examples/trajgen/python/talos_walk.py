@@ -247,13 +247,13 @@ for k in range(H - FINAL_STANDING_STEPS, H):
     model.addConstraints(
         k,
         constraints.FrameLinearVelocityBound(
-            model, "base_link", np.zeros(3), np.zeros(3), True
+            model, "base_link", np.zeros(3), np.zeros(3)
         ),
     )
     model.addConstraints(
         k,
         constraints.FrameLinearVelocityBound(
-            model, "head_1_link", np.zeros(3), np.zeros(3), True
+            model, "head_1_link", np.zeros(3), np.zeros(3)
         ),
     )
 
@@ -263,13 +263,13 @@ model.addCost(H, pose_cost)
 model.addConstraints(
     H,
     constraints.FrameLinearVelocityBound(
-        model, "base_link", np.zeros(3), np.zeros(3), True
+        model, "base_link", np.zeros(3), np.zeros(3)
     ),
 )
 model.addConstraints(
     k,
     constraints.FrameLinearVelocityBound(
-        model, "head_1_link", np.zeros(3), np.zeros(3), True
+        model, "head_1_link", np.zeros(3), np.zeros(3)
     ),
 )
 

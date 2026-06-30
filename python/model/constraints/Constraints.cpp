@@ -539,6 +539,74 @@ void bind_Constraints(nb::module_ &m)
            &FloatingBasePoseBound::set_upper_bound,
            nb::arg("upper_bound"));
 
+    nb::class_<FloatingBaseLinearVelocityBound, StageConstraints>(
+      m,
+      "FloatingBaseLinearVelocityBound",
+      R"doc(
+        Predefined floating base linear velocity bound
+
+        Creates a linear bound constraint on the linear velocity of the floating base:
+        $\boldsymbol{b}_l \leq \boldsymbol{v}_b \leq \boldsymbol{b}_u$
+
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+         - $\boldsymbol{v}_b$: Floating base linear velocity vector (in $\mathcal{R}^3$)
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)
+           )doc")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
+      .def("set_lower_bound",
+           &FloatingBaseLinearVelocityBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FloatingBaseLinearVelocityBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<FloatingBaseAngularVelocityBound, StageConstraints>(
+      m,
+      "FloatingBaseAngularVelocityBound",
+      R"doc(
+        Predefined floating base angular velocity bound
+
+        Creates a linear bound constraint on the angular velocity of the floating base:
+        $\boldsymbol{b}_l \leq \boldsymbol{\omega}_b \leq \boldsymbol{b}_u$
+
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+         - $\boldsymbol{\omega}_b$: Floating base angular velocity vector (in $\mathcal{R}^3$)
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)
+           )doc")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
+      .def("set_lower_bound",
+           &FloatingBaseAngularVelocityBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FloatingBaseAngularVelocityBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
     nb::class_<FrameTranslationBound, StageConstraints>(m,
                                                         "FrameTranslationBound",
                                                         R"doc(
@@ -683,19 +751,55 @@ void bind_Constraints(nb::module_ &m)
                     const std::string &,
                     const Vec3 &,
                     const Vec3 &,
-                    bool,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("terminal") = false,
-           nb::arg("name")     = "")
+           nb::arg("name") = "")
       .def("set_lower_bound",
            &FrameLinearVelocityBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
            &FrameLinearVelocityBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
+    nb::class_<FrameAngularVelocityBound, StageConstraints>(
+      m,
+      "FrameAngularVelocityBound",
+      R"doc(
+        Predefined angular velocity bound for a given frame
+
+        Creates a linear bound constraint on the angular velocity of a frame of the
+        given model:
+        $\boldsymbol{b}_l \leq \boldsymbol{\omega}_f \leq \boldsymbol{b}_u$
+
+        where:
+         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+         - $\boldsymbol{\omega}_f$: Frame angular velocity vector (in $\mathcal{R}^3$)
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)
+
+           )doc")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
+      .def("set_lower_bound",
+           &FrameAngularVelocityBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FrameAngularVelocityBound::set_upper_bound,
            nb::arg("upper_bound"));
 
     nb::class_<CenterOfMassBound, StageConstraints>(m,

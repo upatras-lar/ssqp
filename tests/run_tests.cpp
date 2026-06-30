@@ -106,6 +106,12 @@ int main()
     tests.addTest(
       ssqp::tests::generators::get_floating_base_pose_bound_grad_test());
 
+    tests.addTest(ssqp::tests::generators::
+                    get_floating_base_linear_velocity_bound_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_floating_base_angular_velocity_bound_grad_test());
+
     tests.addTest(
       ssqp::tests::generators::get_frame_translation_bound_grad_test());
 
@@ -116,6 +122,9 @@ int main()
 
     tests.addTest(
       ssqp::tests::generators::get_frame_linear_velocity_bound_grad_test());
+
+    tests.addTest(
+      ssqp::tests::generators::get_frame_angular_velocity_bound_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_center_of_mass_bound_grad_test());
@@ -155,6 +164,9 @@ int main()
 
     tests.addTest(ssqp::tests::generators::
                     get_floating_base_squared_rotation_error_cost_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_floating_base_squared_pose_error_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::
                     get_frame_squared_translation_error_cost_grad_test());

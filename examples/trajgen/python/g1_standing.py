@@ -150,7 +150,7 @@ model.addCost(H, left_hand_translation_cost)
 model.addConstraints(
     H,
     constraints.FrameLinearVelocityBound(
-        model, "torso_link", np.zeros(3), np.zeros(3), True
+        model, "torso_link", np.zeros(3), np.zeros(3)
     ),
 )
 

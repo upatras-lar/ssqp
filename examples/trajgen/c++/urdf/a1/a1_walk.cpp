@@ -210,8 +210,7 @@ int main()
       model,
       "trunk",
       -1e-3 * Eigen::Vector3d::Ones(),
-      1e-3 * Eigen::Vector3d::Ones(),
-      true);
+      1e-3 * Eigen::Vector3d::Ones());
 
     ssqp::model::Model::Config model_config;
     model_config.init_states   = { init };

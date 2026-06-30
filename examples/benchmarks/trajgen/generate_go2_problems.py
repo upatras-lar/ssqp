@@ -145,7 +145,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
         model.addConstraints(
             HORIZON,
             constraints.FrameLinearVelocityBound(
-                model, "base", np.zeros(3), np.zeros(3), True
+                model, "base", np.zeros(3), np.zeros(3)
             ),
         )
 
