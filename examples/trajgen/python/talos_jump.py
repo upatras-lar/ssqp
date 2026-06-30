@@ -234,7 +234,7 @@ model.addCost(H, pose_cost)
 model.addConstraints(
     H,
     constraints.FrameLinearVelocityBound(
-        model, "torso_1_link", np.zeros(3), np.zeros(3), True
+        model, "torso_1_link", np.zeros(3), np.zeros(3)
     ),
 )
 

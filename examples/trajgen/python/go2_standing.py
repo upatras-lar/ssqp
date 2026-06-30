@@ -126,7 +126,7 @@ model.addCost(HORIZON, config_cost)
 model.addConstraints(
     HORIZON,
     constraints.FrameLinearVelocityBound(
-        model, "base", np.zeros(3), np.zeros(3), True
+        model, "base", np.zeros(3), np.zeros(3)
     ),
 )
 

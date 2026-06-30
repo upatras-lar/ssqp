@@ -408,6 +408,207 @@ void bind_Costs(nb::module_ &m)
              &SquaredConfigurationErrorCost::set_weight),
            nb::arg("weight"));
 
+    nb::class_<FloatingBaseSquaredTranslationErrorCost, StageCost>(
+      m,
+      "FloatingBaseSquaredTranslationErrorCost",
+      R"doc(
+        Predefined squared floating base translation error cost
+
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t}_f - \boldsymbol{t}_d)\rVert_2^2$
+
+        where:
+        - $\boldsymbol{t}_f$ is the floating base translation (in $\mathcal{R}^3$)
+        - $\boldsymbol{t}_d$ is the desired translation of the floating base (in $\mathcal{R}^3$)
+        - $\boldsymbol{w}$ is the weight on the translation error
+
+        Assumes:
+        - The model joint configuration is the first part of the state vector (size
+        `model.nq()`)
+        - The floating base translation is extracted from the base pose of the model
+        state representation
+      )doc")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_translation"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_translation"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def("set_desired_translation",
+           &FloatingBaseSquaredTranslationErrorCost::set_desired_translation,
+           nb::arg("desired_translation"))
+      .def(
+        "set_weight",
+        static_cast<void (FloatingBaseSquaredTranslationErrorCost::*)(
+          const double)>(&FloatingBaseSquaredTranslationErrorCost::set_weight),
+        nb::arg("weight"))
+      .def(
+        "set_weight",
+        static_cast<void (FloatingBaseSquaredTranslationErrorCost::*)(
+          const Vec3 &)>(&FloatingBaseSquaredTranslationErrorCost::set_weight),
+        nb::arg("weight"));
+
+    nb::class_<FloatingBaseSquaredRotationErrorCost, StageCost>(
+      m,
+      "FloatingBaseSquaredRotationErrorCost",
+      R"doc(
+        Predefined squared floating base rotation error cost
+
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \log_{SO(3)}(R_f^\top R_d)\rVert_2^2$
+
+        where:
+         - $R_f$ is the floating base rotation (in $\mathit{SO3}$)
+         - $R_d$ is the desired rotation of the floating base (in $\mathit{SO3}$)
+         - $\boldsymbol{w}$ is the weight on the rotation error
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+         - The floating base orientation is extracted from the base pose of the model
+           state representation
+
+      )doc")
+      .def(nb::init<const Model &,
+                    const Mat3 &,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_rotation"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Mat3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_rotation"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def("set_desired_rotation",
+           &FloatingBaseSquaredRotationErrorCost::set_desired_rotation,
+           nb::arg("desired_rotation"))
+      .def("set_weight",
+           static_cast<void (FloatingBaseSquaredRotationErrorCost::*)(
+             const double)>(&FloatingBaseSquaredRotationErrorCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (FloatingBaseSquaredRotationErrorCost::*)(
+             const Vec3 &)>(&FloatingBaseSquaredRotationErrorCost::set_weight),
+           nb::arg("weight"));
+
+    nb::class_<FloatingBaseSquaredPoseErrorCost, StageCost>(
+      m,
+      "FloatingBaseSquaredPoseErrorCost",
+      R"doc(
+        Predefined squared floating base pose error cost
+
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D$
+
+        where:
+         - $D = \log_{SE(3)} T^{-1}T_d$
+         - $T$ is the floating base pose (in $\mathit{SE3}$)
+         - $T_d$ is the desired floating base pose (in $\mathit{SE3}$)
+         - $W$ is a weight matrix, made up of parameters $w_p$ for translation and $w_r$
+           for rotation
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+
+      )doc")
+      .def(nb::init<const Model &,
+                    const Mat4 &,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_pose"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Mat4 &,
+                    const double,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_pose"),
+           nb::arg("translation_weight"),
+           nb::arg("rotation_weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Mat4 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_pose"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Mat3 &,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_translation"),
+           nb::arg("desired_rotation"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Mat3 &,
+                    const double,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_translation"),
+           nb::arg("desired_rotation"),
+           nb::arg("translation_weight"),
+           nb::arg("rotation_weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Vec3 &,
+                    const Mat3 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_translation"),
+           nb::arg("desired_rotation"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def("set_desired_pose",
+           &FloatingBaseSquaredPoseErrorCost::set_desired_pose,
+           nb::arg("desired_pose"))
+      .def("set_desired_translation",
+           &FloatingBaseSquaredPoseErrorCost::set_desired_translation,
+           nb::arg("desired_translation"))
+      .def("set_desired_rotation",
+           &FloatingBaseSquaredPoseErrorCost::set_desired_rotation,
+           nb::arg("desired_rotation"))
+      .def("set_translation_weight",
+           &FloatingBaseSquaredPoseErrorCost::set_translation_weight,
+           nb::arg("translation_weight"))
+      .def("set_rotation_weight",
+           &FloatingBaseSquaredPoseErrorCost::set_rotation_weight,
+           nb::arg("rotation_weight"))
+      .def(
+        "set_weight",
+        static_cast<void (FloatingBaseSquaredPoseErrorCost::*)(const double)>(
+          &FloatingBaseSquaredPoseErrorCost::set_weight),
+        nb::arg("weight"))
+      .def(
+        "set_weight",
+        static_cast<void (FloatingBaseSquaredPoseErrorCost::*)(const Vec6 &)>(
+          &FloatingBaseSquaredPoseErrorCost::set_weight),
+        nb::arg("weight"));
+
     nb::class_<FrameSquaredTranslationErrorCost, StageCost>(
       m,
       "FrameSquaredTranslationErrorCost",
@@ -486,11 +687,26 @@ void bind_Costs(nb::module_ &m)
            nb::arg("desired_rotation"),
            nb::arg("weight"),
            nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Mat3 &,
+                    const Vec3 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("desired_rotation"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_desired_rotation",
            &FrameSquaredRotationErrorCost::set_desired_rotation,
            nb::arg("desired_rotation"))
       .def("set_weight",
-           &FrameSquaredRotationErrorCost::set_weight,
+           static_cast<void (FrameSquaredRotationErrorCost::*)(const double)>(
+             &FrameSquaredRotationErrorCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (FrameSquaredRotationErrorCost::*)(const Vec3 &)>(
+             &FrameSquaredRotationErrorCost::set_weight),
            nb::arg("weight"));
 
     nb::class_<FrameSquaredPoseErrorCost, StageCost>(
@@ -516,13 +732,45 @@ void bind_Costs(nb::module_ &m)
                     const std::string &,
                     const Mat4 &,
                     const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("desired_pose"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Mat4 &,
+                    const double,
                     const double,
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_pose"),
-           nb::arg("position_weight"),
+           nb::arg("translation_weight"),
            nb::arg("rotation_weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Mat4 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("desired_pose"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Vec3 &,
+                    const Mat3 &,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("desired_translation"),
+           nb::arg("desired_rotation"),
+           nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &,
                     const std::string &,
@@ -533,10 +781,22 @@ void bind_Costs(nb::module_ &m)
                     const std::string &>(),
            nb::arg("model"),
            nb::arg("frame"),
-           nb::arg("desired_position"),
+           nb::arg("desired_translation"),
            nb::arg("desired_rotation"),
-           nb::arg("position_weight"),
+           nb::arg("translation_weight"),
            nb::arg("rotation_weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const Vec3 &,
+                    const Mat3 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("desired_translation"),
+           nb::arg("desired_rotation"),
+           nb::arg("weight"),
            nb::arg("name") = "")
       .def("set_desired_pose",
            &FrameSquaredPoseErrorCost::set_desired_pose,
@@ -552,7 +812,15 @@ void bind_Costs(nb::module_ &m)
            nb::arg("translation_weight"))
       .def("set_rotation_weight",
            &FrameSquaredPoseErrorCost::set_rotation_weight,
-           nb::arg("rotation_weight"));
+           nb::arg("rotation_weight"))
+      .def("set_weight",
+           static_cast<void (FrameSquaredPoseErrorCost::*)(const double)>(
+             &FrameSquaredPoseErrorCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (FrameSquaredPoseErrorCost::*)(const Vec6 &)>(
+             &FrameSquaredPoseErrorCost::set_weight),
+           nb::arg("weight"));
 
     nb::class_<FrameSquaredVelocityErrorCost, StageCost>(
       m,

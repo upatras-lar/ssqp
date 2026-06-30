@@ -314,6 +314,102 @@ class FloatingBasePoseBound : public StageConstraints
     Vec6                         _lb, _ub;
 };
 
+/* Predefined floating base linear velocity bound
+ *
+ * Creates a linear bound constraint on the linear velocity of the floating base:
+ * $\boldsymbol{b}_l \leq \boldsymbol{v}_b \leq \boldsymbol{b}_u$
+ *
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{v}_b$: Floating base linear velocity vector (in $\mathcal{R}^3$)
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ *  - The model joint velocity is the final part of the state vector (size
+ *    `model.nv()`)
+ */
+class FloatingBaseLinearVelocityBound : public StageConstraints
+{
+  public:
+    FloatingBaseLinearVelocityBound(const Model &model, const Vec3 &lb,
+                                    const Vec3        &ub,
+                                    const std::string &name = "");
+
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    Vec3                         _lb, _ub;
+};
+
+/* Predefined floating base angular velocity bound
+ *
+ * Creates a linear bound constraint on the angular velocity of the floating base:
+ * $\boldsymbol{b}_l \leq \boldsymbol{\omega}_b \leq \boldsymbol{b}_u$
+ *
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{\omega}_b$: Floating base angular velocity vector (in $\mathcal{R}^3$)
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ *  - The model joint velocity is the final part of the state vector (size
+ *    `model.nv()`)
+ */
+class FloatingBaseAngularVelocityBound : public StageConstraints
+{
+  public:
+    FloatingBaseAngularVelocityBound(const Model &model, const Vec3 &lb,
+                                     const Vec3        &ub,
+                                     const std::string &name = "");
+
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    Vec3                         _lb, _ub;
+};
+
 /* Predefined 3D position bound for a given frame
  *
  * Creates a linear bound constraint on the position of a frame of the given
@@ -493,7 +589,6 @@ class FrameLinearVelocityBound : public StageConstraints
     // Regular constructor
     FrameLinearVelocityBound(const Model &model, const std::string &frame,
                              const Vec3 &lb, const Vec3 &ub,
-                             const bool terminal     = false,
                              const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
@@ -521,7 +616,57 @@ class FrameLinearVelocityBound : public StageConstraints
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     Vec3                         _lb, _ub;
-    const bool                   _terminal;
+};
+
+/* Predefined angular velocity bound for a given frame
+ *
+ * Creates a linear bound constraint on the angular velocity of a frame of the
+ * given model:
+ * $\boldsymbol{b}_l \leq \boldsymbol{\omega}_f \leq \boldsymbol{b}_u$
+ *
+ * where:
+ *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{\omega}_f$: Frame angular velocity vector (in $\mathcal{R}^3$)
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ *  - The model joint velocity is the final part of the state vector (size
+ *    `model.nv()`)
+ */
+class FrameAngularVelocityBound : public StageConstraints
+{
+  public:
+    // Regular constructor
+    FrameAngularVelocityBound(const Model &model, const std::string &frame,
+                              const Vec3 &lb, const Vec3 &ub,
+                              const std::string &name = "");
+
+    void set_lower_bound(const Vec3 &lb);
+    void set_upper_bound(const Vec3 &ub);
+
+    uint output_size() const override;
+
+    VecX lower_bound() const override;
+    VecX upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    const std::string            _frame;
+    Vec3                         _lb, _ub;
 };
 
 /* Predefined center of mass bound

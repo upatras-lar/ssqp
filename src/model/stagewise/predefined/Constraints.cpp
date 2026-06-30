@@ -543,6 +543,153 @@ void FloatingBasePoseBound::hessprod_uu(const VecX &x, const VecX &u,
     Puu = MatX::Zero(u.size(), u.size());
 }
 
+// FloatingBaseLinearVelocityBound
+FloatingBaseLinearVelocityBound::FloatingBaseLinearVelocityBound(
+  const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _lb(lb)
+  , _ub(ub)
+{
+}
+
+void FloatingBaseLinearVelocityBound::set_lower_bound(const Vec3 &lb)
+{
+    _lb = lb;
+}
+
+void FloatingBaseLinearVelocityBound::set_upper_bound(const Vec3 &ub)
+{
+    _ub = ub;
+}
+
+uint FloatingBaseLinearVelocityBound::output_size() const
+{
+    return 3;
+}
+
+VecX FloatingBaseLinearVelocityBound::lower_bound() const
+{
+    return _lb;
+}
+
+VecX FloatingBaseLinearVelocityBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FloatingBaseLinearVelocityBound::evaluate(const VecX &x,
+                                               const VecX &u) const
+{
+    return x.segment<3>(_nq);
+}
+
+void FloatingBaseLinearVelocityBound::gradient(const VecX &x, const VecX &u,
+                                               MatX &dX, MatX &dU) const
+{
+    dX = MatX::Zero(3, _ndx);
+    dX.block<3, 3>(0, _nv).setIdentity();
+
+    dU = MatX::Zero(3, u.size());
+}
+
+void FloatingBaseLinearVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
+                                                  const VecX &mu,
+                                                  MatX       &Pxx) const
+{
+    Pxx = MatX::Zero(_ndx, _ndx);
+}
+
+void FloatingBaseLinearVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
+                                                  const VecX &mu,
+                                                  MatX       &Pxu) const
+{
+    Pxu = MatX::Zero(_ndx, u.size());
+}
+
+void FloatingBaseLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
+                                                  const VecX &mu,
+                                                  MatX       &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// FloatingBaseAngularVelocityBound
+FloatingBaseAngularVelocityBound::FloatingBaseAngularVelocityBound(
+  const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _lb(lb)
+  , _ub(ub)
+{
+}
+
+void FloatingBaseAngularVelocityBound::set_lower_bound(const Vec3 &lb)
+{
+    _lb = lb;
+}
+
+void FloatingBaseAngularVelocityBound::set_upper_bound(const Vec3 &ub)
+{
+    _ub = ub;
+}
+
+uint FloatingBaseAngularVelocityBound::output_size() const
+{
+    return 3;
+}
+
+VecX FloatingBaseAngularVelocityBound::lower_bound() const
+{
+    return _lb;
+}
+
+VecX FloatingBaseAngularVelocityBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FloatingBaseAngularVelocityBound::evaluate(const VecX &x,
+                                                const VecX &u) const
+{
+    return x.segment<3>(_nq + 3);
+}
+void FloatingBaseAngularVelocityBound::gradient(const VecX &x, const VecX &u,
+                                                MatX &dX, MatX &dU) const
+{
+    dX = MatX::Zero(3, _ndx);
+    dX.block<3, 3>(0, _nv + 3).setIdentity();
+
+    dU = MatX::Zero(3, u.size());
+}
+
+void FloatingBaseAngularVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
+                                                   const VecX &mu,
+                                                   MatX       &Pxx) const
+{
+    Pxx = MatX::Zero(_ndx, _ndx);
+}
+
+void FloatingBaseAngularVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
+                                                   const VecX &mu,
+                                                   MatX       &Pxu) const
+{
+    Pxu = MatX::Zero(_ndx, u.size());
+}
+
+void FloatingBaseAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
+                                                   const VecX &mu,
+                                                   MatX       &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
 // FrameTranslationBound
 FrameTranslationBound::FrameTranslationBound(const Model       &model,
                                              const std::string &frame,
@@ -823,9 +970,11 @@ void FramePoseBound::hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
 }
 
 // FrameLinearVelocityBound
-FrameLinearVelocityBound::FrameLinearVelocityBound(
-  const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
-  const bool terminal, const std::string &name)
+FrameLinearVelocityBound::FrameLinearVelocityBound(const Model       &model,
+                                                   const std::string &frame,
+                                                   const Vec3        &lb,
+                                                   const Vec3        &ub,
+                                                   const std::string &name)
   : StageConstraints(name)
   , _model(std::make_shared<Model>(model))
   , _nq(model.nq())
@@ -834,7 +983,6 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(
   , _frame(frame)
   , _lb(lb)
   , _ub(ub)
-  , _terminal(terminal)
 {
     assert(model.xml() &&
            "Cannot use FrameLinearVelocityBound with a custom Model");
@@ -868,7 +1016,7 @@ VecX FrameLinearVelocityBound::upper_bound() const
 VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
     return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true)
-      .head(3);
+      .head<3>();
 }
 
 void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -897,6 +1045,87 @@ void FrameLinearVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
 }
 void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
                                            const VecX &mu, MatX &Puu) const
+{
+    Puu = MatX::Zero(u.size(), u.size());
+}
+
+// FrameAngularVelocityBound
+FrameAngularVelocityBound::FrameAngularVelocityBound(const Model       &model,
+                                                     const std::string &frame,
+                                                     const Vec3        &lb,
+                                                     const Vec3        &ub,
+                                                     const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _frame(frame)
+  , _lb(lb)
+  , _ub(ub)
+{
+    assert(model.xml() &&
+           "Cannot use FrameAngularVelocityBound with a custom Model");
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
+}
+
+void FrameAngularVelocityBound::set_lower_bound(const Vec3 &lb)
+{
+    _lb = lb;
+}
+
+void FrameAngularVelocityBound::set_upper_bound(const Vec3 &ub)
+{
+    _ub = ub;
+}
+
+uint FrameAngularVelocityBound::output_size() const
+{
+    return 3;
+}
+
+VecX FrameAngularVelocityBound::lower_bound() const
+{
+    return _lb;
+}
+
+VecX FrameAngularVelocityBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
+{
+    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true)
+      .tail<3>();
+}
+
+void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                         MatX &dU) const
+{
+    MatX dVdq, dVdv;
+    std::tie(dVdq, dVdv) =
+      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame, true);
+
+    dX                = MatX::Zero(3, _ndx);
+    dX.leftCols(_nv)  = dVdq.bottomRows<3>();
+    dX.rightCols(_nv) = dVdv.bottomRows<3>();
+
+    dU = MatX::Zero(3, u.size());
+}
+
+void FrameAngularVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatX &Pxx) const
+{
+    Pxx = MatX::Zero(_ndx, _ndx);
+}
+void FrameAngularVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatX &Pxu) const
+{
+    Pxu = MatX::Zero(_ndx, u.size());
+}
+void FrameAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatX &Puu) const
 {
     Puu = MatX::Zero(u.size(), u.size());
 }
