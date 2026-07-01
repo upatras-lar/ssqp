@@ -1165,6 +1165,104 @@ void FloatingBaseSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
     Huu = MatX::Zero(u.size(), u.size());
 }
 
+// FloatingBaseSquaredVelocityErrorCost
+FloatingBaseSquaredVelocityErrorCost::FloatingBaseSquaredVelocityErrorCost(
+  const Model &model, const Vec6 &desired_velocity, const double weight,
+  const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _desired_velocity(desired_velocity)
+{
+    assert(
+      model.xml() &&
+      "Cannot use FloatingBaseSquaredVelocityErrorCost with a custom Model");
+    assert(model.floatingBase() && "Provided Model has no floating base");
+    _weight.setConstant(weight);
+}
+
+FloatingBaseSquaredVelocityErrorCost::FloatingBaseSquaredVelocityErrorCost(
+  const Model &model, const Vec6 &desired_velocity, const Vec6 &weight,
+  const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _desired_velocity(desired_velocity)
+  , _weight(weight)
+{
+    assert(model.xml() &&
+           "Cannot use FloatingBaseSquaredPoseErrorCost with a custom Model");
+    assert(model.floatingBase() && "Provided Model has no floating base");
+}
+
+void FloatingBaseSquaredVelocityErrorCost::set_desired_velocity(
+  const Vec6 &desired_velocity)
+{
+    _desired_velocity = desired_velocity;
+}
+
+void FloatingBaseSquaredVelocityErrorCost::set_weight(const double weight)
+{
+    _weight.setConstant(weight);
+}
+
+void FloatingBaseSquaredVelocityErrorCost::set_weight(const Vec6 &weight)
+{
+    _weight = weight;
+}
+
+VecX FloatingBaseSquaredVelocityErrorCost::evaluate(const VecX &x,
+                                                    const VecX &u) const
+{
+    assert(x.size() >= _nq + 6 && "Invalid state passed (size < nq + 6)");
+
+    return (Scalar() << 0.5 * (_weight.array() *
+                               (x.segment<6>(_nq) - _desired_velocity).array())
+                                .matrix()
+                                .squaredNorm())
+      .finished();
+}
+
+void FloatingBaseSquaredVelocityErrorCost::gradient(const VecX &x,
+                                                    const VecX &u, VecX &dx,
+                                                    VecX &du) const
+{
+    assert(x.size() >= _nq + 6 && "Invalid state passed (size < nq + 6)");
+
+    dx = VecX::Zero(_ndx);
+
+    dx.segment<6>(_nv) = _weight.array().square() *
+                         (x.segment<6>(_nq) - _desired_velocity).array();
+
+    du = VecX::Zero(u.size());
+}
+
+void FloatingBaseSquaredVelocityErrorCost::hessian_xx(const VecX &x,
+                                                      const VecX &u,
+                                                      MatX       &Hxx) const
+{
+    Hxx                                  = MatX::Zero(_ndx, _ndx);
+    Hxx.block<6, 6>(_nv, _nv).diagonal() = _weight.array().square();
+}
+
+void FloatingBaseSquaredVelocityErrorCost::hessian_xu(const VecX &x,
+                                                      const VecX &u,
+                                                      MatX       &Hxu) const
+{
+    Hxu = MatX::Zero(_ndx, u.size());
+}
+
+void FloatingBaseSquaredVelocityErrorCost::hessian_uu(const VecX &x,
+                                                      const VecX &u,
+                                                      MatX       &Huu) const
+{
+    Huu = MatX::Zero(u.size(), u.size());
+}
+
 // FrameSquaredTranslationErrorCost
 FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
@@ -1724,102 +1822,6 @@ void FrameSquaredVelocityErrorCost::hessian_xu(const VecX &x, const VecX &u,
 }
 void FrameSquaredVelocityErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                                MatX &Huu) const
-{
-    Huu = MatX::Zero(u.size(), u.size());
-}
-
-// FrameSquaredVelocityCost
-FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
-                                                   const std::string &frame,
-                                                   const double       weight,
-                                                   const std::string &name)
-  : StageCost(name)
-  , _model(std::make_shared<Model>(model))
-  , _nq(model.nq())
-  , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
-  , _frame(frame)
-
-{
-    assert(model.xml() &&
-           "Cannot use FrameSquaredVelocityCost with a custom Model");
-    assert(model.hasFrame(frame) && "Invalid frame for given model");
-    _weight.setConstant(weight);
-}
-
-FrameSquaredVelocityCost::FrameSquaredVelocityCost(const Model       &model,
-                                                   const std::string &frame,
-                                                   const Vec6        &weight,
-                                                   const std::string &name)
-  : StageCost(name)
-  , _model(std::make_shared<Model>(model))
-  , _nq(model.nq())
-  , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
-  , _frame(frame)
-  , _weight(weight)
-{
-    assert(model.xml() &&
-           "Cannot use FrameSquaredVelocityCost with a custom Model");
-    assert(model.hasFrame(frame) && "Invalid frame for given model");
-}
-
-void FrameSquaredVelocityCost::set_weight(const double weight)
-{
-    _weight.setConstant(weight);
-}
-
-void FrameSquaredVelocityCost::set_weight(const Vec6 &weight)
-{
-    _weight = weight;
-}
-
-VecX FrameSquaredVelocityCost::evaluate(const VecX &x, const VecX &u) const
-{
-    return (Scalar()
-            << 0.5 *
-                 (_weight.array() *
-                  _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true)
-                    .array())
-                   .matrix()
-                   .squaredNorm())
-      .finished();
-}
-
-void FrameSquaredVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
-                                        VecX &du) const
-{
-    Vec6 vel =
-      _weight.array().square() *
-      _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true).array();
-
-    MatX dVdq, dVdv;
-    std::tie(dVdq, dVdv) =
-      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame, true);
-
-    dx = VecX::Zero(_ndx);
-
-    dx.head(_nv) = dVdq.transpose() * vel;
-    dx.tail(_nv) = dVdv.transpose() * vel;
-
-    du = VecX::Zero(u.size());
-}
-void FrameSquaredVelocityCost::hessian_xx(const VecX &x, const VecX &u,
-                                          MatX &Hxx) const
-{
-    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
-
-    Hxx = MatX::Zero(_ndx, _ndx);
-    Hxx.bottomRightCorner(_nv, _nv) =
-      Jfk.transpose() * _weight.array().square().matrix().asDiagonal() * Jfk;
-}
-void FrameSquaredVelocityCost::hessian_xu(const VecX &x, const VecX &u,
-                                          MatX &Hxu) const
-{
-    Hxu = MatX::Zero(_ndx, u.size());
-}
-void FrameSquaredVelocityCost::hessian_uu(const VecX &x, const VecX &u,
-                                          MatX &Huu) const
 {
     Huu = MatX::Zero(u.size(), u.size());
 }
