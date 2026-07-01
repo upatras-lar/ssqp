@@ -86,11 +86,11 @@ std::shared_ptr<Test>
 get_floating_base_squared_translation_error_cost_grad_test();
 std::shared_ptr<Test> get_floating_base_squared_rotation_error_cost_grad_test();
 std::shared_ptr<Test> get_floating_base_squared_pose_error_cost_grad_test();
+std::shared_ptr<Test> get_floating_base_squared_velocity_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_translation_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test();
-std::shared_ptr<Test> get_frame_squared_velocity_cost_grad_test();
 std::shared_ptr<Test> get_center_of_mass_tracking_cost_grad_test();
 std::shared_ptr<Test> get_frames_inverse_squared_distance_cost_grad_test();
 

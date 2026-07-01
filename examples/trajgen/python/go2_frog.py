@@ -143,9 +143,8 @@ rr_foot_z_cost = costs.FrameSquaredTranslationErrorCost(
 )
 
 # Disallow pitch and yaw at differing limits
-rot_constraint = constraints.FrameRotationBound(
+rot_constraint = constraints.FloatingBaseRotationBound(
     model,
-    "base",
     np.eye(3),
     np.array((-np.inf, -1.0, -0.01)),
     np.array((np.inf, 1.0, 0.01)),
@@ -281,20 +280,20 @@ model.addCost(HORIZON, joint_vel_cost)
 
 model.addConstraints(
     HORIZON,
-    constraints.FrameTranslationBound(model, "base", final_pos, final_pos),
+    constraints.FloatingBaseTranslationBound(model, final_pos, final_pos),
 )
 
 model.addConstraints(
     HORIZON,
-    constraints.FrameLinearVelocityBound(
-        model, "base", np.zeros(3), np.zeros(3)
+    constraints.FloatingBaseLinearVelocityBound(
+        model, np.zeros(3), np.zeros(3)
     ),
 )
 
 model.addConstraints(
     HORIZON,
-    constraints.FrameRotationBound(
-        model, "base", np.eye(3), np.zeros(3), np.zeros(3)
+    constraints.FloatingBaseRotationBound(
+        model, np.eye(3), np.zeros(3), np.zeros(3)
     ),
 )
 

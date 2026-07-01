@@ -169,6 +169,9 @@ int main()
                     get_floating_base_squared_pose_error_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::
+                    get_floating_base_squared_velocity_error_cost_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
                     get_frame_squared_translation_error_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::
@@ -179,9 +182,6 @@ int main()
 
     tests.addTest(ssqp::tests::generators::
                     get_frame_squared_velocity_error_cost_grad_test());
-
-    tests.addTest(
-      ssqp::tests::generators::get_frame_squared_velocity_cost_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_center_of_mass_tracking_cost_grad_test());

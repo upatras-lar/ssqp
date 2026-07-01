@@ -609,6 +609,54 @@ void bind_Costs(nb::module_ &m)
           &FloatingBaseSquaredPoseErrorCost::set_weight),
         nb::arg("weight"));
 
+    nb::class_<FloatingBaseSquaredVelocityErrorCost, StageCost>(
+      m,
+      "FloatingBaseSquaredVelocityErrorCost",
+      R"doc(
+        Predefined squared floating base velocity error cost
+
+        Defines the cost term
+        $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_b - \boldsymbol{v}_d)\rVert_2^2$
+
+        where:
+         - $\boldsymbol{v}_b$ is the floating base velocity (in $\mathcal{R}^6$)
+         - $\boldsymbol{v}_d$ is the desired floating base velocity (in $\mathcal{R}^6$)
+         - $\boldsymbol{w}$ is the weight on the velocity error
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+         - The model joint velocity is the final part of the state vector (size
+           `model.nv()`)
+      )doc")
+      .def(nb::init<const Model &,
+                    const Vec6 &,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_velocity"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &,
+                    const Vec6 &,
+                    const Vec6 &,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("desired_velocity"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def("set_desired_velocity",
+           &FloatingBaseSquaredVelocityErrorCost::set_desired_velocity,
+           nb::arg("desired_velocity"))
+      .def("set_weight",
+           static_cast<void (FloatingBaseSquaredVelocityErrorCost::*)(
+             const double)>(&FloatingBaseSquaredVelocityErrorCost::set_weight),
+           nb::arg("weight"))
+      .def("set_weight",
+           static_cast<void (FloatingBaseSquaredVelocityErrorCost::*)(
+             const Vec6 &)>(&FloatingBaseSquaredVelocityErrorCost::set_weight),
+           nb::arg("weight"));
+
     nb::class_<FrameSquaredTranslationErrorCost, StageCost>(
       m,
       "FrameSquaredTranslationErrorCost",
@@ -871,48 +919,6 @@ void bind_Costs(nb::module_ &m)
       .def("set_weight",
            static_cast<void (FrameSquaredVelocityErrorCost::*)(const Vec6 &)>(
              &FrameSquaredVelocityErrorCost::set_weight),
-           nb::arg("weight"));
-
-    nb::class_<FrameSquaredVelocityCost, StageCost>(m,
-                                                    "FrameSquaredVelocityCost",
-                                                    R"doc(
-        Predefined squared frame velocity cost
-
-        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{v}_{f} \rVert_2^2$
-
-        where:
-         - $\boldsymbol{v}_f$ is the velocity for a frame (in $\mathcal{R}^6$)
-         - $\boldsymbol{w}$ is the weight on the velocity term
-
-        Assumes:
-         - The model joint configuration is the first part of the state vector (size 
-           `model.nq()`)
-         - The model joint velocity is the final part of the state vector (size
-           `model.nv()`)
-                                                    )doc")
-      .def(nb::init<const Model &,
-                    const std::string &,
-                    const double,
-                    const std::string &>(),
-           nb::arg("model"),
-           nb::arg("frame"),
-           nb::arg("weight"),
-           nb::arg("name") = "")
-      .def(nb::init<const Model &,
-                    const std::string &,
-                    const Vec6 &,
-                    const std::string &>(),
-           nb::arg("model"),
-           nb::arg("frame"),
-           nb::arg("weight"),
-           nb::arg("name") = "")
-      .def("set_weight",
-           static_cast<void (FrameSquaredVelocityCost::*)(const double)>(
-             &FrameSquaredVelocityCost::set_weight),
-           nb::arg("weight"))
-      .def("set_weight",
-           static_cast<void (FrameSquaredVelocityCost::*)(const Vec6 &)>(
-             &FrameSquaredVelocityCost::set_weight),
            nb::arg("weight"));
 
     nb::class_<CenterOfMassTrackingCost, StageCost>(m,
