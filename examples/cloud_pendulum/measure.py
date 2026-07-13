@@ -56,7 +56,7 @@ dynamics = ssqpy.model.custom.double_pendulum.DoublePendulumAmbientDynamics(
 
 KP = 5.0
 KD = 0.4
-KI = 0.0
+KI = 0.01
 
 
 def get_ref(t):
@@ -146,10 +146,8 @@ for i, z in enumerate(zip(data_states, data_controls, data_accelerations)):
     Y_stacked[2 * i : 2 * i + 2, :] = Y
     tau_stacked[2 * i : 2 * i + 2] = tau
 
-print(Y_stacked)
-
-print(np.linalg.matrix_rank(Y_stacked))
-print(np.linalg.cond(Y_stacked))
+print("Y stacked rank:", np.linalg.matrix_rank(Y_stacked))
+print("Y stacked cond:", np.linalg.cond(Y_stacked))
 
 phi = np.linalg.lstsq(Y_stacked, tau_stacked)[0]
 phi = np.clip(phi, bounds[0, :], bounds[1, :])

@@ -1098,7 +1098,7 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         }
         else
         {
-            J_r                       = MatX::Zero(2 * nv, 2 * nv);
+            J_r.setZero(2 * nv, 2 * nv);
             J_r.topLeftCorner(nv, nv) = Jr_inv_wrt_f;
             J_r.bottomRightCorner(nv, nv).diagonal().setConstant(-1.0);
 

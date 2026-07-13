@@ -281,7 +281,7 @@ class SRBDynamics : public StageDynamics
         Eigen::Matrix3d A_wp_com = _params.dt * (I_w_inv * dtau_dp_com);
 
         // Assemble dX
-        dX = MatX::Zero(_params.ndq, _params.ndq);
+        dX.setZero(_params.ndq, _params.ndq);
         dX.block<3, 3>(_O_P_COM, _O_P_COM) = Eigen::Matrix3d::Identity();
         dX.block<3, 3>(_O_P_COM, _O_V_COM) =
           _params.dt * Eigen::Matrix3d::Identity();
@@ -309,7 +309,7 @@ class SRBDynamics : public StageDynamics
         }
 
         // Assemble dU
-        dU = MatX::Zero(_params.ndq, _params.nu);
+        dU.setZero(_params.ndq, _params.nu);
         for (int i = 0; i < NF; ++i)
         {
             int             cf   = _O_F + 3 * i;

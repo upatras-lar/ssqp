@@ -217,8 +217,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
         if constexpr (SM == SolverMode::Kinematics)
         {
-            dX = MatX::Zero(ctx.nv, ctx.nv);
-            dU = MatX::Zero(ctx.nv, ctx.nu + 3 * ctx.nf);
+            dX.setZero(ctx.nv, ctx.nv);
+            dU.setZero(ctx.nv, ctx.nu + 3 * ctx.nf);
 
             MatX Jint_v = MatX::Zero(ctx.nv, ctx.nv);
 
@@ -339,8 +339,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_q, 0);
             pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_v, 1);
 
-            dX = MatX::Zero(2 * ctx.nv, 2 * ctx.nv);
-            dU = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
+            dX.setZero(2 * ctx.nv, 2 * ctx.nv);
+            dU.setZero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
 
             if constexpr (IS == IntegrationScheme::ExplicitEuler)
             {
@@ -522,13 +522,13 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
     {
         if constexpr (SM == SolverMode::Kinematics)
         {
-            Pxx = MatX::Zero(ctx.nv, ctx.nv);
+            Pxx.setZero(ctx.nv, ctx.nv);
         }
         else if constexpr (SM == SolverMode::ForwardDynamics ||
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-            Pxx = MatX::Zero(2 * ctx.nv, 2 * ctx.nv);
+            Pxx.setZero(2 * ctx.nv, 2 * ctx.nv);
         }
     };
 
@@ -537,19 +537,19 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
     {
         if constexpr (SM == SolverMode::Kinematics)
         {
-            Pxu = MatX::Zero(ctx.nv, ctx.nu + 3 * ctx.nf);
+            Pxu.setZero(ctx.nv, ctx.nu + 3 * ctx.nf);
         }
         else if constexpr (SM == SolverMode::ForwardDynamics ||
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-            Pxu = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
+            Pxu.setZero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
         }
     };
 
     auto dyn_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu = MatX::Zero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
+    { Puu.setZero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
 
     if constexpr (SM == SolverMode::Kinematics)
     {
@@ -682,38 +682,35 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     {
         if constexpr (SM == SolverMode::Kinematics)
         {
-            dX = MatX::Zero(_bounded_joint_indices.size(), ctx.nv);
+            dX.setZero(_bounded_joint_indices.size(), ctx.nv);
 
             if constexpr (IsTerminal)
             {
-                dU = MatX::Zero(_bounded_joint_indices.size(), 0);
+                dU.setZero(_bounded_joint_indices.size(), 0);
             }
             else
             {
-                dU = MatX::Zero(_bounded_joint_indices.size(),
-                                ctx.nu + 3 * ctx.nf);
+                dU.setZero(_bounded_joint_indices.size(), ctx.nu + 3 * ctx.nf);
             }
         }
         else if constexpr (IsTerminal)
         {
-            dX = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
-                            2 * ctx.nv);
-            dU = MatX::Zero(_bounded_joint_indices.size() + nv_reduced, 0);
+            dX.setZero(_bounded_joint_indices.size() + nv_reduced, 2 * ctx.nv);
+            dU.setZero(_bounded_joint_indices.size() + nv_reduced, 0);
         }
         else if constexpr (SM == SolverMode::ForwardDynamics)
         {
-            dX = MatX::Zero(_bounded_joint_indices.size() + 2 * nv_reduced,
-                            2 * ctx.nv);
-            dU = MatX::Zero(_bounded_joint_indices.size() + 2 * nv_reduced,
-                            ctx.nu + 3 * ctx.nf);
+            dX.setZero(_bounded_joint_indices.size() + 2 * nv_reduced,
+                       2 * ctx.nv);
+            dU.setZero(_bounded_joint_indices.size() + 2 * nv_reduced,
+                       ctx.nu + 3 * ctx.nf);
         }
         else if constexpr (SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-            dX = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
-                            2 * ctx.nv);
-            dU = MatX::Zero(_bounded_joint_indices.size() + nv_reduced,
-                            ctx.nu + 3 * ctx.nf);
+            dX.setZero(_bounded_joint_indices.size() + nv_reduced, 2 * ctx.nv);
+            dU.setZero(_bounded_joint_indices.size() + nv_reduced,
+                       ctx.nu + 3 * ctx.nf);
         }
 
         for (uint i = 0; i < _bounded_joint_indices.size(); ++i)
@@ -771,13 +768,13 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     {
         if constexpr (SM == SolverMode::Kinematics)
         {
-            Pxx = MatX::Zero(ctx.nv, ctx.nv);
+            Pxx.setZero(ctx.nv, ctx.nv);
         }
         else if constexpr (SM == SolverMode::ForwardDynamics ||
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-            Pxx = MatX::Zero(2 * ctx.nv, 2 * ctx.nv);
+            Pxx.setZero(2 * ctx.nv, 2 * ctx.nv);
         }
     };
 
@@ -786,19 +783,19 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     {
         if constexpr (SM == SolverMode::Kinematics)
         {
-            Pxu = MatX::Zero(ctx.nv, ctx.nu + 3 * ctx.nf);
+            Pxu.setZero(ctx.nv, ctx.nu + 3 * ctx.nf);
         }
         else if constexpr (SM == SolverMode::ForwardDynamics ||
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-            Pxu = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
+            Pxu.setZero(2 * ctx.nv, ctx.nu + 3 * ctx.nf);
         }
     };
 
     auto innate_constraint_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu = MatX::Zero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
+    { Puu.setZero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
 
     if constexpr (SM == SolverMode::Kinematics)
     {
@@ -990,8 +987,8 @@ Model::_makeStageIDTorqueConstraints(
         VecX ctrl = u.head(ctx.nu);
         VecX f    = u.tail(3 * ctx.nf);
 
-        dX = MatX::Zero(ctx.nu, 2 * ctx.nv);
-        dU = MatX::Zero(ctx.nu, ctx.nu + 3 * ctx.nf);
+        dX.setZero(ctx.nu, 2 * ctx.nv);
+        dU.setZero(ctx.nu, ctx.nu + 3 * ctx.nf);
 
         MatX Jf_full;
 
@@ -1112,15 +1109,15 @@ Model::_makeStageIDTorqueConstraints(
 
     auto innate_constraint_hessprod_xx =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
-    { Pxx = MatX::Zero(2 * ctx.nv, 2 * ctx.nv); };
+    { Pxx.setZero(2 * ctx.nv, 2 * ctx.nv); };
 
     auto innate_constraint_hessprod_xu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
-    { Pxu = MatX::Zero(2 * ctx.nv, ctx.nu + 3 * ctx.nf); };
+    { Pxu.setZero(2 * ctx.nv, ctx.nu + 3 * ctx.nf); };
 
     auto innate_constraint_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu = MatX::Zero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
+    { Puu.setZero(ctx.nu + 3 * ctx.nf, ctx.nu + 3 * ctx.nf); };
 
     return stagewise::factory::make_constraints(
       { ctx.stage_constraints_name },
@@ -1352,18 +1349,18 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
 
     if constexpr (WithForces)
     {
-        da_df_reordered = MatX::Zero(nv, 3 * nf);
+        da_df_reordered.setZero(nv, 3 * nf);
 
         da_df_reordered.topRows(n_unact) = Muu_ldlt.solve(Ju.transpose());
     }
 
-    da_dq  = MatX::Zero(nv, nv);
-    da_dv  = MatX::Zero(nv, nv);
-    da_daj = MatX::Zero(nv, nu);
+    da_dq.setZero(nv, nv);
+    da_dv.setZero(nv, nv);
+    da_daj.setZero(nv, nu);
 
     if constexpr (WithForces)
     {
-        da_df = MatX::Zero(nv, 3 * nf);
+        da_df.setZero(nv, 3 * nf);
     }
 
     if constexpr (FloatingBase)

@@ -469,7 +469,7 @@ void Model::_buildXMLDynamics(const Config &config)
     // TODO: do not make S if unneeded
     if (_actuated_joints.size() == _dims.njoints)
     {
-        S.bottomRightCorner(nv_act, nv_act) = MatX::Identity(nv_act, nv_act);
+        S.bottomRightCorner(nv_act, nv_act).setIdentity();
     }
     else
     {
@@ -512,7 +512,7 @@ void Model::_buildXMLDynamics(const Config &config)
             nx = _dims.nq + _dims.nv;
         }
 
-        init_state = VecX::Zero(nx);
+        init_state.setZero(nx);
 
         uint offset = 0;
         if (_free_flyer)

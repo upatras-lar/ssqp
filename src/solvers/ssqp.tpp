@@ -201,8 +201,8 @@ void ssqp::_setup_qp()
         }
         else
         {
-            _qp.stages[k].D  = MatX::Zero(0, _qp.dims.stage_state[k]);
-            _qp.stages[k].E  = MatX::Zero(0, _qp.dims.stage_control[k]);
+            _qp.stages[k].D.setZero(0, _qp.dims.stage_state[k]);
+            _qp.stages[k].E.setZero(0, _qp.dims.stage_control[k]);
             _qp.stages[k].cl = _emptyVec;
             _qp.stages[k].cu = _emptyVec;
         }
@@ -266,7 +266,7 @@ void ssqp::_setup_qp()
     }
     else
     {
-        _qp.Dt   = MatX::Zero(0, _qp.dims.stage_state[_qp.dims.horizon]);
+        _qp.Dt.setZero(0, _qp.dims.stage_state[_qp.dims.horizon]);
         _qp.cl_t = _emptyVec;
         _qp.cu_t = _emptyVec;
     }
