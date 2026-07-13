@@ -1453,7 +1453,9 @@ std::shared_ptr<Test> get_frames_inverse_squared_distance_cost_grad_test()
     std::shared_ptr<FDGradCost> cost_test =
       std::make_shared<FDGradCost>("FramesInverseSquaredDistanceCostGradTest",
                                    model,
-                                   0);
+                                   0,
+                                   100,
+                                   1e-6);
 
     return cost_test;
 }
