@@ -956,7 +956,7 @@ FloatingBaseSquaredPoseErrorCost::FloatingBaseSquaredPoseErrorCost(
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _desired_pose(desired_pose)
-  , _desired_pose_inv(desired_pose.inverse())
+  , _desired_pose_inv(inverseSE3(desired_pose))
   , _weight(Mat6::Zero())
 {
     assert(model.xml() &&
@@ -975,7 +975,7 @@ FloatingBaseSquaredPoseErrorCost::FloatingBaseSquaredPoseErrorCost(
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _desired_pose(desired_pose)
-  , _desired_pose_inv(desired_pose.inverse())
+  , _desired_pose_inv(inverseSE3(desired_pose))
   , _weight(Mat6::Zero())
 {
     assert(model.xml() &&
@@ -1058,21 +1058,21 @@ void FloatingBaseSquaredPoseErrorCost::set_desired_pose(
   const Mat4 &desired_pose)
 {
     _desired_pose     = desired_pose;
-    _desired_pose_inv = desired_pose.inverse();
+    _desired_pose_inv = inverseSE3(desired_pose);
 }
 
 void FloatingBaseSquaredPoseErrorCost::set_desired_translation(
   const Vec3 &desired_translation)
 {
     _desired_pose.topRightCorner<3, 1>() = desired_translation;
-    _desired_pose_inv                    = _desired_pose.inverse();
+    _desired_pose_inv                    = inverseSE3(_desired_pose);
 }
 
 void FloatingBaseSquaredPoseErrorCost::set_desired_rotation(
   const Mat3 &desired_rotation)
 {
     _desired_pose.topLeftCorner<3, 3>() = desired_rotation;
-    _desired_pose_inv                   = _desired_pose.inverse();
+    _desired_pose_inv                   = inverseSE3(_desired_pose);
 }
 
 void FloatingBaseSquaredPoseErrorCost::set_translation_weight(
@@ -1516,7 +1516,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _desired_pose(desired_pose)
-  , _desired_pose_inv(desired_pose.inverse())
+  , _desired_pose_inv(inverseSE3(desired_pose))
   , _weight(Mat6::Zero())
 {
     assert(model.xml() &&
@@ -1538,7 +1538,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(const Model       &model,
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _desired_pose(desired_pose)
-  , _desired_pose_inv(desired_pose.inverse())
+  , _desired_pose_inv(inverseSE3(desired_pose))
   , _weight(Mat6::Zero())
 {
     assert(model.xml() &&
@@ -1620,21 +1620,21 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
 void FrameSquaredPoseErrorCost::set_desired_pose(const Mat4 &desired_pose)
 {
     _desired_pose     = desired_pose;
-    _desired_pose_inv = desired_pose.inverse();
+    _desired_pose_inv = inverseSE3(desired_pose);
 }
 
 void FrameSquaredPoseErrorCost::set_desired_translation(
   const Vec3 &desired_translation)
 {
     _desired_pose.block<3, 1>(0, 3) = desired_translation;
-    _desired_pose_inv               = _desired_pose.inverse();
+    _desired_pose_inv               = inverseSE3(_desired_pose);
 }
 
 void FrameSquaredPoseErrorCost::set_desired_rotation(
   const Mat3 &desired_rotation)
 {
     _desired_pose.block<3, 3>(0, 0) = desired_rotation;
-    _desired_pose_inv               = _desired_pose.inverse();
+    _desired_pose_inv               = inverseSE3(_desired_pose);
 }
 
 void FrameSquaredPoseErrorCost::set_translation_weight(

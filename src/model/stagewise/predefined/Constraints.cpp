@@ -428,7 +428,7 @@ FloatingBasePoseBound::FloatingBasePoseBound(const Model &model,
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _Tref(Tref)
-  , _Tref_inv(Tref.inverse())
+  , _Tref_inv(inverseSE3(Tref))
   , _lb(lb)
   , _ub(ub)
 {
@@ -455,19 +455,19 @@ FloatingBasePoseBound::FloatingBasePoseBound(const Model &model,
 void FloatingBasePoseBound::set_Tref(const Mat4 &Tref)
 {
     _Tref     = Tref;
-    _Tref_inv = Tref.inverse();
+    _Tref_inv = inverseSE3(Tref);
 }
 
 void FloatingBasePoseBound::set_tref(const Vec3 &tref)
 {
     _Tref.block<3, 1>(0, 3) = tref.transpose();
-    _Tref_inv               = _Tref.inverse();
+    _Tref_inv               = inverseSE3(_Tref);
 }
 
 void FloatingBasePoseBound::set_Rref(const Mat3 &Rref)
 {
     _Tref.block<3, 3>(0, 0) = Rref;
-    _Tref_inv               = _Tref.inverse();
+    _Tref_inv               = inverseSE3(_Tref);
 }
 
 void FloatingBasePoseBound::set_lower_bound(const Vec6 &lb)
@@ -865,7 +865,7 @@ FramePoseBound::FramePoseBound(const Model &model, const std::string &frame,
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _Tref(Tref)
-  , _Tref_inv(Tref.inverse())
+  , _Tref_inv(inverseSE3(Tref))
   , _lb(lb)
   , _ub(ub)
 {
@@ -891,19 +891,19 @@ FramePoseBound::FramePoseBound(const Model &model, const std::string &frame,
 void FramePoseBound::set_Tref(const Mat4 &Tref)
 {
     _Tref     = Tref;
-    _Tref_inv = Tref.inverse();
+    _Tref_inv = inverseSE3(Tref);
 }
 
 void FramePoseBound::set_tref(const Vec3 &tref)
 {
     _Tref.block<3, 1>(0, 3) = tref.transpose();
-    _Tref_inv               = _Tref.inverse();
+    _Tref_inv               = inverseSE3(_Tref);
 }
 
 void FramePoseBound::set_Rref(const Mat3 &Rref)
 {
     _Tref.block<3, 3>(0, 0) = Rref;
-    _Tref_inv               = _Tref.inverse();
+    _Tref_inv               = inverseSE3(_Tref);
 }
 
 void FramePoseBound::set_lower_bound(const Vec6 &lb)
