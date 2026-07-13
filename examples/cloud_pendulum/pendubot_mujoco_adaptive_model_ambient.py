@@ -39,6 +39,18 @@ bounds = np.array(
 
 print("Initial parameters:", initial_params)
 
+"""
+m1r1       = +5.246e-03
+I1         = +2.545e-04
+cf1        = +1.829e-03
+b1         = +1.817e-04
+m2r2       = +2.978e-03
+m2         = +8.029e-02
+I2         = +1.626e-04
+cf2        = +1.992e-03
+b2         = +4.228e-04
+"""
+
 # ssqpy.setSilentMode()
 # ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)

@@ -39,6 +39,21 @@ bounds = np.array(
 
 print("Initial parameters:", initial_params)
 
+actual = [
+    5.246e-03,
+    2.545e-04,
+    1.829e-03,
+    1.817e-04,
+    2.978e-03,
+    8.029e-02,
+    1.626e-04,
+    1.992e-03,
+    4.228e-04,
+]
+
+np.set_printoptions(suppress=True)
+print("Actual:", actual)
+
 # ssqpy.setSilentMode()
 # ssqpy.setLogLevel(ssqpy.LogLevel.Warning)
 # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
