@@ -37,7 +37,7 @@ QPSolverTest::_loadQPDataFromFile(const std::string &data_file)
     const auto get_vector = [data](json v_data, VecX &v)
     {
         uint rows = v_data["rows"];
-        v         = VecX(rows);
+        v.resize(rows);
 
         for (uint row = 0; row < rows; ++row)
         {
@@ -61,7 +61,7 @@ QPSolverTest::_loadQPDataFromFile(const std::string &data_file)
     {
         uint rows = M_data["rows"];
         uint cols = M_data["cols"];
-        M         = MatX(rows, cols);
+        M.resize(rows, cols);
 
         for (uint row = 0; row < rows; ++row)
         {

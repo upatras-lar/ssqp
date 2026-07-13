@@ -99,25 +99,25 @@ namespace model
 // TODO: These use x.rows() and x.cols()
 // But if n_x != n_{dx}, they will fail
 inline auto ZeroHessian_xx = [](const VecX &x, const VecX &u, MatX &Hxx)
-{ Hxx = MatX::Zero(x.rows(), x.rows()); };
+{ Hxx.setZero(x.rows(), x.rows()); };
 
 inline auto ZeroHessian_xu = [](const VecX &x, const VecX &u, MatX &Hxu)
-{ Hxu = MatX::Zero(x.rows(), u.rows()); };
+{ Hxu.setZero(x.rows(), u.rows()); };
 
 inline auto ZeroHessian_uu = [](const VecX &x, const VecX &u, MatX &Huu)
-{ Huu = MatX::Zero(u.rows(), u.rows()); };
+{ Huu.setZero(u.rows(), u.rows()); };
 
 inline auto ZeroHessprod_xx =
   [](const VecX &x, const VecX &u, const VecX &vec, MatX &Pxx)
-{ Pxx = MatX::Zero(x.rows(), x.rows()); };
+{ Pxx.setZero(x.rows(), x.rows()); };
 
 inline auto ZeroHessprod_xu =
   [](const VecX &x, const VecX &u, const VecX &vec, MatX &Pxu)
-{ Pxu = MatX::Zero(x.rows(), u.rows()); };
+{ Pxu.setZero(x.rows(), u.rows()); };
 
 inline auto ZeroHessprod_uu =
   [](const VecX &x, const VecX &u, const VecX &vec, MatX &Puu)
-{ Puu = MatX::Zero(u.rows(), u.rows()); };
+{ Puu.setZero(u.rows(), u.rows()); };
 
 inline auto DefaultRightMinus = [](const VecX &x, const VecX &y)
 { return x - y; };

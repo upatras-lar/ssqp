@@ -72,7 +72,7 @@ void SquaredJointAngleCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
     if (_free_flyer)
     {
         dx.segment(6, _nv - 6) =
@@ -83,14 +83,14 @@ void SquaredJointAngleCost::gradient(const VecX &x, const VecX &u, VecX &dx,
         dx.head(_nv) = _weight.array().square() * x.head(_nv).array();
     }
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 void SquaredJointAngleCost::hessian_xx(const VecX &x, const VecX &u,
                                        MatX &Hxx) const
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
 
     if (_free_flyer)
     {
@@ -105,13 +105,13 @@ void SquaredJointAngleCost::hessian_xx(const VecX &x, const VecX &u,
 void SquaredJointAngleCost::hessian_xu(const VecX &x, const VecX &u,
                                        MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void SquaredJointAngleCost::hessian_uu(const VecX &x, const VecX &u,
                                        MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // SquaredJointVelocityCost
@@ -171,10 +171,10 @@ void SquaredJointVelocityCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 {
     assert(x.size() >= _njoints && "Invalid state passed (size < njoints)");
 
-    dx                = VecX::Zero(2 * _nv);
+    dx.setZero(2 * _nv);
     dx.tail(_njoints) = _weight.array().square() * x.tail(_njoints).array();
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void SquaredJointVelocityCost::hessian_xx(const VecX &x, const VecX &u,
@@ -182,7 +182,7 @@ void SquaredJointVelocityCost::hessian_xx(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _njoints && "Invalid state passed (size < njoints)");
 
-    Hxx = MatX::Zero(2 * _nv, 2 * _nv);
+    Hxx.setZero(2 * _nv, 2 * _nv);
     Hxx.bottomRightCorner(_njoints, _njoints).diagonal() =
       _weight.array().square();
 }
@@ -190,13 +190,13 @@ void SquaredJointVelocityCost::hessian_xx(const VecX &x, const VecX &u,
 void SquaredJointVelocityCost::hessian_xu(const VecX &x, const VecX &u,
                                           MatX &Hxu) const
 {
-    Hxu = MatX::Zero(2 * _nv, u.size());
+    Hxu.setZero(2 * _nv, u.size());
 }
 
 void SquaredJointVelocityCost::hessian_uu(const VecX &x, const VecX &u,
                                           MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // SquaredControlCost
@@ -256,8 +256,8 @@ void SquaredControlCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 {
     assert(u.size() >= _nu && "Invalid control passed (size < nu)");
 
-    dx           = VecX::Zero(_ndx);
-    du           = VecX::Zero(u.size());
+    dx.setZero(_ndx);
+    du.setZero(u.size());
     du.head(_nu) = _weight.array().square() * u.head(_nu).array();
 }
 
@@ -266,13 +266,13 @@ void SquaredControlCost::hessian_xx(const VecX &x, const VecX &u,
 {
     assert(u.size() >= _nu && "Invalid control passed (size < nu)");
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
 }
 
 void SquaredControlCost::hessian_xu(const VecX &x, const VecX &u,
                                     MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
@@ -280,7 +280,7 @@ void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
 {
     assert(u.size() >= _nu && "Invalid control passed (size < nu)");
 
-    Huu                                    = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
     Huu.topLeftCorner(_nu, _nu).diagonal() = _weight.array().square();
 }
 
@@ -362,11 +362,11 @@ void SquaredIDTorqueCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                        ddq_dv,
                                        M);
 
-    dx           = VecX::Zero(2 * _nv);
+    dx.setZero(2 * _nv);
     dx.head(_nv) = ddq_dq.transpose() * w_tau;
     dx.tail(_nv) = ddq_dv.transpose() * w_tau;
 
-    du           = VecX::Zero(u.size());
+    du.setZero(u.size());
     du.head(_nu) = M.transpose() * w_tau;
 }
 
@@ -494,8 +494,8 @@ void SquaredForceCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 {
     assert(u.size() >= _nu && "Invalid control passed (size < nu)");
 
-    dx = VecX::Zero(_ndx);
-    du = VecX::Zero(u.size());
+    dx.setZero(_ndx);
+    du.setZero(u.size());
 
     if (_single_weight)
     {
@@ -510,19 +510,19 @@ void SquaredForceCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 
 void SquaredForceCost::hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const
 {
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
 }
 
 void SquaredForceCost::hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void SquaredForceCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
 {
     assert(u.size() >= _nu && "Invalid control passed (size < nu)");
 
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
     if (_single_weight)
     {
         Huu.bottomRightCorner(u.size() - _nu, u.size() - _nu)
@@ -655,7 +655,7 @@ void SquaredConfigurationErrorCost::gradient(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
 
     VecX diff = _model->difference(x.head(_nq), _full_desired_configuration);
     VecX weighted_diff =
@@ -675,7 +675,7 @@ void SquaredConfigurationErrorCost::gradient(const VecX &x, const VecX &u,
         dx.head(_nv) = J.transpose() * weighted_diff;
     }
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void SquaredConfigurationErrorCost::hessian_xx(const VecX &x, const VecX &u,
@@ -683,7 +683,7 @@ void SquaredConfigurationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
 
     MatX J = MatX::Zero(_nv, _nv);
     _model->dDifference(x.head(_nq), _full_desired_configuration, J, 0);
@@ -705,13 +705,13 @@ void SquaredConfigurationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 void SquaredConfigurationErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void SquaredConfigurationErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                                MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FloatingBaseSquaredTranslationErrorCost
@@ -787,13 +787,13 @@ void FloatingBaseSquaredTranslationErrorCost::gradient(const VecX &x,
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
     Mat3               R = q.toRotationMatrix();
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
     dx.head<3>() =
       R.transpose() *
       (_weight.array().square() * (x.head<3>() - _desired_translation).array())
         .matrix();
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 // TODO: This hessian also!
@@ -804,7 +804,7 @@ void FloatingBaseSquaredTranslationErrorCost::hessian_xx(const VecX &x,
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
     Mat3               R = q.toRotationMatrix();
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.diagonal().head<3>() =
       R.transpose() * _weight.array().square().matrix();
 }
@@ -813,14 +813,14 @@ void FloatingBaseSquaredTranslationErrorCost::hessian_xu(const VecX &x,
                                                          const VecX &u,
                                                          MatX       &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void FloatingBaseSquaredTranslationErrorCost::hessian_uu(const VecX &x,
                                                          const VecX &u,
                                                          MatX       &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FloatingBaseSquaredRotationErrorCost
@@ -896,7 +896,7 @@ void FloatingBaseSquaredRotationErrorCost::gradient(const VecX &x,
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
     Mat3               R = q.toRotationMatrix();
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
 
     Mat3 d           = R.transpose() * _desired_rotation;
     Vec3 phi         = pinocchio_wrapper::logSO3(d);
@@ -904,7 +904,7 @@ void FloatingBaseSquaredRotationErrorCost::gradient(const VecX &x,
     dx.segment<3>(3) = _weight.array().square() *
                        ((-j_r_inv * d.transpose()).transpose() * phi).array();
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 // Hessians use GN approximation
@@ -921,7 +921,7 @@ void FloatingBaseSquaredRotationErrorCost::hessian_xx(const VecX &x,
 
     Mat3 J = -j_r_inv * d.transpose();
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.block<3, 3>(3, 3) =
       J.transpose() * _weight.array().square().matrix().asDiagonal() * J;
 }
@@ -930,14 +930,14 @@ void FloatingBaseSquaredRotationErrorCost::hessian_xu(const VecX &x,
                                                       const VecX &u,
                                                       MatX       &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void FloatingBaseSquaredRotationErrorCost::hessian_uu(const VecX &x,
                                                       const VecX &u,
                                                       MatX       &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FloatingBaseSquaredPoseErrorCost
@@ -1127,10 +1127,10 @@ void FloatingBaseSquaredPoseErrorCost::gradient(const VecX &x, const VecX &u,
     Vec6 log6  = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6 = pinocchio_wrapper::JlogSE3(d);
 
-    dx           = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
     dx.head<6>() = Jlog6.transpose() * _weight * log6;
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 // Hessians use GN approximation
@@ -1149,20 +1149,20 @@ void FloatingBaseSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
     Vec6 log6  = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6 = pinocchio_wrapper::JlogSE3(d);
 
-    Hxx                       = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner<6, 6>() = Jlog6.transpose() * _weight * Jlog6;
 }
 
 void FloatingBaseSquaredPoseErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                   MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void FloatingBaseSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                                   MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FloatingBaseSquaredVelocityErrorCost
@@ -1233,19 +1233,19 @@ void FloatingBaseSquaredVelocityErrorCost::gradient(const VecX &x,
 {
     assert(x.size() >= _nq + 6 && "Invalid state passed (size < nq + 6)");
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
 
     dx.segment<6>(_nv) = _weight.array().square() *
                          (x.segment<6>(_nq) - _desired_velocity).array();
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void FloatingBaseSquaredVelocityErrorCost::hessian_xx(const VecX &x,
                                                       const VecX &u,
                                                       MatX       &Hxx) const
 {
-    Hxx                                  = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.block<6, 6>(_nv, _nv).diagonal() = _weight.array().square();
 }
 
@@ -1253,14 +1253,14 @@ void FloatingBaseSquaredVelocityErrorCost::hessian_xu(const VecX &x,
                                                       const VecX &u,
                                                       MatX       &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void FloatingBaseSquaredVelocityErrorCost::hessian_uu(const VecX &x,
                                                       const VecX &u,
                                                       MatX       &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FrameSquaredTranslationErrorCost
@@ -1338,14 +1338,14 @@ void FrameSquaredTranslationErrorCost::gradient(const VecX &x, const VecX &u,
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
     MatX Jfk                   = _model->frameJacobian(x.head(_nq), _frame);
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
 
     dx.head(_nv) =
       Jfk.topRows(3).transpose() *
       (_weight.array().square() * (pos - _desired_translation).array())
         .matrix();
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void FrameSquaredTranslationErrorCost::hessian_xx(const VecX &x, const VecX &u,
@@ -1355,7 +1355,7 @@ void FrameSquaredTranslationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 
     MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) =
       Jfk.topRows(3).transpose() *
       _weight.array().square().matrix().asDiagonal() * Jfk.topRows(3);
@@ -1364,13 +1364,13 @@ void FrameSquaredTranslationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 void FrameSquaredTranslationErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                   MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void FrameSquaredTranslationErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                                   MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FrameSquaredRotationErrorCost
@@ -1449,7 +1449,7 @@ void FrameSquaredRotationErrorCost::gradient(const VecX &x, const VecX &u,
     std::tie(std::ignore, R) = _model->forwardKinematics(x.head(_nq), _frame);
     MatX Jfk                 = _model->frameJacobian(x.head(_nq), _frame, true);
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
 
     Mat3 d       = R.transpose() * _desired_rotation;
     Vec3 phi     = pinocchio_wrapper::logSO3(d);
@@ -1460,7 +1460,7 @@ void FrameSquaredRotationErrorCost::gradient(const VecX &x, const VecX &u,
                      .transpose() *
                    phi;
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void FrameSquaredRotationErrorCost::hessian_xx(const VecX &x, const VecX &u,
@@ -1478,7 +1478,7 @@ void FrameSquaredRotationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 
     MatX J = -j_r_inv * d.transpose() * jac;
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) =
       J.transpose() * _weight.array().square().matrix().asDiagonal() * J;
 }
@@ -1486,13 +1486,13 @@ void FrameSquaredRotationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 void FrameSquaredRotationErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void FrameSquaredRotationErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                                MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FrameSquaredPoseErrorCost
@@ -1681,10 +1681,10 @@ void FrameSquaredPoseErrorCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     Vec6 log6  = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6 = pinocchio_wrapper::JlogSE3(d);
 
-    dx           = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
     dx.head(_nv) = (Jlog6 * Jfk).transpose() * _weight * log6;
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void FrameSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
@@ -1701,20 +1701,20 @@ void FrameSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
 
     MatX J = Jlog6 * Jfk;
 
-    Hxx                         = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) = J.transpose() * _weight * J;
 }
 
 void FrameSquaredPoseErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                            MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void FrameSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                            MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FrameSquaredVelocityErrorCost
@@ -1798,12 +1798,12 @@ void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
     std::tie(dVdq, dVdv) =
       _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame, true);
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
 
     dx.head(_nv) = dVdq.transpose() * diff;
     dx.tail(_nv) = dVdv.transpose() * diff;
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void FrameSquaredVelocityErrorCost::hessian_xx(const VecX &x, const VecX &u,
@@ -1811,19 +1811,19 @@ void FrameSquaredVelocityErrorCost::hessian_xx(const VecX &x, const VecX &u,
 {
     MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.bottomRightCorner(_nv, _nv) =
       Jfk.transpose() * _weight.array().square().matrix().asDiagonal() * Jfk;
 }
 void FrameSquaredVelocityErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 void FrameSquaredVelocityErrorCost::hessian_uu(const VecX &x, const VecX &u,
                                                MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // CenterOfMassTrackingCost
@@ -1892,12 +1892,12 @@ void CenterOfMassTrackingCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     Vec3 CoM  = _model->centerOfMass(q);
     MatX JCoM = _model->jacobianCenterOfMass(q);
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
     dx.head(_nv).noalias() =
       JCoM.transpose() *
       (_weight.array().square() * (CoM - _cref).array()).matrix();
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void CenterOfMassTrackingCost::hessian_xx(const VecX &x, const VecX &u,
@@ -1905,7 +1905,7 @@ void CenterOfMassTrackingCost::hessian_xx(const VecX &x, const VecX &u,
 {
     MatX JCoM = _model->jacobianCenterOfMass(x.head(_nq));
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) =
       JCoM.transpose() * _weight.array().square().matrix().asDiagonal() * JCoM;
 }
@@ -1913,13 +1913,13 @@ void CenterOfMassTrackingCost::hessian_xx(const VecX &x, const VecX &u,
 void CenterOfMassTrackingCost::hessian_xu(const VecX &x, const VecX &u,
                                           MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void CenterOfMassTrackingCost::hessian_uu(const VecX &x, const VecX &u,
                                           MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 // FramesInverseSquaredDistanceCost
@@ -2029,7 +2029,7 @@ void FramesInverseSquaredDistanceCost::gradient(const VecX &x, const VecX &u,
           _model->frameJacobian(x.head(_nq), _frames[i]).topRows<3>();
     }
 
-    dx = VecX::Zero(_ndx);
+    dx.setZero(_ndx);
 
     Vec3 d2 = _distance_scale.array().square();
 
@@ -2049,7 +2049,7 @@ void FramesInverseSquaredDistanceCost::gradient(const VecX &x, const VecX &u,
         }
     }
 
-    du = VecX::Zero(u.size());
+    du.setZero(u.size());
 }
 
 void FramesInverseSquaredDistanceCost::hessian_xx(const VecX &x, const VecX &u,
@@ -2066,7 +2066,7 @@ void FramesInverseSquaredDistanceCost::hessian_xx(const VecX &x, const VecX &u,
           _model->frameJacobian(x.head(_nq), _frames[i]).topRows<3>();
     }
 
-    Hxx = MatX::Zero(_ndx, _ndx);
+    Hxx.setZero(_ndx, _ndx);
 
     Vec3 d2 = _distance_scale.array().square();
 
@@ -2093,13 +2093,13 @@ void FramesInverseSquaredDistanceCost::hessian_xx(const VecX &x, const VecX &u,
 void FramesInverseSquaredDistanceCost::hessian_xu(const VecX &x, const VecX &u,
                                                   MatX &Hxu) const
 {
-    Hxu = MatX::Zero(_ndx, u.size());
+    Hxu.setZero(_ndx, u.size());
 }
 
 void FramesInverseSquaredDistanceCost::hessian_uu(const VecX &x, const VecX &u,
                                                   MatX &Huu) const
 {
-    Huu = MatX::Zero(u.size(), u.size());
+    Huu.setZero(u.size(), u.size());
 }
 
 }

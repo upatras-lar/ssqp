@@ -410,8 +410,8 @@ std::shared_ptr<StageConstraints> merge_constraints(
             c1->gradient(x, u, tmp_dX, tmp_dU);
 
             uint ndx = tmp_dX.cols();
-            dX       = MatX::Zero(ndc, ndx);
-            dU       = MatX::Zero(ndc, u.size());
+            dX.setZero(ndc, ndx);
+            dU.setZero(ndc, u.size());
 
             dX.block(0, 0, c1->constraint_diff_size(), ndx) = tmp_dX;
             if (u.size())
