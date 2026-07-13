@@ -223,6 +223,8 @@ inline const std::unordered_map<std::string, SolverMode> str_to_DM = {
 
 std::string format_double(double val, uint precision);
 
+Mat4 inverseSE3(const Mat4 &T);
+
 template<typename ManifoldOperator1, typename ManifoldOperator2>
 struct ManifoldOperators
 {

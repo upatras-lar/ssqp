@@ -60,6 +60,19 @@ std::string format_double(double val, uint precision)
     return oss.str();
 }
 
+Mat4 inverseSE3(const Mat4 &T)
+{
+    Mat3 RT = T.topLeftCorner<3, 3>().transpose();
+    Vec3 p  = T.topRightCorner<3, 1>();
+
+    Mat4 Tinv                             = Mat4::Zero();
+    Tinv.topLeftCorner<3, 3>()            = RT;
+    Tinv.topRightCorner<3, 1>().noalias() = -RT * p;
+    Tinv(3, 3)                            = 1.0;
+
+    return Tinv;
+}
+
 namespace solvers
 {
 FlatVec::FlatVec(const uint total_size, const std::vector<uint> &dims)
