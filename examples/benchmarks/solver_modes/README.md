@@ -1,7 +1,5 @@
 # SSQP Benchmarks
-This directory contains scripts used to benchmark various aspects for our solver.
-
-Currently, the scripts contained in this directory serve the purpose of comparing the performance of the forward and inverse dynamics formulations for different types of OCPs.
+The scripts contained in this directory serve the purpose of comparing the performance of the forward and inverse dynamics formulations for different types of OCPs.
 
 We perform these comparisons for offline trajectory generation (`trajgen` directory) as well as MPC (`mpc` directory).
 

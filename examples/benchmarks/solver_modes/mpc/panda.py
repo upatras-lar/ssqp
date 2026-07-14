@@ -73,7 +73,7 @@ def run(dynamics_mode, constrain):
     model = ssqpy.model.Model(
         mpc_H,
         mpc_dt,
-        urdf_path="../../assets/urdf/panda/panda.urdf",
+        urdf_path="../../../assets/urdf/panda/panda.urdf",
         solver_mode=dynamics_mode,
     )
 

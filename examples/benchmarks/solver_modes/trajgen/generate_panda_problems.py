@@ -50,7 +50,7 @@ def get_panda_circle_problem(dynamics_mode):
     circle_problem = ssqpy.model.Model(
         H,
         dt,
-        urdf_path="../../assets/urdf/panda/panda.urdf",
+        urdf_path="../../../assets/urdf/panda/panda.urdf",
         solver_mode=dynamics_mode,
     )
 
@@ -123,7 +123,7 @@ def get_panda_obstacle_problem(dynamics_mode):
     obstacle_problem = ssqpy.model.Model(
         H,
         dt,
-        urdf_path="../../assets/urdf/panda/panda.urdf",
+        urdf_path="../../../assets/urdf/panda/panda.urdf",
         solver_mode=dynamics_mode,
     )
 
@@ -224,7 +224,7 @@ def generate_panda_feasible_region_problems(
         obstacle_problem = ssqpy.model.Model(
             H,
             dt,
-            urdf_path="../../assets/urdf/panda/panda.urdf",
+            urdf_path="../../../assets/urdf/panda/panda.urdf",
             solver_mode=dynamics_mode,
         )
 

@@ -305,14 +305,16 @@ def process_state(state):
     return np.array(angles)
 
 
+configuration_key = (
+    "joint_configuration" if data["properties"]["floating_base"] else "state"
+)
+
 # Main loop
 while True:
     # Animate each stage
     for k in range(data["properties"]["horizon"]):
         start = time()
-        configuration = process_state(
-            data["stage_data"][k]["joint_configuration"]
-        )
+        configuration = process_state(data["stage_data"][k][configuration_key])
 
         urdf.update_cfg(configuration)
 

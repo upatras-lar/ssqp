@@ -61,7 +61,7 @@ def run(dynamics_mode):
     model = ssqpy.model.Model(
         mpc_H,
         mpc_dt,
-        urdf_path="../../assets/urdf/go2/go2.urdf",
+        urdf_path="../../../assets/urdf/go2/go2.urdf",
         free_flyer=True,
         solver_mode=dynamics_mode,
     )

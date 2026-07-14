@@ -21,7 +21,7 @@ model = ssqpy.model.Model(
     H,
     dt,
     urdf_path="../../assets/urdf/double_pendulum/pendubot_cont.urdf",
-    actuated_joints=[0],
+    # actuated_joints=[0],
     solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
 )
 
@@ -47,7 +47,7 @@ model.finalize(terminal_cost=config_cost)
 solver = ssqpy.solvers.ssqp(
     model,
     tolerance=1e-2,
-    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
     filter_size=10,
     hpipm_warm_start=False,
     hpipm_prediction_correction=True,
