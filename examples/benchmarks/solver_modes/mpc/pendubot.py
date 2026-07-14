@@ -96,7 +96,9 @@ nu = {
 
 
 def wrap_to_reference(theta, reference=np.pi):
-    return reference + np.arctan2(np.sin(theta - reference), np.cos(theta - reference))
+    return reference + np.arctan2(
+        np.sin(theta - reference), np.cos(theta - reference)
+    )
 
 
 def run(dynamics_mode):
@@ -108,7 +110,7 @@ def run(dynamics_mode):
     model = ssqpy.model.Model(
         mpc_H,
         dt,
-        urdf_path="../../assets/urdf/double_pendulum/pendubot.urdf",
+        urdf_path="../../../assets/urdf/double_pendulum/pendubot.urdf",
         actuated_joints=[0],
         solver_mode=dynamics_mode,
     )
@@ -308,8 +310,14 @@ def get_data(dynamics_mode):
 
 
 if ALL_MODES:
-    add_plots(*get_data(ssqpy.model.SolverMode.ForwardDynamics), legend_pref="Forward")
-    add_plots(*get_data(ssqpy.model.SolverMode.InverseDynamics), legend_pref="Inverse")
+    add_plots(
+        *get_data(ssqpy.model.SolverMode.ForwardDynamics),
+        legend_pref="Forward",
+    )
+    add_plots(
+        *get_data(ssqpy.model.SolverMode.InverseDynamics),
+        legend_pref="Inverse",
+    )
     add_plots(
         *get_data(ssqpy.model.SolverMode.ReducedInverseDynamics),
         legend_pref="ReducedInverse",
