@@ -27,6 +27,10 @@
 /examples/cloud_pendulum/cloud-pendulum-venv/*
 /examples/visualizer/viser-venv/*
 
+# Scripts & examples
+/examples/benchmarks/solver/ssqp/pendubot.cpp
+/examples/benchmarks/solver/ssqp/panda.py
+
 # Configuration & other files
 /VARIABLES.sh
 /out.txt
@@ -39,5 +43,6 @@ out.txt
 test.py
 test.json
 tmp.json
+trajectory.json
 MUJOCO_LOG.TXT
 .env
