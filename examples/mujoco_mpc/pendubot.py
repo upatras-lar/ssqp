@@ -97,7 +97,10 @@ np.set_printoptions(suppress=True)
 
 delayed_control = []
 
+Ys = []
+taus = []
 i = 0
+DATA_COLLECTION_STEPS = 1000
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
@@ -143,9 +146,55 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         mjdata.ctrl = np.clip(mjdata.ctrl, -0.15, 0.15)
         mujoco.mj_step(mjmodel, mjdata)
+        mujoco.mj_forward(mjmodel, mjdata)
         viewer.sync()
+
+        q = mjdata.qpos.copy()
+        v = mjdata.qvel.copy()
+        a = mjdata.qacc.copy()
+
+        Y = model.getJointTorqueRegressor(q, v, a)
+
+        # actual torque measurement
+        mujoco.mj_inverse(mjmodel, mjdata)
+        tau = mjdata.qfrc_inverse
+
+        Ys.append(Y)
+        taus.append(tau)
 
         if REAL_TIME:
             to_sleep = dt - (time() - frame_start)
             if to_sleep > 0:
                 sleep(to_sleep)
+
+        i += 1
+        if i == DATA_COLLECTION_STEPS:
+            Y_stack = np.vstack(Ys)
+            tau_stack = np.hstack(taus)
+
+            params = model.getAllDynamicParameters()
+
+            residual = tau_stack + Y_stack @ params
+            print("Res:", np.abs(residual).max(), np.abs(residual).mean())
+
+            cols = [10]  # unknown parameters
+            known_cols = np.setdiff1d(np.arange(Y_stack.shape[1]), cols)
+
+            Y_known = Y_stack[:, known_cols]
+            Y_unknown = Y_stack[:, cols]
+
+            tau_residual = tau_stack - Y_known @ params[known_cols]
+
+            pi_hat, *_ = np.linalg.lstsq(
+                Y_unknown,
+                tau_residual,
+                rcond=None,
+            )
+            print("Previous parameters:", model.getAllDynamicParameters())
+            print("Calculated parameters:", pi_hat)
+
+            params[cols] = pi_hat
+
+            print("Final parameters:", params)
+
+            model.setAllDynamicParameters(params)

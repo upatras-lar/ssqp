@@ -203,6 +203,14 @@ Eigen::MatrixXd jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
 
 Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl);
 
+Eigen::VectorXd getAllDynamicParameters(const std::shared_ptr<ModelImpl> &impl);
+
+void setAllDynamicParameters(std::shared_ptr<ModelImpl> &impl,
+                             const Eigen::VectorXd      &parameters);
+
+Eigen::MatrixXd computeJointTorqueRegressor(
+  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
+  const Eigen::VectorXd &v, const Eigen::VectorXd &a);
 }
 }
 

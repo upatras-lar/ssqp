@@ -53,6 +53,7 @@ model.addCost(MPC_H, tip_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.adaptive_rho_tolerance = 10

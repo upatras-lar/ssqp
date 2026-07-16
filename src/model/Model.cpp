@@ -1100,6 +1100,22 @@ const MatX Model::jacobianCenterOfMass(const VecX &q) const
     return pinocchio_wrapper::jacobianCenterOfMass(_impl, q);
 }
 
+const VecX Model::getAllDynamicParameters() const
+{
+    return pinocchio_wrapper::getAllDynamicParameters(_impl);
+}
+
+void Model::setAllDynamicParameters(const VecX &parameters)
+{
+    pinocchio_wrapper::setAllDynamicParameters(_impl, parameters);
+}
+
+const MatX Model::getJointTorqueRegressor(const VecX &q, const VecX &v,
+                                          const VecX &a) const
+{
+    return pinocchio_wrapper::computeJointTorqueRegressor(_impl, q, v, a);
+}
+
 VecX Model::difference(const VecX &q0, const VecX &q1) const
 {
     if (_xml)

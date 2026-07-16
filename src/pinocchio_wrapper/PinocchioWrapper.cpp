@@ -16,6 +16,7 @@
 #include <pinocchio/algorithm/rnea.hpp>
 #include <pinocchio/algorithm/rnea-derivatives.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
+#include <pinocchio/algorithm/regressor.hpp>
 
 #include <boost/variant.hpp>
 
@@ -739,6 +740,50 @@ Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl)
                                    rc);
 
     return rc;
+}
+
+Eigen::VectorXd getAllDynamicParameters(const std::shared_ptr<ModelImpl> &impl)
+{
+    Eigen::VectorXd parameters(10 * (impl->model.njoints - 1));
+
+    for (uint i = 1; i < impl->model.njoints; ++i)
+    {
+        parameters.segment<10>(10 * (i - 1)) =
+          impl->model.inertias[i].toDynamicParameters();
+    }
+
+    return parameters;
+}
+
+void setAllDynamicParameters(std::shared_ptr<ModelImpl> &impl,
+                             const Eigen::VectorXd      &parameters)
+{
+    for (uint i = 1; i < impl->model.njoints; ++i)
+    {
+        const Eigen::VectorXd parameters_i =
+          parameters.segment<10>(10 * (i - 1));
+
+        const double          m   = parameters_i[0];
+        const Eigen::Vector3d com = parameters_i.segment<3>(1) / m;
+        Eigen::Matrix3d       I;
+
+        I << parameters_i[4], parameters_i[5], parameters_i[6], parameters_i[5],
+          parameters_i[7], parameters_i[8], parameters_i[6], parameters_i[8],
+          parameters_i[9];
+
+        impl->model.inertias[i] = pinocchio::Inertia(m, com, I);
+    }
+}
+
+Eigen::MatrixXd computeJointTorqueRegressor(
+  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
+  const Eigen::VectorXd &v, const Eigen::VectorXd &a)
+{
+    return pinocchio::computeJointTorqueRegressor(impl->model,
+                                                  impl->data,
+                                                  q,
+                                                  v,
+                                                  a);
 }
 }
 }

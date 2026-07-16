@@ -394,6 +394,34 @@ class Model
     // Get model center of mass jacobian for the given configuration
     const MatX jacobianCenterOfMass(const VecX &q) const;
 
+    /* Returns a stacked vector of the current values of the loaded model's
+     * dynamic parameters for every link
+     * This consist of n vectors of size 10, containing the following:
+     * $\boldsymbol{v} = [m, m_{c,x}, m_{c,y}, m_{c_z}, I_{xx}, I_{xy}, I_{yy}, I_{xz}, I_{yz}, I_{zz}]^\top$ for each link
+     */
+    const VecX getAllDynamicParameters() const;
+
+    /* Sets the dynamic parameters for every link of the loaded model to the
+     * provided stacked vector
+     * Input:
+     *  - `parameters`: A stacked vector of the dynamic parameters for each 
+     *     link of the model
+     */
+    void setAllDynamicParameters(const VecX &parameters);
+
+    /* Computes and returns the joint torque regressor matrix linking the joint 
+     * torque to the dynamic parameters of each link for the given 
+     * configuration, velocity and acceleration
+     * Input:
+     *  - `q`: The model configuration
+     *  - `v`: The model velocity
+     *  - `a`: The model acceleration
+     * 
+     * Returns: The joint torque regressor matrix
+     */
+    const MatX getJointTorqueRegressor(const VecX &q, const VecX &v,
+                                       const VecX &a) const;
+
     VecX difference(const VecX &q0, const VecX &q1) const;
 
     void dDifference(const VecX &q0, const VecX &q1, MatX &J,
