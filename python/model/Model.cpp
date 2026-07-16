@@ -800,6 +800,64 @@ void bind_Model(nb::module_ &m)
         nb::arg("q"),
         "Get model center of mass jacobian for the given configuration")
       .def(
+        "getAllDynamicParameters",
+        [](Model &self)
+        {
+            if (!self.xml())
+            {
+                throw std::runtime_error("Model was not loaded from XML");
+            }
+            return self.getAllDynamicParameters();
+        },
+        R"doc(
+        Returns a stacked vector of the current values of the loaded model's
+        dynamic parameters for every link
+        This consist of n vectors of size 10, containing the following:
+        $\boldsymbol{v} = [m, m_{c,x}, m_{c,y}, m_{c_z}, I_{xx}, I_{xy}, I_{yy}, I_{xz}, I_{yz}, I_{zz}]^\top$ for each link
+        )doc")
+      .def(
+        "setAllDynamicParameters",
+        [](Model &self, const VecX &parameters)
+        {
+            if (!self.xml())
+            {
+                throw std::runtime_error("Model was not loaded from XML");
+            }
+            self.setAllDynamicParameters(parameters);
+        },
+        nb::arg("parameters"),
+        R"doc(
+        Sets the dynamic parameters for every link of the loaded model to the
+        provided stacked vector
+        Input:
+         - `parameters`: A stacked vector of the dynamic parameters for each 
+            link of the model
+           )doc")
+      .def(
+        "getJointTorqueRegressor",
+        [](Model &self, const VecX &q, const VecX &v, const VecX &a)
+        {
+            if (!self.xml())
+            {
+                throw std::runtime_error("Model was not loaded from XML");
+            }
+            return self.getJointTorqueRegressor(q, v, a);
+        },
+        nb::arg("q"),
+        nb::arg("v"),
+        nb::arg("a"),
+        R"doc(
+        Computes and returns the joint torque regressor matrix linking the joint 
+        torque to the dynamic parameters of each link for the given 
+        configuration, velocity and acceleration
+        Input:
+         - `q`: The model configuration
+         - `v`: The model velocity
+         - `a`: The model acceleration
+            
+        Returns: The joint torque regressor matrix  
+           )doc")
+      .def(
         "getFullAccelerationVector",
         [](Model &self, const VecX &x, const VecX &u, const uint k)
         {

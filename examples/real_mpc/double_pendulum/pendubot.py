@@ -21,7 +21,7 @@ if os.path.exists(SOCK_PATH):
 ssqpy.setSilentMode()
 
 dt = 0.01
-MPC_H = 55
+MPC_H = 60
 
 V_WGT = 2e-2
 U_WGT = 7e-4
@@ -60,14 +60,21 @@ model.addCost(MPC_H, config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.adaptive_rho_tolerance = 10
 admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
 admm_params.warm_start = False
-
 ssqp_params.admmParams = admm_params
+
+hpipm_params = ssqpy.solvers.hpipmParams()
+hpipm_params.tol_comp = 1e-3
+hpipm_params.tol_stat = 1e-3
+hpipm_params.tol_eq = 1e-3
+hpipm_params.tol_ineq = 1e-3
+ssqp_params.hpipmParams = hpipm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=8, qp_iters=200)
 
