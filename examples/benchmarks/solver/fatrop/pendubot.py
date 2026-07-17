@@ -162,27 +162,27 @@ for k in range(H):
     opti.set_initial(u[k], u_init)
     opti.set_initial(x[k], x_init)
 
-# opti.solver(
-#     "fatrop",
-#     {
-#         "structure_detection": "manual",
-#         "nx": nx,
-#         "nu": nu,
-#         "ng": ng,
-#         "N": H - 1,
-#         "expand": True,
-#     },
-# )
 opti.solver(
-    "ipopt",
+    "fatrop",
     {
-        "ipopt.max_iter": 1000,
-        "ipopt.tol": 1e-2,
-        "ipopt.acceptable_tol": 1e-3,
-        "ipopt.mu_strategy": "adaptive",
-        "print_time": True,
+        "structure_detection": "manual",
+        "nx": nx,
+        "nu": nu,
+        "ng": ng,
+        "N": H - 1,
+        "expand": True,
     },
 )
+# opti.solver(
+#     "ipopt",
+#     {
+#         "ipopt.max_iter": 1000,
+#         "ipopt.tol": 1e-2,
+#         "ipopt.acceptable_tol": 1e-3,
+#         "ipopt.mu_strategy": "adaptive",
+#         "print_time": True,
+#     },
+# )
 try:
     sol = opti.solve()
 except RuntimeError:
