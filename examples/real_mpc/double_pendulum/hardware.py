@@ -92,7 +92,14 @@ while True:
         )
     )
 
-    state = np.hstack((pos, vel))
+    torque = np.array(
+        (
+            candle.md80s[1].getTorque(),
+            candle.md80s[0].getTorque(),
+        )
+    )
+
+    state = np.hstack((pos, vel, torque))
 
     send(sock, state)
     tau = np.clip(recv(sock), -MAX_TORQUE, MAX_TORQUE)
