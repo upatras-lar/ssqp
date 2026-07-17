@@ -2,14 +2,45 @@ import socket
 import os
 import numpy as np
 import ssqpy
+import argparse
 from time import time
 
 from real_mpc.socket_utils import send, recv
 
-# Use -1 to to not plot
-PLOT_STEPS = -1
+np.set_printoptions(suppress=True)
 
-if PLOT_STEPS > 0:
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Pendubot controller server")
+
+    parser.add_argument(
+        "-p",
+        "--plot",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to run for a certain number of steps and then plot",
+    )
+
+    parser.add_argument(
+        "-s",
+        "--steps-to-plot",
+        type=float,
+        default=1000,
+        help="Number of steps to run for before plotting",
+    )
+
+    parser.add_argument(
+        "-a",
+        "--adapt-model",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to run with model adaptation enabled",
+    )
+
+    return parser.parse_args()
+
+
+args = parse_args()
+
+if args.plot:
     import matplotlib.pyplot as plt
 
 SOCK_PATH = "/tmp/mpc_socket"
@@ -101,18 +132,85 @@ t0 = time()
 timestamps = []
 frequencies = []
 
+Ys = []
+taus = []
+j = 0
+DATA_COLLECTION_STEPS = 2000
+previous_filtered_vel = None
+
 i = 0
-while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
+while True if not args.plot else i < args.steps_to_plot:
     state = recv(conn)
     if state is None:
         break
 
     pos = state[:nq]
-    vel = state[nq:]
+    vel = state[nq : nq + nv]
+
+    if args.adapt_model and j <= DATA_COLLECTION_STEPS:
+        measured_tau = state[nq + nv :]
+        # print("Tau:", measured_tau)
+        new_measurement = time()
+
+        alpha = 0.1  # smaller = more smoothing
+
+        if previous_filtered_vel is None:
+            filtered_vel = vel.copy()
+        else:
+            filtered_vel = alpha * vel + (1 - alpha) * previous_filtered_vel
+
+        if previous_filtered_vel is None:
+            acc = np.zeros_like(vel)
+        else:
+            acc = (filtered_vel - previous_filtered_vel) / dt
+
+        previous_filtered_vel = filtered_vel
+
+        previous_vel = vel
+        previous_measurement_t = new_measurement
+
+        Y = model.getJointTorqueRegressor(pos, vel, acc)
+
+        Ys.append(Y)
+        taus.append(measured_tau)
+
+        j += 1
+
+        if j == DATA_COLLECTION_STEPS:
+            Y_stack = np.vstack(Ys)
+            tau_stack = np.hstack(taus)
+
+            params = model.getAllDynamicParameters()
+
+            # Indices of parameters to guess
+            # Corresponds to: [mass_2, com_x_2, com_y_2, com_z_2, I_xx]
+            cols = [10, 12, 13, 14]
+            known_cols = np.setdiff1d(np.arange(Y_stack.shape[1]), cols)
+
+            Y_known = Y_stack[:, known_cols]
+            Y_unknown = Y_stack[:, cols]
+
+            tau_residual = tau_stack - Y_known @ params[known_cols]
+
+            pi_hat, *_ = np.linalg.lstsq(
+                Y_unknown,
+                tau_residual,
+                rcond=None,
+            )
+            print("Previous parameters:", model.getAllDynamicParameters())
+            print("Calculated parameters:", pi_hat)
+
+            params[cols] = pi_hat
+
+            print("Final parameters:", params)
+
+            model.setAllDynamicParameters(params)
+
+            mpc.reinitialize(np.hstack((pos, vel)))
 
     start = time()
     try:
-        u = mpc.step(state)[1].stage(0)
+        u = mpc.step(state[: nq + nv])[1].stage(0)
     except RuntimeError:
         u = np.zeros(nv)
 
@@ -121,7 +219,7 @@ while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
 
     elapsed = time() - start
 
-    if PLOT_STEPS > 0:
+    if args.plot:
         timestamps.append(time() - t0)
         data.append(
             (
@@ -129,7 +227,7 @@ while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
                     (wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))
                 ),
                 vel,
-                np.clip(tau, -0.15, 0.15),
+                np.clip(tau, -0.1, 0.1),
             )
         )
         frequencies.append(1 / elapsed)
@@ -139,7 +237,7 @@ while True if PLOT_STEPS <= 0 else i < PLOT_STEPS:
 
 conn.close()
 
-if PLOT_STEPS > 0:
+if args.plot:
     # Unpack data
     positions = np.array([item[0] for item in data])  # (N, 2)
     velocities = np.array([item[1] for item in data])  # (N, 2)
@@ -193,5 +291,5 @@ if PLOT_STEPS > 0:
     ax_freq.grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"../plots/real_pendubot_{PLOT_STEPS}.pdf")
+    plt.savefig(f"../plots/real_pendubot_{args.steps_to_plot}.pdf")
     plt.show()

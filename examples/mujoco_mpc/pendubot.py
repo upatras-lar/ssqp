@@ -155,12 +155,15 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
         Y = model.getJointTorqueRegressor(q, v, a)
 
-        # actual torque measurement
+        # Actual torque measurement
         mujoco.mj_inverse(mjmodel, mjdata)
         tau = mjdata.qfrc_inverse
 
+        # Sanity check
+        # tau = model.inverseDynamics(q, v, a)
+
         Ys.append(Y)
-        taus.append(tau)
+        taus.append(tau.copy())
 
         if REAL_TIME:
             to_sleep = dt - (time() - frame_start)
@@ -174,10 +177,12 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
 
             params = model.getAllDynamicParameters()
 
-            residual = tau_stack + Y_stack @ params
+            residual = tau_stack - Y_stack @ params
             print("Res:", np.abs(residual).max(), np.abs(residual).mean())
 
-            cols = [10]  # unknown parameters
+            # Indices of parameters to guess
+            # Corresponds to: [mass_2, com_x_2, com_y_2, com_z_2, I_xx]
+            cols = [10, 11, 12, 13, 14]
             known_cols = np.setdiff1d(np.arange(Y_stack.shape[1]), cols)
 
             Y_known = Y_stack[:, known_cols]
@@ -198,3 +203,5 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             print("Final parameters:", params)
 
             model.setAllDynamicParameters(params)
+
+            mpc.reinitialize(np.hstack((q, v)))
