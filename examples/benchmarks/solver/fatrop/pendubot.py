@@ -14,11 +14,12 @@ import pinocchio as pin
 from pinocchio import casadi as cpin
 
 import json
+from time import time
 
 # ---------------------------------------------------------------------------
 # Build a Pinocchio model from the URDF
 # ---------------------------------------------------------------------------
-URDF_PATH = "../../../assets/urdf/double_pendulum/pendubot.urdf"
+URDF_PATH = "pendubot.urdf"
 
 model = pin.buildModelFromUrdf(URDF_PATH)  # base_link is fixed to the world
 data = model.createData()
@@ -184,7 +185,9 @@ opti.solver(
 #     },
 # )
 try:
+    start = time()
     sol = opti.solve()
+    print(f"Solve time: {time() - start:.2f} sec")
 except RuntimeError:
     print(opti.debug.value(x[-1]))
     exit(0)

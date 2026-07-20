@@ -52,10 +52,10 @@ if os.path.exists(SOCK_PATH):
 ssqpy.setSilentMode()
 
 dt = 0.01
-MPC_H = 60
+MPC_H = 45
 
-V_WGT = 2e-2
-U_WGT = 7e-4
+V_WGT = 3e-2
+U_WGT = 2e-3
 TIP_WGT = 4.2
 
 model = ssqpy.model.Model(
@@ -73,10 +73,10 @@ nu = model.getnu()
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, "tip", np.array((0.0, 0.0, 0.1)), TIP_WGT
+    model, "tip", np.array((0.0, 0.0, 0.2)), TIP_WGT
 )
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, np.array((0.0, 0.0)), np.array((0.0, 2.3e-1))
+    model, np.array((0.0, 0.0)), np.array((0.0, 3.0e-1))
 )
 
 for k in range(MPC_H):
@@ -107,7 +107,7 @@ hpipm_params.tol_eq = 1e-3
 hpipm_params.tol_ineq = 1e-3
 ssqp_params.hpipmParams = hpipm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=8, qp_iters=200)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
