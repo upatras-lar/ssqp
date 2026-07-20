@@ -36,6 +36,7 @@
 /out.txt
 /TODO.md
 /perf*
+/examples/benchmarks/solver/fatrop/pendubot.urdf
 
 # General filenames to always skip
 __pycache__

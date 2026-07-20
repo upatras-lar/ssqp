@@ -49,8 +49,15 @@ hpipm_params.tol_comp = 1e-2
 hpipm_params.tol_stat = 1e-2
 hpipm_params.tol_eq = 1e-2
 hpipm_params.tol_ineq = 1e-2
-
 ssqp_params.hpipmParams = hpipm_params
+
+admm_params = ssqpy.solvers.admmParams()
+admm_params.max_iter = 100
+admm_params.abs_tolerance = 1e-3
+admm_params.rel_tolerance = 1e-3
+admm_params.adaptive_rho_tolerance = 1.0
+admm_params.warm_start = False
+ssqp_params.admmParams = admm_params
 
 solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
