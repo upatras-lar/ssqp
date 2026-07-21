@@ -32,12 +32,14 @@ void bind_MPC(nb::module_ &m)
            Model              &model,
            const ssqp::Params &ssqp_params,
            const uint          sqp_iters,
-           const uint          qp_iters)
+           const uint          qp_iters,
+           const bool          keep_convergence_data)
         {
             MPC::Params params;
 
-            params.sqp_iters = sqp_iters;
-            params.qp_iters  = qp_iters;
+            params.sqp_iters             = sqp_iters;
+            params.qp_iters              = qp_iters;
+            params.keep_convergence_data = keep_convergence_data;
 
             new (self) MPC(model, params, ssqp_params);
         },
@@ -45,8 +47,9 @@ void bind_MPC(nb::module_ &m)
         nb::arg("model"),
         nb::arg("ssqp_params") = ssqp::Params::Default(),
         nb::kw_only(),
-        nb::arg("sqp_iters") = 5,
-        nb::arg("qp_iters")  = 50,
+        nb::arg("sqp_iters")             = 5,
+        nb::arg("qp_iters")              = 50,
+        nb::arg("keep_convergence_data") = false,
         R"doc(
         Initialize an MPC helper for the given model, the given MPC, SSQP and
         QP parameters.
@@ -78,7 +81,10 @@ void bind_MPC(nb::module_ &m)
         Uses the provided state as feedback and the previous solution for
         warm-starting
            )doc",
-           nb::arg("state"));
+           nb::arg("state"))
+      .def("getConvergenceData",
+           &MPC::getConvergenceData,
+           "Returns stored convergence data");
 }
 
 }

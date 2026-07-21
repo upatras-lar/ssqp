@@ -329,6 +329,56 @@ ssqp::Guess::Guess(const model::Dimensions &dims,
 {
 }
 
+void ssqp::IterationConvergenceData::print() const
+{
+    std::cout << "QP Solver Iteration Convergence Data" << std::endl;
+    std::cout << "====================================" << std::endl;
+    std::cout << "QP Solver Iterations: " << qp_iters << std::endl;
+    std::cout << "QP Solver runtime: " << std::fixed << std::setprecision(2)
+              << qp_duration_us << "us" << std::endl;
+    std::cout << "Total SQP iteration runtime: " << std::fixed
+              << std::setprecision(2) << iter_duration_us << "us" << std::endl;
+    std::cout << "Step size: " << step_size << std::endl;
+    std::cout << "Norm dx: " << std::fixed << std::setprecision(4) << norm_dx
+              << std::endl;
+    std::cout << "Norm du: " << std::fixed << std::setprecision(4) << norm_du
+              << std::endl;
+    std::cout << "Trajectory cost: " << std::fixed << std::setprecision(4)
+              << trajectory_cost << std::endl;
+    std::cout << "Trajectory stage gap: " << std::fixed << std::setprecision(4)
+              << trajectory_stage_gap << std::endl;
+    std::cout << "Trajectory constraint violation: " << std::fixed
+              << std::setprecision(4) << trajectory_constraint_violation
+              << std::endl;
+    std::cout << "First violation stage: " << first_violation_stage
+              << std::endl;
+    std::cout << "Violation: " << std::fixed << std::setprecision(4)
+              << violation << std::endl;
+    std::cout << "------------------------------------" << std::endl;
+}
+
+void ssqp::ConvergenceData::print() const
+{
+    std::cout << "SSQP Convergence Data" << std::endl;
+    std::cout << "=====================" << std::endl;
+    std::cout << "Total runtime: " << std::fixed << std::setprecision(2)
+              << total_duration_us << "us" << std::endl;
+    std::cout << "Iterations: " << iterations << std::endl;
+    std::cout << "Terminated due to loose success: " << loose_success
+              << std::endl;
+    std::cout << "Terminated due to constraint success: " << constraint_success
+              << std::endl;
+    std::cout << "Max iterations reached: " << max_iter_reached << std::endl;
+    std::cout << "Final trajectory cost: " << std::fixed << std::setprecision(4)
+              << trajectory_cost << std::endl;
+    std::cout << "Final trajectory stage gap: " << std::fixed
+              << std::setprecision(4) << trajectory_stage_gap << std::endl;
+    std::cout << "Final trajectory constraint violation: " << std::fixed
+              << std::setprecision(4) << trajectory_constraint_violation
+              << std::endl;
+    std::cout << "---------------------" << std::endl;
+}
+
 ssqp::ssqp(model::Model &model, const Params &params)
   : ssqp(static_cast<const model::Model &>(model), params)
 {
@@ -451,7 +501,7 @@ SolverState ssqp::solve(Guess &guess)
                      "Warning: NaN detected in QP solver solution");
         }
 
-        _convergence_data.iteration_data.back().qp_duration =
+        _convergence_data.iteration_data.back().qp_duration_us =
           std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::high_resolution_clock::now() - start_iter_time)
             .count();
@@ -607,7 +657,7 @@ SolverState ssqp::solve(Guess &guess)
                _check_termination<Params::calculate_stagewise_convergence>()) !=
             ONGOING)
         {
-            _convergence_data.iteration_data.back().iter_duration =
+            _convergence_data.iteration_data.back().iter_duration_us =
               std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::high_resolution_clock::now() - start_iter_time)
                 .count();
@@ -618,10 +668,11 @@ SolverState ssqp::solve(Guess &guess)
             _convergence_data.iteration_data.back()
               .trajectory_constraint_violation = _cf(_guess.x, _guess.u);
 
-            _convergence_data.total_duration =
-              std::chrono::duration_cast<std::chrono::milliseconds>(
+            _convergence_data.total_duration_us =
+              std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::high_resolution_clock::now() - start_time)
                 .count();
+            _convergence_data.iterations = _iter + 1;
 
             _convergence_data.trajectory_cost =
               _convergence_data.iteration_data.back().trajectory_cost;
@@ -637,8 +688,8 @@ SolverState ssqp::solve(Guess &guess)
             }
             _printIterationInfo();
             logln_at(LogLevel::Info,
-                     "SSQP: Total runtime: " << _convergence_data.total_duration
-                                             << "ms");
+                     "SSQP: Total runtime: "
+                       << _convergence_data.total_duration_us * 1000 << "ms");
 
             guess = _guess;
             return ssqp_state;
@@ -671,7 +722,7 @@ SolverState ssqp::solve(Guess &guess)
                    xml_model);
         qp_solver->reset();
 
-        _convergence_data.iteration_data.back().iter_duration =
+        _convergence_data.iteration_data.back().iter_duration_us =
           std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::high_resolution_clock::now() - start_iter_time)
             .count();
@@ -685,10 +736,11 @@ SolverState ssqp::solve(Guess &guess)
         FrameMarkNamed("SQP Iteration");
     }
 
-    _convergence_data.total_duration =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
+    _convergence_data.total_duration_us =
+      std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::high_resolution_clock::now() - start_time)
         .count();
+    _convergence_data.iterations = _iter;
 
     _convergence_data.max_iter_reached     = true;
     _convergence_data.trajectory_cost      = _lf(_guess.x, _guess.u);
@@ -696,8 +748,8 @@ SolverState ssqp::solve(Guess &guess)
     _convergence_data.trajectory_constraint_violation = _cf(_guess.x, _guess.u);
 
     logln_at(LogLevel::Info,
-             "SSQP: Total runtime: " << _convergence_data.total_duration
-                                     << "ms");
+             "SSQP: Total runtime: "
+               << _convergence_data.total_duration_us * 1000 << "us");
 
     guess = _guess;
     return MAX_ITER_REACHED;
@@ -720,9 +772,9 @@ bool ssqp::write(const std::string &filepath)
     j["solver"] = ordered_json({});
     _params.write(j["solver"]);
 
-    j["convergence"]                    = ordered_json({});
-    j["convergence"]["runtime_ms"]      = _convergence_data.total_duration;
-    j["convergence"]["iterations"]      = _iter;
+    j["convergence"]               = ordered_json({});
+    j["convergence"]["runtime_ms"] = _convergence_data.total_duration_us * 1000;
+    j["convergence"]["iterations"] = _iter;
     j["convergence"]["trajectory_cost"] = _convergence_data.trajectory_cost;
     j["convergence"]["trajectory_stage_gap"] =
       _convergence_data.trajectory_stage_gap;
@@ -734,22 +786,23 @@ bool ssqp::write(const std::string &filepath)
     {
         ordered_json iteration_data({
           {                   "qp_iterations",_convergence_data.iteration_data[i].qp_iters                                              },
-          {                   "qp_runtime_us", _convergence_data.iteration_data[i].qp_duration },
+          {                   "qp_runtime_us",
+           _convergence_data.iteration_data[i].qp_duration_us                               },
           {                "iter_duration_us",
-           _convergence_data.iteration_data[i].iter_duration                                  },
-          {                       "step_size",   _convergence_data.iteration_data[i].step_size },
-          {                         "norm_dx",     _convergence_data.iteration_data[i].norm_dx },
-          {                         "norm_du",     _convergence_data.iteration_data[i].norm_du },
+           _convergence_data.iteration_data[i].iter_duration_us                             },
+          {                       "step_size", _convergence_data.iteration_data[i].step_size },
+          {                         "norm_dx",   _convergence_data.iteration_data[i].norm_dx },
+          {                         "norm_du",   _convergence_data.iteration_data[i].norm_du },
           {                 "trajectory_cost",
-           _convergence_data.iteration_data[i].trajectory_cost                                },
+           _convergence_data.iteration_data[i].trajectory_cost                              },
           {            "trajectory_stage_gap",
-           _convergence_data.iteration_data[i].trajectory_stage_gap                           },
+           _convergence_data.iteration_data[i].trajectory_stage_gap                         },
           { "trajectory_constraint_violation",
            _convergence_data.iteration_data[i]
-           .trajectory_constraint_violation                                                   },
+           .trajectory_constraint_violation                                                 },
           {           "first_violation_stage",
-           _convergence_data.iteration_data[i].first_violation_stage                          },
-          {                       "violation",   _convergence_data.iteration_data[i].violation }
+           _convergence_data.iteration_data[i].first_violation_stage                        },
+          {                       "violation", _convergence_data.iteration_data[i].violation }
         });
 
         if (_convergence_data.iteration_data[i].gap_violations.size() ==
@@ -967,7 +1020,7 @@ void ssqp::_printIterationInfo() const
         log_at(LogLevel::Info, std::setw(16));
         log_at(LogLevel::Info, icd.qp_iters << " |");
         log_at(LogLevel::Info, std::setw(16));
-        log_at(LogLevel::Info, icd.qp_duration << " |");
+        log_at(LogLevel::Info, icd.qp_duration_us << " |");
         log_at(LogLevel::Info, std::setw(16));
         logln_at(LogLevel::Info, icd.step_size);
     }

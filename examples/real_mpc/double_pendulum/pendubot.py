@@ -58,6 +58,8 @@ V_WGT = 3e-2
 U_WGT = 2e-3
 TIP_WGT = 4.2
 
+torque_clip = 0.1
+
 model = ssqpy.model.Model(
     MPC_H,
     dt,
@@ -76,7 +78,7 @@ tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, "tip", np.array((0.0, 0.0, 0.2)), TIP_WGT
 )
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, np.array((0.0, 0.0)), np.array((0.0, 3.0e-1))
+    model, np.array((0.0, 0.0)), np.array((0.0, 5.0))
 )
 
 for k in range(MPC_H):
@@ -94,20 +96,21 @@ ssqp_params.tolerance = 1e-1
 # ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.adaptive_rho_tolerance = 10
 admm_params.abs_tolerance = 1e-2
 admm_params.rel_tolerance = 1e-2
-admm_params.warm_start = False
+admm_params.warm_start = True
 ssqp_params.admmParams = admm_params
 
 hpipm_params = ssqpy.solvers.hpipmParams()
-hpipm_params.tol_comp = 1e-3
-hpipm_params.tol_stat = 1e-3
-hpipm_params.tol_eq = 1e-3
-hpipm_params.tol_ineq = 1e-3
+hpipm_params.tol_comp = 1e-2
+hpipm_params.tol_stat = 1e-2
+hpipm_params.tol_eq = 1e-2
+hpipm_params.tol_ineq = 1e-2
 ssqp_params.hpipmParams = hpipm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
+mpc = ssqpy.solvers.MPC(
+    model, ssqp_params, sqp_iters=4, qp_iters=100, keep_convergence_data=True
+)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -227,7 +230,7 @@ while True if not args.plot else i < args.steps_to_plot:
                     (wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))
                 ),
                 vel,
-                np.clip(tau, -0.1, 0.1),
+                np.clip(tau, -torque_clip, torque_clip),
             )
         )
         frequencies.append(1 / elapsed)
@@ -236,6 +239,11 @@ while True if not args.plot else i < args.steps_to_plot:
     send(conn, tau)
 
 conn.close()
+
+cd = mpc.getConvergenceData()
+
+for i, mpc_step in enumerate(cd):
+    mpc_step.print()
 
 if args.plot:
     # Unpack data

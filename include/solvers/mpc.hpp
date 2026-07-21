@@ -32,6 +32,9 @@ class MPC
         // Upper limit on QP solver iterations
         uint qp_iters = 50;
 
+        // Whether to save iteration data
+        bool keep_convergence_data = false;
+
         static Params Default()
         {
             return {};
@@ -67,11 +70,17 @@ class MPC
     // Performs an MPC step with the current guess as-is
     std::pair<FlatVec, FlatVec> step();
 
+    // Returns stored convergence data
+    const std::vector<ssqp::ConvergenceData> getConvergenceData() const;
+
   protected:
     ssqp::Params  _ssqp_params;
     model::Model &_model;
 
     std::unique_ptr<FlatVec> _prev_states = nullptr, _prev_controls = nullptr;
+
+    const bool                         _keep_convergence_data;
+    std::vector<ssqp::ConvergenceData> _convergence_data;
 };
 }
 }

@@ -8,6 +8,7 @@ MPC::MPC(model::Model &model, const Params &params,
          const ssqp::Params &ssqp_params)
   : _model(model)
   , _ssqp_params(ssqp_params)
+  , _keep_convergence_data(params.keep_convergence_data)
 {
     _ssqp_params.max_iter = params.sqp_iters;
 
@@ -121,7 +122,24 @@ std::pair<FlatVec, FlatVec> MPC::step()
     ssqp::Guess solution(_model.dims(), _model.linear_dims());
     SolverState state = solver.solve(solution);
 
+    if (_keep_convergence_data)
+    {
+        _convergence_data.push_back(solver.convergenceData());
+    }
+
     return { solution.x, solution.u };
+}
+
+const std::vector<ssqp::ConvergenceData> MPC::getConvergenceData() const
+{
+    if (!_keep_convergence_data)
+    {
+        logln_at(LogLevel::Warning,
+                 "Warning: keep_convergence_data is false, so convergence data "
+                 "will be empty!");
+    }
+
+    return _convergence_data;
 }
 }
 }
