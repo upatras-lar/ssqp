@@ -84,15 +84,18 @@ void bind_ssqp(nb::module_ &m)
       m,
       "ssqpIterationConvergenceData",
       "SSQP iteration convergence data.")
+      .def("print",
+           &ssqp::IterationConvergenceData::print,
+           "Print iteration convergence data.")
       .def_ro("qp_iters",
               &ssqp::IterationConvergenceData::qp_iters,
               "Number of QP solver iterations.")
       .def_ro("qp_duration",
-              &ssqp::IterationConvergenceData::qp_duration,
-              "QP solver runtime.")
+              &ssqp::IterationConvergenceData::qp_duration_us,
+              "QP solver runtime (us).")
       .def_ro("iter_duration",
-              &ssqp::IterationConvergenceData::iter_duration,
-              "Total SSQP iteration duration.")
+              &ssqp::IterationConvergenceData::iter_duration_us,
+              "Total SSQP iteration duration (us).")
       .def_ro("step_size",
               &ssqp::IterationConvergenceData::step_size,
               "Line search step size.")
@@ -127,12 +130,13 @@ void bind_ssqp(nb::module_ &m)
     nb::class_<ssqp::ConvergenceData>(m,
                                       "ssqpConvergenceData",
                                       "SSQP convergence data")
+      .def("print", &ssqp::ConvergenceData::print, "Print convergence data.")
       .def_ro("iteration_data",
               &ssqp::ConvergenceData::iteration_data,
               "Iteration convergence data.")
       .def_ro("total_duration",
-              &ssqp::ConvergenceData::total_duration,
-              "SSQP solver runtime.")
+              &ssqp::ConvergenceData::total_duration_us,
+              "SSQP solver runtime (us).")
       .def_ro("iterations",
               &ssqp::ConvergenceData::iterations,
               "Number of SSQP solver iterations.")

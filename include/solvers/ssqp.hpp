@@ -195,10 +195,10 @@ class ssqp
     {
         // QP iterations
         uint qp_iters;
-        // QP solver runtime
-        double qp_duration;
-        // SQP iteration duration
-        double iter_duration;
+        // QP solver runtime (in μs)
+        double qp_duration_us;
+        // SQP iteration duration (in μs)
+        double iter_duration_us;
         // Step size
         double step_size;
         // Lagrangian norms
@@ -217,6 +217,8 @@ class ssqp
         std::vector<double> costs;
         std::vector<double> gap_violations;
         std::vector<double> constraint_violations;
+
+        void print() const;
     };
 
     struct ConvergenceData
@@ -225,8 +227,8 @@ class ssqp
         std::vector<IterationConvergenceData> iteration_data;
 
         // Final SQP data
-        // Total SSQP runtime
-        double total_duration;
+        // Total SSQP runtime (in μs)
+        double total_duration_us;
         // Total SSQP iterations
         uint iterations;
         // Whether termination occurred due to loose success
@@ -241,6 +243,8 @@ class ssqp
         double trajectory_stage_gap;
         // Total trajectory constraint violation
         double trajectory_constraint_violation;
+
+        void print() const;
     };
 
     // Initialize an SSQP solver based on the given model and SSQP and ADMM
