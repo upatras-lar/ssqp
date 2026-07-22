@@ -53,6 +53,8 @@ class MPC
 
     // Sets MPC warm-start to the given states and controls
     void reinitialize(const FlatVec &states, const FlatVec &controls);
+    void reinitialize(const std::vector<VecX> &states,
+                      const std::vector<VecX> &controls);
 
     // Receding horizon initialization step
     // Uses the provided state as feedback and the previous solution for

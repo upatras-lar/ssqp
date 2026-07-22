@@ -66,6 +66,13 @@ void bind_MPC(nb::module_ &m)
            nb::arg("states"),
            nb::arg("controls"),
            "Sets MPC warm-start to the given states and controls")
+      .def("reinitialize",
+           static_cast<void (MPC::*)(const std::vector<VecX> &,
+                                     const std::vector<VecX> &)>(
+             &MPC::reinitialize),
+           nb::arg("states"),
+           nb::arg("controls"),
+           "Sets MPC warm-start to the given states and controls")
       .def("step",
            static_cast<std::pair<FlatVec, FlatVec> (
              MPC::*)(const std::vector<VecX> &, const std::vector<VecX> &)>(

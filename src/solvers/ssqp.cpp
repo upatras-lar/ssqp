@@ -382,6 +382,7 @@ void ssqp::ConvergenceData::print() const
 ssqp::ssqp(model::Model &model, const Params &params)
   : ssqp(static_cast<const model::Model &>(model), params)
 {
+    // TODO: this doesn't run from Python!
     if (!model.finalized())
     {
         model.finalize();
