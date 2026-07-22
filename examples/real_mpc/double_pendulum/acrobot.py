@@ -52,9 +52,9 @@ if os.path.exists(SOCK_PATH):
 ssqpy.setSilentMode()
 
 dt = 0.01
-MPC_H = 100
+MPC_H = 45
 
-V_WGT = 2e-2
+V_WGT = 5e-3
 U_WGT = 2e-4
 TIP_WGT = 10.0
 
@@ -90,8 +90,8 @@ model.addCost(MPC_H, tip_cost)
 model.addCost(MPC_H, config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-2
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.tolerance = 1e-1
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.adaptive_rho_tolerance = 1.0
@@ -227,7 +227,7 @@ while True if not args.plot else i < args.steps_to_plot:
                     (wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))
                 ),
                 vel,
-                np.clip(tau, -0.15, 0.15),
+                np.clip(tau, -0.1, 0.1),
             )
         )
         frequencies.append(1 / elapsed)

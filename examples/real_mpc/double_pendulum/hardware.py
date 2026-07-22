@@ -54,24 +54,15 @@ ids = candle.ping()
 for id in ids:
     candle.addMd80(id)
 
-if args.pendubot and args.acrobot:
-    raise RuntimeError("Cannot start with both pendubot and acrobot flags!")
-
-if not args.pendubot:
-    candle.controlMd80SetEncoderZero(ids[0])
-    candle.controlMd80Mode(ids[0], pyCandle.RAW_TORQUE)
-    candle.controlMd80Enable(ids[0], True)
-
-if not args.acrobot:
-    candle.controlMd80SetEncoderZero(ids[1])
-    candle.controlMd80Mode(ids[1], pyCandle.RAW_TORQUE)
-    candle.controlMd80Enable(ids[1], True)
+for md in candle.md80s:
+    candle.controlMd80SetEncoderZero(md)
+    candle.controlMd80Mode(md, pyCandle.IMPEDANCE)
+    md.setImpedanceControllerParams(0.0, 0.0)
+    candle.controlMd80Enable(md, True)
 
 candle.begin()
 
 dt = 0.01
-
-MAX_TORQUE = args.torque_limit
 
 steps = 0
 total_steps = int(1 / dt)
@@ -102,13 +93,15 @@ while True:
     state = np.hstack((pos, vel, torque))
 
     send(sock, state)
-    tau = np.clip(recv(sock), -MAX_TORQUE, MAX_TORQUE)
+    tau = np.clip(recv(sock), -args.torque_limit, args.torque_limit)
 
     if not args.pendubot:
         candle.md80s[0].setTargetTorque(tau[1])
+        candle.md80s[1].setTargetTorque(0.0)
 
     if not args.acrobot:
         candle.md80s[1].setTargetTorque(tau[0])
+        candle.md80s[0].setTargetTorque(0.0)
 
     steps += 1
 

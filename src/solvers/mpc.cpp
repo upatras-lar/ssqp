@@ -57,6 +57,20 @@ void MPC::reinitialize(const FlatVec &states, const FlatVec &controls)
     _model.setInitState(H, states.stage(H));
 }
 
+void MPC::reinitialize(const std::vector<VecX> &states,
+                       const std::vector<VecX> &controls)
+{
+    const uint H = _model.horizon();
+
+    for (uint k = 0; k < H; ++k)
+    {
+        _model.setInitState(k, states[k]);
+        _model.setInitControl(k, controls[k]);
+    }
+
+    _model.setInitState(H, states[H]);
+}
+
 std::pair<FlatVec, FlatVec> MPC::step(const VecX &state)
 {
     if (_prev_states != nullptr)
