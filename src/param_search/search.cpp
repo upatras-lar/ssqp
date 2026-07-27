@@ -347,7 +347,7 @@ const solvers::ssqp::Params HyperParamSearch::search() const
                 const solvers::ssqp::ConvergenceData cd =
                   solver.convergenceData();
 
-                metric += cd.iterations + 2.0 * (cd.total_duration_us * 1000) +
+                metric += cd.iterations + 2.0 * (cd.total_duration_us / 1000) +
                           20.0 * cd.trajectory_cost +
                           8.0 * cd.trajectory_constraint_violation +
                           cd.trajectory_stage_gap;

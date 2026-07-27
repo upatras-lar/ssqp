@@ -690,7 +690,7 @@ SolverState ssqp::solve(Guess &guess)
             _printIterationInfo();
             logln_at(LogLevel::Info,
                      "SSQP: Total runtime: "
-                       << _convergence_data.total_duration_us * 1000 << "ms");
+                       << _convergence_data.total_duration_us / 1000 << "ms");
 
             guess = _guess;
             return ssqp_state;
@@ -750,7 +750,7 @@ SolverState ssqp::solve(Guess &guess)
 
     logln_at(LogLevel::Info,
              "SSQP: Total runtime: "
-               << _convergence_data.total_duration_us * 1000 << "us");
+               << _convergence_data.total_duration_us / 1000 << "ms");
 
     guess = _guess;
     return MAX_ITER_REACHED;
@@ -774,7 +774,7 @@ bool ssqp::write(const std::string &filepath)
     _params.write(j["solver"]);
 
     j["convergence"]               = ordered_json({});
-    j["convergence"]["runtime_ms"] = _convergence_data.total_duration_us * 1000;
+    j["convergence"]["runtime_ms"] = _convergence_data.total_duration_us / 1000;
     j["convergence"]["iterations"] = _iter;
     j["convergence"]["trajectory_cost"] = _convergence_data.trajectory_cost;
     j["convergence"]["trajectory_stage_gap"] =

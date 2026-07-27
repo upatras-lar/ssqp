@@ -97,11 +97,9 @@ while True:
 
     if not args.pendubot:
         candle.md80s[0].setTargetTorque(tau[1])
-        candle.md80s[1].setTargetTorque(0.0)
 
     if not args.acrobot:
         candle.md80s[1].setTargetTorque(tau[0])
-        candle.md80s[0].setTargetTorque(0.0)
 
     steps += 1
 

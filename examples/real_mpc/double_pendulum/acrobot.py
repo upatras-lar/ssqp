@@ -29,10 +29,9 @@ def parse_args():
     )
 
     parser.add_argument(
-        "-a",
-        "--adapt-model",
+        "--hpipm",
         action=argparse.BooleanOptionalAction,
-        help="Whether to run with model adaptation enabled",
+        help="Whether to use HPIPM as the QP backend",
     )
 
     return parser.parse_args()
@@ -51,12 +50,27 @@ if os.path.exists(SOCK_PATH):
 # Build MPC
 ssqpy.setSilentMode()
 
-dt = 0.01
-MPC_H = 45
+if args.hpipm:
+    dt = 0.01
+    MPC_H = 20
 
-V_WGT = 5e-3
-U_WGT = 2e-4
-TIP_WGT = 10.0
+    V_WGT = 7e-2
+    U_WGT = 1e-2
+    ELBOW_WGT = 120.0
+    TIP_WGT = 55.0
+
+    torque_clip = 0.1
+
+else:
+    dt = 0.01
+    MPC_H = 20
+
+    V_WGT = np.array((9e-2, 4e-2))
+    U_WGT = 6e-3
+    ELBOW_WGT = 60.0
+    TIP_WGT = 18.0
+
+    torque_clip = 0.1
 
 model = ssqpy.model.Model(
     MPC_H,
@@ -72,42 +86,43 @@ nu = model.getnu()
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
-tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, "tip", np.array((0.0, 0.0, 0.1)), TIP_WGT
+elbow_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
+    model, "link2", np.array((0.0, 0.0, 0.075)), ELBOW_WGT
 )
-config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-    model, np.array((0.0, 0.0)), np.array((0.0, 2.3e-1))
+tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
+    model, "tip", np.array((0.0, 0.0, 0.2)), TIP_WGT
 )
 
 for k in range(MPC_H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
+    model.addCost(k, elbow_cost)
     model.addCost(k, tip_cost)
-    # model.addCost(k, config_cost)
 
 model.addCost(MPC_H, vel_cost)
+model.addCost(MPC_H, elbow_cost)
 model.addCost(MPC_H, tip_cost)
-model.addCost(MPC_H, config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
-admm_params = ssqpy.solvers.admmParams()
-admm_params.adaptive_rho_tolerance = 1.0
-admm_params.abs_tolerance = 1e-2
-admm_params.rel_tolerance = 1e-2
-admm_params.warm_start = False
-ssqp_params.admmParams = admm_params
+if args.hpipm:
+    ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+    hpipm_params = ssqpy.solvers.hpipmParams()
+    hpipm_params.tol_comp = 1e-3
+    hpipm_params.tol_stat = 1e-3
+    hpipm_params.tol_eq = 1e-3
+    hpipm_params.tol_ineq = 1e-3
+    ssqp_params.hpipmParams = hpipm_params
+else:
+    admm_params = ssqpy.solvers.admmParams()
+    admm_params.adaptive_rho_tolerance = 1.0
+    admm_params.abs_tolerance = 1e-2
+    admm_params.rel_tolerance = 1e-2
+    admm_params.warm_start = False
+    ssqp_params.admmParams = admm_params
 
-hpipm_params = ssqpy.solvers.hpipmParams()
-hpipm_params.tol_comp = 1e-3
-hpipm_params.tol_stat = 1e-3
-hpipm_params.tol_eq = 1e-3
-hpipm_params.tol_ineq = 1e-3
-ssqp_params.hpipmParams = hpipm_params
-
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=50)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -132,10 +147,6 @@ t0 = time()
 timestamps = []
 frequencies = []
 
-Ys = []
-taus = []
-j = 0
-DATA_COLLECTION_STEPS = 4000
 previous_filtered_vel = None
 
 i = 0
@@ -147,74 +158,15 @@ while True if not args.plot else i < args.steps_to_plot:
     pos = state[:nq]
     vel = state[nq : nq + nv]
 
-    if args.adapt_model and j <= DATA_COLLECTION_STEPS:
-        measured_tau = state[nq + nv :]
-        # print("Tau:", measured_tau)
-        new_measurement = time()
-
-        alpha = 0.1  # smaller = more smoothing
-
-        if previous_filtered_vel is None:
-            filtered_vel = vel.copy()
-        else:
-            filtered_vel = alpha * vel + (1 - alpha) * previous_filtered_vel
-
-        if previous_filtered_vel is None:
-            acc = np.zeros_like(vel)
-        else:
-            acc = (filtered_vel - previous_filtered_vel) / dt
-
-        previous_filtered_vel = filtered_vel
-
-        previous_vel = vel
-        previous_measurement_t = new_measurement
-
-        Y = model.getJointTorqueRegressor(pos, vel, acc)
-
-        Ys.append(Y)
-        taus.append(measured_tau)
-
-        j += 1
-
-        if j == DATA_COLLECTION_STEPS:
-            Y_stack = np.vstack(Ys)
-            tau_stack = np.hstack(taus)
-
-            params = model.getAllDynamicParameters()
-
-            # Indices of parameters to guess
-            # Corresponds to: [mass_2, com_x_2, com_y_2, com_z_2, I_xx]
-            cols = [10, 12, 13, 14]
-            known_cols = np.setdiff1d(np.arange(Y_stack.shape[1]), cols)
-
-            Y_known = Y_stack[:, known_cols]
-            Y_unknown = Y_stack[:, cols]
-
-            tau_residual = tau_stack - Y_known @ params[known_cols]
-
-            pi_hat, *_ = np.linalg.lstsq(
-                Y_unknown,
-                tau_residual,
-                rcond=None,
-            )
-            print("Previous parameters:", model.getAllDynamicParameters())
-            print("Calculated parameters:", pi_hat)
-
-            params[cols] = pi_hat
-
-            print("Final parameters:", params)
-
-            model.setAllDynamicParameters(params)
-
-            mpc.reinitialize(np.hstack((pos, vel)))
-
     start = time()
     try:
         u = mpc.step(state[: nq + nv])[1].stage(0)
     except RuntimeError:
         u = np.zeros(nv)
 
-    tau = model.inverseDynamics(pos, vel, u)
+    tau = np.clip(
+        model.inverseDynamics(pos, vel, u), -torque_clip, torque_clip
+    )
     tau[0] = 0.0
 
     elapsed = time() - start
