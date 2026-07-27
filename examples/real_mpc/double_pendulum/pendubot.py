@@ -52,15 +52,15 @@ ssqpy.setSilentMode()
 
 if args.hpipm:
     dt = 0.01
-    MPC_H = 45
+    MPC_H = 20
 
-    V_WGT = np.array((1e-3, 5e-2))
+    V_WGT = np.array((7e-2, 5e-2))
     U_WGT = 1e-2
-    TIP_WGT = 20.0
+    TIP_WGT = 15.0
     J1_WGT = 0.0
     J2_WGT = 2.0
 
-    torque_clip = 0.1
+    torque_clip = 0.145
 
 else:
     dt = 0.01
@@ -111,10 +111,10 @@ ssqp_params.tolerance = 1e-1
 if args.hpipm:
     ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
     hpipm_params = ssqpy.solvers.hpipmParams()
-    hpipm_params.tol_comp = 1e-3
-    hpipm_params.tol_stat = 1e-3
-    hpipm_params.tol_eq = 1e-3
-    hpipm_params.tol_ineq = 1e-3
+    hpipm_params.tol_comp = 1e-2
+    hpipm_params.tol_stat = 1e-2
+    hpipm_params.tol_eq = 1e-2
+    hpipm_params.tol_ineq = 1e-2
     hpipm_params.warm_start = True
     ssqp_params.hpipmParams = hpipm_params
 else:
@@ -125,9 +125,7 @@ else:
     ssqp_params.admmParams = admm_params
 
 
-mpc = ssqpy.solvers.MPC(
-    model, ssqp_params, sqp_iters=4, qp_iters=100, keep_convergence_data=True
-)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -139,8 +137,6 @@ print("MPC ready, waiting for connection…")
 conn, _ = server.accept()
 print("Hardware connected")
 
-data = []
-
 
 def wrap_to_reference(theta, reference=np.pi):
     return reference + np.arctan2(
@@ -151,6 +147,7 @@ def wrap_to_reference(theta, reference=np.pi):
 t0 = time()
 timestamps = []
 frequencies = []
+data = []
 
 previous_filtered_vel = None
 previous_filtered_pos = None
@@ -200,7 +197,7 @@ while True if not args.plot else i < args.steps_to_plot:
         data.append(
             (
                 np.array(
-                    (wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))
+                    (wrap_to_reference(pos[0]), wrap_to_reference(pos[1], 0.0))
                 ),
                 vel,
                 tau,
@@ -214,11 +211,6 @@ while True if not args.plot else i < args.steps_to_plot:
     # sleep(max(0.025 - elapsed, 0.0))
 
 conn.close()
-
-cd = mpc.getConvergenceData()
-
-for i, mpc_step in enumerate(cd):
-    mpc_step.print()
 
 if args.plot:
     # Unpack data
