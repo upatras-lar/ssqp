@@ -272,6 +272,26 @@ void bind_Model(nb::module_ &m)
                   nb::cast<std::vector<std::shared_ptr<StageDynamics>>>(
                     kwargs["dynamics"]);
             }
+            if (kwargs.contains("custom_lower_position_bounds"))
+            {
+                config.custom_lower_position_bounds =
+                  nb::cast<VecX>(kwargs["custom_lower_position_bounds"]);
+            }
+            if (kwargs.contains("custom_upper_position_bounds"))
+            {
+                config.custom_upper_position_bounds =
+                  nb::cast<VecX>(kwargs["custom_upper_position_bounds"]);
+            }
+            if (kwargs.contains("custom_velocity_bounds"))
+            {
+                config.custom_velocity_bounds =
+                  nb::cast<VecX>(kwargs["custom_velocity_bounds"]);
+            }
+            if (kwargs.contains("custom_torque_bounds"))
+            {
+                config.custom_torque_bounds =
+                  nb::cast<VecX>(kwargs["custom_torque_bounds"]);
+            }
             if (kwargs.contains("init_states"))
             {
                 if (nb::isinstance<std::vector<VecX>>(kwargs["init_states"]))
@@ -310,6 +330,18 @@ void bind_Model(nb::module_ &m)
             `terminal_cost` (StageCost): Cost for the terminal stage
             `constraints` (list of StageConstraints): Constraints for each optimization stage
             `dynamics` (list of StageDynamics): Dynamics for each optimization stage
+            `custom_lower_position_bounds` (np.array of float): Lower position bounds to use in place
+                of the values read from the XML; default XML values are used if left
+                empty; has no effect if innate constraints are ignored
+            `custom_upper_position_bounds` (np.array of float): Upper position bounds to use in place
+                of the values read from the XML; default XML values are used if left
+                empty; has no effect if innate constraints are ignored
+            `custom_velocity_bounds` (np.array of float): Velocity bounds to use in place of the 
+                values read from the XML; default XML values are used if left empty; 
+                has no effect if innate constraints are ignored
+            `custom_torque_bounds` (np.array of float): Torque bounds to use in place of the values
+                read from the XML; default XML values are used if left empty; has no
+                effect if innate constraints are ignored
             `init_states` (np.array or list of np.array): Initial states for each optimization stage;
                 if np.array: initial state to use for every stage
             `init_controls` (np.array or list of np.array): Initial controls for each optimization stage;

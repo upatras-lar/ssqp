@@ -54,10 +54,13 @@ if args.hpipm:
     dt = 0.01
     MPC_H = 20
 
-    V_WGT = 7e-2
+    V_WGT = np.array((1e-1, 4e-2))
     U_WGT = 1e-2
-    ELBOW_WGT = 120.0
-    TIP_WGT = 55.0
+    ELBOW_WGT = 100.0
+    TIP_WGT = 40.0
+
+    elbow_height = 0.05
+    tip_height = 0.1
 
     torque_clip = 0.1
 
@@ -70,13 +73,16 @@ else:
     ELBOW_WGT = 60.0
     TIP_WGT = 18.0
 
+    elbow_height = 0.075
+    tip_height = 0.2
+
     torque_clip = 0.1
 
 model = ssqpy.model.Model(
     MPC_H,
     dt,
     urdf_path="../../assets/urdf/double_pendulum/acrobot.urdf",
-    actuated_joints=[1],
+    # actuated_joints=[1],
     solver_mode=ssqpy.model.SolverMode.InverseDynamics,
 )
 
@@ -87,10 +93,10 @@ nu = model.getnu()
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 elbow_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, "link2", np.array((0.0, 0.0, 0.075)), ELBOW_WGT
+    model, "link2", np.array((0.0, 0.0, elbow_height)), ELBOW_WGT
 )
 tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-    model, "tip", np.array((0.0, 0.0, 0.2)), TIP_WGT
+    model, "tip", np.array((0.0, 0.0, tip_height)), TIP_WGT
 )
 
 for k in range(MPC_H):
@@ -119,7 +125,7 @@ else:
     admm_params.adaptive_rho_tolerance = 1.0
     admm_params.abs_tolerance = 1e-2
     admm_params.rel_tolerance = 1e-2
-    admm_params.warm_start = False
+    admm_params.warm_start = True
     ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
@@ -167,7 +173,9 @@ while True if not args.plot else i < args.steps_to_plot:
     tau = np.clip(
         model.inverseDynamics(pos, vel, u), -torque_clip, torque_clip
     )
-    tau[0] = 0.0
+    # tau[0] = 0.0
+
+    print(tau)
 
     elapsed = time() - start
 

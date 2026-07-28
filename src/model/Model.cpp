@@ -150,15 +150,43 @@ void Model::finalize(const Config &config)
     // Add innate constraints if model comes from XML
     if (_xml)
     {
+        if (config.custom_lower_position_bounds.size() &&
+              config.custom_lower_position_bounds.size() !=
+                _bounded_joint_indices.size() ||
+            config.custom_upper_position_bounds.size() &&
+              config.custom_upper_position_bounds.size() !=
+                _bounded_joint_indices.size())
+        {
+            throw std::runtime_error(
+              "Invalid custom position bound sizes (expected " +
+              std::to_string(_bounded_joint_indices.size()) + ")");
+        }
+
+        if (config.custom_velocity_bounds.size() &&
+            config.custom_velocity_bounds.size() != _dims.njoints)
+        {
+            throw std::runtime_error(
+              "Invalid custom velocity bound size (expected " +
+              std::to_string(_dims.njoints) + ")");
+        }
+
+        if (config.custom_torque_bounds.size() &&
+            config.custom_torque_bounds.size() != _actuated_joints.size())
+        {
+            throw std::runtime_error("Invalid torque bound size (expected " +
+                                     std::to_string(_actuated_joints.size()) +
+                                     ")");
+        }
+
         if (!_ignore_innate)
         {
-            _buildXMLInnateConstraints();
+            _buildXMLInnateConstraints(config);
         }
 
         if (_solver_mode == SolverMode::InverseDynamics ||
             _solver_mode == SolverMode::ReducedInverseDynamics)
         {
-            _buildXMLIDTorqueConstraints();
+            _buildXMLIDTorqueConstraints(config);
         }
     }
 
@@ -376,13 +404,31 @@ void Model::finalize(const Config &config)
     _finalized = true;
 }
 
-void Model::_buildXMLInnateConstraints()
+void Model::_buildXMLInnateConstraints(const Config &config)
 {
     _StageInnateConstraintsContext ctx;
-    ctx.nq      = _dims.nq;
-    ctx.nv      = _dims.nv;
-    ctx.nu      = _dims.nu;
-    ctx.njoints = _dims.njoints;
+    ctx.nq              = _dims.nq;
+    ctx.nv              = _dims.nv;
+    ctx.nu              = _dims.nu;
+    ctx.njoints         = _dims.njoints;
+    ctx.lower_pos_bound = config.custom_lower_position_bounds;
+    ctx.upper_pos_bound = config.custom_upper_position_bounds;
+    ctx.vel_bound       = config.custom_velocity_bounds;
+
+    if (_actuated_joints.size() != _dims.nu)
+    {
+        ctx.tau_bound =
+          VecX::Constant(_dims.nu, std::numeric_limits<double>::infinity());
+
+        for (uint j = 0; j < _actuated_joints.size(); ++j)
+        {
+            ctx.tau_bound[_actuated_joints[j]] = config.custom_torque_bounds[j];
+        }
+    }
+    else
+    {
+        ctx.tau_bound = config.custom_torque_bounds;
+    }
 
     auto ct_floating_base = to_compile_time(_free_flyer);
     auto ct_true          = to_compile_time(true);
@@ -414,7 +460,7 @@ void Model::_buildXMLInnateConstraints()
     }
 }
 
-void Model::_buildXMLIDTorqueConstraints()
+void Model::_buildXMLIDTorqueConstraints(const Config &config)
 {
     _StageInnateConstraintsContext ctx;
     ctx.nq                = _dims.nq;
@@ -423,6 +469,21 @@ void Model::_buildXMLIDTorqueConstraints()
     ctx.njoints           = _dims.njoints;
     ctx.actuated_joints   = _actuated_joints;
     ctx.unactuated_joints = _unactuated_joints;
+
+    if (_actuated_joints.size() != _dims.nu)
+    {
+        ctx.tau_bound =
+          VecX::Constant(_dims.nu, std::numeric_limits<double>::infinity());
+
+        for (uint j = 0; j < _actuated_joints.size(); ++j)
+        {
+            ctx.tau_bound[_actuated_joints[j]] = config.custom_torque_bounds[j];
+        }
+    }
+    else
+    {
+        ctx.tau_bound = config.custom_torque_bounds;
+    }
 
     auto ct_floating_base = to_compile_time(_free_flyer);
     auto ct_true          = to_compile_time(true);

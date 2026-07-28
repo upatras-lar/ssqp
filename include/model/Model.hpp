@@ -115,6 +115,18 @@ class Model
      *  - `constraints`: (empty / size $H + 1$) Vector of stage constraints
      *  - `dynamics`: (empty -> XML dynamics / size 1 -> same dynamics for
      *     every stage / size $H + 1$) Vector of stage dynamics
+     *  - `custom_lower_position_bounds`: Lower position bounds to use in place
+     *     of the values read from the XML; default XML values are used if left
+     *     empty; has no effect if innate constraints are ignored
+     *  - `custom_upper_position_bounds`: Upper position bounds to use in place
+     *     of the values read from the XML; default XML values are used if left
+     *     empty; has no effect if innate constraints are ignored
+     *  - `custom_velocity_bounds`: Velocity bounds to use in place of the 
+     *     values read from the XML; default XML values are used if left empty; 
+     *     has no effect if innate constraints are ignored
+     *  - `custom_torque_bounds`: Torque bounds to use in place of the values
+     *     read from the XML; default XML values are used if left empty; has no
+     *     effect if innate constraints are ignored
      *  - `init_states`: (empty / size $1$ / size $H + 1$) Vector of initial states
      *     (empty -> $\boldsymbol{0}$ initial states / size $1$ -> same initial state for 
      *     every stage / size $H + 1$ -> given sizes per stage)
@@ -129,6 +141,10 @@ class Model
         std::shared_ptr<stagewise::StageCost>                     terminal_cost;
         std::vector<std::shared_ptr<stagewise::StageConstraints>> constraints;
         std::vector<std::shared_ptr<stagewise::StageDynamics>>    dynamics;
+
+        VecX custom_lower_position_bounds, custom_upper_position_bounds;
+        VecX custom_velocity_bounds;
+        VecX custom_torque_bounds;
 
         std::vector<VecX> init_states;
         std::vector<VecX> init_controls;
@@ -605,10 +621,10 @@ class Model
     // Functionality functions
 
     // Adds all joint angle, velocity and effort limits from XML as constraints
-    void _buildXMLInnateConstraints();
+    void _buildXMLInnateConstraints(const Config &config);
 
     // Adds inverse dynamics torque constraints
-    void _buildXMLIDTorqueConstraints();
+    void _buildXMLIDTorqueConstraints(const Config &config);
 
     // Builds system dynamics from XML
     void _buildXMLDynamics(const Config &config);
@@ -665,6 +681,7 @@ class Model
         uint                                nq, nv, nu, nf, njoints;
         std::vector<uint>                   actuated_joints, unactuated_joints;
         std::string                         stage_constraints_name;
+        VecX lower_pos_bound, upper_pos_bound, vel_bound, tau_bound;
     };
 
     /* Makes the innate constraints for a given stage with context `ctx` based
