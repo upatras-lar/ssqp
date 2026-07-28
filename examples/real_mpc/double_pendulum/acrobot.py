@@ -82,7 +82,7 @@ model = ssqpy.model.Model(
     MPC_H,
     dt,
     urdf_path="../../assets/urdf/double_pendulum/acrobot.urdf",
-    # actuated_joints=[1],
+    actuated_joints=[1],
     solver_mode=ssqpy.model.SolverMode.InverseDynamics,
 )
 
@@ -122,7 +122,7 @@ if args.hpipm:
     ssqp_params.hpipmParams = hpipm_params
 else:
     admm_params = ssqpy.solvers.admmParams()
-    admm_params.adaptive_rho_tolerance = 1.0
+    admm_params.adaptive_rho_tolerance = 0.1
     admm_params.abs_tolerance = 1e-2
     admm_params.rel_tolerance = 1e-2
     admm_params.warm_start = True
@@ -173,9 +173,7 @@ while True if not args.plot else i < args.steps_to_plot:
     tau = np.clip(
         model.inverseDynamics(pos, vel, u), -torque_clip, torque_clip
     )
-    # tau[0] = 0.0
-
-    print(tau)
+    tau[0] = 0.0
 
     elapsed = time() - start
 

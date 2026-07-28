@@ -415,7 +415,8 @@ void Model::_buildXMLInnateConstraints(const Config &config)
     ctx.upper_pos_bound = config.custom_upper_position_bounds;
     ctx.vel_bound       = config.custom_velocity_bounds;
 
-    if (_actuated_joints.size() != _dims.nu)
+    if (config.custom_torque_bounds.size() &&
+        _actuated_joints.size() != _dims.nu)
     {
         ctx.tau_bound =
           VecX::Constant(_dims.nu, std::numeric_limits<double>::infinity());
@@ -470,7 +471,8 @@ void Model::_buildXMLIDTorqueConstraints(const Config &config)
     ctx.actuated_joints   = _actuated_joints;
     ctx.unactuated_joints = _unactuated_joints;
 
-    if (_actuated_joints.size() != _dims.nu)
+    if (config.custom_torque_bounds.size() &&
+        _actuated_joints.size() != _dims.nu)
     {
         ctx.tau_bound =
           VecX::Constant(_dims.nu, std::numeric_limits<double>::infinity());
