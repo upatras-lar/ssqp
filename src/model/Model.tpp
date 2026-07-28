@@ -600,6 +600,20 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                                          _bounded_joint_indices,
                                          _bounded_joint_indices_to_config,
                                          _free_flyer);
+
+        if (ctx.vel_bound.size())
+        {
+            lb.segment(_bounded_joint_indices.size(), _dims.njoints) =
+              -ctx.vel_bound;
+            ub.segment(_bounded_joint_indices.size(), _dims.njoints) =
+              ctx.vel_bound;
+        }
+
+        if (ctx.tau_bound.size())
+        {
+            lb.segment(_bounded_joint_indices.size() + _dims.njoints,
+                       _dims.nu) = ctx.tau_bound;
+        }
     }
     else if constexpr (SM == SolverMode::InverseDynamics ||
                        SM == SolverMode::ReducedInverseDynamics)
@@ -611,6 +625,14 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                                          _free_flyer,
                                          false,
                                          true);
+
+        if (ctx.vel_bound.size())
+        {
+            lb.segment(_bounded_joint_indices.size(), _dims.njoints) =
+              -ctx.vel_bound;
+            ub.segment(_bounded_joint_indices.size(), _dims.njoints) =
+              ctx.vel_bound;
+        }
     }
     else if constexpr (SM == SolverMode::Kinematics)
     {
@@ -621,6 +643,16 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                                          _free_flyer,
                                          true,
                                          true);
+    }
+
+    if (ctx.lower_pos_bound.size())
+    {
+        lb.head(_bounded_joint_indices.size()) = ctx.lower_pos_bound;
+    }
+
+    if (ctx.upper_pos_bound.size())
+    {
+        ub.head(_bounded_joint_indices.size()) = ctx.upper_pos_bound;
     }
 
     uint nv_reduced = _dims.nv;
@@ -876,6 +908,12 @@ Model::_makeStageIDTorqueConstraints(
 {
     VecX lb, ub;
     std::tie(lb, ub) = pinocchio_wrapper::modelEffortLimits(_impl);
+
+    if (ctx.tau_bound.size())
+    {
+        lb.tail(_dims.nu) = -ctx.tau_bound;
+        ub.tail(_dims.nu) = ctx.tau_bound;
+    }
 
     if constexpr (ReducedInverseDynamics)
     {
