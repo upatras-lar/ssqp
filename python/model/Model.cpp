@@ -366,6 +366,19 @@ void bind_Model(nb::module_ &m)
         nb::arg("k"),
         nb::arg("cost"),
         "Add a cost to a stage.")
+      .def(
+        "addRunningCost",
+        [](Model &self, nb::object py_cost)
+        {
+            auto *raw  = nb::cast<StageCost *>(py_cost);
+            auto  cost = std::shared_ptr<StageCost>(
+              raw,
+              [ref = nb::object(py_cost)](StageCost *) {});
+
+            self.addRunningCost(cost);
+        },
+        nb::arg("cost"),
+        "Add a cost to every non-terminal stage.")
       .def("addConstraints",
            static_cast<void (
              Model::*)(const uint, const std::shared_ptr<StageConstraints> &)>(

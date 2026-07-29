@@ -282,6 +282,15 @@ class Model
     void addCost(const uint                                   k,
                  const std::shared_ptr<stagewise::StageCost> &cost);
 
+    // Add a new running cost of StageCost type L
+    // A running cost is a cost added to every non-terminal stage
+    template<typename L, typename... Args>
+    std::shared_ptr<stagewise::StageCost> addRunningCost(Args... args);
+
+    // Add a new running cost from existing object
+    // A running cost is a cost added to every non-terminal stage
+    void addRunningCost(const std::shared_ptr<stagewise::StageCost> &cost);
+
     // Add new constraints for stage k from existing object
     void addConstraints(
       const uint                                          k,

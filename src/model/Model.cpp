@@ -774,6 +774,14 @@ void Model::addCost(const uint                                   k,
     _costs[k] = stagewise::factory::merge_costs(_costs[k], cost);
 }
 
+void Model::addRunningCost(const std::shared_ptr<stagewise::StageCost> &cost)
+{
+    for (uint k = 0; k < _dims.horizon; ++k)
+    {
+        addCost(k, cost);
+    }
+}
+
 void Model::addConstraints(
   const uint k, const std::shared_ptr<stagewise::StageConstraints> &constraints)
 {

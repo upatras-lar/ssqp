@@ -42,7 +42,7 @@ model.finalize(terminal_cost=config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 hpipm_params = ssqpy.solvers.hpipmParams()
 hpipm_params.tol_comp = 1e-3
@@ -53,8 +53,8 @@ ssqp_params.hpipmParams = hpipm_params
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.max_iter = 75
-admm_params.abs_tolerance = 1e-3
-admm_params.rel_tolerance = 1e-3
+admm_params.abs_tolerance = 1e-4
+admm_params.rel_tolerance = 1e-4
 admm_params.adaptive_rho_tolerance = 0.1
 admm_params.rho_update_iter_freq = 10
 admm_params.warm_start = True
