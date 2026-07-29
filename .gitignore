@@ -11,6 +11,9 @@
 /examples/benchmarks/solver_modes/trajgen/data/parameters/*_hpipm_*.json
 /examples/benchmarks/solver_modes/trajgen/pendubot_plots.py
 /examples/benchmarks/solver_modes/mpc/data/*
+/examples/benchmarks/solver/casadi_formulations/*.json
+/examples/benchmarks/solver/ssqp/*.json
+/examples/benchmarks/solver/aligator/*.json
 /examples/trajgen/data/*
 /examples/real_mpc/plots/*
 /tests/logs/*
