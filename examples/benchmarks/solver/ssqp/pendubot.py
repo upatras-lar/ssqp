@@ -4,16 +4,16 @@ import numpy as np
 H = 2500
 dt = 0.001
 
-V_WGT = 1e-4
-U_WGT = 1e-5
-C_WGT = 5.0
+V_WGT = 1e-5
+U_WGT = 1e-6
+C_WGT = 0.5
 
-DESIRED_CONFIG = np.array((-1.0, 0.0, 1.0, 0.0))
+DESIRED_CONFIG = np.array((np.pi, 0.0))
 
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../../assets/urdf/double_pendulum/pendubot_cont.urdf",
+    urdf_path="../../../assets/urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
     solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
 )
@@ -32,7 +32,7 @@ for k in range(H):
     model.addCost(k, vel_cost)
     model.addCost(k, u_cost)
 
-    if k > H - 50:
+    if k > H - 500:
         model.addCost(k, config_cost)
 
 model.finalize(terminal_cost=config_cost)
@@ -42,21 +42,22 @@ model.finalize(terminal_cost=config_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 hpipm_params = ssqpy.solvers.hpipmParams()
-hpipm_params.tol_comp = 1e-2
-hpipm_params.tol_stat = 1e-2
-hpipm_params.tol_eq = 1e-2
-hpipm_params.tol_ineq = 1e-2
+hpipm_params.tol_comp = 1e-3
+hpipm_params.tol_stat = 1e-3
+hpipm_params.tol_eq = 1e-3
+hpipm_params.tol_ineq = 1e-3
 ssqp_params.hpipmParams = hpipm_params
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.max_iter = 100
+admm_params.max_iter = 75
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
-admm_params.adaptive_rho_tolerance = 1.0
-admm_params.warm_start = False
+admm_params.adaptive_rho_tolerance = 0.1
+admm_params.rho_update_iter_freq = 10
+admm_params.warm_start = True
 ssqp_params.admmParams = admm_params
 
 solver = ssqpy.solvers.ssqp(model, ssqp_params)
@@ -68,4 +69,4 @@ x.print()
 print("us:")
 u.print()
 
-solver.write("trajectory.json")
+solver.write("pendubot.json")

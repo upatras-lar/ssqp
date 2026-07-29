@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     liblapack-dev \
     libmetis-dev \
     python3-numpy \
+    python-is-python3 \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
