@@ -48,3 +48,16 @@ docker run --rm -it -v $PWD:/workspace -v $PWD/../../../assets/urdf:/workspace/u
 ```
 
 Within, you can now execute any of the scripts using `python {problem}.py`. Each of these will generate `{problem}.json` as a trajectory output file.
+
+### mim_solvers
+To execute the mim_solvers benchmarks, build the docker image in the `mim_solvers` subdirectory.
+
+```
+docker build --build-arg NPROC=${n} -t mim-solvers-dev .
+```
+
+And run using:
+
+```
+docker run --rm -it -v $PWD:/workspace -v $PWD/../../../assets/urdf:/workspace/urdf:ro mim-solvers-dev
+```
