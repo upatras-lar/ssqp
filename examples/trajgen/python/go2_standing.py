@@ -85,20 +85,6 @@ rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
     name="RR foot velocity bound",
 )
 
-b1 = constraints.FrameTranslationBound(
-    model,
-    "FL_foot",
-    np.array((-np.inf, -np.inf, 0.0)),
-    np.array((np.inf, np.inf, np.inf)),
-)
-
-b2 = constraints.FrameTranslationBound(
-    model,
-    "FL_foot",
-    np.array((-np.inf, -np.inf, 0.0)),
-    np.array((np.inf, np.inf, np.inf)),
-)
-
 for k in range(HORIZON):
     # Add regularization costs
     # model.addCost(k, config_cost)
@@ -118,9 +104,6 @@ for k in range(HORIZON):
 
     model.addContactConstraint(k, "RR_foot", name="RR foot contact constraint")
     model.addConstraints(k, rr_foot_vel_bound)
-
-    model.addConstraints(k, b1)
-    model.addConstraints(k, b2)
 
 model.addCost(HORIZON, config_cost)
 model.addConstraints(

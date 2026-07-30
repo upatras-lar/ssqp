@@ -25,7 +25,6 @@ def run_pendubot_problem(solver, solver_args, output_json):
     model = pin.buildModelFromUrdf(
         URDF_PATH
     )  # base_link is fixed to the world
-    data = model.createData()
 
     nq, nv = model.nq, model.nv  # Now 2, 2
     assert nq == 2 and nv == 2
@@ -37,6 +36,9 @@ def run_pendubot_problem(solver, solver_args, output_json):
     cmodel = cpin.Model(model)  # CasADi (symbolic) mirror of the model
     cdata = cmodel.createData()
 
+    # We add 1 to the problem's regular horizon, since all solvers
+    # formulate the problem for stages [0, H] (inclusive), 2501 total stages
+    # with horizon 2500
     H = 2501
     dt = 0.001
 
@@ -69,9 +71,9 @@ def run_pendubot_problem(solver, solver_args, output_json):
     # ---------------------------------------------------------------------------
     # Costs & Target States
     # ---------------------------------------------------------------------------
-    V_WGT = 1e-5
-    U_WGT = 1e-6
-    C_WGT = 0.5
+    V_WGT = 1e-4
+    U_WGT = 1e-4
+    C_WGT = 1.0
 
     # x0: Hang straight down [q1=0, q2=0, dq1=0, dq2=0]
     x0 = ca.DM([0.0, 0.0, 0.0, 0.0])
@@ -172,13 +174,9 @@ def run_pendubot_problem(solver, solver_args, output_json):
         exit(0)
 
     # ---------------------------------------------------------------------------
-    # Extract and inspect the solution
+    # Extract solution values
     # ---------------------------------------------------------------------------
-    # We can now directly read the raw joint angles from the state vector!
-    q1_traj = np.array([sol.value(x[k][0]) for k in range(H)])
-    q2_traj = np.array([sol.value(x[k][1]) for k in range(H)])
     tau1_traj = np.array([sol.value(u[k]) for k in range(H - 1)])
-    times = np.linspace(0, H * dt, H)
 
     print(f"Final state (q1, q2, dq1, dq2): {sol.value(x[H - 1])}")
     print(

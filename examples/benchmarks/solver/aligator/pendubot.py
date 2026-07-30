@@ -1,10 +1,5 @@
 """
 Pendubot swing-up trajectory optimization, translated to aligator.
-
-Direct translation of the CasADi/Opti + fatrop version. Same dynamics,
-same costs, same constraints, same horizon/dt. Read the inline notes for
-the two spots most likely to need adjustment for your installed aligator
-version (the custom dynamics class and the residual constructors).
 """
 
 import numpy as np
@@ -14,7 +9,7 @@ from aligator import manifolds, dynamics, constraints
 from time import time
 
 # ---------------------------------------------------------------------------
-# Build the Pinocchio model (identical to the CasADi version)
+# Build the Pinocchio model
 # ---------------------------------------------------------------------------
 URDF_PATH = "urdf/double_pendulum/pendubot.urdf"
 
@@ -36,9 +31,7 @@ nu = 1  # tau1 only
 
 # ---------------------------------------------------------------------------
 # State space: q, v both R^2 for revolute joints -> ndx = nq + nv = 4,
-# and the manifold "difference" is plain vector subtraction, so slicing
-# the state-error residual reproduces exactly the q-only / v-only costs
-# from the CasADi version.
+# and the manifold "difference" is plain vector subtraction
 # ---------------------------------------------------------------------------
 space = manifolds.MultibodyPhaseSpace(model)
 ndx = space.ndx
@@ -51,16 +44,6 @@ B = np.array([[1.0], [0.0]])  # actuation matrix: joint1 actuated, joint2 not
 
 # ---------------------------------------------------------------------------
 # Custom continuous dynamics: ddq = ABA(q, v, B@u - damping*v)
-#
-# NOTE: plain pin.aba() does NOT apply model.damping on its own -- your
-# original script subtracts damping*dq from tau by hand before calling
-# cpin.aba, and aligator's built-in dynamics.MultibodyFreeFwdDynamics does
-# the same bare-ABA call with no damping term. So we subclass ODEAbstract
-# to reproduce your exact torque expression and its derivatives.
-#
-# Verify against your aligator version: `help(aligator.dynamics.ODEAbstract)`
-# and the attribute names on the continuous-dynamics Data object
-# (expected: data.xdot, data.Jx, data.Ju).
 # ---------------------------------------------------------------------------
 class PendubotFwdDynamics(dynamics.ODEAbstract):
     def __init__(self, space, model, actuation_matrix, damping):
@@ -135,13 +118,11 @@ disc_dynamics = dynamics.IntegratorEuler(ode, dt)
 #   - control cost:   U_WGT * tau1^2                      (every stage)
 #   - config cost:    C_WGT * |q - xf_q|^2                (last 50 nodes)
 # ---------------------------------------------------------------------------
-V_WGT = 1e-5
-U_WGT = 1e-6
-C_WGT = 0.5
+V_WGT = 1e-4
+U_WGT = 1e-4
+C_WGT = 1.0
 
-# Full-state error residual against xf; since the manifold difference is
-# plain subtraction here, slicing [0:nq] / [nq:nq+nv] gives exactly the
-# q-error / v-error pieces used in the CasADi cost functions.
+# Full-state error residual against xf
 state_err_to_xf = aligator.StateErrorResidual(space, nu, xf)
 config_err = state_err_to_xf[:nq]  # q - xf_q
 
@@ -157,7 +138,7 @@ config_cost = aligator.QuadraticResidualCost(
 )
 
 # ---------------------------------------------------------------------------
-# Path constraints: velocity box (every node), torque box (every stage)
+# Path constraints: velocity box (every stage), torque box (non-terminal stages)
 # ---------------------------------------------------------------------------
 lb_dq, ub_dq = -dq_max, dq_max
 lb_u, ub_u = np.array([-tau1_max]), np.array([tau1_max])
@@ -169,7 +150,7 @@ u_box = constraints.BoxConstraint(lb_u, ub_u)
 # Build stages
 # ---------------------------------------------------------------------------
 stages = []
-for k in range(N):  # k = 0 .. H-2, each stage carries control u_k
+for k in range(N):
     cost_stack = aligator.CostStack(space, nu)
     cost_stack.addCost(vel_cost)
     cost_stack.addCost(u_cost)
@@ -181,20 +162,17 @@ for k in range(N):  # k = 0 .. H-2, each stage carries control u_k
     stage.addConstraint(control_err, u_box)
     stages.append(stage)
 
-# Terminal cost: node k = H-1 (no control), same "k > H-50" condition
-# applies to it in the original loop, so it always gets the config cost.
+# Terminal cost
 term_cost_stack = aligator.CostStack(space, nu)
 term_cost_stack.addCost(vel_cost)
 term_cost_stack.addCost(config_cost)
-# Terminal velocity limits, mirroring path_constraints() at k = H-1.
-# (Terminal constraints are added to the problem, not the stage.)
 
+# Terminal velocity limits
 problem = aligator.TrajOptProblem(x0, stages, term_cost_stack)
 problem.addTerminalConstraint(vel_err, vel_box)
 
 # ---------------------------------------------------------------------------
-# Initial guess: hang-down state at every node, zero torque (same as
-# initial_guess() in the CasADi version)
+# Initial guess: hang-down state at every node, zero torque
 # ---------------------------------------------------------------------------
 xs_init = [x0.copy() for _ in range(H)]
 us_init = [np.zeros(nu) for _ in range(N)]
