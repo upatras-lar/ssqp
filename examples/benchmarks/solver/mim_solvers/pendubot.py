@@ -35,10 +35,8 @@ x0 = np.array((0.0, 0.0, 0.0, 0.0))
 
 
 # ============================================================================
-# Pendubot actuation WITH viscous damping
+# Pendubot actuation with viscous damping
 # ============================================================================
-
-
 class PendubotActuationModel(crocoddyl.ActuationModelAbstract):
 
     def __init__(self, state, model):
@@ -47,9 +45,7 @@ class PendubotActuationModel(crocoddyl.ActuationModelAbstract):
         self.model = model
 
         # Joint 1 is actuated, joint 2 is passive.
-        #
         # tau_control = B @ u
-        #
         # B = [1]
         #     [0]
         self.B = np.array(
@@ -60,7 +56,6 @@ class PendubotActuationModel(crocoddyl.ActuationModelAbstract):
         )
 
         # Viscous damping from the URDF.
-        #
         # tau_damping = damping * v
         self.damping = np.asarray(
             model.damping,
@@ -83,52 +78,38 @@ class PendubotActuationModel(crocoddyl.ActuationModelAbstract):
     def calc(self, data, x, u):
         """
         Effective torque passed to Pinocchio:
-
             tau_eff = B @ u - damping * v
-
         i.e.
-
             tau_eff =
                 [u0 - d1*dq1]
                 [-d2*dq2]
         """
-
         v = x[self.model.nq :]
-
         data.tau[:] = self.B @ u - self.damping * v
 
     def calcDiff(self, data, x, u):
         """
         Derivatives of:
-
             tau = B @ u - D @ v
-
         with respect to the state and control:
-
             d tau / d x =
                 [ 0       0 ]
                 [ -D      ]
-
         more precisely, since x = [q, v]:
-
             d tau / d q = 0
             d tau / d v = -D
-
             d tau / d u = B
         """
-
-        # Clear everything first.
+        # Clear everything first
         data.dtau_dx[:] = 0.0
         data.dtau_du[:] = 0.0
 
-        # x = [q, v], therefore velocity starts at nq.
-        #
-        # tau has dimension nv.
+        # x = [q, v], therefore velocity starts at nq
+        # tau has dimension nv
         for i in range(self.model.nv):
             data.dtau_dx[i, self.model.nq + i] = -self.damping[i]
 
         # Control mapping:
-        #
         # tau1 = u
         # tau2 = 0
         data.dtau_du[:] = self.B[:, 0]
@@ -139,10 +120,12 @@ actuation = PendubotActuationModel(
     model,
 )
 
-
 # ============================================================================
 # Costs
 # ============================================================================
+V_WGT = 1e-4
+U_WGT = 1e-4
+C_WGT = 1.0
 
 activation_configuration = crocoddyl.ActivationModelWeightedQuad(
     np.concatenate(
@@ -162,11 +145,8 @@ activation_velocities = crocoddyl.ActivationModelWeightedQuad(
     )
 )
 
-
 # Velocity cost:
-#
 #     ||v||^2
-#
 velCost = crocoddyl.CostModelResidual(
     state,
     activation_velocities,
@@ -177,7 +157,6 @@ velCost = crocoddyl.CostModelResidual(
     ),
 )
 
-
 # Control cost:
 #     u^2
 uCost = crocoddyl.CostModelResidual(
@@ -187,7 +166,6 @@ uCost = crocoddyl.CostModelResidual(
         nu=1,
     ),
 )
-
 
 # Target configuration
 qdes = np.array(
@@ -204,7 +182,6 @@ xref = np.concatenate(
     ]
 )
 
-
 configCost = crocoddyl.CostModelResidual(
     state,
     activation_configuration,
@@ -215,6 +192,55 @@ configCost = crocoddyl.CostModelResidual(
     ),
 )
 
+# ============================================================================
+# Constraints
+# ============================================================================
+# Velocity bounds (dimension state.nv)
+lb_dq = -np.asarray(model.velocityLimit).reshape(-1)
+ub_dq = np.asarray(model.velocityLimit).reshape(-1)
+
+# Control bounds
+tau1_max = float(model.effortLimit[0])
+
+lb_u = np.array([-tau1_max])
+ub_u = np.array([tau1_max])
+
+# ---------------------------------------------------------------------------
+# Velocity constraint via ResidualModelState
+# ---------------------------------------------------------------------------
+# State residual x ⊖ x0 has total dimension state.ndx (configuration + velocity)
+velocity_residual_full = crocoddyl.ResidualModelState(
+    state,
+    state.zero(),  # x0 = 0 ensures the velocity residual equals v - 0 = v
+    nu=1,
+)
+
+# Pad bounds with +-inf for position components so only velocities are constrained
+nq_ndx = state.ndx - state.nv
+lb_x = np.concatenate([-np.inf * np.ones(nq_ndx), lb_dq])
+ub_x = np.concatenate([np.inf * np.ones(nq_ndx), ub_dq])
+
+velocity_constraint = crocoddyl.ConstraintModelResidual(
+    state,
+    velocity_residual_full,
+    lb_x,
+    ub_x,
+)
+
+# ---------------------------------------------------------------------------
+# Control constraint
+# ---------------------------------------------------------------------------
+control_residual = crocoddyl.ResidualModelControl(
+    state,
+    nu=1,
+)
+
+control_constraint = crocoddyl.ConstraintModelResidual(
+    state,
+    control_residual,
+    lb_u,
+    ub_u,
+)
 
 # ============================================================================
 # Running models
@@ -223,7 +249,6 @@ configCost = crocoddyl.CostModelResidual(
 runningModels = []
 
 for k in range(H):
-
     cost = crocoddyl.CostModelSum(
         state,
         nu=1,
@@ -233,14 +258,14 @@ for k in range(H):
     cost.addCost(
         "vel",
         velCost,
-        1e-5,
+        V_WGT,
     )
 
     # Control cost
     cost.addCost(
         "u",
         uCost,
-        1e-6,
+        U_WGT,
     )
 
     # Goal cost during final part of horizon
@@ -248,21 +273,35 @@ for k in range(H):
         cost.addCost(
             "goal",
             configCost,
-            0.5,
+            C_WGT,
         )
 
+    constraints = crocoddyl.ConstraintModelManager(
+        state,
+        nu=1,
+    )
+
+    # Velocity limits at every node
+    constraints.addConstraint(
+        "velocity",
+        velocity_constraint,
+    )
+
+    # Torque limits at every controlled stage
+    constraints.addConstraint(
+        "control",
+        control_constraint,
+    )
+
     # Free forward dynamics:
-    #
     #     M(q) ddq + h(q,v) = tau_eff
-    #
     # where our actuation model supplies:
-    #
     #     tau_eff = [u, 0] - damping*v
-    #
     dam = crocoddyl.DifferentialActionModelFreeFwdDynamics(
         state,
         actuation,
         cost,
+        constraints,
     )
 
     # Euler integration
@@ -273,20 +312,30 @@ for k in range(H):
         )
     )
 
-
 # ============================================================================
 # Terminal model
 # ============================================================================
-
 terminalCost = crocoddyl.CostModelSum(
     state,
     nu=1,
 )
 
+terminalCost.addCost("vel", velCost, V_WGT)
+
 terminalCost.addCost(
     "goal",
     configCost,
-    0.5,
+    C_WGT,
+)
+
+terminalConstraints = crocoddyl.ConstraintModelManager(
+    state,
+    nu=1,
+)
+
+terminalConstraints.addConstraint(
+    "velocity",
+    velocity_constraint,
 )
 
 
@@ -294,6 +343,7 @@ terminalDAM = crocoddyl.DifferentialActionModelFreeFwdDynamics(
     state,
     actuation,
     terminalCost,
+    terminalConstraints,
 )
 
 terminalModel = crocoddyl.IntegratedActionModelEuler(
@@ -301,26 +351,27 @@ terminalModel = crocoddyl.IntegratedActionModelEuler(
     0.0,
 )
 
-
 # ============================================================================
 # Shooting problem
 # ============================================================================
-
 problem = crocoddyl.ShootingProblem(
     x0,
     runningModels,
     terminalModel,
 )
 
-
 # ============================================================================
 # mim_solvers
 # ============================================================================
-
 solver = mim_solvers.SolverCSQP(problem)
 
 solver.termination_tolerance = 1e-2
 solver.max_qp_iters = 100
+solver.eps_abs = 1e-3
+solver.eps_rel = 1e-3
+solver.adaptive_rho_tolerance = 1
+solver.rho_update_interval = 100
+solver.use_filter_line_search = True
 
 solver.setCallbacks(
     [
@@ -329,20 +380,15 @@ solver.setCallbacks(
     ]
 )
 
-
 # ============================================================================
 # Initial guess
 # ============================================================================
-
 xs_init = [x0.copy() for _ in range(H + 1)]
-
 us_init = [np.zeros(1) for _ in range(H)]
-
 
 # ============================================================================
 # Solve
 # ============================================================================
-
 start = time.time()
 
 success = solver.solve(
@@ -353,33 +399,27 @@ success = solver.solve(
 
 end = time.time()
 
-
 # ============================================================================
 # Results
 # ============================================================================
-
 xs = solver.xs
 us = solver.us
 
 
 print(f"Solve time: {(end - start) * 1000:.3f} ms")
-
 print(f"Final cost: {solver.cost}")
-
 print(f"Iterations: {solver.iter}")
-
 print(f"Success: {success}")
+
 # -------------------------------------------------------------------------
 # Save solution in same visualizer format
 # -------------------------------------------------------------------------
 x_sol = np.asarray(xs)
 u_sol = np.asarray(us)
 
-
 stage_data = []
 
 for k in range(H):
-
     stage = {
         "state": [
             float(x_sol[k, 0]),
@@ -390,7 +430,7 @@ for k in range(H):
     }
 
     if k < H:
-        # Only tau1 is part of the original problem.
+        # Only tau1 is part of the original problem
         stage["control"] = [float(u_sol[k, 0])]
 
     stage_data.append(stage)
@@ -418,7 +458,6 @@ output = {
 }
 
 for k in range(H):
-
     stage_info = {
         "size": 4,
         "control": 1 if k < H else 0,

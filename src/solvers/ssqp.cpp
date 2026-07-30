@@ -1177,18 +1177,20 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
     VecX c;
     for (uint k = 0; k < horizon; ++k)
     {
-        if (constraints[k] != nullptr)
+        if (constraints[k] == nullptr)
         {
-            c = constraints[k]->evaluate(x.stage(k), u.stage(k));
-            sum +=
-              constraints[k]
-                ->right_minus(c, constraints[k]->lower_bound())
-                .cwiseMin(0)
-                .cwiseAbs()
-                .cwiseMax(
-                  constraints[k]->right_minus(c, constraints[k]->upper_bound()))
-                .lpNorm<Eigen::Infinity>();
+            continue;
         }
+
+        c = constraints[k]->evaluate(x.stage(k), u.stage(k));
+        sum +=
+          constraints[k]
+            ->right_minus(c, constraints[k]->lower_bound())
+            .cwiseMin(0)
+            .cwiseAbs()
+            .cwiseMax(
+              constraints[k]->right_minus(c, constraints[k]->upper_bound()))
+            .lpNorm<Eigen::Infinity>();
     }
 
     if (constraints[horizon] != nullptr)
@@ -1218,7 +1220,7 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 
     for (uint k = 0; k < horizon; ++k)
     {
-        if (!constraints[k])
+        if (constraints[k] == nullptr)
         {
             continue;
         }
@@ -1265,6 +1267,11 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     MatX dXk, dUk;
     for (uint k = 0; k < horizon; ++k)
     {
+        if (constraints[k] == nullptr)
+        {
+            continue;
+        }
+
         VecX c_k = constraints[k]->evaluate(x.stage(k), u.stage(k));
         VecX lb  = constraints[k]->lower_bound();
         VecX ub  = constraints[k]->upper_bound();
@@ -1296,6 +1303,11 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
         dx.stage(k).noalias() += dXk.transpose() * c_k;
         du.stage(k).noalias() += dUk.transpose() * c_k;
+    }
+
+    if (constraints[horizon] == nullptr)
+    {
+        return;
     }
 
     VecX c_H = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
