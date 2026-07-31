@@ -3,6 +3,16 @@ This directory aims to benchmark the performance of our SSQP solver compared to 
 
 A subdirectory can be found for each solver we use for benchmarking. Inside, we formulate each problem using the Python interface of the corresponding solver, attempting to get as close a representation to the original problem as we can, such that all solvers tackle the same OCPs.
 
+temp
+
+```
+docker build --build-arg NPROC=24 -t solver-benchmark .
+```
+
+```
+docker run --rm -it -v $PWD:/workspace -v $PWD/../../assets/urdf:/workspace/urdf:ro -v $PWD/../../../build/bindings:/workspace/bindings:ro solver-benchmark:latest
+```
+
 #### SSQP
 Firstly, for SSQP, we formulate the problems using our Python API. Since these are trajectory generation problems, the scripts can be executed in the same manner as all other Python trajectory generation examples, by building the Python interface for SSQP and executing the `setup_env.sh` script.
 

@@ -25,6 +25,8 @@ MAX_NORMAL_FORCE = 50.0
 FOOT_EQ_TOL = 0.01  # ssqpy's per-contact equality tolerance -> proximal
 # solver tolerance for the constrained-dynamics solve, see prox_settings.
 
+MU = 0.6
+
 FOOT_FRAMES = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 
 base_pos = np.array([0.0, 0.0, 0.3879793820122])
@@ -48,6 +50,9 @@ q0[6] = 1.0  # quaternion w-component -> identity orientation
 q0[7:19] = base_config
 v0 = np.zeros(nv)
 x0 = np.concatenate([q0, v0])
+
+# Contact-constraint target height h_z per foot
+foot_h_z = {foot: 0.0 for foot in FOOT_FRAMES}
 
 # Reference state used only to build the joint-angle part
 q_ref = q0.copy()
@@ -169,11 +174,39 @@ base_vel_bound = constraints.BoxConstraint(
     np.concatenate([np.inf * np.ones(3), np.zeros(3)]),
 )
 
-# Contact normal-force bound: 0 <= Fz <= MAX_NORMAL_FORCE per foot
-normal_force_bound = constraints.BoxConstraint(
-    np.array([-np.inf, -np.inf, 0.0]),
-    np.array([np.inf, np.inf, MAX_NORMAL_FORCE]),
+# ---------------------------------------------------------------------------
+# Linearized (4-facet pyramidal) friction cone per foot, replacing the
+# earlier plain z-only box:
+#     f_n in [0, MAX_NORMAL_FORCE]
+#     |f1| <= mu * f_n
+#     |f2| <= mu * f_n
+# Force order is assumed [f1, f2, f_n] = [f_x, f_y, f_z] in the
+# LOCAL_WORLD_ALIGNED frame. Expressed as A @ f <= b via
+# LinearFunctionComposition, then boxed to (-inf, b].
+# ---------------------------------------------------------------------------
+A_cone = np.array(
+    [
+        [0.0, 0.0, -1.0],  # -f_n <= 0            -> f_n >= 0
+        [0.0, 0.0, 1.0],  # f_n <= MAX_NORMAL_FORCE
+        [1.0, 0.0, -MU],  # f1 - mu*f_n <= 0
+        [-1.0, 0.0, -MU],  # -f1 - mu*f_n <= 0
+        [0.0, 1.0, -MU],  # f2 - mu*f_n <= 0
+        [0.0, -1.0, -MU],  # -f2 - mu*f_n <= 0
+    ]
 )
+b_cone = np.array([0.0, MAX_NORMAL_FORCE, 0.0, 0.0, 0.0, 0.0])
+friction_cone_bound = constraints.BoxConstraint(-np.inf * np.ones(6), b_cone)
+
+# ---------------------------------------------------------------------------
+# Per-foot p_z = h_z position constraint.
+# ---------------------------------------------------------------------------
+foot_pz_bound = constraints.BoxConstraint(np.zeros(1), np.zeros(1))
+foot_pz_residuals = []
+for foot in FOOT_FRAMES:
+    frame_id = model.getFrameId(foot)
+    p_ref = np.array([0.0, 0.0, foot_h_z[foot]])
+    fp = aligator.FrameTranslationResidual(ndx, nu, model, p_ref, frame_id)
+    foot_pz_residuals.append(fp[2:3])
 
 # ---------------------------------------------------------------------------
 # Build stages
@@ -193,20 +226,25 @@ for k in range(HORIZON):
     stage.addConstraint(vel_err, vel_bound)
     stage.addConstraint(torque_err, torque_bound)
 
-    for i, fv in enumerate(foot_vel_residuals):
+    for i, foot in enumerate(FOOT_FRAMES):
+        fv = foot_vel_residuals[i]
         stage.addConstraint(fv, foot_vel_bound)
-        stage.addConstraint(
-            aligator.ContactForceResidual(
-                ndx,
-                model,
-                B,
-                constraint_models,
-                prox_settings,
-                np.zeros(3),
-                foot,
-            ),
-            normal_force_bound,
+
+        force_res = aligator.ContactForceResidual(
+            ndx,
+            model,
+            B,
+            constraint_models,
+            prox_settings,
+            np.zeros(3),
+            foot,
         )
+        cone_res = aligator.LinearFunctionComposition(
+            force_res, A_cone, np.zeros(6)
+        )
+        stage.addConstraint(cone_res, friction_cone_bound)
+
+        stage.addConstraint(foot_pz_residuals[i], foot_pz_bound)
     stages.append(stage)
 
 # Terminal cost/constraint
@@ -241,8 +279,6 @@ np.set_printoptions(suppress=True)
 start = time()
 conv = solver.run(problem, xs_init, us_init)
 end = time()
-
-print(f"Solve time: {time() - start:.2f} sec, converged: {conv}")
 
 results = solver.results
 xs_opt = results.xs
