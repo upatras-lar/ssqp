@@ -109,10 +109,6 @@ foot_contact_positions = {
     name: data0.oMf[foot_ids[name]].translation.copy() for name in FOOT_NAMES
 }
 
-for name in FOOT_NAMES:
-    print(f"{name}: " f"{foot_contact_positions[name]}")
-
-
 # ============================================================================
 # Cost models
 # ============================================================================
@@ -199,7 +195,6 @@ ub_dq = np.asarray(model.velocityLimit).reshape(-1)
 lb_u = -np.asarray(model.effortLimit).reshape(-1)
 ub_u = np.asarray(model.effortLimit).reshape(-1)
 
-print(state.zero())
 state_residual = crocoddyl.ResidualModelState(state, state.zero(), nu=12)
 
 # ---------------------------------------------------------------------------
@@ -641,7 +636,7 @@ output = {
     "properties": {
         "horizon": HORIZON,
         "dt": dt,
-        "solver_mode": "ContactForwardDynamics",
+        "solver_mode": "ForwardDynamics",
         "xml": True,
         "nq": nq,
         "nv": nv,

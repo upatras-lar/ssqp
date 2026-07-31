@@ -35,7 +35,7 @@ DESIRED_CONFIG = np.array((np.pi, 0.0))
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../../assets/urdf/double_pendulum/pendubot.urdf",
+    urdf_path="urdf/double_pendulum/pendubot.urdf",
     actuated_joints=[0],
     solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
 )
