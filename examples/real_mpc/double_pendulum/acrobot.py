@@ -52,24 +52,27 @@ ssqpy.setSilentMode()
 
 if args.hpipm:
     dt = 0.01
-    MPC_H = 20
+    MPC_H = 15
 
-    V_WGT = np.array((1e-1, 4e-2))
-    U_WGT = 1e-2
-    ELBOW_WGT = 100.0
-    TIP_WGT = 40.0
+    V_WGT = np.array((2.2e-1, 7e-2))
+    U_WGT = 6e-3
+    ELBOW_WGT = 60.0
+    TIP_WGT = 21.0
 
-    elbow_height = 0.05
-    tip_height = 0.1
+    elbow_height = 0.075
+    tip_height = 0.2
 
-    torque_clip = 0.1
+    torque_clip = 0.125
+
+    vel_bounds = np.array((30, 30))
+    torque_bounds = np.array((torque_clip,))
 
 else:
     dt = 0.01
     MPC_H = 20
 
-    V_WGT = np.array((9e-2, 4e-2))
-    U_WGT = 6e-3
+    V_WGT = 1e-1
+    U_WGT = 4e-3
     ELBOW_WGT = 60.0
     TIP_WGT = 18.0
 
@@ -77,6 +80,9 @@ else:
     tip_height = 0.2
 
     torque_clip = 0.1
+
+    vel_bounds = np.array((35, 35))
+    torque_bounds = np.array((torque_clip,))
 
 model = ssqpy.model.Model(
     MPC_H,
@@ -108,6 +114,11 @@ for k in range(MPC_H):
 model.addCost(MPC_H, vel_cost)
 model.addCost(MPC_H, elbow_cost)
 model.addCost(MPC_H, tip_cost)
+
+model.finalize(
+    custom_velocity_bounds=vel_bounds,
+    custom_torque_bounds=torque_bounds,
+)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
@@ -185,7 +196,7 @@ while True if not args.plot else i < args.steps_to_plot:
                     (wrap_to_reference(pos)[0], wrap_to_reference(pos[1], 0.0))
                 ),
                 vel,
-                np.clip(tau, -0.1, 0.1),
+                np.clip(tau, -torque_clip, torque_clip),
             )
         )
         frequencies.append(1 / elapsed)
@@ -199,7 +210,7 @@ if args.plot:
     # Unpack data
     positions = np.array([item[0] for item in data])  # (N, 2)
     velocities = np.array([item[1] for item in data])  # (N, 2)
-    torques = np.array([item[2] for item in data])[:, 0]  # (N, 2)
+    torques = np.array([item[2] for item in data])[:, 1]  # (N, 2)
     frequencies = np.array(frequencies)
 
     fig = plt.figure(figsize=(10, 8))
@@ -231,10 +242,10 @@ if args.plot:
     ax_vel.grid(True)
 
     # --- Torque (τ₀) ---
-    ax_tau.plot(t, torques, label="τ₀")
+    ax_tau.plot(t, torques, label="τ₁")
 
     ax_tau.set_title("Torque")
-    ax_tau.set_ylabel("τ₀")
+    ax_tau.set_ylabel("τ₁")
     ax_tau.grid(True)
 
     # --- Frequency ---
