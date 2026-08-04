@@ -52,29 +52,29 @@ ssqpy.setSilentMode()
 
 if args.hpipm:
     dt = 0.01
-    MPC_H = 15
+    MPC_H = 10
 
-    V_WGT = np.array((2.2e-1, 7e-2))
-    U_WGT = 6e-3
-    ELBOW_WGT = 60.0
-    TIP_WGT = 21.0
+    V_WGT = np.array((3.5e-1, 1.1e-1))
+    U_WGT = 1e-2
+    ELBOW_WGT = 200.0
+    TIP_WGT = 60.0
 
     elbow_height = 0.075
     tip_height = 0.2
 
-    torque_clip = 0.125
+    torque_clip = 0.1
 
-    vel_bounds = np.array((30, 30))
+    vel_bounds = np.array((30, 35))
     torque_bounds = np.array((torque_clip,))
 
 else:
-    dt = 0.01
-    MPC_H = 20
+    dt = 0.02
+    MPC_H = 5
 
-    V_WGT = 1e-1
-    U_WGT = 4e-3
-    ELBOW_WGT = 60.0
-    TIP_WGT = 18.0
+    V_WGT = np.array((4.3e-1, 2.8e-1))
+    U_WGT = 8e-3
+    ELBOW_WGT = 190.0
+    TIP_WGT = 35.0
 
     elbow_height = 0.075
     tip_height = 0.2
@@ -163,8 +163,6 @@ def wrap_to_reference(theta, reference=np.pi):
 t0 = time()
 timestamps = []
 frequencies = []
-
-previous_filtered_vel = None
 
 i = 0
 while True if not args.plot else i < args.steps_to_plot:
