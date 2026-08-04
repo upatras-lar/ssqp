@@ -17,8 +17,9 @@
 /examples/benchmarks/solver/mim_solvers/*.json
 /examples/trajgen/data/*
 /examples/real_mpc/plots/*
-/tests/logs/*
+/examples/real_mpc/double_pendulum/data/*
 /examples/python/*.json
+/tests/logs/*
 
 # Virtual environments
 /nbvenv/*
