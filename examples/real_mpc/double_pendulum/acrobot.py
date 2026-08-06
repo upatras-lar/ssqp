@@ -54,27 +54,27 @@ if args.hpipm:
     dt = 0.01
     MPC_H = 10
 
-    V_WGT = np.array((3.5e-1, 1.1e-1))
-    U_WGT = 1e-2
-    ELBOW_WGT = 200.0
-    TIP_WGT = 60.0
+    V_WGT = np.array((4e-1, 1e-1))
+    U_WGT = 1.2e-2
+    ELBOW_WGT = 180.0
+    TIP_WGT = 80.0
 
     elbow_height = 0.075
-    tip_height = 0.2
+    tip_height = 0.21
 
     torque_clip = 0.1
 
-    vel_bounds = np.array((30, 35))
+    vel_bounds = np.array((20, 35))
     torque_bounds = np.array((torque_clip,))
 
 else:
-    dt = 0.02
-    MPC_H = 5
+    dt = 0.01
+    MPC_H = 20
 
-    V_WGT = np.array((4.3e-1, 2.8e-1))
-    U_WGT = 8e-3
-    ELBOW_WGT = 190.0
-    TIP_WGT = 35.0
+    V_WGT = 1e-1
+    U_WGT = 4e-3
+    ELBOW_WGT = 60.0
+    TIP_WGT = 18.0
 
     elbow_height = 0.075
     tip_height = 0.2
