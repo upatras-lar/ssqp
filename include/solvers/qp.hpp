@@ -19,6 +19,8 @@ class QPSolver
         Solution(const model::Dimensions &dims);
     };
 
+    virtual ~QPSolver() = default;
+
     virtual void        reset()                  = 0;
     virtual void        increaseRegularization() = 0;
     virtual SolverState solve(Solution &sol)     = 0;
