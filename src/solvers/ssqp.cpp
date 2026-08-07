@@ -57,11 +57,11 @@ std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
 
     const model::SolverMode solver_mode =
       model::str_to_DM.at(j["properties"]["solver_mode"]);
-    const bool &loaded_from_xml = j["properties"]["xml"];
+    const bool &floating_base = j["properties"]["floating_base"];
 
     for (uint k = 0; k < horizon; ++k)
     {
-        if (loaded_from_xml)
+        if (floating_base)
         {
             x.stage(k).head(3) = Eigen::Map<VecX>(
               static_cast<std::vector<double>>(j["stage_data"][k]["position"])
@@ -98,12 +98,16 @@ std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
             static_cast<std::vector<double>>(j["stage_data"][k]["control"])
               .data(),
             u_stage_sizes[k] - 3 * stage_nforces[k]);
-        u.stage(k).tail(3 * stage_nforces[k]) = Eigen::Map<VecX>(
-          static_cast<std::vector<double>>(j["stage_data"][k]["forces"]).data(),
-          3 * stage_nforces[k]);
+        if (stage_nforces[k] > 0)
+        {
+            u.stage(k).tail(3 * stage_nforces[k]) = Eigen::Map<VecX>(
+              static_cast<std::vector<double>>(j["stage_data"][k]["forces"])
+                .data(),
+              3 * stage_nforces[k]);
+        }
     }
 
-    if (loaded_from_xml)
+    if (floating_base)
     {
         x.stage(horizon).head(3) = Eigen::Map<VecX>(
           static_cast<std::vector<double>>(j["stage_data"][horizon]["position"])

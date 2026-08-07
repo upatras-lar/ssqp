@@ -121,7 +121,7 @@ model.finalize(
 )
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-1
+ssqp_params.tolerance = 1e-2
 
 if args.hpipm:
     ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
@@ -139,7 +139,7 @@ else:
     admm_params.warm_start = True
     ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=8, qp_iters=100)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

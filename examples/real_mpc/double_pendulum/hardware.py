@@ -34,10 +34,23 @@ def parse_args():
         help="Maximum allowed torque",
     )
 
+    parser.add_argument(
+        "-f",
+        "--friction-compensation",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to allow the passive joint (if present) to be actuated \
+            with a maximum torque of 0.005",
+    )
+
     return parser.parse_args()
 
 
 args = parse_args()
+
+if args.pendubot and args.acrobot:
+    raise ValueError(
+        "Cannot initialize as Pendubot and Acrobot simultaneously!"
+    )
 
 
 SOCK_PATH = "/tmp/mpc_socket"
@@ -97,9 +110,15 @@ while True:
 
     if not args.pendubot:
         candle.md80s[0].setTargetTorque(tau[1])
+    elif args.friction_compensation:
+        comp_tau = np.clip(tau[1], -0.005, 0.005)
+        candle.md80s[0].setTargetTorque(comp_tau)
 
     if not args.acrobot:
         candle.md80s[1].setTargetTorque(tau[0])
+    elif args.friction_compensation:
+        comp_tau = np.clip(tau[0], -0.005, 0.005)
+        candle.md80s[1].setTargetTorque(comp_tau)
 
     steps += 1
 
