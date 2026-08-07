@@ -10,18 +10,19 @@ move and remain at a vertical position in the opposite direction of gravity
 H = 200
 dt = 0.01
 
-V_WGT = 1e-2
-U_WGT = 1e-3
-C_WGT = 1.0
+V_WGT = 1e-4
+U_WGT = 1e-5
+C_WGT = 0.5
 
-DESIRED_CONFIG = np.array((-1.0, 0.0, 1.0, 0.0))
+# DESIRED_CONFIG = np.array((-1.0, 0.0, 1.0, 0.0))
+DESIRED_CONFIG = np.array((np.pi, 0.0))
 
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../assets/urdf/double_pendulum/acrobot_cont.urdf",
+    urdf_path="../../assets/urdf/double_pendulum/acrobot.urdf",
     actuated_joints=[1],
-    solver_mode=ssqpy.model.SolverMode.ForwardDynamics,
+    solver_mode=ssqpy.model.SolverMode.InverseDynamics,
 )
 
 nq = model.getnq()
@@ -46,12 +47,16 @@ model.finalize(terminal_cost=config_cost)
 solver = ssqpy.solvers.ssqp(
     model,
     tolerance=1e-2,
-    # qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
-    filter_size=10,
+    qp_solver_type=ssqpy.solvers.QPSolverType.HPIPM,
+    # filter_size=10,
     hpipm_warm_start=False,
     hpipm_prediction_correction=True,
     hpipm_square_root_riccati=False,
     hpipm_split_step=True,
+    hpipm_tol_comp=1e-3,
+    hpipm_tol_rel=1e-3,
+    hpipm_tol_eq=1e-3,
+    hpipm_tol_ineq=1e-3,
     admm_adaptive_rho_tolerance=25,
     admm_abs_tolerance=1e-3,
     admm_rel_tolerance=1e-4,
