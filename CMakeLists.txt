@@ -51,12 +51,45 @@ if(DISABLE_LOGGING)
 endif()
 
 if(WITH_HPIPM)
-    target_include_directories(ssqp SYSTEM PRIVATE
-        /opt/blasfeo/include
-        /opt/hpipm/include
+    find_path(BLASFEO_INCLUDE_DIR
+        NAMES blasfeo.h
+        PATHS /opt/blasfeo/include
     )
-    target_link_directories(ssqp PUBLIC /opt/blasfeo/lib /opt/hpipm/lib)
-    target_link_libraries(ssqp PRIVATE hpipm blasfeo)
+    find_library(BLASFEO_LIBRARY
+        NAMES blasfeo
+        PATHS /opt/blasfeo/lib
+    )
+    find_path(HPIPM_INCLUDE_DIR
+        NAMES hpipm_common.h
+        PATHS /opt/hpipm/include
+    )
+    find_library(HPIPM_LIBRARY
+        NAMES hpipm
+        PATHS /opt/hpipm/lib
+    )
+
+    if(NOT BLASFEO_INCLUDE_DIR OR NOT BLASFEO_LIBRARY)
+        message(FATAL_ERROR
+            "WITH_HPIPM is ON but BLASFEO could not be found under /opt/blasfeo "
+            "(include dir: ${BLASFEO_INCLUDE_DIR}, library: ${BLASFEO_LIBRARY}). "
+            "Install BLASFEO to /opt/blasfeo or update the search paths in CMakeLists.txt.")
+    endif()
+
+    if(NOT HPIPM_INCLUDE_DIR OR NOT HPIPM_LIBRARY)
+        message(FATAL_ERROR
+            "WITH_HPIPM is ON but HPIPM could not be found under /opt/hpipm "
+            "(include dir: ${HPIPM_INCLUDE_DIR}, library: ${HPIPM_LIBRARY}). "
+            "Install HPIPM to /opt/hpipm or update the search paths in CMakeLists.txt.")
+    endif()
+
+    message(STATUS "Found BLASFEO: ${BLASFEO_LIBRARY}")
+    message(STATUS "Found HPIPM:   ${HPIPM_LIBRARY}")
+
+    target_include_directories(ssqp SYSTEM PRIVATE
+        ${BLASFEO_INCLUDE_DIR}
+        ${HPIPM_INCLUDE_DIR}
+    )
+    target_link_libraries(ssqp PRIVATE ${HPIPM_LIBRARY} ${BLASFEO_LIBRARY})
     target_compile_definitions(ssqp PUBLIC WITH_HPIPM=1)
 endif()
 
