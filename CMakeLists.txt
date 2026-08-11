@@ -165,7 +165,7 @@ endif()
 
 # --- Python bindings ---
 if(BUILD_PYTHON)
-    find_package(Python 3.12 REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module)
 
     execute_process(
         COMMAND ${Python_EXECUTABLE} -c "import nanobind; print(nanobind.cmake_dir())"
@@ -187,11 +187,36 @@ if(BUILD_PYTHON)
             LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bindings"
         )
 
+        # If HPIPM/BLASFEO live outside the default linker search path (e.g. /opt/...),
+        # the module will fail to import at runtime -- including during stub generation
+        # below, which imports ssqpy in a subprocess. Make sure it can always find them.
+        if(WITH_HPIPM)
+            get_filename_component(BLASFEO_LIB_DIR ${BLASFEO_LIBRARY} DIRECTORY)
+            get_filename_component(HPIPM_LIB_DIR ${HPIPM_LIBRARY} DIRECTORY)
+
+            set_target_properties(ssqpy PROPERTIES
+                SKIP_BUILD_RPATH FALSE
+                BUILD_WITH_INSTALL_RPATH FALSE
+                BUILD_RPATH "${BLASFEO_LIB_DIR};${HPIPM_LIB_DIR}"
+                INSTALL_RPATH "${BLASFEO_LIB_DIR};${HPIPM_LIB_DIR}"
+                INSTALL_RPATH_USE_LINK_PATH TRUE
+            )
+            # RPATH (not the modern default RUNPATH) is needed here, since RUNPATH only
+            # resolves ssqpy's *direct* dependencies (libhpipm) and doesn't propagate to
+            # libhpipm's own dependency on libblasfeo.
+            target_link_options(ssqpy PRIVATE "-Wl,--disable-new-dtags")
+
+            set(SSQPY_STUBGEN_LD_LIBRARY_PATH "${BLASFEO_LIB_DIR}:${HPIPM_LIB_DIR}:$ENV{LD_LIBRARY_PATH}")
+        else()
+            set(SSQPY_STUBGEN_LD_LIBRARY_PATH "$ENV{LD_LIBRARY_PATH}")
+        endif()
+
         add_custom_command(TARGET ssqpy POST_BUILD
-            COMMAND ${Python_EXECUTABLE} -m nanobind.stubgen
-            -m ssqpy
-            -M ${CMAKE_BINARY_DIR}/bindings/py.typed
-            -r
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${SSQPY_STUBGEN_LD_LIBRARY_PATH}"
+                ${Python_EXECUTABLE} -m nanobind.stubgen
+                -m ssqpy
+                -M ${CMAKE_BINARY_DIR}/bindings/py.typed
+                -r
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bindings
             COMMENT "Generating Python stubs for ssqpy..."
         )
