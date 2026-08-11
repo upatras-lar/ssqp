@@ -68,9 +68,19 @@ if(PINOCCHIO_STATIC)
         ${PINOCCHIO_STATIC_DIR}/lib/libpinocchio_parsers.a
     )
 else()
-    target_include_directories(ssqp SYSTEM PRIVATE /opt/openrobots/include)
-    target_link_directories(ssqp PUBLIC /opt/openrobots/lib)
-    target_link_libraries(ssqp PRIVATE pinocchio_parsers)
+    # Require Pinocchio 3.9.0 exactly; fails the configure step otherwise
+    find_package(pinocchio 3.9.0 EXACT REQUIRED)
+
+    find_library(PINOCCHIO_PARSERS_LIB NAMES pinocchio_parsers)
+    if(NOT PINOCCHIO_PARSERS_LIB)
+        message(FATAL_ERROR
+            "Pinocchio 3.9.0 was found, but the pinocchio_parsers module could not be located. "
+            "Rebuild Pinocchio with URDF/parsers support enabled (BUILD_WITH_URDF_SUPPORT=ON) "
+            "before configuring ssqp.")
+    endif()
+    set(PINOCCHIO_PARSERS_TARGET ${PINOCCHIO_PARSERS_LIB})
+
+    target_link_libraries(ssqp PRIVATE ${PINOCCHIO_PARSERS_TARGET})
 endif()
 
 # --- Examples ---
