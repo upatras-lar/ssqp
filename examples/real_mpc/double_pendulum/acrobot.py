@@ -34,6 +34,14 @@ def parse_args():
         help="Whether to use HPIPM as the QP backend",
     )
 
+    parser.add_argument(
+        "-f",
+        "--friction-compensation",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to allow the passive joint to be actuated with a maximum \
+             torque of 0.005",
+    )
+
     return parser.parse_args()
 
 
@@ -55,7 +63,7 @@ if args.hpipm:
     MPC_H = 10
 
     V_WGT = np.array((4e-1, 1e-1))
-    U_WGT = 1.2e-2
+    U_WGT = np.array((0.0, 2e-2))
     ELBOW_WGT = 180.0
     TIP_WGT = 80.0
 
@@ -64,17 +72,26 @@ if args.hpipm:
 
     torque_clip = 0.1
 
-    vel_bounds = np.array((20, 35))
-    torque_bounds = np.array((torque_clip,))
+    vel_bounds = np.array((35, 35))
+
+    if args.friction_compensation:
+        torque_bounds = np.array(
+            (
+                0.005,
+                torque_clip,
+            )
+        )
+    else:
+        torque_bounds = np.array((torque_clip,))
 
 else:
     dt = 0.01
-    MPC_H = 20
+    MPC_H = 10
 
-    V_WGT = 1e-1
-    U_WGT = 4e-3
-    ELBOW_WGT = 60.0
-    TIP_WGT = 18.0
+    V_WGT = 2e-2
+    U_WGT = 2e-3
+    ELBOW_WGT = 30.0
+    TIP_WGT = 6.0
 
     elbow_height = 0.075
     tip_height = 0.2
@@ -82,13 +99,22 @@ else:
     torque_clip = 0.1
 
     vel_bounds = np.array((35, 35))
-    torque_bounds = np.array((torque_clip,))
+
+    if args.friction_compensation:
+        torque_bounds = np.array(
+            (
+                0.005,
+                torque_clip,
+            )
+        )
+    else:
+        torque_bounds = np.array((torque_clip,))
 
 model = ssqpy.model.Model(
     MPC_H,
     dt,
     urdf_path="../../assets/urdf/double_pendulum/acrobot.urdf",
-    actuated_joints=[1],
+    actuated_joints=([1] if not args.friction_compensation else [0, 1]),
     solver_mode=ssqpy.model.SolverMode.InverseDynamics,
 )
 
@@ -121,7 +147,7 @@ model.finalize(
 )
 
 ssqp_params = ssqpy.solvers.ssqpParams()
-ssqp_params.tolerance = 1e-2
+ssqp_params.tolerance = 1e-1
 
 if args.hpipm:
     ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
@@ -139,7 +165,7 @@ else:
     admm_params.warm_start = True
     ssqp_params.admmParams = admm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=8, qp_iters=100)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=2, qp_iters=50)
 
 # Socket server
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -182,7 +208,6 @@ while True if not args.plot else i < args.steps_to_plot:
     tau = np.clip(
         model.inverseDynamics(pos, vel, u), -torque_clip, torque_clip
     )
-    tau[0] = 0.0
 
     elapsed = time() - start
 
