@@ -14,6 +14,7 @@
 /examples/benchmarks/solver/data/*
 /examples/trajgen/data/*
 /examples/real_mpc/plots/*
+/examples/real_mpc/double_pendulum/data/*
 /tests/logs/*
 /examples/python/*.json
 

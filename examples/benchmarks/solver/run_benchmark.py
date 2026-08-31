@@ -185,6 +185,32 @@ elif args.solver == "mim_solvers":
     elif args.problem == "go2_standing":
         constructor_parameters["floating_base"] = True
 
+elif args.solver == "fatrop" or args.solver == "ipopt":
+    from casadi_formulations.CasadiProblem import CasadiProblem
+
+    problem_wrapper_t = CasadiProblem
+
+    constructor_parameters["casadi_plugin"] = args.solver
+    if args.problem == "pendubot":
+        constructor_parameters["actuated_joints"] = [0]
+    elif args.problem == "go2_standing":
+        constructor_parameters["free_flyer"] = True
+
+    if args.solver == "fatrop":
+        # nx/nu/ng/N + structure_detection="manual" are filled in
+        # automatically by CasadiProblem.solve() (it's the only thing that
+        # knows the per-stage dimensions once the problem is built), so we
+        # only need to pass Fatrop's own numerical tolerances here.
+        solve_parameters["fatrop"] = {"tol": 1e-2}
+    else:
+        solve_parameters["ipopt"] = {
+            "max_iter": 1000,
+            "tol": 1e-2,
+            "acceptable_tol": 1e-3,
+            "mu_strategy": "adaptive",
+        }
+        solve_parameters["print_time"] = True
+
 problems = {
     "pendubot": make_pendubot_problem,
     "go2_standing": make_go2_standing_problem,
