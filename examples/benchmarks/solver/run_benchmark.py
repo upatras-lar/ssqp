@@ -185,6 +185,20 @@ elif args.solver == "mim_solvers":
     elif args.problem == "go2_standing":
         constructor_parameters["floating_base"] = True
 
+elif args.solver == "aligator":
+    from aligator_formulations.AligatorProblem import AligatorProblem
+
+    problem_wrapper_t = AligatorProblem
+
+    if args.problem == "pendubot":
+        constructor_parameters["actuated_joints"] = [0]
+    elif args.problem == "go2_standing":
+        constructor_parameters["free_flyer"] = True
+
+    solve_parameters["tol"] = 1e-2
+    solve_parameters["mu_init"] = 1e-2
+    solve_parameters["max_iters"] = 1000
+
 elif args.solver == "fatrop" or args.solver == "ipopt":
     from casadi_formulations.CasadiProblem import CasadiProblem
 
