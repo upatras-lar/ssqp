@@ -144,7 +144,6 @@ class SquaredControlCost : public StageCost
  *    (including base) and potential forces
  */
 // TODO: Take into account any joint forces
-// TODO: Potential bug
 // TODO: Make for ReducedInverse
 class SquaredIDTorqueCost : public StageCost
 {

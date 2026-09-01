@@ -759,8 +759,8 @@ SolverState ssqp::solve(Guess &guess)
 bool ssqp::write(const std::string &filepath)
 {
     using namespace nlohmann;
-    static const model::Dimensions &dims = _model.dims();
-    static const double            &dt   = _model.dt();
+    const model::Dimensions &dims = _model.dims();
+    const double            &dt   = _model.dt();
 
     std::ofstream out;
     out.open(filepath);
@@ -1035,7 +1035,7 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 {
     ZoneScopedN("SSQP: _lf");
 
-    static const uint           horizon = _model.horizon();
+    const uint           horizon = _model.horizon();
     double                      sum     = 0.0;
     const model::CostsContainer costs   = _model.costs();
 
@@ -1052,7 +1052,7 @@ void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 {
     ZoneScopedN("SSQP: _lf_grad");
 
-    static const uint           horizon = _model.horizon();
+    const uint           horizon = _model.horizon();
     const model::CostsContainer costs   = _model.costs();
 
     VecX dxk, duk;
@@ -1071,7 +1071,7 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 {
     ZoneScopedN("SSQP: _gammaf");
 
-    static const uint              horizon  = _model.horizon();
+    const uint              horizon  = _model.horizon();
     const model::DynamicsContainer dynamics = _model.dynamics();
     double                         sum      = 0.0;
 
@@ -1088,7 +1088,7 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 
 double ssqp::_gammaf_softmax(const FlatVec &x, const FlatVec &u) const
 {
-    static const uint              horizon  = _model.horizon();
+    const uint              horizon  = _model.horizon();
     const model::DynamicsContainer dynamics = _model.dynamics();
     double                         sum      = 0.0;
 
@@ -1113,7 +1113,7 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 {
     ZoneScopedN("SSQP: _gammaf_grad");
 
-    static const uint              horizon  = _model.horizon();
+    const uint              horizon  = _model.horizon();
     const model::DynamicsContainer dynamics = _model.dynamics();
 
     const uint nq = _model.nq();
@@ -1170,7 +1170,7 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 {
     ZoneScopedN("SSQP: _cf");
 
-    static const uint                 horizon     = _model.horizon();
+    const uint                 horizon     = _model.horizon();
     const model::ConstraintsContainer constraints = _model.constraints();
     double                            sum         = 0.0;
 
@@ -1211,7 +1211,7 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 
 double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 {
-    static const uint                 horizon     = _model.horizon();
+    const uint                 horizon     = _model.horizon();
     const model::ConstraintsContainer constraints = _model.constraints();
 
     double sum = 0.0;
@@ -1261,7 +1261,7 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 {
     ZoneScopedN("SSQP: _cf_grad");
 
-    static const uint                 horizon     = _model.horizon();
+    const uint                 horizon     = _model.horizon();
     const model::ConstraintsContainer constraints = _model.constraints();
 
     MatX dXk, dUk;

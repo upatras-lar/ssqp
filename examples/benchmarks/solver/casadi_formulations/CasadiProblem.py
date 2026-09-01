@@ -503,6 +503,8 @@ class CasadiProblem(ProblemWrapper):
                     _add(lb_c, expr_c, ub_c)
 
         # -- 3. objective (order doesn't affect Fatrop's structure) --
+        # Every term uses the 0.5 * weight * ||e||^2 convention shared with
+        # the other solver formulations (see AligatorProblem/MimSolversProblem).
         J = 0
         for k in range(self.N):
             q_k = x[k][: self.nq]
@@ -515,21 +517,21 @@ class CasadiProblem(ProblemWrapper):
                 f_k = None
 
             if k in self._vel_cost_wgt:
-                J += self._vel_cost_wgt[k] * ca.sumsqr(v_k)
+                J += 0.5 * self._vel_cost_wgt[k] * ca.sumsqr(v_k)
             if tau_act_k is not None and k in self._u_cost_wgt:
-                J += self._u_cost_wgt[k] * ca.sumsqr(tau_act_k)
+                J += 0.5 * self._u_cost_wgt[k] * ca.sumsqr(tau_act_k)
             if (
                 f_k is not None
                 and f_k.numel() > 0
                 and k in self._force_cost_wgt
             ):
-                J += self._force_cost_wgt[k] * ca.sumsqr(f_k)
+                J += 0.5 * self._force_cost_wgt[k] * ca.sumsqr(f_k)
             for desired_config, weight in self._config_cost.get(k, []):
-                J += weight * ca.sumsqr(
+                J += 0.5 * weight * ca.sumsqr(
                     self._config_error(q_k, desired_config)
                 )
             if k in self._q_cost_wgt:
-                J += self._q_cost_wgt[k] * ca.sumsqr(
+                J += 0.5 * self._q_cost_wgt[k] * ca.sumsqr(
                     self._config_error(q_k, x0[self._base_nq : self.nq])
                 )
 

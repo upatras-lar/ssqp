@@ -52,11 +52,14 @@ if args.solver == "ssqp-admm" or args.solver == "ssqp-hpipm":
         constructor_parameters["free_flyer"] = True
 
     solve_parameters["tolerance"] = 1e-2
+    solve_parameters["max_iter"] = 1000
 
     if args.solver == "ssqp-admm":
         solve_parameters["qp_solver"] = "admm"
         solve_parameters["admm_max_iter"] = 100
         solve_parameters["admm_tol"] = 1e-3
+        solve_parameters["admm_adaptive_rho_tolerance"] = 25
+        solve_parameters["admm_rho_update_iter_freq"] = 100
         solve_parameters["admm_warm_start"] = True
     else:
         solve_parameters["qp_solver"] = "hpipm"
@@ -85,6 +88,7 @@ elif args.solver == "mim_solvers":
         constructor_parameters["floating_base"] = True
 
     solve_parameters["tolerance"] = 1e-2
+    solve_parameters["max_iter"] = 1000
     solve_parameters["max_qp_iters"] = 100
     solve_parameters["eps_abs"] = 1e-3
     solve_parameters["eps_rel"] = 1e-3
@@ -120,8 +124,9 @@ elif args.solver == "fatrop" or args.solver == "ipopt":
         # nx/nu/ng/N + structure_detection="manual" are filled in
         # automatically by CasadiProblem.solve() (it's the only thing that
         # knows the per-stage dimensions once the problem is built), so we
-        # only need to pass Fatrop's own numerical tolerances here.
-        solve_parameters["fatrop"] = {"tol": 1e-2}
+        # only need to pass Fatrop's own numerical tolerances/iteration cap
+        # here.
+        solve_parameters["fatrop"] = {"tol": 1e-2, "max_iter": 1000}
     else:
         solve_parameters["ipopt"] = {
             "max_iter": 1000,

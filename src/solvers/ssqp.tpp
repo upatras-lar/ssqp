@@ -285,7 +285,7 @@ SolverState ssqp::_check_termination()
     logln_at(LogLevel::Debug, "mu: " << std::endl << _guess.mu);
     logln_at(LogLevel::Debug, "=============");
 
-    static const uint                 horizon     = _model.dims().horizon;
+    const uint                 horizon     = _model.dims().horizon;
     const model::CostsContainer       costs       = _model.costs();
     const model::DynamicsContainer    dynamics    = _model.dynamics();
     const model::ConstraintsContainer constraints = _model.constraints();

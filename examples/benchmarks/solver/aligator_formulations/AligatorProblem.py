@@ -284,8 +284,15 @@ class AligatorProblem(ProblemWrapper):
                 ode = _UnderactuatedForwardDynamics(
                     self.space, self.model, self.B, self.damping
                 )
-                self._unconstrained_dynamics_cache = dynamics.IntegratorEuler(
-                    ode, self.dt
+                # SemiImplEuler (v_next = v + dt*a, q_next = q (+) v_next*dt)
+                # matches the other three formulations' discretization
+                # (ssqpy's default SemiImplicitEuler, CasadiProblem's
+                # hand-rolled v_next/q_next update, and crocoddyl's
+                # IntegratedActionModelEuler) -- plain IntegratorEuler uses
+                # the *old* v for the position update instead, which is a
+                # different (lower-order) discrete dynamics model.
+                self._unconstrained_dynamics_cache = (
+                    dynamics.IntegratorSemiImplEuler(ode, self.dt)
                 )
             return self._unconstrained_dynamics_cache, None, None
 
@@ -314,7 +321,7 @@ class AligatorProblem(ProblemWrapper):
         self._last_contact_dynamics[k] = cache_key
 
         return (
-            dynamics.IntegratorEuler(ode, self.dt),
+            dynamics.IntegratorSemiImplEuler(ode, self.dt),
             constraint_models,
             prox_settings,
         )

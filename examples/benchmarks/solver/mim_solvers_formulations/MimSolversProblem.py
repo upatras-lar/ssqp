@@ -158,6 +158,14 @@ class MimSolversProblem(ProblemWrapper):
     # -------------------------------------------------------------------------
 
     def addSquaredConfigurationErrorCost(self, k, desired_config, weight):
+        # crocoddyl's IntegratedActionModelEuler multiplies a running node's
+        # (k < H) total cost by dt, but leaves the terminal node's (k == H)
+        # cost unscaled (see euler.hxx: the calc(x) overload used for the
+        # terminal node never applies time_step_). Pre-dividing by dt on
+        # running nodes cancels that scaling so this ends up matching the
+        # other solver formulations' shared 0.5 * weight * ||e||^2 convention.
+        if k < self.H:
+            weight = weight / self.dt
         xref = self.x0.copy()
         if (
             len(desired_config) == self.nv - 6
@@ -182,6 +190,9 @@ class MimSolversProblem(ProblemWrapper):
         self.stage_costs[k].addCost(f"config_err_{k}", cost, 1.0)
 
     def addSquaredJointVelocityCost(self, k, weight):
+        # See the dt-scaling note in addSquaredConfigurationErrorCost.
+        if k < self.H:
+            weight = weight / self.dt
         velocity_weights = np.concatenate(
             [np.zeros(self.nv), weight * np.ones(self.nv)]
         )
@@ -194,6 +205,9 @@ class MimSolversProblem(ProblemWrapper):
         self.stage_costs[k].addCost(f"vel_{k}", cost, 1.0)
 
     def addSquaredJointAngleCost(self, k, weight):
+        # See the dt-scaling note in addSquaredConfigurationErrorCost.
+        if k < self.H:
+            weight = weight / self.dt
         is_floating_base = (
             self.model.joints[1].shortname() == "JointModelFreeFlyer"
         )
@@ -216,6 +230,9 @@ class MimSolversProblem(ProblemWrapper):
     def addSquaredControlCost(self, k, weight):
         if k >= self.H:
             return
+        # Always a running node here (see the dt-scaling note in
+        # addSquaredConfigurationErrorCost).
+        weight = weight / self.dt
         cost = crocoddyl.CostModelResidual(
             self.state, crocoddyl.ResidualModelControl(self.state, self.nu)
         )
@@ -224,6 +241,7 @@ class MimSolversProblem(ProblemWrapper):
     def addSquaredForceCost(self, k, weight):
         if k >= self.H:
             return
+        weight = weight / self.dt
         for name, contact in self.stage_contacts[k].contacts:
             force_residual = crocoddyl.ResidualModelContactForce(
                 self.state,
