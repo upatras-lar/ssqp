@@ -121,8 +121,10 @@ class CasadiProblem(ProblemWrapper):
         self._vel_cost_wgt = {}  # k -> accumulated weight
         self._u_cost_wgt = {}  # k -> accumulated weight
         self._force_cost_wgt = {}  # k -> accumulated weight
+        self._q_cost_wgt = {}  # k -> accumulated weight (joint-angle cost)
         self._config_cost = {}  # k -> [(desired_config, weight), ...]
         self._vel_bounds = {}  # k -> [(frame, lb, ub), ...]
+        self._pos_bounds = {}  # k -> [(frame, lb, ub), ...]
         self._contacts = {}  # k -> [(frame, max_normal_force, eq_tol), ...]
 
         self._contact_frame_order = []  # stable global frame ordering
@@ -131,6 +133,7 @@ class CasadiProblem(ProblemWrapper):
         # top of the "Helpers" section below for why these exist).
         self._dyn_fn_cache = {}
         self._frame_kin_fn_cache = {}
+        self._frame_pos_fn_cache = {}
         self._cfg_err_fn_cache = {}
 
         self.init_states = None
@@ -161,8 +164,20 @@ class CasadiProblem(ProblemWrapper):
             (np.asarray(desired_config, dtype=float).reshape(-1), weight)
         )
 
+    def addSquaredJointAngleCost(self, k, weight):
+        self._q_cost_wgt[k] = self._q_cost_wgt.get(k, 0.0) + weight
+
     def addFrameLinearVelocityBound(self, k, frame, lb, ub):
         self._vel_bounds.setdefault(k, []).append(
+            (
+                frame,
+                np.asarray(lb, dtype=float).reshape(-1),
+                np.asarray(ub, dtype=float).reshape(-1),
+            )
+        )
+
+    def addFrameTranslationBound(self, k, frame, lb, ub):
+        self._pos_bounds.setdefault(k, []).append(
             (
                 frame,
                 np.asarray(lb, dtype=float).reshape(-1),
@@ -257,6 +272,22 @@ class CasadiProblem(ProblemWrapper):
         p_z = self.cdata_kin.oMf[fid].translation[2]
         fn = ca.Function(f"f_kin_{frame}", [q_s, v_s], [v_frame, p_z])
         self._frame_kin_fn_cache[frame] = fn
+        return fn
+
+    def _get_frame_pos_fn(self, frame):
+        """Returns a ca.Function (q,) -> p_frame(3,) for the given frame,
+        built once (in SX) and cached.
+        """
+        if frame in self._frame_pos_fn_cache:
+            return self._frame_pos_fn_cache[frame]
+
+        fid = self._frame_id(frame)
+        q_s = ca.SX.sym("q", self.nq)
+        cpin.forwardKinematics(self.cmodel, self.cdata_kin, q_s)
+        cpin.updateFramePlacements(self.cmodel, self.cdata_kin)
+        p_frame = self.cdata_kin.oMf[fid].translation
+        fn = ca.Function(f"f_pos_{frame}", [q_s], [p_frame])
+        self._frame_pos_fn_cache[frame] = fn
         return fn
 
     def _get_dynamics_fn(self, frames):
@@ -452,6 +483,11 @@ class CasadiProblem(ProblemWrapper):
                 v_frame, _ = kin_fn(q_k, v_k)
                 _add(ca.DM(lb), v_frame, ca.DM(ub))
 
+            for frame, lb, ub in self._pos_bounds.get(k, []):
+                pos_fn = self._get_frame_pos_fn(frame)
+                p_frame = pos_fn(q_k)
+                _add(ca.DM(lb), p_frame, ca.DM(ub))
+
             for i, frame in enumerate(frames_k):
                 kin_fn = self._get_frame_kin_fn(frame)
                 _, p_z = kin_fn(q_k, v_k)
@@ -491,6 +527,10 @@ class CasadiProblem(ProblemWrapper):
             for desired_config, weight in self._config_cost.get(k, []):
                 J += weight * ca.sumsqr(
                     self._config_error(q_k, desired_config)
+                )
+            if k in self._q_cost_wgt:
+                J += self._q_cost_wgt[k] * ca.sumsqr(
+                    self._config_error(q_k, x0[self._base_nq : self.nq])
                 )
 
         opti.minimize(J)
