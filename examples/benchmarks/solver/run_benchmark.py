@@ -9,7 +9,7 @@ def parse_args():
 
     parser.add_argument(
         "problem",
-        choices=["pendubot", "go2_standing"],
+        choices=["pendubot", "go2_standing", "go2_jump"],
         help="The benchmarking problem to run",
     )
 
@@ -48,7 +48,7 @@ if args.solver == "ssqp-admm" or args.solver == "ssqp-hpipm":
     )
     if args.problem == "pendubot":
         constructor_parameters["actuated_joints"] = [0]
-    elif args.problem == "go2_standing":
+    elif args.problem in ("go2_standing", "go2_jump"):
         constructor_parameters["free_flyer"] = True
 
     solve_parameters["tolerance"] = 1e-2
@@ -81,14 +81,14 @@ elif args.solver == "mim_solvers":
 
         constructor_parameters["floating_base"] = False
         constructor_parameters["actuation_model"] = custom_actuation
-    elif args.problem == "go2_standing":
+    elif args.problem in ("go2_standing", "go2_jump"):
         constructor_parameters["floating_base"] = True
 
     solve_parameters["tolerance"] = 1e-2
     solve_parameters["max_qp_iters"] = 100
     solve_parameters["eps_abs"] = 1e-3
     solve_parameters["eps_rel"] = 1e-3
-    solve_parameters["adaptive_rho_tolerance"] = 5
+    solve_parameters["adaptive_rho_tolerance"] = 1
     solve_parameters["rho_update_interval"] = 100
 
 elif args.solver == "aligator":
@@ -98,7 +98,7 @@ elif args.solver == "aligator":
 
     if args.problem == "pendubot":
         constructor_parameters["actuated_joints"] = [0]
-    elif args.problem == "go2_standing":
+    elif args.problem in ("go2_standing", "go2_jump"):
         constructor_parameters["free_flyer"] = True
 
     solve_parameters["tol"] = 1e-2
@@ -113,7 +113,7 @@ elif args.solver == "fatrop" or args.solver == "ipopt":
     constructor_parameters["casadi_plugin"] = args.solver
     if args.problem == "pendubot":
         constructor_parameters["actuated_joints"] = [0]
-    elif args.problem == "go2_standing":
+    elif args.problem in ("go2_standing", "go2_jump"):
         constructor_parameters["free_flyer"] = True
 
     if args.solver == "fatrop":
@@ -134,6 +134,7 @@ elif args.solver == "fatrop" or args.solver == "ipopt":
 problems = {
     "pendubot": make_pendubot_problem,
     "go2_standing": make_go2_standing_problem,
+    "go2_jump": make_go2_jump_problem,
 }
 
 
@@ -150,31 +151,3 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 
 problem_wrapper.save(save_path + args.problem + ".json")
-
-"""
-if args.solver == "fatrop":
-    problems[args.problem](
-        "fatrop",
-        lambda nx, nu, ng, H: {
-            "structure_detection": "manual",
-            "nx": nx,
-            "nu": nu,
-            "ng": ng,
-            "N": H - 1,
-            "expand": True,
-        },
-        f"{args.problem}_fatrop.json",
-    )
-else:
-    problems[args.problem](
-        "ipopt",
-        lambda nx, nu, ng, H: {
-            "ipopt.max_iter": 1000,
-            "ipopt.tol": 1e-2,
-            "ipopt.acceptable_tol": 1e-3,
-            "ipopt.mu_strategy": "adaptive",
-            "print_time": True,
-        },
-        f"{args.problem}_ipopt.json",
-    )
-"""

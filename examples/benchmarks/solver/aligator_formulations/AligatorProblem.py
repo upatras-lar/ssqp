@@ -177,6 +177,7 @@ class AligatorProblem(ProblemWrapper):
         # H + 1 nodes, 0..H, with node H being the terminal one.
         self._node_costs = {k: [] for k in range(self.H + 1)}
         self._frame_vel_bounds = {k: [] for k in range(self.H + 1)}
+        self._frame_pos_bounds = {k: [] for k in range(self.H + 1)}
         self._contacts = {k: [] for k in range(self.H + 1)}
 
         self._contact_model_cache = {}  # frame name -> RigidConstraintModel
@@ -196,6 +197,7 @@ class AligatorProblem(ProblemWrapper):
         )  # (kind, weight, dim) -> QuadraticResidualCost
         self._unconstrained_dynamics_cache = None
         self._frame_vel_residual_cache = {}
+        self._frame_pos_residual_cache = {}
         self._contact_dynamics_cache = {}  # (frames, eq_tol) -> (models, prox)
         self._last_contact_dynamics = {}  # k -> cache_key, for save()
 
@@ -225,8 +227,20 @@ class AligatorProblem(ProblemWrapper):
             ("config", np.asarray(desired_config, dtype=float).copy(), weight)
         )
 
+    def addSquaredJointAngleCost(self, k, weight):
+        self._node_costs[k].append(("joint_angle", weight))
+
     def addFrameLinearVelocityBound(self, k, frame, lb, ub):
         self._frame_vel_bounds[k].append(
+            (
+                frame,
+                np.asarray(lb, dtype=float).copy(),
+                np.asarray(ub, dtype=float).copy(),
+            )
+        )
+
+    def addFrameTranslationBound(self, k, frame, lb, ub):
+        self._frame_pos_bounds[k].append(
             (
                 frame,
                 np.asarray(lb, dtype=float).copy(),
@@ -476,6 +490,22 @@ class AligatorProblem(ProblemWrapper):
                         self.space, config_err, weight * np.eye(dim)
                     )
                 )
+            elif kind == "joint_angle":
+                weight = entry[1]
+                if self.free_flyer:
+                    desired_config = self.x0[7 : 7 + self.nu]
+                else:
+                    desired_config = self.x0[: self.nq]
+                dim = len(desired_config)
+                cache_key = ("joint_angle", weight, dim)
+                cost = self._quad_cost_cache.get(cache_key)
+                if cost is None:
+                    config_err = self._config_error_residual(desired_config)
+                    cost = aligator.QuadraticResidualCost(
+                        self.space, config_err, weight * np.eye(dim)
+                    )
+                    self._quad_cost_cache[cache_key] = cost
+                cost_stack.addCost(cost)
             elif kind == "force":
                 weight = entry[1]
                 if constraint_models is None:
@@ -516,6 +546,17 @@ class AligatorProblem(ProblemWrapper):
         self._frame_vel_residual_cache[frame] = res
         return res
 
+    def _frame_translation_residual(self, frame):
+        cached = self._frame_pos_residual_cache.get(frame)
+        if cached is not None:
+            return cached
+        frame_id = self.model.getFrameId(frame)
+        fp = aligator.FrameTranslationResidual(
+            self.ndx, self.nu, self.model, np.zeros(3), frame_id
+        )
+        self._frame_pos_residual_cache[frame] = fp
+        return fp
+
     def _add_stage_constraints(
         self, stage, k, constraint_models, prox_settings
     ):
@@ -525,6 +566,10 @@ class AligatorProblem(ProblemWrapper):
         for frame, lb, ub in self._frame_vel_bounds.get(k, []):
             fv = self._frame_lin_vel_residual(frame)
             stage.addConstraint(fv, constraints.BoxConstraint(lb, ub))
+
+        for frame, lb, ub in self._frame_pos_bounds.get(k, []):
+            fp = self._frame_translation_residual(frame)
+            stage.addConstraint(fp, constraints.BoxConstraint(lb, ub))
 
         for frame, max_normal_force, _ in self._contacts.get(k, []):
             force_res = aligator.ContactForceResidual(
@@ -601,6 +646,12 @@ class AligatorProblem(ProblemWrapper):
             fv = self._frame_lin_vel_residual(frame)
             self.problem.addTerminalConstraint(
                 fv, constraints.BoxConstraint(lb, ub)
+            )
+
+        for frame, lb, ub in self._frame_pos_bounds.get(self.H, []):
+            fp = self._frame_translation_residual(frame)
+            self.problem.addTerminalConstraint(
+                fp, constraints.BoxConstraint(lb, ub)
             )
 
         for cerr, cbound in self._terminal_joint_limit_constraints():

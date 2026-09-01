@@ -10,6 +10,10 @@ class SSQPProblem(ProblemWrapper):
             horizon, dt, urdf_path=urdf_path, **parameters
         )
 
+    def addSquaredJointAngleCost(self, k, weight):
+        cost = ssqpy.model.costs.SquaredJointAngleCost(self.model, weight)
+        self.model.addCost(k, cost)
+
     def addSquaredJointVelocityCost(self, k, weight):
         cost = ssqpy.model.costs.SquaredJointVelocityCost(self.model, weight)
         self.model.addCost(k, cost)
@@ -27,6 +31,12 @@ class SSQPProblem(ProblemWrapper):
             self.model, desired_config, weight
         )
         self.model.addCost(k, cost)
+
+    def addFrameTranslationBound(self, k, frame, lb, ub):
+        constraint = ssqpy.model.constraints.FrameTranslationBound(
+            self.model, frame, lb, ub
+        )
+        self.model.addConstraints(k, constraint)
 
     def addFrameLinearVelocityBound(self, k, frame, lb, ub):
         constraint = ssqpy.model.constraints.FrameLinearVelocityBound(

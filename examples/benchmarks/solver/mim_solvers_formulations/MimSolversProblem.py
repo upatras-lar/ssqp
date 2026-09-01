@@ -193,6 +193,26 @@ class MimSolversProblem(ProblemWrapper):
         )
         self.stage_costs[k].addCost(f"vel_{k}", cost, 1.0)
 
+    def addSquaredJointAngleCost(self, k, weight):
+        is_floating_base = (
+            self.model.joints[1].shortname() == "JointModelFreeFlyer"
+        )
+        if is_floating_base:
+            config_weights = np.concatenate(
+                [np.zeros(6), weight * np.ones(self.nv - 6), np.zeros(self.nv)]
+            )
+        else:
+            config_weights = np.concatenate(
+                [weight * np.ones(self.nv), np.zeros(self.nv)]
+            )
+        activation = crocoddyl.ActivationModelWeightedQuad(config_weights)
+        cost = crocoddyl.CostModelResidual(
+            self.state,
+            activation,
+            crocoddyl.ResidualModelState(self.state, self.x0, self.nu),
+        )
+        self.stage_costs[k].addCost(f"joint_angle_{k}", cost, 1.0)
+
     def addSquaredControlCost(self, k, weight):
         if k >= self.H:
             return
@@ -270,6 +290,21 @@ class MimSolversProblem(ProblemWrapper):
 
         self.stage_constraints[k].addConstraint(
             f"{frame_name}_vel_constraint_{k}", constraint
+        )
+
+    def addFrameTranslationBound(self, k, frame_name, lb_pos, ub_pos):
+        frame_id = self.model.getFrameId(frame_name)
+        residual = crocoddyl.ResidualModelFrameTranslation(
+            self.state, frame_id, np.zeros(3), self.nu
+        )
+        constraint = crocoddyl.ConstraintModelResidual(
+            self.state,
+            residual,
+            np.asarray(lb_pos, dtype=float),
+            np.asarray(ub_pos, dtype=float),
+        )
+        self.stage_constraints[k].addConstraint(
+            f"{frame_name}_translation_constraint_{k}", constraint
         )
 
     # -------------------------------------------------------------------------
