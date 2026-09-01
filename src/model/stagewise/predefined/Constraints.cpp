@@ -1281,7 +1281,7 @@ VecX ContactConstraint::upper_bound() const
 
 VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 {
-    static std::shared_ptr<terrain::Terrain> terrain = _model->terrain();
+    std::shared_ptr<terrain::Terrain> terrain = _model->terrain();
 
     Vec3 pos;
     Mat3 R;
@@ -1309,7 +1309,7 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                  MatX &dU) const
 {
-    static std::shared_ptr<terrain::Terrain> terrain = _model->terrain();
+    std::shared_ptr<terrain::Terrain> terrain = _model->terrain();
 
     Vec3 pos;
     Mat3 R;

@@ -64,6 +64,7 @@ class SSQPProblem(ProblemWrapper):
 
         ssqp_params = ssqpy.solvers.ssqpParams()
 
+        ssqp_params.max_iter = parameters.get("max_iter", 1000)
         ssqp_params.tolerance = parameters.get("tolerance", 1e-2)
 
         if "qp_solver" in parameters and parameters["qp_solver"] == "hpipm":
