@@ -227,6 +227,37 @@ class MimSolversProblem(ProblemWrapper):
         )
         self.stage_costs[k].addCost(f"joint_angle_{k}", cost, 1.0)
 
+    def addSquaredFramePoseErrorCost(
+        self,
+        k,
+        frame_name,
+        desired_translation,
+        desired_rotation,
+        translation_weight,
+        rotation_weight,
+    ):
+        # See the dt-scaling note in addSquaredConfigurationErrorCost.
+        if k < self.H:
+            translation_weight = translation_weight / self.dt
+            rotation_weight = rotation_weight / self.dt
+        frame_id = self.model.getFrameId(frame_name)
+        M_des = pin.SE3(
+            np.asarray(desired_rotation, dtype=float),
+            np.asarray(desired_translation, dtype=float),
+        )
+        residual = crocoddyl.ResidualModelFramePlacement(
+            self.state, frame_id, M_des, self.nu
+        )
+        weights = np.concatenate(
+            [
+                translation_weight * np.ones(3),
+                rotation_weight * np.ones(3),
+            ]
+        )
+        activation = crocoddyl.ActivationModelWeightedQuad(weights)
+        cost = crocoddyl.CostModelResidual(self.state, activation, residual)
+        self.stage_costs[k].addCost(f"frame_pose_{frame_name}_{k}", cost, 1.0)
+
     def addSquaredControlCost(self, k, weight):
         if k >= self.H:
             return

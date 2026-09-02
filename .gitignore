@@ -18,6 +18,12 @@
 /tests/logs/*
 /examples/python/*.json
 
+# Documentation
+/docs/*
+/site/*
+/docvenv/*
+mkdocs.yml
+
 # Virtual environments
 /nbvenv/*
 /examples/pinvenv/*

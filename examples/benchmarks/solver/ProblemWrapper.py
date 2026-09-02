@@ -28,6 +28,18 @@ class ProblemWrapper(ABC):
         pass
 
     @abstractmethod
+    def addSquaredFramePoseErrorCost(
+        self,
+        k,
+        frame,
+        desired_translation,
+        desired_rotation,
+        translation_weight,
+        rotation_weight,
+    ):
+        pass
+
+    @abstractmethod
     def addFrameTranslationBound(self, k, frame, lb, ub):
         pass
 

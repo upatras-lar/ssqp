@@ -123,6 +123,7 @@ class CasadiProblem(ProblemWrapper):
         self._force_cost_wgt = {}  # k -> accumulated weight
         self._q_cost_wgt = {}  # k -> accumulated weight (joint-angle cost)
         self._config_cost = {}  # k -> [(desired_config, weight), ...]
+        self._pose_cost = {}  # k -> [(frame, p_des, R_des, t_wgt, r_wgt), ...]
         self._vel_bounds = {}  # k -> [(frame, lb, ub), ...]
         self._pos_bounds = {}  # k -> [(frame, lb, ub), ...]
         self._contacts = {}  # k -> [(frame, max_normal_force, eq_tol), ...]
@@ -134,6 +135,8 @@ class CasadiProblem(ProblemWrapper):
         self._dyn_fn_cache = {}
         self._frame_kin_fn_cache = {}
         self._frame_pos_fn_cache = {}
+        self._frame_placement_fn_cache = {}
+        self._log6_fn_cache = None
         self._cfg_err_fn_cache = {}
 
         self.init_states = None
@@ -166,6 +169,25 @@ class CasadiProblem(ProblemWrapper):
 
     def addSquaredJointAngleCost(self, k, weight):
         self._q_cost_wgt[k] = self._q_cost_wgt.get(k, 0.0) + weight
+
+    def addSquaredFramePoseErrorCost(
+        self,
+        k,
+        frame,
+        desired_translation,
+        desired_rotation,
+        translation_weight,
+        rotation_weight,
+    ):
+        self._pose_cost.setdefault(k, []).append(
+            (
+                frame,
+                np.asarray(desired_translation, dtype=float).reshape(-1),
+                np.asarray(desired_rotation, dtype=float).reshape(3, 3),
+                float(translation_weight),
+                float(rotation_weight),
+            )
+        )
 
     def addFrameLinearVelocityBound(self, k, frame, lb, ub):
         self._vel_bounds.setdefault(k, []).append(
@@ -288,6 +310,46 @@ class CasadiProblem(ProblemWrapper):
         p_frame = self.cdata_kin.oMf[fid].translation
         fn = ca.Function(f"f_pos_{frame}", [q_s], [p_frame])
         self._frame_pos_fn_cache[frame] = fn
+        return fn
+
+    def _get_frame_placement_fn(self, frame):
+        """Returns a ca.Function (q,) -> (R_frame(3,3), p_frame(3,)) for the
+        given frame, built once (in SX) and cached.
+        """
+        if frame in self._frame_placement_fn_cache:
+            return self._frame_placement_fn_cache[frame]
+
+        fid = self._frame_id(frame)
+        q_s = ca.SX.sym("q", self.nq)
+        cpin.forwardKinematics(self.cmodel, self.cdata_kin, q_s)
+        cpin.updateFramePlacements(self.cmodel, self.cdata_kin)
+        oMf = self.cdata_kin.oMf[fid]
+        fn = ca.Function(
+            f"f_placement_{frame}", [q_s], [oMf.rotation, oMf.translation]
+        )
+        self._frame_placement_fn_cache[frame] = fn
+        return fn
+
+    def _get_log6_fn(self):
+        """Returns a ca.Function (R, p, R_des, p_des) -> err(6,) computing
+        the SE(3) log-map pose error log6(T_des^-1 . T), matching ssqpy's
+        FrameSquaredPoseErrorCost convention (see Costs.cpp): a single
+        combined 6-vector (translation-then-rotation) geodesic error, not
+        a naive (p - p_des, log3(R_des^T R)) pair. Frame-independent, so
+        built once and cached.
+        """
+        if self._log6_fn_cache is not None:
+            return self._log6_fn_cache
+
+        R_s = ca.SX.sym("R", 3, 3)
+        p_s = ca.SX.sym("p", 3)
+        Rd_s = ca.SX.sym("Rd", 3, 3)
+        pd_s = ca.SX.sym("pd", 3)
+        T = cpin.SE3(R_s, p_s)
+        Td = cpin.SE3(Rd_s, pd_s)
+        err = cpin.log6(Td.inverse() * T).vector
+        fn = ca.Function("f_log6", [R_s, p_s, Rd_s, pd_s], [err])
+        self._log6_fn_cache = fn
         return fn
 
     def _get_dynamics_fn(self, frames):
@@ -530,6 +592,15 @@ class CasadiProblem(ProblemWrapper):
                 J += 0.5 * weight * ca.sumsqr(
                     self._config_error(q_k, desired_config)
                 )
+            for frame, p_des, R_des, t_wgt, r_wgt in self._pose_cost.get(
+                k, []
+            ):
+                placement_fn = self._get_frame_placement_fn(frame)
+                R_frame, p_frame = placement_fn(q_k)
+                log6_fn = self._get_log6_fn()
+                err = log6_fn(R_frame, p_frame, ca.DM(R_des), ca.DM(p_des))
+                J += 0.5 * t_wgt * ca.sumsqr(err[:3])
+                J += 0.5 * r_wgt * ca.sumsqr(err[3:])
             if k in self._q_cost_wgt:
                 J += 0.5 * self._q_cost_wgt[k] * ca.sumsqr(
                     self._config_error(q_k, x0[self._base_nq : self.nq])
