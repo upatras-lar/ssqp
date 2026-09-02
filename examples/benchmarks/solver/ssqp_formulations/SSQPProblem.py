@@ -32,6 +32,25 @@ class SSQPProblem(ProblemWrapper):
         )
         self.model.addCost(k, cost)
 
+    def addSquaredFramePoseErrorCost(
+        self,
+        k,
+        frame,
+        desired_translation,
+        desired_rotation,
+        translation_weight,
+        rotation_weight,
+    ):
+        cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
+            self.model,
+            frame,
+            desired_translation,
+            desired_rotation,
+            translation_weight,
+            rotation_weight,
+        )
+        self.model.addCost(k, cost)
+
     def addFrameTranslationBound(self, k, frame, lb, ub):
         constraint = ssqpy.model.constraints.FrameTranslationBound(
             self.model, frame, lb, ub

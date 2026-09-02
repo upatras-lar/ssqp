@@ -230,6 +230,26 @@ class AligatorProblem(ProblemWrapper):
     def addSquaredJointAngleCost(self, k, weight):
         self._node_costs[k].append(("joint_angle", weight))
 
+    def addSquaredFramePoseErrorCost(
+        self,
+        k,
+        frame,
+        desired_translation,
+        desired_rotation,
+        translation_weight,
+        rotation_weight,
+    ):
+        self._node_costs[k].append(
+            (
+                "frame_pose",
+                frame,
+                np.asarray(desired_translation, dtype=float).copy(),
+                np.asarray(desired_rotation, dtype=float).copy(),
+                translation_weight,
+                rotation_weight,
+            )
+        )
+
     def addFrameLinearVelocityBound(self, k, frame, lb, ub):
         self._frame_vel_bounds[k].append(
             (
@@ -513,6 +533,13 @@ class AligatorProblem(ProblemWrapper):
                     )
                     self._quad_cost_cache[cache_key] = cost
                 cost_stack.addCost(cost)
+            elif kind == "frame_pose":
+                _, frame, p_des, R_des, t_wgt, r_wgt = entry
+                fp_res = self._frame_placement_residual(frame, p_des, R_des)
+                weight = np.diag([t_wgt] * 3 + [r_wgt] * 3)
+                cost_stack.addCost(
+                    aligator.QuadraticResidualCost(self.space, fp_res, weight)
+                )
             elif kind == "force":
                 weight = entry[1]
                 if constraint_models is None:
@@ -552,6 +579,17 @@ class AligatorProblem(ProblemWrapper):
         res = fv[:3]
         self._frame_vel_residual_cache[frame] = res
         return res
+
+    def _frame_placement_residual(self, frame, p_des, R_des):
+        # Not cached: unlike _frame_translation_residual (built once with a
+        # zero reference and sliced/offset by callers), the desired pose
+        # here legitimately varies per node (it's a point on a trajectory),
+        # so a fresh residual is built for each (frame, k) pair.
+        frame_id = self.model.getFrameId(frame)
+        M_des = pin.SE3(R_des, p_des)
+        return aligator.FramePlacementResidual(
+            self.ndx, self.nu, self.model, M_des, frame_id
+        )
 
     def _frame_translation_residual(self, frame):
         cached = self._frame_pos_residual_cache.get(frame)
