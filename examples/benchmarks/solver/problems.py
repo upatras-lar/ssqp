@@ -233,14 +233,11 @@ def make_go2_jump_problem(problem_wrapper_t, constructor_parameters):
 
 def make_panda_circle_problem(problem_wrapper_t, constructor_parameters):
     """Ported from examples/trajgen/python/panda_circle.py's hand-written
-    ssqpy script onto the generalized ProblemWrapper interface: the
-    Panda arm's end effector traces a circular path on the yz-plane (x
-    held constant) while its orientation is held fixed, and its position
-    is additionally kept inside a rectangular box nested within that
-    circle. The Panda is fixed-base and fully actuated, so unlike
-    pendubot/go2 it needs no special constructor_parameters
-    (actuated_joints/free_flyer) -- every ProblemWrapper implementation's
-    fully-actuated fallback applies.
+    ssqpy script: the Panda arm's end effector traces a circular path on
+    the yz-plane (x held constant) while its orientation is held fixed,
+    and its position is additionally kept inside a rectangular box nested
+    within that circle. Fixed-base and fully actuated, so unlike
+    pendubot/go2 it needs no special constructor_parameters.
     """
     H = 400
     problem_wrapper = problem_wrapper_t(
@@ -250,19 +247,12 @@ def make_panda_circle_problem(problem_wrapper_t, constructor_parameters):
     T_WGT = 3.0
     R_WGT = 1.0
     V_WGT = 3e-3
-    # NOTE: the original trajgen script this is ported from used
-    # SolverMode.InverseDynamics, where the control decision variable u is
-    # joint *acceleration* (rad/s^2) -- its U_WGT = 3e-3 was tuned against
-    # that scale. This benchmark forces SolverMode.ForwardDynamics for
-    # every problem, where u is raw joint *torque* (N*m) instead. Reusing
-    # 3e-3 verbatim against torque made control-effort cost dominate the
-    # pose-tracking cost, so every backend's true optimum became "barely
-    # move and eat the tracking error" instead of following the circle
-    # (confirmed by hand-scoring both kinds of trajectory against this
-    # cost: the non-tracking ones score *lower* total cost). 3e-5 was
-    # found by testing directly against the container: it's small enough
-    # that all five backends converge to the intended, box-clipped
-    # circular path.
+    # The original trajgen script used SolverMode.InverseDynamics, where u
+    # is joint acceleration; this benchmark forces ForwardDynamics, where
+    # u is joint torque. U_WGT is retuned for that scale rather than
+    # reused verbatim -- at the original 3e-3, torque cost dominated
+    # tracking cost and every backend converged to "barely move" instead
+    # of the circle.
     U_WGT = 3e-5
 
     # Box constraint on the end effector's y/z position, nested within the

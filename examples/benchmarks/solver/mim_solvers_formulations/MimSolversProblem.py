@@ -1,7 +1,7 @@
 import json
 import time
 
-# 1. ALWAYS import pinocchio first to avoid C++ symbol/allocator crashes
+# 1. Import pinocchio first to avoid C++ symbol/allocator crashes
 import pinocchio as pin
 
 import crocoddyl

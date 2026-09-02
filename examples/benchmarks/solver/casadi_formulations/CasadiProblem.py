@@ -3,42 +3,20 @@ CasadiProblem: a ProblemWrapper implementation built on top of CasADi's
 ``Opti`` stack, using Pinocchio's CasADi bindings (``pinocchio.casadi``)
 for the rigid-body dynamics.
 
-This is a *generalization* of the two hand-written scripts in
-``problems.py`` (``run_pendubot_problem`` / ``run_go2_standing_problem``).
-Those scripts hard-code the OCP for one specific robot each; this class
-instead builds the OCP incrementally, one stage at a time, through the
-same ``addXXX`` calls that ``run_benchmark.py`` already uses to build the
-SSQP / mim_solvers formulations. That means the *same* problem-construction
-code in ``run_benchmark.py`` (``make_pendubot_problem`` /
-``make_go2_standing_problem``) can build a CasadiProblem without any
-changes, and the two example problems reproduce the physics in
-``problems.py`` exactly.
-
-Design notes / mapping from problems.py -> the ProblemWrapper API
--------------------------------------------------------------------
-* Horizon convention: ``horizon`` (``self.H``) is the number of *control
-  intervals*. There are ``horizon + 1`` nodes, indexed ``k = 0 .. horizon``
-  inclusive, matching ``run_benchmark.py`` (which calls the terminal-cost
-  ``addSquaredConfigurationErrorCost`` at ``k = problem_wrapper.H``).
-* Joint position / velocity / torque limits are *not* part of the
-  ``ProblemWrapper`` interface (there's no explicit "addJointBound" call in
-  run_benchmark.py). In problems.py these were pulled straight from the
-  URDF/model instead of being requested explicitly, so this class does the
-  same: it always enforces the model's position/velocity/effort limits at
-  every stage, for every actuated joint.
-* ``addContactConstraint(k, frame, max_normal_force, eq_tol)`` bundles what
-  problems.py's go2 script did "by hand": a linearized friction cone
-  (bounded by ``max_normal_force`` and a fixed friction coefficient) plus
-  an equality-with-tolerance constraint holding the foot's *height* at the
-  value it had in the initial state (``+/- eq_tol``). It does **not** pin
-  the foot's horizontal position or its velocity -- velocity is handled
-  separately via ``addFrameLinearVelocityBound`` (used for the feet in
-  stance *and* for the terminal base-velocity constraint), matching how
-  run_benchmark.py calls both methods side by side for every foot.
-* Damping (``model.damping``) is always subtracted from the actuated
-  torques before integrating the dynamics. For go2 this is a no-op
-  (the URDF declares no joint damping), for the pendubot it reproduces the
-  passive-joint-friction term problems.py applies explicitly.
+Notes
+-----
+* ``horizon`` (``self.H``) is the number of control intervals; there are
+  ``horizon + 1`` nodes, indexed ``k = 0 .. horizon`` inclusive.
+* Joint position/velocity/torque limits are not part of the
+  ``ProblemWrapper`` interface -- they're pulled directly from the URDF
+  and enforced at every stage, for every actuated joint.
+* ``addContactConstraint(k, frame, max_normal_force, eq_tol)`` adds a
+  linearized friction cone plus an equality-with-tolerance constraint
+  holding the foot's height at its initial-state value. It does not pin
+  horizontal position or velocity -- velocity is handled separately via
+  ``addFrameLinearVelocityBound``.
+* ``model.damping`` is always subtracted from the actuated torques before
+  integrating the dynamics.
 """
 
 from __future__ import annotations
@@ -52,6 +30,21 @@ from pinocchio import casadi as cpin
 
 from ProblemWrapper import ProblemWrapper
 
+# Optional JIT compilation (run_benchmark.py's --jit flag, threaded
+# through as constructor_parameters["jit"]) of each cached low-level
+# ca.Function individually, rather than the whole assembled NLP via
+# opti.solver(..., {"jit": True, ...}): each is built once and reused
+# across all H stages, and this is where nearly all of
+# nlp_g/nlp_jac_g/nlp_hess_l's cost lives, so it captures most of
+# codegen's per-iteration speedup without asking gcc to compile one
+# function covering the entire (H-stage) NLP at once.
+_JIT_OPTIONS = {
+    "jit": True,
+    "compiler": "shell",
+    "jit_options": {"compiler": "gcc", "flags": ["-O3"]},
+}
+_NO_JIT_OPTIONS = {}
+
 
 class CasadiProblem(ProblemWrapper):
     def __init__(self, horizon, dt, urdf_path, constructor_parameters=None):
@@ -59,15 +52,12 @@ class CasadiProblem(ProblemWrapper):
 
         cp = dict(constructor_parameters or {})
 
-        # ``solver_mode`` is an ssqpy-only concept (forward vs. constrained
-        # dynamics); CasADi/Pinocchio-CasADi always uses forward dynamics
-        # (cpin.aba), so it's accepted for interface-compatibility but
-        # otherwise ignored.
         self.free_flyer = bool(cp.get("free_flyer", False))
         self.actuated_joints = cp.get("actuated_joints", None)
         self.friction_coeff = float(cp.get("friction_coeff", 0.6))
-        # Which CasADi NLP plugin to hand to ``opti.solver`` -- "ipopt" or
-        # "fatrop" for this benchmark, but any casadi nlpsol plugin works.
+        self._jit_opts = (
+            _JIT_OPTIONS if cp.get("jit", False) else _NO_JIT_OPTIONS
+        )
         self.casadi_plugin = cp.get("casadi_plugin", "ipopt")
 
         # Number of OCP nodes: k = 0 .. horizon inclusive.
@@ -229,21 +219,19 @@ class CasadiProblem(ProblemWrapper):
     # over SX (casadi's ``SXElem`` scalar). Pinocchio-CasADi functions like
     # ``cpin.aba``/``cpin.forwardKinematics``/``cpin.integrate`` therefore
     # only accept SX arguments -- passing the MX opti variables straight
-    # into them raises a Boost.Python ArgumentError. The fix (matching
-    # problems.py's own pattern) is to build each piece of SX-only graph
-    # exactly once with fresh ``ca.SX.sym`` symbols, wrap it in a
-    # ``ca.Function``, and then *call* that Function with the MX opti
-    # variables -- casadi embeds the compiled SX graph as a black-box node
-    # inside the MX graph, which is exactly what Opti needs.
+    # into them raises a Boost.Python ArgumentError. The fix is to build
+    # each piece of SX-only graph exactly once with fresh ``ca.SX.sym``
+    # symbols, wrap it in a ``ca.Function``, and then *call* that Function
+    # with the MX opti variables -- casadi embeds the compiled SX graph as
+    # a black-box node inside the MX graph, which is exactly what Opti
+    # needs.
     # ------------------------------------------------------------------
     def _config_error(self, q_mx, desired_config):
-        """Config-error residual (MX expr), matching problems.py's two
-        conventions: a full-nq desired config uses the proper manifold
-        difference (needed for e.g. the pendubot's revolute joints, and
-        would be required for quaternion joints too); a leg/joint-only
-        desired config (length nq - base_nq) is subtracted directly,
-        matching the go2 script (which never references the base pose in
-        this cost).
+        """Config-error residual (MX expr): a full-nq desired config uses
+        the proper manifold difference (needed for e.g. the pendubot's
+        revolute joints, and would be required for quaternion joints
+        too); a leg/joint-only desired config (length nq - base_nq) is
+        subtracted directly, since it never references the base pose.
         """
         if desired_config.shape[0] == self.nq:
             mode = "full"
@@ -269,7 +257,9 @@ class CasadiProblem(ProblemWrapper):
         else:
             d_s = ca.SX.sym("d", self.nq - self._base_nq)
             err = q_s[self._base_nq :] - d_s
-        fn = ca.Function(f"f_cfg_err_{mode}", [q_s, d_s], [err])
+        fn = ca.Function(
+            f"f_cfg_err_{mode}", [q_s, d_s], [err], self._jit_opts
+        )
         self._cfg_err_fn_cache[mode] = fn
         return fn
 
@@ -292,7 +282,9 @@ class CasadiProblem(ProblemWrapper):
             pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
         ).linear
         p_z = self.cdata_kin.oMf[fid].translation[2]
-        fn = ca.Function(f"f_kin_{frame}", [q_s, v_s], [v_frame, p_z])
+        fn = ca.Function(
+            f"f_kin_{frame}", [q_s, v_s], [v_frame, p_z], self._jit_opts
+        )
         self._frame_kin_fn_cache[frame] = fn
         return fn
 
@@ -308,7 +300,7 @@ class CasadiProblem(ProblemWrapper):
         cpin.forwardKinematics(self.cmodel, self.cdata_kin, q_s)
         cpin.updateFramePlacements(self.cmodel, self.cdata_kin)
         p_frame = self.cdata_kin.oMf[fid].translation
-        fn = ca.Function(f"f_pos_{frame}", [q_s], [p_frame])
+        fn = ca.Function(f"f_pos_{frame}", [q_s], [p_frame], self._jit_opts)
         self._frame_pos_fn_cache[frame] = fn
         return fn
 
@@ -325,7 +317,10 @@ class CasadiProblem(ProblemWrapper):
         cpin.updateFramePlacements(self.cmodel, self.cdata_kin)
         oMf = self.cdata_kin.oMf[fid]
         fn = ca.Function(
-            f"f_placement_{frame}", [q_s], [oMf.rotation, oMf.translation]
+            f"f_placement_{frame}",
+            [q_s],
+            [oMf.rotation, oMf.translation],
+            self._jit_opts,
         )
         self._frame_placement_fn_cache[frame] = fn
         return fn
@@ -348,7 +343,9 @@ class CasadiProblem(ProblemWrapper):
         T = cpin.SE3(R_s, p_s)
         Td = cpin.SE3(Rd_s, pd_s)
         err = cpin.log6(Td.inverse() * T).vector
-        fn = ca.Function("f_log6", [R_s, p_s, Rd_s, pd_s], [err])
+        fn = ca.Function(
+            "f_log6", [R_s, p_s, Rd_s, pd_s], [err], self._jit_opts
+        )
         self._log6_fn_cache = fn
         return fn
 
@@ -386,7 +383,9 @@ class CasadiProblem(ProblemWrapper):
         x_next = ca.vertcat(q_next, v_next)
 
         name = "f_dyn_" + ("_".join(frames) if frames else "free")
-        fn = ca.Function(name, [q_s, v_s, tau_act_s, f_feet_s], [x_next])
+        fn = ca.Function(
+            name, [q_s, v_s, tau_act_s, f_feet_s], [x_next], self._jit_opts
+        )
         self._dyn_fn_cache[frames] = fn
         return fn
 
@@ -452,9 +451,9 @@ class CasadiProblem(ProblemWrapper):
 
         H = self.H  # number of control intervals; N = H + 1 nodes
 
-        # Reference contact heights: the z-height each contact frame had at
-        # the initial state, computed once with a plain (non-symbolic)
-        # Pinocchio pass -- mirrors problems.py's "_num_data" block.
+        # Reference contact heights: the z-height each contact frame had
+        # at the initial state, computed once with a plain (non-symbolic)
+        # Pinocchio pass.
         contact_heights = {}
         if self._contact_frame_order:
             num_data = self.model.createData()
@@ -589,8 +588,10 @@ class CasadiProblem(ProblemWrapper):
             ):
                 J += 0.5 * self._force_cost_wgt[k] * ca.sumsqr(f_k)
             for desired_config, weight in self._config_cost.get(k, []):
-                J += 0.5 * weight * ca.sumsqr(
-                    self._config_error(q_k, desired_config)
+                J += (
+                    0.5
+                    * weight
+                    * ca.sumsqr(self._config_error(q_k, desired_config))
                 )
             for frame, p_des, R_des, t_wgt, r_wgt in self._pose_cost.get(
                 k, []
@@ -602,8 +603,12 @@ class CasadiProblem(ProblemWrapper):
                 J += 0.5 * t_wgt * ca.sumsqr(err[:3])
                 J += 0.5 * r_wgt * ca.sumsqr(err[3:])
             if k in self._q_cost_wgt:
-                J += 0.5 * self._q_cost_wgt[k] * ca.sumsqr(
-                    self._config_error(q_k, x0[self._base_nq : self.nq])
+                J += (
+                    0.5
+                    * self._q_cost_wgt[k]
+                    * ca.sumsqr(
+                        self._config_error(q_k, x0[self._base_nq : self.nq])
+                    )
                 )
 
         opti.minimize(J)
@@ -654,8 +659,8 @@ class CasadiProblem(ProblemWrapper):
         base_offset = 0
         if self.free_flyer:
             # names[1] is the free-flyer joint itself; report the joints
-            # after it as the "state joints", matching problems.py's go2
-            # output (which starts at model.names[2:]).
+            # after it as the "state joints", matching the other backends'
+            # save() output.
             joint_names = [
                 self.model.names[i] for i in range(2, self.model.njoints)
             ]
