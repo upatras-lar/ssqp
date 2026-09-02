@@ -35,28 +35,26 @@ def parse_args():
         help="The solver to benchmark",
     )
 
+    parser.add_argument(
+        "--jit",
+        action="store_true",
+        help=(
+            "For the CasADi-based solvers (fatrop/ipopt) only: JIT-compile "
+            "the per-frame dynamics/kinematics/pose-error functions via gcc "
+            "instead of using CasADi's interpreted graph evaluation. Off by "
+            "default since it costs real one-time compile time (up to "
+            "several minutes for a floating-base, multi-contact model like "
+            "Go2) before the timed solve starts."
+        ),
+    )
+
     return parser.parse_args()
 
 
 args = parse_args()
 
-# Outer-iteration caps, sized per problem rather than one flat number for
-# everything. Values are set from what's actually been observed to be
-# needed for a converging solve on each problem (with headroom), not
-# guessed: pendubot's slowest converging case (Aligator) needs ~371
-# iterations; go2_standing's slowest (Fatrop, post mu_init fix) needs
-# ~36; go2_jump's ssqp-admm needs as many as ~900 (right up against the
-# old flat 1000 cap) to escape a long plateau, so it -- and go2_frog,
-# which is untested at this end and has 2x go2_jump's horizon (bigger,
-# more expensive NLP per iteration on top of needing possibly more of
-# them) -- keep the full 1000 rather than risk cutting off a slow-but-
-# real convergence. This mainly saves wall-clock time on the small
-# problems, where grinding through a full 1000-iteration budget after
-# converging in under 40 is pure waste. panda_circle is likewise
-# untested at this end -- fixed-base and contact-free like pendubot, but
-# a much bigger NLP (400-step horizon vs. pendubot's underactuated
-# 2-dof arm) -- so it also keeps the full 1000 rather than guessing at a
-# tighter cap.
+# Outer-iteration caps, sized per problem from observed convergence
+# behavior rather than one flat number for everything.
 MAX_ITER_BY_PROBLEM = {
     "pendubot": 500,
     "go2_standing": 200,
@@ -88,24 +86,15 @@ if args.solver == "ssqp-admm" or args.solver == "ssqp-hpipm":
 
     if args.solver == "ssqp-admm":
         solve_parameters["qp_solver"] = "admm"
-        # panda_circle's per-stage QP is harder for ADMM to fully converge
-        # on than pendubot/go2's -- at the shared default of 100 it pegs
-        # every single QP solve at the cap (never detects convergence, see
-        # the rho_update_iter_freq note below) and the outer SQP loop
-        # stalls with a persistent ~0.01 constraint violation at one stage
-        # that never shrinks, even after 1000 outer iterations. Verified
-        # directly against the container: 100 never converges, 200
-        # doesn't either, but 400 converges in 3 outer iterations.
+        # panda_circle's per-stage QP needs a larger ADMM budget than
+        # pendubot/go2's to converge within the outer SQP loop.
         solve_parameters["admm_max_iter"] = (
             400 if args.problem == "panda_circle" else 100
         )
         solve_parameters["admm_tol"] = 1e-3
         # rho_update_iter_freq also gates ADMM's own termination check (see
-        # ssqp's admm_qp.hpp), so setting it equal to admm_max_iter (100)
-        # forces every ADMM solve to burn its full iteration budget even
-        # after it has actually converged -- it can never exit early. Using
-        # ssqp's own default (25) lets ADMM detect convergence well before
-        # the cap, several times per QP solve.
+        # ssqp's admm_qp.hpp), so it must be lower than admm_max_iter for
+        # ADMM to ever detect convergence and exit early.
         solve_parameters["admm_adaptive_rho_tolerance"] = 5
         solve_parameters["admm_rho_update_iter_freq"] = 25
         solve_parameters["admm_warm_start"] = True
@@ -135,26 +124,18 @@ elif args.solver == "mim_solvers":
     elif args.problem in ("go2_standing", "go2_jump", "go2_frog"):
         constructor_parameters["floating_base"] = True
     elif args.problem == "panda_circle":
-        # Explicit, rather than relying on MimSolversProblem's
-        # buildModelFromUrdf/JointModelFreeFlyer-fails try/except fallback:
-        # adding a free-flyer joint on top of a fixed-base URDF like
-        # panda.urdf doesn't raise, it just silently adds 6 spurious DOF at
-        # the root, so that fallback would never trigger here.
+        # Explicit: adding a free-flyer joint on top of a fixed-base URDF
+        # like panda.urdf doesn't raise, so MimSolversProblem's own
+        # try/except fallback to fixed-base would never trigger here.
         constructor_parameters["floating_base"] = False
 
     solve_parameters["tolerance"] = 1e-2
     solve_parameters["max_iter"] = max_iter
-    # CSQP's own convergence break only happens inside
-    # `qp_iters_ % rho_update_interval_ == 0` (csqp.cpp), so with
-    # rho_update_interval == max_qp_iters the QP loop can never detect
-    # convergence and exit early (confirmed: every pendubot/go2 run pegs
-    # QP iters at the cap). Lowering rho_update_interval alone (e.g. to 25)
-    # made the floating-base problems (go2_standing/go2_jump) diverge --
-    # more frequent rho re-estimation is unstable on these contact-rich
-    # QPs. Instead, keep rho_update_interval at ssqp/crocoddyl's stable
-    # cadence and just give the QP subsolver more raw budget, so it gets
-    # more convergence-check points (300/600/900...) without the unstable
-    # rho-update frequency.
+    # CSQP's convergence check only runs every rho_update_interval QP
+    # iterations (csqp.cpp), so it must stay below max_qp_iters for early
+    # exit to ever trigger. A lower rho_update_interval destabilizes the
+    # floating-base/contact-rich problems, so max_qp_iters is raised
+    # instead of lowering it.
     solve_parameters["max_qp_iters"] = 300
     solve_parameters["eps_abs"] = 1e-3
     solve_parameters["eps_rel"] = 1e-3
@@ -173,17 +154,11 @@ elif args.solver == "aligator":
 
     solve_parameters["tol"] = 1e-2
     solve_parameters["mu_init"] = 1e-2
-    # NOTE: go2_jump fails to converge here ("Convergence failure": preg
-    # balloons past 1e5 while stuck at prim_err ~0.7-0.9, alpha collapsing
-    # to 1e-6) -- the solver can't find a feasible direction from the naive
-    # (static, zero-velocity/control) initial guess against the
-    # contact-switching + exact terminal foot-placement constraints. Tried
-    # mu_init in {1e-4, 1e-2, 10.0}; all three get stuck at a similarly
-    # infeasible plateau (different cost/prim_err per value, no clear
-    # winner, none actually converge), so this is left at the shared
-    # default rather than picking one unresolved trade-off over another.
-    # Likely needs a warm-started/kinematically-sensible initial guess
-    # rather than further mu_init tuning.
+    # NOTE: go2_jump doesn't converge here -- the solver can't find a
+    # feasible direction from the static initial guess against the
+    # contact-switching + terminal foot-placement constraints. Likely
+    # needs a kinematically-sensible initial guess rather than mu_init
+    # tuning (several values tried, none converge).
     solve_parameters["max_iters"] = max_iter
 
 elif args.solver == "fatrop" or args.solver == "ipopt":
@@ -192,26 +167,20 @@ elif args.solver == "fatrop" or args.solver == "ipopt":
     problem_wrapper_t = CasadiProblem
 
     constructor_parameters["casadi_plugin"] = args.solver
+    constructor_parameters["jit"] = args.jit
     if args.problem == "pendubot":
         constructor_parameters["actuated_joints"] = [0]
     elif args.problem in ("go2_standing", "go2_jump", "go2_frog"):
         constructor_parameters["free_flyer"] = True
 
     if args.solver == "fatrop":
-        # nx/nu/ng/N + structure_detection="manual" are filled in
-        # automatically by CasadiProblem.solve() (it's the only thing that
-        # knows the per-stage dimensions once the problem is built), so we
-        # only need to pass Fatrop's own numerical tolerances/iteration cap
-        # here.
+        # nx/nu/ng/N + structure_detection="manual" are filled in by
+        # CasadiProblem.solve() once it knows the per-stage dimensions.
         solve_parameters["fatrop"] = {"tol": 1e-2, "max_iter": max_iter}
         if args.problem in ("go2_standing", "go2_jump"):
-            # Both fall into an unrecoverable restoration phase from the
-            # zero-velocity/static initial guess (CasADi's Fatrop plugin
-            # only exposes a subset of Fatrop's own options -- e.g.
-            # bound_relax_factor isn't in that subset, hence mu_init here
-            # instead). A larger initial barrier parameter is more
-            # conservative about how hard it pushes toward the boundary of
-            # go2's many contact/velocity constraints in early iterations.
+            # Avoids an unrecoverable restoration phase from the
+            # zero-velocity/static initial guess against go2's many
+            # contact/velocity constraints.
             solve_parameters["fatrop"]["mu_init"] = 1.0
     else:
         solve_parameters["ipopt"] = {
@@ -221,9 +190,7 @@ elif args.solver == "fatrop" or args.solver == "ipopt":
             "mu_strategy": "adaptive",
         }
         if args.problem == "go2_jump":
-            # Same restoration-phase failure as Fatrop above (stuck past
-            # iteration 450 without escaping); a larger initial barrier
-            # parameter gives the same relief here.
+            # Same restoration-phase issue as Fatrop above.
             solve_parameters["ipopt"]["mu_init"] = 1.0
         solve_parameters["print_time"] = True
 

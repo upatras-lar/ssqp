@@ -2,33 +2,24 @@
 AligatorProblem: a ProblemWrapper implementation backed by the Aligator
 trajectory-optimization solver (proxddp).
 
-This translates the incremental, per-timestep API defined by
-ProblemWrapper (as driven by run_benchmark.py) into an aligator
-TrajOptProblem, following the same modeling choices used in the reference
-scripts pendubot.py and go2_standing.py:
-
   - Fixed-base, underactuated systems (e.g. the pendubot) are handled with
     a custom forward-dynamics ODE that runs `pin.aba` on an "effective"
-    torque `B @ u - damping * v`, generalizing pendubot.py's
-    `PendubotFwdDynamics` to an arbitrary actuation matrix.
+    torque `B @ u - damping * v`, for an arbitrary actuation matrix `B`.
   - Floating-base systems with rigid foot contacts (e.g. Go2 standing) are
     handled with aligator's `MultibodyConstraintFwdDynamics`, built per
     stage from whichever contact frames were registered via
     `addContactConstraint` at that stage.
 
 ProblemWrapper's API is incremental: costs/constraints are registered one
-timestep at a time (in whatever order run_benchmark.py calls them), so
-AligatorProblem just *records* every call against its node index `k` and
-only assembles the actual aligator StageModels / TrajOptProblem lazily,
-inside finalize(). solve() calls finalize() automatically (with an
-all-zero initial state) if it hasn't been called explicitly yet, since
-run_benchmark.py's pendubot path never calls finalize() itself.
+timestep at a time, so AligatorProblem just *records* every call against
+its node index `k` and only assembles the actual aligator StageModels /
+TrajOptProblem lazily, inside finalize(). solve() calls finalize()
+automatically (with an all-zero initial state) if it hasn't been called
+explicitly yet.
 
 Two modeling choices are not carried by the ProblemWrapper API and are
-therefore taken from `constructor_parameters` / sensible defaults instead
-of hardcoded example values:
-  - the friction cone coefficient (`friction_coefficient`, default 0.6,
-    matching go2_standing.py's MU), and
+taken from `constructor_parameters` / sensible defaults instead:
+  - the friction cone coefficient (`friction_coefficient`, default 0.6),
   - the target world-Z contact height (`foot_target_height`, default 0.0).
 """
 
@@ -46,8 +37,8 @@ from ProblemWrapper import ProblemWrapper
 
 
 class _UnderactuatedForwardDynamics(dynamics.ODEAbstract):
-    """Generalization of pendubot.py's `PendubotFwdDynamics` to an
-    arbitrary actuation matrix B and (possibly zero) joint damping.
+    """Forward dynamics for an arbitrary actuation matrix B and (possibly
+    zero) joint damping.
 
         ddq = ABA(q, v, B @ u - damping * v)
     """
@@ -62,9 +53,9 @@ class _UnderactuatedForwardDynamics(dynamics.ODEAbstract):
     def __deepcopy__(self, memo):
         # All mutable state lives on the `data` object aligator passes
         # into forward()/dForward(), not on self, so sharing the same
-        # instance across copies is safe (see pendubot.py for the
-        # original rationale -- default deepcopy tries to reconstruct
-        # this pybind11-derived object via a no-arg constructor).
+        # instance across copies is safe -- default deepcopy would instead
+        # try to reconstruct this pybind11-derived object via a no-arg
+        # constructor.
         return self
 
     def forward(self, x, u, data):
@@ -182,13 +173,10 @@ class AligatorProblem(ProblemWrapper):
 
         self._contact_model_cache = {}  # frame name -> RigidConstraintModel
 
-        # Caches for objects that don't depend on k. pendubot.py and
-        # go2_standing.py each build their cost/constraint/dynamics
-        # objects exactly once and reuse the same instances across every
-        # stage; finalize() mirrors that instead of rebuilding ~H fresh
-        # copies of everything, which is both wasteful and adds real
-        # per-iteration solver overhead (more constraints/objects for the
-        # QP to chew through) if done carelessly.
+        # Caches for objects that don't depend on k, so finalize() builds
+        # each cost/constraint/dynamics object once and reuses the same
+        # instance across every stage, rather than rebuilding ~H fresh
+        # copies (wasteful, and adds real per-iteration solver overhead).
         self._joint_limit_cache = None
         self._vel_residual_cache = None
         self._ctrl_residual_cache = None
@@ -298,8 +286,7 @@ class AligatorProblem(ProblemWrapper):
         if not contacts_k:
             # No contact set to account for -> the dynamics are identical
             # at every such stage, so build the ODE/integrator once and
-            # hand back the same instance every time (matches pendubot.py,
-            # which builds `disc_dynamics` a single time outside the loop).
+            # hand back the same instance every time.
             if self._unconstrained_dynamics_cache is None:
                 ode = _UnderactuatedForwardDynamics(
                     self.space, self.model, self.B, self.damping
@@ -381,19 +368,11 @@ class AligatorProblem(ProblemWrapper):
 
     def _joint_limit_constraints(self):
         """Box constraints on velocity / torque (and, for floating-base
-        models, configuration) taken directly from the URDF. These aren't
-        driven by any explicit ProblemWrapper call -- they mirror the
-        always-on constraints each reference script bakes in directly:
-
-          - pendubot.py (fixed base): only `vel_box` (full joint
-            velocity) and `u_box` (actuated torque) *at every stage*.
-            It never bounds joint *position* -- deliberately not added
-            here either. It also never puts a torque constraint at the
-            terminal node (there's no control there to constrain) --
-            see `_terminal_joint_limit_constraints` below.
-          - go2_standing.py (floating base): `config_bound`, `vel_bound`,
-            and `torque_bound` at every stage, but only `config_bound`
-            and `vel_bound` (no torque) at the terminal node.
+        models, configuration) taken directly from the URDF, applied at
+        every stage -- these aren't driven by any explicit ProblemWrapper
+        call. Position is never bounded. No torque constraint is added at
+        the terminal node, since there's no control there to constrain
+        (see `_terminal_joint_limit_constraints` below).
 
         Returns a dict {"config": (err, bound) | None, "vel": (err,
         bound), "torque": (err, bound)}. Cached: none of this depends on
@@ -467,8 +446,7 @@ class AligatorProblem(ProblemWrapper):
         aligator to fabricate a "control" for a node that doesn't have
         one, adding a spurious/degenerate constraint and multiplier that
         muddies the terminal KKT block and can measurably slow or worsen
-        convergence. Neither pendubot.py nor go2_standing.py ever
-        constrain torque at the terminal node."""
+        convergence."""
         limits = self._joint_limit_constraints()
         return [
             limits[name]
