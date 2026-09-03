@@ -385,10 +385,10 @@ void SquaredIDTorqueCost::hessian_xx(const VecX &x, const VecX &u,
 
     MatX W2 = _weight.array().square().matrix().asDiagonal();
 
-    Hxx.topLeftCorner(_nv, _nv)    = ddq_dq.transpose() * W2 * ddq_dq;
-    Hxx.topRightCorner(_nv, _nv)   = ddq_dq.transpose() * W2 * ddq_dv;
-    Hxx.bottomLeftCorner(_nv, _nv) = Hxx.topRightCorner(_nv, _nv).transpose();
-    Hxx.bottomLeftCorner(_nv, _nv) = ddq_dv.transpose() * W2 * ddq_dv;
+    Hxx.topLeftCorner(_nv, _nv)     = ddq_dq.transpose() * W2 * ddq_dq;
+    Hxx.topRightCorner(_nv, _nv)    = ddq_dq.transpose() * W2 * ddq_dv;
+    Hxx.bottomLeftCorner(_nv, _nv)  = Hxx.topRightCorner(_nv, _nv).transpose();
+    Hxx.bottomRightCorner(_nv, _nv) = ddq_dv.transpose() * W2 * ddq_dv;
 }
 
 void SquaredIDTorqueCost::hessian_xu(const VecX &x, const VecX &u,
@@ -406,8 +406,8 @@ void SquaredIDTorqueCost::hessian_xu(const VecX &x, const VecX &u,
 
     MatX W2 = _weight.array().square().matrix().asDiagonal();
 
-    Hxu.topRows(_nv)         = ddq_dq.transpose() * W2 * M;
-    Hxu.middleRows(_nv, _nu) = ddq_dq.transpose() * W2 * M;
+    Hxu.topRows(_nv)    = ddq_dq.transpose() * W2 * M;
+    Hxu.bottomRows(_nv) = ddq_dv.transpose() * W2 * M;
 }
 
 void SquaredIDTorqueCost::hessian_uu(const VecX &x, const VecX &u,

@@ -314,7 +314,7 @@ void bind_Dynamics(nb::module_ &m)
         },
         nb::arg("x"),
         nb::arg("u"),
-        nb::arg("lambda"),
+        nb::arg("lam"),
         R"doc(
         Get product $\nabla_{x} \lambda_k^\top \nabla_{x} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
         Returns:
@@ -333,7 +333,7 @@ void bind_Dynamics(nb::module_ &m)
         },
         nb::arg("x"),
         nb::arg("u"),
-        nb::arg("lambda"),
+        nb::arg("lam"),
         R"doc(
         Get product $\nabla_{x} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
         Returns:
@@ -352,7 +352,7 @@ void bind_Dynamics(nb::module_ &m)
         },
         nb::arg("x"),
         nb::arg("u"),
-        nb::arg("lambda"),
+        nb::arg("lam"),
         R"doc(
         Get product $\nabla_{u} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
         Returns:

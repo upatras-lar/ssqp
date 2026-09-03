@@ -327,8 +327,14 @@ void HyperParamSearch::addProblem(const model::Model &model)
 
 const solvers::ssqp::Params HyperParamSearch::search() const
 {
+    if (_hyperparams.empty())
+    {
+        throw std::runtime_error(
+          "HyperParamSearch::search: no hyperparameter candidates provided");
+    }
+
     double score = std::numeric_limits<double>::infinity();
-    const solvers::ssqp::Params *best_params;
+    const solvers::ssqp::Params *best_params = nullptr;
 
     for (const solvers::ssqp::Params &sqp_params : _hyperparams)
     {
