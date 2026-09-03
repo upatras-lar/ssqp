@@ -1,20 +1,32 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.22)
 project(ssqp VERSION 0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_compile_options(-fPIC -march=native)
+set(SSQP_ARCH_FLAG "-march=native")
+add_compile_options(-fPIC ${SSQP_ARCH_FLAG})
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # --- Options ---
 option(WITH_HPIPM "Link against HPIPM and BLASFEO" OFF)
-option(PINOCCHIO_STATIC "Use a static Pinocchio build" OFF)
 option(ENABLE_PROFILING "Enable Tracy profiling" OFF)
 option(DISABLE_LOGGING "Add -DDISABLE_LOGGING compile flag" OFF)
 option(BUILD_EXAMPLES "Build example executables" OFF)
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_BENCHMARKS "Build benchmarks" ON)
 option(BUILD_PYTHON "Build the Python extension" ON)
+
+# If set, link against a prebuilt Pinocchio package (as produced by the
+# `package-pinocchio` target) instead of fetching and building it from
+# source. Such a package bundles its own Boost headers/static libs, so this
+# also removes ssqp's Boost dependency. Must match the target architecture.
+set(SSQP_PREBUILT_PINOCCHIO_DIR "" CACHE PATH "Path to a prebuilt Pinocchio package (see cmake/VendorPinocchio.cmake)")
+
+# Same idea for BLASFEO/HPIPM (only relevant if WITH_HPIPM is ON), as
+# produced by the `package-hpipm` target.
+set(SSQP_PREBUILT_HPIPM_DIR "" CACHE PATH "Path to a prebuilt HPIPM/BLASFEO package (see cmake/VendorHpipm.cmake)")
 
 # --- Output directories ---
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -51,27 +63,13 @@ if(DISABLE_LOGGING)
 endif()
 
 if(WITH_HPIPM)
-    target_include_directories(ssqp SYSTEM PRIVATE
-        /opt/blasfeo/include
-        /opt/hpipm/include
-    )
-    target_link_directories(ssqp PUBLIC /opt/blasfeo/lib /opt/hpipm/lib)
-    target_link_libraries(ssqp PRIVATE hpipm blasfeo)
+    include(VendorHpipm)
+    target_link_libraries(ssqp PRIVATE hpipm_vendored)
     target_compile_definitions(ssqp PUBLIC WITH_HPIPM=1)
 endif()
 
-if(PINOCCHIO_STATIC)
-    set(PINOCCHIO_STATIC_DIR "$ENV{HOME}/pinocchio-static")
-    target_include_directories(ssqp SYSTEM PRIVATE ${PINOCCHIO_STATIC_DIR}/include)
-    target_link_libraries(ssqp PRIVATE
-        ${PINOCCHIO_STATIC_DIR}/lib/libpinocchio_default.a
-        ${PINOCCHIO_STATIC_DIR}/lib/libpinocchio_parsers.a
-    )
-else()
-    target_include_directories(ssqp SYSTEM PRIVATE /opt/openrobots/include)
-    target_link_directories(ssqp PUBLIC /opt/openrobots/lib)
-    target_link_libraries(ssqp PRIVATE pinocchio_parsers)
-endif()
+include(VendorPinocchio)
+target_link_libraries(ssqp PRIVATE pinocchio_vendored)
 
 # --- Examples ---
 if(BUILD_EXAMPLES)
@@ -124,35 +122,23 @@ endif()
 if(BUILD_PYTHON)
     find_package(Python 3.12 REQUIRED COMPONENTS Interpreter Development.Module)
 
-    execute_process(
-        COMMAND ${Python_EXECUTABLE} -c "import nanobind; print(nanobind.cmake_dir())"
-        OUTPUT_VARIABLE nanobind_DIR_FOUND
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
+    include(VendorNanobind)
+
+    file(GLOB_RECURSE BINDINGS_SOURCES "python/*.cpp")
+    nanobind_add_module(ssqpy ${BINDINGS_SOURCES})
+    target_link_libraries(ssqpy PRIVATE ssqp)
+
+    set_target_properties(ssqpy PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bindings"
     )
 
-    set(nanobind_DIR ${nanobind_DIR_FOUND} CACHE PATH "nanobind CMake directory" FORCE)
-
-    if(nanobind_DIR)
-        find_package(nanobind REQUIRED)
-
-        file(GLOB_RECURSE BINDINGS_SOURCES "python/*.cpp")
-        nanobind_add_module(ssqpy ${BINDINGS_SOURCES})
-        target_link_libraries(ssqpy PRIVATE ssqp)
-
-        set_target_properties(ssqpy PROPERTIES
-            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bindings"
-        )
-
-        add_custom_command(TARGET ssqpy POST_BUILD
-            COMMAND ${Python_EXECUTABLE} -m nanobind.stubgen
-            -m ssqpy
-            -M ${CMAKE_BINARY_DIR}/bindings/py.typed
-            -r
-            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bindings
-            COMMENT "Generating Python stubs for ssqpy..."
-        )
-    else()
-        message(WARNING "nanobind Python package not found. Skipping Python bindings.")
-    endif()
+    add_custom_command(TARGET ssqpy POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E env "PYTHONPATH=${NB_STUBGEN_PYTHONPATH}" --
+        ${Python_EXECUTABLE} -m nanobind.stubgen
+        -m ssqpy
+        -M ${CMAKE_BINARY_DIR}/bindings/py.typed
+        -r
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bindings
+        COMMENT "Generating Python stubs for ssqpy..."
+    )
 endif()
