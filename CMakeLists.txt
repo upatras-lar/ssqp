@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.22)
 project(ssqp VERSION 0.0 LANGUAGES CXX)
 
+# Only affects single-config generators (Makefiles, Ninja); ssqp's own
+# optimization level is set explicitly below regardless (see
+# ENABLE_PROFILING), so this is mainly so `cmake --install` doesn't report
+# an empty configuration name when the user didn't pass -DCMAKE_BUILD_TYPE.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -141,4 +149,13 @@ if(BUILD_PYTHON)
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bindings
         COMMENT "Generating Python stubs for ssqpy..."
     )
+
+    # `cmake --install .` (after building) drops ssqpy straight into
+    # site-packages for whichever Python interpreter it was built against
+    # (Python_SITEARCH is an absolute path, so this installs there directly
+    # regardless of CMAKE_INSTALL_PREFIX), so it's importable from a normal
+    # Python environment without manually managing PYTHONPATH.
+    install(TARGETS ssqpy LIBRARY DESTINATION ${Python_SITEARCH})
+    install(FILES ${CMAKE_BINARY_DIR}/bindings/py.typed DESTINATION ${Python_SITEARCH})
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/ssqpy/ DESTINATION ${Python_SITEARCH}/ssqpy)
 endif()
