@@ -45,8 +45,6 @@ mkdocs.yml
 /TODO.md
 /perf*
 /examples/benchmarks/solver/fatrop/pendubot.urdf
-jit_tmp*
-tmp_casadi_compiler_shell*
 
 # General filenames to always skip
 __pycache__
@@ -57,3 +55,5 @@ tmp.json
 trajectory.json
 MUJOCO_LOG.TXT
 .env
+jit_tmp*
+tmp_casadi_compiler_shell*
