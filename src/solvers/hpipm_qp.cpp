@@ -220,7 +220,7 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     d_ocp_qp_ipm_arg_set_pred_corr(&pred_corr_int, &_hpipm_data->arg);
 
     int square_root_riccati_int = _params.square_root_riccati ? 1 : 0;
-    d_ocp_qp_ipm_arg_set_pred_corr(&pred_corr_int, &_hpipm_data->arg);
+    d_ocp_qp_ipm_arg_set_ric_alg(&square_root_riccati_int, &_hpipm_data->arg);
 
     int split_step_int = _params.split_step ? 1 : 0;
     d_ocp_qp_ipm_arg_set_split_step(&split_step_int, &_hpipm_data->arg);

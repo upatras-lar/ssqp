@@ -11,15 +11,19 @@
 /examples/benchmarks/solver_modes/trajgen/data/parameters/*_hpipm_*.json
 /examples/benchmarks/solver_modes/trajgen/pendubot_plots.py
 /examples/benchmarks/solver_modes/mpc/data/*
-/examples/benchmarks/solver/casadi_formulations/*.json
-/examples/benchmarks/solver/ssqp/*.json
-/examples/benchmarks/solver/aligator/*.json
-/examples/benchmarks/solver/mim_solvers/*.json
+/examples/benchmarks/solver/data/*
 /examples/trajgen/data/*
 /examples/real_mpc/plots/*
 /examples/real_mpc/double_pendulum/data/*
+/tests/logs/*
 /examples/python/*.json
 /tests/logs/*
+
+# Documentation
+/docs/*
+/site/*
+/docvenv/*
+mkdocs.yml
 
 # Virtual environments
 /nbvenv/*
@@ -52,3 +56,5 @@ tmp.json
 trajectory.json
 MUJOCO_LOG.TXT
 .env
+jit_tmp*
+tmp_casadi_compiler_shell*
