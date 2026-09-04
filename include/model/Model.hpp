@@ -29,7 +29,7 @@ auto to_compile_time(SolverMode sm);
 auto to_compile_time(IntegrationScheme is);
 
 // TODO: optimize calls to pinocchio algorithms (avoid recomputations)
-/* Defines an SSQP model
+/** Defines an SSQP model
  * An SSQP model object is a prerequisite to performing optimization using SSQP
  * The model contains the following:
  *  - An optimization horizon, $H$
@@ -59,7 +59,7 @@ auto to_compile_time(IntegrationScheme is);
 class Model
 {
   public:
-    /* Model Structure struct
+    /** Model Structure struct
      * ---
      * Defines the structure of the SSQP model
      * 
@@ -99,7 +99,7 @@ class Model
         }
     };
 
-    /* Model Config struct
+    /** Model Config struct
      * ---
      * Defines the configuration of the SSQP model
      * 
@@ -155,7 +155,7 @@ class Model
         }
     };
 
-    /* CustomProperties struct for Model
+    /** CustomProperties struct for Model
     * Defines common XML-based properties (like nq & nv) for Models that are not
     * loaded via XML
     */
@@ -170,7 +170,7 @@ class Model
         std::vector<std::string> joint_types;
     };
 
-    /* Model Structure Constructor
+    /** Model Structure Constructor
      * ---
      * Initializes a model with the given structure
      * 
@@ -179,7 +179,7 @@ class Model
      *  - `dt`: Time step per solver stage
      *  - `structure`: The structure of the problem
      * 
-     * #### Note:
+     * @note
      * This constructor does not finalize the model. The `finalize` method 
      * must be explicitly called before passing the model to a solver. If an
      * unfinalized model is passed to a solver, the solver will attempt to
@@ -188,7 +188,7 @@ class Model
     Model(uint horizon, double dt,
           const Structure &structure = Structure::Default());
 
-    /* Model Config Constructor
+    /** Model Config Constructor
      * ---
      * Initializes model with default structure and the given configuration
      * 
@@ -197,14 +197,14 @@ class Model
      *  - `dt`: Time step per solver stage
      *  - `config`: The system configuration
      * 
-     * #### Note:
+     * @note
      * This constructor finalizes the model.
      * When using this constructor to finalize the model, the `finalize` method
      * must not be called afterwards.
      */
     Model(uint horizon, double dt, const Config &config);
 
-    /* Full Model Constructor
+    /** Full Model Constructor
      * ---
      * Initializes a model with the given structure and finalizes the model with
      * the given configuration
@@ -215,7 +215,7 @@ class Model
      *  - `structure`: The structure of the problem
      *  - `config`: The system configuration
      * 
-     * #### Note:
+     * @note
      * This constructor finalizes the model.
      * When using this constructor to finalize the model, the `finalize` method
      * must not be called afterwards.
@@ -223,14 +223,14 @@ class Model
     Model(uint horizon, double dt, const Structure &structure,
           const Config &config);
 
-    /* `finalize` method
+    /** finalize method
      * ---
      * Finalizes the model with the given configuration
      * 
      * Input:
      *  - `config`: The system configuration
      * 
-     * #### Note:
+     * @note
      * This method must only be called once, in the case that the model is not
      * finalized, before passing the model to a solver. If it is not called,
      * the default configuration will be used.
@@ -247,7 +247,7 @@ class Model
     const Dimensions dims() const;
     const Dimensions linear_dims() const;
 
-    /* Updates the model's dimensions and linear dimensions
+    /** Updates the model's dimensions and linear dimensions
      * This is required to update constraint sizes, when constraints' enabled
      * state changes
      * 
@@ -419,14 +419,14 @@ class Model
     // Get model center of mass jacobian for the given configuration
     const MatX jacobianCenterOfMass(const VecX &q) const;
 
-    /* Returns a stacked vector of the current values of the loaded model's
+    /** Returns a stacked vector of the current values of the loaded model's
      * dynamic parameters for every link
      * This consist of n vectors of size 10, containing the following:
      * $\boldsymbol{v} = [m, m_{c,x}, m_{c,y}, m_{c_z}, I_{xx}, I_{xy}, I_{yy}, I_{xz}, I_{yz}, I_{zz}]^\top$ for each link
      */
     const VecX getAllDynamicParameters() const;
 
-    /* Sets the dynamic parameters for every link of the loaded model to the
+    /** Sets the dynamic parameters for every link of the loaded model to the
      * provided stacked vector
      * Input:
      *  - `parameters`: A stacked vector of the dynamic parameters for each 
@@ -434,7 +434,7 @@ class Model
      */
     void setAllDynamicParameters(const VecX &parameters);
 
-    /* Computes and returns the joint torque regressor matrix linking the joint 
+    /** Computes and returns the joint torque regressor matrix linking the joint 
      * torque to the dynamic parameters of each link for the given 
      * configuration, velocity and acceleration
      * Input:
@@ -455,7 +455,7 @@ class Model
     // Return the actuated part (nu x nu) of a matrix (nv x nv)
     MatX getMatrixActuatedPart(const MatX &M) const;
 
-    /* Returns the full acceleration vector for a given stage
+    /** Returns the full acceleration vector for a given stage
      * Input:
      *  - `x`: The model state
      *  - `u`: The model controls
@@ -514,7 +514,7 @@ class Model
 
     // Helper functions
 
-    /* Calculates joint forces given a configuration and an external force
+    /** Calculates joint forces given a configuration and an external force
      * vector
      * Input:
      *  - `q`: The model configuration
@@ -528,7 +528,7 @@ class Model
       const VecX &q, const VecX &f,
       const std::vector<std::shared_ptr<Force>> &force_data) const;
 
-    /* Calculates joint forces and total force jacobian given a configuration
+    /** Calculates joint forces and total force jacobian given a configuration
      * and an external force vector
      *
      * Same as _calculateJointForces, but also calculates the full force
@@ -538,7 +538,7 @@ class Model
       const VecX &q, const VecX &f,
       const std::vector<std::shared_ptr<Force>> &force_data) const;
 
-    /* Calculates the full acceleration vector for ReducedInverseDynamics mode
+    /** Calculates the full acceleration vector for ReducedInverseDynamics mode
      * Input:
      *  - `q`: The configuration vector
      *  - `v`: The velocity vector
@@ -569,7 +569,7 @@ class Model
       Eigen::LDLT<MatX> &Muu_ldlt, std::vector<Vec6> &joint_forces,
       MatX &Jf_full) const;
 
-    /* Helper that calls `_calculateReducedInverseFullAcceleration` and ignores
+    /** Helper that calls `_calculateReducedInverseFullAcceleration` and ignores
      * output arguments
      */
     template<bool FloatingBase, bool WithForces>
@@ -579,7 +579,7 @@ class Model
       const std::vector<uint>                   &actuated_joints,
       const std::vector<uint>                   &unactuated_joints) const;
 
-    /* Calculates the derivatives of the acceleration vector for ReducedInverseDynamics
+    /** Calculates the derivatives of the acceleration vector for ReducedInverseDynamics
      * mode, with respect to q, v, aj (the actual actuated controls) and f
      * Input:
      *  - `q`: The configuration vector
@@ -641,7 +641,7 @@ class Model
     VecX _randomVector(const uint size, const double start = -5,
                        const double end = 5) const;
 
-    /* Context for `_makeStageDynamics` for a given stage
+    /** Context for `_makeStageDynamics` for a given stage
      * Data:
      *  - `S`: Selection matrix for stage ($S \tau$)
      *  - `force_data`: Vector containing a Force object for each force
@@ -666,7 +666,7 @@ class Model
         std::string                         stage_dynamics_name;
     };
 
-    /* Makes the dynamics for a given stage with context `ctx` based on the
+    /** Makes the dynamics for a given stage with context `ctx` based on the
      * XML, according to the passed templated options
      * Options:
      *  - `FloatingBase`: Whether the model has a floating base
@@ -680,7 +680,7 @@ class Model
     std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
       const _StageDynamicsContext &ctx) const;
 
-    /* Context for `_makeStageConstraints` for a given stage
+    /** Context for `_makeStageConstraints` for a given stage
      * Data:
      *  - `force_data`: Vector containing a Force object for each force
      */
@@ -693,14 +693,14 @@ class Model
         VecX lower_pos_bound, upper_pos_bound, vel_bound, tau_bound;
     };
 
-    /* Makes the innate constraints for a given stage with context `ctx` based
+    /** Makes the innate constraints for a given stage with context `ctx` based
      * based on the XML, according to the passed templated options
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
      *  - `IsTerminal`: Whether the stage is the terminal stage (no controls)
      *  - `DM`: The solver mode that should be used
      * 
-     * ### Note
+     * @note
      * If the selected solver mode is InverseDynamics or ReducedInverseDynamics,
      * this function does not generate the required inverse dynamics constraints. 
      * `_makeStageIDTorqueConstraints` needs to also be called.
@@ -710,7 +710,7 @@ class Model
     std::shared_ptr<stagewise::StageConstraints> _makeStageInnateConstraints(
       const _StageInnateConstraintsContext &ctx) const;
 
-    /* Makes the inverse dynamics torque constraints required by the InverseDynamics
+    /** Makes the inverse dynamics torque constraints required by the InverseDynamics
      * or ReducedInverseDynamics solver modes, based on the XML effort limits.
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
@@ -719,7 +719,7 @@ class Model
      *  - `WithForces`: Whether there are additional external forces for this
      *     stage
      * 
-     * ### Note
+     * @note
      * This function will only generate inverse dynamics torque constraints,
      * intended for use with the InverseDynamics mode. This function must be
      * called regardless of the value of the `ignore_innate_constraints` option,

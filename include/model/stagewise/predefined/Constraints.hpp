@@ -15,7 +15,7 @@ namespace predefined
 {
 namespace constraints
 {
-/* Predefined joint angle constraint
+/** Predefined joint angle constraint
  *
  * Creates a constraint on the joint angles of the model
  * 
@@ -61,7 +61,7 @@ class JointAngleConstraint : public StageConstraints
     const uint _nv, _njoints, _ndx;
 };
 
-/* Predefined joint velocity constraint
+/** Predefined joint velocity constraint
  *
  * Creates a constraint on the joint velocities of the model
  * 
@@ -106,7 +106,7 @@ class JointVelocityConstraint : public StageConstraints
     const uint _nv, _njoints;
 };
 
-/* Predefined joint control constraint
+/** Predefined joint control constraint
  *
  * Creates a constraint on the joint part of the control vector
  * 
@@ -155,7 +155,7 @@ class JointControlConstraint : public StageConstraints
     const uint _nv, _nu, _ndx;
 };
 
-/* Floating base position bound constraint
+/** Floating base position bound constraint
  *
  * Creates a linear bound constraint on the position of the floating base:
  * $\boldsymbol{b}_l \leq p_f \leq \boldsymbol{b}_u$
@@ -200,7 +200,7 @@ class FloatingBaseTranslationBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined floating base orientation bound
+/** Predefined floating base orientation bound
  *
  * Creates a nonlinear bound constraint on the orientation of the floating base:
  * $\boldsymbol{b}_l \leq \log_{SO3}(R_{ref}^\top R_f) \leq \boldsymbol{b}_u$
@@ -253,7 +253,7 @@ class FloatingBaseRotationBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined floating base SE(3) pose bound
+/** Predefined floating base SE(3) pose bound
  *
  * Creates a nonlinear bound constraint on the full pose (position + orientation)
  * of the floating base:
@@ -314,7 +314,7 @@ class FloatingBasePoseBound : public StageConstraints
     Vec6                         _lb, _ub;
 };
 
-/* Predefined floating base linear velocity bound
+/** Predefined floating base linear velocity bound
  *
  * Creates a linear bound constraint on the linear velocity of the floating base:
  * $\boldsymbol{b}_l \leq \boldsymbol{v}_b \leq \boldsymbol{b}_u$
@@ -362,7 +362,7 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined floating base angular velocity bound
+/** Predefined floating base angular velocity bound
  *
  * Creates a linear bound constraint on the angular velocity of the floating base:
  * $\boldsymbol{b}_l \leq \boldsymbol{\omega}_b \leq \boldsymbol{b}_u$
@@ -410,7 +410,7 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined 3D position bound for a given frame
+/** Predefined 3D position bound for a given frame
  *
  * Creates a linear bound constraint on the position of a frame of the given
  * model: $\boldsymbol{b}_l \leq \boldsymbol{p}_f \leq \boldsymbol{b}_u$
@@ -458,7 +458,7 @@ class FrameTranslationBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined 3D orientation bound for a given frame
+/** Predefined 3D orientation bound for a given frame
  *
  * Creates a nonlinear bound constraint on the orientation of a frame:
  * $\boldsymbol{b}_l \leq \log_{SO3}R_{ref}^\top R_f \leq \boldsymbol{b}_u$
@@ -510,7 +510,7 @@ class FrameRotationBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined SE(3) pose bound for a given frame
+/** Predefined SE(3) pose bound for a given frame
  *
  * Creates a nonlinear bound constraint on the pose of a frame:
  * $\boldsymbol{b}_l \leq \log_{SE3}(T_{ref}^{-1} T_f) \leq \boldsymbol{b}_u$
@@ -568,7 +568,7 @@ class FramePoseBound : public StageConstraints
     Vec6                         _lb, _ub;
 };
 
-/* Predefined 3D velocity bound for a given frame
+/** Predefined 3D velocity bound for a given frame
  *
  * Creates a linear bound constraint on the velocity of a frame of the given
  * model: $\boldsymbol{b}_l \leq \boldsymbol{v}_f \leq \boldsymbol{b}_u$
@@ -618,7 +618,7 @@ class FrameLinearVelocityBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined angular velocity bound for a given frame
+/** Predefined angular velocity bound for a given frame
  *
  * Creates a linear bound constraint on the angular velocity of a frame of the
  * given model:
@@ -669,7 +669,7 @@ class FrameAngularVelocityBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined center of mass bound
+/** Predefined center of mass bound
  *
  * Creates a linear bound constraint on the center of mass of the model:
  * $\boldsymbol{b}_l \leq \boldsymbol{c} \leq \boldsymbol{b}_u$
@@ -714,7 +714,7 @@ class CenterOfMassBound : public StageConstraints
     Vec3                         _lb, _ub;
 };
 
-/* Predefined contact constraint for a given frame
+/** Predefined contact constraint for a given frame
  * Creates a set of constraints that amount to a contact force constraint for
  * a frame
  * This consists of the following 4-point linearized friction cone constraints:

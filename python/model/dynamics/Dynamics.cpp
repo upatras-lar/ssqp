@@ -242,20 +242,20 @@ void bind_Dynamics(nb::module_ &m)
            "Get the dynamics function output size.")
       .def("state_size",
            &StageDynamics::state_size,
-           "Size of state vector $\boldsymbol{x}$.")
+           R"doc(Size of state vector $\boldsymbol{x}$.)doc")
       .def("control_size",
            &StageDynamics::control_size,
-           "Size of control vector $\boldsymbol{u}$.")
+           R"doc(Size of control vector $\boldsymbol{u}$.)doc")
       .def("state_diff_size", &StageDynamics::state_diff_size, R"doc(
         Size of the difference vector: $\boldsymbol{x}_1 \ominus \boldsymbol{x}_2$
         Where $\ominus$: the defined right_minus operator
         )doc")
       .def("init_state",
            &StageDynamics::init_state,
-           "Initial state vector (size $n_x$) (default $\boldsymbol{0}$).")
+           R"doc(Initial state vector (size $n_x$) (default $\boldsymbol{0}$).)doc")
       .def("init_control",
            &StageDynamics::init_control,
-           "Initial control vector (size $n_u$) (default $\boldsymbol{0}$).")
+           R"doc(Initial control vector (size $n_u$) (default $\boldsymbol{0}$).)doc")
       .def("state_right_plus",
            &StageDynamics::state_right_plus,
            nb::arg("x"),

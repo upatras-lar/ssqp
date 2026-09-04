@@ -31,7 +31,7 @@ namespace solvers
 {
 auto to_compile_time(bool b);
 
-/* Load a previously generated SSQP trajectory from a file
+/** Load a previously generated SSQP trajectory from a file
  * Input:
  *  - `filepath`: The path for the trajectory file output by `ssqp::write`
  * 
@@ -39,7 +39,7 @@ auto to_compile_time(bool b);
  */
 std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath);
 
-/* SSQP class
+/** SSQP class
  * Defines an SSQP problem solver based on a given SSQP model and the desired
  * parameters.
  * 
@@ -173,7 +173,7 @@ class ssqp
         void write(nlohmann::ordered_json &j) const;
     };
 
-    /* Guess struct
+    /** Guess struct
      * Stores data related to an SSQP guess.
      * This includes the solution vectors $\boldsymbol{x}$ and $\boldsymbol{u}$, as well as the lagrange
      * multipliers $\boldsymbol{\lambda}$ for equality and $\boldsymbol{\mu}$ for inequality constraints

@@ -21,7 +21,7 @@
 
 namespace ssqp
 {
-/* The available log levels
+/** The available log levels
  * Each is used for a different class of output, and is independent of the 
  * others
  */
@@ -157,7 +157,7 @@ struct Force
     Force(const std::string &frame, const uint force_index);
 };
 
-/* Integration Scheme
+/** Integration Scheme
  * The type of integration used for the system dynamics
  * Options:
  *  - ExplicitEuler:
@@ -173,7 +173,7 @@ enum IntegrationScheme
     SemiImplicitEuler = 1
 };
 
-/* Solver Mode
+/** Solver Mode
  * The mode the solver uses for the system formulation, corresponding to the
  * equality constraint of the NLP
  * This can either be full dynamics, or a kinematics formulation
@@ -292,7 +292,7 @@ enum SolverState
 
 const std::string to_string(const SolverState &state);
 
-/* Holds data for non-terminal stages of the below QP
+/** Holds data for non-terminal stages of the below QP
  * Note that all matrix or vector sizes refer to tangent space
  */
 struct QPStage
@@ -306,7 +306,7 @@ struct QPStage
     VecX cl, cu; // cl: $n_c \times 1$, cu: $n_c \times 1$
 };
 
-/* Defines a QP of the following form, to be solved using ADMM
+/** Defines a QP of the following form, to be solved using ADMM
 $$\Large
 \begin{equation}
 \begin{split}

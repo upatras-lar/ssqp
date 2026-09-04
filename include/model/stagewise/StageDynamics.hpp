@@ -12,7 +12,7 @@ namespace model
 {
 namespace stagewise
 {
-/* General abstract dynamics function for an optimization stage $k$: $\boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
+/** General abstract dynamics function for an optimization stage $k$: $\boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
  * Defines the required functions for stage dynamics, while providing 
  * default implementations for some
  */
@@ -44,7 +44,7 @@ class StageDynamics : public Function
     // Set the initial control vector
     virtual void set_init_control(const VecX &init_control);
 
-    /* Operator definitions for states
+    /** Operator definitions for states
      * Defines operators between states and state differences
      * If state is a euclidian vector, these operators reduce to simple
      * addition/subtraction
@@ -60,14 +60,14 @@ class StageDynamics : public Function
      */
     virtual VecX state_right_plus(const VecX &x, const VecX &dx) const;
 
-    /* Defines right minus operator between states
+    /** Defines right minus operator between states
      * Inputs: Composite states $\boldsymbol{x}$, $\boldsymbol{y}$ (vectors/lie group elements, size $n_x$)
      * Output: State difference vector $\boldsymbol{dx}$ (size $n_{dx}$)
      * Default behavior: $\boldsymbol{x} - \boldsymbol{y}$
      */
     virtual VecX state_right_minus(const VecX &x, const VecX &y) const;
 
-    /* Get dynamics Jacobians with respect to $\boldsymbol{x}$ and $\boldsymbol{u}$, evaluated at
+    /** Get dynamics Jacobians with respect to $\boldsymbol{x}$ and $\boldsymbol{u}$, evaluated at
      * given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_x \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$ and $\nabla_u \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * Returns:
      *  dX: gradient with respect to $\boldsymbol{x}$, $n_{dx} \times n_{dx}$
@@ -76,21 +76,21 @@ class StageDynamics : public Function
     virtual void gradient(const VecX &x, const VecX &u, MatX &dX,
                           MatX &dU) const = 0;
 
-    /* Get product $\nabla_{x} \lambda_k^\top \nabla_{x} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
+    /** Get product $\nabla_{x} \lambda_k^\top \nabla_{x} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * Returns:
      *  Pxx: Product, $n_{dx} \times n_{dx}$
      */
     virtual void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
                              MatX &Pxx) const = 0;
 
-    /* Get product $\nabla_{x} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
+    /** Get product $\nabla_{x} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * Returns:
      *  Pxu: Product, $n_{dx} \times n_u$
      */
     virtual void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
                              MatX &Pxu) const = 0;
 
-    /* Get product $\nabla_{u} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
+    /** Get product $\nabla_{u} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * Returns:
      *  Puu: Product, $n_u \times n_u$
      */
@@ -100,14 +100,14 @@ class StageDynamics : public Function
     // Size of parameter vector $\theta$ (optional method)
     virtual uint parameter_size() const;
 
-    /* Get parameter vector $\theta$
+    /** Get parameter vector $\theta$
      *
      * Note: Implementing this method is optional; this method allows for online
      * adaptation of any model parameters, $\theta$
      */
     virtual VecX parameters() const;
 
-    /* Get dynamics Jacobian with respect to any model parameters, evaluated at
+    /** Get dynamics Jacobian with respect to any model parameters, evaluated at
      * given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_{\theta} \boldsymbol{f}_{\theta, k}(\boldsymbol{x}, \boldsymbol{u})$
      * Returns:
      *  gradient with respect to $\theta$, $n_{dx} \times n_{\theta}$
@@ -117,7 +117,7 @@ class StageDynamics : public Function
      */
     virtual MatX parameter_gradient(const VecX &x, const VecX &u) const;
 
-    /* Update parameter vector $\theta$
+    /** Update parameter vector $\theta$
      *
      * Note: Implementing this method is optional; this method allows for online
      * adaptation of any model parameters, $\theta$
