@@ -20,7 +20,7 @@ namespace costs
 {
 // Note: The $\odot$ symbol below denoted the element-wise product
 
-/* Predefined squared joint angle cost
+/** Predefined squared joint angle cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{ang} \rVert_2^2$
  * 
@@ -58,7 +58,7 @@ class SquaredJointAngleCost : public StageCost
     VecX       _weight;
 };
 
-/* Predefined squared joint velocity cost
+/** Predefined squared joint velocity cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{vel} \rVert_2^2$
  * 
@@ -93,7 +93,7 @@ class SquaredJointVelocityCost : public StageCost
     VecX       _weight;
 };
 
-/* Predefined squared control cost
+/** Predefined squared control cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{ctrl} \rVert_2^2$
  * 
@@ -128,7 +128,7 @@ class SquaredControlCost : public StageCost
     VecX       _weight;
 };
 
-/* Predefined squared inverse dynamics torque cost
+/** Predefined squared inverse dynamics torque cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
  * where:
@@ -169,7 +169,7 @@ class SquaredIDTorqueCost : public StageCost
     VecX                         _weight;
 };
 
-/* Predefined squared force cost
+/** Predefined squared force cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{f} \rVert_2^2$
  * 
@@ -207,7 +207,7 @@ class SquaredForceCost : public StageCost
     bool       _single_weight;
 };
 
-/* Predefined squared configuration error cost
+/** Predefined squared configuration error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2$
  * 
@@ -252,7 +252,7 @@ class SquaredConfigurationErrorCost : public StageCost
     VecX                         _weight;
 };
 
-/* Predefined squared floating base translation error cost
+/** Predefined squared floating base translation error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t}_f - \boldsymbol{t}_d)\rVert_2^2$
  *
@@ -298,7 +298,7 @@ class FloatingBaseSquaredTranslationErrorCost : public StageCost
     Vec3                         _weight;
 };
 
-/* Predefined squared floating base rotation error cost
+/** Predefined squared floating base rotation error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \log_{SO(3)}(R_f^\top R_d)\rVert_2^2$
  *
@@ -346,7 +346,7 @@ class FloatingBaseSquaredRotationErrorCost : public StageCost
     Vec3                         _weight;
 };
 
-/* Predefined squared floating base pose error cost
+/** Predefined squared floating base pose error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D$
  *
@@ -423,7 +423,7 @@ class FloatingBaseSquaredPoseErrorCost : public StageCost
     Mat6                         _weight;
 };
 
-/* Predefined squared floating base velocity error cost
+/** Predefined squared floating base velocity error cost
  *
  * Defines the cost term
  * $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_b - \boldsymbol{v}_d)\rVert_2^2$
@@ -471,7 +471,7 @@ class FloatingBaseSquaredVelocityErrorCost : public StageCost
     Vec6                         _weight;
 };
 
-/* Predefined squared frame translation error cost
+/** Predefined squared frame translation error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
  * 
@@ -517,7 +517,7 @@ class FrameSquaredTranslationErrorCost : public StageCost
     Vec3                         _weight;
 };
 
-/* Predefined squared frame rotation error cost
+/** Predefined squared frame rotation error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \log_{SO(3)}R^\top R_d\rVert_2^2$
  * 
@@ -563,7 +563,7 @@ class FrameSquaredRotationErrorCost : public StageCost
     Vec3                         _weight;
 };
 
-/* Predefined squared frame pose error cost
+/** Predefined squared frame pose error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D$
  * 
@@ -636,7 +636,7 @@ class FrameSquaredPoseErrorCost : public StageCost
     Mat6                         _weight;
 };
 
-/* Predefined squared frame velocity error cost
+/** Predefined squared frame velocity error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_f - \boldsymbol{v}_d)\rVert_2^2$
  * 
@@ -682,7 +682,7 @@ class FrameSquaredVelocityErrorCost : public StageCost
     Vec6                         _weight;
 };
 
-/* Predefined center of mass (CoM) tracking cost
+/** Predefined center of mass (CoM) tracking cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
  * 
@@ -722,7 +722,7 @@ class CenterOfMassTrackingCost : public StageCost
     Vec3       _weight;
 };
 
-/* Predefined frames squared inverse distance cost
+/** Predefined frames squared inverse distance cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \sum_{i < j} \frac{w}{2 \lVert \boldsymbol{\sigma} \odot (\boldsymbol{t}_i - \boldsymbol{t}_j)\rVert_2^2}$
  *

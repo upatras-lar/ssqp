@@ -9,7 +9,7 @@ namespace model
 {
 namespace stagewise
 {
-/* General abstract constraint function for an optimization stage $k$: $\ell_k(\boldsymbol{x}, \boldsymbol{u})$
+/** General abstract constraint function for an optimization stage $k$: $\ell_k(\boldsymbol{x}, \boldsymbol{u})$
  * Defines the required functions for a stage cost, while providing 
  * default implementations for some
  */

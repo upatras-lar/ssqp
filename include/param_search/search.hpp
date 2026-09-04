@@ -51,7 +51,7 @@ class Search
     // specific search method
     virtual bool _search() = 0;
 
-    /* Performs Armijo line search to update the current dynamics parameters,
+    /** Performs Armijo line search to update the current dynamics parameters,
      * given:
      *  - `gradient`: Gradient of the cost function
      *  - `dTheta_log`: Descent direction
@@ -86,7 +86,7 @@ class GaussNewton : public Search
       const uint window_size = 100, const double armijo_beta = 0.5,
       const double armijo_c1 = 1e-4);
 
-    /* Sets the window size to the given value
+    /** Sets the window size to the given value
      * Parameters:
      *  - window_size: The size to resize the window to
      *  - prune_last: Whether to remove the most recent data points, in case 

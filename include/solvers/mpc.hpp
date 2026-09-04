@@ -12,7 +12,7 @@ namespace ssqp
 namespace solvers
 {
 
-/* MPC class
+/** MPC class
  * Helper class which utilizes SSQP to perform MPC for real-time SSQP-based 
  * control.
  * 

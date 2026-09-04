@@ -11,7 +11,7 @@ namespace model
 {
 namespace stagewise
 {
-/* General abstract constraint function for an optimization stage $k$: $\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+/** General abstract constraint function for an optimization stage $k$: $\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
  * Defines the required functions for stage constraints, while providing 
  * default implementations for some
  */
