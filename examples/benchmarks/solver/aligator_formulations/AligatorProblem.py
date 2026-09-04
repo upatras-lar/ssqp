@@ -276,8 +276,8 @@ class AligatorProblem(ProblemWrapper):
                 pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
             )
             cm.name = frame
-            cm.corrector.Kp = np.zeros(6)
-            cm.corrector.Kd = np.zeros(6)
+            cm.corrector.Kp[:] = np.zeros(3)
+            cm.corrector.Kd[:] = np.zeros(3)
             self._contact_model_cache[frame] = cm
         return cm
 

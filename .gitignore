@@ -21,9 +21,9 @@
 
 # Documentation
 /docs/*
-/site/*
-/docvenv/*
-mkdocs.yml
+/docs/site/*
+/docs/docvenv/*
+/docs/mkdocs.yml
 
 # Virtual environments
 /nbvenv/*
@@ -45,7 +45,6 @@ mkdocs.yml
 /out.txt
 /TODO.md
 /perf*
-/examples/benchmarks/solver/fatrop/pendubot.urdf
 
 # General filenames to always skip
 __pycache__

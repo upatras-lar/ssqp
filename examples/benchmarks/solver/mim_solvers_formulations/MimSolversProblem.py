@@ -311,6 +311,24 @@ class MimSolversProblem(ProblemWrapper):
                 f"{frame_name}_force_constraint_{k}", force_constraint
             )
 
+        # `tol` (SSQP/CasADi's eq_tol) is intentionally unused here. In
+        # those two backends the foot's contact position is an explicit
+        # KKT-level path constraint in direct transcription, so an exact
+        # equality (tol=0) is numerically stiff and a small tolerance band
+        # genuinely eases the solve. ContactModel3D instead enforces
+        # contact through the constrained/reduced forward dynamics itself
+        # (zero relative acceleration, integrated from an already-in-
+        # contact state) -- there's no KKT-level position equality here
+        # for a tolerance to loosen in the first place, so adding one is
+        # pure overhead with nothing to relax (confirmed empirically: it
+        # only slowed convergence, 128 vs. 23 iterations for the identical
+        # go2_standing result). The equivalent "loosen an otherwise-exact
+        # equality for solver ease" lever on this backend is the tol=0.01
+        # used for zero-velocity constraints in
+        # addFrameLinearVelocityBound below, which already plays that
+        # role for the paired zero-velocity call every contact stage
+        # makes.
+
     def addFrameLinearVelocityBound(self, k, frame_name, lb_vel, ub_vel):
         frame_id = self.model.getFrameId(frame_name)
         residual = crocoddyl.ResidualModelFrameVelocity(
