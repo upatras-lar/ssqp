@@ -125,7 +125,9 @@ if args.solver == "ssqp-admm" or args.solver == "ssqp-hpipm":
         # panda_circle's per-stage QP needs a larger ADMM budget than
         # pendubot/go2's to converge within the outer SQP loop.
         solve_parameters["admm_max_iter"] = (
-            400 if args.problem == "panda_circle" else 100
+            400
+            if args.problem == "panda_circle"
+            else (300 if args.problem == "pendubot" else 100)
         )
         solve_parameters["admm_tol"] = 1e-3
         # rho_update_iter_freq also gates ADMM's own termination check (see
@@ -136,7 +138,9 @@ if args.solver == "ssqp-admm" or args.solver == "ssqp-hpipm":
         solve_parameters["admm_warm_start"] = True
     else:
         solve_parameters["qp_solver"] = "hpipm"
-        solve_parameters["hpipm_tol"] = 1e-3
+        solve_parameters["hpipm_tol"] = (
+            1e-2 if args.problem == "pendubot" else 1e-3
+        )
 
 elif args.solver == "mim_solvers":
     from mim_solvers_formulations.MimSolversProblem import (

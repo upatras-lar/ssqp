@@ -36,10 +36,10 @@ def make_go2_standing_problem(problem_wrapper_t, constructor_parameters):
         100, 0.01, "urdf/go2/go2.urdf", constructor_parameters
     )
 
-    A_WGT = 10.0
-    V_WGT = 1e-2
-    U_WGT = 1e-4
-    F_WGT = 1e-5
+    A_WGT = 100.0
+    V_WGT = 1e-4
+    U_WGT = 1e-8
+    F_WGT = 1e-10
 
     MAX_NORMAL_FORCE = 50
     FOOT_EQ_TOL = 0.01
@@ -108,11 +108,11 @@ def make_go2_jump_problem(problem_wrapper_t, constructor_parameters):
     START_STEP = 60
     END_STEP = 90
 
-    A_WGT = 1e-3
-    V_WGT = 1e-2
-    U_WGT = 1e-4
-    F_WGT = 1e-3
-    C_WGT = 1e-3
+    A_WGT = 1e-6
+    V_WGT = 1e-4
+    U_WGT = 1e-8
+    F_WGT = 1e-6
+    C_WGT = 1e-6
 
     MAX_NORMAL_FORCE = 100
     FOOT_EQ_TOL = 0.01
@@ -244,16 +244,16 @@ def make_panda_circle_problem(problem_wrapper_t, constructor_parameters):
         H, 0.01, "urdf/panda/panda.urdf", constructor_parameters
     )
 
-    T_WGT = 3.0
+    T_WGT = 9.0
     R_WGT = 1.0
-    V_WGT = 3e-3
+    V_WGT = 9e-6
     # The original trajgen script used SolverMode.InverseDynamics, where u
     # is joint acceleration; this benchmark forces ForwardDynamics, where
     # u is joint torque. U_WGT is retuned for that scale rather than
     # reused verbatim -- at the original 3e-3, torque cost dominated
     # tracking cost and every backend converged to "barely move" instead
     # of the circle.
-    U_WGT = 3e-5
+    U_WGT = 9e-10
 
     # Box constraint on the end effector's y/z position, nested within the
     # circle it's meant to trace.
@@ -339,10 +339,10 @@ def make_go2_frog_problem(problem_wrapper_t, constructor_parameters):
         H, 0.01, "urdf/go2/go2.urdf", constructor_parameters
     )
 
-    A_WGT = 1e-7
-    V_WGT = 1e-4
-    U_WGT = 5e-5
-    F_WGT = 5e-4
+    A_WGT = 1e-14
+    V_WGT = 1e-8
+    U_WGT = 2.5e-9
+    F_WGT = 2.5e-7
 
     MAX_NORMAL_FORCE = 100
     FOOT_EQ_TOL = 0.01

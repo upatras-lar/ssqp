@@ -341,11 +341,10 @@ admm_params.warm_start = False
 ssqp_params.admmParams = admm_params
 
 hpipm_params = ssqpy.solvers.hpipmParams()
-hpipm_params.square_root_riccati = True
-hpipm_params.tol_stat = 1e-4
-hpipm_params.tol_comp = 1e-4
-hpipm_params.tol_eq = 1e-4
-hpipm_params.tol_ineq = 1e-4
+hpipm_params.tol_stat = 1e-3
+hpipm_params.tol_comp = 1e-3
+hpipm_params.tol_eq = 1e-3
+hpipm_params.tol_ineq = 1e-3
 ssqp_params.hpipmParams = hpipm_params
 
 # Create a solver with the model

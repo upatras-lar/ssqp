@@ -11,24 +11,26 @@ class SSQPProblem(ProblemWrapper):
         )
 
     def addSquaredJointAngleCost(self, k, weight):
-        cost = ssqpy.model.costs.SquaredJointAngleCost(self.model, weight)
+        cost = ssqpy.model.costs.SquaredJointAngleCost(self.model, weight**0.5)
         self.model.addCost(k, cost)
 
     def addSquaredJointVelocityCost(self, k, weight):
-        cost = ssqpy.model.costs.SquaredJointVelocityCost(self.model, weight)
+        cost = ssqpy.model.costs.SquaredJointVelocityCost(
+            self.model, weight**0.5
+        )
         self.model.addCost(k, cost)
 
     def addSquaredControlCost(self, k, weight):
-        cost = ssqpy.model.costs.SquaredControlCost(self.model, weight)
+        cost = ssqpy.model.costs.SquaredControlCost(self.model, weight**0.5)
         self.model.addCost(k, cost)
 
     def addSquaredForceCost(self, k, weight):
-        cost = ssqpy.model.costs.SquaredForceCost(self.model, weight)
+        cost = ssqpy.model.costs.SquaredForceCost(self.model, weight**0.5)
         self.model.addCost(k, cost)
 
     def addSquaredConfigurationErrorCost(self, k, desired_config, weight):
         cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
-            self.model, desired_config, weight
+            self.model, desired_config, weight**0.5
         )
         self.model.addCost(k, cost)
 
@@ -46,8 +48,8 @@ class SSQPProblem(ProblemWrapper):
             frame,
             desired_translation,
             desired_rotation,
-            translation_weight,
-            rotation_weight,
+            translation_weight**0.5,
+            rotation_weight**0.5,
         )
         self.model.addCost(k, cost)
 
