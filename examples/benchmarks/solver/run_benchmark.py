@@ -41,10 +41,22 @@ def parse_args():
         help=(
             "For the CasADi-based solvers (fatrop/ipopt) only: JIT-compile "
             "the per-frame dynamics/kinematics/pose-error functions via gcc "
-            "instead of using CasADi's interpreted graph evaluation. Off by "
-            "default since it costs real one-time compile time (up to "
-            "several minutes for a floating-base, multi-contact model like "
-            "Go2) before the timed solve starts."
+            "instead of using CasADi's interpreted graph evaluation."
+        ),
+    )
+
+    parser.add_argument(
+        "--dynamics-mode",
+        choices=["forward", "inverse"],
+        default="forward",
+        help=(
+            "Dynamics formulation to solve. 'inverse' is supported for "
+            "SSQP (ssqp-admm/ssqp-hpipm), where it maps to SolverMode."
+            "InverseDynamics, or SolverMode.ReducedInverseDynamics for "
+            "problems with a floating base (see SolverMode's docstring in "
+            "include/types.hpp), and for the CasADi-based solvers "
+            "(fatrop/ipopt), which formulate the equivalent explicit-"
+            "equality-constrained scheme by hand (see CasadiProblem.solve()). "
         ),
     )
 
@@ -52,6 +64,13 @@ def parse_args():
 
 
 args = parse_args()
+inverse_dynamics = args.dynamics_mode == "inverse"
+
+if inverse_dynamics and args.solver in ("mim_solvers", "aligator"):
+    raise SystemExit(
+        "--dynamics-mode inverse is not supported for "
+        f"--solver {args.solver} (see --help for why)"
+    )
 
 # Outer-iteration caps, sized per problem from observed convergence
 # behavior rather than one flat number for everything.
@@ -73,12 +92,29 @@ if args.solver == "ssqp-admm" or args.solver == "ssqp-hpipm":
 
     problem_wrapper_t = SSQPProblem
 
-    constructor_parameters["solver_mode"] = (
-        ssqpy.model.SolverMode.ForwardDynamics
+    is_floating_base = args.problem in (
+        "go2_standing",
+        "go2_jump",
+        "go2_frog",
     )
+    if inverse_dynamics:
+        # Plain InverseDynamics enforces an unactuated floating base via
+        # explicit zero-torque equality constraints; ReducedInverseDynamics
+        # instead bakes that in implicitly through state propagation, which
+        # is the better-conditioned choice whenever a floating base is
+        # present (see SolverMode's docstring in include/types.hpp).
+        constructor_parameters["solver_mode"] = (
+            ssqpy.model.SolverMode.ReducedInverseDynamics
+            if is_floating_base
+            else ssqpy.model.SolverMode.InverseDynamics
+        )
+    else:
+        constructor_parameters["solver_mode"] = (
+            ssqpy.model.SolverMode.ForwardDynamics
+        )
     if args.problem == "pendubot":
         constructor_parameters["actuated_joints"] = [0]
-    elif args.problem in ("go2_standing", "go2_jump", "go2_frog"):
+    elif is_floating_base:
         constructor_parameters["free_flyer"] = True
 
     solve_parameters["tolerance"] = 1e-2
@@ -168,6 +204,7 @@ elif args.solver == "fatrop" or args.solver == "ipopt":
 
     constructor_parameters["casadi_plugin"] = args.solver
     constructor_parameters["jit"] = args.jit
+    constructor_parameters["inverse_dynamics"] = inverse_dynamics
     if args.problem == "pendubot":
         constructor_parameters["actuated_joints"] = [0]
     elif args.problem in ("go2_standing", "go2_jump", "go2_frog"):
@@ -215,4 +252,8 @@ save_path = save_path.replace("-", "_")
 if not os.path.exists(save_path):
     os.makedirs(save_path)
 
-problem_wrapper.save(save_path + args.problem + ".json")
+output_name = args.problem
+if inverse_dynamics:
+    output_name += "_inverse_dynamics"
+
+problem_wrapper.save(save_path + output_name + ".json")

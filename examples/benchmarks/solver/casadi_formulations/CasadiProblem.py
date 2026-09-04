@@ -59,6 +59,7 @@ class CasadiProblem(ProblemWrapper):
             _JIT_OPTIONS if cp.get("jit", False) else _NO_JIT_OPTIONS
         )
         self.casadi_plugin = cp.get("casadi_plugin", "ipopt")
+        self.inverse_dynamics = bool(cp.get("inverse_dynamics", False))
 
         # Number of OCP nodes: k = 0 .. horizon inclusive.
         self.N = horizon + 1
@@ -123,6 +124,8 @@ class CasadiProblem(ProblemWrapper):
         # Caches of pre-built SX ca.Function objects (see the note at the
         # top of the "Helpers" section below for why these exist).
         self._dyn_fn_cache = {}
+        self._invdyn_dyn_fn_cache = None
+        self._invdyn_effort_fn_cache = {}
         self._frame_kin_fn_cache = {}
         self._frame_pos_fn_cache = {}
         self._frame_placement_fn_cache = {}
@@ -389,6 +392,72 @@ class CasadiProblem(ProblemWrapper):
         self._dyn_fn_cache[frames] = fn
         return fn
 
+    def _get_invdyn_dynamics_fn(self):
+        """Returns a ca.Function (q, v, a) -> x_next for the inverse-dynamics
+        transition: a trivial double integrator (v_next = v + dt*a, q_next
+        integrated from v_next), since under inverse dynamics the
+        acceleration *is* the decision variable -- no cpin.aba pass needed
+        for the transition itself. Frame-independent (contact forces don't
+        enter the dynamics, only the effort constraint below), so built
+        once and cached.
+        """
+        if self._invdyn_dyn_fn_cache is not None:
+            return self._invdyn_dyn_fn_cache
+
+        q_s = ca.SX.sym("q", self.nq)
+        v_s = ca.SX.sym("v", self.nv)
+        a_s = ca.SX.sym("a", self.nv)
+
+        v_next = v_s + self.dt * a_s
+        q_next = cpin.integrate(self.cmodel, q_s, v_next * self.dt)
+        x_next = ca.vertcat(q_next, v_next)
+
+        fn = ca.Function(
+            "f_invdyn", [q_s, v_s, a_s], [x_next], self._jit_opts
+        )
+        self._invdyn_dyn_fn_cache = fn
+        return fn
+
+    def _get_invdyn_effort_fn(self, frames):
+        """Returns a ca.Function (q, v, a, f_feet) -> tau_eff(nv,) for the
+        given tuple of *active* contact frames: the RNEA-derived generalized
+        torque (plus the damping correction RNEA doesn't know about),
+        exactly the "required generalized force" whose actuated rows get
+        boxed by the effort limit and whose unactuated rows get boxed to
+        zero (the under-actuation condition) in solve(). Built once per
+        distinct frame tuple and cached. Uses the same LOCAL-frame
+        external-force convention as _get_dynamics_fn's fext.
+        """
+        frames = tuple(frames)
+        if frames in self._invdyn_effort_fn_cache:
+            return self._invdyn_effort_fn_cache[frames]
+
+        q_s = ca.SX.sym("q", self.nq)
+        v_s = ca.SX.sym("v", self.nv)
+        a_s = ca.SX.sym("a", self.nv)
+        nf = 3 * len(frames)
+        f_feet_s = ca.SX.sym("f_feet", nf)
+
+        fext = [cpin.Force.Zero() for _ in range(self.model.njoints)]
+        for i, frame in enumerate(frames):
+            fid = self._frame_id(frame)
+            joint_id = self.cmodel.frames[fid].parentJoint
+            f_i = f_feet_s[3 * i : 3 * i + 3]
+            f_local = self.cmodel.frames[fid].placement.act(
+                cpin.Force(f_i, ca.SX.zeros(3))
+            )
+            fext[joint_id] = fext[joint_id] + f_local
+
+        tau = cpin.rnea(self.cmodel, self.cdata, q_s, v_s, a_s, fext)
+        tau_eff = tau + ca.DM(self._damping) * v_s
+
+        name = "f_effort_" + ("_".join(frames) if frames else "free")
+        fn = ca.Function(
+            name, [q_s, v_s, a_s, f_feet_s], [tau_eff], self._jit_opts
+        )
+        self._invdyn_effort_fn_cache[frames] = fn
+        return fn
+
     def _frame_id(self, frame):
         if not self.model.existFrame(frame):
             raise ValueError(f"Unknown frame '{frame}' in URDF model.")
@@ -481,7 +550,8 @@ class CasadiProblem(ProblemWrapper):
                 key=self._contact_frame_order.index,
             )
             contact_frames_at[k] = frames_k
-            nu_list[k] = self.n_act + 3 * len(frames_k)
+            n_ctrl = self.nv if self.inverse_dynamics else self.n_act
+            nu_list[k] = n_ctrl + 3 * len(frames_k)
 
         opti = ca.Opti()
 
@@ -499,6 +569,21 @@ class CasadiProblem(ProblemWrapper):
         lb_tau = ca.DM(-self._tau_max[self._act_idx])
         ub_tau = ca.DM(self._tau_max[self._act_idx])
 
+        if self.inverse_dynamics:
+            # Effort limit on actuated rows, and the under-actuation
+            # condition (zero generalized force, since there's no actuator
+            # to supply it) on unactuated rows, combined into one nv-dim
+            # box on the RNEA-derived generalized torque (see
+            # _get_invdyn_effort_fn). Unlike mim_solvers.SolverCSQP, CasADi
+            # solvers (Ipopt/Fatrop) natively support a plain equality-as
+            # -zero-width-box constraint with no special wiring needed.
+            lb_tau_full = np.zeros(self.nv)
+            ub_tau_full = np.zeros(self.nv)
+            lb_tau_full[self._act_idx] = -self._tau_max[self._act_idx]
+            ub_tau_full[self._act_idx] = self._tau_max[self._act_idx]
+            lb_tau_full = ca.DM(lb_tau_full)
+            ub_tau_full = ca.DM(ub_tau_full)
+
         # -- 2. dynamics_0, path_0, dynamics_1, path_1, ..., path_{N-1} --
         ng = []
         for k in range(self.N):
@@ -509,18 +594,25 @@ class CasadiProblem(ProblemWrapper):
             # nu_list[k] == 0 at the terminal node (no control/forces
             # there), so u_k is a size-0 opti variable -- guard against
             # slicing into it, rather than always taking u_k[:n_act].
+            n_ctrl = self.nv if self.inverse_dynamics else self.n_act
             if nu_list[k] > 0:
-                tau_act_k = u_k[: self.n_act]
-                f_k = u_k[self.n_act :]
+                tau_act_k = None if self.inverse_dynamics else u_k[:n_ctrl]
+                a_k = u_k[:n_ctrl] if self.inverse_dynamics else None
+                f_k = u_k[n_ctrl:]
             else:
                 tau_act_k = None
+                a_k = None
                 f_k = None
 
             # -- dynamics transition, added *before* this stage's path
             # constraints (no transition out of the terminal node) --
             if k < self.N - 1:
-                dyn_fn = self._get_dynamics_fn(frames_k)
-                x_next = dyn_fn(q_k, v_k, tau_act_k, f_k)
+                if self.inverse_dynamics:
+                    dyn_fn = self._get_invdyn_dynamics_fn()
+                    x_next = dyn_fn(q_k, v_k, a_k)
+                else:
+                    dyn_fn = self._get_dynamics_fn(frames_k)
+                    x_next = dyn_fn(q_k, v_k, tau_act_k, f_k)
                 opti.subject_to(x[k + 1] == x_next)
 
             # -- path constraints for stage k --
@@ -538,6 +630,10 @@ class CasadiProblem(ProblemWrapper):
 
             if tau_act_k is not None:
                 _add(lb_tau, tau_act_k, ub_tau)
+            if self.inverse_dynamics and a_k is not None:
+                effort_fn = self._get_invdyn_effort_fn(frames_k)
+                tau_eff_k = effort_fn(q_k, v_k, a_k, f_k)
+                _add(lb_tau_full, tau_eff_k, ub_tau_full)
 
             for frame, lb, ub in self._vel_bounds.get(k, []):
                 kin_fn = self._get_frame_kin_fn(frame)
@@ -570,17 +666,27 @@ class CasadiProblem(ProblemWrapper):
         for k in range(self.N):
             q_k = x[k][: self.nq]
             v_k = x[k][self.nq :]
+            n_ctrl = self.nv if self.inverse_dynamics else self.n_act
             if nu_list[k] > 0:
-                tau_act_k = u[k][: self.n_act]
-                f_k = u[k][self.n_act :]
+                tau_act_k = None if self.inverse_dynamics else u[k][:n_ctrl]
+                a_k = u[k][:n_ctrl] if self.inverse_dynamics else None
+                f_k = u[k][n_ctrl:]
             else:
                 tau_act_k = None
+                a_k = None
                 f_k = None
 
             if k in self._vel_cost_wgt:
                 J += 0.5 * self._vel_cost_wgt[k] * ca.sumsqr(v_k)
             if tau_act_k is not None and k in self._u_cost_wgt:
                 J += 0.5 * self._u_cost_wgt[k] * ca.sumsqr(tau_act_k)
+            # Under inverse dynamics, "control" is the raw acceleration
+            # decision variable a_k (matching SSQP's SquaredControlCost,
+            # which under InverseDynamics squares u.head(nv) -- see
+            # Model.cpp), not the RNEA-derived torque, and not the trailing
+            # per-contact force entries (those get addSquaredForceCost).
+            if a_k is not None and k in self._u_cost_wgt:
+                J += 0.5 * self._u_cost_wgt[k] * ca.sumsqr(a_k)
             if (
                 f_k is not None
                 and f_k.numel() > 0
@@ -689,9 +795,32 @@ class CasadiProblem(ProblemWrapper):
 
             if self._nu[k] > 0:
                 uk = np.asarray(sol.value(self._u[k])).reshape(-1)
-                stage["control"] = [float(v) for v in uk[: self.n_act]]
-                if uk.shape[0] > self.n_act:
-                    stage["forces"] = [float(v) for v in uk[self.n_act :]]
+                if self.inverse_dynamics:
+                    a_k = uk[: self.nv]
+                    f_k = uk[self.nv :]
+                    frames_k = self._contact_frames_at.get(k, [])
+                    effort_fn = self._get_invdyn_effort_fn(frames_k)
+                    # Recovered actuator torque -- physically meaningful and
+                    # comparable to the "control" field the other dynamics
+                    # modes report, unlike the raw acceleration decision
+                    # variable a_k itself.
+                    tau_eff = np.asarray(
+                        effort_fn(xk[: self.nq], xk[self.nq :], a_k, f_k)
+                    ).reshape(-1)
+                    stage["control"] = [
+                        float(v) for v in tau_eff[self._act_idx]
+                    ]
+                    # Already in each contact frame's own LOCAL axes (see
+                    # _get_invdyn_effort_fn), matching the JSON convention
+                    # shared with the other solver backends directly.
+                    if f_k.size > 0:
+                        stage["forces"] = [float(v) for v in f_k]
+                else:
+                    stage["control"] = [float(v) for v in uk[: self.n_act]]
+                    if uk.shape[0] > self.n_act:
+                        stage["forces"] = [
+                            float(v) for v in uk[self.n_act :]
+                        ]
 
             stage_data.append(stage)
 
@@ -699,7 +828,11 @@ class CasadiProblem(ProblemWrapper):
             "properties": {
                 "horizon": H,
                 "dt": self.dt,
-                "solver_mode": "ForwardDynamics",
+                "solver_mode": (
+                    "InverseDynamics"
+                    if self.inverse_dynamics
+                    else "ForwardDynamics"
+                ),
                 "xml": True,
                 "nq": self.nq,
                 "nv": self.nv,
