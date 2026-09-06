@@ -44,13 +44,19 @@ void TestContainer::runAll()
     std::cout << "Passed: \033[32m" << npassed << "\033[39m/" << _tests.size()
               << std::endl;
 
-    for (const auto &entry : std::filesystem::directory_iterator("tests/logs"))
+    const std::filesystem::path logs_dir = "tests/logs";
+    if (std::filesystem::exists(logs_dir))
     {
-        std::filesystem::remove_all(entry.path());
+        for (const auto &entry : std::filesystem::directory_iterator(logs_dir))
+        {
+            std::filesystem::remove_all(entry.path());
+        }
     }
 
     if (npassed != _tests.size())
     {
+        std::filesystem::create_directories(logs_dir);
+
         for (uint i = 0; i < _tests.size(); ++i)
         {
             const std::vector<std::string> logs = _tests[i]->what();

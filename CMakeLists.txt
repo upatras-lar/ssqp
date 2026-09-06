@@ -120,6 +120,9 @@ if(BUILD_TESTS)
     target_include_directories(run_tests PRIVATE tests/include)
     target_link_libraries(run_tests PRIVATE ssqp)
     add_test(NAME ssqp_tests COMMAND run_tests)
+    set_tests_properties(ssqp_tests PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
 
     set_target_properties(run_tests PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
