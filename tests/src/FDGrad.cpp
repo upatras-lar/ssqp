@@ -1,4 +1,6 @@
 #include "tests/include/FDGrad.hpp"
+#include "Checks.hpp"
+#include <iomanip>
 
 namespace ssqp
 {
@@ -29,22 +31,23 @@ void FDGradCost::_fd_grad(const VecX &x, const VecX &u, VecX &dx,
         VecX e(_ndx);
         e.setUnit(i);
 
-        dx[i] = (_cost->evaluate(
-                   _model->dynamics()[_stage]->state_right_plus(x, _h * e),
-                   u)[0] -
-                 _cost->evaluate(
-                   _model->dynamics()[_stage]->state_right_plus(x, -_h * e),
-                   u)[0]) /
-                (2 * _h);
+        dx[i] = finiteDifference(
+          [&](double step)
+          {
+              return _cost->evaluate(
+                _model->dynamics()[_stage]->state_right_plus(x, step * e),
+                u)[0];
+          },
+          std::max(_h, 1e-5));
     }
 
     for (uint i = 0; i < _nu; ++i)
     {
         VecX e(_nu);
         e.setUnit(i);
-        du[i] = (_cost->evaluate(x, u + _h * e)[0] -
-                 _cost->evaluate(x, u - _h * e)[0]) /
-                (2 * _h);
+        du[i] = finiteDifference(
+          [&](double step) { return _cost->evaluate(x, u + step * e)[0]; },
+          std::max(_h, 1e-5));
     }
 }
 
@@ -54,8 +57,10 @@ bool FDGradCost::run()
 
     for (uint i = 0; i < _ninputs; ++i)
     {
-        VecX x = _model->randomState(_stage);
-        VecX u = _model->randomControls(_stage);
+        VecX x = _model->dynamics()[_stage]->state_right_plus(
+          _model->dynamics()[_stage]->init_state(),
+          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0));
+        VecX u = randomVector(_model->dynamics()[_stage]->control_size(), 5.0);
 
         VecX dx, du, dxfd, dufd;
         _cost->gradient(x, u, dx, du);
@@ -64,8 +69,7 @@ bool FDGradCost::run()
         double dxdiff = (dx - dxfd).lpNorm<Eigen::Infinity>();
         double dudiff = (du - dufd).lpNorm<Eigen::Infinity>();
 
-        if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
-            dudiff > _h)
+        if (!close(dx, dxfd) || !close(du, dufd))
         {
             double max_diff = 0.0;
             int    idx_dx   = -1;
@@ -92,6 +96,7 @@ bool FDGradCost::run()
             }
 
             std::stringstream ss;
+            ss << std::setprecision(17);
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << dxdiff << " at index: " << idx_dx << std::endl
@@ -162,8 +167,10 @@ bool FDGradDynamics::run()
 
     for (uint i = 0; i < _ninputs; ++i)
     {
-        VecX x = _model->randomState(_stage);
-        VecX u = _model->randomControls(_stage);
+        VecX x = _model->dynamics()[_stage]->state_right_plus(
+          _model->dynamics()[_stage]->init_state(),
+          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0));
+        VecX u = randomVector(_model->dynamics()[_stage]->control_size(), 5.0);
 
         MatX dX, dU, dXfd, dUfd;
         _dynamics->gradient(x, u, dX, dU);
@@ -172,8 +179,7 @@ bool FDGradDynamics::run()
         double dXdiff = (dX - dXfd).lpNorm<Eigen::Infinity>();
         double dUdiff = (dU - dUfd).lpNorm<Eigen::Infinity>();
 
-        if (std::isnan(dXdiff) || std::isnan(dUdiff) || dXdiff > _h ||
-            dUdiff > _h)
+        if (!close(dX, dXfd) || !close(dU, dUfd))
         {
             double max_diff   = 0.0;
             int    idx_dx_row = -1, idx_dx_col = -1;
@@ -210,6 +216,7 @@ bool FDGradDynamics::run()
             }
 
             std::stringstream ss;
+            ss << std::setprecision(17);
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << dXdiff << " at index: " << idx_dx_row << ", "
@@ -303,8 +310,10 @@ bool FDGradDynamicsParameters::run()
 
     for (uint i = 0; i < _ninputs; ++i)
     {
-        VecX x = _model->randomState(_stage);
-        VecX u = _model->randomControls(_stage);
+        VecX x = _model->dynamics()[_stage]->state_right_plus(
+          _model->dynamics()[_stage]->init_state(),
+          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0));
+        VecX u = randomVector(_model->dynamics()[_stage]->control_size(), 5.0);
         VecX theta(ntheta);
 
         for (uint j = 0; j < ntheta; ++j)
@@ -340,6 +349,7 @@ bool FDGradDynamicsParameters::run()
             }
 
             std::stringstream ss;
+            ss << std::setprecision(17);
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dT: " << dTdiff << " at index: " << idx_dt_row << ", "
@@ -412,8 +422,10 @@ bool FDGradConstraints::run()
 
     for (uint i = 0; i < _ninputs; ++i)
     {
-        VecX x = _model->randomState(_stage);
-        VecX u = _model->randomControls(_stage);
+        VecX x = _model->dynamics()[_stage]->state_right_plus(
+          _model->dynamics()[_stage]->init_state(),
+          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0));
+        VecX u = randomVector(_model->dynamics()[_stage]->control_size(), 5.0);
 
         MatX dX, dU, dXfd, dUfd;
         _constraints->gradient(x, u, dX, dU);
@@ -422,8 +434,7 @@ bool FDGradConstraints::run()
         double dXdiff = (dX - dXfd).lpNorm<Eigen::Infinity>();
         double dUdiff = (dU - dUfd).lpNorm<Eigen::Infinity>();
 
-        if (std::isnan(dXdiff) || std::isnan(dUdiff) || dXdiff > _h ||
-            dUdiff > _h)
+        if (!close(dX, dXfd) || !close(dU, dUfd))
         {
             double max_diff   = 0.0;
             int    idx_dx_row = -1, idx_dx_col = -1;
@@ -460,6 +471,7 @@ bool FDGradConstraints::run()
             }
 
             std::stringstream ss;
+            ss << std::setprecision(17);
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << dXdiff << " at index: " << idx_dx_row << ", "
@@ -516,11 +528,14 @@ void FDGradFullTrajectoryCost::_fd_grad(const solvers::FlatVec &x,
             VecX e(ndx);
             e.setUnit(i);
 
-            solvers::FlatVec xp(x), xm(x);
-            xp.stage(k) = dynamics[k]->state_right_plus(x_k, _h * e);
-            xm.stage(k) = dynamics[k]->state_right_plus(x_k, -_h * e);
-
-            dx.stage(k)[i] = (_ssqp._lf(xp, u) - _ssqp._lf(xm, u)) / (2 * _h);
+            solvers::FlatVec xp(x);
+            dx.stage(k)[i] = finiteDifference(
+              [&](double step)
+              {
+                  xp.stage(k) = dynamics[k]->state_right_plus(x_k, step * e);
+                  return _ssqp._lf(xp, u);
+              },
+              _h);
         }
     }
 
@@ -535,11 +550,14 @@ void FDGradFullTrajectoryCost::_fd_grad(const solvers::FlatVec &x,
             VecX e(nu);
             e.setUnit(i);
 
-            solvers::FlatVec up(u), um(u);
-            up.stage(k) = u_k + _h * e;
-            um.stage(k) = u_k - _h * e;
-
-            du.stage(k)[i] = (_ssqp._lf(x, up) - _ssqp._lf(x, um)) / (2 * _h);
+            solvers::FlatVec up(u);
+            du.stage(k)[i] = finiteDifference(
+              [&](double step)
+              {
+                  up.stage(k) = u_k + step * e;
+                  return _ssqp._lf(x, up);
+              },
+              _h);
         }
     }
 }
@@ -571,12 +589,15 @@ bool FDGradFullTrajectoryCost::run()
     {
         for (uint k = 0; k < x.stages(); ++k)
         {
-            x.stage(k) = _model->randomState(k);
+            x.stage(k) = _model->dynamics()[k]->state_right_plus(
+              _model->dynamics()[k]->init_state(),
+              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0));
         }
 
         for (uint k = 0; k < u.stages(); ++k)
         {
-            u.stage(k) = _model->randomControls(k);
+            u.stage(k) =
+              randomVector(_model->dynamics()[k]->control_size(), 5.0);
         }
 
         _ssqp._lf_grad(x, u, dx, du);
@@ -585,10 +606,10 @@ bool FDGradFullTrajectoryCost::run()
         double dxdiff = (dx - dxfd).vec.lpNorm<Eigen::Infinity>();
         double dudiff = (du - dufd).vec.lpNorm<Eigen::Infinity>();
 
-        if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
-            dudiff > _h)
+        if (!close(dx.vec, dxfd.vec) || !close(du.vec, dufd.vec))
         {
             std::stringstream ss;
+            ss << std::setprecision(17);
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << dxdiff << std::endl
@@ -643,13 +664,14 @@ void FDGradFullTrajectoryStageGap::_fd_grad(const solvers::FlatVec &x,
             VecX e(ndx);
             e.setUnit(i);
 
-            solvers::FlatVec xp(x), xm(x);
-            xp.stage(k) = dynamics[k]->state_right_plus(x_k, _h * e);
-            xm.stage(k) = dynamics[k]->state_right_plus(x_k, -_h * e);
-
-            dx.stage(k)[i] =
-              (_ssqp._gammaf_softmax(xp, u) - _ssqp._gammaf_softmax(xm, u)) /
-              (2 * _h);
+            solvers::FlatVec xp(x);
+            dx.stage(k)[i] = finiteDifference(
+              [&](double step)
+              {
+                  xp.stage(k) = dynamics[k]->state_right_plus(x_k, step * e);
+                  return _ssqp._gammaf_softmax(xp, u);
+              },
+              _h);
         }
     }
 
@@ -664,13 +686,14 @@ void FDGradFullTrajectoryStageGap::_fd_grad(const solvers::FlatVec &x,
             VecX e(nu);
             e.setUnit(i);
 
-            solvers::FlatVec up(u), um(u);
-            up.stage(k) = u_k + _h * e;
-            um.stage(k) = u_k - _h * e;
-
-            du.stage(k)[i] =
-              (_ssqp._gammaf_softmax(x, up) - _ssqp._gammaf_softmax(x, um)) /
-              (2 * _h);
+            solvers::FlatVec up(u);
+            du.stage(k)[i] = finiteDifference(
+              [&](double step)
+              {
+                  up.stage(k) = u_k + step * e;
+                  return _ssqp._gammaf_softmax(x, up);
+              },
+              _h);
         }
     }
 }
@@ -702,16 +725,16 @@ bool FDGradFullTrajectoryStageGap::run()
     {
         for (uint k = 0; k < x.stages(); ++k)
         {
-            x.stage(k) = _model->randomState(k);
+            x.stage(k) = _model->dynamics()[k]->state_right_plus(
+              _model->dynamics()[k]->init_state(),
+              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0));
         }
 
         for (uint k = 0; k < u.stages(); ++k)
         {
-            u.stage(k) = _model->randomControls(k);
+            u.stage(k) =
+              randomVector(_model->dynamics()[k]->control_size(), 5.0);
         }
-
-        dx.vec.setZero();
-        du.vec.setZero();
 
         dx.vec.setZero();
         du.vec.setZero();
@@ -722,10 +745,10 @@ bool FDGradFullTrajectoryStageGap::run()
         double dxdiff = (dx - dxfd).vec.lpNorm<Eigen::Infinity>();
         double dudiff = (du - dufd).vec.lpNorm<Eigen::Infinity>();
 
-        if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
-            dudiff > _h)
+        if (!close(dx.vec, dxfd.vec) || !close(du.vec, dufd.vec))
         {
             std::stringstream ss;
+            ss << std::setprecision(17);
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << dxdiff << std::endl
@@ -780,12 +803,14 @@ void FDGradFullTrajectoryConstraintViolation::_fd_grad(
             VecX e(ndx);
             e.setUnit(i);
 
-            solvers::FlatVec xp(x), xm(x);
-            xp.stage(k) = dynamics[k]->state_right_plus(x_k, _h * e);
-            xm.stage(k) = dynamics[k]->state_right_plus(x_k, -_h * e);
-
-            dx.stage(k)[i] =
-              (_ssqp._cf_softmax(xp, u) - _ssqp._cf_softmax(xm, u)) / (2 * _h);
+            solvers::FlatVec xp(x);
+            dx.stage(k)[i] = finiteDifference(
+              [&](double step)
+              {
+                  xp.stage(k) = dynamics[k]->state_right_plus(x_k, step * e);
+                  return _ssqp._cf_softmax(xp, u);
+              },
+              _h);
         }
     }
 
@@ -800,12 +825,14 @@ void FDGradFullTrajectoryConstraintViolation::_fd_grad(
             VecX e(nu);
             e.setUnit(i);
 
-            solvers::FlatVec up(u), um(u);
-            up.stage(k) = u_k + _h * e;
-            um.stage(k) = u_k - _h * e;
-
-            du.stage(k)[i] =
-              (_ssqp._cf_softmax(x, up) - _ssqp._cf_softmax(x, um)) / (2 * _h);
+            solvers::FlatVec up(u);
+            du.stage(k)[i] = finiteDifference(
+              [&](double step)
+              {
+                  up.stage(k) = u_k + step * e;
+                  return _ssqp._cf_softmax(x, up);
+              },
+              _h);
         }
     }
 }
@@ -837,12 +864,15 @@ bool FDGradFullTrajectoryConstraintViolation::run()
     {
         for (uint k = 0; k < x.stages(); ++k)
         {
-            x.stage(k) = _model->randomState(k);
+            x.stage(k) = _model->dynamics()[k]->state_right_plus(
+              _model->dynamics()[k]->init_state(),
+              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0));
         }
 
         for (uint k = 0; k < u.stages(); ++k)
         {
-            u.stage(k) = _model->randomControls(k);
+            u.stage(k) =
+              randomVector(_model->dynamics()[k]->control_size(), 5.0);
         }
 
         dx.vec.setZero();
@@ -854,10 +884,10 @@ bool FDGradFullTrajectoryConstraintViolation::run()
         double dxdiff = (dx - dxfd).vec.lpNorm<Eigen::Infinity>();
         double dudiff = (du - dufd).vec.lpNorm<Eigen::Infinity>();
 
-        if (std::isnan(dxdiff) || std::isnan(dudiff) || dxdiff > _h ||
-            dudiff > _h)
+        if (!close(dx.vec, dxfd.vec) || !close(du.vec, dufd.vec))
         {
             std::stringstream ss;
+            ss << std::setprecision(17);
             ss << "Run " << i << " failed" << std::endl
                << "Run input:" << std::endl
                << "Norm dX: " << dxdiff << std::endl

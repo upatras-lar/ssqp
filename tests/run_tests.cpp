@@ -3,8 +3,36 @@
 #include "generators/gradients.hpp"
 #include "generators/qp_solvers.hpp"
 
-int main()
+int main(int argc, char **argv)
 {
+    std::string filter;
+    uint32_t    seed = 42;
+    bool        list = false;
+    for (int i = 1; i < argc; ++i)
+    {
+        const std::string arg = argv[i];
+        if (arg == "--list") list = true;
+        else if (arg == "--filter" && i + 1 < argc) filter = argv[++i];
+        else if (arg == "--seed" && i + 1 < argc)
+        {
+            try
+            {
+                seed = std::stoul(argv[++i]);
+            }
+            catch (...)
+            {
+                std::cerr << "Invalid seed\n";
+                return 2;
+            }
+        }
+        else
+        {
+            std::cerr << "Usage: run_tests [--list] [--filter substring] "
+                         "[--seed integer]\n";
+            return 2;
+        }
+    }
+    ssqp::set_silent_mode();
     ssqp::tests::TestContainer tests;
 
     const std::vector<std::pair<std::string, bool>> urdfs = {
@@ -211,12 +239,19 @@ int main()
     // tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
 
     tests.addTest(std::make_shared<ssqp::tests::MPCStepTest>(
-      "MPCStepADMMTest", ssqp::solvers::ssqp::QPSolverType::ADMM));
+      "MPCStepADMMTest",
+      ssqp::solvers::ssqp::QPSolverType::ADMM));
 
 #ifdef WITH_HPIPM
     tests.addTest(std::make_shared<ssqp::tests::MPCStepTest>(
-      "MPCStepHPIPMTest", ssqp::solvers::ssqp::QPSolverType::HPIPM));
+      "MPCStepHPIPMTest",
+      ssqp::solvers::ssqp::QPSolverType::HPIPM));
 #endif
 
-    tests.runAll();
+    if (list)
+    {
+        tests.list();
+        return 0;
+    }
+    return tests.runAll(filter, seed) ? 0 : 1;
 }

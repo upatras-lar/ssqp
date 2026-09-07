@@ -143,8 +143,8 @@ class FDGradFullTrajectoryStageGap : public Test
   public:
     FDGradFullTrajectoryStageGap(const std::string                   &name,
                                  const std::shared_ptr<model::Model> &model,
-                                 const uint ninputs = 100,
-                                 const double h     = 1e-4);
+                                 const uint   ninputs = 100,
+                                 const double h       = 1e-4);
 
     bool run() override;
 
