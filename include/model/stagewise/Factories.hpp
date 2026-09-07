@@ -34,7 +34,7 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 inline std::shared_ptr<StageDynamics> make_dynamics(
   const std::vector<std::string> names, const uint nx, const uint nu,
   const uint nout, const uint ndx, const VecX &init_state,
-  const VecX                                             &init_control,
+  const VecX &init_control,
   ManifoldOperators<ManifoldOperator1, ManifoldOperator2> ops,
   EvaluationFunction eval, multiGradientFunction grad,
   HessprodFunction1 hess_xx = ZeroHessprod_xx,
@@ -53,10 +53,10 @@ inline std::shared_ptr<StageConstraints> make_constraints(
   const std::vector<std::string> names, NOutFunction nout, NdcFunction ndc,
   LowerBoundFunction lb, UpperBoundFunction ub, EvaluationFunction eval,
   multiGradientFunction grad, ManifoldOperator op = DefaultRightMinus,
-  HessprodFunction1 hess_xx      = ZeroHessprod_xx,
-  HessprodFunction2 hess_xu      = ZeroHessprod_xu,
-  HessprodFunction3 hess_uu      = ZeroHessprod_uu,
-  EnabledFunction   enabled_func = DefaultEnabledFunc);
+  HessprodFunction1 hess_xx    = ZeroHessprod_xx,
+  HessprodFunction2 hess_xu    = ZeroHessprod_xu,
+  HessprodFunction3 hess_uu    = ZeroHessprod_uu,
+  EnabledFunction enabled_func = DefaultEnabledFunc);
 
 inline std::shared_ptr<StageCost> merge_costs(
   const std::shared_ptr<StageCost> &l1, const std::shared_ptr<StageCost> &l2);
