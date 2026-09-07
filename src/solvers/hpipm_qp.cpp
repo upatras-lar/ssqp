@@ -170,8 +170,6 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     _hpipm_qp_mem = malloc(qp_size);
     d_ocp_qp_create(&_hpipm_data->dim, &_hpipm_data->qp, _hpipm_qp_mem);
 
-    reset();
-
     // Allocate solution structure
     int sol_size   = d_ocp_qp_sol_memsize(&_hpipm_data->dim);
     _hpipm_sol_mem = malloc(sol_size);
@@ -232,6 +230,10 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
                            &_hpipm_data->arg,
                            &_hpipm_data->ws,
                            _hpipm_ws_mem);
+
+    // Upload the initial QP data only after all HPIPM structures used by
+    // reset() have been created.
+    reset();
 }
 
 hpipm_qp::~hpipm_qp()
