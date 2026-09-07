@@ -54,8 +54,8 @@ int main()
 
     auto cost_grad = [target](const Eigen::VectorXd &x,
                               const Eigen::VectorXd &u,
-                              Eigen::VectorXd       &dx,
-                              Eigen::VectorXd       &du)
+                              Eigen::VectorXd &dx,
+                              Eigen::VectorXd &du)
     {
         dx         = Eigen::VectorXd::Zero(14);
         dx.head(7) = 2 * Q_WGT * (x.head(7) - target);
@@ -64,12 +64,12 @@ int main()
 
     auto cost_hess_xx = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd       &Hxx)
+                           Eigen::MatrixXd &Hxx)
     { Hxx = 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
 
     auto cost_hess_uu = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd       &Huu)
+                           Eigen::MatrixXd &Huu)
     { Huu = 2 * U_WGT * Eigen::MatrixXd::Identity(7, 7); };
 
     // Create StageCost object using the make_cost helper
@@ -93,8 +93,8 @@ int main()
 
     auto terminal_cost_grad = [target](const Eigen::VectorXd &x,
                                        const Eigen::VectorXd &u,
-                                       Eigen::VectorXd       &dx,
-                                       Eigen::VectorXd       &du)
+                                       Eigen::VectorXd &dx,
+                                       Eigen::VectorXd &du)
     {
         dx         = Eigen::VectorXd::Zero(14);
         dx.head(7) = TERM_WGT * 2 * Q_WGT * (x.head(7) - target);
@@ -103,7 +103,7 @@ int main()
 
     auto terminal_cost_hess_xx = [](const Eigen::VectorXd &x,
                                     const Eigen::VectorXd &u,
-                                    Eigen::MatrixXd       &Hxx)
+                                    Eigen::MatrixXd &Hxx)
     { Hxx = TERM_WGT * 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =

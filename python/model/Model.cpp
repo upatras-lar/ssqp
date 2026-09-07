@@ -743,10 +743,10 @@ void bind_Model(nb::module_ &m)
         )doc")
       .def(
         "forwardDynamics",
-        [](Model                                                    &self,
-           const VecX                                               &q,
-           const VecX                                               &v,
-           const VecX                                               &tau,
+        [](Model &self,
+           const VecX &q,
+           const VecX &v,
+           const VecX &tau,
            const std::unordered_map<std::string, std::vector<Vec3>> &forces)
         {
             if (!self.xml())
@@ -783,10 +783,10 @@ void bind_Model(nb::module_ &m)
         )doc")
       .def(
         "inverseDynamics",
-        [](Model                                                    &self,
-           const VecX                                               &q,
-           const VecX                                               &v,
-           const VecX                                               &a,
+        [](Model &self,
+           const VecX &q,
+           const VecX &v,
+           const VecX &a,
            const std::unordered_map<std::string, std::vector<Vec3>> &forces)
         {
             if (!self.xml())
@@ -817,10 +817,10 @@ void bind_Model(nb::module_ &m)
         "Get model center of mass for the given configuration")
       .def(
         "frameJacobian",
-        [](Model             &self,
-           const VecX        &q,
+        [](Model &self,
+           const VecX &q,
            const std::string &frame,
-           const bool         local)
+           const bool local)
         {
             if (!self.xml())
             {
