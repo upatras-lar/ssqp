@@ -553,7 +553,7 @@ SolverState ssqp::solve(Guess &guess)
                 [this](const step::Point &a,
                        const step::Point &b,
                        const step::Point &offset,
-                       const double       alpha)
+                       const double alpha)
                 {
                     return step::filter(
                       a,
@@ -583,7 +583,7 @@ SolverState ssqp::solve(Guess &guess)
                 [this](const step::Point &a,
                        const step::Point &b,
                        const step::Point &offset,
-                       const double       alpha)
+                       const double alpha)
                 {
                     return step::merit(
                       a,

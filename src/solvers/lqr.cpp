@@ -361,8 +361,7 @@ void lqr::_solve()
     const uint H = _qp.dims.horizon;
     bool       backward_fail;
 
-    do
-    {
+    do {
         backward_fail = false;
 
         _output.P[H] = _Qt;

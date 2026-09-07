@@ -744,8 +744,8 @@ class FramesInverseSquaredDistanceCost : public StageCost
     FramesInverseSquaredDistanceCost(const Model                    &model,
                                      const std::vector<std::string> &frames,
                                      const double                    weight,
-                                     const double       distance_scale = 100.0,
-                                     const std::string &name           = "");
+                                     const double distance_scale = 100.0,
+                                     const std::string &name     = "");
     FramesInverseSquaredDistanceCost(const Model                    &model,
                                      const std::vector<std::string> &frames,
                                      const double                    weight,
