@@ -118,7 +118,7 @@ ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=5, qp_iters=75)
 
-mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/panda/panda.xml")
+mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = init_state[:9]

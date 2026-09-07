@@ -2,7 +2,6 @@
 #define SSQP_SOLVERS_LQR_HPP
 
 #include <vector>
-#include <deque>
 #include <exception>
 
 #include <Eigen/Dense>
@@ -71,10 +70,12 @@ class lqr
     std::vector<Eigen::LLT<MatX>> _H_llt;
     std::vector<MatX>             _cache_A_BK;
 
-    const uint       _solve_success_sma_k;
-    const double     _solve_success_sma_ratio;
-    uint             _solve_success_sum;
-    std::deque<bool> _solve_successes;
+    const uint        _solve_success_sma_k;
+    const double      _solve_success_sma_ratio;
+    uint              _solve_success_sum;
+    std::vector<bool> _solve_successes;
+    uint              _solve_success_head;
+    uint              _solve_success_count;
 
     const double _reg_init;
     const double _reg_factor;
@@ -85,6 +86,8 @@ class lqr
 
     void _solve();
     void _solve_cache_rho();
+
+    void _forward_pass();
 
     // Temporaries to prevent aliasing for Eigen operations
     struct
