@@ -329,7 +329,7 @@ bool FDGradDynamicsParameters::run()
 
         double dTdiff = (dT - dTfd).lpNorm<Eigen::Infinity>();
 
-        if (std::isnan(dTdiff) || dTdiff > _h)
+        if (!close(dT, dTfd))
         {
             double max_diff   = 0.0;
             int    idx_dt_row = -1, idx_dt_col = -1;

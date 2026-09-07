@@ -79,17 +79,18 @@ class Quadratic : public model::stagewise::StageCost
 class ControlBound : public model::stagewise::StageConstraints
 {
   public:
+    explicit ControlBound(double limit = 0.2) : _limit(limit) {}
     uint output_size() const override
     {
         return 1;
     }
     VecX lower_bound() const override
     {
-        return VecX::Constant(1, -0.2);
+        return VecX::Constant(1, -_limit);
     }
     VecX upper_bound() const override
     {
-        return VecX::Constant(1, 0.2);
+        return VecX::Constant(1, _limit);
     }
     VecX evaluate(const VecX &, const VecX &u) const override
     {
@@ -111,10 +112,13 @@ class ControlBound : public model::stagewise::StageConstraints
         h = MatX::Zero(1, 1);
     }
     void hessprod_uu(const VecX &, const VecX &, const VecX &,
-                     MatX &h) const override
+                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
     }
+
+  private:
+    double _limit;
 };
 inline std::shared_ptr<model::Model> integratorProblem(uint   horizon,
                                                        double initial,

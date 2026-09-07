@@ -71,14 +71,18 @@ bool MPCStepTest::run()
         ssqp_params.admm_params.rel_tolerance = 1e-3;
 
         solvers::MPC mpc(*model, mpc_params, ssqp_params);
-        const VecX   state = VecX::Zero(model->dims().stage_state.front());
+        VecX state = VecX::Zero(model->dims().stage_state.front());
+        state[0] = 0.1;
+        state[1] = -0.2;
+        mpc.reinitialize(state);
 
         const auto valid_solution =
-          [horizon](
+          [horizon, &state](
             const std::pair<solvers::FlatVec, solvers::FlatVec> &solution)
         {
             return solution.first.stages() == horizon + 1 &&
                    solution.second.stages() == horizon &&
+                   (solution.first.stage(0) - state).norm() < 1e-10 &&
                    solution.first.vec.array().isFinite().all() &&
                    solution.second.vec.array().isFinite().all();
         };
@@ -90,6 +94,7 @@ bool MPCStepTest::run()
             return false;
         }
 
+        state[0] += 0.03;
         if (!valid_solution(mpc.step(state)))
         {
             _failed_logs.push_back(

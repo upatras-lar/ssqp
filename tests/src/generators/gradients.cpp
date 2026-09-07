@@ -63,9 +63,7 @@ std::shared_ptr<Test> generate_dynamics_gradient_test(
   const model::SolverMode &sm, const model::IntegrationScheme &is,
   const bool forces, const bool unactuated_joints, const uint seed)
 {
-    std::random_device dev;
-    std::mt19937       rng(dev());
-    rng.seed(seed);
+    std::mt19937 rng(seed);
 
     model::Model::Structure model_structure;
     model_structure.urdf_path   = urdf_path;
@@ -109,7 +107,6 @@ std::shared_ptr<Test> generate_dynamics_gradient_test(
         break;
     }
 
-    if (sm != model::SolverMode::Kinematics)
     {
         switch (is)
         {
@@ -155,9 +152,7 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
   const model::SolverMode &sm, const bool forces, const bool unactuated_joints,
   const uint seed)
 {
-    std::random_device dev;
-    std::mt19937       rng(dev());
-    rng.seed(seed);
+    std::mt19937 rng(seed);
 
     model::Model::Structure model_structure;
     model_structure.urdf_path   = urdf_path;
@@ -185,6 +180,9 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
 
     switch (sm)
     {
+    case model::SolverMode::Kinematics:
+        test_name_ss << "Kin";
+        break;
     default:
     case model::SolverMode::ForwardDynamics:
         test_name_ss << "Fwdyn";
@@ -227,9 +225,7 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
 std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
   const uint seed)
 {
-    std::random_device dev;
-    std::mt19937       rng(dev());
-    rng.seed(seed);
+    std::mt19937 rng(seed);
 
     std::uniform_real_distribution<double> dist(0.1, 100.0);
 
@@ -275,9 +271,7 @@ std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
 
 std::shared_ptr<Test> get_pendubot_ambient_dynamics_grad_test(const uint seed)
 {
-    std::random_device dev;
-    std::mt19937       rng(dev());
-    rng.seed(seed);
+    std::mt19937 rng(seed);
 
     std::uniform_real_distribution<double> dist(0.1, 100.0);
 
@@ -325,9 +319,7 @@ std::shared_ptr<Test> get_pendubot_ambient_dynamics_grad_test(const uint seed)
 
 std::shared_ptr<Test> get_acrobot_ambient_dynamics_grad_test(const uint seed)
 {
-    std::random_device dev;
-    std::mt19937       rng(dev());
-    rng.seed(seed);
+    std::mt19937 rng(seed);
 
     std::uniform_real_distribution<double> dist(0.1, 100.0);
 
@@ -376,9 +368,7 @@ std::shared_ptr<Test> get_acrobot_ambient_dynamics_grad_test(const uint seed)
 std::shared_ptr<Test> get_double_pendulum_ambient_tracking_cost_grad_test(
   const uint seed)
 {
-    std::random_device dev;
-    std::mt19937       rng(dev());
-    rng.seed(seed);
+    std::mt19937 rng(seed);
 
     std::uniform_real_distribution<double> dist(0.1, 100.0);
 

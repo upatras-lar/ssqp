@@ -25,6 +25,7 @@ option(BUILD_EXAMPLES "Build example executables" OFF)
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_BENCHMARKS "Build benchmarks" ON)
 option(BUILD_PYTHON "Build the Python extension" ON)
+option(ENABLE_SANITIZERS "Enable address, undefined-behavior, and leak checks" OFF)
 
 # If set, link against a prebuilt Pinocchio package (as produced by the
 # `package-pinocchio` target) instead of fetching and building it from
@@ -58,7 +59,14 @@ target_include_directories(ssqp
     /usr/include/eigen3
 )
 
-if(ENABLE_PROFILING)
+if(ENABLE_SANITIZERS)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "ENABLE_SANITIZERS requires GCC or Clang")
+    endif()
+    target_compile_options(ssqp PUBLIC -O1 -g -fno-omit-frame-pointer
+        -fsanitize=address,undefined -fno-sanitize-recover=all)
+    target_link_options(ssqp PUBLIC -fsanitize=address,undefined)
+elseif(ENABLE_PROFILING)
     target_compile_options(ssqp PUBLIC -g -O2 -pthread -fno-omit-frame-pointer)
     target_compile_definitions(ssqp PUBLIC TRACY_ENABLE TRACY_MEMORY)
     target_link_libraries(ssqp PUBLIC pthread)
@@ -114,15 +122,17 @@ endif()
 if(BUILD_TESTS)
     enable_testing()
 
-    file(GLOB_RECURSE TEST_SOURCES "tests/src/*.cpp")
+    file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "tests/src/*.cpp")
     add_executable(run_tests "tests/run_tests.cpp" ${TEST_SOURCES})
 
     target_include_directories(run_tests PRIVATE tests/include)
     target_link_libraries(run_tests PRIVATE ssqp)
-    add_test(NAME ssqp_tests COMMAND run_tests)
-    set_tests_properties(ssqp_tests PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
+    # Discover at CTest time so new cases require no manually maintained list.
+    # Each case runs in its own process: a segfault does not hide later cases.
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/discover_ssqp_tests.cmake"
+        CONTENT "set(SSQP_TEST_BINARY \"$<TARGET_FILE:run_tests>\")\nset(SSQP_TEST_SOURCE \"${CMAKE_CURRENT_SOURCE_DIR}\")\ninclude(\"${CMAKE_CURRENT_SOURCE_DIR}/tests/DiscoverTests.cmake\")\n")
+    set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/discover_ssqp_tests.cmake")
 
     set_target_properties(run_tests PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
