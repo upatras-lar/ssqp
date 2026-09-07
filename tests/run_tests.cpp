@@ -1,5 +1,6 @@
 #include "Test.hpp"
 #include "MPC.hpp"
+#include "Regression.hpp"
 #include "generators/gradients.hpp"
 #include "generators/qp_solvers.hpp"
 
@@ -248,6 +249,7 @@ int main(int argc, char **argv)
       ssqp::solvers::ssqp::QPSolverType::HPIPM));
 #endif
 
+    ssqp::tests::addRegressionTests(tests);
     if (list)
     {
         tests.list();

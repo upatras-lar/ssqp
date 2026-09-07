@@ -19,6 +19,7 @@ const std::string Test::name() const
 void Test::seed(uint32_t value)
 {
     _rng.seed(value);
+    _failed_logs.clear();
 }
 VecX Test::randomVector(uint size, double scale)
 {
@@ -41,6 +42,7 @@ void TestContainer::list() const
 bool TestContainer::runAll(const std::string &filter, uint32_t base_seed)
 {
     uint passed = 0, selected = 0;
+    std::cout << "Base seed: " << base_seed << "\n";
     for (const auto &test : _tests)
     {
         if (!filter.empty() && test->name().find(filter) == std::string::npos)

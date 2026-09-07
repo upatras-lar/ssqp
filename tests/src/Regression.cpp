@@ -115,6 +115,10 @@ void mpcKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon)
 void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
 {
     auto                 model  = integratorProblem(2, 1.0, true);
+    auto                 bounds = model->constraints();
+    // Toggle components of merged constraints, as in robot MPC applications.
+    for (uint k = 0; k < 2; ++k) model->addConstraints<ControlBound>(k, 2.0);
+    model->updateDimensions();
     auto                 params = accurateParams(backend);
     solvers::MPC::Params mp;
     mp.sqp_iters = 20;
@@ -127,7 +131,7 @@ void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
         {
             bool enabled = cycle % 2 == 0;
             for (uint k = 0; k < 2; ++k)
-                model->constraints()[k]->set_enabled(enabled);
+                bounds[k]->set_enabled(enabled);
             // Cover callers that update dimensions themselves before step().
             if (cycle % 3 == 0) model->updateDimensions();
             mpc.reinitialize(VecX::Ones(1));
@@ -142,7 +146,7 @@ void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
                             result.second,
                             expected.first,
                             expected.second);
-            require(model->linear_dims().constraint == (enabled ? 2u : 0u),
+            require(model->linear_dims().constraint == (enabled ? 4u : 2u),
                     "Constraint dimensions updated");
         }
         require(mpc.getConvergenceData().empty(), "History disabled");
