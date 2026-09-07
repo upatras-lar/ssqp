@@ -7,7 +7,7 @@ from time import time, sleep
 
 ssqpy.setSilentMode()
 
-PLOT = True
+PLOT = False
 
 if PLOT:
     import matplotlib.pyplot as plt
@@ -140,7 +140,7 @@ ssqp_params.admmParams = admm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
-mjmodel = mujoco.MjModel.from_xml_path("../assets/mjcf/panda/panda.xml")
+mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = init_state[:9]
@@ -189,7 +189,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             steps = 0
 
         mujoco.mj_step(mjmodel, mjdata)
-        # viewer.sync()
+        viewer.sync()
 
         stage += 1
         update_pose_costs(stage)

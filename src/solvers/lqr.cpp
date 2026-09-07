@@ -23,6 +23,9 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
   , _solve_success_sma_k(params.solve_window)
   , _solve_success_sma_ratio(params.solve_success_ratio)
   , _solve_success_sum(0)
+  , _solve_successes(params.solve_window, false)
+  , _solve_success_head(0)
+  , _solve_success_count(0)
   , _reg_init(params.reg_init)
   , _reg_factor(params.reg_factor)
   , _reg_max(params.reg_max)
@@ -34,6 +37,41 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
               std::vector<VecX>(qp.dims.horizon + 1),
               std::vector<VecX>(qp.dims.horizon) })
 {
+    const uint H = _qp.dims.horizon;
+    _cache_A_BK.resize(H);
+
+    for (uint k = 0; k < H; ++k)
+    {
+        const uint nx = _qp.dims.stage_state[k];
+        const uint nu = _qp.dims.stage_control[k];
+
+        _Qxx[k].resize(nx, nx);
+        _Qxu[k].resize(nx, nu);
+        _Quu[k].resize(nu, nu);
+
+        _qx[k].resize(nx);
+        _qu[k].resize(nu);
+
+        _G[k].resize(nu, nx);
+        _H[k].resize(nu, nu);
+
+        _output.P[k].resize(nx, nx);
+        _output.p[k].resize(nx);
+
+        _output.K[k].resize(nu, nx);
+        _output.k[k].resize(nx, nx);
+
+        _cache_A_BK[k].resize(nx, nx);
+    }
+
+    const uint nx_t = _qp.dims.stage_state[H];
+
+    _Qt.resize(nx_t, nx_t);
+    _qt.resize(nx_t);
+
+    _output.P[H].resize(nx_t, nx_t);
+    _output.p[H].resize(nx_t);
+
     uint max_x =
       *std::max_element(qp.dims.stage_state.begin(), qp.dims.stage_state.end());
     uint max_u = *std::max_element(qp.dims.stage_control.begin(),
@@ -59,12 +97,6 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
     _tmp.UU1.resize(max_u, max_u);
     _tmp.XU1.resize(max_x, max_u);
     _tmp.UX1.resize(max_u, max_x);
-
-    _cache_A_BK.resize(_qp.dims.horizon);
-    for (uint k = 0; k < _qp.dims.horizon; ++k)
-    {
-        _cache_A_BK[k].resize(_qp.dims.stage_state[k], _qp.dims.stage_state[k]);
-    }
 }
 
 lqr::Output &lqr::output_structure()
@@ -104,8 +136,11 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         const auto &stage = _qp.stages[k];
 
         // Initialize unconstrained
-        _qx[k] = stage.qx;
-        _qu[k] = stage.qu;
+        _qx[k]  = stage.qx;
+        _qx[k] -= _sigma * current_sol.dx.stage(k);
+
+        _qu[k]  = stage.qu;
+        _qu[k] -= _sigma * current_sol.du.stage(k);
 
         const uint nx = _qp.dims.stage_state[k];
         const uint nu = _qp.dims.stage_control[k];
@@ -116,41 +151,18 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         const auto &D = stage.D; // nc x nx
         const auto &E = stage.E; // nc x nu
 
-        auto c1 = _tmp.c1.head(nc); // rho ∘ z
-        auto c2 = _tmp.c2.head(nc); // reuse if needed
+        auto r = _tmp.c1.head(nc);
 
-        // c1 = rho ∘ z   (elementwise)
-        c1          = _rho.stage(k);
-        c1.array() *= z.stage(k).array();
+        r          = y.stage(k);
+        r.array() -= _rho.stage(k).array() * z.stage(k).array();
 
-        // qx[k]
-        // tmp_x = D^T * y
-        auto x1      = _tmp.x1.head(nx);
-        x1.noalias() = D.transpose() * y.stage(k);
+        _qx[k].noalias() += D.transpose() * r;
 
-        // tmp_x2 = D^T * (rho ∘ z)
-        auto x2      = _tmp.x2.head(nx);
-        x2.noalias() = D.transpose() * c1;
-
-        _qx[k] += x1;
-        _qx[k] -= x2;
-        _qx[k] -= _sigma * current_sol.dx.stage(k);
-
-        // qu[k]
-        // tmp_u = E^T * y
-        auto u1      = _tmp.u1.head(nu);
-        u1.noalias() = E.transpose() * y.stage(k);
-
-        // tmp_u2 = E^T * (rho ∘ z)
-        auto u2      = _tmp.u2.head(nu);
-        u2.noalias() = E.transpose() * c1;
-
-        _qu[k] += u1;
-        _qu[k] -= u2;
-        _qu[k] -= _sigma * current_sol.du.stage(k);
+        _qu[k].noalias() += E.transpose() * r;
     }
 
-    _qt = _qp.qx_t;
+    _qt  = _qp.qx_t;
+    _qt -= _sigma * current_sol.dx.stage(H);
 
     // Terminal stage
     if (_qp.Dt.rows() != 0)
@@ -160,24 +172,12 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
 
         const auto &Dt = _qp.Dt;
 
-        auto c1 = _tmp.c1.head(nc);
+        auto r = _tmp.c1.head(nc);
 
-        // c1 = rho ∘ z
-        c1          = _rho.stage(H);
-        c1.array() *= z.stage(H).array();
+        r          = y.stage(H);
+        r.array() -= _rho.stage(H).array() * z.stage(H).array();
 
-        auto x1 = _tmp.x1.head(nx);
-        auto x2 = _tmp.x2.head(nx);
-
-        // x1 = Dt^T * y
-        x1.noalias() = Dt.transpose() * y.stage(H);
-
-        // x2 = Dt^T * (rho ∘ z)
-        x2.noalias() = Dt.transpose() * c1;
-
-        _qt += x1;
-        _qt -= x2;
-        _qt += _sigma * current_sol.dx.stage(H);
+        _qt.noalias() += Dt.transpose() * r;
     }
 
     _solve_cache_rho();
@@ -204,8 +204,11 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         _Qxu[k] = stage.Qxu;
         _Quu[k] = stage.Quu;
 
-        _qx[k] = stage.qx;
-        _qu[k] = stage.qu;
+        _qx[k]  = stage.qx;
+        _qx[k] -= _sigma * current_sol.dx.stage(k);
+
+        _qu[k]  = stage.qu;
+        _qu[k] -= _sigma * current_sol.du.stage(k);
 
         const uint nx = _qp.dims.stage_state[k];
         const uint nu = _qp.dims.stage_control[k];
@@ -217,13 +220,12 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         const auto &E = stage.E; // nc x nu
 
         // Temporaries
-        auto c1 = _tmp.c1.head(nc);               // rho ∘ z
+        auto r  = _tmp.c1.head(nc);
         auto CX = _tmp.CX1.topLeftCorner(nc, nx); // rho ∘ D
         auto CU = _tmp.CU1.topLeftCorner(nc, nu); // rho ∘ E
 
-        // c1 = rho ∘ z
-        c1          = rho.stage(k);
-        c1.array() *= z.stage(k).array();
+        r          = y.stage(k);
+        r.array() -= _rho.stage(k).array() * z.stage(k).array();
 
         // CX = diag(rho) * D   (row scaling)
         CX                    = D;
@@ -251,30 +253,17 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         _Quu[k].diagonal().array() += _sigma;
 
         // qx
-        auto x1 = _tmp.x1.head(nx);
-        auto x2 = _tmp.x2.head(nx);
-
-        x1.noalias() = D.transpose() * y.stage(k);
-        x2.noalias() = D.transpose() * c1;
-
-        _qx[k] += x1;
-        _qx[k] -= x2;
-        _qx[k] -= _sigma * current_sol.dx.stage(k);
+        _qx[k].noalias() += D.transpose() * r;
 
         // qu
-        auto u1 = _tmp.u1.head(nu);
-        auto u2 = _tmp.u2.head(nu);
-
-        u1.noalias() = E.transpose() * y.stage(k);
-        u2.noalias() = E.transpose() * c1;
-
-        _qu[k] += u1;
-        _qu[k] -= u2;
-        _qu[k] -= _sigma * current_sol.du.stage(k);
+        _qu[k].noalias() += E.transpose() * r;
     }
 
-    _Qt = _qp.Qxx_t;
-    _qt = _qp.qx_t;
+    _Qt                     = _qp.Qxx_t;
+    _Qt.diagonal().array() += _sigma;
+
+    _qt  = _qp.qx_t;
+    _qt -= _sigma * current_sol.dx.stage(H);
 
     // Terminal stage
     if (_qp.Dt.rows() != 0)
@@ -284,12 +273,11 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
 
         const auto &Dt = _qp.Dt;
 
-        auto c1 = _tmp.c1.head(nc);
+        auto r  = _tmp.c1.head(nc);
         auto CX = _tmp.CX1.topLeftCorner(nc, nx);
 
-        // rho ∘ z
-        c1          = rho.stage(H);
-        c1.array() *= z.stage(H).array();
+        r          = y.stage(H);
+        r.array() -= _rho.stage(H).array() * z.stage(H).array();
 
         // rho ∘ Dt
         CX                    = Dt;
@@ -299,19 +287,10 @@ lqr::Output &lqr::constrained(const admm_qp::Solution &current_sol,
         auto XX      = _tmp.XX1.topLeftCorner(nx, nx);
         XX.noalias() = Dt.transpose() * CX;
 
-        _Qt                    += XX;
-        _Qt.diagonal().array() += _sigma;
+        _Qt += XX;
 
         // qt
-        auto x1 = _tmp.x1.head(nx);
-        auto x2 = _tmp.x2.head(nx);
-
-        x1.noalias() = Dt.transpose() * y.stage(H);
-        x2.noalias() = Dt.transpose() * c1;
-
-        _qt += x1;
-        _qt -= x2;
-        _qt -= _sigma * current_sol.dx.stage(H);
+        _qt.noalias() += Dt.transpose() * r;
     }
 
     _solve();
@@ -333,7 +312,6 @@ void lqr::_solve_cache_rho()
         const uint nx = _qp.dims.stage_state[k];
         const uint nu = _qp.dims.stage_control[k];
 
-        const auto &A     = _qp.stages[k].A;     // nx x nx
         const auto &B     = _qp.stages[k].B;     // nx x nu
         const auto &gamma = _qp.stages[k].gamma; // nx
 
@@ -347,30 +325,21 @@ void lqr::_solve_cache_rho()
         x1.noalias() = _output.P[k + 1] * gamma;
 
         // x2 = p_next + x1
-        x2  = _output.p[k + 1];
-        x2 += x1;
+        x3  = _output.p[k + 1];
+        x3 += x1;
 
         // h = qu + B^T * x2
-        u1.noalias()  = B.transpose() * x2;
+        u1.noalias()  = B.transpose() * x3;
         u1           += _qu[k];
 
         // k = -H^{-1} h
         _output.k[k].noalias() = -_H_llt[k].solve(u1);
 
         // Cache M = A + B*K
-        auto &M      = _cache_A_BK[k];
-        M.noalias()  = B * _output.K[k];
-        M           += A;
+        auto &M = _cache_A_BK[k];
 
         // x1 = K^T * qu
         x1.noalias() = _output.K[k].transpose() * _qu[k];
-
-        // x2 = P_next * gamma
-        x2.noalias() = _output.P[k + 1] * gamma;
-
-        // x3 = p_next + x2
-        x3  = _output.p[k + 1];
-        x3 += x2;
 
         // x2 = M^T * x3
         x2.noalias() = M.transpose() * x3;
@@ -382,45 +351,19 @@ void lqr::_solve_cache_rho()
     }
 
     // Forward pass
-    _output.x.stage(0).setZero();
-
-    for (int k = 0; k < H; ++k)
-    {
-        const uint nx = _qp.dims.stage_state[k];
-        const uint nu = _qp.dims.stage_control[k];
-
-        const auto &B     = _qp.stages[k].B;     // nx x nu
-        const auto &gamma = _qp.stages[k].gamma; // nx
-        const auto &M     = _cache_A_BK[k];      // nx x nx
-
-        auto x1 = _tmp.x1.head(nx);
-        auto x2 = _tmp.x2.head(nx);
-
-        // x1 = M * x_k
-        x1.noalias() = M * _output.x.stage(k);
-
-        // x2 = B * k
-        x2.noalias() = B * _output.k[k];
-
-        // x_{k+1}
-        _output.x.stage(k + 1)  = x1;
-        _output.x.stage(k + 1) += x2;
-        _output.x.stage(k + 1) += gamma;
-
-        // u_k = K*x_k + k
-        _output.u.stage(k).noalias()  = _output.K[k] * _output.x.stage(k);
-        _output.u.stage(k)           += _output.k[k];
-    }
+    _forward_pass();
 }
 
 void lqr::_solve()
 {
     ZoneScopedN("LQR: _solve");
 
-    const uint H             = _qp.dims.horizon;
-    bool       backward_fail = false;
+    const uint H = _qp.dims.horizon;
+    bool       backward_fail;
 
     do {
+        backward_fail = false;
+
         _output.P[H] = _Qt;
         _output.p[H] = _qt;
 
@@ -453,11 +396,11 @@ void lqr::_solve()
             x1.noalias() = _output.P[k + 1] * gamma;
 
             // x2 = p_next + x1
-            x2  = _output.p[k + 1];
-            x2 += x1;
+            x3  = _output.p[k + 1];
+            x3 += x1;
 
             // h = qu + B^T * x2
-            u1.noalias()  = B.transpose() * x2;
+            u1.noalias()  = B.transpose() * x3;
             u1           += _qu[k];
 
             // G = Qxu^T + B^T * P_next * A
@@ -483,16 +426,22 @@ void lqr::_solve()
             // LLT
             _H_llt[k].compute(UU1);
 
-            _solve_successes.push_front(_H_llt[k].info() == Eigen::Success);
-            _solve_success_sum += _solve_successes.front();
+            const bool solve_success = (_H_llt[k].info() == Eigen::Success);
 
-            if (_solve_successes.size() > _solve_success_sma_k)
+            if (_solve_success_count < _solve_success_sma_k)
             {
-                _solve_success_sum -= _solve_successes.back();
-                _solve_successes.pop_back();
+                _solve_successes[_solve_success_count++] = solve_success;
             }
+            else
+            {
+                _solve_success_sum -= _solve_successes[_solve_success_head];
+                _solve_successes[_solve_success_head] = solve_success;
+                _solve_success_head =
+                  (_solve_success_head + 1) % _solve_success_sma_k;
+            }
+            _solve_success_sum += solve_success;
 
-            if (!_solve_successes.front())
+            if (!solve_success)
             {
                 backward_fail = true;
                 break;
@@ -510,8 +459,7 @@ void lqr::_solve()
             M           += A;
 
             // P[k]
-            // x1 = P_next * A
-            XX1.noalias() = _output.P[k + 1] * A;
+            // XX1 is already P_next * A
 
             // XX2 = A^T * x1
             XX2.noalias() = A.transpose() * XX1;
@@ -530,13 +478,6 @@ void lqr::_solve()
             // p[k]
             // x1 = K^T * qu
             x1.noalias() = _output.K[k].transpose() * _qu[k];
-
-            // x2 = P_next * gamma
-            x2.noalias() = _output.P[k + 1] * gamma;
-
-            // x3 = p_next + x2
-            x3  = _output.p[k + 1];
-            x3 += x2;
 
             // x2 = M^T * x3
             x2.noalias() = M.transpose() * x3;
@@ -563,12 +504,18 @@ void lqr::_solve()
     }
 
     // Forward pass
+    _forward_pass();
+}
+
+inline void lqr::_forward_pass()
+{
+    const uint H = _qp.dims.horizon;
+
     _output.x.stage(0).setZero();
 
     for (int k = 0; k < H; ++k)
     {
         const uint nx = _qp.dims.stage_state[k];
-        const uint nu = _qp.dims.stage_control[k];
 
         const auto &B     = _qp.stages[k].B;
         const auto &gamma = _qp.stages[k].gamma;
