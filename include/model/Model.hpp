@@ -255,9 +255,9 @@ class Model
      */
     void updateDimensions();
 
-    const CostsContainer       costs() const;
-    const DynamicsContainer    dynamics() const;
-    const ConstraintsContainer constraints() const;
+    const CostsContainer       &costs() const;
+    const DynamicsContainer    &dynamics() const;
+    const ConstraintsContainer &constraints() const;
 
     const std::shared_ptr<terrain::Terrain> terrain() const;
 
