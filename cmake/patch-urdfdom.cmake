@@ -12,6 +12,8 @@
 #    configure time unless something upstream happened to find it already.
 #    PKG_DEPENDS is what urdfdom-config.cmake.in loops over to find_package
 #    its dependencies, so both are added there.
+# 3. urdfdom's public parser header uses uint32_t without including the
+#    standard header that declares it.
 
 file(READ "urdf_parser/CMakeLists.txt" _urdf_parser_cmakelists)
 string(REPLACE
@@ -19,6 +21,15 @@ string(REPLACE
     "add_library(\${add_urdfdom_library_LIBNAME} STATIC"
     _urdf_parser_cmakelists "${_urdf_parser_cmakelists}")
 file(WRITE "urdf_parser/CMakeLists.txt" "${_urdf_parser_cmakelists}")
+
+file(READ "urdf_parser/include/urdf_parser/urdf_parser.h" _urdf_parser_header)
+if(NOT _urdf_parser_header MATCHES "#include <cstdint>")
+    string(REPLACE
+        "#include <vector>"
+        "#include <vector>\n#include <cstdint>"
+        _urdf_parser_header "${_urdf_parser_header}")
+endif()
+file(WRITE "urdf_parser/include/urdf_parser/urdf_parser.h" "${_urdf_parser_header}")
 
 file(READ "CMakeLists.txt" _urdfdom_cmakelists)
 string(REPLACE

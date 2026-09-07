@@ -75,9 +75,19 @@ else()
         -DBUILD_TESTING=OFF
     )
 
+    # CMake 4 rejects projects whose declared policy version predates 3.5.
+    # The pinned console_bridge 1.0.2 release declares 3.0.2, so tell the
+    # child configure to use a compatible policy baseline without modifying
+    # the fetched source tree.
+    list(APPEND _ssqp_vendor_cmake_args
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    )
+
     ExternalProject_Add(urdfdom_headers_ext
         GIT_REPOSITORY https://github.com/ros/urdfdom_headers.git
-        GIT_TAG 3.0.1
+        # urdfdom 4.0.0 still includes and builds the model-state API,
+        # which was removed from urdfdom_headers 2.x and later.
+        GIT_TAG 1.1.1
         GIT_SHALLOW TRUE
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/urdfdom_headers
         CMAKE_ARGS ${_ssqp_vendor_cmake_args}
