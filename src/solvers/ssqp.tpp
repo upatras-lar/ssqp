@@ -12,9 +12,9 @@ void ssqp::_setup_qp()
     VecX tmpVec;
     MatX tmpMat;
 
-    const model::CostsContainer       costs       = _model.costs();
-    const model::DynamicsContainer    dynamics    = _model.dynamics();
-    const model::ConstraintsContainer constraints = _model.constraints();
+    const model::CostsContainer       &costs       = _model.costs();
+    const model::DynamicsContainer    &dynamics    = _model.dynamics();
+    const model::ConstraintsContainer &constraints = _model.constraints();
 
     uint nq, nv, nu;
     if constexpr (XMLModel)
@@ -286,9 +286,9 @@ SolverState ssqp::_check_termination()
     logln_at(LogLevel::Debug, "=============");
 
     const uint                 horizon     = _model.dims().horizon;
-    const model::CostsContainer       costs       = _model.costs();
-    const model::DynamicsContainer    dynamics    = _model.dynamics();
-    const model::ConstraintsContainer constraints = _model.constraints();
+    const model::CostsContainer       &costs       = _model.costs();
+    const model::DynamicsContainer    &dynamics    = _model.dynamics();
+    const model::ConstraintsContainer &constraints = _model.constraints();
 
     // Jacobian over x and y of lagrangian at current guess
     FlatVec lagrangian_dx(_cost_dx, false);
@@ -550,7 +550,7 @@ SolverState ssqp::_check_termination()
         _convergence_data.iteration_data.back().constraint_violations[horizon] =
           csnorm;
 
-        const model::CostsContainer costs = _model.costs();
+        const model::CostsContainer &costs = _model.costs();
         for (uint k = 0; k < horizon; ++k)
         {
             _convergence_data.iteration_data.back().costs[k] =
@@ -565,8 +565,8 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    if (lagrangian_dx.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance &&
-        lagrangian_du.vec.lpNorm<Eigen::Infinity>() <= _params.tolerance)
+    if (_convergence_data.iteration_data.back().norm_dx <= _params.tolerance &&
+        _convergence_data.iteration_data.back().norm_du <= _params.tolerance)
     {
         _convergence_data.iterations = _iter + 1;
         return SUCCESS;
@@ -579,9 +579,9 @@ SolverState ssqp::_check_termination()
     }
 
     if (_params.loose_success &&
-        (_cost_dx - _prev_cost_dx).vec.cwiseAbs().maxCoeff() <
+        (_cost_dx.vec - _prev_cost_dx.vec).cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance &&
-        (_cost_du - _prev_cost_du).vec.cwiseAbs().maxCoeff() <
+        (_cost_du.vec - _prev_cost_du.vec).cwiseAbs().maxCoeff() <
           _params.loose_success_tolerance)
     {
         if (++_stale_iters == _params.loose_success_stale_iters)

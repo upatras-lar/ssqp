@@ -416,7 +416,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
   , _reduced_output(false)
 {
     model::Dimensions              dims     = model.dims();
-    const model::DynamicsContainer dynamics = model.dynamics();
+    const model::DynamicsContainer &dynamics = model.dynamics();
 
     for (uint k = 0; k <= dims.horizon; ++k)
     {
@@ -461,6 +461,9 @@ SolverState ssqp::solve(Guess &guess)
     ZoneScopedN("SSQP: solve");
 
     _stale_iters = 0;
+
+    _convergence_data.iteration_data.clear();
+    _convergence_data.iteration_data.reserve(_params.max_iter);
 
     SolverState ssqp_state;
 
@@ -1041,7 +1044,7 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 
     const uint           horizon = _model.horizon();
     double                      sum     = 0.0;
-    const model::CostsContainer costs   = _model.costs();
+    const model::CostsContainer &costs   = _model.costs();
 
     for (uint k = 0; k < horizon; ++k)
     {
@@ -1057,7 +1060,7 @@ void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     ZoneScopedN("SSQP: _lf_grad");
 
     const uint           horizon = _model.horizon();
-    const model::CostsContainer costs   = _model.costs();
+    const model::CostsContainer &costs   = _model.costs();
 
     VecX dxk, duk;
     for (uint k = 0; k < horizon; ++k)
@@ -1076,7 +1079,7 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
     ZoneScopedN("SSQP: _gammaf");
 
     const uint              horizon  = _model.horizon();
-    const model::DynamicsContainer dynamics = _model.dynamics();
+    const model::DynamicsContainer &dynamics = _model.dynamics();
     double                         sum      = 0.0;
 
     for (uint k = 0; k < horizon; ++k)
@@ -1093,7 +1096,7 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 double ssqp::_gammaf_softmax(const FlatVec &x, const FlatVec &u) const
 {
     const uint              horizon  = _model.horizon();
-    const model::DynamicsContainer dynamics = _model.dynamics();
+    const model::DynamicsContainer &dynamics = _model.dynamics();
     double                         sum      = 0.0;
 
     for (uint k = 0; k < horizon; ++k)
@@ -1118,7 +1121,7 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     ZoneScopedN("SSQP: _gammaf_grad");
 
     const uint              horizon  = _model.horizon();
-    const model::DynamicsContainer dynamics = _model.dynamics();
+    const model::DynamicsContainer &dynamics = _model.dynamics();
 
     const uint nq = _model.nq();
     const uint nv = _model.nv();
@@ -1175,7 +1178,7 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
     ZoneScopedN("SSQP: _cf");
 
     const uint                 horizon     = _model.horizon();
-    const model::ConstraintsContainer constraints = _model.constraints();
+    const model::ConstraintsContainer &constraints = _model.constraints();
     double                            sum         = 0.0;
 
     VecX c;
@@ -1216,7 +1219,7 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 {
     const uint                 horizon     = _model.horizon();
-    const model::ConstraintsContainer constraints = _model.constraints();
+    const model::ConstraintsContainer &constraints = _model.constraints();
 
     double sum = 0.0;
 
@@ -1266,7 +1269,7 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     ZoneScopedN("SSQP: _cf_grad");
 
     const uint                 horizon     = _model.horizon();
-    const model::ConstraintsContainer constraints = _model.constraints();
+    const model::ConstraintsContainer &constraints = _model.constraints();
 
     MatX dXk, dUk;
     for (uint k = 0; k < horizon; ++k)

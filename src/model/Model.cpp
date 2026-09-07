@@ -708,17 +708,17 @@ void Model::updateDimensions()
     _lin_dims.constraint += _lin_dims.stage_constraint[_lin_dims.horizon];
 }
 
-const CostsContainer Model::costs() const
+const CostsContainer &Model::costs() const
 {
     return _costs;
 }
 
-const DynamicsContainer Model::dynamics() const
+const DynamicsContainer &Model::dynamics() const
 {
     return _dynamics;
 }
 
-const ConstraintsContainer Model::constraints() const
+const ConstraintsContainer &Model::constraints() const
 {
     return _constraints;
 }
