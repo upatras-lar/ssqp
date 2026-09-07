@@ -6,16 +6,14 @@ namespace solvers
 {
 namespace
 {
-bool same_dimensions(const model::Dimensions &lhs,
-                     const model::Dimensions &rhs)
+bool same_dimensions(const model::Dimensions &lhs, const model::Dimensions &rhs)
 {
     return lhs.horizon == rhs.horizon && lhs.state == rhs.state &&
            lhs.control == rhs.control && lhs.constraint == rhs.constraint &&
            lhs.stage_state == rhs.stage_state &&
            lhs.stage_control == rhs.stage_control &&
            lhs.stage_constraint == rhs.stage_constraint && lhs.nq == rhs.nq &&
-           lhs.nv == rhs.nv && lhs.nu == rhs.nu &&
-           lhs.njoints == rhs.njoints &&
+           lhs.nv == rhs.nv && lhs.nu == rhs.nu && lhs.njoints == rhs.njoints &&
            lhs.total_joints == rhs.total_joints;
 }
 }
@@ -43,8 +41,8 @@ MPC::MPC(model::Model &model, const Params &params,
         model.finalize();
     }
 
-    _solver = std::make_unique<ssqp>(_model, _ssqp_params);
-    _solver_dims = _model.dims();
+    _solver             = std::make_unique<ssqp>(_model, _ssqp_params);
+    _solver_dims        = _model.dims();
     _solver_linear_dims = _model.linear_dims();
 }
 
@@ -156,8 +154,8 @@ std::pair<FlatVec, FlatVec> MPC::step()
     if (!_solver || !same_dimensions(_solver_dims, _model.dims()) ||
         !same_dimensions(_solver_linear_dims, _model.linear_dims()))
     {
-        _solver = std::make_unique<ssqp>(_model, _ssqp_params);
-        _solver_dims = _model.dims();
+        _solver             = std::make_unique<ssqp>(_model, _ssqp_params);
+        _solver_dims        = _model.dims();
         _solver_linear_dims = _model.linear_dims();
     }
 
@@ -179,7 +177,8 @@ const std::vector<ssqp::ConvergenceData> MPC::getConvergenceData() const
     if (!_keep_convergence_data)
     {
         logln_at(LogLevel::Warning,
-                 "Warning: keep_convergence_data is false, so convergence data "
+                 "Warning: keep_convergence_data is "
+                 "false, so convergence data "
                  "will be empty!");
     }
 

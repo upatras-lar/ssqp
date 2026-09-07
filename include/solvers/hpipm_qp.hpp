@@ -94,8 +94,8 @@ class hpipm_qp : public QPSolver
     std::vector<std::vector<double>> _cl_masks;
     std::vector<std::vector<double>> _cu_masks;
 
-    int _iter;
-    int _status;
+    int  _iter;
+    int  _status;
     bool _qp_uploaded = false;
 
     // HPIPM structures

@@ -170,8 +170,8 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
         nv_reduced -= 6;
     }
 
-    uint nbounds = bounded_joint_indices.size() +
-                   (!skip_velocities + !skip_torques) * nv_reduced;
+    uint            nbounds = bounded_joint_indices.size() +
+                              (!skip_velocities + !skip_torques) * nv_reduced;
     Eigen::VectorXd lb(nbounds), ub(nbounds);
 
     for (uint i = 0; i < bounded_joint_indices.size(); ++i)

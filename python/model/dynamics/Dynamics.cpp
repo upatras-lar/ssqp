@@ -250,12 +250,14 @@ void bind_Dynamics(nb::module_ &m)
         Size of the difference vector: $\boldsymbol{x}_1 \ominus \boldsymbol{x}_2$
         Where $\ominus$: the defined right_minus operator
         )doc")
-      .def("init_state",
-           &StageDynamics::init_state,
-           R"doc(Initial state vector (size $n_x$) (default $\boldsymbol{0}$).)doc")
-      .def("init_control",
-           &StageDynamics::init_control,
-           R"doc(Initial control vector (size $n_u$) (default $\boldsymbol{0}$).)doc")
+      .def(
+        "init_state",
+        &StageDynamics::init_state,
+        R"doc(Initial state vector (size $n_x$) (default $\boldsymbol{0}$).)doc")
+      .def(
+        "init_control",
+        &StageDynamics::init_control,
+        R"doc(Initial control vector (size $n_u$) (default $\boldsymbol{0}$).)doc")
       .def("state_right_plus",
            &StageDynamics::state_right_plus,
            nb::arg("x"),
@@ -304,9 +306,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_xx",
         [](const StageDynamics &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &lambda)
+           const VecX          &x,
+           const VecX          &u,
+           const VecX          &lambda)
         {
             MatX Pxx;
             self.hessprod_xx(x, u, lambda, Pxx);
@@ -323,9 +325,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_xu",
         [](const StageDynamics &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &lambda)
+           const VecX          &x,
+           const VecX          &u,
+           const VecX          &lambda)
         {
             MatX Pxu;
             self.hessprod_xu(x, u, lambda, Pxu);
@@ -342,9 +344,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_uu",
         [](const StageDynamics &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &lambda)
+           const VecX          &x,
+           const VecX          &u,
+           const VecX          &lambda)
         {
             MatX Puu;
             self.hessprod_uu(x, u, lambda, Puu);
