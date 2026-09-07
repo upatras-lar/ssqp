@@ -257,6 +257,10 @@ class ssqp
 
     const model::Model &model() const;
 
+    // Reset the internal guess from the model's current initial states and
+    // controls.
+    void reinitialize();
+
     // Solve the defined problem using SSQP
     SolverState solve(Guess &guess);
 

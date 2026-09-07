@@ -4,10 +4,26 @@ namespace ssqp
 {
 namespace solvers
 {
+namespace
+{
+bool same_dimensions(const model::Dimensions &lhs,
+                     const model::Dimensions &rhs)
+{
+    return lhs.horizon == rhs.horizon && lhs.state == rhs.state &&
+           lhs.control == rhs.control && lhs.constraint == rhs.constraint &&
+           lhs.stage_state == rhs.stage_state &&
+           lhs.stage_control == rhs.stage_control &&
+           lhs.stage_constraint == rhs.stage_constraint && lhs.nq == rhs.nq &&
+           lhs.nv == rhs.nv && lhs.nu == rhs.nu &&
+           lhs.njoints == rhs.njoints &&
+           lhs.total_joints == rhs.total_joints;
+}
+}
+
 MPC::MPC(model::Model &model, const Params &params,
          const ssqp::Params &ssqp_params)
-  : _model(model)
-  , _ssqp_params(ssqp_params)
+  : _ssqp_params(ssqp_params)
+  , _model(model)
   , _keep_convergence_data(params.keep_convergence_data)
 {
     _ssqp_params.max_iter = params.sqp_iters;
@@ -26,6 +42,10 @@ MPC::MPC(model::Model &model, const Params &params,
     {
         model.finalize();
     }
+
+    _solver = std::make_unique<ssqp>(_model, _ssqp_params);
+    _solver_dims = _model.dims();
+    _solver_linear_dims = _model.linear_dims();
 }
 
 // Sets MPC warm-start to the given state and zero controls
@@ -132,13 +152,23 @@ std::pair<FlatVec, FlatVec> MPC::step(const FlatVec &states,
 std::pair<FlatVec, FlatVec> MPC::step()
 {
     _model.updateDimensions();
-    ssqp        solver(_model, _ssqp_params);
+
+    if (!_solver || !same_dimensions(_solver_dims, _model.dims()) ||
+        !same_dimensions(_solver_linear_dims, _model.linear_dims()))
+    {
+        _solver = std::make_unique<ssqp>(_model, _ssqp_params);
+        _solver_dims = _model.dims();
+        _solver_linear_dims = _model.linear_dims();
+    }
+
+    _solver->reinitialize();
+
     ssqp::Guess solution(_model.dims(), _model.linear_dims());
-    SolverState state = solver.solve(solution);
+    SolverState state = _solver->solve(solution);
 
     if (_keep_convergence_data)
     {
-        _convergence_data.push_back(solver.convergenceData());
+        _convergence_data.push_back(_solver->convergenceData());
     }
 
     return { solution.x, solution.u };
