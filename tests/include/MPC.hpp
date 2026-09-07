@@ -11,7 +11,7 @@ namespace tests
 class MPCStepTest : public Test
 {
   public:
-    MPCStepTest(const std::string &name,
+    MPCStepTest(const std::string                &name,
                 const solvers::ssqp::QPSolverType qp_solver_type);
 
     bool run() override;

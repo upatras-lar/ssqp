@@ -1,92 +1,97 @@
 #include "Test.hpp"
 
+#include <iomanip>
+#include <unordered_set>
+
 namespace ssqp
 {
 namespace tests
 {
 Test::Test(const std::string &name) : _name(name) {}
-
 const std::vector<std::string> Test::what() const
 {
     return _failed_logs;
 }
-
 const std::string Test::name() const
 {
     return _name;
 }
-
+void Test::seed(uint32_t value)
+{
+    _rng.seed(value);
+}
+VecX Test::randomVector(uint size, double scale)
+{
+    VecX result(size);
+    // Explicit mapping avoids implementation-dependent uniform distributions.
+    for (uint i = 0; i < size; ++i)
+        result[i] = scale * (2.0 * (_rng() / 4294967296.0) - 1.0);
+    return result;
+}
 void TestContainer::addTest(const std::shared_ptr<Test> &test)
 {
     _tests.push_back(test);
 }
-
-void TestContainer::runAll()
+void TestContainer::list() const
 {
-    uint npassed = 0;
-
-    for (uint i = 0; i < _tests.size(); ++i)
+    std::unordered_set<std::string> seen;
+    for (const auto &test : _tests)
+        if (seen.insert(test->name()).second) std::cout << test->name() << '\n';
+}
+bool TestContainer::runAll(const std::string &filter, uint32_t base_seed)
+{
+    uint passed = 0, selected = 0;
+    for (const auto &test : _tests)
     {
-        std::cout << _tests[i]->name() << ": " << std::flush;
-
-        bool passed = _tests[i]->run();
-
-        if (passed)
-        {
-            std::cout << "\033[32m" << "PASSED\033[39m" << std::endl;
-            ++npassed;
+        if (!filter.empty() && test->name().find(filter) == std::string::npos)
             continue;
-        }
-
-        std::cout << "\033[31m" << "FAILED\033[39m" << std::endl;
-    }
-
-    std::cout << "Passed: \033[32m" << npassed << "\033[39m/" << _tests.size()
-              << std::endl;
-
-    const std::filesystem::path logs_dir = "tests/logs";
-    if (std::filesystem::exists(logs_dir))
-    {
-        for (const auto &entry : std::filesystem::directory_iterator(logs_dir))
+        ++selected;
+        // Stable per-test seeds: running a case alone reproduces a full-suite run.
+        uint32_t seed = 2166136261u;
+        for (unsigned char ch : test->name()) seed = (seed ^ ch) * 16777619u;
+        seed ^= base_seed;
+        test->seed(seed);
+        std::cout << test->name() << " (seed " << seed << "): " << std::flush;
+        bool ok = false;
+        try
         {
-            std::filesystem::remove_all(entry.path());
+            ok = test->run();
         }
-    }
-
-    if (npassed != _tests.size())
-    {
-        std::filesystem::create_directories(logs_dir);
-
-        for (uint i = 0; i < _tests.size(); ++i)
+        catch (const std::exception &e)
         {
-            const std::vector<std::string> logs = _tests[i]->what();
-
-            if (logs.empty())
-            {
-                continue;
-            }
-
-            const std::string fname =
-              "tests/logs/" + _tests[i]->name() + ".txt";
-            std::ofstream of(fname);
-
-            if (!of.is_open())
-            {
-                std::cout << "Failed to create file " << fname << std::endl;
-                continue;
-            }
-
-            for (uint i = 0; i < logs.size(); ++i)
-            {
-                of << logs[i];
-            }
-
-            of.close();
-
-            std::cout << "Failed test " << _tests[i]->name()
-                      << ": Logs written to \033[31m" << fname << "\033[39m"
-                      << std::endl;
+            std::cerr << "\nException: " << e.what() << '\n';
         }
+        catch (...)
+        {
+            std::cerr << "\nUnknown exception\n";
+        }
+        std::cout << (ok ? "PASSED" : "FAILED") << '\n';
+        if (ok) ++passed;
+        else
+            for (const auto &log : test->what()) std::cerr << log << '\n';
+    }
+    std::cout << "Passed: " << passed << '/' << selected << '\n';
+    if (!selected) std::cerr << "No tests matched: " << filter << '\n';
+    return selected != 0 && passed == selected;
+}
+FunctionTest::FunctionTest(const std::string    &name,
+                           std::function<void()> function)
+  : Test(name)
+  , _function(std::move(function))
+{
+}
+bool FunctionTest::run()
+{
+    _failed_logs.clear();
+    try
+    {
+        _function();
+        return true;
+    }
+    catch (const std::exception &e)
+    {
+        _failed_logs.push_back(e.what());
+        return false;
     }
 }
 }
