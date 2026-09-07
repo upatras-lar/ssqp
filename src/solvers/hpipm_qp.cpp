@@ -170,8 +170,6 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     _hpipm_qp_mem = malloc(qp_size);
     d_ocp_qp_create(&_hpipm_data->dim, &_hpipm_data->qp, _hpipm_qp_mem);
 
-    reset();
-
     // Allocate solution structure
     int sol_size   = d_ocp_qp_sol_memsize(&_hpipm_data->dim);
     _hpipm_sol_mem = malloc(sol_size);
@@ -232,6 +230,9 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
                            &_hpipm_data->arg,
                            &_hpipm_data->ws,
                            _hpipm_ws_mem);
+
+    // reset() uploads numeric QP data. The QP is assembled by SSQP after this
+    // constructor returns, so defer that upload until the first solve.
 }
 
 hpipm_qp::~hpipm_qp()
@@ -407,6 +408,8 @@ void hpipm_qp::reset()
                              _cu_masks[_qp.dims.horizon].data(),
                              &_hpipm_data->qp);
     }
+
+    _qp_uploaded = true;
 }
 
 void hpipm_qp::increaseRegularization()
@@ -423,6 +426,11 @@ void hpipm_qp::increaseRegularization()
 
 SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
 {
+    if (!_qp_uploaded)
+    {
+        reset();
+    }
+
     d_ocp_qp_ipm_solve(&_hpipm_data->qp,
                        &_hpipm_data->sol,
                        &_hpipm_data->arg,
