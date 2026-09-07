@@ -220,8 +220,8 @@ class FloatingBaseRotationBound : public StageConstraints
 {
   public:
     FloatingBaseRotationBound(const Model &model, const Mat3 &Rref,
-                              const Vec3        &lb   = Vec3::Zero(),
-                              const Vec3        &ub   = Vec3::Zero(),
+                              const Vec3 &lb          = Vec3::Zero(),
+                              const Vec3 &ub          = Vec3::Zero(),
                               const std::string &name = "");
 
     void set_Rref(const Mat3 &Rref);
@@ -274,13 +274,13 @@ class FloatingBasePoseBound : public StageConstraints
 {
   public:
     FloatingBasePoseBound(const Model &model, const Mat4 &Tref,
-                          const Vec6        &lb   = Vec6::Zero(),
-                          const Vec6        &ub   = Vec6::Zero(),
+                          const Vec6 &lb          = Vec6::Zero(),
+                          const Vec6 &ub          = Vec6::Zero(),
                           const std::string &name = "");
 
     FloatingBasePoseBound(const Model &model, const Vec3 &tref,
                           const Mat3 &Rref, const Vec6 &lb = Vec6::Zero(),
-                          const Vec6        &ub   = Vec6::Zero(),
+                          const Vec6 &ub          = Vec6::Zero(),
                           const std::string &name = "");
 
     void set_Tref(const Mat4 &Tref);
@@ -477,7 +477,7 @@ class FrameRotationBound : public StageConstraints
   public:
     FrameRotationBound(const Model &model, const std::string &frame,
                        const Mat3 &Rref, const Vec3 &lb = Vec3::Zero(),
-                       const Vec3        &ub   = Vec3::Zero(),
+                       const Vec3 &ub          = Vec3::Zero(),
                        const std::string &name = "");
 
     void set_Rref(const Mat3 &Rref);

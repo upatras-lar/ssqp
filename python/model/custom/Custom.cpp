@@ -58,9 +58,9 @@ void bind_Custom(nb::module_ &m)
       .def(
         "computeRegressorAndTorque",
         [](double_pendulum::DoublePendulumAmbientDynamics *self,
-           const VecX                                     &x,
-           const Vec2                                     &ddq,
-           const VecX                                     &u)
+           const VecX &x,
+           const Vec2 &ddq,
+           const VecX &u)
         {
             Eigen::Matrix<double, 2, 9> Y;
             Vec2                        tau;

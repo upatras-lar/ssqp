@@ -258,9 +258,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_xx",
         [](const StageConstraints &self,
-           const VecX             &x,
-           const VecX             &u,
-           const VecX             &mu)
+           const VecX &x,
+           const VecX &u,
+           const VecX &mu)
         {
             MatX Pxx;
             self.hessprod_xx(x, u, mu, Pxx);
@@ -277,9 +277,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_xu",
         [](const StageConstraints &self,
-           const VecX             &x,
-           const VecX             &u,
-           const VecX             &mu)
+           const VecX &x,
+           const VecX &u,
+           const VecX &mu)
         {
             MatX Pxu;
             self.hessprod_xu(x, u, mu, Pxu);
@@ -296,9 +296,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_uu",
         [](const StageConstraints &self,
-           const VecX             &x,
-           const VecX             &u,
-           const VecX             &mu)
+           const VecX &x,
+           const VecX &u,
+           const VecX &mu)
         {
             MatX Puu;
             self.hessprod_uu(x, u, mu, Puu);

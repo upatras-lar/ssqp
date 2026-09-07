@@ -46,8 +46,8 @@ class DoublePendulumAmbientDynamics : public stagewise::StageDynamics
 {
   public:
     DoublePendulumAmbientDynamics(const Eigen::Vector<double, 9> &params,
-                                  ActuationMode      mode = ActuationMode::Full,
-                                  const double       dt   = 0.01,
+                                  ActuationMode mode      = ActuationMode::Full,
+                                  const double dt         = 0.01,
                                   const std::string &name = "")
       : StageDynamics(name)
       , _mode(mode)
