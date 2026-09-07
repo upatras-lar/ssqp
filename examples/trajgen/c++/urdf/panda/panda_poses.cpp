@@ -70,8 +70,8 @@ int main()
 
     auto cost_grad = [target](const Eigen::VectorXd &x,
                               const Eigen::VectorXd &u,
-                              Eigen::VectorXd &dx,
-                              Eigen::VectorXd &du)
+                              Eigen::VectorXd       &dx,
+                              Eigen::VectorXd       &du)
     {
         dx                  = Eigen::VectorXd::Zero(2 * STATE_SIZE);
         dx.head(STATE_SIZE) = 2 * Q_WGT * (x.head(STATE_SIZE) - target);
@@ -80,7 +80,7 @@ int main()
 
     auto cost_hess_xx = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd &Hxx)
+                           Eigen::MatrixXd       &Hxx)
     {
         Hxx = Eigen::MatrixXd::Zero(2 * STATE_SIZE, 2 * STATE_SIZE);
         Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE)
@@ -90,7 +90,7 @@ int main()
 
     auto cost_hess_uu = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd &Huu)
+                           Eigen::MatrixXd       &Huu)
     { Huu = 2 * U_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE); };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
@@ -113,8 +113,8 @@ int main()
 
     auto terminal_cost_grad = [target](const Eigen::VectorXd &x,
                                        const Eigen::VectorXd &u,
-                                       Eigen::VectorXd &dx,
-                                       Eigen::VectorXd &du)
+                                       Eigen::VectorXd       &dx,
+                                       Eigen::VectorXd       &du)
     {
         dx = Eigen::VectorXd::Zero(2 * STATE_SIZE);
         dx.head(STATE_SIZE) =
@@ -124,7 +124,7 @@ int main()
 
     auto terminal_cost_hess_xx = [](const Eigen::VectorXd &x,
                                     const Eigen::VectorXd &u,
-                                    Eigen::MatrixXd &Hxx)
+                                    Eigen::MatrixXd       &Hxx)
     {
         Hxx = QF_WGT * 2 * Q_WGT *
               Eigen::MatrixXd::Identity(2 * STATE_SIZE, 2 * STATE_SIZE);

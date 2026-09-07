@@ -445,7 +445,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
 
 void ssqp::reinitialize()
 {
-    const model::Dimensions              dims     = _model.dims();
+    const model::Dimensions         dims     = _model.dims();
     const model::DynamicsContainer &dynamics = _model.dynamics();
 
     for (uint k = 0; k <= dims.horizon; ++k)
@@ -520,7 +520,8 @@ SolverState ssqp::solve(Guess &guess)
              sol.lambda.vec.hasNaN() || sol.mu.vec.hasNaN()))
         {
             logln_at(LogLevel::Warning,
-                     "Warning: NaN detected in QP solver solution");
+                     "Warning: NaN detected in QP "
+                     "solver solution");
         }
 
         _convergence_data.iteration_data.back().qp_duration_us =
@@ -552,7 +553,7 @@ SolverState ssqp::solve(Guess &guess)
                 [this](const step::Point &a,
                        const step::Point &b,
                        const step::Point &offset,
-                       const double alpha)
+                       const double       alpha)
                 {
                     return step::filter(
                       a,
@@ -582,7 +583,7 @@ SolverState ssqp::solve(Guess &guess)
                 [this](const step::Point &a,
                        const step::Point &b,
                        const step::Point &offset,
-                       const double alpha)
+                       const double       alpha)
                 {
                     return step::merit(
                       a,
@@ -638,14 +639,22 @@ SolverState ssqp::solve(Guess &guess)
         {
             if (_params.skip_regularization)
             {
-                logln_at(
-                  LogLevel::Error,
-                  "SSQP: Line search failed (regularization not enabled)");
-                throw std::runtime_error("SSQP: Line search failed");
+                logln_at(LogLevel::Error,
+                         "SSQP: Line "
+                         "search "
+                         "failed "
+                         "(regularizat"
+                         "ion not "
+                         "enabled)");
+                throw std::runtime_error("SSQP: "
+                                         "Line "
+                                         "search "
+                                         "failed");
             }
 
             logln_at(LogLevel::Debug,
-                     "Line search failed, increasing regularization");
+                     "Line search failed, "
+                     "increasing regularization");
             _qp_solver->increaseRegularization();
             --_iter;
             continue;
@@ -832,23 +841,30 @@ bool ssqp::write(const std::string &filepath)
         {
             iteration_data["stage_costs"]          = ordered_json::array();
             iteration_data["stage_gap_violations"] = ordered_json::array();
-            iteration_data["stage_constraint_violations"] =
-              ordered_json::array();
+            iteration_data["stage_constraint_"
+                           "violations"]           = ordered_json::array();
             for (uint k = 0; k < dims.horizon; ++k)
             {
-                iteration_data["stage_costs"].push_back(
-                  _convergence_data.iteration_data[i].costs[k]);
-                iteration_data["stage_gap_violations"].push_back(
-                  _convergence_data.iteration_data[i].gap_violations[k]);
-                iteration_data["stage_constraint_violations"].push_back(
-                  _convergence_data.iteration_data[i].constraint_violations[k]);
+                iteration_data["stage_"
+                               "costs"]
+                  .push_back(_convergence_data.iteration_data[i].costs[k]);
+                iteration_data["stage_gap_"
+                               "violations"]
+                  .push_back(
+                    _convergence_data.iteration_data[i].gap_violations[k]);
+                iteration_data["stage_"
+                               "constraint_"
+                               "violations"]
+                  .push_back(_convergence_data.iteration_data[i]
+                               .constraint_violations[k]);
             }
 
             iteration_data["stage_costs"].push_back(
               _convergence_data.iteration_data[i].costs[dims.horizon]);
-            iteration_data["stage_constraint_violations"].push_back(
-              _convergence_data.iteration_data[i]
-                .constraint_violations[dims.horizon]);
+            iteration_data["stage_constraint_"
+                           "violations"]
+              .push_back(_convergence_data.iteration_data[i]
+                           .constraint_violations[dims.horizon]);
         }
 
         j["convergence"]["iteration_data"].push_back(iteration_data);
@@ -1056,8 +1072,8 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 {
     ZoneScopedN("SSQP: _lf");
 
-    const uint           horizon = _model.horizon();
-    double                      sum     = 0.0;
+    const uint                   horizon = _model.horizon();
+    double                       sum     = 0.0;
     const model::CostsContainer &costs   = _model.costs();
 
     for (uint k = 0; k < horizon; ++k)
@@ -1073,7 +1089,7 @@ void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 {
     ZoneScopedN("SSQP: _lf_grad");
 
-    const uint           horizon = _model.horizon();
+    const uint                   horizon = _model.horizon();
     const model::CostsContainer &costs   = _model.costs();
 
     VecX dxk, duk;
@@ -1092,9 +1108,9 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 {
     ZoneScopedN("SSQP: _gammaf");
 
-    const uint              horizon  = _model.horizon();
+    const uint                      horizon  = _model.horizon();
     const model::DynamicsContainer &dynamics = _model.dynamics();
-    double                         sum      = 0.0;
+    double                          sum      = 0.0;
 
     for (uint k = 0; k < horizon; ++k)
     {
@@ -1109,9 +1125,9 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 
 double ssqp::_gammaf_softmax(const FlatVec &x, const FlatVec &u) const
 {
-    const uint              horizon  = _model.horizon();
+    const uint                      horizon  = _model.horizon();
     const model::DynamicsContainer &dynamics = _model.dynamics();
-    double                         sum      = 0.0;
+    double                          sum      = 0.0;
 
     for (uint k = 0; k < horizon; ++k)
     {
@@ -1134,7 +1150,7 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 {
     ZoneScopedN("SSQP: _gammaf_grad");
 
-    const uint              horizon  = _model.horizon();
+    const uint                      horizon  = _model.horizon();
     const model::DynamicsContainer &dynamics = _model.dynamics();
 
     const uint nq = _model.nq();
@@ -1191,9 +1207,9 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 {
     ZoneScopedN("SSQP: _cf");
 
-    const uint                 horizon     = _model.horizon();
+    const uint                         horizon     = _model.horizon();
     const model::ConstraintsContainer &constraints = _model.constraints();
-    double                            sum         = 0.0;
+    double                             sum         = 0.0;
 
     VecX c;
     for (uint k = 0; k < horizon; ++k)
@@ -1232,7 +1248,7 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 
 double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 {
-    const uint                 horizon     = _model.horizon();
+    const uint                         horizon     = _model.horizon();
     const model::ConstraintsContainer &constraints = _model.constraints();
 
     double sum = 0.0;
@@ -1282,7 +1298,7 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 {
     ZoneScopedN("SSQP: _cf_grad");
 
-    const uint                 horizon     = _model.horizon();
+    const uint                         horizon     = _model.horizon();
     const model::ConstraintsContainer &constraints = _model.constraints();
 
     MatX dXk, dUk;

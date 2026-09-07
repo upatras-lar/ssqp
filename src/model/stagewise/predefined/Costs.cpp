@@ -727,9 +727,8 @@ FloatingBaseSquaredTranslationErrorCost::
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _desired_translation(desired_translation)
 {
-    assert(
-      model.xml() &&
-      "Cannot use FloatingBaseSquaredTranslationErrorCost with a custom Model");
+    assert(model.xml() && "Cannot use FloatingBaseSquaredTranslationErrorCost "
+                          "with a custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
     _weight.setConstant(weight);
 }
@@ -747,9 +746,8 @@ FloatingBaseSquaredTranslationErrorCost::
   , _desired_translation(desired_translation)
   , _weight(weight)
 {
-    assert(
-      model.xml() &&
-      "Cannot use FloatingBaseSquaredTranslationErrorCost with a custom Model");
+    assert(model.xml() && "Cannot use FloatingBaseSquaredTranslationErrorCost "
+                          "with a custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
 }
 
@@ -834,9 +832,9 @@ FloatingBaseSquaredRotationErrorCost::FloatingBaseSquaredRotationErrorCost(
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _desired_rotation(desired_rotation)
 {
-    assert(
-      model.xml() &&
-      "Cannot use FloatingBaseSquaredRotationErrorCost with a custom Model");
+    assert(model.xml() &&
+           "Cannot use FloatingBaseSquaredRotationErrorCost with a "
+           "custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
     _weight.setConstant(weight);
 }
@@ -852,9 +850,9 @@ FloatingBaseSquaredRotationErrorCost::FloatingBaseSquaredRotationErrorCost(
   , _desired_rotation(desired_rotation)
   , _weight(weight)
 {
-    assert(
-      model.xml() &&
-      "Cannot use FloatingBaseSquaredRotationErrorCost with a custom Model");
+    assert(model.xml() &&
+           "Cannot use FloatingBaseSquaredRotationErrorCost with a "
+           "custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
 }
 
@@ -959,8 +957,8 @@ FloatingBaseSquaredPoseErrorCost::FloatingBaseSquaredPoseErrorCost(
   , _desired_pose_inv(inverseSE3(desired_pose))
   , _weight(Mat6::Zero())
 {
-    assert(model.xml() &&
-           "Cannot use FloatingBaseSquaredPoseErrorCost with a custom Model");
+    assert(model.xml() && "Cannot use FloatingBaseSquaredPoseErrorCost with a "
+                          "custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
     set_translation_weight(translation_weight);
     set_rotation_weight(rotation_weight);
@@ -978,8 +976,8 @@ FloatingBaseSquaredPoseErrorCost::FloatingBaseSquaredPoseErrorCost(
   , _desired_pose_inv(inverseSE3(desired_pose))
   , _weight(Mat6::Zero())
 {
-    assert(model.xml() &&
-           "Cannot use FloatingBaseSquaredPoseErrorCost with a custom Model");
+    assert(model.xml() && "Cannot use FloatingBaseSquaredPoseErrorCost with a "
+                          "custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
     set_weight(weight);
 }
@@ -1176,9 +1174,9 @@ FloatingBaseSquaredVelocityErrorCost::FloatingBaseSquaredVelocityErrorCost(
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _desired_velocity(desired_velocity)
 {
-    assert(
-      model.xml() &&
-      "Cannot use FloatingBaseSquaredVelocityErrorCost with a custom Model");
+    assert(model.xml() &&
+           "Cannot use FloatingBaseSquaredVelocityErrorCost with a "
+           "custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
     _weight.setConstant(weight);
 }
@@ -1194,8 +1192,8 @@ FloatingBaseSquaredVelocityErrorCost::FloatingBaseSquaredVelocityErrorCost(
   , _desired_velocity(desired_velocity)
   , _weight(weight)
 {
-    assert(model.xml() &&
-           "Cannot use FloatingBaseSquaredPoseErrorCost with a custom Model");
+    assert(model.xml() && "Cannot use FloatingBaseSquaredPoseErrorCost with a "
+                          "custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
 }
 
@@ -1275,8 +1273,8 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   , _frame(frame)
   , _desired_translation(desired_translation)
 {
-    assert(model.xml() &&
-           "Cannot use FrameSquaredTranslationErrorCost with a custom Model");
+    assert(model.xml() && "Cannot use FrameSquaredTranslationErrorCost with a "
+                          "custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
@@ -1293,8 +1291,8 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   , _desired_translation(desired_translation)
   , _weight(weight)
 {
-    assert(model.xml() &&
-           "Cannot use FrameSquaredTranslationErrorCost with a custom Model");
+    assert(model.xml() && "Cannot use FrameSquaredTranslationErrorCost with a "
+                          "custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
@@ -1386,7 +1384,8 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   , _desired_rotation(desired_rotation)
 {
     assert(model.xml() &&
-           "Cannot use FrameSquaredRotationErrorCost with a custom Model");
+           "Cannot use FrameSquaredRotationErrorCost with a custom "
+           "Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
@@ -1404,7 +1403,8 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   , _weight(weight)
 {
     assert(model.xml() &&
-           "Cannot use FrameSquaredRotationErrorCost with a custom Model");
+           "Cannot use FrameSquaredRotationErrorCost with a custom "
+           "Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
 }
 
@@ -1730,7 +1730,8 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _desired_velocity(desired_velocity)
 {
     assert(model.xml() &&
-           "Cannot use FrameSquaredVelocityErrorCost with a custom Model");
+           "Cannot use FrameSquaredVelocityErrorCost with a custom "
+           "Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
 }
@@ -1934,8 +1935,8 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
   , _frames(frames)
   , _weight(weight)
 {
-    assert(model.xml() &&
-           "Cannot use FramesInverseSquaredDistanceCost with a custom Model");
+    assert(model.xml() && "Cannot use FramesInverseSquaredDistanceCost with a "
+                          "custom Model");
     for (uint i = 0; i < frames.size(); ++i)
     {
         assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
@@ -1954,8 +1955,8 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
   , _frames(frames)
   , _weight(weight)
 {
-    assert(model.xml() &&
-           "Cannot use FramesInverseSquaredDistanceCost with a custom Model");
+    assert(model.xml() && "Cannot use FramesInverseSquaredDistanceCost with a "
+                          "custom Model");
     for (uint i = 0; i < frames.size(); ++i)
     {
         assert(model.hasFrame(frames[i]) && "Invalid frame for given model");

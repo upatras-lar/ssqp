@@ -263,8 +263,8 @@ FloatingBaseTranslationBound::FloatingBaseTranslationBound(
   , _lb(lb)
   , _ub(ub)
 {
-    assert(model.xml() &&
-           "Cannot use FloatingBaseTranslationBound with a custom Model");
+    assert(model.xml() && "Cannot use FloatingBaseTranslationBound "
+                          "with a custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
 }
 

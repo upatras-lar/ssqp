@@ -361,7 +361,8 @@ void lqr::_solve()
     const uint H = _qp.dims.horizon;
     bool       backward_fail;
 
-    do {
+    do
+    {
         backward_fail = false;
 
         _output.P[H] = _Qt;
@@ -491,7 +492,10 @@ void lqr::_solve()
         {
             _reg *= _reg_factor;
             if (_reg > _reg_max)
-                throw std::runtime_error("LQR: Regularization failed");
+                throw std::runtime_error("LQR: "
+                                         "Regulariza"
+                                         "tion "
+                                         "failed");
         }
 
     } while (backward_fail);

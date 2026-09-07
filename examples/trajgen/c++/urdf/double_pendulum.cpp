@@ -29,8 +29,8 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
     // Gradient function
     auto cost_grad = [weight](const Eigen::VectorXd &x,
                               const Eigen::VectorXd &u,
-                              Eigen::VectorXd &dx,
-                              Eigen::VectorXd &du)
+                              Eigen::VectorXd       &dx,
+                              Eigen::VectorXd       &du)
     {
         double s1 = std::sin(x[0]);
         double s2 = std::sin(x[1]);
@@ -48,7 +48,7 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
     // Hessian xx function
     auto cost_hess_xx = [weight](const Eigen::VectorXd &x,
                                  const Eigen::VectorXd &u,
-                                 Eigen::MatrixXd &Hxx)
+                                 Eigen::MatrixXd       &Hxx)
     {
         double c1 = std::cos(x[0]);
         double c2 = std::cos(x[1]);

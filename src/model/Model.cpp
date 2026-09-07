@@ -158,22 +158,24 @@ void Model::finalize(const Config &config)
                 _bounded_joint_indices.size())
         {
             throw std::runtime_error(
-              "Invalid custom position bound sizes (expected " +
+              "Invalid custom position "
+              "bound sizes (expected " +
               std::to_string(_bounded_joint_indices.size()) + ")");
         }
 
         if (config.custom_velocity_bounds.size() &&
             config.custom_velocity_bounds.size() != _dims.njoints)
         {
-            throw std::runtime_error(
-              "Invalid custom velocity bound size (expected " +
-              std::to_string(_dims.njoints) + ")");
+            throw std::runtime_error("Invalid custom velocity "
+                                     "bound size (expected " +
+                                     std::to_string(_dims.njoints) + ")");
         }
 
         if (config.custom_torque_bounds.size() &&
             config.custom_torque_bounds.size() != _actuated_joints.size())
         {
-            throw std::runtime_error("Invalid torque bound size (expected " +
+            throw std::runtime_error("Invalid torque bound size "
+                                     "(expected " +
                                      std::to_string(_actuated_joints.size()) +
                                      ")");
         }
@@ -193,8 +195,8 @@ void Model::finalize(const Config &config)
     // Setup dynamics
     if (!(!_xml ^ config.dynamics.empty()))
     {
-        throw std::runtime_error(
-          "Expected either an XML description or custom dynamics");
+        throw std::runtime_error("Expected either an XML description or "
+                                 "custom dynamics");
     }
 
     if (!(config.init_states.empty() || config.init_states.size() == 1 ||
@@ -219,8 +221,9 @@ void Model::finalize(const Config &config)
     {
         if (!(config.dynamics.size() == _dims.horizon + 1))
         {
-            throw std::runtime_error(
-              "Invalid stage dynamics vector size for custom dynamics");
+            throw std::runtime_error("Invalid stage dynamics "
+                                     "vector size for custom "
+                                     "dynamics");
         }
 
         std::unordered_set<stagewise::StageDynamics *> dyn_set;
@@ -229,10 +232,24 @@ void Model::finalize(const Config &config)
             if (dyn_set.find(config.dynamics[k].get()) != dyn_set.end())
             {
                 logln_at(LogLevel::Warning,
-                         "Warning: multiple uses of the same StageDynamics "
-                         "object is discouraged and can result in undefined "
-                         "behavior if different initial states are expected "
-                         "(e.g. in MPC)");
+                         "Warning: "
+                         "multiple "
+                         "uses of the "
+                         "same "
+                         "StageDynamic"
+                         "s "
+                         "object is "
+                         "discouraged "
+                         "and can "
+                         "result in "
+                         "undefined "
+                         "behavior if "
+                         "different "
+                         "initial "
+                         "states are "
+                         "expected "
+                         "(e.g. in "
+                         "MPC)");
                 break;
             }
             dyn_set.emplace(config.dynamics[k].get());
@@ -355,10 +372,17 @@ void Model::finalize(const Config &config)
         {
             if (_dynamics[k - 1]->output_size() != _dims.stage_state[k])
             {
-                throw std::runtime_error(
-                  "Dynamics function stage " + std::to_string(k - 1) +
-                  " output and state " + std::to_string(k) +
-                  " dimension mismatch");
+                throw std::runtime_error("Dynamics "
+                                         "function "
+                                         "stage " +
+                                         std::to_string(k - 1) +
+                                         " output "
+                                         "and "
+                                         "state " +
+                                         std::to_string(k) +
+                                         " dimension"
+                                         " mismatc"
+                                         "h");
             }
         }
 
@@ -373,8 +397,8 @@ void Model::finalize(const Config &config)
 
     if (_dynamics[_dims.horizon] == nullptr)
     {
-        throw std::runtime_error(
-          "No dynamics for terminal stage passed (required for initial state)");
+        throw std::runtime_error("No dynamics for terminal stage passed "
+                                 "(required for initial state)");
     }
 
     if (_costs[_dims.horizon] == nullptr)
@@ -538,7 +562,8 @@ void Model::_buildXMLDynamics(const Config &config)
     {
         if (_actuated_joints.size() > nv_act)
         {
-            throw std::runtime_error("Invalid actuated_joints passed (size " +
+            throw std::runtime_error("Invalid actuated_joints "
+                                     "passed (size " +
                                      std::to_string(_actuated_joints.size()) +
                                      " > " + std::to_string(nv_act) + ")");
         }
@@ -547,7 +572,10 @@ void Model::_buildXMLDynamics(const Config &config)
         {
             if (_actuated_joints[i] >= nv_act)
             {
-                throw std::runtime_error("Invalid actuated_joints value (" +
+                throw std::runtime_error("Invalid "
+                                         "actuated_"
+                                         "joints "
+                                         "value (" +
                                          std::to_string(_actuated_joints[i]) +
                                          " >= " + std::to_string(nv_act) + ")");
             }
@@ -732,8 +760,8 @@ void Model::setInitState(const uint k, const VecX &init_state)
 {
     if (!_finalized)
     {
-        throw std::runtime_error(
-          "Cannot set initial state for an unfinalized model");
+        throw std::runtime_error("Cannot set initial state for an unfinalized "
+                                 "model");
     }
 
     if (init_state.size() != _dynamics[k]->state_size())
@@ -749,8 +777,8 @@ void Model::setInitControl(const uint k, const VecX &init_control)
 {
     if (!_finalized)
     {
-        throw std::runtime_error(
-          "Cannot set initial controls for unfinalized model");
+        throw std::runtime_error("Cannot set initial controls for unfinalized "
+                                 "model");
     }
 
     if (init_control.size() != _dynamics[k]->control_size())
@@ -799,8 +827,8 @@ std::shared_ptr<Force> Model::addForce(const uint k, const std::string &frame)
 {
     if (_finalized)
     {
-        throw std::runtime_error(
-          "Cannot add a force to a model that is already finalized");
+        throw std::runtime_error("Cannot add a force to a model that is "
+                                 "already finalized");
     }
 
     std::shared_ptr<Force> force =
@@ -1213,8 +1241,8 @@ MatX Model::getMatrixActuatedPart(const MatX &M) const
 {
     if (M.rows() != _dims.nv || M.cols() != _dims.nv)
     {
-        throw std::runtime_error(
-          "Model::getMatrixActuatedPart: Incorrect matrix size passed");
+        throw std::runtime_error("Model::getMatrixActuatedPart: Incorrect "
+                                 "matrix size passed");
     }
 
     if (_dims.nu == _dims.nv)
