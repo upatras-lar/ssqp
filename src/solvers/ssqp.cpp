@@ -429,8 +429,24 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         break;
     }
 
-    model::Dimensions              dims     = model.dims();
-    const model::DynamicsContainer &dynamics = model.dynamics();
+    reinitialize();
+
+    if (_params.constraint_tolerance < 0.0)
+    {
+        _params.constraint_tolerance = _params.tolerance;
+    }
+
+    logln_at(LogLevel::Debug, "SSQP initial guess:");
+    logln_at(LogLevel::Debug, "x:");
+    logln_at(LogLevel::Debug, _guess.x);
+    logln_at(LogLevel::Debug, "u:");
+    logln_at(LogLevel::Debug, _guess.u);
+}
+
+void ssqp::reinitialize()
+{
+    const model::Dimensions              dims     = _model.dims();
+    const model::DynamicsContainer &dynamics = _model.dynamics();
 
     for (uint k = 0; k <= dims.horizon; ++k)
     {
@@ -446,23 +462,20 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         _guess.u.stage(k) = dynamics[k]->init_control();
     }
 
+    _guess.lambda.vec.setZero();
+    _guess.mu.vec.setZero();
+
+    _prev_cost_dx.vec.setZero();
+    _prev_cost_du.vec.setZero();
+
+    _filter_memory.clear();
+
     if (_params.line_search_method == LineSearchMethod::Filter)
     {
         _filter_memory.push_front({ _lf(_guess.x, _guess.u),
                                     _gammaf(_guess.x, _guess.u),
                                     _cf(_guess.x, _guess.u) });
     }
-
-    if (_params.constraint_tolerance < 0.0)
-    {
-        _params.constraint_tolerance = _params.tolerance;
-    }
-
-    logln_at(LogLevel::Debug, "SSQP initial guess:");
-    logln_at(LogLevel::Debug, "x:");
-    logln_at(LogLevel::Debug, _guess.x);
-    logln_at(LogLevel::Debug, "u:");
-    logln_at(LogLevel::Debug, _guess.u);
 }
 
 const model::Model &ssqp::model() const

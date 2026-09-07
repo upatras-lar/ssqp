@@ -1,6 +1,8 @@
 #ifndef SSQP_SOLVERS_MPC_HPP
 #define SSQP_SOLVERS_MPC_HPP
 
+#include <memory>
+
 #include "types.hpp"
 #include "model/Model.hpp"
 #include "solvers/ssqp.hpp"
@@ -78,6 +80,8 @@ class MPC
   protected:
     ssqp::Params  _ssqp_params;
     model::Model &_model;
+    std::unique_ptr<ssqp> _solver;
+    model::Dimensions                  _solver_dims, _solver_linear_dims;
 
     std::unique_ptr<FlatVec> _prev_states = nullptr, _prev_controls = nullptr;
 

@@ -231,9 +231,8 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
                            &_hpipm_data->ws,
                            _hpipm_ws_mem);
 
-    // Upload the initial QP data only after all HPIPM structures used by
-    // reset() have been created.
-    reset();
+    // reset() uploads numeric QP data. The QP is assembled by SSQP after this
+    // constructor returns, so defer that upload until the first solve.
 }
 
 hpipm_qp::~hpipm_qp()
@@ -409,6 +408,8 @@ void hpipm_qp::reset()
                              _cu_masks[_qp.dims.horizon].data(),
                              &_hpipm_data->qp);
     }
+
+    _qp_uploaded = true;
 }
 
 void hpipm_qp::increaseRegularization()
@@ -425,6 +426,11 @@ void hpipm_qp::increaseRegularization()
 
 SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
 {
+    if (!_qp_uploaded)
+    {
+        reset();
+    }
+
     d_ocp_qp_ipm_solve(&_hpipm_data->qp,
                        &_hpipm_data->sol,
                        &_hpipm_data->arg,

@@ -96,6 +96,7 @@ class hpipm_qp : public QPSolver
 
     int _iter;
     int _status;
+    bool _qp_uploaded = false;
 
     // HPIPM structures
     std::shared_ptr<hpipm_data> _hpipm_data;
