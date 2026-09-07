@@ -415,6 +415,20 @@ ssqp::ssqp(const model::Model &model, const Params &params)
   , _tolerance_init(_params.tolerance)
   , _reduced_output(false)
 {
+    switch (_params.qp_solver_type)
+    {
+    case ADMM:
+        _qp_solver = std::make_unique<admm_qp>(_qp, _params.admm_params);
+        break;
+    case HPIPM:
+#ifdef WITH_HPIPM
+        _qp_solver = std::make_unique<hpipm_qp>(_qp, _params.hpipm_params);
+#else
+        throw std::runtime_error("SSQP was not compiled with HPIPM support!");
+#endif
+        break;
+    }
+
     model::Dimensions              dims     = model.dims();
     const model::DynamicsContainer &dynamics = model.dynamics();
 
@@ -473,22 +487,9 @@ SolverState ssqp::solve(Guess &guess)
     auto xml_model = to_compile_time(_model.xml());
 
     std::visit([this](auto xml) { _setup_qp<true, xml.value>(); }, xml_model);
-    std::unique_ptr<QPSolver> qp_solver;
-    QPSolver::Solution        sol(_qp.dims);
+    _qp_solver->reset();
 
-    switch (_params.qp_solver_type)
-    {
-    case ADMM:
-        qp_solver = std::make_unique<admm_qp>(_qp, _params.admm_params);
-        break;
-    case HPIPM:
-#ifdef WITH_HPIPM
-        qp_solver = std::make_unique<hpipm_qp>(_qp, _params.hpipm_params);
-#else
-        throw std::runtime_error("SSQP was not compiled with HPIPM support!");
-#endif
-        break;
-    }
+    QPSolver::Solution sol(_qp.dims);
 
     _params.tolerance = _tolerance_init;
 
@@ -497,7 +498,7 @@ SolverState ssqp::solve(Guess &guess)
         _convergence_data.iteration_data.push_back(IterationConvergenceData());
 
         auto        start_iter_time = std::chrono::high_resolution_clock::now();
-        SolverState state           = qp_solver->solve(sol);
+        SolverState state           = _qp_solver->solve(sol);
 
         sol.dx.stage(0).setZero();
 
@@ -526,7 +527,7 @@ SolverState ssqp::solve(Guess &guess)
         FlatVec x_n(_guess.x, false), u_n(_guess.u, false);
 
         _convergence_data.iteration_data.back().qp_iters =
-          qp_solver->iterations();
+          _qp_solver->iterations();
 
         // Guess (x, u) update
         if (_params.line_search_method == LineSearchMethod::Filter)
@@ -632,7 +633,7 @@ SolverState ssqp::solve(Guess &guess)
 
             logln_at(LogLevel::Debug,
                      "Line search failed, increasing regularization");
-            qp_solver->increaseRegularization();
+            _qp_solver->increaseRegularization();
             --_iter;
             continue;
         }
@@ -728,7 +729,7 @@ SolverState ssqp::solve(Guess &guess)
         // calculated in _check_termination
         std::visit([this](auto xml) { _setup_qp<false, xml.value>(); },
                    xml_model);
-        qp_solver->reset();
+        _qp_solver->reset();
 
         _convergence_data.iteration_data.back().iter_duration_us =
           std::chrono::duration_cast<std::chrono::microseconds>(
