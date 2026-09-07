@@ -1,4 +1,5 @@
 #include "Test.hpp"
+#include "MPC.hpp"
 #include "generators/gradients.hpp"
 #include "generators/qp_solvers.hpp"
 
@@ -208,6 +209,14 @@ int main()
     // }
 
     // tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
+
+    tests.addTest(std::make_shared<ssqp::tests::MPCStepTest>(
+      "MPCStepADMMTest", ssqp::solvers::ssqp::QPSolverType::ADMM));
+
+#ifdef WITH_HPIPM
+    tests.addTest(std::make_shared<ssqp::tests::MPCStepTest>(
+      "MPCStepHPIPMTest", ssqp::solvers::ssqp::QPSolverType::HPIPM));
+#endif
 
     tests.runAll();
 }

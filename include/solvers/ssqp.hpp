@@ -7,6 +7,7 @@
 #include <variant>
 #include <deque>
 #include <chrono>
+#include <memory>
 
 #include "types.hpp"
 #include "sqp_step/step.hpp"
@@ -256,6 +257,10 @@ class ssqp
 
     const model::Model &model() const;
 
+    // Reset the internal guess from the model's current initial states and
+    // controls.
+    void reinitialize();
+
     // Solve the defined problem using SSQP
     SolverState solve(Guess &guess);
 
@@ -269,10 +274,11 @@ class ssqp
     void setReducedOutput(const bool reduced);
 
   protected:
-    Params              _params;
-    const model::Model &_model;
-    Guess               _guess;
-    QPData              _qp;
+    Params                    _params;
+    const model::Model       &_model;
+    Guess                     _guess;
+    QPData                    _qp;
+    std::unique_ptr<QPSolver> _qp_solver;
 
     FlatVec _prev_cost_dx, _prev_cost_du;
     FlatVec _cost_dx, _cost_du;
