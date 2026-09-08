@@ -89,6 +89,8 @@ else()
         # which was removed from urdfdom_headers 2.x and later.
         GIT_TAG 1.1.1
         GIT_SHALLOW TRUE
+        # The dependency is pinned; avoid a phony Git update step on every build.
+        UPDATE_COMMAND ""
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/urdfdom_headers
         CMAKE_ARGS ${_ssqp_vendor_cmake_args}
     )
@@ -97,6 +99,7 @@ else()
         GIT_REPOSITORY https://github.com/ros/console_bridge.git
         GIT_TAG 1.0.2
         GIT_SHALLOW TRUE
+        UPDATE_COMMAND ""
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/console_bridge
         CMAKE_ARGS ${_ssqp_vendor_cmake_args}
         BUILD_BYPRODUCTS ${SSQP_VENDOR_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}console_bridge${CMAKE_STATIC_LIBRARY_SUFFIX}
@@ -106,6 +109,7 @@ else()
         GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
         GIT_TAG 10.1.0
         GIT_SHALLOW TRUE
+        UPDATE_COMMAND ""
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/tinyxml2
         CMAKE_ARGS ${_ssqp_vendor_cmake_args} -Dtinyxml2_SHARED_LIBS=OFF -Dtinyxml2_BUILD_TESTING=OFF
         BUILD_BYPRODUCTS ${SSQP_VENDOR_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}tinyxml2${CMAKE_STATIC_LIBRARY_SUFFIX}
@@ -115,6 +119,7 @@ else()
         GIT_REPOSITORY https://github.com/ros/urdfdom.git
         GIT_TAG 4.0.0
         GIT_SHALLOW TRUE
+        UPDATE_COMMAND ""
         DEPENDS urdfdom_headers_ext console_bridge_ext tinyxml2_ext
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/urdfdom
         PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch-urdfdom.cmake
@@ -131,6 +136,7 @@ else()
         GIT_SHALLOW TRUE
         GIT_SUBMODULES "cmake"
         GIT_SUBMODULES_RECURSE TRUE
+        UPDATE_COMMAND ""
         DEPENDS urdfdom_ext
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/pinocchio
         PATCH_COMMAND sed -i "s/set(LIBRARY_TYPE SHARED)/set(LIBRARY_TYPE STATIC)/" src/CMakeLists.txt
