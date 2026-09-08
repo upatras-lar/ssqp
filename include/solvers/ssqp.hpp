@@ -283,6 +283,9 @@ class ssqp
     FlatVec _prev_cost_dx, _prev_cost_du;
     FlatVec _cost_dx, _cost_du;
 
+    // Scratch trajectory overwritten by the line search each iteration
+    FlatVec _candidate_x, _candidate_u;
+
     uint _iter;
     uint _stale_iters;
 

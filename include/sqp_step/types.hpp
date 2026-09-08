@@ -18,19 +18,22 @@ struct Point
 {
     solvers::FlatVec x, u;
 
-    Point(const solvers::FlatVec &x, const solvers::FlatVec &u);
+    // If copy is true, x/u are copied from the given vectors
+    // Otherwise, a zero-initialized Point of the same size is constructed
+    Point(const solvers::FlatVec &x, const solvers::FlatVec &u,
+          bool copy = true);
 
     Point &operator=(const Point &p);
 
-    Point dynamics_add(const Point                    &p,
-                       const model::DynamicsContainer &dynamics) const;
+    // Writes (this ⊕ alpha * offset) into `out`, using the dynamics' manifold
+    // right-plus for the state part
+    // Does not allocate, `out` must already be sized like `this`/`offset`
+    void dynamics_add_scaled(double alpha, const Point &offset,
+                             const model::DynamicsContainer &dynamics,
+                             Point                          &out) const;
 
     double infNorm();
-
-    friend Point operator*(double val, const Point &p);
 };
-
-Point operator*(double val, const Point &p);
 }
 }
 #endif

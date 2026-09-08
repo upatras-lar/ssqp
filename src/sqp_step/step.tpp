@@ -7,11 +7,12 @@ namespace ssqp
 namespace step
 {
 template<typename SelectionMethod>
-std::tuple<solvers::FlatVec, solvers::FlatVec, double> step(
-  const SelectionMethod &selection, solvers::FlatVec &x, solvers::FlatVec &u,
-  const solvers::FlatVec &dX, const solvers::FlatVec &dU,
-  const model::DynamicsContainer &dynamics, double inv_alpha_scale_factor,
-  double min_alpha)
+double step(const SelectionMethod &selection, const solvers::FlatVec &x,
+            const solvers::FlatVec &u, const solvers::FlatVec &dX,
+            const solvers::FlatVec         &dU,
+            const model::DynamicsContainer &dynamics,
+            double inv_alpha_scale_factor, double min_alpha,
+            solvers::FlatVec &x_out, solvers::FlatVec &u_out)
 {
     ZoneScopedN("SQP Step: step");
 
@@ -19,15 +20,20 @@ std::tuple<solvers::FlatVec, solvers::FlatVec, double> step(
 
     step::Point a(x, u);
     step::Point offset(dX, dU);
-    step::Point b(a.dynamics_add(alpha * offset, dynamics));
+    step::Point b(x, u, false);
+
+    a.dynamics_add_scaled(alpha, offset, dynamics, b);
 
     while (!selection(a, b, offset, alpha) && alpha >= min_alpha)
     {
         alpha /= inv_alpha_scale_factor;
-        b      = a.dynamics_add(alpha * offset, dynamics);
+        a.dynamics_add_scaled(alpha, offset, dynamics, b);
     }
 
-    return { b.x, b.u, alpha };
+    x_out = b.x;
+    u_out = b.u;
+
+    return alpha;
 }
 }
 }

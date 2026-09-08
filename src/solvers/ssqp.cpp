@@ -412,6 +412,8 @@ ssqp::ssqp(const model::Model &model, const Params &params)
   , _cost_dx(_prev_cost_dx, false)
   , _prev_cost_du(_guess.u, false)
   , _cost_du(_guess.u, false)
+  , _candidate_x(_guess.x, false)
+  , _candidate_u(_guess.u, false)
   , _tolerance_init(_params.tolerance)
   , _reduced_output(false)
 {
@@ -538,8 +540,6 @@ SolverState ssqp::solve(Guess &guess)
             break;
         }
 
-        FlatVec x_n(_guess.x, false), u_n(_guess.u, false);
-
         _convergence_data.iteration_data.back().qp_iters =
           _qp_solver->iterations();
 
@@ -556,34 +556,33 @@ SolverState ssqp::solve(Guess &guess)
               _gammaf(_guess.x, _guess.u),
               _cf(_guess.x, _guess.u));
 
-            std::tie(x_n,
-                     u_n,
-                     _convergence_data.iteration_data.back().step_size) =
-              step::step(
-                [this, &previous_metrics, &next_metrics](const step::Point &,
-                                                         const step::Point &b,
-                                                         const step::Point &,
-                                                         const double)
-                {
-                    return step::filter(
-                      previous_metrics,
-                      b,
-                      _filter_memory,
-                      [this](const FlatVec &x, const FlatVec &u)
-                      { return _lf(x, u); },
-                      [this](const FlatVec &x, const FlatVec &u)
-                      { return _gammaf(x, u); },
-                      [this](const FlatVec &x, const FlatVec &u)
-                      { return _cf(x, u); },
-                      next_metrics);
-                },
-                _guess.x,
-                _guess.u,
-                sol.dx,
-                sol.du,
-                _model.dynamics(),
-                _params.inv_alpha_scale_factor,
-                _params.min_alpha);
+            _convergence_data.iteration_data.back().step_size = step::step(
+              [this, &previous_metrics, &next_metrics](const step::Point &,
+                                                       const step::Point &b,
+                                                       const step::Point &,
+                                                       const double)
+              {
+                  return step::filter(
+                    previous_metrics,
+                    b,
+                    _filter_memory,
+                    [this](const FlatVec &x, const FlatVec &u)
+                    { return _lf(x, u); },
+                    [this](const FlatVec &x, const FlatVec &u)
+                    { return _gammaf(x, u); },
+                    [this](const FlatVec &x, const FlatVec &u)
+                    { return _cf(x, u); },
+                    next_metrics);
+              },
+              _guess.x,
+              _guess.u,
+              sol.dx,
+              sol.du,
+              _model.dynamics(),
+              _params.inv_alpha_scale_factor,
+              _params.min_alpha,
+              _candidate_x,
+              _candidate_u);
         }
         else
         {
@@ -620,41 +619,40 @@ SolverState ssqp::solve(Guess &guess)
               (dx.vec.transpose() * sol.dx.vec +
                du.vec.transpose() * sol.du.vec)[0];
 
-            std::tie(x_n,
-                     u_n,
-                     _convergence_data.iteration_data.back().step_size) =
-              step::step(
-                [this, mf_previous, directional_derivative, &next_metrics](
-                  const step::Point &,
-                  const step::Point &b,
-                  const step::Point &,
-                  const double alpha)
-                {
-                    return step::merit(
-                      mf_previous,
-                      directional_derivative,
-                      b,
-                      alpha,
-                      [this, &next_metrics](const FlatVec &x, const FlatVec &u)
-                      {
-                          const double cost      = _lf(x, u);
-                          const double gap       = _gammaf(x, u);
-                          const double violation = _cf(x, u);
+            _convergence_data.iteration_data.back().step_size = step::step(
+              [this, mf_previous, directional_derivative, &next_metrics](
+                const step::Point &,
+                const step::Point &b,
+                const step::Point &,
+                const double alpha)
+              {
+                  return step::merit(
+                    mf_previous,
+                    directional_derivative,
+                    b,
+                    alpha,
+                    [this, &next_metrics](const FlatVec &x, const FlatVec &u)
+                    {
+                        const double cost      = _lf(x, u);
+                        const double gap       = _gammaf(x, u);
+                        const double violation = _cf(x, u);
 
-                          next_metrics = { cost, gap, violation };
+                        next_metrics = { cost, gap, violation };
 
-                          return cost + _params.merit_mu_gamma * gap +
-                                 _params.merit_mu_c * violation;
-                      },
-                      _params.merit_armijo_beta);
-                },
-                _guess.x,
-                _guess.u,
-                sol.dx,
-                sol.du,
-                _model.dynamics(),
-                _params.inv_alpha_scale_factor,
-                _params.min_alpha);
+                        return cost + _params.merit_mu_gamma * gap +
+                               _params.merit_mu_c * violation;
+                    },
+                    _params.merit_armijo_beta);
+              },
+              _guess.x,
+              _guess.u,
+              sol.dx,
+              sol.du,
+              _model.dynamics(),
+              _params.inv_alpha_scale_factor,
+              _params.min_alpha,
+              _candidate_x,
+              _candidate_u);
         }
 
         if (!_params.accept_worse_update &&
@@ -684,8 +682,8 @@ SolverState ssqp::solve(Guess &guess)
             continue;
         }
 
-        _guess.x = x_n;
-        _guess.u = u_n;
+        _guess.x = _candidate_x;
+        _guess.u = _candidate_u;
 
         if (_params.line_search_method == LineSearchMethod::Filter)
         {
@@ -1204,9 +1202,9 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         dynamics[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
 
         // w = J_rᵀ r_k, where J_r = [ Jr_inv_wrt_f, 0; 0, -I ] (or just
-        // Jr_inv_wrt_f if kinematic). Since J_r is block-diagonal, this
-        // avoids ever constructing the full J_r matrix or the matrix-matrix
-        // products J_r * dXk / J_r * dUk.
+        // Jr_inv_wrt_f if kinematic)
+        // Since J_r is block-diagonal, this avoids ever constructing the
+        // full J_r matrix or the matrix-matrix products J_r * dXk / J_r * dUk
         VecX w(r_k.size());
         if (kinematic)
         {
