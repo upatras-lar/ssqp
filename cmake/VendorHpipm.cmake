@@ -40,6 +40,8 @@ else()
     ExternalProject_Add(blasfeo_ext
         GIT_REPOSITORY https://github.com/giaf/blasfeo.git
         GIT_TAG 60493284741b3e4e5b0bf25155221d4b5f0b2232
+        # The dependency is pinned; avoid a phony Git update step on every build.
+        UPDATE_COMMAND ""
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/blasfeo
         CMAKE_ARGS
             -DCMAKE_BUILD_TYPE=Release
@@ -56,6 +58,7 @@ else()
     ExternalProject_Add(hpipm_ext
         GIT_REPOSITORY https://github.com/giaf/hpipm.git
         GIT_TAG 87ef7a6ab773427a8c416030a2b9d075a744c223
+        UPDATE_COMMAND ""
         DEPENDS blasfeo_ext
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/hpipm
         CMAKE_ARGS
