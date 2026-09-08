@@ -431,6 +431,31 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         break;
     }
 
+    const model::Dimensions &lin_dims = model.linear_dims();
+
+    const uint max_nx = *std::max_element(lin_dims.stage_state.begin(),
+                                          lin_dims.stage_state.end());
+    const uint max_nu = *std::max_element(lin_dims.stage_control.begin(),
+                                          lin_dims.stage_control.end());
+
+    _tmp_hess_xx.resize(max_nx, max_nx);
+    _tmp_hess_xu.resize(max_nx, max_nu);
+    _tmp_hess_uu.resize(max_nu, max_nu);
+
+    if (model.xml())
+    {
+        const uint nv = model.nv();
+        const uint nu = model.nu();
+
+        _tmp_jac_x.resize(nv, nv);
+        _tmp_jac_u.resize(nu, nu);
+        _tmp_jac_r_inv.resize(nv, nv);
+
+        _tmp_jr_inv_wrt_x.resize(nv, nv);
+        _tmp_jr_inv_wrt_f.resize(nv, nv);
+        _tmp_gammaf_w.resize(2 * nv);
+    }
+
     reinitialize();
 
     if (_params.constraint_tolerance < 0.0)
@@ -1187,16 +1212,16 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         VecX a = (_params.merit_grad_softmax_beta * r_k.array().abs()).exp();
         r_k    = (r_k.array().sign() * a.array()) / a.sum();
 
-        MatX Jr_inv_wrt_x = MatX::Zero(nv, nv);
+        _tmp_jr_inv_wrt_x.setZero();
         _model.dDifference(x.stage(k + 1).head(nq),
                            f.head(nq),
-                           Jr_inv_wrt_x,
+                           _tmp_jr_inv_wrt_x,
                            0);
 
-        MatX Jr_inv_wrt_f = MatX::Zero(nv, nv);
+        _tmp_jr_inv_wrt_f.setZero();
         _model.dDifference(x.stage(k + 1).head(nq),
                            f.head(nq),
-                           Jr_inv_wrt_f,
+                           _tmp_jr_inv_wrt_f,
                            1);
 
         dynamics[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
@@ -1205,14 +1230,14 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         // Jr_inv_wrt_f if kinematic)
         // Since J_r is block-diagonal, this avoids ever constructing the
         // full J_r matrix or the matrix-matrix products J_r * dXk / J_r * dUk
-        VecX w(r_k.size());
+        auto w = _tmp_gammaf_w.head(r_k.size());
         if (kinematic)
         {
-            w.noalias() = Jr_inv_wrt_f.transpose() * r_k;
+            w.noalias() = _tmp_jr_inv_wrt_f.transpose() * r_k;
         }
         else
         {
-            w.head(nv).noalias() = Jr_inv_wrt_f.transpose() * r_k.head(nv);
+            w.head(nv).noalias() = _tmp_jr_inv_wrt_f.transpose() * r_k.head(nv);
             w.tail(nv)           = -r_k.tail(nv);
 
             dx.stage(k + 1).tail(nv) += r_k.tail(nv);
@@ -1221,7 +1246,8 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         dx.stage(k).noalias() += dXk.transpose() * w;
         du.stage(k).noalias() += dUk.transpose() * w;
 
-        dx.stage(k + 1).head(nv) += Jr_inv_wrt_x.transpose() * r_k.head(nv);
+        dx.stage(k + 1).head(nv) +=
+          _tmp_jr_inv_wrt_x.transpose() * r_k.head(nv);
     }
 }
 
