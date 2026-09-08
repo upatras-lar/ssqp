@@ -8,10 +8,10 @@ namespace ssqp
 {
 namespace step
 {
-template<typename MeritFunction, typename MeritGradFunction>
-bool merit(const Point &previous, const Point &next, const Point &offset,
-           const double alpha, const MeritFunction &mf,
-           const MeritGradFunction &dmf, const double armijo_beta = 1e-4);
+template<typename MeritFunction>
+bool merit(const double mf_previous, const double directional_derivative,
+           const Point &next, const double alpha, const MeritFunction &mf,
+           const double armijo_beta = 1e-4);
 }
 }
 
