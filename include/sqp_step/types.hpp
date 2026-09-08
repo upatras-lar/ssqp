@@ -27,10 +27,13 @@ struct Point
 
     // Writes (this ⊕ alpha * offset) into `out`, using the dynamics' manifold
     // right-plus for the state part
-    // Does not allocate, `out` must already be sized like `this`/`offset`
+    // `scaled_offset` is scratch storage for alpha * offset, scaled as a
+    // single whole-vector pass rather than per-stage so it stays vectorized
+    // Does not allocate, `out`/`scaled_offset` must already be sized like
+    // `this`/`offset`
     void dynamics_add_scaled(double alpha, const Point &offset,
                              const model::DynamicsContainer &dynamics,
-                             Point                          &out) const;
+                             Point &scaled_offset, Point &out) const;
 
     double infNorm();
 };

@@ -19,20 +19,23 @@ Point &Point::operator=(const Point &p)
 
 void Point::dynamics_add_scaled(double alpha, const Point &offset,
                                 const model::DynamicsContainer &dynamics,
-                                Point                          &out) const
+                                Point &scaled_offset, Point &out) const
 {
     assert(x.stages() == offset.x.stages() && u.stages() == offset.u.stages() &&
            "Point dynamics_add_scaled: stage mismatch");
 
+    scaled_offset.x.vec.noalias() = alpha * offset.x.vec;
+    scaled_offset.u.vec.noalias() = alpha * offset.u.vec;
+
     for (uint k = 0; k < x.stages(); ++k)
     {
         out.x.stage(k) =
-          dynamics[k]->state_right_plus(x.stage(k), alpha * offset.x.stage(k));
+          dynamics[k]->state_right_plus(x.stage(k), scaled_offset.x.stage(k));
     }
 
     for (uint k = 0; k < u.stages(); ++k)
     {
-        out.u.stage(k) = u.stage(k) + alpha * offset.u.stage(k);
+        out.u.stage(k) = u.stage(k) + scaled_offset.u.stage(k);
     }
 }
 

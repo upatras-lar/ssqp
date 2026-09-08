@@ -21,13 +21,14 @@ double step(const SelectionMethod &selection, const solvers::FlatVec &x,
     step::Point a(x, u);
     step::Point offset(dX, dU);
     step::Point b(x, u, false);
+    step::Point scaled_offset(dX, dU, false);
 
-    a.dynamics_add_scaled(alpha, offset, dynamics, b);
+    a.dynamics_add_scaled(alpha, offset, dynamics, scaled_offset, b);
 
     while (!selection(a, b, offset, alpha) && alpha >= min_alpha)
     {
         alpha /= inv_alpha_scale_factor;
-        a.dynamics_add_scaled(alpha, offset, dynamics, b);
+        a.dynamics_add_scaled(alpha, offset, dynamics, scaled_offset, b);
     }
 
     x_out = b.x;
