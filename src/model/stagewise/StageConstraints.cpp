@@ -45,15 +45,6 @@ void StageConstraints::set_forces(
 {
 }
 
-double StageConstraints::violation(const VecX &x, const VecX &u) const
-{
-    VecX c = evaluate(x, u);
-
-    return std::max(
-      right_minus(c, lower_bound()).cwiseMin(0).lpNorm<Eigen::Infinity>(),
-      right_minus(c, upper_bound()).cwiseMax(0).lpNorm<Eigen::Infinity>());
-}
-
 VecX StageConstraints::lower_bound() const
 {
     VecX l(output_size());

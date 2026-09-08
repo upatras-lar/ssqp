@@ -456,6 +456,9 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         _tmp_gammaf_w.resize(2 * nv);
     }
 
+    _cached_f.resize(lin_dims.horizon);
+    _cached_c.resize(lin_dims.horizon + 1);
+
     reinitialize();
 
     if (_params.constraint_tolerance < 0.0)
@@ -625,7 +628,7 @@ SolverState ssqp::solve(Guess &guess)
 
             if (_params.merit_mu_gamma > 0.0)
             {
-                _gammaf_grad(_guess.x, _guess.u, tmp_x, tmp_u);
+                _gammaf_grad(_guess.x, _guess.u, tmp_x, tmp_u, true);
                 dx.vec += _params.merit_mu_gamma * tmp_x.vec;
                 du.vec += _params.merit_mu_gamma * tmp_u.vec;
 
@@ -635,7 +638,7 @@ SolverState ssqp::solve(Guess &guess)
 
             if (_params.merit_mu_c > 0.0)
             {
-                _cf_grad(_guess.x, _guess.u, tmp_x, tmp_u);
+                _cf_grad(_guess.x, _guess.u, tmp_x, tmp_u, true);
                 dx.vec += _params.merit_mu_c * tmp_x.vec;
                 du.vec += _params.merit_mu_c * tmp_u.vec;
             }
@@ -1160,8 +1163,8 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
     for (uint k = 0; k < horizon; ++k)
     {
         sum += (dynamics[k]->state_right_minus(
-                  x.stage(k + 1),
-                  dynamics[k]->evaluate(x.stage(k), u.stage(k))))
+                  dynamics[k]->evaluate(x.stage(k), u.stage(k)),
+                  x.stage(k + 1)))
                  .lpNorm<Eigen::Infinity>();
     }
 
@@ -1177,8 +1180,8 @@ double ssqp::_gammaf_softmax(const FlatVec &x, const FlatVec &u) const
     for (uint k = 0; k < horizon; ++k)
     {
         Eigen::VectorXd r = dynamics[k]->state_right_minus(
-          x.stage(k + 1),
-          dynamics[k]->evaluate(x.stage(k), u.stage(k)));
+          dynamics[k]->evaluate(x.stage(k), u.stage(k)),
+          x.stage(k + 1));
 
         double soft_inf =
           (_params.merit_grad_softmax_beta * r.array().abs()).exp().sum();
@@ -1191,7 +1194,7 @@ double ssqp::_gammaf_softmax(const FlatVec &x, const FlatVec &u) const
 }
 
 void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
-                        FlatVec &du) const
+                        FlatVec &du, bool reuse_cached_f) const
 {
     ZoneScopedN("SSQP: _gammaf_grad");
 
@@ -1206,27 +1209,33 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     MatX dXk, dUk;
     for (uint k = 0; k < horizon; ++k)
     {
-        VecX f   = dynamics[k]->evaluate(x.stage(k), u.stage(k));
-        VecX r_k = dynamics[k]->state_right_minus(x.stage(k + 1), f);
+        VecX f_scratch;
+        if (!reuse_cached_f)
+        {
+            f_scratch = dynamics[k]->evaluate(x.stage(k), u.stage(k));
+        }
+        const VecX &f = reuse_cached_f ? _cached_f[k] : f_scratch;
+
+        VecX r_k = dynamics[k]->state_right_minus(f, x.stage(k + 1));
 
         VecX a = (_params.merit_grad_softmax_beta * r_k.array().abs()).exp();
         r_k    = (r_k.array().sign() * a.array()) / a.sum();
 
-        _tmp_jr_inv_wrt_x.setZero();
-        _model.dDifference(x.stage(k + 1).head(nq),
-                           f.head(nq),
-                           _tmp_jr_inv_wrt_x,
+        _tmp_jr_inv_wrt_f.setZero();
+        _model.dDifference(f.head(nq),
+                           x.stage(k + 1).head(nq),
+                           _tmp_jr_inv_wrt_f,
                            0);
 
-        _tmp_jr_inv_wrt_f.setZero();
-        _model.dDifference(x.stage(k + 1).head(nq),
-                           f.head(nq),
-                           _tmp_jr_inv_wrt_f,
+        _tmp_jr_inv_wrt_x.setZero();
+        _model.dDifference(f.head(nq),
+                           x.stage(k + 1).head(nq),
+                           _tmp_jr_inv_wrt_x,
                            1);
 
         dynamics[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
 
-        // w = J_rᵀ r_k, where J_r = [ Jr_inv_wrt_f, 0; 0, -I ] (or just
+        // w = J_rᵀ r_k, where J_r = [ Jr_inv_wrt_f, 0; 0, I ] (or just
         // Jr_inv_wrt_f if kinematic)
         // Since J_r is block-diagonal, this avoids ever constructing the
         // full J_r matrix or the matrix-matrix products J_r * dXk / J_r * dUk
@@ -1238,9 +1247,9 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         else
         {
             w.head(nv).noalias() = _tmp_jr_inv_wrt_f.transpose() * r_k.head(nv);
-            w.tail(nv)           = -r_k.tail(nv);
+            w.tail(nv)           = r_k.tail(nv);
 
-            dx.stage(k + 1).tail(nv) += r_k.tail(nv);
+            dx.stage(k + 1).tail(nv) -= r_k.tail(nv);
         }
 
         dx.stage(k).noalias() += dXk.transpose() * w;
@@ -1342,7 +1351,7 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 }
 
 void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
-                    FlatVec &du) const
+                    FlatVec &du, bool reuse_cached_c) const
 {
     ZoneScopedN("SSQP: _cf_grad");
 
@@ -1357,13 +1366,19 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
             continue;
         }
 
-        VecX c_k = constraints[k]->evaluate(x.stage(k), u.stage(k));
-        VecX lb  = constraints[k]->lower_bound();
-        VecX ub  = constraints[k]->upper_bound();
+        VecX c_scratch;
+        if (!reuse_cached_c)
+        {
+            c_scratch = constraints[k]->evaluate(x.stage(k), u.stage(k));
+        }
+        const VecX &c0 = reuse_cached_c ? _cached_c[k] : c_scratch;
+
+        VecX lb = constraints[k]->lower_bound();
+        VecX ub = constraints[k]->upper_bound();
 
         VecX v =
-          constraints[k]->right_minus(c_k, lb).cwiseMin(0).cwiseAbs().cwiseMax(
-            constraints[k]->right_minus(c_k, ub));
+          constraints[k]->right_minus(c0, lb).cwiseMin(0).cwiseAbs().cwiseMax(
+            constraints[k]->right_minus(c0, ub));
 
         VecX w =
           (_params.merit_grad_softmax_beta * (v.array() - v.maxCoeff())).exp();
@@ -1372,17 +1387,17 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         VecX dv_dc = VecX::Zero(v.size());
         for (int i = 0; i < v.size(); ++i)
         {
-            if (c_k[i] < lb[i])
+            if (c0[i] < lb[i])
             {
                 dv_dc[i] = -1.0;
             }
-            else if (c_k[i] > ub[i])
+            else if (c0[i] > ub[i])
             {
                 dv_dc[i] = +1.0;
             }
         }
 
-        c_k = w.cwiseProduct(dv_dc);
+        VecX c_k = w.cwiseProduct(dv_dc);
 
         constraints[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
 
@@ -1395,15 +1410,20 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         return;
     }
 
-    VecX c_H = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
-    VecX lb  = constraints[horizon]->lower_bound();
-    VecX ub  = constraints[horizon]->upper_bound();
+    VecX c_scratch_H;
+    if (!reuse_cached_c)
+    {
+        c_scratch_H =
+          constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
+    }
+    const VecX &c0 = reuse_cached_c ? _cached_c[horizon] : c_scratch_H;
 
-    VecX v = constraints[horizon]
-               ->right_minus(c_H, lb)
-               .cwiseMin(0)
-               .cwiseAbs()
-               .cwiseMax(constraints[horizon]->right_minus(c_H, ub));
+    VecX lb = constraints[horizon]->lower_bound();
+    VecX ub = constraints[horizon]->upper_bound();
+
+    VecX v =
+      constraints[horizon]->right_minus(c0, lb).cwiseMin(0).cwiseAbs().cwiseMax(
+        constraints[horizon]->right_minus(c0, ub));
 
     VecX w =
       (_params.merit_grad_softmax_beta * (v.array() - v.maxCoeff())).exp();
@@ -1412,17 +1432,17 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     VecX dv_dc = VecX::Zero(v.size());
     for (int i = 0; i < v.size(); ++i)
     {
-        if (c_H[i] < lb[i])
+        if (c0[i] < lb[i])
         {
             dv_dc[i] = -1.0;
         }
-        else if (c_H[i] > ub[i])
+        else if (c0[i] > ub[i])
         {
             dv_dc[i] = +1.0;
         }
     }
 
-    c_H = w.cwiseProduct(dv_dc);
+    VecX c_H = w.cwiseProduct(dv_dc);
 
     constraints[horizon]->gradient(x.stage(horizon), _emptyVec, dXk, dUk);
 

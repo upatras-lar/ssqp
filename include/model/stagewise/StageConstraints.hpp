@@ -36,11 +36,6 @@ class StageConstraints : public Function
     // Set the model Forces associated with this constraint
     virtual void set_forces(const std::vector<std::shared_ptr<Force>> &forces);
 
-    // Check constraint satisfaction norm at $(\boldsymbol{x}, \boldsymbol{u})$
-    // Default implementation: Checks violation within some given tolerance
-    // Returns: constraint violation norm
-    double violation(const VecX &x, const VecX &u) const;
-
     // Get constraint lower bound
     virtual VecX lower_bound() const;
 

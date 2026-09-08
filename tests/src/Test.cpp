@@ -128,7 +128,8 @@ bool TestContainer::runAll(const std::string &filter, uint32_t base_seed)
             writeFailureLog(test->name(), logs);
         }
     }
-    std::cout << "Passed: " << passed << '/' << selected << '\n';
+    std::cout << "Passed: \033[32m" << passed << "\033[39m/" << selected
+              << '\n';
     if (!selected) std::cout << "No tests matched: " << filter << '\n';
     return selected != 0 && passed == selected;
 }

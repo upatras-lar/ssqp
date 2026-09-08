@@ -298,6 +298,11 @@ class ssqp
     mutable MatX _tmp_jr_inv_wrt_x, _tmp_jr_inv_wrt_f;
     mutable VecX _tmp_gammaf_w;
 
+    // Per-stage dynamics/constraints evaluate() outputs at the current guess
+    // Filled in by _check_termination and reused by the following _setup_qp
+    // call, since both run at the same guess
+    std::vector<VecX> _cached_f, _cached_c;
+
     uint _iter;
     uint _stale_iters;
 
@@ -307,7 +312,10 @@ class ssqp
 
     bool _reduced_output;
 
-    template<bool withGradients, bool XMLModel = true>
+    // firstSetup: whether this is the QP setup before the solve loop starts,
+    // with no prior _check_termination call to reuse dynamics/constraints
+    // evaluate() outputs and gradients from
+    template<bool firstSetup, bool XMLModel = true>
     void _setup_qp();
 
     template<bool fullStagewiseConvergence>
@@ -325,15 +333,21 @@ class ssqp
     // Gap violation
     double _gammaf(const FlatVec &x, const FlatVec &u) const;
     double _gammaf_softmax(const FlatVec &x, const FlatVec &u) const;
-    void   _gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
-                        FlatVec &du) const;
+    // reuse_cached_f: whether (x, u) is _guess.x/_guess.u at its current
+    // value, letting the per-stage dynamics evaluate() be read from
+    // _cached_f instead of recomputed
+    void _gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
+                      FlatVec &du, bool reuse_cached_f = false) const;
     friend class tests::FDGradFullTrajectoryStageGap;
 
     // Constraint violation
     double _cf(const FlatVec &x, const FlatVec &u) const;
     double _cf_softmax(const FlatVec &x, const FlatVec &u) const;
-    void   _cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
-                    FlatVec &du) const;
+    // reuse_cached_c: whether (x, u) is _guess.x/_guess.u at its current
+    // value, letting the per-stage constraints evaluate() be read from
+    // _cached_c instead of recomputed
+    void _cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx, FlatVec &du,
+                  bool reuse_cached_c = false) const;
 
     friend class tests::FDGradFullTrajectoryConstraintViolation;
 

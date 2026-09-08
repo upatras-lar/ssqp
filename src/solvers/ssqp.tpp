@@ -4,7 +4,7 @@ namespace ssqp
 {
 namespace solvers
 {
-template<bool withGradients, bool XMLModel>
+template<bool firstSetup, bool XMLModel>
 void ssqp::_setup_qp()
 {
     ZoneScopedN("SSQP: _setup_qp");
@@ -25,17 +25,20 @@ void ssqp::_setup_qp()
     {
         logln_at(LogLevel::Debug, "Stage " << k << ":");
 
-        if constexpr (withGradients)
+        if constexpr (firstSetup)
         {
             // Get A_k and B_k matrices
             dynamics[k]->gradient(_guess.x.stage(k),
                                   _guess.u.stage(k),
                                   _qp.stages[k].A,
                                   _qp.stages[k].B);
+
+            // Cached by _check_termination otherwise, at the same guess
+            _cached_f[k] =
+              dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
         }
 
-        const VecX f =
-          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
+        const VecX &f = _cached_f[k];
 
         // Get gamma_k
         _qp.stages[k].gamma =
@@ -119,7 +122,7 @@ void ssqp::_setup_qp()
 
         logln_at(LogLevel::Debug, "Quu: added costs & dynamics");
 
-        if constexpr (withGradients)
+        if constexpr (firstSetup)
         {
             // Get q and r
             costs[k]->gradient(_guess.x.stage(k),
@@ -171,7 +174,7 @@ void ssqp::_setup_qp()
             logln_at(LogLevel::Debug, "Quu: added constraints");
 
             // Get D and E
-            if constexpr (withGradients)
+            if constexpr (firstSetup)
             {
                 constraints[k]->gradient(_guess.x.stage(k),
                                          _guess.u.stage(k),
@@ -187,8 +190,13 @@ void ssqp::_setup_qp()
             }
 
             // Get cl, cu
-            VecX c =
-              constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
+            // Cached by _check_termination otherwise, at the same guess
+            if constexpr (firstSetup)
+            {
+                _cached_c[k] = constraints[k]->evaluate(_guess.x.stage(k),
+                                                        _guess.u.stage(k));
+            }
+            const VecX &c = _cached_c[k];
             _qp.stages[k].cl =
               constraints[k]->right_minus(constraints[k]->lower_bound(), c);
             _qp.stages[k].cu =
@@ -215,7 +223,7 @@ void ssqp::_setup_qp()
              "Set Qxx_t via costs: size " << _qp.Qxx_t.rows() << "x"
                                           << _qp.Qxx_t.cols());
 
-    if constexpr (withGradients)
+    if constexpr (firstSetup)
     {
         VecX terminal_du;
         costs[_qp.dims.horizon]->gradient(_guess.x.stage(_qp.dims.horizon),
@@ -239,7 +247,7 @@ void ssqp::_setup_qp()
 
         logln_at(LogLevel::Debug, "Qxx: added constraints");
 
-        if constexpr (withGradients)
+        if constexpr (firstSetup)
         {
             MatX terminal_E;
             constraints[_qp.dims.horizon]->gradient(
@@ -251,10 +259,16 @@ void ssqp::_setup_qp()
 
         logln_at(LogLevel::Debug, "D: " << std::endl << _qp.Dt);
 
-        VecX ct = constraints[_qp.dims.horizon]->evaluate(
-          _guess.x.stage(_qp.dims.horizon),
-          _emptyVec);
-        _qp.cl_t = constraints[_qp.dims.horizon]->right_minus(
+        // Cached by _check_termination otherwise, at the same guess
+        if constexpr (firstSetup)
+        {
+            _cached_c[_qp.dims.horizon] =
+              constraints[_qp.dims.horizon]->evaluate(
+                _guess.x.stage(_qp.dims.horizon),
+                _emptyVec);
+        }
+        const VecX &ct = _cached_c[_qp.dims.horizon];
+        _qp.cl_t       = constraints[_qp.dims.horizon]->right_minus(
           constraints[_qp.dims.horizon]->lower_bound(),
           ct);
         _qp.cu_t = constraints[_qp.dims.horizon]->right_minus(
@@ -438,11 +452,13 @@ SolverState ssqp::_check_termination()
     for (uint k = 0; k < horizon; ++k)
     {
         // Stage gap violation
+        // Cached here for the _setup_qp call following this iteration, which
+        // runs at the same guess
+        _cached_f[k] =
+          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
         double gap_norm =
           dynamics[k]
-            ->state_right_minus(
-              dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k)),
-              _guess.x.stage(k + 1))
+            ->state_right_minus(_cached_f[k], _guess.x.stage(k + 1))
             .lpNorm<Eigen::Infinity>();
         if (gap_norm > _params.constraint_tolerance)
         {
@@ -472,10 +488,21 @@ SolverState ssqp::_check_termination()
         double csnorm = 0.0;
 
         // Stage constraint violation
+        // Cached here for the _setup_qp call following this iteration, which
+        // runs at the same guess
         if (constraints[k] != nullptr)
         {
-            csnorm =
-              constraints[k]->violation(_guess.x.stage(k), _guess.u.stage(k));
+            _cached_c[k] =
+              constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
+            csnorm = std::max(
+              constraints[k]
+                ->right_minus(_cached_c[k], constraints[k]->lower_bound())
+                .cwiseMin(0)
+                .lpNorm<Eigen::Infinity>(),
+              constraints[k]
+                ->right_minus(_cached_c[k], constraints[k]->upper_bound())
+                .cwiseMax(0)
+                .lpNorm<Eigen::Infinity>());
             if (csnorm > _params.constraint_tolerance)
             {
                 if constexpr (fullStagewiseConvergence)
@@ -514,10 +541,22 @@ SolverState ssqp::_check_termination()
     double csnorm = 0.0;
 
     // Terminal constraint violation
+    // Cached here for the _setup_qp call following this iteration, which
+    // runs at the same guess
     if (constraints[horizon] != nullptr)
     {
-        csnorm =
-          constraints[horizon]->violation(_guess.x.stage(horizon), _emptyVec);
+        _cached_c[horizon] =
+          constraints[horizon]->evaluate(_guess.x.stage(horizon), _emptyVec);
+        csnorm = std::max(constraints[horizon]
+                            ->right_minus(_cached_c[horizon],
+                                          constraints[horizon]->lower_bound())
+                            .cwiseMin(0)
+                            .lpNorm<Eigen::Infinity>(),
+                          constraints[horizon]
+                            ->right_minus(_cached_c[horizon],
+                                          constraints[horizon]->upper_bound())
+                            .cwiseMax(0)
+                            .lpNorm<Eigen::Infinity>());
 
         if (csnorm > _params.constraint_tolerance)
         {
