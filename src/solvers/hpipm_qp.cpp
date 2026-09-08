@@ -308,9 +308,7 @@ void hpipm_qp::reset()
         // The transpose is required once a nonzero state/control cross term
         // is present at a stage with a nonzero state.
         _S[k].noalias() = _qp.stages[k].Qxu.transpose();
-        d_ocp_qp_set_S(k,
-                       (double *)(_S[k].data()),
-                       &_hpipm_data->qp);
+        d_ocp_qp_set_S(k, (double *)(_S[k].data()), &_hpipm_data->qp);
         d_ocp_qp_set_R(k,
                        (double *)(_qp.stages[k].Quu.data()),
                        &_hpipm_data->qp);

@@ -390,7 +390,12 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
         forces[i].angular() = fext[i].tail<3>();
     }
 
-    pinocchio::computeRNEADerivatives(impl->model, *impl->data, q, v, a, forces);
+    pinocchio::computeRNEADerivatives(impl->model,
+                                      *impl->data,
+                                      q,
+                                      v,
+                                      a,
+                                      forces);
 
     rnea_partial_dq = impl->data->dtau_dq;
     rnea_partial_dv = impl->data->dtau_dv;

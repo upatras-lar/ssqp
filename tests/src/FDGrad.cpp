@@ -146,13 +146,13 @@ void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
         dX.col(i) = finiteDifferenceVector(
           [&](double step)
           {
-              return VecX(
-                (_next_dynamics->state_right_minus(
-                   _dynamics->evaluate(
-                     _dynamics->state_right_plus(x, step * e), u),
-                   _dynamics->evaluate(
-                     _dynamics->state_right_plus(x, -step * e), u)) /
-                 (2 * step)));
+              return VecX((
+                _next_dynamics->state_right_minus(
+                  _dynamics->evaluate(_dynamics->state_right_plus(x, step * e),
+                                      u),
+                  _dynamics->evaluate(_dynamics->state_right_plus(x, -step * e),
+                                      u)) /
+                (2 * step)));
           },
           _h);
     }
@@ -164,11 +164,10 @@ void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
         dU.col(i) = finiteDifferenceVector(
           [&](double step)
           {
-              return VecX(
-                (_next_dynamics->state_right_minus(
-                   _dynamics->evaluate(x, u + step * e),
-                   _dynamics->evaluate(x, u - step * e)) /
-                 (2 * step)));
+              return VecX((_next_dynamics->state_right_minus(
+                             _dynamics->evaluate(x, u + step * e),
+                             _dynamics->evaluate(x, u - step * e)) /
+                           (2 * step)));
           },
           _h);
     }
@@ -195,8 +194,7 @@ bool FDGradDynamics::run()
         // Dynamics finite differences use a fixed initial stencil and can
         // retain a small integration error for near-zero Jacobian entries.
         // Keep the comparison componentwise while allowing that error.
-        if (!close(dX, dXfd, 2e-5, 2e-6) ||
-            !close(dU, dUfd, 2e-5, 2e-6))
+        if (!close(dX, dXfd, 2e-5, 2e-6) || !close(dU, dUfd, 2e-5, 2e-6))
         {
             double max_diff   = 0.0;
             int    idx_dx_row = -1, idx_dx_col = -1;

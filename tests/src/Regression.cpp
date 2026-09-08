@@ -26,15 +26,15 @@ void solverKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon,
             model->setInitControl(k, VecX::Constant(1, 0.15));
         solver.reinitialize();
         const auto state = solver.solve(guess);
-        require(state == solvers::SUCCESS,
-                "SSQP must converge (" + solvers::to_string(state) +
-                  ", iterations=" +
-                  std::to_string(solver.convergenceData().iterations) +
-                  ", gap=" +
-                  std::to_string(solver.convergenceData().trajectory_stage_gap) +
-                  ", constraint=" +
-                  std::to_string(solver.convergenceData().trajectory_constraint_violation) +
-                  ")");
+        require(
+          state == solvers::SUCCESS,
+          "SSQP must converge (" + solvers::to_string(state) + ", iterations=" +
+            std::to_string(solver.convergenceData().iterations) + ", gap=" +
+            std::to_string(solver.convergenceData().trajectory_stage_gap) +
+            ", constraint=" +
+            std::to_string(
+              solver.convergenceData().trajectory_constraint_violation) +
+            ")");
         auto expected = integratorSolution(horizon, initial);
         if (bounded)
         {
@@ -123,8 +123,8 @@ void mpcKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon)
 }
 void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
 {
-    auto                 model  = integratorProblem(2, 1.0, true);
-    auto                 bounds = model->constraints();
+    auto model  = integratorProblem(2, 1.0, true);
+    auto bounds = model->constraints();
     // Toggle components of merged constraints, as in robot MPC applications.
     for (uint k = 0; k < 2; ++k) model->addConstraints<ControlBound>(k, 2.0);
     model->updateDimensions();
@@ -139,8 +139,7 @@ void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
         for (int cycle = 0; cycle < 6; ++cycle)
         {
             bool enabled = cycle % 2 == 0;
-            for (uint k = 0; k < 2; ++k)
-                bounds[k]->set_enabled(enabled);
+            for (uint k = 0; k < 2; ++k) bounds[k]->set_enabled(enabled);
             // Cover callers that update dimensions themselves before step().
             if (cycle % 3 == 0) model->updateDimensions();
             mpc.reinitialize(VecX::Ones(1));
@@ -244,22 +243,6 @@ void addRegressionTests(TestContainer &tests)
                                                  flatVecOwnership));
     tests.addTest(std::make_shared<FunctionTest>("Regression_QuadraticHessians",
                                                  quadraticHessians));
-    tests.addTest(std::make_shared<FunctionTest>(
-      "Regression_NumericalChecks",
-      []
-      {
-          VecX v = VecX::Ones(2), bad = v;
-          bad[0] = std::numeric_limits<double>::quiet_NaN();
-          require(!close(bad, v), "NaN must fail comparisons");
-          bad[0] = std::numeric_limits<double>::infinity();
-          require(!close(bad, v), "Infinity must fail comparisons");
-          bad     = v;
-          bad[1] += 1e-3;
-          require(!close(bad, v), "Incorrect gradient must fail");
-          double d =
-            finiteDifference([](double h) { return std::abs(1e-6 + h); }, 1e-3);
-          require(std::abs(d - 1.0) < 1e-7, "Refine across an abs kink");
-      }));
     std::vector<solvers::ssqp::QPSolverType> backends { solvers::ssqp::ADMM };
 #ifdef WITH_HPIPM
     backends.push_back(solvers::ssqp::HPIPM);

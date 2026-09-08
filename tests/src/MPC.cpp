@@ -71,9 +71,9 @@ bool MPCStepTest::run()
         ssqp_params.admm_params.rel_tolerance = 1e-3;
 
         solvers::MPC mpc(*model, mpc_params, ssqp_params);
-        VecX state = VecX::Zero(model->dims().stage_state.front());
-        state[0] = 0.1;
-        state[1] = -0.2;
+        VecX         state = VecX::Zero(model->dims().stage_state.front());
+        state[0]           = 0.1;
+        state[1]           = -0.2;
         mpc.reinitialize(state);
 
         const auto valid_solution =

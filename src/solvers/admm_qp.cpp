@@ -209,9 +209,9 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     // which are intentionally inactive in this case.
     if (_qp.dims.constraint == 0)
     {
-        lqr_out       = lqr_solver.unconstrained();
-        _solution.dx  = lqr_out.x;
-        _solution.du  = lqr_out.u;
+        lqr_out      = lqr_solver.unconstrained();
+        _solution.dx = lqr_out.x;
+        _solution.du = lqr_out.u;
         _solution.mu.vec.setZero();
         for (uint k = 0; k < _qp.dims.horizon; ++k)
         {
@@ -220,7 +220,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
             _solution.lambda.stage(k) += lqr_out.p[k + 1];
         }
         _iter = 1;
-        sol    = _solution;
+        sol   = _solution;
         return SUCCESS;
     }
 
