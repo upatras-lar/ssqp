@@ -112,7 +112,7 @@ class ControlBound : public model::stagewise::StageConstraints
         h = MatX::Zero(1, 1);
     }
     void hessprod_uu(const VecX &, const VecX &, const VecX &,
-                      MatX &h) const override
+                     MatX &h) const override
     {
         h = MatX::Zero(1, 1);
     }

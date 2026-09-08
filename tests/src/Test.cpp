@@ -19,7 +19,7 @@ void writeFailureLog(const std::string              &test_name,
                      const std::vector<std::string> &logs)
 {
     const std::filesystem::path path = failureLogPath(test_name);
-    std::error_code              error;
+    std::error_code             error;
     std::filesystem::create_directories(path.parent_path(), error);
 
     if (error)
@@ -97,7 +97,7 @@ bool TestContainer::runAll(const std::string &filter, uint32_t base_seed)
         seed ^= base_seed;
         test->seed(seed);
         std::cout << test->name() << " (seed " << seed << "): " << std::flush;
-        bool ok = false;
+        bool                     ok = false;
         std::vector<std::string> logs;
         try
         {
@@ -113,7 +113,8 @@ bool TestContainer::runAll(const std::string &filter, uint32_t base_seed)
         {
             logs.push_back("Unknown exception\n");
         }
-        std::cout << (ok ? "PASSED" : "FAILED") << '\n';
+        std::cout << (ok ? "\033[32mPASSED\033[39m" : "\033[31mFAILED\033[39m")
+                  << '\n';
         if (ok)
         {
             ++passed;

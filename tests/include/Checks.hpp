@@ -79,9 +79,9 @@ VecX finiteDifferenceVector(F evaluate, double h)
     VecX coarse = evaluate(h);
     for (int refinement = 0; refinement < 10; ++refinement)
     {
-        h          *= 0.5;
-        VecX fine    = evaluate(h);
-        const double scale = 1.0 + fine.lpNorm<Eigen::Infinity>();
+        h                  *= 0.5;
+        VecX         fine   = evaluate(h);
+        const double scale  = 1.0 + fine.lpNorm<Eigen::Infinity>();
         if (coarse.allFinite() && fine.allFinite() &&
             (fine - coarse).lpNorm<Eigen::Infinity>() <= 2e-7 * scale)
             return fine + (fine - coarse) / 3.0;
