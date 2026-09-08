@@ -203,6 +203,27 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     _params.abs_tolerance = _abs_tolerance_init;
     _params.rel_tolerance = _rel_tolerance_init;
 
+    // With no inequality constraints the LQR solve is already the complete
+    // QP solution. Applying the ADMM over-relaxation step would otherwise
+    // scale the unconstrained solution by alpha before the residual checks,
+    // which are intentionally inactive in this case.
+    if (_qp.dims.constraint == 0)
+    {
+        lqr_out       = lqr_solver.unconstrained();
+        _solution.dx  = lqr_out.x;
+        _solution.du  = lqr_out.u;
+        _solution.mu.vec.setZero();
+        for (uint k = 0; k < _qp.dims.horizon; ++k)
+        {
+            _solution.lambda.stage(k).noalias() =
+              lqr_out.P[k + 1] * _solution.dx.stage(k + 1);
+            _solution.lambda.stage(k) += lqr_out.p[k + 1];
+        }
+        _iter = 1;
+        sol    = _solution;
+        return SUCCESS;
+    }
+
     _rho_changed = true;
     for (_iter = 0;; ++_iter)
     {

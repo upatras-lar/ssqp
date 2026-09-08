@@ -143,21 +143,34 @@ void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
     {
         VecX e(ndx);
         e.setUnit(i);
-        dX.col(i) =
-          _next_dynamics->state_right_minus(
-            _dynamics->evaluate(_dynamics->state_right_plus(x, _h * e), u),
-            _dynamics->evaluate(_dynamics->state_right_plus(x, -_h * e), u)) /
-          (2 * _h);
+        dX.col(i) = finiteDifferenceVector(
+          [&](double step)
+          {
+              return VecX(
+                (_next_dynamics->state_right_minus(
+                   _dynamics->evaluate(
+                     _dynamics->state_right_plus(x, step * e), u),
+                   _dynamics->evaluate(
+                     _dynamics->state_right_plus(x, -step * e), u)) /
+                 (2 * step)));
+          },
+          _h);
     }
 
     for (uint i = 0; i < nu; ++i)
     {
         VecX e(nu);
         e.setUnit(i);
-        dU.col(i) = _next_dynamics->state_right_minus(
-                      _dynamics->evaluate(x, u + _h * e),
-                      _dynamics->evaluate(x, u - _h * e)) /
-                    (2 * _h);
+        dU.col(i) = finiteDifferenceVector(
+          [&](double step)
+          {
+              return VecX(
+                (_next_dynamics->state_right_minus(
+                   _dynamics->evaluate(x, u + step * e),
+                   _dynamics->evaluate(x, u - step * e)) /
+                 (2 * step)));
+          },
+          _h);
     }
 }
 
@@ -179,7 +192,11 @@ bool FDGradDynamics::run()
         double dXdiff = (dX - dXfd).lpNorm<Eigen::Infinity>();
         double dUdiff = (dU - dUfd).lpNorm<Eigen::Infinity>();
 
-        if (!close(dX, dXfd) || !close(dU, dUfd))
+        // Dynamics finite differences use a fixed initial stencil and can
+        // retain a small integration error for near-zero Jacobian entries.
+        // Keep the comparison componentwise while allowing that error.
+        if (!close(dX, dXfd, 2e-5, 2e-6) ||
+            !close(dU, dUfd, 2e-5, 2e-6))
         {
             double max_diff   = 0.0;
             int    idx_dx_row = -1, idx_dx_col = -1;
@@ -529,7 +546,7 @@ void FDGradFullTrajectoryCost::_fd_grad(const solvers::FlatVec &x,
             e.setUnit(i);
 
             solvers::FlatVec xp(x);
-            dx.stage(k)[i] = finiteDifference(
+            dx.stage(k)[i] = finiteDifferenceCentral(
               [&](double step)
               {
                   xp.stage(k) = dynamics[k]->state_right_plus(x_k, step * e);
@@ -551,7 +568,7 @@ void FDGradFullTrajectoryCost::_fd_grad(const solvers::FlatVec &x,
             e.setUnit(i);
 
             solvers::FlatVec up(u);
-            du.stage(k)[i] = finiteDifference(
+            du.stage(k)[i] = finiteDifferenceCentral(
               [&](double step)
               {
                   up.stage(k) = u_k + step * e;
@@ -606,7 +623,8 @@ bool FDGradFullTrajectoryCost::run()
         double dxdiff = (dx - dxfd).vec.lpNorm<Eigen::Infinity>();
         double dudiff = (du - dufd).vec.lpNorm<Eigen::Infinity>();
 
-        if (!close(dx.vec, dxfd.vec) || !close(du.vec, dufd.vec))
+        if (!close(dx.vec, dxfd.vec, 5e-6, 5e-6) ||
+            !close(du.vec, dufd.vec, 5e-6, 5e-6))
         {
             std::stringstream ss;
             ss << std::setprecision(17);

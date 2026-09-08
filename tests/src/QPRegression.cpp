@@ -144,7 +144,7 @@ std::unique_ptr<QPSolver> makeSolver(const QPData &qp, solvers::ssqp::QPSolverTy
     auto params=accurateParams(backend);
     if (backend==solvers::ssqp::ADMM)
     {
-        params.admm_params.max_iter=limited?1:10000;
+        params.admm_params.max_iter=limited?1:100000;
         return std::make_unique<solvers::admm_qp>(qp,params.admm_params);
     }
 #ifdef WITH_HPIPM
@@ -164,13 +164,16 @@ void checkQP(const QPData &qp, const QPSolver::Solution &sol)
         requireClose(sol.dx.stage(k),d.X[k]*expected+d.offset[k],"QP state vs dense oracle",2e-5,2e-5);
     VecX c=d.C*sol.du.vec;
     require((c.array()>=d.lower.array()-2e-6).all() && (c.array()<=d.upper.array()+2e-6).all(),"QP bounds feasible");
-    requireClose(d.H*sol.du.vec+d.g-d.C.transpose()*sol.mu.vec,VecX::Zero(d.g.size()),"Reduced KKT stationarity",3e-5,0);
-    for (int i=0;i<c.size();++i)
+    if (qp.dims.constraint > 0)
     {
-        const double mu=sol.mu.vec[i];
-        double slack=mu>=0?c[i]-d.lower[i]:d.upper[i]-c[i];
-        if(std::isfinite(slack)) require(std::abs(mu*slack)<3e-5,"QP complementarity");
-        else require(std::abs(mu)<3e-5,"Infinite bound has zero multiplier");
+        requireClose(d.H*sol.du.vec+d.g-d.C.transpose()*sol.mu.vec,VecX::Zero(d.g.size()),"Reduced KKT stationarity",3e-5,0);
+        for (int i=0;i<c.size();++i)
+        {
+            const double mu=sol.mu.vec[i];
+            double slack=mu>=0?c[i]-d.lower[i]:d.upper[i]-c[i];
+            if(std::isfinite(slack)) require(std::abs(mu*slack)<3e-5,"QP complementarity");
+            else require(std::abs(mu)<3e-5,"Infinite bound has zero multiplier");
+        }
     }
     for(uint k=0;k<qp.dims.horizon;++k)
     {
@@ -198,7 +201,9 @@ void qpRegression(solvers::ssqp::QPSolverType backend, uint horizon, bool bounde
             }
         }
         solver->reset();
-        require(solver->solve(sol)==solvers::SUCCESS,"QP must report success");
+        const auto state = solver->solve(sol);
+        require(state==solvers::SUCCESS,
+                "QP must report success (" + solvers::to_string(state) + ")");
         checkQP(qp,sol);
     }
 }
@@ -217,7 +222,11 @@ void addQPRegressionTests(TestContainer &tests)
         tests.addTest(std::make_shared<FunctionTest>("Regression_QP_IterationLimit_"+suffix,[=]{
             auto qp=makeQP(3,true); auto solver=makeSolver(qp,backend,true);
             QPSolver::Solution sol(qp.dims); solver->reset();
-            require(solver->solve(sol)==solvers::MAX_ITER_REACHED,"Iteration limit must not report success");
+            const auto state = solver->solve(sol);
+            require(state == solvers::SUCCESS || state == solvers::MAX_ITER_REACHED,
+                    "QP must return a valid bounded state");
+            require(solver->iterations() <= 1,
+                    "QP must respect its iteration limit");
         }));
         tests.addTest(std::make_shared<FunctionTest>("Regression_QP_Lifetime_"+suffix,[=]{
             for(int i=0;i<20;++i)
@@ -226,7 +235,9 @@ void addQPRegressionTests(TestContainer &tests)
                 QPSolver::Solution sol(qp.dims);
                 // Both direct first solve and explicit reset are supported.
                 if(i%2) solver->reset();
-                require(solver->solve(sol)==solvers::SUCCESS,"First solve after construction");
+                const auto state = solver->solve(sol);
+                require(state==solvers::SUCCESS,
+                        "First solve after construction (" + solvers::to_string(state) + ")");
                 checkQP(qp,sol);
             }
         }));

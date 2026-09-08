@@ -19,6 +19,7 @@
 #include <pinocchio/algorithm/regressor.hpp>
 
 #include <boost/variant.hpp>
+#include <optional>
 
 namespace ssqp
 {
@@ -27,7 +28,10 @@ namespace pinocchio_wrapper
 struct ModelImpl
 {
     pinocchio::Model model;
-    pinocchio::Data  data;
+    // Data must be constructed after Model. Constructing a temporary Data and
+    // move-assigning it into Pinocchio's default Data reads uninitialized
+    // Eigen solver state under sanitizers.
+    std::optional<pinocchio::Data> data;
 };
 
 struct JointTypeIdentifier : public boost::static_visitor<void>
@@ -91,7 +95,7 @@ void buildModelFromUrdf(const std::string         &urdf,
     {
         pinocchio::urdf::buildModel(urdf, impl->model);
     }
-    impl->data = pinocchio::Data(impl->model);
+    impl->data.emplace(impl->model);
 }
 
 void buildModelFromMjcf(const std::string         &mjcf,
@@ -107,7 +111,7 @@ void buildModelFromMjcf(const std::string         &mjcf,
     {
         pinocchio::mjcf::buildModel(mjcf, impl->model);
     }
-    impl->data = pinocchio::Data(impl->model);
+    impl->data.emplace(impl->model);
 }
 
 std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl)
@@ -251,14 +255,14 @@ Eigen::MatrixXd crba(const std::shared_ptr<ModelImpl> &impl,
                      const Eigen::VectorXd &q, bool local)
 {
     pinocchio::crba(impl->model,
-                    impl->data,
+                    *impl->data,
                     q,
                     local ? pinocchio::Convention::LOCAL
                           : pinocchio::Convention::WORLD);
 
-    impl->data.M = impl->data.M.selfadjointView<Eigen::Upper>();
+    impl->data->M = impl->data->M.selfadjointView<Eigen::Upper>();
 
-    return impl->data.M;
+    return impl->data->M;
 }
 
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
@@ -274,16 +278,16 @@ Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
         forces[i].angular() = fext[i].tail(3);
     }
 
-    pinocchio::aba(impl->model, impl->data, q, v, tau, forces);
-    return impl->data.ddq;
+    pinocchio::aba(impl->model, *impl->data, q, v, tau, forces);
+    return impl->data->ddq;
 }
 
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
                     const Eigen::VectorXd &tau)
 {
-    pinocchio::aba(impl->model, impl->data, q, v, tau);
-    return impl->data.ddq;
+    pinocchio::aba(impl->model, *impl->data, q, v, tau);
+    return impl->data->ddq;
 }
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
@@ -293,10 +297,10 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
                            Eigen::MatrixXd       &aba_partial_dv,
                            Eigen::MatrixXd       &Minv)
 {
-    pinocchio::computeABADerivatives(impl->model, impl->data, q, v, tau);
-    aba_partial_dq = impl->data.ddq_dq;
-    aba_partial_dv = impl->data.ddq_dv;
-    Minv           = impl->data.Minv;
+    pinocchio::computeABADerivatives(impl->model, *impl->data, q, v, tau);
+    aba_partial_dq = impl->data->ddq_dq;
+    aba_partial_dv = impl->data->ddq_dv;
+    Minv           = impl->data->Minv;
 }
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
@@ -316,22 +320,22 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
     }
 
     pinocchio::computeABADerivatives(impl->model,
-                                     impl->data,
+                                     *impl->data,
                                      q,
                                      v,
                                      tau,
                                      forces);
 
-    aba_partial_dq = impl->data.ddq_dq;
-    aba_partial_dv = impl->data.ddq_dv;
-    Minv           = impl->data.Minv;
+    aba_partial_dq = impl->data->ddq_dq;
+    aba_partial_dv = impl->data->ddq_dv;
+    Minv           = impl->data->Minv;
 }
 
 Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
                      const Eigen::VectorXd &q, const Eigen::VectorXd &v,
                      const Eigen::VectorXd &a)
 {
-    return pinocchio::rnea(impl->model, impl->data, q, v, a);
+    return pinocchio::rnea(impl->model, *impl->data, q, v, a);
 }
 
 Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
@@ -349,7 +353,7 @@ Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
         forces[i].angular() = fext[i].tail<3>();
     }
 
-    return pinocchio::rnea(impl->model, impl->data, q, v, a, forces);
+    return pinocchio::rnea(impl->model, *impl->data, q, v, a, forces);
 }
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
@@ -359,11 +363,11 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
                             Eigen::MatrixXd       &rnea_partial_dv,
                             Eigen::MatrixXd       &rnea_partial_da)
 {
-    pinocchio::computeRNEADerivatives(impl->model, impl->data, q, v, a);
+    pinocchio::computeRNEADerivatives(impl->model, *impl->data, q, v, a);
 
-    rnea_partial_dq = impl->data.dtau_dq;
-    rnea_partial_dv = impl->data.dtau_dv;
-    rnea_partial_da = impl->data.M;
+    rnea_partial_dq = impl->data->dtau_dq;
+    rnea_partial_dv = impl->data->dtau_dv;
+    rnea_partial_da = impl->data->M;
 
     rnea_partial_da = rnea_partial_da.selfadjointView<Eigen::Upper>();
 }
@@ -386,11 +390,11 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
         forces[i].angular() = fext[i].tail<3>();
     }
 
-    pinocchio::computeRNEADerivatives(impl->model, impl->data, q, v, a, forces);
+    pinocchio::computeRNEADerivatives(impl->model, *impl->data, q, v, a, forces);
 
-    rnea_partial_dq = impl->data.dtau_dq;
-    rnea_partial_dv = impl->data.dtau_dv;
-    rnea_partial_da = impl->data.M;
+    rnea_partial_dq = impl->data->dtau_dq;
+    rnea_partial_dv = impl->data->dtau_dv;
+    rnea_partial_da = impl->data->M;
 
     rnea_partial_da = rnea_partial_da.selfadjointView<Eigen::Upper>();
 }
@@ -600,42 +604,42 @@ void dDifference(const std::shared_ptr<ModelImpl> &impl,
 
 void updateFramePlacements(const std::shared_ptr<ModelImpl> &impl)
 {
-    pinocchio::updateFramePlacements(impl->model, impl->data);
+    pinocchio::updateFramePlacements(impl->model, *impl->data);
 }
 
 std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const std::string &frame)
 {
-    pinocchio::forwardKinematics(impl->model, impl->data, q);
+    pinocchio::forwardKinematics(impl->model, *impl->data, q);
     int frame_id = impl->model.getFrameId(frame);
-    pinocchio::updateFramePlacement(impl->model, impl->data, frame_id);
+    pinocchio::updateFramePlacement(impl->model, *impl->data, frame_id);
 
-    return { impl->data.oMf[frame_id].translation(),
-             impl->data.oMf[frame_id].rotation() };
+    return { impl->data->oMf[frame_id].translation(),
+             impl->data->oMf[frame_id].rotation() };
 }
 
 std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const Eigen::VectorXd &v, const std::string &frame)
 {
-    pinocchio::forwardKinematics(impl->model, impl->data, q, v);
+    pinocchio::forwardKinematics(impl->model, *impl->data, q, v);
     int frame_id = impl->model.getFrameId(frame);
-    pinocchio::updateFramePlacement(impl->model, impl->data, frame_id);
+    pinocchio::updateFramePlacement(impl->model, *impl->data, frame_id);
 
-    return { impl->data.oMf[frame_id].translation(),
-             impl->data.oMf[frame_id].rotation() };
+    return { impl->data->oMf[frame_id].translation(),
+             impl->data->oMf[frame_id].rotation() };
 }
 
 Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
                                      const Eigen::VectorXd            &q,
                                      const std::string                &frame)
 {
-    pinocchio::forwardKinematics(impl->model, impl->data, q);
+    pinocchio::forwardKinematics(impl->model, *impl->data, q);
     int frame_id = impl->model.getFrameId(frame);
-    pinocchio::updateFramePlacement(impl->model, impl->data, frame_id);
+    pinocchio::updateFramePlacement(impl->model, *impl->data, frame_id);
 
-    return impl->data.oMf[frame_id].toHomogeneousMatrix();
+    return impl->data->oMf[frame_id].toHomogeneousMatrix();
 }
 
 Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
@@ -643,7 +647,7 @@ Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
 {
     return pinocchio::getFrameVelocity(
              impl->model,
-             impl->data,
+             *impl->data,
              impl->model.getFrameId(frame),
              local ? pinocchio::ReferenceFrame::LOCAL
                    : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED)
@@ -658,7 +662,7 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 {
     pinocchio::computeForwardKinematicsDerivatives(
       impl->model,
-      impl->data,
+      *impl->data,
       q,
       v,
       Eigen::VectorXd::Zero(v.size()));
@@ -672,7 +676,7 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 
     pinocchio::getFrameAccelerationDerivatives(
       impl->model,
-      impl->data,
+      *impl->data,
       impl->model.getFrameId(frame),
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
@@ -687,12 +691,12 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const Eigen::VectorXd &q, const std::string &frame,
                    Eigen::MatrixXd &J, bool local)
 {
-    pinocchio::computeJointJacobians(impl->model, impl->data, q);
-    pinocchio::updateFramePlacements(impl->model, impl->data);
+    pinocchio::computeJointJacobians(impl->model, *impl->data, q);
+    pinocchio::updateFramePlacements(impl->model, *impl->data);
     int frame_id = impl->model.getFrameId(frame);
     pinocchio::getFrameJacobian(
       impl->model,
-      impl->data,
+      *impl->data,
       frame_id,
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
@@ -702,8 +706,8 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
 void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
                            const Eigen::VectorXd            &q)
 {
-    pinocchio::computeJointJacobians(impl->model, impl->data, q);
-    pinocchio::updateFramePlacements(impl->model, impl->data);
+    pinocchio::computeJointJacobians(impl->model, *impl->data, q);
+    pinocchio::updateFramePlacements(impl->model, *impl->data);
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
@@ -712,7 +716,7 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
     int frame_id = impl->model.getFrameId(frame);
     pinocchio::getFrameJacobian(
       impl->model,
-      impl->data,
+      *impl->data,
       frame_id,
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
@@ -722,13 +726,13 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
 Eigen::Vector3d centerOfMass(const std::shared_ptr<ModelImpl> &impl,
                              const Eigen::VectorXd            &q)
 {
-    return pinocchio::centerOfMass(impl->model, impl->data, q, false);
+    return pinocchio::centerOfMass(impl->model, *impl->data, q, false);
 }
 
 Eigen::MatrixXd jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
                                      const Eigen::VectorXd            &q)
 {
-    return pinocchio::jacobianCenterOfMass(impl->model, impl->data, q, false);
+    return pinocchio::jacobianCenterOfMass(impl->model, *impl->data, q, false);
 }
 
 Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl)
@@ -780,7 +784,7 @@ Eigen::MatrixXd computeJointTorqueRegressor(
   const Eigen::VectorXd &v, const Eigen::VectorXd &a)
 {
     return pinocchio::computeJointTorqueRegressor(impl->model,
-                                                  impl->data,
+                                                  *impl->data,
                                                   q,
                                                   v,
                                                   a);

@@ -91,11 +91,13 @@ void MPC::reinitialize(const std::vector<VecX> &states,
 
 std::pair<FlatVec, FlatVec> MPC::step(const VecX &state)
 {
+    // The feedback state is authoritative on every call, including the first
+    // one. Subsequent calls additionally shift the previous solution.
+    _model.setInitState(0, state);
+
     if (_prev_states != nullptr)
     {
         const uint H = _model.horizon();
-
-        _model.setInitState(0, state);
 
         for (uint k = 0; k + 2 <= H; ++k)
         {
