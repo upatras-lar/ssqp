@@ -624,6 +624,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         if (ctx.tau_bound.size())
         {
             lb.segment(_bounded_joint_indices.size() + _dims.njoints,
+                       _dims.nu) = -ctx.tau_bound;
+            ub.segment(_bounded_joint_indices.size() + _dims.njoints,
                        _dims.nu) = ctx.tau_bound;
         }
     }

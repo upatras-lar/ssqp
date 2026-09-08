@@ -274,7 +274,7 @@ void Model::finalize(const Config &config)
         {
             for (uint k = 0; k < _dims.horizon; ++k)
             {
-                config.dynamics[k]->set_init_control(config.init_controls[k]);
+                config.dynamics[k]->set_init_control(config.init_controls[0]);
             }
         }
         else if (config.init_controls.size() == _dims.horizon)
@@ -946,10 +946,11 @@ std::vector<std::string> Model::orderedActuatedJoints() const
 
 void Model::setActuatedJoints(const std::vector<uint> &actuated_joints)
 {
+    _actuated_joints.clear();
+    _unactuated_joints.clear();
+
     if (actuated_joints.empty())
     {
-        _actuated_joints.clear();
-
         for (uint j = 0; j < (_solver_mode == SolverMode::ReducedInverseDynamics
                                 ? _dims.nu
                                 : _dims.njoints);
@@ -960,8 +961,20 @@ void Model::setActuatedJoints(const std::vector<uint> &actuated_joints)
     }
     else
     {
+        for (const uint j : actuated_joints)
+        {
+            if (j >= _dims.njoints)
+            {
+                throw std::runtime_error(
+                  "Model::setActuatedJoints: Invalid actuated joint index");
+            }
+        }
+
         _actuated_joints = actuated_joints;
         std::sort(_actuated_joints.begin(), _actuated_joints.end());
+        _actuated_joints.erase(
+          std::unique(_actuated_joints.begin(), _actuated_joints.end()),
+          _actuated_joints.end());
     }
 
     if (_solver_mode == ReducedInverseDynamics && !_actuated_joints.empty())
@@ -1234,7 +1247,7 @@ void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
         return;
     }
 
-    J.diagonal().setConstant(1.0);
+    J.diagonal().setConstant(arg_pos == 0 ? 1.0 : -1.0);
 }
 
 MatX Model::getMatrixActuatedPart(const MatX &M) const

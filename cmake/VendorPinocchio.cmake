@@ -98,9 +98,39 @@ else()
     set(_ssqp_boost_package_deps "")
     set(_ssqp_boost_from_source FALSE)
 
+    # The system archives must also be linkable into a shared object: ssqpy
+    # is a Python extension module, and distro-packaged static Boost
+    # archives (e.g. Debian/Ubuntu) are typically compiled without -fPIC,
+    # which breaks that link even though a plain static ssqp build would
+    # succeed. Probe for this before committing to the fast path below,
+    # forcing every object into the link via --whole-archive since any
+    # single non-PIC object anywhere in either archive is enough to fail it.
+    set(_ssqp_system_boost_is_pic FALSE)
     if(_ssqp_boost_include_dir
        AND _ssqp_system_boost_filesystem
        AND _ssqp_system_boost_serialization)
+        set(_ssqp_boost_pic_probe_dir ${CMAKE_BINARY_DIR}/CMakeFiles/ssqp_boost_pic_probe)
+        file(MAKE_DIRECTORY ${_ssqp_boost_pic_probe_dir})
+        file(WRITE ${_ssqp_boost_pic_probe_dir}/probe.cpp "")
+        execute_process(
+            COMMAND ${CMAKE_CXX_COMPILER} -fPIC -shared
+                -o ${_ssqp_boost_pic_probe_dir}/probe.so
+                ${_ssqp_boost_pic_probe_dir}/probe.cpp
+                -Wl,--whole-archive
+                ${_ssqp_system_boost_filesystem} ${_ssqp_system_boost_serialization}
+                -Wl,--no-whole-archive
+            RESULT_VARIABLE _ssqp_boost_pic_probe_result
+            OUTPUT_QUIET ERROR_QUIET
+        )
+        if(_ssqp_boost_pic_probe_result EQUAL 0)
+            set(_ssqp_system_boost_is_pic TRUE)
+        else()
+            message(STATUS
+                "System Boost static archives are not position-independent; building Boost from source instead")
+        endif()
+    endif()
+
+    if(_ssqp_system_boost_is_pic)
         message(STATUS
             "Using system Boost static archives: ${_ssqp_system_boost_filesystem}; ${_ssqp_system_boost_serialization}")
         # Use the system archives directly when both required static
@@ -247,7 +277,7 @@ else()
         -DBoost_USE_STATIC_RUNTIME=OFF
         -DBoost_NO_SYSTEM_PATHS=ON
         -DBoost_INCLUDE_DIR=${_ssqp_boost_include_dir}
-        -DBoost_LIBRARY_DIRS=${_ssqp_boost_library_dir}
+        -DBoost_LIBRARY_DIR=${_ssqp_boost_library_dir}
     )
 
     # CMake 4 rejects projects whose declared policy version predates 3.5.
