@@ -1,5 +1,6 @@
 #include "Test.hpp"
 
+#include <fstream>
 #include <iomanip>
 #include <unordered_set>
 
@@ -7,6 +8,48 @@ namespace ssqp
 {
 namespace tests
 {
+namespace
+{
+std::filesystem::path failureLogPath(const std::string &test_name)
+{
+    return std::filesystem::path("tests/logs") / (test_name + ".txt");
+}
+
+void writeFailureLog(const std::string              &test_name,
+                     const std::vector<std::string> &logs)
+{
+    const std::filesystem::path path = failureLogPath(test_name);
+    std::error_code              error;
+    std::filesystem::create_directories(path.parent_path(), error);
+
+    if (error)
+    {
+        std::cout << "Failed to create log directory "
+                  << path.parent_path().string() << ": " << error.message()
+                  << '\n';
+        return;
+    }
+
+    std::ofstream output(path);
+    if (!output.is_open())
+    {
+        std::cout << "Failed to create file " << path.string() << '\n';
+        return;
+    }
+
+    for (const auto &log : logs) output << log;
+
+    std::cout << "Failed test " << test_name << ": Logs written to "
+              << path.string() << '\n';
+}
+
+void removeFailureLog(const std::string &test_name)
+{
+    std::error_code error;
+    std::filesystem::remove(failureLogPath(test_name), error);
+}
+}
+
 Test::Test(const std::string &name) : _name(name) {}
 const std::vector<std::string> Test::what() const
 {
@@ -55,25 +98,37 @@ bool TestContainer::runAll(const std::string &filter, uint32_t base_seed)
         test->seed(seed);
         std::cout << test->name() << " (seed " << seed << "): " << std::flush;
         bool ok = false;
+        std::vector<std::string> logs;
         try
         {
             ok = test->run();
         }
         catch (const std::exception &e)
         {
-            std::cerr << "\nException: " << e.what() << '\n';
+            logs.push_back("Exception: ");
+            logs.push_back(e.what());
+            logs.push_back("\n");
         }
         catch (...)
         {
-            std::cerr << "\nUnknown exception\n";
+            logs.push_back("Unknown exception\n");
         }
         std::cout << (ok ? "PASSED" : "FAILED") << '\n';
-        if (ok) ++passed;
+        if (ok)
+        {
+            ++passed;
+            removeFailureLog(test->name());
+        }
         else
-            for (const auto &log : test->what()) std::cerr << log << '\n';
+        {
+            const auto test_logs = test->what();
+            logs.insert(logs.end(), test_logs.begin(), test_logs.end());
+            if (logs.empty()) logs.push_back("Test returned false\n");
+            writeFailureLog(test->name(), logs);
+        }
     }
     std::cout << "Passed: " << passed << '/' << selected << '\n';
-    if (!selected) std::cerr << "No tests matched: " << filter << '\n';
+    if (!selected) std::cout << "No tests matched: " << filter << '\n';
     return selected != 0 && passed == selected;
 }
 FunctionTest::FunctionTest(const std::string    &name,

@@ -10,9 +10,8 @@ ctest --test-dir build --output-on-failure -j4
 
 CTest discovers cases from `run_tests --list` and starts a separate process for
  each case. A crash, timeout, exception, failed assertion, or failed numerical
-check fails the case; other cases still run. Failure diagnostics are written to
-standard error and captured in `build/Testing/Temporary/LastTest.log`. The runner
-never deletes or writes files in `tests/logs`.
+check fails the case; other cases still run. Failed tests write their diagnostics
+to `tests/logs/<test-name>.txt`; a stale log is removed when that test passes.
 
 To run a subset or reproduce a random sample:
 
