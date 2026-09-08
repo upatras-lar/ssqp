@@ -9,11 +9,12 @@ namespace ssqp
 namespace step
 {
 template<typename SelectionMethod>
-std::tuple<solvers::FlatVec, solvers::FlatVec, double> step(
-  const SelectionMethod &selection, solvers::FlatVec &x, solvers::FlatVec &u,
-  const solvers::FlatVec &dX, const solvers::FlatVec &dU,
-  const model::DynamicsContainer &dynamics, double inv_alpha_scale_factor,
-  double min_alpha);
+double step(const SelectionMethod &selection, const solvers::FlatVec &x,
+            const solvers::FlatVec &u, const solvers::FlatVec &dX,
+            const solvers::FlatVec         &dU,
+            const model::DynamicsContainer &dynamics,
+            double inv_alpha_scale_factor, double min_alpha,
+            solvers::FlatVec &x_out, solvers::FlatVec &u_out);
 }
 }
 

@@ -4,7 +4,9 @@ namespace ssqp
 {
 namespace step
 {
-Point::Point(const solvers::FlatVec &x, const solvers::FlatVec &u) : x(x), u(u)
+Point::Point(const solvers::FlatVec &x, const solvers::FlatVec &u, bool copy)
+  : x(x, copy)
+  , u(u, copy)
 {
 }
 
@@ -15,24 +17,23 @@ Point &Point::operator=(const Point &p)
     return *this;
 }
 
-Point Point::dynamics_add(const Point                    &p,
-                          const model::DynamicsContainer &dynamics) const
+void Point::dynamics_add_scaled(double alpha, const Point &offset,
+                                const model::DynamicsContainer &dynamics,
+                                Point                          &out) const
 {
-    assert(x.stages() == p.x.stages() && u.stages() == p.u.stages() &&
-           "FlatVec x+y: stage mismatch");
-    solvers::FlatVec xn(x, false), un(u, false);
+    assert(x.stages() == offset.x.stages() && u.stages() == offset.u.stages() &&
+           "Point dynamics_add_scaled: stage mismatch");
 
     for (uint k = 0; k < x.stages(); ++k)
     {
-        xn.stage(k) = dynamics[k]->state_right_plus(x.stage(k), p.x.stage(k));
+        out.x.stage(k) =
+          dynamics[k]->state_right_plus(x.stage(k), alpha * offset.x.stage(k));
     }
 
     for (uint k = 0; k < u.stages(); ++k)
     {
-        un.stage(k) = u.stage(k) + p.u.stage(k);
+        out.u.stage(k) = u.stage(k) + alpha * offset.u.stage(k);
     }
-
-    return Point(xn, un);
 }
 
 double Point::infNorm()
@@ -41,11 +42,6 @@ double Point::infNorm()
     double norm2 = u.vec.lpNorm<Eigen::Infinity>();
 
     return std::max(norm1, norm2);
-}
-
-Point operator*(double val, const Point &p)
-{
-    return Point(val * p.x, val * p.u);
 }
 }
 }
