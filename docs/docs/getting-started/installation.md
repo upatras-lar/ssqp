@@ -89,6 +89,21 @@ Pass options as `-D<OPTION>=<VALUE>` to `cmake`, e.g.:
 cmake -DWITH_HPIPM=ON -DBUILD_EXAMPLES=ON ..
 ```
 
+### CMake targets
+
+Build a specific target instead of everything with `cmake --build . --target <target>`:
+
+| Target | Description |
+| --- | --- |
+| `ssqp` | The static C++ library; always built |
+| `ssqpy` | The `ssqpy` Python extension module (`BUILD_PYTHON=ON`, the default) |
+| `run_tests` | The unit/regression test executable under `tests/` (`BUILD_TESTS=ON`, the default) |
+| *(per-file, e.g.* `analytical-di`*)* | One executable per C++ example under `examples/trajgen/c++` (`BUILD_EXAMPLES=ON`); named after the file's path relative to that directory, with `/` replaced by `-` |
+| `install` | Installs the built `ssqpy` (plus its type stubs) into the configured Python interpreter's `site-packages`; see [Using the Python bindings](#using-the-python-bindings) |
+| `verify-static-dependencies` | Confirms `ssqp`/`ssqpy` link no shared Boost, Pinocchio, URDF, HPIPM, or BLASFEO libraries (`BUILD_PYTHON=ON` and [`readelf`](https://man7.org/linux/man-pages/man1/readelf.1.html) available) |
+| `package-pinocchio` | Assembles a redistributable prebuilt Pinocchio package; see [Building against prebuilt dependencies](#building-against-prebuilt-dependencies) below (unavailable when `SSQP_PREBUILT_PINOCCHIO_DIR` is set) |
+| `package-hpipm` | Assembles a redistributable prebuilt HPIPM/BLASFEO package; see [Building against prebuilt dependencies](#building-against-prebuilt-dependencies) below (`WITH_HPIPM=ON`, unavailable when `SSQP_PREBUILT_HPIPM_DIR` is set) |
+
 ## Building against prebuilt dependencies
 
 Building Pinocchio (and, if `WITH_HPIPM` is on, HPIPM/BLASFEO) from source is the default, but that isn't always
