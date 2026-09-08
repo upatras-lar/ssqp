@@ -5,9 +5,10 @@
 #
 # - From source (default): fetched and built right here into
 #   ${SSQP_VENDOR_PREFIX}, so that ssqp can be built with nothing beyond a
-#   C++17 compiler, CMake, Eigen3 and Boost. This mode also defines a
-#   `package-pinocchio` target (see bottom of this file) that assembles a
-#   redistributable copy of the result for the mode below.
+#   C++17 compiler, CMake, Eigen3 and the compiler toolchain. Boost's
+#   filesystem and serialization libraries are always linked statically. This
+#   mode also defines a `package-pinocchio` target (see bottom of this file)
+#   that assembles a redistributable copy of the result for the mode below.
 #
 # - Prebuilt (SSQP_PREBUILT_PINOCCHIO_DIR set): a pre-existing package
 #   produced by `package-pinocchio` on a matching architecture is used as-is
@@ -46,14 +47,183 @@ target_compile_definitions(pinocchio_vendored INTERFACE
     PINOCCHIO_ENABLE_TEMPLATE_INSTANTIATION
     BOOST_MPL_LIMIT_LIST_SIZE=30
     BOOST_MPL_LIMIT_VECTOR_SIZE=30
+    BOOST_ALL_NO_LIB
+    BOOST_FILESYSTEM_STATIC_LINK
+    BOOST_SERIALIZATION_STATIC_LINK
 )
 
 if(SSQP_PREBUILT_PINOCCHIO_DIR)
     set(_ssqp_pinocchio_dir ${SSQP_PREBUILT_PINOCCHIO_DIR})
 else()
     include(ExternalProject)
+    include(FetchContent)
 
-    find_package(Boost REQUIRED COMPONENTS filesystem serialization)
+    # The component repositories are fetched as source only and compiled by
+    # our own STATIC targets below. FetchContent_MakeAvailable would add the
+    # component projects, whose standalone CMake files expect the full Boost
+    # superproject, so direct population is intentional here.
+    if(POLICY CMP0169)
+        cmake_policy(SET CMP0169 OLD)
+    endif()
+
+    # A source fallback is used when either the Boost headers or the two
+    # required static archives are unavailable. The fallback version is only
+    # used when no system Boost headers exist; with system headers, the
+    # component sources are fetched at the matching Boost version.
+    set(SSQP_BOOST_VERSION "1.86.0" CACHE STRING
+        "Boost version to fetch when system Boost is unavailable")
+
+    # We only need Boost's headers and two archives. Avoid find_package(Boost)
+    # here: CMake 4 removed its FindBoost module, while the config package is
+    # not needed and does not consistently expose static component archives.
+    find_path(_ssqp_boost_include_dir
+        NAMES boost/version.hpp
+        HINTS ${Boost_INCLUDE_DIR} ${Boost_INCLUDE_DIRS}
+    )
+
+    # Ask find_library for archives only. CMake otherwise prefers shared
+    # libraries on most Unix platforms, even when a static archive is also
+    # installed.
+    set(_ssqp_saved_find_library_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+    find_library(_ssqp_system_boost_filesystem
+        NAMES boost_filesystem
+        HINTS ${Boost_LIBRARY_DIRS})
+    find_library(_ssqp_system_boost_serialization
+        NAMES boost_serialization
+        HINTS ${Boost_LIBRARY_DIRS})
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_ssqp_saved_find_library_suffixes})
+
+    set(_ssqp_boost_static_targets "")
+    set(_ssqp_boost_package_deps "")
+    set(_ssqp_boost_from_source FALSE)
+
+    if(_ssqp_boost_include_dir
+       AND _ssqp_system_boost_filesystem
+       AND _ssqp_system_boost_serialization)
+        message(STATUS
+            "Using system Boost static archives: ${_ssqp_system_boost_filesystem}; ${_ssqp_system_boost_serialization}")
+        # Use the system archives directly when both required static
+        # libraries are available.
+        add_library(ssqp_boost_filesystem STATIC IMPORTED GLOBAL)
+        set_target_properties(ssqp_boost_filesystem PROPERTIES
+            IMPORTED_LOCATION ${_ssqp_system_boost_filesystem}
+            INTERFACE_INCLUDE_DIRECTORIES ${_ssqp_boost_include_dir}
+        )
+        add_library(ssqp_boost_serialization STATIC IMPORTED GLOBAL)
+        set_target_properties(ssqp_boost_serialization PROPERTIES
+            IMPORTED_LOCATION ${_ssqp_system_boost_serialization}
+            INTERFACE_INCLUDE_DIRECTORIES ${_ssqp_boost_include_dir}
+        )
+        list(APPEND _ssqp_boost_static_targets
+            ssqp_boost_filesystem
+            ssqp_boost_serialization
+        )
+        get_filename_component(_ssqp_boost_library_dir
+            ${_ssqp_system_boost_filesystem} DIRECTORY)
+    else()
+        # Build PIC static archives so the same Boost objects can be linked
+        # into both libssqp.a and the ssqpy shared module.
+        set(_ssqp_boost_from_source TRUE)
+
+        if(_ssqp_boost_include_dir)
+            file(STRINGS ${_ssqp_boost_include_dir}/boost/version.hpp
+                _ssqp_boost_version_line
+                REGEX "^#define[ \t]+BOOST_VERSION[ \t]+[0-9]+")
+            string(REGEX MATCH "[0-9]+$" _ssqp_boost_version_number
+                "${_ssqp_boost_version_line}")
+            math(EXPR _ssqp_boost_version_major
+                "${_ssqp_boost_version_number} / 100000")
+            math(EXPR _ssqp_boost_version_minor
+                "(${_ssqp_boost_version_number} / 100) % 1000")
+            math(EXPR _ssqp_boost_version_patch
+                "${_ssqp_boost_version_number} % 100")
+            set(_ssqp_boost_source_version
+                ${_ssqp_boost_version_major}.${_ssqp_boost_version_minor}.${_ssqp_boost_version_patch})
+            message(STATUS
+                "Boost static archives unavailable; fetching Boost ${_ssqp_boost_source_version} component sources")
+
+            FetchContent_Declare(ssqp_boost_filesystem_src
+                GIT_REPOSITORY https://github.com/boostorg/filesystem.git
+                GIT_TAG boost-${_ssqp_boost_source_version}
+                GIT_SHALLOW TRUE
+                UPDATE_DISCONNECTED TRUE
+            )
+            FetchContent_Declare(ssqp_boost_serialization_src
+                GIT_REPOSITORY https://github.com/boostorg/serialization.git
+                GIT_TAG boost-${_ssqp_boost_source_version}
+                GIT_SHALLOW TRUE
+                UPDATE_DISCONNECTED TRUE
+            )
+            FetchContent_Populate(ssqp_boost_filesystem_src)
+            FetchContent_Populate(ssqp_boost_serialization_src)
+            set(_ssqp_boost_filesystem_src_dir
+                ${ssqp_boost_filesystem_src_SOURCE_DIR}/src)
+            set(_ssqp_boost_serialization_src_dir
+                ${ssqp_boost_serialization_src_SOURCE_DIR}/src)
+        else()
+            # The Boost release archive contains the headers and the two
+            # component source trees, avoiding a dependency on a system Boost
+            # installation altogether.
+            message(STATUS
+                "Boost is unavailable; fetching Boost ${SSQP_BOOST_VERSION} sources")
+            string(REPLACE "." "_" _ssqp_boost_archive_version
+                   ${SSQP_BOOST_VERSION})
+            FetchContent_Declare(ssqp_boost_src
+                URL https://archives.boost.io/release/${SSQP_BOOST_VERSION}/source/boost_${_ssqp_boost_archive_version}.tar.gz
+                DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            )
+            FetchContent_Populate(ssqp_boost_src)
+            set(_ssqp_boost_include_dir ${ssqp_boost_src_SOURCE_DIR})
+            set(_ssqp_boost_filesystem_src_dir
+                ${ssqp_boost_src_SOURCE_DIR}/libs/filesystem/src)
+            set(_ssqp_boost_serialization_src_dir
+                ${ssqp_boost_src_SOURCE_DIR}/libs/serialization/src)
+        endif()
+
+        file(GLOB _ssqp_boost_filesystem_srcs CONFIGURE_DEPENDS
+            ${_ssqp_boost_filesystem_src_dir}/*.cpp)
+        list(FILTER _ssqp_boost_filesystem_srcs EXCLUDE REGEX
+            "windows_file_codecvt\\.cpp$")
+        add_library(ssqp_boost_filesystem STATIC EXCLUDE_FROM_ALL
+            ${_ssqp_boost_filesystem_srcs})
+        target_include_directories(ssqp_boost_filesystem SYSTEM PRIVATE
+            ${_ssqp_boost_include_dir})
+        target_compile_definitions(ssqp_boost_filesystem PRIVATE
+            BOOST_FILESYSTEM_STATIC_LINK BOOST_ALL_NO_LIB)
+        set_target_properties(ssqp_boost_filesystem PROPERTIES
+            OUTPUT_NAME boost_filesystem
+            ARCHIVE_OUTPUT_DIRECTORY ${SSQP_VENDOR_PREFIX}/lib
+            POSITION_INDEPENDENT_CODE ON
+            CXX_STANDARD 20
+            CXX_STANDARD_REQUIRED ON
+        )
+
+        file(GLOB _ssqp_boost_serialization_srcs CONFIGURE_DEPENDS
+            ${_ssqp_boost_serialization_src_dir}/*.cpp)
+        add_library(ssqp_boost_serialization STATIC EXCLUDE_FROM_ALL
+            ${_ssqp_boost_serialization_srcs})
+        target_include_directories(ssqp_boost_serialization SYSTEM PRIVATE
+            ${_ssqp_boost_include_dir})
+        target_compile_definitions(ssqp_boost_serialization PRIVATE
+            BOOST_SERIALIZATION_STATIC_LINK BOOST_ALL_NO_LIB)
+        set_target_properties(ssqp_boost_serialization PROPERTIES
+            OUTPUT_NAME boost_serialization
+            ARCHIVE_OUTPUT_DIRECTORY ${SSQP_VENDOR_PREFIX}/lib
+            POSITION_INDEPENDENT_CODE ON
+            CXX_STANDARD 20
+            CXX_STANDARD_REQUIRED ON
+        )
+        list(APPEND _ssqp_boost_static_targets
+            ssqp_boost_filesystem
+            ssqp_boost_serialization
+        )
+        list(APPEND _ssqp_boost_package_deps
+            ssqp_boost_filesystem
+            ssqp_boost_serialization
+        )
+        set(_ssqp_boost_library_dir ${SSQP_VENDOR_PREFIX}/lib)
+    endif()
 
     set(_ssqp_pinocchio_dir ${SSQP_VENDOR_PREFIX})
 
@@ -73,6 +243,11 @@ else()
         -DCMAKE_INSTALL_LIBDIR=lib
         -DCMAKE_PREFIX_PATH=${SSQP_VENDOR_PREFIX}
         -DBUILD_TESTING=OFF
+        -DBoost_USE_STATIC_LIBS=ON
+        -DBoost_USE_STATIC_RUNTIME=OFF
+        -DBoost_NO_SYSTEM_PATHS=ON
+        -DBoost_INCLUDE_DIR=${_ssqp_boost_include_dir}
+        -DBoost_LIBRARY_DIRS=${_ssqp_boost_library_dir}
     )
 
     # CMake 4 rejects projects whose declared policy version predates 3.5.
@@ -156,6 +331,12 @@ else()
             ${SSQP_VENDOR_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}pinocchio_visualizers${CMAKE_STATIC_LIBRARY_SUFFIX}
     )
 
+    # If Boost was fetched and compiled by this build, make it available
+    # before the child projects configure and search for Boost libraries.
+    if(_ssqp_boost_from_source)
+        add_dependencies(urdfdom_ext ${_ssqp_boost_package_deps})
+        add_dependencies(pinocchio_ext ${_ssqp_boost_package_deps})
+    endif()
     add_dependencies(pinocchio_vendored pinocchio_ext)
 endif()
 
@@ -178,14 +359,11 @@ if(SSQP_PREBUILT_PINOCCHIO_DIR)
     list(APPEND _pinocchio_lib_paths
         ${_ssqp_pinocchio_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}
         ${_ssqp_pinocchio_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}boost_serialization${CMAKE_STATIC_LIBRARY_SUFFIX})
-    target_link_libraries(pinocchio_vendored INTERFACE -Wl,--start-group ${_pinocchio_lib_paths} -Wl,--end-group)
-else()
-    target_link_libraries(pinocchio_vendored INTERFACE
-        -Wl,--start-group ${_pinocchio_lib_paths} -Wl,--end-group
-        Boost::filesystem
-        Boost::serialization
-    )
 endif()
+
+target_link_libraries(pinocchio_vendored INTERFACE
+    -Wl,--start-group ${_pinocchio_lib_paths} ${_ssqp_boost_static_targets} -Wl,--end-group
+)
 
 if(NOT SSQP_PREBUILT_PINOCCHIO_DIR)
     # --- package-pinocchio: assemble a redistributable copy of the above ---
@@ -198,62 +376,6 @@ if(NOT SSQP_PREBUILT_PINOCCHIO_DIR)
     # pinocchio::Data by value requires its full definition, which pulls in
     # boost::variant).
     #
-    # The system's Boost static libs (the only ones most distros ship) are
-    # not built with -fPIC, so they can't be linked into ssqpy (a shared
-    # object) — only into plain executables like run_tests, where the
-    # problem doesn't show up. There's no PIC variant to fall back to (this
-    # is also why the default from-source build doesn't hit this: it links
-    # against Boost's *shared* .so via the Boost::filesystem/serialization
-    # imported targets below, which needs no PIC static archive at all).
-    # So filesystem and serialization — the only two Boost libraries ssqp
-    # actually needs — are recompiled here from their own upstream sources,
-    # at the tag matching the system Boost version so headers and object
-    # code agree, with -fPIC. They need -std=c++20 (their own atomic_ref
-    # usage needs it) independently of the rest of this project's C++17,
-    # which is safe: it doesn't change the object's C++ ABI.
-    include(FetchContent)
-    FetchContent_Declare(boost_filesystem_pic_src
-        GIT_REPOSITORY https://github.com/boostorg/filesystem.git
-        GIT_TAG boost-${Boost_VERSION}
-        GIT_SHALLOW TRUE
-    )
-    FetchContent_Declare(boost_serialization_pic_src
-        GIT_REPOSITORY https://github.com/boostorg/serialization.git
-        GIT_TAG boost-${Boost_VERSION}
-        GIT_SHALLOW TRUE
-    )
-    # FetchContent_MakeAvailable would also add_subdirectory() these — their
-    # CMakeLists.txt assumes it's being built inside the full Boost
-    # superproject (e.g. serialization's links against a Boost::array
-    # target that only exists there), so FetchContent_Populate is used
-    # instead to fetch the source without invoking their own build.
-    FetchContent_Populate(boost_filesystem_pic_src)
-    FetchContent_Populate(boost_serialization_pic_src)
-
-    file(GLOB _boost_filesystem_pic_srcs ${boost_filesystem_pic_src_SOURCE_DIR}/src/*.cpp)
-    list(FILTER _boost_filesystem_pic_srcs EXCLUDE REGEX "windows_file_codecvt\\.cpp$")
-    add_library(boost_filesystem_pic STATIC EXCLUDE_FROM_ALL ${_boost_filesystem_pic_srcs})
-    target_include_directories(boost_filesystem_pic SYSTEM PRIVATE ${Boost_INCLUDE_DIRS})
-    target_compile_definitions(boost_filesystem_pic PRIVATE BOOST_FILESYSTEM_STATIC_LINK BOOST_ALL_NO_LIB)
-    set_target_properties(boost_filesystem_pic PROPERTIES
-        OUTPUT_NAME boost_filesystem
-        POSITION_INDEPENDENT_CODE ON
-        CXX_STANDARD 20
-        CXX_STANDARD_REQUIRED ON
-    )
-
-    file(GLOB _boost_serialization_pic_srcs ${boost_serialization_pic_src_SOURCE_DIR}/src/*.cpp)
-    add_library(boost_serialization_pic STATIC EXCLUDE_FROM_ALL ${_boost_serialization_pic_srcs})
-    target_include_directories(boost_serialization_pic SYSTEM PRIVATE ${Boost_INCLUDE_DIRS})
-    target_compile_definitions(boost_serialization_pic PRIVATE BOOST_ALL_NO_LIB)
-    set_target_properties(boost_serialization_pic PROPERTIES
-        OUTPUT_NAME boost_serialization
-        POSITION_INDEPENDENT_CODE ON
-        CXX_STANDARD 20
-        CXX_STANDARD_REQUIRED ON
-    )
-
-    list(GET Boost_INCLUDE_DIRS 0 _boost_include_dir)
     set(SSQP_PINOCCHIO_PACKAGE_DIR "${CMAKE_BINARY_DIR}/prebuilt/pinocchio" CACHE PATH
         "Output directory for the 'package-pinocchio' redistributable prebuilt package target")
 
@@ -261,13 +383,13 @@ if(NOT SSQP_PREBUILT_PINOCCHIO_DIR)
         COMMAND ${CMAKE_COMMAND} -E rm -rf ${SSQP_PINOCCHIO_PACKAGE_DIR}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${SSQP_PINOCCHIO_PACKAGE_DIR}/include ${SSQP_PINOCCHIO_PACKAGE_DIR}/lib
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${_ssqp_pinocchio_dir}/include ${SSQP_PINOCCHIO_PACKAGE_DIR}/include
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${_boost_include_dir}/boost ${SSQP_PINOCCHIO_PACKAGE_DIR}/include/boost
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${_ssqp_boost_include_dir}/boost ${SSQP_PINOCCHIO_PACKAGE_DIR}/include/boost
         COMMAND ${CMAKE_COMMAND} -E copy ${_pinocchio_lib_paths} ${SSQP_PINOCCHIO_PACKAGE_DIR}/lib/
         COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:boost_filesystem_pic> $<TARGET_FILE:boost_serialization_pic>
+            $<TARGET_FILE:ssqp_boost_filesystem> $<TARGET_FILE:ssqp_boost_serialization>
             ${SSQP_PINOCCHIO_PACKAGE_DIR}/lib/
-        DEPENDS pinocchio_ext boost_filesystem_pic boost_serialization_pic
-        COMMENT "Assembling redistributable prebuilt Pinocchio package (headers + static libs, Boost bundled and PIC-compiled) at ${SSQP_PINOCCHIO_PACKAGE_DIR}"
+        DEPENDS pinocchio_ext ${_ssqp_boost_package_deps}
+        COMMENT "Assembling redistributable prebuilt Pinocchio package (headers + static libs, Boost bundled) at ${SSQP_PINOCCHIO_PACKAGE_DIR}"
         VERBATIM
     )
 endif()
