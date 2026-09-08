@@ -64,7 +64,10 @@ The default source build requires:
 - A C++17 compiler
 - CMake 3.22 or newer
 - Eigen3
-- Boost Filesystem and Boost Serialization
+- Boost headers and static Filesystem and Serialization archives, when
+  available. If the headers or either static archive is unavailable, CMake
+  fetches the matching Boost sources and builds PIC static archives
+  automatically.
 - Git and network access for the first build
 - Python 3.10 or newer and NumPy when Python bindings are enabled
 
@@ -96,6 +99,15 @@ The default configuration builds the Python bindings and tests. The compiled
 library is placed under `build/lib`, the Python module under
 `build/bindings`, and the test runner under `build/tests`.
 
+The Boost components used by Pinocchio are always linked statically. The
+`ssqpy` extension still uses the normal platform C and C++ runtime libraries,
+but it does not depend on shared Boost, Pinocchio, URDF, HPIPM, or BLASFEO
+libraries. Verify this for a completed build with:
+
+```sh
+cmake --build build --target verify-static-dependencies
+```
+
 ### CMake options
 
 Pass options during configuration with `-DNAME=VALUE`:
@@ -109,6 +121,7 @@ Pass options during configuration with `-DNAME=VALUE`:
 | `ENABLE_PROFILING` | `OFF` | Enable Tracy profiling support |
 | `DISABLE_LOGGING` | `OFF` | Compile out SSQP logging |
 | `ENABLE_SANITIZERS` | `OFF` | Enable AddressSanitizer and UndefinedBehaviorSanitizer |
+| `SSQP_BOOST_VERSION` | `1.86.0` | Boost release fetched when no system Boost headers are available |
 
 For example, to enable HPIPM and the C++ examples:
 

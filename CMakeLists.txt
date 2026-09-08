@@ -153,6 +153,27 @@ if(BUILD_PYTHON)
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bindings"
     )
 
+    # The Python extension is a shared object, so it necessarily keeps the
+    # platform C/C++ runtime dependencies. This target makes sure that the
+    # libraries owned by SSQP and its vendored dependencies remain static.
+    find_program(SSQP_READELF_EXECUTABLE readelf)
+    if(SSQP_READELF_EXECUTABLE)
+        add_custom_target(verify-static-dependencies
+            COMMAND ${CMAKE_COMMAND}
+                -DSSQP_READELF_EXECUTABLE=${SSQP_READELF_EXECUTABLE}
+                -DSSQP_PYTHON_MODULE=$<TARGET_FILE:ssqpy>
+                -DSSQP_STATIC_LIBRARY=$<TARGET_FILE:ssqp>
+                -DSSQP_AR=${CMAKE_AR}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyStaticDependencies.cmake
+            DEPENDS ssqpy
+            COMMENT "Checking SSQP and Python dependencies are static"
+            VERBATIM
+        )
+    else()
+        message(WARNING
+            "readelf was not found; verify-static-dependencies is unavailable")
+    endif()
+
     add_custom_command(TARGET ssqpy POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E env "PYTHONPATH=${NB_STUBGEN_PYTHONPATH}" --
         ${Python_EXECUTABLE} -m nanobind.stubgen
