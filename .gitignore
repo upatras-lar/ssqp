@@ -6,18 +6,18 @@
 
 # Generated data
 /examples/data/*
-/examples/benchmarks/solver_modes/trajgen/data/plots/*
-/examples/benchmarks/solver_modes/trajgen/data/results/*
-/examples/benchmarks/solver_modes/trajgen/data/parameters/*_hpipm_*.json
-/examples/benchmarks/solver_modes/trajgen/pendubot_plots.py
-/examples/benchmarks/solver_modes/mpc/data/*
-/examples/benchmarks/solver/data/*
 /examples/trajgen/data/*
 /examples/real_mpc/plots/*
 /examples/real_mpc/double_pendulum/data/*
 /tests/logs/*
 /examples/python/*.json
 /tests/logs/*
+/benchmarks/solver_modes/trajgen/data/plots/*
+/benchmarks/solver_modes/trajgen/data/results/*
+/benchmarks/solver_modes/trajgen/data/parameters/*_hpipm_*.json
+/benchmarks/solver_modes/trajgen/pendubot_plots.py
+/benchmarks/solver_modes/mpc/data/*
+/benchmarks/solver/data/*
 
 # Documentation
 /docs/*
@@ -28,17 +28,17 @@
 # Virtual environments
 /nbvenv/*
 /examples/pinvenv/*
-/examples/benchmarks/benchmark-venv/*
 /examples/mujoco_mpc/mujoco-venv/*
 /examples/real_mpc/panda/libfrankavenv/*
 /examples/real_mpc/double_pendulum/candlevenv/*
 /examples/real_mpc/go2/unitree-sdk-venv/*
 /examples/cloud_pendulum/cloud-pendulum-venv/*
 /examples/visualizer/viser-venv/*
+/benchmarks/benchmark-venv/*
 
 # Scripts & examples
-/examples/benchmarks/solver/ssqp/pendubot.cpp
-/examples/benchmarks/solver/ssqp/panda.py
+/benchmarks/solver/ssqp/pendubot.cpp
+/benchmarks/solver/ssqp/panda.py
 
 # Configuration & other files
 /VARIABLES.sh

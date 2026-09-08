@@ -164,11 +164,11 @@ ssqp_params.tolerance = 1e-2
 # ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
-admm_params.abs_tolerance = 1e-3
-admm_params.rel_tolerance = 1e-3
+admm_params.abs_tolerance = 1e-2
+admm_params.rel_tolerance = 1e-2
 admm_params.max_iter = 200
-# admm_params.reset_rho = False
-# admm_params.reset_y = False
+admm_params.reset_rho = False
+admm_params.reset_y = False
 admm_params.warm_start = True
 ssqp_params.admmParams = admm_params
 
