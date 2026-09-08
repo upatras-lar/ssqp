@@ -1,0 +1,21 @@
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: #f8f4e8;
+  --md-default-bg-color--light: #f8f4e8b3;
+  --md-default-bg-color--lighter: #f8f4e84d;
+  --md-default-bg-color--lightest: #f8f4e81f;
+  --md-footer-bg-color: hsl(225deg 12% 18%);
+  --md-footer-bg-color--dark: hsl(225deg 12% 12%);
+}
+
+[data-md-color-scheme="default"][data-md-color-primary="black"] {
+  --md-primary-fg-color: hsl(225deg 12% 18%);
+  --md-primary-fg-color--light: hsl(225deg 12% 18% / 0.7);
+  --md-primary-fg-color--dark: hsl(225deg 12% 12%);
+}
+
+[data-md-color-scheme="default"][data-md-color-primary="black"] .md-header,
+[data-md-color-scheme="default"][data-md-color-primary="black"] .md-tabs,
+[data-md-color-scheme="default"][data-md-color-primary="black"] .md-nav__source,
+[data-md-color-scheme="default"][data-md-color-primary="black"] .md-nav--primary .md-nav__title[for="__drawer"] {
+  background-color: hsl(225deg 12% 18%);
+}

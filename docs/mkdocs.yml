@@ -1,0 +1,135 @@
+site_name: SSQP
+site_description: Structure-exploiting Sequential Quadratic Programming for Optimal Control
+repo_url: https://github.com/upatras-lar/ssqp
+repo_name: upatras-lar/ssqp
+edit_uri: edit/main/docs/docs/
+dev_addr: 'localhost:8000'
+
+hooks:
+  - hooks/fix_mkdoxy.py
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - content.tabs.link
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+  - FAQ: faq.md
+  - Concepts:
+      - Model: concepts/model.md
+      - Costs, Constraints & Dynamics: concepts/costs-constraints-dynamics.md
+      - Terrain: concepts/terrain.md
+      - SSQP Solver: concepts/solver.md
+      - QP Solvers: concepts/qp-solvers.md
+      - MPC: concepts/mpc.md
+      - Parameter Search: concepts/parameter-search.md
+  - Examples:
+      - Overview: examples.md
+      - Gallery: gallery.md
+      - Pendubot Swing-Up: examples/pendubot.md
+      - Panda Circle (Trajectory Generation): examples/panda-circle-trajgen.md
+      - Go2 Jump: examples/go2-jump.md
+      - Panda Circle (MPC): examples/panda-circle-mpc.md
+  - Python API Reference:
+      - Overview: reference/index.md
+      - ssqpy: reference/ssqpy.md
+      - ssqpy.model: reference/model.md
+      - ssqpy.model.costs: reference/model-costs.md
+      - ssqpy.model.constraints: reference/model-constraints.md
+      - ssqpy.model.dynamics: reference/model-dynamics.md
+      - ssqpy.model.terrain: reference/model-terrain.md
+      - ssqpy.solvers: reference/solvers.md
+      - ssqpy.solvers.search: reference/solvers-search.md
+  - C++ API Reference:
+      - Overview: cpp-reference/index.md
+      - Model: cpp-reference/model.md
+      - Stagewise Functions: cpp-reference/stagewise.md
+      - Terrain: cpp-reference/terrain.md
+      - SSQP Solver: cpp-reference/solver.md
+      - QP Solvers: cpp-reference/qp-solvers.md
+      - MPC: cpp-reference/mpc.md
+      - Parameter Search: cpp-reference/parameter-search.md
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: [".."]
+      check_paths: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+  - mkdoxy:
+      projects:
+        ssqp:
+          src-dirs: ../include
+          full-doc: True
+          doxy-cfg:
+            FILE_PATTERNS: "*.hpp"
+            RECURSIVE: True
+            EXTRACT_ALL: False
+            EXTRACT_PRIVATE: False
+            EXTRACT_PROTECTED: False
+            EXTRACT_PRIV_VIRTUAL: False
+            HIDE_UNDOC_MEMBERS: True
+            HIDE_UNDOC_CLASSES: True
+            INPUT_FILTER: "python3 doxygen_filter.py"
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [../build/bindings]
+          options:
+            extensions:
+              - griffe_extensions.py:DocstringLineBreaks
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            merge_init_into_class: true
+            group_by_category: true
+            members_order: source
+            show_signature_annotations: false
+            separate_signature: true

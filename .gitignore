@@ -20,10 +20,8 @@
 /benchmarks/solver/data/*
 
 # Documentation
-/docs/*
 /docs/site/*
 /docs/docvenv/*
-/docs/mkdocs.yml
 
 # Virtual environments
 /nbvenv/*
