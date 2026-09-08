@@ -144,9 +144,11 @@ inline solvers::ssqp::Params accurateParams(solvers::ssqp::QPSolverType backend)
     p.max_iter                  = 20;
     p.tolerance                 = 1e-6;
     p.constraint_tolerance      = 1e-6;
-    p.admm_params.max_iter      = 10000;
-    p.admm_params.abs_tolerance = 1e-9;
-    p.admm_params.rel_tolerance = 1e-9;
+    p.admm_params.max_iter      = 100000;
+    p.admm_params.abs_tolerance = 1e-7;
+    p.admm_params.rel_tolerance = 1e-7;
+    p.admm_params.rho_update    = false;
+    p.admm_params.init_rho      = 1.0;
     p.hpipm_params.tol_stat     = 1e-10;
     p.hpipm_params.tol_eq       = 1e-10;
     p.hpipm_params.tol_ineq     = 1e-10;

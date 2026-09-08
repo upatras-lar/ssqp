@@ -147,6 +147,7 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
   , _reg(_params.reg_prim)
   , _cl(_qp.dims.horizon + 1)
   , _cu(_qp.dims.horizon + 1)
+  , _S(_qp.dims.horizon)
   , _cl_masks(_qp.dims.horizon + 1)
   , _cu_masks(_qp.dims.horizon + 1)
   , _hpipm_data(std::make_shared<hpipm_data>())
@@ -158,6 +159,8 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
         _cl_masks[k].resize(_qp.dims.stage_constraint[k]);
         _cu_masks[k].resize(_qp.dims.stage_constraint[k]);
     }
+    for (uint k = 0; k < _qp.dims.horizon; ++k)
+        _S[k].resize(_qp.dims.stage_control[k], _qp.dims.stage_state[k]);
 
     int dim_size   = d_ocp_qp_dim_memsize(_qp.dims.horizon);
     _hpipm_dim_mem = malloc(dim_size);
@@ -301,8 +304,12 @@ void hpipm_qp::reset()
         d_ocp_qp_set_Q(k,
                        (double *)(_qp.stages[k].Qxx.data()),
                        &_hpipm_data->qp);
+        // QPStage stores Qxu as nx-by-nu, while HPIPM stores S as nu-by-nx.
+        // The transpose is required once a nonzero state/control cross term
+        // is present at a stage with a nonzero state.
+        _S[k].noalias() = _qp.stages[k].Qxu.transpose();
         d_ocp_qp_set_S(k,
-                       (double *)(_qp.stages[k].Qxu.data()),
+                       (double *)(_S[k].data()),
                        &_hpipm_data->qp);
         d_ocp_qp_set_R(k,
                        (double *)(_qp.stages[k].Quu.data()),

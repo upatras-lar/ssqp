@@ -25,7 +25,16 @@ void solverKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon,
         for (uint k = 0; k < horizon; ++k)
             model->setInitControl(k, VecX::Constant(1, 0.15));
         solver.reinitialize();
-        require(solver.solve(guess) == solvers::SUCCESS, "SSQP must converge");
+        const auto state = solver.solve(guess);
+        require(state == solvers::SUCCESS,
+                "SSQP must converge (" + solvers::to_string(state) +
+                  ", iterations=" +
+                  std::to_string(solver.convergenceData().iterations) +
+                  ", gap=" +
+                  std::to_string(solver.convergenceData().trajectory_stage_gap) +
+                  ", constraint=" +
+                  std::to_string(solver.convergenceData().trajectory_constraint_violation) +
+                  ")");
         auto expected = integratorSolution(horizon, initial);
         if (bounded)
         {

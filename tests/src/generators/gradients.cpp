@@ -257,6 +257,10 @@ std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
         model::custom::double_pendulum::DoublePendulumAmbientDynamics>(theta);
 
     model::Model::Config config;
+    Vec6                init_state = Vec6::Zero();
+    init_state[1]                  = 1.0;
+    init_state[3]                  = 1.0;
+    config.init_states             = { init_state };
     config.dynamics = { dynamics, dynamics, dynamics };
 
     model->finalize(config);
@@ -305,6 +309,10 @@ std::shared_ptr<Test> get_pendubot_ambient_dynamics_grad_test(const uint seed)
         model::custom::double_pendulum::ActuationMode::Pendubot);
 
     model::Model::Config config;
+    Vec6                init_state = Vec6::Zero();
+    init_state[1]                  = 1.0;
+    init_state[3]                  = 1.0;
+    config.init_states             = { init_state };
     config.dynamics = { dynamics, dynamics, dynamics };
 
     model->finalize(config);
@@ -353,6 +361,10 @@ std::shared_ptr<Test> get_acrobot_ambient_dynamics_grad_test(const uint seed)
         model::custom::double_pendulum::ActuationMode::Acrobot);
 
     model::Model::Config config;
+    Vec6                init_state = Vec6::Zero();
+    init_state[1]                  = 1.0;
+    init_state[3]                  = 1.0;
+    config.init_states             = { init_state };
     config.dynamics = { dynamics, dynamics, dynamics };
 
     model->finalize(config);
@@ -422,6 +434,10 @@ std::shared_ptr<Test> get_double_pendulum_ambient_tracking_cost_grad_test(
         model::custom::double_pendulum::DoublePendulumAmbientDynamics>(theta);
 
     model::Model::Config config;
+    Vec6                init_state = Vec6::Zero();
+    init_state[1]                  = 1.0;
+    init_state[3]                  = 1.0;
+    config.init_states             = { init_state };
     config.dynamics = { dynamics, dynamics, dynamics };
 
     model->finalize(config);

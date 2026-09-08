@@ -161,11 +161,11 @@ class Model
     */
     struct CustomProperties
     {
-        bool                     floating_base;
-        uint                     nq;
-        uint                     nv;
-        uint                     nu;
-        uint                     njoints;
+        bool                     floating_base = false;
+        uint                     nq            = 0;
+        uint                     nv            = 0;
+        uint                     nu            = 0;
+        uint                     njoints       = 0;
         std::vector<std::string> ordered_joints;
         std::vector<std::string> joint_types;
     };
@@ -510,7 +510,7 @@ class Model
 
     // Optional custom properties for non-XML models
     bool             _has_custom_properties = false;
-    CustomProperties _custom_properties;
+    CustomProperties _custom_properties {};
 
     // Helper functions
 

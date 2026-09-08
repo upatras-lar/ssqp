@@ -63,6 +63,32 @@ double finiteDifference(F evaluate, double h)
     // The comparison still fails if this estimate is nonfinite or inaccurate.
     return coarse;
 }
+
+template<class F>
+double finiteDifferenceCentral(F evaluate, double h)
+{
+    return (evaluate(h) - evaluate(-h)) / (2 * h);
+}
+
+// Vector-valued counterpart used for dynamics and constraint maps. Refining
+// the complete tangent vector avoids judging a Jacobian from a single fixed
+// stencil whose truncation error depends on the model and state scale.
+template<class F>
+VecX finiteDifferenceVector(F evaluate, double h)
+{
+    VecX coarse = evaluate(h);
+    for (int refinement = 0; refinement < 10; ++refinement)
+    {
+        h          *= 0.5;
+        VecX fine    = evaluate(h);
+        const double scale = 1.0 + fine.lpNorm<Eigen::Infinity>();
+        if (coarse.allFinite() && fine.allFinite() &&
+            (fine - coarse).lpNorm<Eigen::Infinity>() <= 2e-7 * scale)
+            return fine + (fine - coarse) / 3.0;
+        coarse = fine;
+    }
+    return coarse;
+}
 }
 }
 #endif

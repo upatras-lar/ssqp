@@ -508,8 +508,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                       MatX::Identity(ctx.nv, ctx.nv) + da_dv * _dt;
 
                     dX.topLeftCorner(ctx.nv, ctx.nv) =
-                      Jint_q * (MatX::Identity(ctx.nv, ctx.nv) +
-                                dX.bottomLeftCorner(ctx.nv, ctx.nv) * _dt);
+                      Jint_q +
+                      Jint_v * dX.bottomLeftCorner(ctx.nv, ctx.nv) * _dt;
                     dX.topRightCorner(ctx.nv, ctx.nv) =
                       Jint_v * dX.bottomRightCorner(ctx.nv, ctx.nv) * _dt;
 

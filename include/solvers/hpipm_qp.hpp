@@ -90,6 +90,10 @@ class hpipm_qp : public QPSolver
     // must not be altered
     std::vector<VecX> _cl, _cu;
 
+    // HPIPM stores the state/control cross term as nu-by-nx, whereas QPData
+    // stores it as nx-by-nu. Keep the transposed upload buffers persistent.
+    std::vector<MatX> _S;
+
     // Masks to ignore open constraints
     std::vector<std::vector<double>> _cl_masks;
     std::vector<std::vector<double>> _cu_masks;
