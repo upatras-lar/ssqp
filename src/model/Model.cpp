@@ -1396,6 +1396,10 @@ VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,
         return std::visit(
           [this, x, u, k](auto fb, auto wf)
           {
+              _ReducedInverseDynamicsScratch scratch;
+              std::vector<Vec6> joint_forces(_dims.total_joints);
+              MatX               Jf_full(3 * _forces[k].size(), _dims.nv);
+
               return _calculateReducedInverseFullAcceleration<fb.value,
                                                               wf.value>(
                 x.head(_dims.nq),
@@ -1404,7 +1408,10 @@ VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,
                 u.tail(3 * _forces[k].size()),
                 _forces[k],
                 _actuated_joints,
-                _unactuated_joints);
+                _unactuated_joints,
+                scratch,
+                joint_forces,
+                Jf_full);
           },
           ct_floating_base,
           ct_with_forces);

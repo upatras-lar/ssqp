@@ -258,8 +258,8 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
     return res.toVector();
 }
 
-Eigen::MatrixXd crba(const std::shared_ptr<ModelImpl> &impl,
-                     const Eigen::VectorXd &q, bool local)
+void crba(const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
+         Eigen::MatrixXd &M, bool local)
 {
     pinocchio::crba(impl->model,
                     *impl->data,
@@ -267,9 +267,7 @@ Eigen::MatrixXd crba(const std::shared_ptr<ModelImpl> &impl,
                     local ? pinocchio::Convention::LOCAL
                           : pinocchio::Convention::WORLD);
 
-    impl->data->M = impl->data->M.selfadjointView<Eigen::Upper>();
-
-    return impl->data->M;
+    M = impl->data->M.selfadjointView<Eigen::Upper>();
 }
 
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,

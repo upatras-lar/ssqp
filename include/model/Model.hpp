@@ -384,7 +384,7 @@ class Model
 
     std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &q, const VecX &v,
                                                    const uint frame_id,
-                                                   bool       local = false) const;
+                                                   bool local = false) const;
 
     // Output-buffer version of the above; `dVdq`/`dVdv` must already be sized
     // (6 x nv)
@@ -581,7 +581,7 @@ class Model
     void _calculateJointForces(
       const VecX &q, const VecX &f,
       const std::vector<std::shared_ptr<Force>> &force_data,
-      std::vector<Vec6> &joint_forces) const;
+      std::vector<Vec6>                         &joint_forces) const;
 
     /** Calculates joint forces and total force jacobian given a configuration
      * and an external force vector
@@ -599,6 +599,40 @@ class Model
       const std::vector<std::shared_ptr<Force>> &force_data,
       std::vector<Vec6> &joint_forces, MatX &Jf_full) const;
 
+    /** Persistent scratch for the ReducedInverseDynamics mode's acceleration
+     * and acceleration-derivatives helpers (`_calculateReducedInverseFullAcceleration`/
+     * `_calculateReducedInverseFullAccelerationDerivatives`), sized once per
+     * stage and reused across repeated evaluate()/gradient() calls instead of
+     * being reallocated every call
+     * Bundled into a single struct so the two functions don't need a long
+     * individual output-parameter list
+     *
+     * `M`, `Muu`, `Muj`, `Muu_ldlt`: used/populated by
+     * `_calculateReducedInverseFullAcceleration`
+     *
+     * `dtau_dq`, `dtau_dv`, `dtau_da`, `dtau_daj`, `da_dq`, `da_dv`,
+     * `da_daj`, `da_df`: outputs of
+     * `_calculateReducedInverseFullAccelerationDerivatives`
+     *
+     * `Ju`, `dtau_dq_unact`, `dtau_dv_unact`, `da_dq_reordered`,
+     * `da_dv_reordered`, `da_daj_reordered`, `da_df_reordered`: internal-only
+     * temporaries of `_calculateReducedInverseFullAccelerationDerivatives`
+     */
+    struct _ReducedInverseDynamicsScratch
+    {
+        MatX              M;
+        MatX              Muu, Muj;
+        Eigen::LDLT<MatX> Muu_ldlt;
+
+        MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
+        MatX da_dq, da_dv, da_daj, da_df;
+
+        MatX Ju;
+        MatX dtau_dq_unact, dtau_dv_unact;
+        MatX da_dq_reordered, da_dv_reordered, da_daj_reordered,
+          da_df_reordered;
+    };
+
     /** Calculates the full acceleration vector for ReducedInverseDynamics mode
      * Input:
      *  - `q`: The configuration vector
@@ -609,15 +643,13 @@ class Model
      *  - `force_data`: Vector of data about each force in `f`
      *  - `actuated_joints`: Vector of indices of joints that are actuated
      *  - `unactuated_joints`: Complement vector of `actuated_joints`
-     * 
+     *
      * Output:
-     *  - `Muu`: The unactuated part of the mass matrix (reordered)
-     *  - `Muj`: The top-right part of the reordered mass matrix 
-     *     (unactuated-actuated)
-     *  - `Muu_ldlt`: Eigen LDLT object for LDLT decomposition of `Muu`
+     *  - `scratch`: Populates `scratch.M`, `scratch.Muu`, `scratch.Muj` and
+     *     `scratch.Muu_ldlt` (see `_ReducedInverseDynamicsScratch`)
      *  - `joint_forces`: The forces on each joint
      *  - `Jf_full`: The full force jacobian
-     * 
+     *
      * Returns:
      *  - `ddq`: The full acceleration vector
      */
@@ -626,19 +658,9 @@ class Model
       const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
       const std::vector<std::shared_ptr<Force>> &force_data,
       const std::vector<uint>                   &actuated_joints,
-      const std::vector<uint> &unactuated_joints, MatX &Muu, MatX &Muj,
-      Eigen::LDLT<MatX> &Muu_ldlt, std::vector<Vec6> &joint_forces,
+      const std::vector<uint>                   &unactuated_joints,
+      _ReducedInverseDynamicsScratch &scratch, std::vector<Vec6> &joint_forces,
       MatX &Jf_full) const;
-
-    /** Helper that calls `_calculateReducedInverseFullAcceleration` and ignores
-     * output arguments
-     */
-    template<bool FloatingBase, bool WithForces>
-    VecX _calculateReducedInverseFullAcceleration(
-      const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-      const std::vector<std::shared_ptr<Force>> &force_data,
-      const std::vector<uint>                   &actuated_joints,
-      const std::vector<uint>                   &unactuated_joints) const;
 
     /** Calculates the derivatives of the acceleration vector for ReducedInverseDynamics
      * mode, with respect to q, v, aj (the actual actuated controls) and f
@@ -651,31 +673,31 @@ class Model
      *  - `force_data`: Vector of data about each force in `f`
      *  - `actuated_joints`: Vector of indices of joints that are actuated
      *  - `unactuated_joints`: Complement vector of `actuated_joints`
-     * 
+     *
      * Inputs from `_calculateReducedInverseFullAcceleration`'s output:
      *  - `ddq`: The full acceleration vector
-     *  - `Muu`: The unactuated part of the mass matrix (reordered)
-     *  - `Muj`: The top-right part of the reordered mass matrix 
-     *     (unactuated-actuated)
-     *  - `Muu_ldlt`: Eigen LDLT object for LDLT decomposition of `Muu`
+     *  - `scratch.Muu`, `scratch.Muj`, `scratch.Muu_ldlt`: See
+     *     `_calculateReducedInverseFullAcceleration`'s output
      *  - `joint_forces`: The forces on each joint
      *  - `Jf_full`: The full force jacobian
-     * 
+     *
      * Output:
-     *  - `dtau_dq`: The RNEA derivative with respect to the configuration (q)
-     *  - `dtau_dv`: The RNEA derivative with respect to the velocity (v)
-     *  - `dtau_da`: The RNEA derivative with respect to the full acceleration
-     *     (a)
-     *  - `dtau_daj`: The RNEA derivative with respect to the actuated part of
-     *     the acceleration (aj)
-     *  - `da_dq`: The derivative of the full acceleration vector with respect
-     *     to the configuration (q)
-     *  - `da_dv`: The derivative of the full acceleration vector with respect
-     *     to the velocity (v)
-     *  - `da_daj`: The derivative of the full acceleration vector with respect
-     *     to the actuated part of the acceleration
-     *  - `da_df`: The derivative of the full acceleration vector with respect
-     *     to the forces
+     *  - `scratch.dtau_dq`: The RNEA derivative with respect to the
+     *     configuration (q)
+     *  - `scratch.dtau_dv`: The RNEA derivative with respect to the velocity
+     *     (v)
+     *  - `scratch.dtau_da`: The RNEA derivative with respect to the full
+     *     acceleration (a)
+     *  - `scratch.dtau_daj`: The RNEA derivative with respect to the actuated
+     *     part of the acceleration (aj)
+     *  - `scratch.da_dq`: The derivative of the full acceleration vector with
+     *     respect to the configuration (q)
+     *  - `scratch.da_dv`: The derivative of the full acceleration vector with
+     *     respect to the velocity (v)
+     *  - `scratch.da_daj`: The derivative of the full acceleration vector
+     *     with respect to the actuated part of the acceleration
+     *  - `scratch.da_df`: The derivative of the full acceleration vector with
+     *     respect to the forces
      */
     template<bool FloatingBase, bool WithForces>
     void _calculateReducedInverseFullAccelerationDerivatives(
@@ -683,10 +705,8 @@ class Model
       const std::vector<std::shared_ptr<Force>> &force_data,
       const std::vector<uint>                   &actuated_joints,
       const std::vector<uint> &unactuated_joints, const VecX &ddq,
-      const MatX &Muu, const MatX &Muj, const Eigen::LDLT<MatX> &Muu_ldlt,
-      const std::vector<Vec6> &joint_forces, const MatX &Jf_full, MatX &dtau_dq,
-      MatX &dtau_dv, MatX &dtau_da, MatX &dtau_daj, MatX &da_dq, MatX &da_dv,
-      MatX &da_daj, MatX &da_df) const;
+      _ReducedInverseDynamicsScratch &scratch,
+      const std::vector<Vec6> &joint_forces, const MatX &Jf_full) const;
 
     // Functionality functions
 
@@ -730,6 +750,10 @@ class Model
         // from the (const) evaluate()/gradient() callbacks
         mutable std::vector<Vec6> joint_forces_scratch;
         mutable MatX              jf_full_scratch;
+
+        // See _ReducedInverseDynamicsScratch; only populated/used in the
+        // ReducedInverseDynamics solver mode
+        mutable _ReducedInverseDynamicsScratch reduced_id_scratch;
     };
 
     /** Makes the dynamics for a given stage with context `ctx` based on the
@@ -762,8 +786,9 @@ class Model
         // populated/used when this context backs the ID torque constraints
         // (_buildXMLIDTorqueConstraints), not the plain innate bounds
         // (_buildXMLInnateConstraints)
-        mutable std::vector<Vec6> joint_forces_scratch;
-        mutable MatX              jf_full_scratch;
+        mutable std::vector<Vec6>              joint_forces_scratch;
+        mutable MatX                           jf_full_scratch;
+        mutable _ReducedInverseDynamicsScratch reduced_id_scratch;
     };
 
     /** Makes the innate constraints for a given stage with context `ctx` based
