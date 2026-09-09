@@ -840,13 +840,15 @@ template<typename NOutFunction, typename NdcFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3,
          typename EnabledFunction>
-VecX FunctionStageConstraints<
+const VecX &FunctionStageConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, ManifoldOperator,
   HessprodFunction1, HessprodFunction2, HessprodFunction3,
   EnabledFunction>::lower_bound() const
 {
-    return _lb();
+    _lb_cache = _lb();
+
+    return _lb_cache;
 }
 
 template<typename NOutFunction, typename NdcFunction,
@@ -855,13 +857,15 @@ template<typename NOutFunction, typename NdcFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3,
          typename EnabledFunction>
-VecX FunctionStageConstraints<
+const VecX &FunctionStageConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, ManifoldOperator,
   HessprodFunction1, HessprodFunction2, HessprodFunction3,
   EnabledFunction>::upper_bound() const
 {
-    return _ub();
+    _ub_cache = _ub();
+
+    return _ub_cache;
 }
 
 template<typename NOutFunction, typename NdcFunction,

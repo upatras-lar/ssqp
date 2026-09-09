@@ -636,13 +636,13 @@ class CoMHeightConstraint : public StageConstraints
     {
         return 1;
     }
-    VecX lower_bound() const override
+    const VecX &lower_bound() const override
     {
-        return VecX::Constant(1, Z_MIN);
+        return _lb;
     }
-    VecX upper_bound() const override
+    const VecX &upper_bound() const override
     {
-        return VecX::Constant(1, std::numeric_limits<double>::infinity());
+        return _ub;
     }
 
     VecX evaluate(const VecX &x, const VecX &u) const override
@@ -671,12 +671,17 @@ class CoMHeightConstraint : public StageConstraints
     {
         Puu.setZero();
     }
+
+  private:
+    const VecX _lb = VecX::Constant(1, Z_MIN);
+    const VecX _ub = VecX::Constant(1, std::numeric_limits<double>::infinity());
 };
 
 class FrictionAndForcesConstraint : public StageConstraints
 {
     SRBReferences *_refs;
     int            _foot_idx;
+    mutable VecX   _lb_cache, _ub_cache;
 
   public:
     FrictionAndForcesConstraint(SRBReferences *refs, int foot_idx)
@@ -690,25 +695,29 @@ class FrictionAndForcesConstraint : public StageConstraints
         return 5;
     }
 
-    VecX lower_bound() const override
+    // is_swing[_foot_idx] changes between solves, so the bound must be
+    // recomputed on every call rather than cached at construction; the
+    // mutable members below just give lower_bound()/upper_bound() somewhere
+    // stable to return a reference to
+    const VecX &lower_bound() const override
     {
-        VecX lb = VecX::Zero(5);
+        _lb_cache.setZero(5);
         if (!_refs->is_swing[_foot_idx])
         {
-            lb(4) = F_Z_MIN;
+            _lb_cache(4) = F_Z_MIN;
         }
-        return lb;
+        return _lb_cache;
     }
 
-    VecX upper_bound() const override
+    const VecX &upper_bound() const override
     {
-        VecX ub = VecX::Zero(5);
+        _ub_cache.setZero(5);
         if (!_refs->is_swing[_foot_idx])
         {
-            ub.setConstant(std::numeric_limits<double>::infinity());
-            ub(4) = F_Z_MAX;
+            _ub_cache.setConstant(std::numeric_limits<double>::infinity());
+            _ub_cache(4) = F_Z_MAX;
         }
-        return ub;
+        return _ub_cache;
     }
 
     VecX evaluate(const VecX &x, const VecX &u) const override
@@ -763,6 +772,7 @@ class FootVelocityConstraint : public StageConstraints
 {
     SRBReferences *_refs;
     int            _foot_idx;
+    mutable VecX   _lb_cache, _ub_cache;
 
   public:
     FootVelocityConstraint(SRBReferences *refs, int foot_idx)
@@ -776,22 +786,33 @@ class FootVelocityConstraint : public StageConstraints
         return 3;
     }
 
-    VecX lower_bound() const override
+    // is_swing[_foot_idx] changes between solves, so the bound must be
+    // recomputed on every call; see the comment in FrictionAndForcesConstraint
+    // above
+    const VecX &lower_bound() const override
     {
         if (_refs->is_swing[_foot_idx])
         {
-            return VecX::Constant(3, -std::numeric_limits<double>::infinity());
+            _lb_cache.setConstant(3, -std::numeric_limits<double>::infinity());
         }
-        return VecX::Zero(3);
+        else
+        {
+            _lb_cache.setZero(3);
+        }
+        return _lb_cache;
     }
 
-    VecX upper_bound() const override
+    const VecX &upper_bound() const override
     {
         if (_refs->is_swing[_foot_idx])
         {
-            return VecX::Constant(3, std::numeric_limits<double>::infinity());
+            _ub_cache.setConstant(3, std::numeric_limits<double>::infinity());
         }
-        return VecX::Zero(3);
+        else
+        {
+            _ub_cache.setZero(3);
+        }
+        return _ub_cache;
     }
 
     VecX evaluate(const VecX &x, const VecX &u) const override

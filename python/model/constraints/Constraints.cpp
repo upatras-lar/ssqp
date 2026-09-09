@@ -38,11 +38,25 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    VecX lower_bound() const override
+    // Not using NB_OVERRIDE here: it deduces its return type from
+    // StageConstraints::lower_bound/upper_bound, which now return
+    // `const VecX&`, and casting a Python return value straight into a
+    // reference would leave it dangling
+    // Cast into an owned VecX instead and cache it, so we can hand back a
+    // reference with a stable lifetime
+    const VecX &lower_bound() const override
     {
         try
         {
-            NB_OVERRIDE(lower_bound);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "lower_bound",
+                                               false);
+            _lb_cache =
+              nb_ticket.key.is_valid()
+                ? nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)())
+                : NBBase::lower_bound();
+
+            return _lb_cache;
         }
         catch (const nb::cast_error &e)
         {
@@ -52,11 +66,19 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    VecX upper_bound() const override
+    const VecX &upper_bound() const override
     {
         try
         {
-            NB_OVERRIDE(upper_bound);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "upper_bound",
+                                               false);
+            _ub_cache =
+              nb_ticket.key.is_valid()
+                ? nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)())
+                : NBBase::upper_bound();
+
+            return _ub_cache;
         }
         catch (const nb::cast_error &e)
         {
@@ -184,6 +206,11 @@ struct __attribute__((visibility("default"))) PyStageConstraints
                                      "expected a matrix (numpy.ndarray)");
         }
     }
+
+  private:
+    // Backing storage for lower_bound()/upper_bound(); see the comment above
+    // those overrides
+    mutable VecX _lb_cache, _ub_cache;
 };
 
 void bind_Constraints(nb::module_ &m)

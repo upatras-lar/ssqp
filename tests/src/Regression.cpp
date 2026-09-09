@@ -381,9 +381,9 @@ void innateTorqueBoundsAreEnforced()
     auto constraint = model->constraints()[0];
     require(constraint != nullptr, "Non-terminal stage has innate constraints");
 
-    const VecX lb        = constraint->lower_bound();
-    const VecX ub        = constraint->upper_bound();
-    auto       satisfies = [&](const VecX &c)
+    const VecX &lb        = constraint->lower_bound();
+    const VecX &ub        = constraint->upper_bound();
+    auto        satisfies = [&](const VecX &c)
     {
         return (c.array() >= lb.array() - 1e-9).all() &&
                (c.array() <= ub.array() + 1e-9).all();

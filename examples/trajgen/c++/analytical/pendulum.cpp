@@ -235,14 +235,14 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
         return 1;
     }
 
-    ssqp::VecX lower_bound() const
+    const ssqp::VecX &lower_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << -7).finished();
+        return _lb;
     }
 
-    ssqp::VecX upper_bound() const
+    const ssqp::VecX &upper_bound() const override
     {
-        return (Eigen::Vector<double, 1>() << 7).finished();
+        return _ub;
     }
 
     ssqp::VecX evaluate(const ssqp::VecX &x, const ssqp::VecX &u) const override
@@ -280,6 +280,9 @@ class Constraints : public ssqp::model::stagewise::StageConstraints
     {
         Puu = Eigen::Matrix<double, 1, 1>::Zero();
     }
+
+    const ssqp::VecX _lb = (Eigen::Vector<double, 1>() << -7).finished();
+    const ssqp::VecX _ub = (Eigen::Vector<double, 1>() << 7).finished();
 };
 
 int main()

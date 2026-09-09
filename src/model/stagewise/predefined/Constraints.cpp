@@ -48,12 +48,12 @@ uint JointAngleConstraint::output_size() const
     return _njoints;
 }
 
-VecX JointAngleConstraint::lower_bound() const
+const VecX &JointAngleConstraint::lower_bound() const
 {
     return _lb;
 }
 
-VecX JointAngleConstraint::upper_bound() const
+const VecX &JointAngleConstraint::upper_bound() const
 {
     return _ub;
 }
@@ -130,12 +130,12 @@ uint JointVelocityConstraint::output_size() const
     return _njoints;
 }
 
-VecX JointVelocityConstraint::lower_bound() const
+const VecX &JointVelocityConstraint::lower_bound() const
 {
     return _lb;
 }
 
-VecX JointVelocityConstraint::upper_bound() const
+const VecX &JointVelocityConstraint::upper_bound() const
 {
     return _ub;
 }
@@ -206,12 +206,12 @@ uint JointControlConstraint::output_size() const
     return _nu;
 }
 
-VecX JointControlConstraint::lower_bound() const
+const VecX &JointControlConstraint::lower_bound() const
 {
     return _lb;
 }
 
-VecX JointControlConstraint::upper_bound() const
+const VecX &JointControlConstraint::upper_bound() const
 {
     return _ub;
 }
@@ -283,12 +283,12 @@ void FloatingBaseTranslationBound::set_upper_bound(const Vec3 &ub)
     _ub = ub;
 }
 
-VecX FloatingBaseTranslationBound::lower_bound() const
+const VecX &FloatingBaseTranslationBound::lower_bound() const
 {
     return _lb;
 }
 
-VecX FloatingBaseTranslationBound::upper_bound() const
+const VecX &FloatingBaseTranslationBound::upper_bound() const
 {
     return _ub;
 }
@@ -370,12 +370,12 @@ uint FloatingBaseRotationBound::output_size() const
     return 3;
 }
 
-VecX FloatingBaseRotationBound::lower_bound() const
+const VecX &FloatingBaseRotationBound::lower_bound() const
 {
     return _lb;
 }
 
-VecX FloatingBaseRotationBound::upper_bound() const
+const VecX &FloatingBaseRotationBound::upper_bound() const
 {
     return _ub;
 }
@@ -485,12 +485,12 @@ uint FloatingBasePoseBound::output_size() const
     return 6;
 }
 
-VecX FloatingBasePoseBound::lower_bound() const
+const VecX &FloatingBasePoseBound::lower_bound() const
 {
     return _lb;
 }
 
-VecX FloatingBasePoseBound::upper_bound() const
+const VecX &FloatingBasePoseBound::upper_bound() const
 {
     return _ub;
 }
@@ -571,12 +571,12 @@ uint FloatingBaseLinearVelocityBound::output_size() const
     return 3;
 }
 
-VecX FloatingBaseLinearVelocityBound::lower_bound() const
+const VecX &FloatingBaseLinearVelocityBound::lower_bound() const
 {
     return _lb;
 }
 
-VecX FloatingBaseLinearVelocityBound::upper_bound() const
+const VecX &FloatingBaseLinearVelocityBound::upper_bound() const
 {
     return _ub;
 }
@@ -645,12 +645,12 @@ uint FloatingBaseAngularVelocityBound::output_size() const
     return 3;
 }
 
-VecX FloatingBaseAngularVelocityBound::lower_bound() const
+const VecX &FloatingBaseAngularVelocityBound::lower_bound() const
 {
     return _lb;
 }
 
-VecX FloatingBaseAngularVelocityBound::upper_bound() const
+const VecX &FloatingBaseAngularVelocityBound::upper_bound() const
 {
     return _ub;
 }
@@ -724,11 +724,11 @@ uint FrameTranslationBound::output_size() const
     return 3;
 }
 
-VecX FrameTranslationBound::lower_bound() const
+const VecX &FrameTranslationBound::lower_bound() const
 {
     return _lb;
 }
-VecX FrameTranslationBound::upper_bound() const
+const VecX &FrameTranslationBound::upper_bound() const
 {
     return _ub;
 }
@@ -806,11 +806,11 @@ uint FrameRotationBound::output_size() const
     return 3;
 }
 
-VecX FrameRotationBound::lower_bound() const
+const VecX &FrameRotationBound::lower_bound() const
 {
     return _lb;
 }
-VecX FrameRotationBound::upper_bound() const
+const VecX &FrameRotationBound::upper_bound() const
 {
     return _ub;
 }
@@ -921,12 +921,12 @@ uint FramePoseBound::output_size() const
     return 6;
 }
 
-VecX FramePoseBound::lower_bound() const
+const VecX &FramePoseBound::lower_bound() const
 {
     return _lb;
 }
 
-VecX FramePoseBound::upper_bound() const
+const VecX &FramePoseBound::upper_bound() const
 {
     return _ub;
 }
@@ -1004,11 +1004,11 @@ uint FrameLinearVelocityBound::output_size() const
     return 3;
 }
 
-VecX FrameLinearVelocityBound::lower_bound() const
+const VecX &FrameLinearVelocityBound::lower_bound() const
 {
     return _lb;
 }
-VecX FrameLinearVelocityBound::upper_bound() const
+const VecX &FrameLinearVelocityBound::upper_bound() const
 {
     return _ub;
 }
@@ -1084,12 +1084,12 @@ uint FrameAngularVelocityBound::output_size() const
     return 3;
 }
 
-VecX FrameAngularVelocityBound::lower_bound() const
+const VecX &FrameAngularVelocityBound::lower_bound() const
 {
     return _lb;
 }
 
-VecX FrameAngularVelocityBound::upper_bound() const
+const VecX &FrameAngularVelocityBound::upper_bound() const
 {
     return _ub;
 }
@@ -1159,12 +1159,12 @@ uint CenterOfMassBound::output_size() const
     return 3;
 }
 
-VecX CenterOfMassBound::lower_bound() const
+const VecX &CenterOfMassBound::lower_bound() const
 {
     return _lb;
 }
 
-VecX CenterOfMassBound::upper_bound() const
+const VecX &CenterOfMassBound::upper_bound() const
 {
     return _ub;
 }
@@ -1216,6 +1216,13 @@ ContactConstraint::ContactConstraint(const Model       &model,
   , _mu(mu)
   , _max_normal_force(max_normal_force)
   , _eq_tol(eq_tol)
+  , _lb((Vec6() << 0.0, -std::numeric_limits<double>::infinity(), 0.0,
+         -std::numeric_limits<double>::infinity(), 0.0, -eq_tol)
+          .finished())
+  , _ub((Vec6() << max_normal_force, 0.0,
+         std::numeric_limits<double>::infinity(), 0.0,
+         std::numeric_limits<double>::infinity(), eq_tol)
+          .finished())
 {
     assert(model.xml() && "Cannot use ContactConstraint with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
@@ -1257,26 +1264,14 @@ void ContactConstraint::set_forces(
     _force = forces[0];
 }
 
-VecX ContactConstraint::lower_bound() const
+const VecX &ContactConstraint::lower_bound() const
 {
-    return (Vec6() << 0.0,
-            -std::numeric_limits<double>::infinity(),
-            0.0,
-            -std::numeric_limits<double>::infinity(),
-            0.0,
-            -_eq_tol)
-      .finished();
+    return _lb;
 }
 
-VecX ContactConstraint::upper_bound() const
+const VecX &ContactConstraint::upper_bound() const
 {
-    return (Vec6() << _max_normal_force,
-            0.0,
-            std::numeric_limits<double>::infinity(),
-            0.0,
-            std::numeric_limits<double>::infinity(),
-            _eq_tol)
-      .finished();
+    return _ub;
 }
 
 VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const

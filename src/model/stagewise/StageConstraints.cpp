@@ -45,20 +45,26 @@ void StageConstraints::set_forces(
 {
 }
 
-VecX StageConstraints::lower_bound() const
+const VecX &StageConstraints::lower_bound() const
 {
-    VecX l(output_size());
-    l.setConstant(-std::numeric_limits<double>::infinity());
+    if (static_cast<uint>(_default_lb.size()) != output_size())
+    {
+        _default_lb.setConstant(output_size(),
+                                -std::numeric_limits<double>::infinity());
+    }
 
-    return l;
+    return _default_lb;
 }
 
-VecX StageConstraints::upper_bound() const
+const VecX &StageConstraints::upper_bound() const
 {
-    VecX u(output_size());
-    u.setConstant(std::numeric_limits<double>::infinity());
+    if (static_cast<uint>(_default_ub.size()) != output_size())
+    {
+        _default_ub.setConstant(output_size(),
+                                std::numeric_limits<double>::infinity());
+    }
 
-    return u;
+    return _default_ub;
 }
 
 uint StageConstraints::constraint_diff_size() const

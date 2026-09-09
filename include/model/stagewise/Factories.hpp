@@ -179,8 +179,8 @@ class FunctionStageConstraints : public StageConstraints
 
     inline VecX right_minus(const VecX &x, const VecX &y) const override;
 
-    inline VecX lower_bound() const override;
-    inline VecX upper_bound() const override;
+    inline const VecX &lower_bound() const override;
+    inline const VecX &upper_bound() const override;
 
     inline VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -208,6 +208,12 @@ class FunctionStageConstraints : public StageConstraints
     const HessprodFunction2     _hess_xu;
     const HessprodFunction3     _hess_uu;
     const EnabledFunction       _enabled_func;
+
+  private:
+    // Scratch backing lower_bound()/upper_bound(); recomputed on every call
+    // (bounds may depend on mutable state, e.g. enabled() for merged
+    // constraints) but reused across calls to avoid a fresh allocation
+    mutable VecX _lb_cache, _ub_cache;
 };
 }
 }

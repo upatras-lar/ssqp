@@ -37,10 +37,10 @@ class StageConstraints : public Function
     virtual void set_forces(const std::vector<std::shared_ptr<Force>> &forces);
 
     // Get constraint lower bound
-    virtual VecX lower_bound() const;
+    virtual const VecX &lower_bound() const;
 
     // Get constraint upper bound
-    virtual VecX upper_bound() const;
+    virtual const VecX &upper_bound() const;
 
     // Size of the difference vector: $\boldsymbol{c}_k(\boldsymbol{x}_1, \boldsymbol{u}_1) \ominus \boldsymbol{c}_k(\boldsymbol{x}_2, \boldsymbol{u}_2)$
     // Where $\ominus$: the defined right_minus operator
@@ -79,6 +79,11 @@ class StageConstraints : public Function
   protected:
     bool        _enabled = true;
     static uint TOTAL;
+
+  private:
+    // Lazily-computed default bounds (+-infinity), backing the default
+    // lower_bound()/upper_bound() implementations
+    mutable VecX _default_lb, _default_ub;
 };
 }
 }

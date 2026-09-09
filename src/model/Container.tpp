@@ -5,8 +5,7 @@ namespace ssqp
 namespace model
 {
 template<typename Derived>
-Container<Derived>::Container(const uint horizon)
-  : _functions(horizon, nullptr)
+Container<Derived>::Container(const uint horizon) : _functions(horizon, nullptr)
 {
 }
 
@@ -27,8 +26,7 @@ Container<Derived> &Container<Derived>::operator=(
 }
 
 template<typename Derived>
-std::shared_ptr<Derived> &Container<Derived>::operator[](
-  const uint k) noexcept
+std::shared_ptr<Derived> &Container<Derived>::operator[](const uint k) noexcept
 {
     return _functions[k];
 }

@@ -40,8 +40,8 @@ class JointAngleConstraint : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -86,8 +86,8 @@ class JointVelocityConstraint : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -134,8 +134,8 @@ class JointControlConstraint : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -179,8 +179,8 @@ class FloatingBaseTranslationBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -197,7 +197,7 @@ class FloatingBaseTranslationBound : public StageConstraints
   protected:
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined floating base orientation bound
@@ -231,8 +231,8 @@ class FloatingBaseRotationBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -250,7 +250,7 @@ class FloatingBaseRotationBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     Mat3                         _Rref;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined floating base SE(3) pose bound
@@ -292,8 +292,8 @@ class FloatingBasePoseBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -311,7 +311,7 @@ class FloatingBasePoseBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     Mat4                         _Tref, _Tref_inv;
-    Vec6                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined floating base linear velocity bound
@@ -341,8 +341,8 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -359,7 +359,7 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
   protected:
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined floating base angular velocity bound
@@ -389,8 +389,8 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -407,7 +407,7 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
   protected:
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined 3D position bound for a given frame
@@ -436,8 +436,8 @@ class FrameTranslationBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -455,7 +455,7 @@ class FrameTranslationBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined 3D orientation bound for a given frame
@@ -487,8 +487,8 @@ class FrameRotationBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -507,7 +507,7 @@ class FrameRotationBound : public StageConstraints
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     Mat3                         _Rref;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined SE(3) pose bound for a given frame
@@ -545,8 +545,8 @@ class FramePoseBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -565,7 +565,7 @@ class FramePoseBound : public StageConstraints
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     Mat4                         _Tref, _Tref_inv;
-    Vec6                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined 3D velocity bound for a given frame
@@ -596,8 +596,8 @@ class FrameLinearVelocityBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -615,7 +615,7 @@ class FrameLinearVelocityBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined angular velocity bound for a given frame
@@ -647,8 +647,8 @@ class FrameAngularVelocityBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -666,7 +666,7 @@ class FrameAngularVelocityBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined center of mass bound
@@ -693,8 +693,8 @@ class CenterOfMassBound : public StageConstraints
 
     uint output_size() const override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -711,7 +711,7 @@ class CenterOfMassBound : public StageConstraints
   protected:
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
-    Vec3                         _lb, _ub;
+    VecX                         _lb, _ub;
 };
 
 /** Predefined contact constraint for a given frame
@@ -765,8 +765,8 @@ class ContactConstraint : public StageConstraints
     // Used to set the required force for this contact constraint
     void set_forces(const std::vector<std::shared_ptr<Force>> &forces) override;
 
-    VecX lower_bound() const override;
-    VecX upper_bound() const override;
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -788,6 +788,7 @@ class ContactConstraint : public StageConstraints
     double                       _mu;
     const double                 _max_normal_force;
     const double                 _eq_tol;
+    const VecX                   _lb, _ub;
 };
 
 }

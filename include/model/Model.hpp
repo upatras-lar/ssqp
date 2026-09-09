@@ -243,7 +243,7 @@ class Model
     // Whether the model has been loaded from an XML file
     bool xml() const;
 
-    const uint       horizon() const;
+    const uint        horizon() const;
     const Dimensions &dims() const noexcept;
     const Dimensions &linear_dims() const noexcept;
 

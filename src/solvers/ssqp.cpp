@@ -1374,8 +1374,8 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         }
         const VecX &c0 = reuse_cached_c ? _cached_c[k] : c_scratch;
 
-        VecX lb = constraints[k]->lower_bound();
-        VecX ub = constraints[k]->upper_bound();
+        const VecX &lb = constraints[k]->lower_bound();
+        const VecX &ub = constraints[k]->upper_bound();
 
         VecX v =
           constraints[k]->right_minus(c0, lb).cwiseMin(0).cwiseAbs().cwiseMax(
@@ -1419,8 +1419,8 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     }
     const VecX &c0 = reuse_cached_c ? _cached_c[horizon] : c_scratch_H;
 
-    VecX lb = constraints[horizon]->lower_bound();
-    VecX ub = constraints[horizon]->upper_bound();
+    const VecX &lb = constraints[horizon]->lower_bound();
+    const VecX &ub = constraints[horizon]->upper_bound();
 
     VecX v =
       constraints[horizon]->right_minus(c0, lb).cwiseMin(0).cwiseAbs().cwiseMax(
