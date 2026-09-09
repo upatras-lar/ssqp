@@ -57,8 +57,10 @@ void ssqp::_setup_qp()
 
             _qp.stages[k].A.topLeftCorner(nv, nv).noalias() =
               _tmp_jac_r_inv * _tmp_jac_x;
+
+            _model.getMatrixActuatedPart(_tmp_jac_r_inv, _tmp_jac_r_inv_act);
             _qp.stages[k].B.topLeftCorner(nu, nu).noalias() =
-              _model.getMatrixActuatedPart(_tmp_jac_r_inv) * _tmp_jac_u;
+              _tmp_jac_r_inv_act * _tmp_jac_u;
         }
 
         logln_at(LogLevel::Debug, "A: " << std::endl << _qp.stages[k].A);

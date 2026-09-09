@@ -696,12 +696,12 @@ const uint Model::horizon() const
     return _dims.horizon;
 }
 
-const Dimensions Model::dims() const
+const Dimensions &Model::dims() const noexcept
 {
     return _dims;
 }
 
-const Dimensions Model::linear_dims() const
+const Dimensions &Model::linear_dims() const noexcept
 {
     return _lin_dims;
 }
@@ -1252,6 +1252,14 @@ void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
 
 MatX Model::getMatrixActuatedPart(const MatX &M) const
 {
+    MatX M_act(_dims.nu, _dims.nu);
+    getMatrixActuatedPart(M, M_act);
+
+    return M_act;
+}
+
+void Model::getMatrixActuatedPart(const MatX &M, Eigen::Ref<MatX> out) const
+{
     if (M.rows() != _dims.nv || M.cols() != _dims.nv)
     {
         throw std::runtime_error("Model::getMatrixActuatedPart: Incorrect "
@@ -1260,23 +1268,20 @@ MatX Model::getMatrixActuatedPart(const MatX &M) const
 
     if (_dims.nu == _dims.nv)
     {
-        return M;
+        out = M;
+        return;
     }
 
     uint offset = _free_flyer ? 6 : 0;
-
-    MatX M_act(_dims.nu, _dims.nu);
 
     for (uint i = 0; i < _dims.nu; ++i)
     {
         for (uint j = 0; j < _dims.nu; ++j)
         {
-            M_act(i, j) =
+            out(i, j) =
               M(offset + _actuated_joints[i], offset + _actuated_joints[j]);
         }
     }
-
-    return M_act;
 }
 
 VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,

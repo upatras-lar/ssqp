@@ -6,16 +6,14 @@ namespace model
 {
 template<typename Derived>
 Container<Derived>::Container(const uint horizon)
-  : _horizon(horizon)
-  , _functions(horizon, nullptr)
+  : _functions(horizon, nullptr)
 {
 }
 
 template<typename Derived>
 Container<Derived>::Container(
   const std::vector<std::shared_ptr<Derived>> &functions)
-  : _horizon(functions.size())
-  , _functions(functions)
+  : _functions(functions)
 {
 }
 
@@ -23,29 +21,29 @@ template<typename Derived>
 Container<Derived> &Container<Derived>::operator=(
   const std::vector<std::shared_ptr<Derived>> &functions)
 {
-    _horizon   = functions.size();
     _functions = functions;
 
     return *this;
 }
 
 template<typename Derived>
-std::shared_ptr<Derived> &Container<Derived>::operator[](const uint k)
+std::shared_ptr<Derived> &Container<Derived>::operator[](
+  const uint k) noexcept
 {
     return _functions[k];
 }
 
 template<typename Derived>
 const std::shared_ptr<Derived> &Container<Derived>::operator[](
-  const uint k) const
+  const uint k) const noexcept
 {
     return _functions[k];
 }
 
 template<typename Derived>
-const uint Container<Derived>::size() const
+uint Container<Derived>::size() const noexcept
 {
-    return _functions.size();
+    return static_cast<uint>(_functions.size());
 }
 
 }

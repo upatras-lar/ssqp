@@ -32,15 +32,14 @@ class Container
       const std::vector<std::shared_ptr<Derived>> &functions);
 
     // Get reference to k-th function for setting
-    std::shared_ptr<Derived> &operator[](const uint k);
+    std::shared_ptr<Derived> &operator[](const uint k) noexcept;
 
     // Get const reference to k-th function for reading
-    const std::shared_ptr<Derived> &operator[](const uint k) const;
+    const std::shared_ptr<Derived> &operator[](const uint k) const noexcept;
 
-    const uint size() const;
+    uint size() const noexcept;
 
   protected:
-    uint                                  _horizon;
     std::vector<std::shared_ptr<Derived>> _functions;
 };
 }

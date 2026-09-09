@@ -292,7 +292,7 @@ class ssqp
 
     // Scratch XML Jacobian-transform buffers for _setup_qp (nv/nu are
     // whole-model constants, not per-stage)
-    MatX _tmp_jac_x, _tmp_jac_u, _tmp_jac_r_inv;
+    MatX _tmp_jac_x, _tmp_jac_u, _tmp_jac_r_inv, _tmp_jac_r_inv_act;
 
     // Scratch manifold-difference buffers for _gammaf_grad
     mutable MatX _tmp_jr_inv_wrt_x, _tmp_jr_inv_wrt_f;

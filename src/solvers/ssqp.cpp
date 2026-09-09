@@ -450,6 +450,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         _tmp_jac_x.resize(nv, nv);
         _tmp_jac_u.resize(nu, nu);
         _tmp_jac_r_inv.resize(nv, nv);
+        _tmp_jac_r_inv_act.resize(nu, nu);
 
         _tmp_jr_inv_wrt_x.resize(nv, nv);
         _tmp_jr_inv_wrt_f.resize(nv, nv);
@@ -475,7 +476,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
 
 void ssqp::reinitialize()
 {
-    const model::Dimensions         dims     = _model.dims();
+    const model::Dimensions        &dims     = _model.dims();
     const model::DynamicsContainer &dynamics = _model.dynamics();
 
     for (uint k = 0; k <= dims.horizon; ++k)

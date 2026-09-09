@@ -244,8 +244,8 @@ class Model
     bool xml() const;
 
     const uint       horizon() const;
-    const Dimensions dims() const;
-    const Dimensions linear_dims() const;
+    const Dimensions &dims() const noexcept;
+    const Dimensions &linear_dims() const noexcept;
 
     /** Updates the model's dimensions and linear dimensions
      * This is required to update constraint sizes, when constraints' enabled
@@ -454,6 +454,10 @@ class Model
 
     // Return the actuated part (nu x nu) of a matrix (nv x nv)
     MatX getMatrixActuatedPart(const MatX &M) const;
+
+    // Output-buffer version of getMatrixActuatedPart; `out` must already be
+    // sized (nu x nu) and is written in place, avoiding an allocation
+    void getMatrixActuatedPart(const MatX &M, Eigen::Ref<MatX> out) const;
 
     /** Returns the full acceleration vector for a given stage
      * Input:
