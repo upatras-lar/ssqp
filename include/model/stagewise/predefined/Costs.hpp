@@ -516,6 +516,7 @@ class FrameSquaredTranslationErrorCost : public StageCost
     const std::string            _frame;
     const uint                    _frame_id;
     Vec3                         _weight;
+    mutable MatX                 _jac_scratch;
 };
 
 /** Predefined squared frame rotation error cost
@@ -563,6 +564,7 @@ class FrameSquaredRotationErrorCost : public StageCost
     const std::string            _frame;
     const uint                    _frame_id;
     Vec3                         _weight;
+    mutable MatX                 _jac_scratch;
 };
 
 /** Predefined squared frame pose error cost
@@ -637,6 +639,7 @@ class FrameSquaredPoseErrorCost : public StageCost
     const std::string            _frame;
     const uint                    _frame_id;
     Mat6                         _weight;
+    mutable MatX                 _jac_scratch;
 };
 
 /** Predefined squared frame velocity error cost
@@ -684,6 +687,8 @@ class FrameSquaredVelocityErrorCost : public StageCost
     const std::string            _frame;
     const uint                    _frame_id;
     Vec6                         _weight;
+    mutable MatX                 _jac_scratch;
+    mutable MatX                 _dVdq_scratch, _dVdv_scratch;
 };
 
 /** Predefined center of mass (CoM) tracking cost
@@ -779,6 +784,8 @@ class FramesInverseSquaredDistanceCost : public StageCost
     const std::vector<uint>        _frame_ids;
     double                         _weight;
     Vec3                           _distance_scale;
+    mutable MatX                   _jac_scratch;
+    mutable std::vector<MatX>      _jac_cache;
 };
 }
 }

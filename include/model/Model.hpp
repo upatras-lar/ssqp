@@ -386,6 +386,18 @@ class Model
                                                    const uint frame_id,
                                                    bool       local = false) const;
 
+    // Output-buffer version of the above; `dVdq`/`dVdv` must already be sized
+    // (6 x nv)
+    void frameVelocityDerivatives(const VecX &q, const VecX &v,
+                                  const std::string &frame, bool local,
+                                  Eigen::Ref<MatX> dVdq,
+                                  Eigen::Ref<MatX> dVdv) const;
+
+    void frameVelocityDerivatives(const VecX &q, const VecX &v,
+                                  const uint frame_id, bool local,
+                                  Eigen::Ref<MatX> dVdq,
+                                  Eigen::Ref<MatX> dVdv) const;
+
     const VecX inverseKinematics(const VecX        &desired_translation,
                                  const MatX        &desired_rotation,
                                  const std::string &joint);

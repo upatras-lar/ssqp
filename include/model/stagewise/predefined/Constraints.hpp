@@ -457,6 +457,7 @@ class FrameTranslationBound : public StageConstraints
     const std::string            _frame;
     const uint                    _frame_id;
     VecX                         _lb, _ub;
+    mutable MatX                 _jac_scratch;
 };
 
 /** Predefined 3D orientation bound for a given frame
@@ -510,6 +511,7 @@ class FrameRotationBound : public StageConstraints
     const uint                    _frame_id;
     Mat3                         _Rref;
     VecX                         _lb, _ub;
+    mutable MatX                 _jac_scratch;
 };
 
 /** Predefined SE(3) pose bound for a given frame
@@ -569,6 +571,7 @@ class FramePoseBound : public StageConstraints
     const uint                    _frame_id;
     Mat4                         _Tref, _Tref_inv;
     VecX                         _lb, _ub;
+    mutable MatX                 _jac_scratch;
 };
 
 /** Predefined 3D velocity bound for a given frame
@@ -620,6 +623,7 @@ class FrameLinearVelocityBound : public StageConstraints
     const std::string            _frame;
     const uint                    _frame_id;
     VecX                         _lb, _ub;
+    mutable MatX                 _dVdq_scratch, _dVdv_scratch;
 };
 
 /** Predefined angular velocity bound for a given frame
@@ -672,6 +676,7 @@ class FrameAngularVelocityBound : public StageConstraints
     const std::string            _frame;
     const uint                    _frame_id;
     VecX                         _lb, _ub;
+    mutable MatX                 _dVdq_scratch, _dVdv_scratch;
 };
 
 /** Predefined center of mass bound
@@ -795,6 +800,7 @@ class ContactConstraint : public StageConstraints
     const double                 _max_normal_force;
     const double                 _eq_tol;
     const VecX                   _lb, _ub;
+    mutable MatX                 _jac_world_scratch, _jac_local_scratch;
 };
 
 }

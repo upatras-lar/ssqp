@@ -698,8 +698,8 @@ Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const Eigen::VectorXd            &q,
                               const Eigen::VectorXd &v, const std::string frame,
-                              Eigen::MatrixXd &dVdq, Eigen::MatrixXd &dVdv,
-                              bool local)
+                              Eigen::Ref<Eigen::MatrixXd> dVdq,
+                              Eigen::Ref<Eigen::MatrixXd> dVdv, bool local)
 {
     frameVelocityDerivatives(impl,
                              q,
@@ -712,8 +712,8 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                              const uint frame_id, Eigen::MatrixXd &dVdq,
-                              Eigen::MatrixXd &dVdv, bool local)
+                              const uint frame_id, Eigen::Ref<Eigen::MatrixXd> dVdq,
+                              Eigen::Ref<Eigen::MatrixXd> dVdv, bool local)
 {
     pinocchio::computeForwardKinematicsDerivatives(
       impl->model,

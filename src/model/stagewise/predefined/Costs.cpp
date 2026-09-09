@@ -1273,6 +1273,7 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _desired_translation(desired_translation)
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() && "Cannot use FrameSquaredTranslationErrorCost with a "
                           "custom Model");
@@ -1292,6 +1293,7 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   , _frame_id(model.frameId(frame))
   , _desired_translation(desired_translation)
   , _weight(weight)
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() && "Cannot use FrameSquaredTranslationErrorCost with a "
                           "custom Model");
@@ -1336,12 +1338,12 @@ void FrameSquaredTranslationErrorCost::gradient(const VecX &x, const VecX &u,
 
     Vec3 pos;
     std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
-    MatX Jfk                   = _model->frameJacobian(x.head(_nq), _frame_id);
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     dx.setZero(_ndx);
 
     dx.head(_nv) =
-      Jfk.topRows(3).transpose() *
+      _jac_scratch.topRows(3).transpose() *
       (_weight.array().square() * (pos - _desired_translation).array())
         .matrix();
 
@@ -1353,12 +1355,12 @@ void FrameSquaredTranslationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame_id);
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) =
-      Jfk.topRows(3).transpose() *
-      _weight.array().square().matrix().asDiagonal() * Jfk.topRows(3);
+      _jac_scratch.topRows(3).transpose() *
+      _weight.array().square().matrix().asDiagonal() * _jac_scratch.topRows(3);
 }
 
 void FrameSquaredTranslationErrorCost::hessian_xu(const VecX &x, const VecX &u,
@@ -1385,6 +1387,7 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _desired_rotation(desired_rotation)
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameSquaredRotationErrorCost with a custom "
@@ -1405,6 +1408,7 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   , _frame_id(model.frameId(frame))
   , _desired_rotation(desired_rotation)
   , _weight(weight)
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameSquaredRotationErrorCost with a custom "
@@ -1451,14 +1455,14 @@ void FrameSquaredRotationErrorCost::gradient(const VecX &x, const VecX &u,
 
     Mat3 R;
     std::tie(std::ignore, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
-    MatX Jfk                 = _model->frameJacobian(x.head(_nq), _frame_id, true);
+    _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
 
     dx.setZero(_ndx);
 
     Mat3 d       = R.transpose() * _desired_rotation;
     Vec3 phi     = pinocchio_wrapper::logSO3(d);
     Mat3 j_r_inv = pinocchio_wrapper::JlogSO3(d);
-    MatX jac     = Jfk.bottomRows(3);
+    MatX jac     = _jac_scratch.bottomRows(3);
     dx.head(_nv) = (-j_r_inv * _weight.array().square().matrix().asDiagonal() *
                     d.transpose() * jac)
                      .transpose() *
@@ -1474,11 +1478,11 @@ void FrameSquaredRotationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 
     Mat3 rot;
     std::tie(std::ignore, rot) = _model->forwardKinematics(x.head(_nq), _frame_id);
-    MatX Jfk     = _model->frameJacobian(x.head(_nq), _frame_id, true);
+    _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
     Mat3 d       = rot.transpose() * _desired_rotation;
     Vec3 phi     = pinocchio_wrapper::logSO3(d);
     Mat3 j_r_inv = pinocchio_wrapper::JlogSO3(d);
-    MatX jac     = Jfk.bottomRows(3);
+    MatX jac     = _jac_scratch.bottomRows(3);
 
     MatX J = -j_r_inv * d.transpose() * jac;
 
@@ -1523,6 +1527,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   , _desired_pose(desired_pose)
   , _desired_pose_inv(inverseSE3(desired_pose))
   , _weight(Mat6::Zero())
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameSquaredPoseErrorCost with a custom Model");
@@ -1546,6 +1551,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(const Model       &model,
   , _desired_pose(desired_pose)
   , _desired_pose_inv(inverseSE3(desired_pose))
   , _weight(Mat6::Zero())
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameSquaredPoseErrorCost with a custom Model");
@@ -1681,14 +1687,14 @@ void FrameSquaredPoseErrorCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Mat4 pose = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
-    MatX Jfk  = _model->frameJacobian(x.head(_nq), _frame_id, true);
+    _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
 
     Mat4 d     = _desired_pose_inv * pose;
     Vec6 log6  = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6 = pinocchio_wrapper::JlogSE3(d);
 
     dx.setZero(_ndx);
-    dx.head(_nv) = (Jlog6 * Jfk).transpose() * _weight * log6;
+    dx.head(_nv) = (Jlog6 * _jac_scratch).transpose() * _weight * log6;
 
     du.setZero(u.size());
 }
@@ -1699,13 +1705,13 @@ void FrameSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Mat4 pose = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
-    MatX Jfk  = _model->frameJacobian(x.head(_nq), _frame_id, true);
+    _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
 
     Mat4 d     = _desired_pose_inv * pose;
     Vec6 log6  = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6 = pinocchio_wrapper::JlogSE3(d);
 
-    MatX J = Jlog6 * Jfk;
+    MatX J = Jlog6 * _jac_scratch;
 
     Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) = J.transpose() * _weight * J;
@@ -1735,6 +1741,9 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _desired_velocity(desired_velocity)
+  , _jac_scratch(MatX::Zero(6, _nv))
+  , _dVdq_scratch(MatX::Zero(6, _nv))
+  , _dVdv_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameSquaredVelocityErrorCost with a custom "
@@ -1755,6 +1764,9 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _frame_id(model.frameId(frame))
   , _desired_velocity(desired_velocity)
   , _weight(weight)
+  , _jac_scratch(MatX::Zero(6, _nv))
+  , _dVdq_scratch(MatX::Zero(6, _nv))
+  , _dVdv_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameSquaredPoseErrorCost with a custom Model");
@@ -1803,14 +1815,13 @@ void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
                  _desired_velocity)
                   .array();
 
-    MatX dVdq, dVdv;
-    std::tie(dVdq, dVdv) =
-      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true);
+    _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true,
+                                     _dVdq_scratch, _dVdv_scratch);
 
     dx.setZero(_ndx);
 
-    dx.head(_nv) = dVdq.transpose() * diff;
-    dx.tail(_nv) = dVdv.transpose() * diff;
+    dx.head(_nv) = _dVdq_scratch.transpose() * diff;
+    dx.tail(_nv) = _dVdv_scratch.transpose() * diff;
 
     du.setZero(u.size());
 }
@@ -1818,11 +1829,12 @@ void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
 void FrameSquaredVelocityErrorCost::hessian_xx(const VecX &x, const VecX &u,
                                                MatX &Hxx) const
 {
-    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame_id);
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     Hxx.setZero(_ndx, _ndx);
     Hxx.bottomRightCorner(_nv, _nv) =
-      Jfk.transpose() * _weight.array().square().matrix().asDiagonal() * Jfk;
+      _jac_scratch.transpose() * _weight.array().square().matrix().asDiagonal() *
+      _jac_scratch;
 }
 void FrameSquaredVelocityErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                MatX &Hxu) const
@@ -1965,6 +1977,12 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
         assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
     }
     set_distance_scale(distance_scale);
+    _jac_scratch.resize(6, _nv);
+    _jac_cache.resize(_frames.size());
+    for (MatX &jac : _jac_cache)
+    {
+        jac.resize(3, _nv);
+    }
 }
 
 FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
@@ -1986,6 +2004,12 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
         assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
     }
     set_distance_scale(distance_scale);
+    _jac_scratch.resize(6, _nv);
+    _jac_cache.resize(_frames.size());
+    for (MatX &jac : _jac_cache)
+    {
+        jac.resize(3, _nv);
+    }
 }
 
 void FramesInverseSquaredDistanceCost::set_weight(const double weight)
@@ -2044,14 +2068,13 @@ void FramesInverseSquaredDistanceCost::gradient(const VecX &x, const VecX &u,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     std::vector<Vec3> translations(_frames.size());
-    std::vector<MatX> jacobians(_frames.size());
 
     for (uint i = 0; i < _frames.size(); ++i)
     {
         std::tie(translations[i], std::ignore) =
           _model->forwardKinematics(x.head(_nq), _frame_ids[i]);
-        jacobians[i] =
-          _model->frameJacobian(x.head(_nq), _frame_ids[i]).topRows<3>();
+        _model->frameJacobian(x.head(_nq), _frame_ids[i], false, _jac_scratch);
+        _jac_cache[i] = _jac_scratch.topRows<3>();
     }
 
     dx.setZero(_ndx);
@@ -2070,7 +2093,7 @@ void FramesInverseSquaredDistanceCost::gradient(const VecX &x, const VecX &u,
             Vec3 g_d = -(d2.array() * d.array()).matrix() / (s * s);
 
             dx.head(_nv) +=
-              _weight * (jacobians[i] - jacobians[j]).transpose() * g_d;
+              _weight * (_jac_cache[i] - _jac_cache[j]).transpose() * g_d;
         }
     }
 
@@ -2081,14 +2104,13 @@ void FramesInverseSquaredDistanceCost::hessian_xx(const VecX &x, const VecX &u,
                                                   MatX &Hxx) const
 {
     std::vector<Vec3> translations(_frames.size());
-    std::vector<MatX> jacobians(_frames.size());
 
     for (uint i = 0; i < _frames.size(); ++i)
     {
         std::tie(translations[i], std::ignore) =
           _model->forwardKinematics(x.head(_nq), _frame_ids[i]);
-        jacobians[i] =
-          _model->frameJacobian(x.head(_nq), _frame_ids[i]).topRows<3>();
+        _model->frameJacobian(x.head(_nq), _frame_ids[i], false, _jac_scratch);
+        _jac_cache[i] = _jac_scratch.topRows<3>();
     }
 
     Hxx.setZero(_ndx, _ndx);
@@ -2100,7 +2122,7 @@ void FramesInverseSquaredDistanceCost::hessian_xx(const VecX &x, const VecX &u,
         for (uint j = i + 1; j < _frames.size(); ++j)
         {
             Vec3 d  = translations[i] - translations[j];
-            MatX Jd = jacobians[i] - jacobians[j];
+            MatX Jd = _jac_cache[i] - _jac_cache[j];
 
             double s =
               (_distance_scale.array() * d.array()).matrix().squaredNorm();

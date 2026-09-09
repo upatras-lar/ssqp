@@ -704,6 +704,7 @@ FrameTranslationBound::FrameTranslationBound(const Model       &model,
   , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameTranslationBound with a custom Model");
@@ -744,10 +745,10 @@ VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
 void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                      MatX &dU) const
 {
-    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame_id);
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv) = Jfk.topRows(3);
+    dX.leftCols(_nv) = _jac_scratch.topRows(3);
 
     dU.setZero(3, u.size());
 }
@@ -783,6 +784,7 @@ FrameRotationBound::FrameRotationBound(const Model       &model,
   , _Rref(Rref)
   , _lb(lb)
   , _ub(ub)
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameRotatationBound with a custom Model");
@@ -831,7 +833,8 @@ void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     Mat3 Rf;
     std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame_id);
 
-    MatX Jw   = _model->frameJacobian(x.head(_nq), _frame_id, true).bottomRows(3);
+    _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
+    MatX Jw   = _jac_scratch.bottomRows(3);
     Mat3 Jlog = pinocchio_wrapper::JlogSO3(_Rref.transpose() * Rf);
 
     dX.setZero(3, _ndx);
@@ -871,6 +874,7 @@ FramePoseBound::FramePoseBound(const Model &model, const std::string &frame,
   , _Tref_inv(inverseSE3(Tref))
   , _lb(lb)
   , _ub(ub)
+  , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() && "Cannot use FramePoseBound with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
@@ -945,11 +949,11 @@ void FramePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 {
     Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
 
-    MatX Jw   = _model->frameJacobian(x.head(_nq), _frame_id, true);
+    _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
     Mat6 Jlog = pinocchio_wrapper::JlogSE3(_Tref_inv * Tf);
 
     dX.setZero(6, _ndx);
-    dX.leftCols(_nv) = Jlog * Jw;
+    dX.leftCols(_nv) = Jlog * _jac_scratch;
 
     dU.setZero(6, u.size());
 }
@@ -987,6 +991,8 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(const Model       &model,
   , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
+  , _dVdq_scratch(MatX::Zero(6, _nv))
+  , _dVdv_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameLinearVelocityBound with a custom Model");
@@ -1026,13 +1032,12 @@ VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
 void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                         MatX &dU) const
 {
-    MatX dVdq, dVdv;
-    std::tie(dVdq, dVdv) =
-      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true);
+    _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true,
+                                     _dVdq_scratch, _dVdv_scratch);
 
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv)  = dVdq.topRows<3>();
-    dX.rightCols(_nv) = dVdv.topRows<3>();
+    dX.leftCols(_nv)  = _dVdq_scratch.topRows<3>();
+    dX.rightCols(_nv) = _dVdv_scratch.topRows<3>();
 
     dU.setZero(3, u.size());
 }
@@ -1068,6 +1073,8 @@ FrameAngularVelocityBound::FrameAngularVelocityBound(const Model       &model,
   , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
+  , _dVdq_scratch(MatX::Zero(6, _nv))
+  , _dVdv_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameAngularVelocityBound with a custom Model");
@@ -1108,13 +1115,12 @@ VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
 void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                          MatX &dU) const
 {
-    MatX dVdq, dVdv;
-    std::tie(dVdq, dVdv) =
-      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true);
+    _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true,
+                                     _dVdq_scratch, _dVdv_scratch);
 
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv)  = dVdq.bottomRows<3>();
-    dX.rightCols(_nv) = dVdv.bottomRows<3>();
+    dX.leftCols(_nv)  = _dVdq_scratch.bottomRows<3>();
+    dX.rightCols(_nv) = _dVdv_scratch.bottomRows<3>();
 
     dU.setZero(3, u.size());
 }
@@ -1229,6 +1235,8 @@ ContactConstraint::ContactConstraint(const Model       &model,
          std::numeric_limits<double>::infinity(), 0.0,
          std::numeric_limits<double>::infinity(), eq_tol)
           .finished())
+  , _jac_world_scratch(MatX::Zero(6, _nv))
+  , _jac_local_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() && "Cannot use ContactConstraint with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
@@ -1319,8 +1327,10 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
     dX.setZero(6, 2 * _nv);
-    MatX Jfw = _model->frameJacobian(x.head(_nq), _frame_id).topRows<3>();
-    MatX Jfl = _model->frameJacobian(x.head(_nq), _frame_id, true).bottomRows<3>();
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_world_scratch);
+    _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_local_scratch);
+    MatX Jfw = _jac_world_scratch.topRows<3>();
+    MatX Jfl = _jac_local_scratch.bottomRows<3>();
 
     uint total_force_index = _nu + 3 * _force->force_index;
 

@@ -1122,6 +1122,24 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX &q,
     return { dVdq, dVdv };
 }
 
+void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
+                                     const std::string &frame, bool local,
+                                     Eigen::Ref<MatX> dVdq,
+                                     Eigen::Ref<MatX> dVdv) const
+{
+    frameVelocityDerivatives(q, v, pinocchio_wrapper::getFrameId(_impl, frame),
+                             local, dVdq, dVdv);
+}
+
+void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
+                                     const uint frame_id, bool local,
+                                     Eigen::Ref<MatX> dVdq,
+                                     Eigen::Ref<MatX> dVdv) const
+{
+    pinocchio_wrapper::frameVelocityDerivatives(_impl, q, v, frame_id, dVdq, dVdv,
+                                                local);
+}
+
 const VecX Model::forwardDynamics(const VecX &q, const VecX &v,
                                   const VecX &tau) const
 {
