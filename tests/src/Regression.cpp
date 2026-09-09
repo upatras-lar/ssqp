@@ -59,6 +59,7 @@ void solverKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon,
                 "Finite multipliers");
     }
 }
+
 void mpcKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon)
 {
     auto                 model  = integratorProblem(horizon, 0.0);
@@ -121,6 +122,7 @@ void mpcKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon)
     require(mpc.getConvergenceData().size() == calls + 5,
             "History for every overload");
 }
+
 void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
 {
     auto model  = integratorProblem(2, 1.0, true);
@@ -160,6 +162,7 @@ void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
         require(mpc.getConvergenceData().empty(), "History disabled");
     }
 }
+
 void flatVecOwnership()
 {
     const std::vector<uint> sizes { 2, 0, 3, 1 };
@@ -185,6 +188,7 @@ void flatVecOwnership()
     requireClose((-assigned).vec, -assigned.vec, "Negation", 0, 0);
     requireClose((2.0 * assigned).vec, 2.0 * assigned.vec, "Scaling", 0, 0);
 }
+
 void quadraticHessians()
 {
     model::Model::Structure structure;
@@ -235,6 +239,173 @@ void quadraticHessians()
         requireClose(hxx, hxx.transpose(), "Hxx symmetry", 1e-12, 0);
     }
 }
+
+// Tests the initialization behavior of Config::init_controls (empty ->
+// zero, size 1 -> broadcast to every stage, size horizon -> one per stage)
+// against distinct dynamics objects per stage
+void finalizeInitControlsContract()
+{
+    const uint horizon = 3;
+
+    auto build = [&](const std::vector<VecX> &init_controls)
+    {
+        model::Model::Config config;
+        for (uint k = 0; k <= horizon; ++k)
+            config.dynamics.push_back(std::make_shared<Integrator>());
+        config.stage_cost    = std::make_shared<Quadratic>();
+        config.terminal_cost = std::make_shared<Quadratic>();
+        config.init_states   = { VecX::Constant(1, 1.0) };
+        config.init_controls = init_controls;
+        return std::make_shared<model::Model>(horizon, 1.0, config);
+    };
+
+    auto zero_model = build({});
+    for (uint k = 0; k < horizon; ++k)
+        requireClose(zero_model->dynamics()[k]->init_control(),
+                     VecX::Zero(1),
+                     "An empty init_controls must default to zero at stage " +
+                       std::to_string(k),
+                     0,
+                     0);
+
+    const VecX shared_control  = VecX::Constant(1, 0.42);
+    auto       broadcast_model = build({ shared_control });
+    for (uint k = 0; k < horizon; ++k)
+        requireClose(broadcast_model->dynamics()[k]->init_control(),
+                     shared_control,
+                     "A single init_controls entry must broadcast to stage " +
+                       std::to_string(k),
+                     0,
+                     0);
+
+    std::vector<VecX> per_stage_controls;
+    for (uint k = 0; k < horizon; ++k)
+        per_stage_controls.push_back(VecX::Constant(1, 0.1 * (k + 1)));
+    auto per_stage_model = build(per_stage_controls);
+    for (uint k = 0; k < horizon; ++k)
+        requireClose(per_stage_model->dynamics()[k]->init_control(),
+                     per_stage_controls[k],
+                     "A per-stage init_controls vector must set stage " +
+                       std::to_string(k),
+                     0,
+                     0);
+}
+
+// Verify dDifference against numerical differentiation of difference() for both
+// a model without an XML description (Euclidean subtraction) and an XML-based
+// one (manifold difference via Pinocchio)
+void dDifferenceMatchesFiniteDifferenceOfDifference()
+{
+    auto check = [](const model::Model &model, const VecX &q0, const VecX &q1)
+    {
+        const uint n  = static_cast<uint>(q0.size());
+        MatX       J0 = MatX::Zero(n, n), J1 = MatX::Zero(n, n);
+        model.dDifference(q0, q1, J0, 0);
+        model.dDifference(q0, q1, J1, 1);
+
+        for (uint j = 0; j < n; ++j)
+        {
+            VecX fd0 = finiteDifferenceVector(
+              [&](double h)
+              {
+                  VecX q0p = q0, q0m = q0;
+                  q0p[j] += h;
+                  q0m[j] -= h;
+                  return VecX(
+                    (model.difference(q0p, q1) - model.difference(q0m, q1)) /
+                    (2 * h));
+              },
+              1e-4);
+            VecX fd1 = finiteDifferenceVector(
+              [&](double h)
+              {
+                  VecX q1p = q1, q1m = q1;
+                  q1p[j] += h;
+                  q1m[j] -= h;
+                  return VecX(
+                    (model.difference(q0, q1p) - model.difference(q0, q1m)) /
+                    (2 * h));
+              },
+              1e-4);
+            requireClose(J0.col(j),
+                         fd0,
+                         "d(difference)/dq0, column " + std::to_string(j),
+                         1e-6,
+                         1e-6);
+            requireClose(J1.col(j),
+                         fd1,
+                         "d(difference)/dq1, column " + std::to_string(j),
+                         1e-6,
+                         1e-6);
+        }
+    };
+
+    model::Model custom_model(1, 0.01);
+    check(custom_model,
+          (VecX(3) << 1.0, -2.0, 0.5).finished(),
+          (VecX(3) << 0.2, 0.3, -0.7).finished());
+
+    model::Model::Structure structure;
+    structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
+    model::Model xml_model(1, 0.01, structure);
+    check(xml_model,
+          VecX::Constant(xml_model.nq(), 0.3),
+          VecX::Constant(xml_model.nq(), -0.2));
+}
+
+// Evaluate a torque constraint at, just inside, and just outside +-tau_bound
+void innateTorqueBoundsAreEnforced()
+{
+    using namespace model::stagewise::predefined::costs;
+
+    model::Model::Structure structure;
+    structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
+    auto model          = std::make_shared<model::Model>(1, 0.01, structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+        model->addCost<SquaredJointVelocityCost>(k, *model, 1.0);
+
+    // Widen the position and velocity bounds so the zero configuration used
+    // below is unconditionally feasible for those parts of the constraint,
+    // isolating the check to the torque part
+    const double         tau_bound = 3.5;
+    model::Model::Config config;
+    config.custom_lower_position_bounds =
+      VecX::Constant(model->njoints(), -100.0);
+    config.custom_upper_position_bounds =
+      VecX::Constant(model->njoints(), 100.0);
+    config.custom_velocity_bounds = VecX::Constant(model->njoints(), 100.0);
+    config.custom_torque_bounds   = VecX::Constant(model->njoints(), tau_bound);
+    model->finalize(config);
+
+    auto constraint = model->constraints()[0];
+    require(constraint != nullptr, "Non-terminal stage has innate constraints");
+
+    const VecX lb        = constraint->lower_bound();
+    const VecX ub        = constraint->upper_bound();
+    auto       satisfies = [&](const VecX &c)
+    {
+        return (c.array() >= lb.array() - 1e-9).all() &&
+               (c.array() <= ub.array() + 1e-9).all();
+    };
+
+    const VecX x = VecX::Zero(model->nq() + model->nv());
+
+    require(satisfies(
+              constraint->evaluate(x, VecX::Constant(model->nu(), tau_bound))),
+            "A control at +tau_bound must satisfy the torque constraint");
+    require(satisfies(
+              constraint->evaluate(x, VecX::Constant(model->nu(), -tau_bound))),
+            "A control at -tau_bound must satisfy the torque constraint");
+    require(
+      !satisfies(
+        constraint->evaluate(x, VecX::Constant(model->nu(), 1.1 * tau_bound))),
+      "A control above +tau_bound must violate the torque constraint");
+    require(
+      !satisfies(
+        constraint->evaluate(x, VecX::Constant(model->nu(), -1.1 * tau_bound))),
+      "A control below -tau_bound must violate the torque constraint");
+}
 }
 void addQPRegressionTests(TestContainer &tests);
 void addRegressionTests(TestContainer &tests)
@@ -243,6 +414,15 @@ void addRegressionTests(TestContainer &tests)
                                                  flatVecOwnership));
     tests.addTest(std::make_shared<FunctionTest>("Regression_QuadraticHessians",
                                                  quadraticHessians));
+    tests.addTest(
+      std::make_shared<FunctionTest>("Regression_Finalize_InitControlsContract",
+                                     finalizeInitControlsContract));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_DDifference_MatchesFiniteDifference",
+      dDifferenceMatchesFiniteDifferenceOfDifference));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_InnateTorqueBounds_AreEnforced",
+      innateTorqueBoundsAreEnforced));
     std::vector<solvers::ssqp::QPSolverType> backends { solvers::ssqp::ADMM };
 #ifdef WITH_HPIPM
     backends.push_back(solvers::ssqp::HPIPM);

@@ -38,6 +38,10 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
   const model::SolverMode &sm, const bool forces, const bool unactuated_joints,
   const uint seed = 42);
 
+// Dynamics gradient after reconfiguring the actuated joints more than once
+std::shared_ptr<Test> generate_reconfigured_actuated_joints_dynamics_grad_test(
+  const std::string &urdf_path, const bool floating_base, const uint seed = 42);
+
 // Predefined dynamics model gradients
 std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
   const uint seed = 42);

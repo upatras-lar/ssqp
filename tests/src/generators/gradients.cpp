@@ -222,6 +222,35 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
                                                1e-4);
 }
 
+std::shared_ptr<Test> generate_reconfigured_actuated_joints_dynamics_grad_test(
+  const std::string &urdf_path, const bool floating_base, const uint seed)
+{
+    std::mt19937 rng(seed);
+
+    model::Model::Structure model_structure;
+    model_structure.urdf_path   = urdf_path;
+    model_structure.free_flyer  = floating_base;
+    model_structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
+
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    // Reconfigure twice: only the final selection should determine the
+    // actuated/unactuated split used once the model is finalized.
+    set_model_unactuated_joints(model, rng);
+    set_model_unactuated_joints(model, rng);
+
+    setup_model(model);
+    model->finalize();
+
+    std::filesystem::path p(urdf_path);
+    std::stringstream     test_name_ss;
+    test_name_ss << "ReconfiguredActuatedJoints_" << p.stem().string()
+                 << "_DynamicsGradTest";
+
+    return std::make_shared<FDGradDynamics>(test_name_ss.str(), model, 0);
+}
+
 std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
   const uint seed)
 {

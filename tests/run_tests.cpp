@@ -103,6 +103,15 @@ int main(int argc, char **argv)
         }
     }
 
+    for (const auto &urdf_pair : urdfs)
+    {
+        tests.addTest(
+          ssqp::tests::generators::
+            generate_reconfigured_actuated_joints_dynamics_grad_test(
+              urdf_pair.first,
+              urdf_pair.second));
+    }
+
     tests.addTest(ssqp::tests::generators::
                     get_double_pendulum_ambient_dynamics_grad_test());
 
