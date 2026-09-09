@@ -18,7 +18,7 @@ add_compile_options(-fPIC ${SSQP_ARCH_FLAG})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # --- Options ---
-option(WITH_HPIPM "Link against HPIPM and BLASFEO" OFF)
+option(WITH_HPIPM "Link against HPIPM and BLASFEO" ON)
 option(ENABLE_PROFILING "Enable Tracy profiling" OFF)
 option(DISABLE_LOGGING "Add -DDISABLE_LOGGING compile flag" OFF)
 option(BUILD_EXAMPLES "Build example executables" OFF)
@@ -160,11 +160,11 @@ if(BUILD_PYTHON)
     if(SSQP_READELF_EXECUTABLE)
         add_custom_target(verify-static-dependencies
             COMMAND ${CMAKE_COMMAND}
-                -DSSQP_READELF_EXECUTABLE=${SSQP_READELF_EXECUTABLE}
-                -DSSQP_PYTHON_MODULE=$<TARGET_FILE:ssqpy>
-                -DSSQP_STATIC_LIBRARY=$<TARGET_FILE:ssqp>
-                -DSSQP_AR=${CMAKE_AR}
-                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyStaticDependencies.cmake
+            -DSSQP_READELF_EXECUTABLE=${SSQP_READELF_EXECUTABLE}
+            -DSSQP_PYTHON_MODULE=$<TARGET_FILE:ssqpy>
+            -DSSQP_STATIC_LIBRARY=$<TARGET_FILE:ssqp>
+            -DSSQP_AR=${CMAKE_AR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyStaticDependencies.cmake
             DEPENDS ssqpy
             COMMENT "Checking SSQP and Python dependencies are static"
             VERBATIM

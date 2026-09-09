@@ -514,6 +514,7 @@ class FrameSquaredTranslationErrorCost : public StageCost
     const uint                   _nq, _nv, _ndx;
     Vec3                         _desired_translation;
     const std::string            _frame;
+    const uint                    _frame_id;
     Vec3                         _weight;
 };
 
@@ -560,6 +561,7 @@ class FrameSquaredRotationErrorCost : public StageCost
     const uint                   _nq, _nv, _ndx;
     Mat3                         _desired_rotation;
     const std::string            _frame;
+    const uint                    _frame_id;
     Vec3                         _weight;
 };
 
@@ -633,6 +635,7 @@ class FrameSquaredPoseErrorCost : public StageCost
     const uint                   _nq, _nv, _ndx;
     Mat4                         _desired_pose, _desired_pose_inv;
     const std::string            _frame;
+    const uint                    _frame_id;
     Mat6                         _weight;
 };
 
@@ -679,6 +682,7 @@ class FrameSquaredVelocityErrorCost : public StageCost
     const uint                   _nq, _nv, _ndx;
     Vec6                         _desired_velocity;
     const std::string            _frame;
+    const uint                    _frame_id;
     Vec6                         _weight;
 };
 
@@ -765,9 +769,14 @@ class FramesInverseSquaredDistanceCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
+    // Resolves each frame name to its index once, at construction
+    static std::vector<uint> _resolveFrameIds(
+      const Model &model, const std::vector<std::string> &frames);
+
     const std::shared_ptr<Model>   _model;
     const uint                     _nq, _nv, _ndx;
     const std::vector<std::string> _frames;
+    const std::vector<uint>        _frame_ids;
     double                         _weight;
     Vec3                           _distance_scale;
 };

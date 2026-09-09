@@ -455,6 +455,7 @@ class FrameTranslationBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
+    const uint                    _frame_id;
     VecX                         _lb, _ub;
 };
 
@@ -506,6 +507,7 @@ class FrameRotationBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
+    const uint                    _frame_id;
     Mat3                         _Rref;
     VecX                         _lb, _ub;
 };
@@ -564,6 +566,7 @@ class FramePoseBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
+    const uint                    _frame_id;
     Mat4                         _Tref, _Tref_inv;
     VecX                         _lb, _ub;
 };
@@ -615,6 +618,7 @@ class FrameLinearVelocityBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
+    const uint                    _frame_id;
     VecX                         _lb, _ub;
 };
 
@@ -666,6 +670,7 @@ class FrameAngularVelocityBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
+    const uint                    _frame_id;
     VecX                         _lb, _ub;
 };
 
@@ -784,6 +789,7 @@ class ContactConstraint : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _nu;
     const std::string            _frame;
+    const uint                    _frame_id;
     std::shared_ptr<Force>       _force;
     double                       _mu;
     const double                 _max_normal_force;

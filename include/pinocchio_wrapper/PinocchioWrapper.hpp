@@ -34,6 +34,12 @@ void buildModelFromMjcf(const std::string         &mjcf,
 
 bool hasFrame(const std::shared_ptr<ModelImpl> &impl, const std::string &frame);
 
+// Resolves a frame name to its index once; getFrameId() itself does a linear
+// (twice-over, to check uniqueness) scan of every frame, so hot-path callers
+// should resolve once via this and use the ID-taking overloads below instead
+// of repeatedly passing the name
+uint getFrameId(const std::shared_ptr<ModelImpl> &impl, const std::string &frame);
+
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
 
 std::vector<std::string> getOrderedBodyFrames(
@@ -95,6 +101,11 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
                                      const std::string                &frame,
                                      const Eigen::Vector3d            &force,
                                      uint &joint_id);
+
+Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
+                                     const uint             frame_id,
+                                     const Eigen::Vector3d &force,
+                                     uint                  &joint_id);
 
 Eigen::MatrixXd crba(const std::shared_ptr<ModelImpl> &impl,
                      const Eigen::VectorXd &q, bool local = false);
@@ -162,18 +173,34 @@ std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const std::string &frame);
 
+std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
+  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
+  const uint frame_id);
+
 // FK including updateFramePlacement, returning SE3 matrix
 Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
                                      const Eigen::VectorXd            &q,
                                      const std::string                &frame);
 
+Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
+                                     const Eigen::VectorXd &q,
+                                     const uint             frame_id);
+
 std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
   const Eigen::VectorXd &v, const std::string &frame);
 
+std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
+  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
+  const Eigen::VectorXd &v, const uint frame_id);
+
 Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
                                        const std::string                &frame,
                                        bool local = false);
+
+Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
+                                       const uint frame_id,
+                                       bool       local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const Eigen::VectorXd            &q,
@@ -181,18 +208,30 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               Eigen::MatrixXd &dVdq, Eigen::MatrixXd &dVdv,
                               bool local = false);
 
+void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
+                              const Eigen::VectorXd &q, const Eigen::VectorXd &v,
+                              const uint frame_id, Eigen::MatrixXd &dVdq,
+                              Eigen::MatrixXd &dVdv, bool local = false);
+
 // Compute and get frame jacobian
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const Eigen::VectorXd &q, const std::string &frame,
-                   Eigen::MatrixXd &J, bool local = false);
+                   Eigen::Ref<Eigen::MatrixXd> J, bool local = false);
+
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
+                   const Eigen::VectorXd &q, const uint frame_id,
+                   Eigen::Ref<Eigen::MatrixXd> J, bool local = false);
 
 void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
                            const Eigen::VectorXd            &q);
 
 // Get frame jacobian (assumes computeJointJacobians has been called)
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const std::string &frame, Eigen::MatrixXd &J,
+                   const std::string &frame, Eigen::Ref<Eigen::MatrixXd> J,
                    bool local = false);
+
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
+                   Eigen::Ref<Eigen::MatrixXd> J, bool local = false);
 
 // Get center of mass
 Eigen::Vector3d centerOfMass(const std::shared_ptr<ModelImpl> &impl,

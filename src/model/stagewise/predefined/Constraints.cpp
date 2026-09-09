@@ -701,6 +701,7 @@ FrameTranslationBound::FrameTranslationBound(const Model       &model,
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
+  , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
 {
@@ -736,14 +737,14 @@ const VecX &FrameTranslationBound::upper_bound() const
 VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
 {
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame);
+    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
     return pos;
 }
 
 void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                      MatX &dU) const
 {
-    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame);
+    MatX Jfk = _model->frameJacobian(x.head(_nq), _frame_id);
 
     dX.setZero(3, _ndx);
     dX.leftCols(_nv) = Jfk.topRows(3);
@@ -778,6 +779,7 @@ FrameRotationBound::FrameRotationBound(const Model       &model,
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
+  , _frame_id(model.frameId(frame))
   , _Rref(Rref)
   , _lb(lb)
   , _ub(ub)
@@ -818,7 +820,7 @@ const VecX &FrameRotationBound::upper_bound() const
 VecX FrameRotationBound::evaluate(const VecX &x, const VecX &u) const
 {
     Mat3 Rf;
-    std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame);
+    std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame_id);
 
     return pinocchio_wrapper::logSO3(_Rref.transpose() * Rf);
 }
@@ -827,9 +829,9 @@ void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                   MatX &dU) const
 {
     Mat3 Rf;
-    std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame);
+    std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame_id);
 
-    MatX Jw   = _model->frameJacobian(x.head(_nq), _frame, true).bottomRows(3);
+    MatX Jw   = _model->frameJacobian(x.head(_nq), _frame_id, true).bottomRows(3);
     Mat3 Jlog = pinocchio_wrapper::JlogSO3(_Rref.transpose() * Rf);
 
     dX.setZero(3, _ndx);
@@ -864,6 +866,7 @@ FramePoseBound::FramePoseBound(const Model &model, const std::string &frame,
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
+  , _frame_id(model.frameId(frame))
   , _Tref(Tref)
   , _Tref_inv(inverseSE3(Tref))
   , _lb(lb)
@@ -933,16 +936,16 @@ const VecX &FramePoseBound::upper_bound() const
 
 VecX FramePoseBound::evaluate(const VecX &x, const VecX &u) const
 {
-    Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame);
+    Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
     return pinocchio_wrapper::logSE3(_Tref_inv * Tf);
 }
 
 void FramePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                               MatX &dU) const
 {
-    Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame);
+    Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
 
-    MatX Jw   = _model->frameJacobian(x.head(_nq), _frame, true);
+    MatX Jw   = _model->frameJacobian(x.head(_nq), _frame_id, true);
     Mat6 Jlog = pinocchio_wrapper::JlogSE3(_Tref_inv * Tf);
 
     dX.setZero(6, _ndx);
@@ -981,6 +984,7 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(const Model       &model,
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
+  , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
 {
@@ -1015,7 +1019,7 @@ const VecX &FrameLinearVelocityBound::upper_bound() const
 
 VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true)
+    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true)
       .head<3>();
 }
 
@@ -1024,7 +1028,7 @@ void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 {
     MatX dVdq, dVdv;
     std::tie(dVdq, dVdv) =
-      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame, true);
+      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true);
 
     dX.setZero(3, _ndx);
     dX.leftCols(_nv)  = dVdq.topRows<3>();
@@ -1061,6 +1065,7 @@ FrameAngularVelocityBound::FrameAngularVelocityBound(const Model       &model,
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
+  , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
 {
@@ -1096,7 +1101,7 @@ const VecX &FrameAngularVelocityBound::upper_bound() const
 
 VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame, true)
+    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true)
       .tail<3>();
 }
 
@@ -1105,7 +1110,7 @@ void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 {
     MatX dVdq, dVdv;
     std::tie(dVdq, dVdv) =
-      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame, true);
+      _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true);
 
     dX.setZero(3, _ndx);
     dX.leftCols(_nv)  = dVdq.bottomRows<3>();
@@ -1213,6 +1218,7 @@ ContactConstraint::ContactConstraint(const Model       &model,
   , _nv(model.nv())
   , _nu(model.nu())
   , _frame(frame)
+  , _frame_id(model.frameId(frame))
   , _mu(mu)
   , _max_normal_force(max_normal_force)
   , _eq_tol(eq_tol)
@@ -1280,7 +1286,7 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 
     Vec3 pos;
     Mat3 R;
-    std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame);
+    std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
@@ -1308,13 +1314,13 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     Vec3 pos;
     Mat3 R;
-    std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame);
+    std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
     dX.setZero(6, 2 * _nv);
-    MatX Jfw = _model->frameJacobian(x.head(_nq), _frame).topRows<3>();
-    MatX Jfl = _model->frameJacobian(x.head(_nq), _frame, true).bottomRows<3>();
+    MatX Jfw = _model->frameJacobian(x.head(_nq), _frame_id).topRows<3>();
+    MatX Jfl = _model->frameJacobian(x.head(_nq), _frame_id, true).bottomRows<3>();
 
     uint total_force_index = _nu + 3 * _force->force_index;
 

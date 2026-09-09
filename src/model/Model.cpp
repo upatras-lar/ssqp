@@ -465,13 +465,17 @@ void Model::_buildXMLInnateConstraints(const Config &config)
         ctx.stage_constraints_name =
           "StageInnateConstraints" + std::to_string(k);
         ctx.nf = _forces[k].size();
+
+        auto ctx_ptr =
+          std::make_shared<const _StageInnateConstraintsContext>(ctx);
+
         std::shared_ptr<stagewise::StageConstraints> innate_constraints =
           std::visit(
-            [this, ctx](auto fb, auto it, auto dm)
+            [this, ctx_ptr](auto fb, auto it, auto dm)
             {
                 return _makeStageInnateConstraints<fb.value,
                                                    it.value,
-                                                   dm.value>(ctx);
+                                                   dm.value>(ctx_ptr);
             },
             ct_floating_base,
             k == _dims.horizon ? ct_true : ct_false,
@@ -515,20 +519,26 @@ void Model::_buildXMLIDTorqueConstraints(const Config &config)
     auto ct_true          = to_compile_time(true);
     auto ct_false         = to_compile_time(false);
 
+    ctx.joint_forces_scratch.resize(_dims.total_joints);
+
     for (uint k = 0; k < _dims.horizon; ++k)
     {
         ctx.stage_constraints_name =
           "StageIDTorqueConstraints" + std::to_string(k);
         ctx.nf         = _forces[k].size();
         ctx.force_data = _forces[k];
+        ctx.jf_full_scratch.resize(3 * ctx.nf, _dims.nv);
+
+        auto ctx_ptr =
+          std::make_shared<const _StageInnateConstraintsContext>(ctx);
 
         std::shared_ptr<stagewise::StageConstraints> innate_constraints =
           std::visit(
-            [this, ctx](auto fb, auto ri, auto wf)
+            [this, ctx_ptr](auto fb, auto ri, auto wf)
             {
                 return _makeStageIDTorqueConstraints<fb.value,
                                                      ri.value,
-                                                     wf.value>(ctx);
+                                                     wf.value>(ctx_ptr);
             },
             ct_floating_base,
             _solver_mode == SolverMode::ReducedInverseDynamics ? ct_true
@@ -639,6 +649,7 @@ void Model::_buildXMLDynamics(const Config &config)
     ctx.nu                = _dims.nu;
     ctx.actuated_joints   = _actuated_joints;
     ctx.unactuated_joints = _unactuated_joints;
+    ctx.joint_forces_scratch.resize(_dims.total_joints);
 
     auto ct_floating_base = to_compile_time(_free_flyer);
     auto ct_true          = to_compile_time(true);
@@ -651,6 +662,7 @@ void Model::_buildXMLDynamics(const Config &config)
         ctx.stage_dynamics_name = "StageDynamics" + std::to_string(k);
         ctx.nf                  = _forces[k].size();
         ctx.force_data          = _forces[k];
+        ctx.jf_full_scratch.resize(3 * ctx.nf, _dims.nv);
 
         ctx.init_state =
           init_state.size() != 0 ? init_state : config.init_states[k];
@@ -661,11 +673,13 @@ void Model::_buildXMLDynamics(const Config &config)
             : (config.init_controls.size() == 1 ? config.init_controls[0]
                                                 : config.init_controls[k]);
 
+        auto ctx_ptr = std::make_shared<const _StageDynamicsContext>(ctx);
+
         _dynamics[k] = std::visit(
-          [this, ctx](auto fb, auto wf, auto dm, auto is)
+          [this, ctx_ptr](auto fb, auto wf, auto dm, auto is)
           {
               return _makeStageDynamics<fb.value, wf.value, dm.value, is.value>(
-                ctx);
+                ctx_ptr);
           },
           ct_floating_base,
           ctx.nf == 0 ? ct_false : ct_true,
@@ -826,6 +840,7 @@ std::shared_ptr<Force> Model::addForce(const uint k, const std::string &frame)
 
     std::shared_ptr<Force> force =
       std::make_shared<Force>(frame, _forces[k].size());
+    force->frame_id = pinocchio_wrapper::getFrameId(_impl, frame);
 
     _forces[k].push_back(force);
     return _forces[k].back();
@@ -851,6 +866,11 @@ std::vector<std::string> Model::orderedForceFrames(const uint k) const
 bool Model::hasFrame(const std::string &frame) const
 {
     return pinocchio_wrapper::hasFrame(_impl, frame);
+}
+
+uint Model::frameId(const std::string &frame) const
+{
+    return pinocchio_wrapper::getFrameId(_impl, frame);
 }
 
 void Model::printFramesAndJoints() const
@@ -1039,21 +1059,40 @@ const VecX Model::neutralPose() const
 const std::pair<Vec3, Mat3> Model::forwardKinematics(
   const VecX &q, const std::string &frame) const
 {
-    return pinocchio_wrapper::forwardKinematics(_impl, q, frame);
+    return forwardKinematics(q, pinocchio_wrapper::getFrameId(_impl, frame));
+}
+
+const std::pair<Vec3, Mat3> Model::forwardKinematics(
+  const VecX &q, const uint frame_id) const
+{
+    return pinocchio_wrapper::forwardKinematics(_impl, q, frame_id);
 }
 
 const Mat4 Model::forwardKinematicsSE3(const VecX        &q,
                                        const std::string &frame) const
 {
-    return pinocchio_wrapper::forwardKinematicsSE3(_impl, q, frame);
+    return forwardKinematicsSE3(q, pinocchio_wrapper::getFrameId(_impl, frame));
+}
+
+const Mat4 Model::forwardKinematicsSE3(const VecX &q,
+                                       const uint  frame_id) const
+{
+    return pinocchio_wrapper::forwardKinematicsSE3(_impl, q, frame_id);
 }
 
 const Vec6 Model::frameVelocity(const VecX &q, const VecX &v,
                                 const std::string &frame, bool local) const
 {
-    pinocchio_wrapper::forwardKinematics(_impl, q, v, frame);
+    return frameVelocity(q, v, pinocchio_wrapper::getFrameId(_impl, frame),
+                         local);
+}
+
+const Vec6 Model::frameVelocity(const VecX &q, const VecX &v,
+                                const uint frame_id, bool local) const
+{
+    pinocchio_wrapper::forwardKinematics(_impl, q, v, frame_id);
     pinocchio_wrapper::updateFramePlacements(_impl);
-    return pinocchio_wrapper::frameVelocity(_impl, frame, local);
+    return pinocchio_wrapper::frameVelocity(_impl, frame_id, local);
 }
 
 std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
@@ -1061,12 +1100,21 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
                                                       const std::string &frame,
                                                       bool local) const
 {
+    return frameVelocityDerivatives(
+      q, v, pinocchio_wrapper::getFrameId(_impl, frame), local);
+}
+
+std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX &q,
+                                                      const VecX &v,
+                                                      const uint  frame_id,
+                                                      bool local) const
+{
     MatX dVdq(6, v.size()), dVdv(6, v.size());
 
     pinocchio_wrapper::frameVelocityDerivatives(_impl,
                                                 q,
                                                 v,
-                                                frame,
+                                                frame_id,
                                                 dVdq,
                                                 dVdv,
                                                 local);
@@ -1175,24 +1223,58 @@ const void Model::inverseDynamicsDerivatives(
 const MatX Model::frameJacobian(const VecX &q, const std::string &frame,
                                 bool local) const
 {
-    uint nv;
-    std::tie(std::ignore, nv) = pinocchio_wrapper::modelDimensions(_impl);
+    return frameJacobian(q, pinocchio_wrapper::getFrameId(_impl, frame),
+                         local);
+}
 
-    MatX J6 = MatX::Zero(6, nv);
-    pinocchio_wrapper::frameJacobian(_impl, q, frame, J6, local);
+const MatX Model::frameJacobian(const VecX &q, const uint frame_id,
+                                bool local) const
+{
+    MatX J6 = MatX::Zero(6, _dims.nv);
+    frameJacobian(q, frame_id, local, J6);
 
     return J6;
 }
 
+void Model::frameJacobian(const VecX &q, const std::string &frame, bool local,
+                          Eigen::Ref<MatX> J) const
+{
+    frameJacobian(q, pinocchio_wrapper::getFrameId(_impl, frame), local, J);
+}
+
+void Model::frameJacobian(const VecX &q, const uint frame_id, bool local,
+                          Eigen::Ref<MatX> J) const
+{
+    // getFrameJacobian relies on J starting fully zeroed
+    J.setZero();
+    pinocchio_wrapper::frameJacobian(_impl, q, frame_id, J, local);
+}
+
 const MatX Model::frameJacobian(const std::string &frame, bool local) const
 {
-    uint nv;
-    std::tie(std::ignore, nv) = pinocchio_wrapper::modelDimensions(_impl);
+    return frameJacobian(pinocchio_wrapper::getFrameId(_impl, frame), local);
+}
 
-    MatX J6 = MatX::Zero(6, nv);
-    pinocchio_wrapper::frameJacobian(_impl, frame, J6, local);
+const MatX Model::frameJacobian(const uint frame_id, bool local) const
+{
+    MatX J6 = MatX::Zero(6, _dims.nv);
+    frameJacobian(frame_id, local, J6);
 
     return J6;
+}
+
+void Model::frameJacobian(const std::string &frame, bool local,
+                          Eigen::Ref<MatX> J) const
+{
+    frameJacobian(pinocchio_wrapper::getFrameId(_impl, frame), local, J);
+}
+
+void Model::frameJacobian(const uint frame_id, bool local,
+                          Eigen::Ref<MatX> J) const
+{
+    // getFrameJacobian relies on J starting fully zeroed
+    J.setZero();
+    pinocchio_wrapper::frameJacobian(_impl, frame_id, J, local);
 }
 
 const Vec3 Model::centerOfMass(const VecX &q) const
@@ -1370,12 +1452,13 @@ VecX Model::_randomVector(const uint size, const double start,
     return start + (end - start) * 0.5 * (VecX::Random(size).array() + 1.0);
 }
 
-std::vector<Vec6> Model::_calculateJointForces(
+void Model::_calculateJointForces(
   const VecX &q, const VecX &f,
-  const std::vector<std::shared_ptr<Force>> &force_data) const
+  const std::vector<std::shared_ptr<Force>> &force_data,
+  std::vector<Vec6>                         &joint_forces) const
 {
     pinocchio_wrapper::computeJointJacobians(_impl, q);
-    std::vector<Vec6> joint_forces(_dims.total_joints, Vec6::Zero());
+    std::fill(joint_forces.begin(), joint_forces.end(), Vec6::Zero());
 
     for (uint i = 0; i < force_data.size(); ++i)
     {
@@ -1388,24 +1471,29 @@ std::vector<Vec6> Model::_calculateJointForces(
 
         uint joint_id;
         Vec6 f_res = pinocchio_wrapper::framejMfAct(_impl,
-                                                    force_data[i]->frame,
+                                                    force_data[i]->frame_id,
                                                     fi,
                                                     joint_id);
 
         joint_forces[joint_id] += f_res;
     }
-
-    return joint_forces;
 }
 
-std::pair<std::vector<Vec6>, MatX> Model::_calculateJointForcesAndJacobian(
+void Model::_calculateJointForcesAndJacobian(
   const VecX &q, const VecX &f,
-  const std::vector<std::shared_ptr<Force>> &force_data) const
+  const std::vector<std::shared_ptr<Force>> &force_data,
+  std::vector<Vec6> &joint_forces, MatX &Jf_full) const
 {
     pinocchio_wrapper::computeJointJacobians(_impl, q);
 
-    MatX              Jf_full = MatX::Zero(3 * force_data.size(), _dims.nv);
-    std::vector<Vec6> joint_forces(_dims.total_joints, Vec6::Zero());
+    // Jf_full is reused across calls (unlike a fresh MatX::Zero() every
+    // call), so it must be explicitly re-zeroed: a force marked `ignore`
+    // skips writing its block below, and must still read as zero rather than
+    // keep stale data from a previous call where it was active
+    Jf_full.setZero();
+    std::fill(joint_forces.begin(), joint_forces.end(), Vec6::Zero());
+
+    MatX J6(6, _dims.nv);
 
     for (uint i = 0; i < force_data.size(); ++i)
     {
@@ -1414,21 +1502,19 @@ std::pair<std::vector<Vec6>, MatX> Model::_calculateJointForcesAndJacobian(
             continue;
         }
 
-        MatX Jf = frameJacobian(force_data[i]->frame, true).topRows<3>();
-        Jf_full.block(3 * i, 0, 3, _dims.nv) = Jf;
+        frameJacobian(force_data[i]->frame_id, true, J6);
+        Jf_full.block(3 * i, 0, 3, _dims.nv) = J6.topRows<3>();
 
         Vec3 fi = f.segment(3 * i, 3);
 
         uint joint_id;
         Vec6 f_res = pinocchio_wrapper::framejMfAct(_impl,
-                                                    force_data[i]->frame,
+                                                    force_data[i]->frame_id,
                                                     fi,
                                                     joint_id);
 
         joint_forces[joint_id] += f_res;
     }
-
-    return { joint_forces, Jf_full };
 }
 }
 }

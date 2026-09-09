@@ -310,6 +310,11 @@ class Model
     // Whether the model has a frame with the given name
     bool hasFrame(const std::string &frame) const;
 
+    // Resolves a frame name to its index once; prefer this plus the
+    // frame-ID-taking overloads below over repeatedly passing a frame name to
+    // hot-path calls, since name resolution is a linear scan
+    uint frameId(const std::string &frame) const;
+
     // Output all frames and joints of the model
     void printFramesAndJoints() const;
 
@@ -357,17 +362,29 @@ class Model
     const std::pair<Vec3, Mat3> forwardKinematics(
       const VecX &q, const std::string &frame) const;
 
+    const std::pair<Vec3, Mat3> forwardKinematics(const VecX &q,
+                                                  const uint  frame_id) const;
+
     const Mat4 forwardKinematicsSE3(const VecX        &q,
                                     const std::string &frame) const;
+
+    const Mat4 forwardKinematicsSE3(const VecX &q, const uint frame_id) const;
 
     // Get the velocity for a given frame
     const Vec6 frameVelocity(const VecX &q, const VecX &v,
                              const std::string &frame,
                              bool               local = false) const;
 
+    const Vec6 frameVelocity(const VecX &q, const VecX &v, const uint frame_id,
+                             bool local = false) const;
+
     std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &q, const VecX &v,
                                                    const std::string &frame,
                                                    bool local = false) const;
+
+    std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &q, const VecX &v,
+                                                   const uint frame_id,
+                                                   bool       local = false) const;
 
     const VecX inverseKinematics(const VecX        &desired_translation,
                                  const MatX        &desired_rotation,
@@ -409,9 +426,28 @@ class Model
     const MatX frameJacobian(const VecX &q, const std::string &frame,
                              bool local = false) const;
 
+    const MatX frameJacobian(const VecX &q, const uint frame_id,
+                             bool local = false) const;
+
+    // Output-buffer version of the above; `J` must already be sized (6 x nv)
+    void frameJacobian(const VecX &q, const std::string &frame, bool local,
+                       Eigen::Ref<MatX> J) const;
+
+    void frameJacobian(const VecX &q, const uint frame_id, bool local,
+                       Eigen::Ref<MatX> J) const;
+
     // Get frame jacobian (assuming computeJointJacobians has been called)
     const MatX frameJacobian(const std::string &frame,
                              bool               local = false) const;
+
+    const MatX frameJacobian(const uint frame_id, bool local = false) const;
+
+    // Output-buffer version of the above; `J` must already be sized (6 x nv)
+    void frameJacobian(const std::string &frame, bool local,
+                       Eigen::Ref<MatX> J) const;
+
+    void frameJacobian(const uint frame_id, bool local,
+                       Eigen::Ref<MatX> J) const;
 
     // Get model center of mass for the given configuration
     const Vec3 centerOfMass(const VecX &q) const;
@@ -526,21 +562,30 @@ class Model
      *    vector)
      *  - `force_data`: Vector of data about each force in `f`
      *
-     * Output: A vector of 6D forces, one for each of the model's joints
+     * Output:
+     *  - `joint_forces`: A vector of 6D forces, one for each of the model's
+     *     joints; must already be sized (`_dims.total_joints`)
      */
-    std::vector<Vec6> _calculateJointForces(
+    void _calculateJointForces(
       const VecX &q, const VecX &f,
-      const std::vector<std::shared_ptr<Force>> &force_data) const;
+      const std::vector<std::shared_ptr<Force>> &force_data,
+      std::vector<Vec6> &joint_forces) const;
 
     /** Calculates joint forces and total force jacobian given a configuration
      * and an external force vector
      *
      * Same as _calculateJointForces, but also calculates the full force
      * jacobian
+     *
+     * Output:
+     *  - `joint_forces`: Same as in _calculateJointForces
+     *  - `Jf_full`: The full force jacobian; must already be sized
+     *     (`3 * force_data.size()` x `_dims.nv`)
      */
-    std::pair<std::vector<Vec6>, MatX> _calculateJointForcesAndJacobian(
+    void _calculateJointForcesAndJacobian(
       const VecX &q, const VecX &f,
-      const std::vector<std::shared_ptr<Force>> &force_data) const;
+      const std::vector<std::shared_ptr<Force>> &force_data,
+      std::vector<Vec6> &joint_forces, MatX &Jf_full) const;
 
     /** Calculates the full acceleration vector for ReducedInverseDynamics mode
      * Input:
@@ -666,6 +711,13 @@ class Model
         uint                                nq, nv, nu, nf;
         std::vector<uint>                   actuated_joints, unactuated_joints;
         std::string                         stage_dynamics_name;
+
+        // Persistent joint-force/force-jacobian scratch, sized once per
+        // stage; reused across repeated evaluate()/gradient() calls instead
+        // of being reallocated every call. `mutable` since it's written to
+        // from the (const) evaluate()/gradient() callbacks
+        mutable std::vector<Vec6> joint_forces_scratch;
+        mutable MatX              jf_full_scratch;
     };
 
     /** Makes the dynamics for a given stage with context `ctx` based on the
@@ -680,7 +732,7 @@ class Model
     template<bool FloatingBase, bool WithForces, SolverMode SM,
              IntegrationScheme IS>
     std::shared_ptr<stagewise::StageDynamics> _makeStageDynamics(
-      const _StageDynamicsContext &ctx) const;
+      const std::shared_ptr<const _StageDynamicsContext> &ctx) const;
 
     /** Context for `_makeStageConstraints` for a given stage
      * Data:
@@ -693,6 +745,13 @@ class Model
         std::vector<uint>                   actuated_joints, unactuated_joints;
         std::string                         stage_constraints_name;
         VecX lower_pos_bound, upper_pos_bound, vel_bound, tau_bound;
+
+        // See the comment on _StageDynamicsContext's equivalent fields; only
+        // populated/used when this context backs the ID torque constraints
+        // (_buildXMLIDTorqueConstraints), not the plain innate bounds
+        // (_buildXMLInnateConstraints)
+        mutable std::vector<Vec6> joint_forces_scratch;
+        mutable MatX              jf_full_scratch;
     };
 
     /** Makes the innate constraints for a given stage with context `ctx` based
@@ -710,7 +769,7 @@ class Model
     template<bool FloatingBase, bool IsTerminal,
              SolverMode SM = SolverMode::ForwardDynamics>
     std::shared_ptr<stagewise::StageConstraints> _makeStageInnateConstraints(
-      const _StageInnateConstraintsContext &ctx) const;
+      const std::shared_ptr<const _StageInnateConstraintsContext> &ctx) const;
 
     /** Makes the inverse dynamics torque constraints required by the InverseDynamics
      * or ReducedInverseDynamics solver modes, based on the XML effort limits.
@@ -730,7 +789,7 @@ class Model
     template<bool FloatingBase, bool ReducedInverseDynamics = false,
              bool WithForces = false>
     std::shared_ptr<stagewise::StageConstraints> _makeStageIDTorqueConstraints(
-      const _StageInnateConstraintsContext &ctx) const;
+      const std::shared_ptr<const _StageInnateConstraintsContext> &ctx) const;
 };
 }
 }

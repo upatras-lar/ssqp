@@ -152,6 +152,10 @@ struct Force
     std::string frame;
     uint        force_index;
     bool        ignore = false;
+    // Index of `frame` within the model, resolved once by Model::addForce
+    // (avoids repeatedly resolving the frame name by linear search on every
+    // dynamics evaluation)
+    uint frame_id = 0;
 
     Force() = default;
     Force(const std::string &frame, const uint force_index);
