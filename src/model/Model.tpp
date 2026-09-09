@@ -136,7 +136,18 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
         if constexpr (SM == SolverMode::ForwardDynamics)
         {
-            ctrl = ctx.S * ctrl;
+            uint offset = 0;
+
+            if constexpr (FloatingBase)
+            {
+                ctrl.head<6>().setZero();
+                offset = 6;
+            }
+
+            for (const uint j : ctx.unactuated_joints)
+            {
+                ctrl[offset + j] = 0.0;
+            }
         }
 
         VecX out;
@@ -224,7 +235,18 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
         if constexpr (SM == SolverMode::ForwardDynamics)
         {
-            ctrl = ctx.S * ctrl;
+            uint offset = 0;
+
+            if constexpr (FloatingBase)
+            {
+                ctrl.head<6>().setZero();
+                offset = 6;
+            }
+
+            for (const uint j : ctx.unactuated_joints)
+            {
+                ctrl[offset + j] = 0.0;
+            }
         }
 
         if constexpr (SM == SolverMode::Kinematics)
@@ -365,7 +387,20 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                     dX.bottomRightCorner(ctx.nv, ctx.nv) =
                       MatX::Identity(ctx.nv, ctx.nv) + ddq_dv * _dt;
 
-                    dU.bottomLeftCorner(ctx.nv, ctx.nu) = Minv * ctx.S * _dt;
+                    auto dU_ctrl = dU.bottomLeftCorner(ctx.nv, ctx.nu);
+                    dU_ctrl.noalias() = Minv * _dt;
+
+                    uint offset = 0;
+                    if constexpr (FloatingBase)
+                    {
+                        dU_ctrl.leftCols<6>().setZero();
+                        offset = 6;
+                    }
+
+                    for (const uint j : ctx.unactuated_joints)
+                    {
+                        dU_ctrl.col(offset + j).setZero();
+                    }
 
                     if constexpr (WithForces)
                     {
@@ -449,9 +484,23 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                     dX.bottomRightCorner(ctx.nv, ctx.nv) =
                       MatX::Identity(ctx.nv, ctx.nv) + ddq_dv * _dt;
 
+                    MatX Gtau = Minv;
+
+                    uint offset = 0;
+                    if constexpr (FloatingBase)
+                    {
+                        Gtau.leftCols<6>().setZero();
+                        offset = 6;
+                    }
+
+                    for (const uint j : ctx.unactuated_joints)
+                    {
+                        Gtau.col(offset + j).setZero();
+                    }
+
                     dU.topLeftCorner(ctx.nv, ctx.nv) =
-                      Jint_v * _dt * _dt * Minv * ctx.S;
-                    dU.bottomLeftCorner(ctx.nv, ctx.nv) = Minv * ctx.S * _dt;
+                      Jint_v * _dt * _dt * Gtau;
+                    dU.bottomLeftCorner(ctx.nv, ctx.nv) = Gtau * _dt;
 
                     if constexpr (WithForces)
                     {

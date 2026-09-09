@@ -647,7 +647,6 @@ class Model
 
     /** Context for `_makeStageDynamics` for a given stage
      * Data:
-     *  - `S`: Selection matrix for stage ($S \tau$)
      *  - `force_data`: Vector containing a Force object for each force
      *  - `init_state`: Initial state for stage
      *  - `init_control`: Initial controls for stage
@@ -661,7 +660,6 @@ class Model
      */
     struct _StageDynamicsContext
     {
-        const MatX                          S;
         std::vector<std::shared_ptr<Force>> force_data;
         VecX                                init_state;
         VecX                                init_control;

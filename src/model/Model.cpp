@@ -546,19 +546,15 @@ void Model::_buildXMLIDTorqueConstraints(const Config &config)
 void Model::_buildXMLDynamics(const Config &config)
 {
     uint nv_act = _dims.nv;
-    MatX S      = MatX::Zero(nv_act, nv_act);
 
     if (_free_flyer)
     {
         nv_act -= 6;
     }
 
-    // TODO: do not make S if unneeded
-    if (_actuated_joints.size() == _dims.njoints)
-    {
-        S.bottomRightCorner(nv_act, nv_act).setIdentity();
-    }
-    else
+    // Dynamics generation below masks unactuated joints directly from
+    // _actuated_joints/_unactuated_joints (via the stage context)
+    if (_actuated_joints.size() != _dims.njoints)
     {
         if (_actuated_joints.size() > nv_act)
         {
@@ -579,9 +575,6 @@ void Model::_buildXMLDynamics(const Config &config)
                                          std::to_string(_actuated_joints[i]) +
                                          " >= " + std::to_string(nv_act) + ")");
             }
-
-            S.bottomRightCorner(nv_act, nv_act)(_actuated_joints[i],
-                                                _actuated_joints[i]) = 1.0;
         }
     }
 
@@ -640,7 +633,7 @@ void Model::_buildXMLDynamics(const Config &config)
         init_state = config.init_states[0];
     }
 
-    _StageDynamicsContext ctx { S };
+    _StageDynamicsContext ctx {};
     ctx.nq                = _dims.nq;
     ctx.nv                = _dims.nv;
     ctx.nu                = _dims.nu;
