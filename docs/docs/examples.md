@@ -3,16 +3,21 @@
 The [`examples/`](https://github.com/upatras-lar/ssqp/tree/main/examples) directory contains robotics-related OCPs
 built with SSQP, covering offline trajectory generation as well as real-time MPC in simulation and on real systems.
 
+[**See the Gallery for videos of what SSQP produces →**](gallery.md){ .md-button .md-button--primary }
+
 | Directory | Contents |
 | --- | --- |
 | [`trajgen/`](https://github.com/upatras-lar/ssqp/tree/main/examples/trajgen) | Offline trajectory generation: SSQP generates a full trajectory from scratch given costs/constraints and little to no initialization. Includes `di.py` (the [Quickstart](getting-started/quickstart.md) double integrator), `pendubot.py`, `acrobot.py`, and legged-robot examples (Go2, G1, A1, Talos, Panda, …). |
 | [`mujoco_mpc/`](https://github.com/upatras-lar/ssqp/tree/main/examples/mujoco_mpc) | MPC examples using [MuJoCo](https://mujoco.org/) as the simulated "real" system: MuJoCo provides state feedback, and SSQP's [`MPC`](concepts/mpc.md) helper solves and re-solves the OCP each control step. |
 | [`real_mpc/`](https://github.com/upatras-lar/ssqp/tree/main/examples/real_mpc) | MPC examples running against real hardware (e.g. Go2, Panda, a double pendulum) instead of a simulator. |
 | [`cloud_pendulum/`](https://github.com/upatras-lar/ssqp/tree/main/examples/cloud_pendulum) | Adaptive-model pendulum/acrobot/pendubot examples that use [online dynamics parameter search](concepts/parameter-search.md) to adapt the model while running in MuJoCo. |
-| [`benchmarks/`](https://github.com/upatras-lar/ssqp/tree/main/examples/benchmarks) | Experiments benchmarking and comparing solver configurations, e.g. forward vs. inverse dynamics formulations. See the [`solver/`](https://github.com/upatras-lar/ssqp/blob/main/examples/benchmarks/solver/README.md) and [`solver_modes/`](https://github.com/upatras-lar/ssqp/blob/main/examples/benchmarks/solver_modes/README.md) READMEs there for how to run them. |
 | [`visualizer/`](https://github.com/upatras-lar/ssqp/tree/main/examples/visualizer) | `visualize.py` / `visualize_srbd.py`, using [viser](https://viser.studio/main/) to visualize trajectories written by `solver.write(...)`. |
 | [`models/`](https://github.com/upatras-lar/ssqp/tree/main/examples/models) | Custom SSQP `StageDynamics`/etc. models usable in place of XML files, plus related utilities. |
 | [`assets/`](https://github.com/upatras-lar/ssqp/tree/main/examples/assets) | URDF/MJCF assets used by the examples. |
+
+Solver benchmarks, comparing SSQP against other OCP solvers on a shared set of problems, live separately in
+[`benchmarks/`](https://github.com/upatras-lar/ssqp/tree/main/benchmarks) rather than under `examples/`; see
+[Benchmarks](benchmarks.md).
 
 ## Walkthroughs
 

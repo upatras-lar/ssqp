@@ -6,6 +6,14 @@ for what SSQP actually produces before digging into the code that produces it. E
 trajectory-generation solve, not a live simulation: SSQP solves the whole horizon once, and the result is played
 back.
 
+!!! info "Solve times"
+    Each solve time and iteration count below is from a single run of the linked script on this machine: an Intel
+    Core i9-14900K (24 cores / 32 threads), 64 GB RAM, Ubuntu 24.04. Both are SSQP's own reported figures, not the
+    script's total wall-clock time, so setup (URDF loading, model construction) isn't included. Each script was run
+    with both of SSQP's per-stage QP backends (see [QP Solvers](concepts/qp-solvers.md)), ADMM and HPIPM, and the
+    faster of the two is shown, labeled accordingly. Treat these as a feel for solve difficulty rather than a
+    rigorous benchmark, for which see [Benchmarks](benchmarks.md).
+
 ## Go2 Walk
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
@@ -21,6 +29,8 @@ currently configured for `setWalk`, but swapping in any of the others produces t
 different footfall pattern, worth trying if you want to see how SSQP handles a substantially different contact
 sequence with no other changes to the problem.
 
+**Solve time:** 3.3 s (10 iterations, HPIPM)
+
 ## Go2 Frog
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
@@ -34,6 +44,8 @@ footfall pattern of a walk or trot. Produced by
 example of just how expressive per-stage contact scheduling is: nothing about the constraint API assumes a
 "gait" in the periodic-footfall sense at all, an arbitrary, asymmetric, non-repeating sequence of which feet touch
 the ground when is just as representable as a standard one.
+
+**Solve time:** 4.1 s (19 iterations, HPIPM)
 
 ## Go2 Multi-Jump
 
@@ -49,6 +61,8 @@ windows (`JUMP_STEPS`), landing on a different combination of feet in each of th
 (`LAND_SEQ`: back feet, then right feet, then left feet, then front feet), rather than returning to a full
 four-foot stance every time.
 
+**Solve time:** 13.8 s (93 iterations, ADMM)
+
 ## G1 Jump
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
@@ -61,6 +75,8 @@ similar to [Go2 Jump](examples/go2-jump.md) (a flight window with contacts dropp
 on a humanoid: each of G1's feet is modeled as four independent corner contact points rather than a single point
 contact per foot, as a flat foot actually needs to resist tipping, not just slipping or lifting off, giving the
 solver 8 simultaneous contact constraints to schedule per stance stage instead of Go2's 4.
+
+**Solve time:** 8.2 s (13 iterations, HPIPM)
 
 ## G1 Walk
 
@@ -77,6 +93,8 @@ brought on and off gradually rather than all at once, one toe/heel pair engaging
 to a real heel-to-toe rolling contact than an instantaneous flat-footed stomp. A hand-tuned per-joint regularization
 weight also damps the hip-yaw joints specifically, keeping the walk heading straight instead of shuffling sideways.
 
+**Solve time:** 9.2 s (17 iterations, HPIPM)
+
 ## Panda Circle
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
@@ -91,3 +109,5 @@ cost there. This is the trajectory produced by
 in detail (including the unconstrained comparison) in
 [Panda Circle (Trajectory Generation)](examples/panda-circle-trajgen.md); the same motion also appears as a live,
 closed-loop MPC example in [Panda Circle (MPC)](examples/panda-circle-mpc.md).
+
+**Solve time:** 0.5 s (6 iterations, HPIPM)
