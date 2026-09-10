@@ -273,7 +273,6 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-
             MatX ddq_dq, ddq_dv, Minv;
             VecX vn;
 
@@ -468,14 +467,14 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             {
                 if constexpr (SM == SolverMode::ForwardDynamics)
                 {
-                    dX.topLeftCorner(ctx->nv, ctx->nv) =
-                      Jint_q + Jint_v * _dt * _dt * ddq_dq;
-                    dX.topRightCorner(ctx->nv, ctx->nv) =
-                      Jint_v * _dt *
-                      (MatX::Identity(ctx->nv, ctx->nv) + ddq_dv * _dt);
                     dX.bottomLeftCorner(ctx->nv, ctx->nv) = ddq_dq * _dt;
                     dX.bottomRightCorner(ctx->nv, ctx->nv) =
                       MatX::Identity(ctx->nv, ctx->nv) + ddq_dv * _dt;
+
+                    dX.topLeftCorner(ctx->nv, ctx->nv) =
+                      Jint_q + Jint_v * dX.bottomLeftCorner(ctx->nv, ctx->nv) * _dt;
+                    dX.topRightCorner(ctx->nv, ctx->nv) =
+                      Jint_v * dX.bottomRightCorner(ctx->nv, ctx->nv) * _dt;
 
                     MatX Gtau = Minv;
 
@@ -491,17 +490,19 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                         Gtau.col(offset + j).setZero();
                     }
 
-                    dU.topLeftCorner(ctx->nv, ctx->nv) =
-                      Jint_v * _dt * _dt * Gtau;
                     dU.bottomLeftCorner(ctx->nv, ctx->nv) = Gtau * _dt;
+                    dU.topLeftCorner(ctx->nv, ctx->nv) =
+                      Jint_v * dU.bottomLeftCorner(ctx->nv, ctx->nv) * _dt;
 
                     if constexpr (WithForces)
                     {
-                        dU.topRightCorner(ctx->nv, 3 * ctx->nf) =
-                          Jint_v * _dt * _dt * Minv * ctx->jf_full_scratch.transpose();
+                        MatX Gforce = Minv * ctx->jf_full_scratch.transpose();
 
                         dU.bottomRightCorner(ctx->nv, 3 * ctx->nf) =
-                          Minv * ctx->jf_full_scratch.transpose() * _dt;
+                          Gforce * _dt;
+                        dU.topRightCorner(ctx->nv, 3 * ctx->nf) =
+                          Jint_v * dU.bottomRightCorner(ctx->nv, 3 * ctx->nf) *
+                          _dt;
                     }
                 }
                 else if constexpr (SM == SolverMode::InverseDynamics)

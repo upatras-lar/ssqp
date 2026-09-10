@@ -15,13 +15,15 @@ Notes
   holding the foot's height at its initial-state value. It does not pin
   horizontal position or velocity -- velocity is handled separately via
   ``addFrameLinearVelocityBound``.
-* ``model.damping`` is always subtracted from the actuated torques before
-  integrating the dynamics.
+* The benchmark convention is undamped rigid-body dynamics.  This matches
+  SSQP's XML model, which calls Pinocchio ABA/RNEA without adding the URDF
+  damping coefficients as an extra generalized force.
 """
 
 from __future__ import annotations
 
 import json
+import time
 
 import casadi as ca
 import numpy as np
@@ -37,7 +39,7 @@ from ProblemWrapper import ProblemWrapper
 # across all H stages, and this is where nearly all of
 # nlp_g/nlp_jac_g/nlp_hess_l's cost lives, so it captures most of
 # codegen's per-iteration speedup without asking gcc to compile one
-# function covering the entire (H-stage) NLP at once.
+# function covering the entire (H-stage) NLP at once
 _JIT_OPTIONS = {
     "jit": True,
     "compiler": "shell",
@@ -61,7 +63,7 @@ class CasadiProblem(ProblemWrapper):
         self.casadi_plugin = cp.get("casadi_plugin", "ipopt")
         self.inverse_dynamics = bool(cp.get("inverse_dynamics", False))
 
-        # Number of OCP nodes: k = 0 .. horizon inclusive.
+        # Number of OCP nodes: k = 0 .. horizon inclusive
         self.N = horizon + 1
 
         if self.free_flyer:
@@ -83,11 +85,11 @@ class CasadiProblem(ProblemWrapper):
         self.cdata = self.cmodel.createData()  # used for the ABA pass
         # Separate Data used for kinematics-only residuals (frame
         # velocities/positions) so its forwardKinematics calls don't
-        # clobber whatever the ABA pass left behind in ``self.cdata``.
+        # clobber whatever the ABA pass left behind in ``self.cdata``
         self.cdata_kin = self.cmodel.createData()
 
         # Which nv-space indices are actuated (i.e. which rows of the
-        # torque vector are free NLP decision variables).
+        # torque vector are free NLP decision variables)
         if self.actuated_joints is not None:
             self._act_idx = list(self.actuated_joints)
         else:
@@ -95,18 +97,17 @@ class CasadiProblem(ProblemWrapper):
         self.n_act = len(self._act_idx)
 
         # Selection matrix mapping the actuated-torque vector into the
-        # full nv-length torque vector used by ABA.
+        # full nv-length torque vector used by ABA
         S = np.zeros((self.nv, self.n_act))
         for col, row in enumerate(self._act_idx):
             S[row, col] = 1.0
         self._act_selection = ca.DM(S)
 
-        # Model limits (only meaningful for the non-base dofs).
+        # Model limits (only meaningful for the non-base dofs)
         self._q_lb = np.asarray(self.model.lowerPositionLimit).reshape(-1)
         self._q_ub = np.asarray(self.model.upperPositionLimit).reshape(-1)
         self._dq_max = np.asarray(self.model.velocityLimit).reshape(-1)
         self._tau_max = np.asarray(self.model.effortLimit).reshape(-1)
-        self._damping = np.asarray(self.model.damping).reshape(-1)
 
         # --- Incremental problem description, filled in by addXXX calls ---
         self._vel_cost_wgt = {}  # k -> accumulated weight
@@ -122,7 +123,7 @@ class CasadiProblem(ProblemWrapper):
         self._contact_frame_order = []  # stable global frame ordering
 
         # Caches of pre-built SX ca.Function objects (see the note at the
-        # top of the "Helpers" section below for why these exist).
+        # top of the "Helpers" section below for why these exist)
         self._dyn_fn_cache = {}
         self._invdyn_dyn_fn_cache = None
         self._invdyn_effort_fn_cache = {}
@@ -135,13 +136,18 @@ class CasadiProblem(ProblemWrapper):
         self.init_states = None
         self.parameter_dict = {}
 
-        # Populated by solve().
+        # Populated by solve()
         self._opti = None
         self._x = None
         self._u = None
         self._sol = None
         self._nu = None  # per-stage control dimension, k = 0..H-1
         self._contact_frames_at = None  # k -> [frame, ...] (active feet)
+        self.solve_time = None
+        self.converged = None
+        self.iterations = None
+        self.objective = None
+        self.constraint_violation = None
 
     # ------------------------------------------------------------------
     # ProblemWrapper interface: incremental problem construction
@@ -219,15 +225,15 @@ class CasadiProblem(ProblemWrapper):
     #
     # NOTE ON SX vs. MX: ``opti.variable(...)`` returns MX expressions, but
     # ``cpin.Model``/``cpin.Data`` built via ``cpin.Model(model)`` are typed
-    # over SX (casadi's ``SXElem`` scalar). Pinocchio-CasADi functions like
-    # ``cpin.aba``/``cpin.forwardKinematics``/``cpin.integrate`` therefore
-    # only accept SX arguments -- passing the MX opti variables straight
-    # into them raises a Boost.Python ArgumentError. The fix is to build
-    # each piece of SX-only graph exactly once with fresh ``ca.SX.sym``
-    # symbols, wrap it in a ``ca.Function``, and then *call* that Function
-    # with the MX opti variables -- casadi embeds the compiled SX graph as
-    # a black-box node inside the MX graph, which is exactly what Opti
-    # needs.
+    # over SX (casadi's ``SXElem`` scalar), so Pinocchio-CasADi functions
+    # like ``cpin.aba``/``cpin.forwardKinematics``/``cpin.integrate`` only
+    # accept SX arguments, and passing the MX opti variables straight into
+    # them raises a Boost.Python ArgumentError, which is avoided by
+    # building each piece of SX-only graph exactly once with fresh
+    # ``ca.SX.sym`` symbols, wrapping it in a ``ca.Function``, and then
+    # *calling* that Function with the MX opti variables, since casadi
+    # embeds the compiled SX graph as a black-box node inside the MX
+    # graph, which is exactly what Opti needs
     # ------------------------------------------------------------------
     def _config_error(self, q_mx, desired_config):
         """Config-error residual (MX expr): a full-nq desired config uses
@@ -368,7 +374,7 @@ class CasadiProblem(ProblemWrapper):
         f_feet_s = ca.SX.sym("f_feet", nf)
 
         tau_full = self._act_selection @ tau_act_s
-        tau_eff = tau_full - ca.DM(self._damping) * v_s
+        tau_eff = tau_full
 
         fext = [cpin.Force.Zero() for _ in range(self.model.njoints)]
         for i, frame in enumerate(frames):
@@ -419,10 +425,9 @@ class CasadiProblem(ProblemWrapper):
         return fn
 
     def _get_invdyn_effort_fn(self, frames):
-        """Returns a ca.Function (q, v, a, f_feet) -> tau_eff(nv,) for the
+        """Returns a ca.Function (q, v, a, f_feet) -> tau(nv,) for the
         given tuple of *active* contact frames: the RNEA-derived generalized
-        torque (plus the damping correction RNEA doesn't know about),
-        exactly the "required generalized force" whose actuated rows get
+        torque, exactly the "required generalized force" whose actuated rows get
         boxed by the effort limit and whose unactuated rows get boxed to
         zero (the under-actuation condition) in solve(). Built once per
         distinct frame tuple and cached. Uses the same LOCAL-frame
@@ -449,7 +454,7 @@ class CasadiProblem(ProblemWrapper):
             fext[joint_id] = fext[joint_id] + f_local
 
         tau = cpin.rnea(self.cmodel, self.cdata, q_s, v_s, a_s, fext)
-        tau_eff = tau + ca.DM(self._damping) * v_s
+        tau_eff = tau
 
         name = "f_effort_" + ("_".join(frames) if frames else "free")
         fn = ca.Function(
@@ -467,8 +472,8 @@ class CasadiProblem(ProblemWrapper):
         mu = self.friction_coeff
         fx, fy, fz = f_i[0], f_i[1], f_i[2]
 
-        # All bounds are constants.
-        # Symbolic dependence is entirely in the residual expression.
+        # All bounds are constants, and the symbolic dependence is entirely
+        # in the residual expression
         return [
             (0.0, fz, max_normal_force),
             (0.0, fx + mu * fz, ca.inf),
@@ -522,7 +527,7 @@ class CasadiProblem(ProblemWrapper):
 
         # Reference contact heights: the z-height each contact frame had
         # at the initial state, computed once with a plain (non-symbolic)
-        # Pinocchio pass.
+        # Pinocchio pass
         contact_heights = {}
         if self._contact_frame_order:
             num_data = self.model.createData()
@@ -536,11 +541,11 @@ class CasadiProblem(ProblemWrapper):
                 )
 
         # Per-stage dimensions, needed up front for both the interleaved
-        # variable declaration and (for Fatrop) the manual structure spec.
-        # No control variables at all on the terminal node (k = H),
-        # matching problems.py -- but note we still allocate a (size-0)
+        # variable declaration and (for Fatrop) the manual structure spec,
+        # with no control variables at all on the terminal node (k = H),
+        # matching problems.py, though we still allocate a (size-0)
         # opti variable for u[H] to keep the x0,u0,x1,u1,...,x_{N-1},u_{N-1}
-        # interleaving pattern Fatrop expects intact.
+        # interleaving pattern Fatrop expects intact
         contact_frames_at = {}
         nx_list = [self.nx] * self.N
         nu_list = [0] * self.N
@@ -574,9 +579,10 @@ class CasadiProblem(ProblemWrapper):
             # condition (zero generalized force, since there's no actuator
             # to supply it) on unactuated rows, combined into one nv-dim
             # box on the RNEA-derived generalized torque (see
-            # _get_invdyn_effort_fn). Unlike mim_solvers.SolverCSQP, CasADi
-            # solvers (Ipopt/Fatrop) natively support a plain equality-as
-            # -zero-width-box constraint with no special wiring needed.
+            # _get_invdyn_effort_fn), and unlike mim_solvers.SolverCSQP,
+            # CasADi solvers (Ipopt/Fatrop) natively support a plain
+            # equality-as-zero-width-box constraint with no special wiring
+            # needed
             lb_tau_full = np.zeros(self.nv)
             ub_tau_full = np.zeros(self.nv)
             lb_tau_full[self._act_idx] = -self._tau_max[self._act_idx]
@@ -586,14 +592,21 @@ class CasadiProblem(ProblemWrapper):
 
         # -- 2. dynamics_0, path_0, dynamics_1, path_1, ..., path_{N-1} --
         ng = []
+        # Every bound added via _add() below is also recorded here (bucketed
+        # by stage) so the post-solve constraint-violation summary can
+        # re-evaluate them numerically, and the dynamics-transition equality
+        # is folded in the same way: for a direct-transcription solver, a
+        # dynamics defect is just another per-stage bound (lb == ub == the
+        # predicted next state), not a separate metric
+        violation_terms = {k: [] for k in range(self.N)}
         for k in range(self.N):
             q_k = x[k][: self.nq]
             v_k = x[k][self.nq :]
             u_k = u[k]
             frames_k = contact_frames_at.get(k, [])
             # nu_list[k] == 0 at the terminal node (no control/forces
-            # there), so u_k is a size-0 opti variable -- guard against
-            # slicing into it, rather than always taking u_k[:n_act].
+            # there), so u_k is a size-0 opti variable, guard against
+            # slicing into it rather than always taking u_k[:n_act]
             n_ctrl = self.nv if self.inverse_dynamics else self.n_act
             if nu_list[k] > 0:
                 tau_act_k = None if self.inverse_dynamics else u_k[:n_ctrl]
@@ -614,6 +627,7 @@ class CasadiProblem(ProblemWrapper):
                     dyn_fn = self._get_dynamics_fn(frames_k)
                     x_next = dyn_fn(q_k, v_k, tau_act_k, f_k)
                 opti.subject_to(x[k + 1] == x_next)
+                violation_terms[k].append((x_next, x[k + 1], x_next))
 
             # -- path constraints for stage k --
             ng.append(0)
@@ -621,6 +635,7 @@ class CasadiProblem(ProblemWrapper):
             def _add(lb, expr, ub):
                 opti.subject_to((lb <= expr) <= ub)
                 ng[-1] += expr.nnz()
+                violation_terms[k].append((lb, expr, ub))
 
             if k == 0:
                 _add(ca.DM(x0), x[k], ca.DM(x0))
@@ -656,12 +671,20 @@ class CasadiProblem(ProblemWrapper):
                 h_z = contact_heights[frame]
                 _add(h_z - eq_tol, p_z, h_z + eq_tol)
                 f_i = f_k[3 * i : 3 * i + 3]
-                for lb_c, expr_c, ub_c in self._friction_cone(f_i, max_nf):
+                # Contact forces are decision variables in their local frame,
+                # while SSQP evaluates its cone in the world-aligned terrain
+                # frame, so rotate before applying the pyramid
+                placement_fn = self._get_frame_placement_fn(frame)
+                R_frame, _ = placement_fn(q_k)
+                f_global = R_frame @ f_i
+                for lb_c, expr_c, ub_c in self._friction_cone(
+                    f_global, max_nf
+                ):
                     _add(lb_c, expr_c, ub_c)
 
         # -- 3. objective (order doesn't affect Fatrop's structure) --
         # Every term uses the 0.5 * weight * ||e||^2 convention shared with
-        # the other solver formulations (see AligatorProblem/MimSolversProblem).
+        # the other solver formulations (see AligatorProblem/MimSolversProblem)
         J = 0
         for k in range(self.N):
             q_k = x[k][: self.nq]
@@ -677,16 +700,18 @@ class CasadiProblem(ProblemWrapper):
                 f_k = None
 
             if k in self._vel_cost_wgt:
-                J += 0.5 * self._vel_cost_wgt[k] * ca.sumsqr(v_k)
+                v_cost = v_k[self._base_nv :]
+                J += 0.5 * self._vel_cost_wgt[k] * ca.sumsqr(v_cost)
             if tau_act_k is not None and k in self._u_cost_wgt:
                 J += 0.5 * self._u_cost_wgt[k] * ca.sumsqr(tau_act_k)
             # Under inverse dynamics, "control" is the raw acceleration
             # decision variable a_k (matching SSQP's SquaredControlCost,
-            # which under InverseDynamics squares u.head(nv) -- see
+            # which under InverseDynamics squares u.head(nv), see
             # Model.cpp), not the RNEA-derived torque, and not the trailing
-            # per-contact force entries (those get addSquaredForceCost).
+            # per-contact force entries (those get addSquaredForceCost)
             if a_k is not None and k in self._u_cost_wgt:
-                J += 0.5 * self._u_cost_wgt[k] * ca.sumsqr(a_k)
+                a_cost = a_k[self._base_nv :] if self.free_flyer else a_k
+                J += 0.5 * self._u_cost_wgt[k] * ca.sumsqr(a_cost)
             if (
                 f_k is not None
                 and f_k.numel() > 0
@@ -713,7 +738,9 @@ class CasadiProblem(ProblemWrapper):
                     0.5
                     * self._q_cost_wgt[k]
                     * ca.sumsqr(
-                        self._config_error(q_k, x0[self._base_nq : self.nq])
+                        self._config_error(
+                            q_k, np.zeros(self.nq - self._base_nq)
+                        )
                     )
                 )
 
@@ -735,7 +762,9 @@ class CasadiProblem(ProblemWrapper):
         opti.solver(plugin, solve_params)
 
         try:
+            start = time.perf_counter()
             sol = opti.solve()
+            self.solve_time = time.perf_counter() - start
         except RuntimeError:
             print("CasADi solve failed; last iterate for the final state:")
             print(opti.debug.value(x[-1]))
@@ -747,7 +776,45 @@ class CasadiProblem(ProblemWrapper):
         self._sol = sol
         self._nu = nu_list
         self._contact_frames_at = contact_frames_at
+        stats = sol.stats()
+        self.converged = bool(stats.get("success", True))
+        self.iterations = stats.get("iter_count")
+        self.objective = float(sol.value(J))
+        self.constraint_violation = self._evaluate_violation(
+            sol, violation_terms
+        )
         return sol
+
+    def _evaluate_violation(self, sol, violation_terms):
+        """Sum, over stages, of the worst single bound violation at that
+        stage -- matching SSQP's trajectory_constraint_violation (see
+        ssqp::_cf in src/solvers/ssqp.cpp): per stage, take the infinity
+        norm of how far outside [lb, ub] the (possibly vector-valued)
+        constraint sits, then sum that per-stage worst case across stages.
+        """
+        def _num(term):
+            # A bound is either a plain constant (the usual case) or, for
+            # the dynamics-transition term, itself a symbolic expression
+            # (the predicted next state) that needs the same sol.value()
+            # evaluation as expr
+            if isinstance(term, (ca.MX, ca.SX)):
+                return np.asarray(sol.value(term), dtype=float).reshape(-1)
+            return np.asarray(ca.DM(term), dtype=float).reshape(-1)
+
+        total = 0.0
+        for terms in violation_terms.values():
+            stage_worst = 0.0
+            for lb, expr, ub in terms:
+                lb_arr = _num(lb)
+                ub_arr = _num(ub)
+                value = _num(expr)
+                violation = np.maximum(
+                    0.0, np.maximum(lb_arr - value, value - ub_arr)
+                )
+                if violation.size:
+                    stage_worst = max(stage_worst, float(violation.max()))
+            total += stage_worst
+        return total
 
     # ------------------------------------------------------------------
     # ProblemWrapper interface: saving results
@@ -766,7 +833,7 @@ class CasadiProblem(ProblemWrapper):
         if self.free_flyer:
             # names[1] is the free-flyer joint itself; report the joints
             # after it as the "state joints", matching the other backends'
-            # save() output.
+            # save() output
             joint_names = [
                 self.model.names[i] for i in range(2, self.model.njoints)
             ]
@@ -800,10 +867,10 @@ class CasadiProblem(ProblemWrapper):
                     f_k = uk[self.nv :]
                     frames_k = self._contact_frames_at.get(k, [])
                     effort_fn = self._get_invdyn_effort_fn(frames_k)
-                    # Recovered actuator torque -- physically meaningful and
+                    # Recovered actuator torque, physically meaningful and
                     # comparable to the "control" field the other dynamics
                     # modes report, unlike the raw acceleration decision
-                    # variable a_k itself.
+                    # variable a_k itself
                     tau_eff = np.asarray(
                         effort_fn(xk[: self.nq], xk[self.nq :], a_k, f_k)
                     ).reshape(-1)
@@ -812,7 +879,7 @@ class CasadiProblem(ProblemWrapper):
                     ]
                     # Already in each contact frame's own LOCAL axes (see
                     # _get_invdyn_effort_fn), matching the JSON convention
-                    # shared with the other solver backends directly.
+                    # shared with the other solver backends directly
                     if f_k.size > 0:
                         stage["forces"] = [float(v) for v in f_k]
                 else:
@@ -825,6 +892,15 @@ class CasadiProblem(ProblemWrapper):
             stage_data.append(stage)
 
         output = {
+            "benchmark": {
+                "format_version": 1,
+                "solver": self.casadi_plugin,
+                "success": self.converged,
+                "iterations": self.iterations,
+                "runtime_ms": self.solve_time * 1000.0,
+                "objective": self.objective,
+                "constraint_violation": self.constraint_violation,
+            },
             "properties": {
                 "horizon": H,
                 "dt": self.dt,

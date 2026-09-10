@@ -11,25 +11,21 @@ from ProblemWrapper import ProblemWrapper
 
 
 class PendubotActuationModel(crocoddyl.ActuationModelAbstract):
-    """Actuation model with viscous damping matching the URDF specification."""
+    """One-input pendubot actuation, matching SSQP's undamped ABA model."""
 
     def __init__(self, state, model):
         super().__init__(state, nu=1)
         self.model = model
         self.B = np.array([[1.0], [0.0]])
-        self.damping = np.asarray(model.damping, dtype=float).reshape(-1)
         self.u_lb = np.array([-model.effortLimit[0]])
         self.u_ub = np.array([model.effortLimit[0]])
 
     def calc(self, data, x, u):
-        v = x[self.model.nq :]
-        data.tau[:] = self.B @ u - self.damping * v
+        data.tau[:] = self.B @ u
 
     def calcDiff(self, data, x, u):
         data.dtau_dx[:] = 0.0
         data.dtau_du[:] = 0.0
-        for i in range(self.model.nv):
-            data.dtau_dx[i, self.model.nq + i] = -self.damping[i]
         data.dtau_du[:] = self.B[:, 0]
 
 
@@ -70,7 +66,7 @@ class MimSolversProblem(ProblemWrapper):
         # 2. Dynamic Actuation Handling (Custom vs. Floating Base vs. Full)
         # ---------------------------------------------------------------------
         if "actuation_model" in parameters:
-            # Pass custom user-defined actuation (e.g., Pendubot viscous damping)
+            # Pass custom user-defined actuation (e.g. pendubot underactuation)
             self.actuation = parameters["actuation_model"]
         elif (
             is_floating_base
@@ -103,6 +99,12 @@ class MimSolversProblem(ProblemWrapper):
             crocoddyl.ContactModelMultiple(self.state, self.nu)
             for _ in range(self.H + 1)
         ]
+        # The shared benchmark registers force costs before registering the
+        # contacts they belong to, so keep those costs pending until both
+        # objects exist
+        self._force_cost_weights = {}
+        self._force_cost_count = {}
+        self.friction_coeff = float(parameters.get("friction_coefficient", 0.6))
 
         # Pre-allocate URDF-derived position, velocity, and torque bounds
         self._setup_default_bounds()
@@ -116,8 +118,17 @@ class MimSolversProblem(ProblemWrapper):
         )
 
         # Velocity bounds
-        lb_dq = -np.asarray(self.model.velocityLimit, dtype=float).reshape(-1)
-        ub_dq = np.asarray(self.model.velocityLimit, dtype=float).reshape(-1)
+        velocity_limit = np.asarray(
+            self.model.velocityLimit, dtype=float
+        ).reshape(-1)
+        lb_dq = -np.inf * np.ones(self.nv)
+        ub_dq = np.inf * np.ones(self.nv)
+        if self.model.joints[1].shortname() == "JointModelFreeFlyer":
+            lb_dq[6:] = -velocity_limit[6:]
+            ub_dq[6:] = velocity_limit[6:]
+        else:
+            lb_dq[:] = -velocity_limit
+            ub_dq[:] = velocity_limit
         nq_ndx = self.state.ndx - self.state.nv
         lb_v = np.concatenate([-np.inf * np.ones(nq_ndx), lb_dq])
         ub_v = np.concatenate([np.inf * np.ones(nq_ndx), ub_dq])
@@ -125,14 +136,34 @@ class MimSolversProblem(ProblemWrapper):
             self.state, state_residual, lb_v, ub_v
         )
 
+        # State residuals are expressed in tangent coordinates, so leave the
+        # floating-base coordinates unbounded, and apply URDF position limits
+        # only to the joint coordinates, just like SSQP/CasADi
+        lb_q = -np.inf * np.ones(self.state.ndx)
+        ub_q = np.inf * np.ones(self.state.ndx)
+        if self.model.joints[1].shortname() == "JointModelFreeFlyer":
+            q_lb = np.asarray(self.model.lowerPositionLimit, dtype=float)[7:]
+            q_ub = np.asarray(self.model.upperPositionLimit, dtype=float)[7:]
+            lb_q[6 : 6 + self.nv - 6] = q_lb
+            ub_q[6 : 6 + self.nv - 6] = q_ub
+        else:
+            q_lb = np.asarray(self.model.lowerPositionLimit, dtype=float)[: self.nv]
+            q_ub = np.asarray(self.model.upperPositionLimit, dtype=float)[: self.nv]
+            lb_q[: self.nv] = q_lb
+            ub_q[: self.nv] = q_ub
+        self.position_constraint = crocoddyl.ConstraintModelResidual(
+            self.state, state_residual, lb_q, ub_q
+        )
+
         # Control bounds
         if self.nu > 0:
-            lb_u = -np.asarray(self.model.effortLimit, dtype=float).reshape(
-                -1
-            )[: self.nu]
-            ub_u = np.asarray(self.model.effortLimit, dtype=float).reshape(-1)[
-                : self.nu
-            ]
+            effort = np.asarray(self.model.effortLimit, dtype=float).reshape(-1)
+            if self.model.joints[1].shortname() == "JointModelFreeFlyer":
+                effort = effort[-self.nu :]
+            else:
+                effort = effort[: self.nu]
+            lb_u = -effort
+            ub_u = effort
             control_residual = crocoddyl.ResidualModelControl(
                 self.state, self.nu
             )
@@ -152,6 +183,17 @@ class MimSolversProblem(ProblemWrapper):
         q0 = self.x0[: self.nq]
         pin.forwardKinematics(self.model, self.pin_data, q0)
         pin.updateFramePlacements(self.model, self.pin_data)
+        # Contact registration happens before finalize() in the shared
+        # problem definitions, so refresh the stabilization reference from
+        # the actual initial state instead of retaining the constructor-time
+        # placeholder; gains are zero for these benchmarks, but keeping the
+        # reference correct makes the wrapper safe for nonzero gains too
+        for contacts in self.stage_contacts:
+            for item in contacts.contacts.todict().values():
+                frame_id = item.contact.id
+                item.contact.reference = self.pin_data.oMf[
+                    frame_id
+                ].translation.copy()
 
     # -------------------------------------------------------------------------
     # Cost & Constraint Interfaces
@@ -161,9 +203,9 @@ class MimSolversProblem(ProblemWrapper):
         # crocoddyl's IntegratedActionModelEuler multiplies a running node's
         # (k < H) total cost by dt, but leaves the terminal node's (k == H)
         # cost unscaled (see euler.hxx: the calc(x) overload used for the
-        # terminal node never applies time_step_). Pre-dividing by dt on
-        # running nodes cancels that scaling so this ends up matching the
-        # other solver formulations' shared 0.5 * weight * ||e||^2 convention.
+        # terminal node never applies time_step_), so pre-dividing by dt on
+        # running nodes cancels that scaling and this ends up matching the
+        # other solver formulations' shared 0.5 * weight * ||e||^2 convention
         if k < self.H:
             weight = weight / self.dt
         xref = self.x0.copy()
@@ -190,12 +232,16 @@ class MimSolversProblem(ProblemWrapper):
         self.stage_costs[k].addCost(f"config_err_{k}", cost, 1.0)
 
     def addSquaredJointVelocityCost(self, k, weight):
-        # See the dt-scaling note in addSquaredConfigurationErrorCost.
+        # See the dt-scaling note in addSquaredConfigurationErrorCost
         if k < self.H:
             weight = weight / self.dt
-        velocity_weights = np.concatenate(
-            [np.zeros(self.nv), weight * np.ones(self.nv)]
+        velocity_weights = np.zeros(2 * self.nv)
+        velocity_start = self.nv + (
+            6
+            if self.model.joints[1].shortname() == "JointModelFreeFlyer"
+            else 0
         )
+        velocity_weights[velocity_start:] = weight
         activation = crocoddyl.ActivationModelWeightedQuad(velocity_weights)
         cost = crocoddyl.CostModelResidual(
             self.state,
@@ -205,17 +251,22 @@ class MimSolversProblem(ProblemWrapper):
         self.stage_costs[k].addCost(f"vel_{k}", cost, 1.0)
 
     def addSquaredJointAngleCost(self, k, weight):
-        # See the dt-scaling note in addSquaredConfigurationErrorCost.
+        # See the dt-scaling note in addSquaredConfigurationErrorCost
         if k < self.H:
             weight = weight / self.dt
         is_floating_base = (
             self.model.joints[1].shortname() == "JointModelFreeFlyer"
         )
         if is_floating_base:
+            # This is a zero-reference regularizer in SSQP, and the desired
+            # configuration is supplied by the separate tracking cost
+            xref = self.x0.copy()
+            xref[7 : self.nq] = 0.0
             config_weights = np.concatenate(
                 [np.zeros(6), weight * np.ones(self.nv - 6), np.zeros(self.nv)]
             )
         else:
+            xref = np.zeros_like(self.x0)
             config_weights = np.concatenate(
                 [weight * np.ones(self.nv), np.zeros(self.nv)]
             )
@@ -223,7 +274,7 @@ class MimSolversProblem(ProblemWrapper):
         cost = crocoddyl.CostModelResidual(
             self.state,
             activation,
-            crocoddyl.ResidualModelState(self.state, self.x0, self.nu),
+            crocoddyl.ResidualModelState(self.state, xref, self.nu),
         )
         self.stage_costs[k].addCost(f"joint_angle_{k}", cost, 1.0)
 
@@ -236,7 +287,7 @@ class MimSolversProblem(ProblemWrapper):
         translation_weight,
         rotation_weight,
     ):
-        # See the dt-scaling note in addSquaredConfigurationErrorCost.
+        # See the dt-scaling note in addSquaredConfigurationErrorCost
         if k < self.H:
             translation_weight = translation_weight / self.dt
             rotation_weight = rotation_weight / self.dt
@@ -262,7 +313,7 @@ class MimSolversProblem(ProblemWrapper):
         if k >= self.H:
             return
         # Always a running node here (see the dt-scaling note in
-        # addSquaredConfigurationErrorCost).
+        # addSquaredConfigurationErrorCost)
         weight = weight / self.dt
         cost = crocoddyl.CostModelResidual(
             self.state, crocoddyl.ResidualModelControl(self.state, self.nu)
@@ -272,62 +323,81 @@ class MimSolversProblem(ProblemWrapper):
     def addSquaredForceCost(self, k, weight):
         if k >= self.H:
             return
-        weight = weight / self.dt
-        for name, contact in self.stage_contacts[k].contacts:
-            force_residual = crocoddyl.ResidualModelContactForce(
-                self.state,
-                contact.contact.id,
-                pin.Force.Zero(),
-                3,
-                self.nu,
-                True,
-            )
-            force_cost = crocoddyl.CostModelResidual(
-                self.state, crocoddyl.ActivationModelQuad(3), force_residual
-            )
-            self.stage_costs[k].addCost(
-                f"{name}_force_{k}", force_cost, weight
-            )
+        self._force_cost_weights.setdefault(k, []).append(weight)
+        for name, item in self.stage_contacts[k].contacts.todict().items():
+            self._add_force_cost(k, name, item.contact, weight)
+
+    def _add_force_cost(self, k, name, contact, weight):
+        """Add a force cost with Crocoddyl's running-node dt factor removed."""
+        force_residual = crocoddyl.ResidualModelContactForce(
+            self.state,
+            contact.id,
+            pin.Force.Zero(),
+            3,
+            self.nu,
+            True,
+        )
+        force_cost = crocoddyl.CostModelResidual(
+            self.state, crocoddyl.ActivationModelQuad(3), force_residual
+        )
+        count = self._force_cost_count.get(k, 0)
+        self._force_cost_count[k] = count + 1
+        self.stage_costs[k].addCost(
+            f"{name}_force_{k}_{count}",
+            force_cost,
+            weight / self.dt,
+        )
 
     def addContactConstraint(self, k, frame_name, max_normal_force, tol):
         frame_id = self.model.getFrameId(frame_name)
         contact_pos = self.pin_data.oMf[frame_id].translation.copy()
         contact = crocoddyl.ContactModel3D(
-            self.state, frame_id, contact_pos, pin.LOCAL, self.nu
+            self.state,
+            frame_id,
+            contact_pos,
+            pin.LOCAL_WORLD_ALIGNED,
+            self.nu,
         )
         self.stage_contacts[k].addContact(frame_name, contact)
 
         if k < self.H:
-            force_residual = crocoddyl.ResidualModelContactForce(
-                self.state, frame_id, pin.Force.Zero(), 3, self.nu, True
+            # Match SSQP's four-facet Coulomb pyramid in world-aligned axes,
+            # since crocoddyl's inner approximation scales mu by cos(pi/4),
+            # so use the outer/raw coefficient to preserve the shared
+            # constraint
+            cone = crocoddyl.FrictionCone(
+                np.eye(3), self.friction_coeff, 4, False, 0.0, max_normal_force
             )
-            force_constraint = crocoddyl.ConstraintModelResidual(
+            cone_residual = crocoddyl.ResidualModelContactFrictionCone(
                 self.state,
-                force_residual,
-                np.array([-np.inf, -np.inf, 0.0]),
-                np.array([np.inf, np.inf, max_normal_force]),
+                frame_id,
+                cone,
+                self.nu,
+                True,
+            )
+            cone_lb = np.asarray(
+                cone.lb if hasattr(cone, "lb") else cone.get_lb(), dtype=float
+            )
+            cone_ub = np.asarray(
+                cone.ub if hasattr(cone, "ub") else cone.get_ub(), dtype=float
+            )
+            friction_constraint = crocoddyl.ConstraintModelResidual(
+                self.state, cone_residual, cone_lb, cone_ub
             )
             self.stage_constraints[k].addConstraint(
-                f"{frame_name}_force_constraint_{k}", force_constraint
+                f"{frame_name}_friction_constraint_{k}", friction_constraint
             )
 
-        # `tol` (SSQP/CasADi's eq_tol) is intentionally unused here. In
-        # those two backends the foot's contact position is an explicit
-        # KKT-level path constraint in direct transcription, so an exact
-        # equality (tol=0) is numerically stiff and a small tolerance band
-        # genuinely eases the solve. ContactModel3D instead enforces
-        # contact through the constrained/reduced forward dynamics itself
-        # (zero relative acceleration, integrated from an already-in-
-        # contact state) -- there's no KKT-level position equality here
-        # for a tolerance to loosen in the first place, so adding one is
-        # pure overhead with nothing to relax (confirmed empirically: it
-        # only slowed convergence, 128 vs. 23 iterations for the identical
-        # go2_standing result). The equivalent "loosen an otherwise-exact
-        # equality for solver ease" lever on this backend is the tol=0.01
-        # used for zero-velocity constraints in
-        # addFrameLinearVelocityBound below, which already plays that
-        # role for the paired zero-velocity call every contact stage
-        # makes.
+        # The shared problem adds force costs before this contact call
+        for weight in self._force_cost_weights.get(k, []):
+            self._add_force_cost(k, frame_name, contact, weight)
+
+        # `tol` (SSQP/CasADi's contact-height band) is intentionally unused
+        # here, since ContactModel3D enforces the registered contact through
+        # the constrained/reduced forward dynamics itself; there is no
+        # separate KKT-level height equality for a tolerance to loosen, and
+        # the paired linear-velocity constraint remains an exact zero bound,
+        # matching SSQP, CasADi, and Aligator
 
     def addFrameLinearVelocityBound(self, k, frame_name, lb_vel, ub_vel):
         frame_id = self.model.getFrameId(frame_name)
@@ -339,21 +409,18 @@ class MimSolversProblem(ProblemWrapper):
             self.nu,
         )
 
-        if np.allclose(lb_vel, 0.0) and np.allclose(ub_vel, 0.0):
-            tol = 0.01
-            constraint = crocoddyl.ConstraintModelResidual(
-                self.state, residual, -tol * np.ones(6), tol * np.ones(6)
-            )
-        else:
-            lb_full = np.array(
-                [-np.inf, -np.inf, -np.inf, lb_vel[0], lb_vel[1], lb_vel[2]]
-            )
-            ub_full = np.array(
-                [np.inf, np.inf, np.inf, ub_vel[0], ub_vel[1], ub_vel[2]]
-            )
-            constraint = crocoddyl.ConstraintModelResidual(
-                self.state, residual, lb_full, ub_full
-            )
+        # Pinocchio Motion vectors are ordered [linear, angular], so bound
+        # the translational slice and leave the angular residual
+        # unconstrained
+        lb_full = np.array(
+            [lb_vel[0], lb_vel[1], lb_vel[2], -np.inf, -np.inf, -np.inf]
+        )
+        ub_full = np.array(
+            [ub_vel[0], ub_vel[1], ub_vel[2], np.inf, np.inf, np.inf]
+        )
+        constraint = crocoddyl.ConstraintModelResidual(
+            self.state, residual, lb_full, ub_full
+        )
 
         self.stage_constraints[k].addConstraint(
             f"{frame_name}_vel_constraint_{k}", constraint
@@ -389,6 +456,9 @@ class MimSolversProblem(ProblemWrapper):
 
         for k in range(self.H):
             self.stage_constraints[k].addConstraint(
+                "q_bounds", self.position_constraint
+            )
+            self.stage_constraints[k].addConstraint(
                 "vel_bounds", self.velocity_constraint
             )
             if self.nu > 0:
@@ -419,6 +489,9 @@ class MimSolversProblem(ProblemWrapper):
             )
 
         # Terminal stage
+        self.stage_constraints[self.H].addConstraint(
+            "q_bounds", self.position_constraint
+        )
         self.stage_constraints[self.H].addConstraint(
             "vel_bounds", self.velocity_constraint
         )
@@ -465,26 +538,68 @@ class MimSolversProblem(ProblemWrapper):
             "use_filter_line_search", True
         )
 
-        self.solver.setCallbacks(
-            [
-                mim_solvers.CallbackVerbose(),
-                mim_solvers.CallbackLogger(),
-            ]
-        )
+        # Callbacks add per-iteration logging and bookkeeping to the timed
+        # solve, so keep them opt-in for benchmark runs, while retaining the
+        # original diagnostics for interactive troubleshooting
+        if parameters.get("callbacks", False):
+            self.solver.setCallbacks(
+                [
+                    mim_solvers.CallbackVerbose(),
+                    mim_solvers.CallbackLogger(),
+                ]
+            )
 
         xs_init = [self.x0.copy() for _ in range(self.H + 1)]
         us_init = [np.zeros(self.nu) for _ in range(self.H)]
 
-        start = time.time()
+        start = time.perf_counter()
         success = self.solver.solve(
             xs_init, us_init, parameters.get("max_iter", 1000)
         )
-        end = time.time()
+        end = time.perf_counter()
 
-        print(f"Solve time: {(end - start) * 1000:.3f} ms")
+        self.solve_time = end - start
+        self.converged = bool(success)
+        self.iterations = int(self.solver.iter)
+        self.constraint_violation = self._evaluate_violation()
+
+        print(f"Solve time: {self.solve_time * 1000:.3f} ms")
         print(f"Final cost: {self.solver.cost}")
         print(f"Iterations: {self.solver.iter}")
         print(f"Success: {success}")
+
+    def _evaluate_violation(self):
+        """Sum, over stages, of the worst single bound violation at that
+        stage -- matching SSQP's trajectory_constraint_violation (see
+        ssqp::_cf in src/solvers/ssqp.cpp): per stage, take the infinity
+        norm of how far outside [lb, ub] the (possibly vector-valued)
+        constraint sits, then sum that per-stage worst case across stages.
+
+        Crocoddyl's shooting rollout satisfies the dynamics exactly by
+        construction, so unlike CasadiProblem there is no dynamics-defect
+        term to fold in here -- only the path constraints each
+        ConstraintModelManager already aggregates into g/g_lb/g_ub.
+        Recomputed explicitly on the reported xs/us rather than trusting
+        whatever trial the solver's internal data was last evaluated at.
+        """
+        self.problem.calc(list(self.solver.xs), list(self.solver.us))
+
+        total = 0.0
+        for k in range(self.H + 1):
+            if k < self.H:
+                diff_data = self.problem.runningDatas[k].differential
+            else:
+                diff_data = self.problem.terminalData.differential
+            cm = self.stage_constraints[k]
+            if cm.ng == 0 and cm.nh == 0:
+                continue
+            g = np.asarray(diff_data.constraints.g, dtype=float)
+            lb = np.asarray(cm.g_lb, dtype=float)
+            ub = np.asarray(cm.g_ub, dtype=float)
+            violation = np.maximum(0.0, np.maximum(lb - g, g - ub))
+            if violation.size:
+                total += float(violation.max())
+        return total
 
     # -------------------------------------------------------------------------
     # JSON Serialization Method
@@ -503,22 +618,37 @@ class MimSolversProblem(ProblemWrapper):
         running_datas = self.problem.runningDatas
 
         stage_data = []
-        for k in range(self.H):
-            diff_data = running_datas[k].differential
-
-            # Extract forces dynamically if contact data is present
+        stage_force_frames = []
+        for k in range(self.H + 1):
             stage_forces = []
-            if hasattr(diff_data, "multibody") and hasattr(
-                diff_data.multibody, "contacts"
-            ):
-                contact_data = diff_data.multibody.contacts
-                for name in foot_names:
-                    if name in contact_data.contacts:
-                        foot_data = contact_data.contacts[name]
-                        force = np.asarray(
-                            foot_data.f.linear, dtype=float
-                        ).copy()
-                        stage_forces.extend(force.tolist())
+            force_frames = []
+            if k < self.H:
+                diff_data = running_datas[k].differential
+
+                # Extract forces dynamically if contact data is present
+                if hasattr(diff_data, "multibody") and hasattr(
+                    diff_data.multibody, "contacts"
+                ):
+                    contact_data = diff_data.multibody.contacts
+                    for name in foot_names:
+                        if name in contact_data.contacts:
+                            foot_data = contact_data.contacts[name]
+                            force_world = np.asarray(
+                                foot_data.f.linear, dtype=float
+                            ).copy()
+                            q_k = np.asarray(x_sol[k][: self.nq])
+                            pin.forwardKinematics(
+                                self.model, self.pin_data, q_k
+                            )
+                            pin.updateFramePlacements(
+                                self.model, self.pin_data
+                            )
+                            R_world_local = self.pin_data.oMf[
+                                self.model.getFrameId(name)
+                            ].rotation
+                            force_local = R_world_local.T @ force_world
+                            stage_forces.extend(force_local.tolist())
+                            force_frames.append(name)
 
             if is_floating:
                 stage = {
@@ -534,18 +664,30 @@ class MimSolversProblem(ProblemWrapper):
                     "joint_velocity": x_sol[k][
                         self.nq + 6 : self.nq + self.nv
                     ].tolist(),
-                    "control": u_sol[k][: self.nu].tolist(),
                     "forces": stage_forces,
                 }
+                if k < self.H:
+                    stage["control"] = u_sol[k][: self.nu].tolist()
             else:
                 # Fixed-base fallback format (e.g. Pendubot)
                 stage = {
                     "state": x_sol[k].tolist(),
-                    "control": u_sol[k][: self.nu].tolist(),
                 }
+                if k < self.H:
+                    stage["control"] = u_sol[k][: self.nu].tolist()
             stage_data.append(stage)
+            stage_force_frames.append(force_frames)
 
         output = {
+            "benchmark": {
+                "format_version": 1,
+                "solver": "mim_solvers",
+                "success": self.converged,
+                "iterations": self.iterations,
+                "runtime_ms": self.solve_time * 1000.0,
+                "objective": float(self.solver.cost),
+                "constraint_violation": self.constraint_violation,
+            },
             "properties": {
                 "horizon": self.H,
                 "dt": self.dt,
@@ -572,14 +714,14 @@ class MimSolversProblem(ProblemWrapper):
             "stage_data": stage_data,
         }
 
-        nforces = len(stage_data[0].get("forces", [])) if stage_data else 0
-        for k in range(self.H):
+        for k in range(self.H + 1):
+            force_frames = stage_force_frames[k]
             output["properties"]["stages"].append(
                 {
                     "size": self.nq + self.nv,
-                    "control": self.nu,
-                    "nforces": nforces,
-                    "ordered_force_frames": foot_names if nforces > 0 else [],
+                    "control": self.nu if k < self.H else 0,
+                    "nforces": len(force_frames),
+                    "ordered_force_frames": force_frames,
                 }
             )
 

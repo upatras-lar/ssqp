@@ -3,8 +3,8 @@ AligatorProblem: a ProblemWrapper implementation backed by the Aligator
 trajectory-optimization solver (proxddp).
 
   - Fixed-base, underactuated systems (e.g. the pendubot) are handled with
-    a custom forward-dynamics ODE that runs `pin.aba` on an "effective"
-    torque `B @ u - damping * v`, for an arbitrary actuation matrix `B`.
+    a custom forward-dynamics ODE that runs `pin.aba` on `B @ u`, for an
+    arbitrary actuation matrix `B`.
   - Floating-base systems with rigid foot contacts (e.g. Go2 standing) are
     handled with aligator's `MultibodyConstraintFwdDynamics`, built per
     stage from whichever contact frames were registered via
@@ -17,15 +17,14 @@ TrajOptProblem lazily, inside finalize(). solve() calls finalize()
 automatically (with an all-zero initial state) if it hasn't been called
 explicitly yet.
 
-Two modeling choices are not carried by the ProblemWrapper API and are
-taken from `constructor_parameters` / sensible defaults instead:
-  - the friction cone coefficient (`friction_coefficient`, default 0.6),
-  - the target world-Z contact height (`foot_target_height`, default 0.0).
+One modeling choice is not carried by the ProblemWrapper API and is taken
+from `constructor_parameters` / a sensible default: the friction cone
+coefficient (`friction_coefficient`, default 0.6).
 """
 
 import json
 import os
-from time import time
+from time import perf_counter
 
 import numpy as np
 import pinocchio as pin
@@ -37,33 +36,34 @@ from ProblemWrapper import ProblemWrapper
 
 
 class _UnderactuatedForwardDynamics(dynamics.ODEAbstract):
-    """Forward dynamics for an arbitrary actuation matrix B and (possibly
-    zero) joint damping.
+    """Forward dynamics for an arbitrary actuation matrix B.
 
-        ddq = ABA(q, v, B @ u - damping * v)
+        ddq = ABA(q, v, B @ u)
+
+    The benchmark convention deliberately omits URDF damping, matching
+    SSQP's XML dynamics.
     """
 
-    def __init__(self, space, pin_model, B, damping):
+    def __init__(self, space, pin_model, B):
         super().__init__(space, B.shape[1])
         self.pin_model = pin_model
         self.pin_data = pin_model.createData()
         self.B = B
-        self.damping = damping
 
     def __deepcopy__(self, memo):
         # All mutable state lives on the `data` object aligator passes
         # into forward()/dForward(), not on self, so sharing the same
         # instance across copies is safe -- default deepcopy would instead
         # try to reconstruct this pybind11-derived object via a no-arg
-        # constructor.
+        # constructor
         return self
 
     def forward(self, x, u, data):
         try:
             nq_, nv_ = self.pin_model.nq, self.pin_model.nv
             q, v = x[:nq_], x[nq_:]
-            tau_eff = self.B @ u - self.damping * v
-            ddq = pin.aba(self.pin_model, self.pin_data, q, v, tau_eff)
+            tau = self.B @ u
+            ddq = pin.aba(self.pin_model, self.pin_data, q, v, tau)
             data.xdot[:nv_] = v
             data.xdot[nv_:] = ddq
         except Exception:
@@ -76,28 +76,26 @@ class _UnderactuatedForwardDynamics(dynamics.ODEAbstract):
         try:
             nq_, nv_ = self.pin_model.nq, self.pin_model.nv
             q, v = x[:nq_], x[nq_:]
-            tau_eff = self.B @ u - self.damping * v
+            tau = self.B @ u
 
             pin.computeABADerivatives(
-                self.pin_model, self.pin_data, q, v, tau_eff
+                self.pin_model, self.pin_data, q, v, tau
             )
             ddq_dq = self.pin_data.ddq_dq
             ddq_dv_partial = self.pin_data.ddq_dv
             ddq_dtau = self.pin_data.Minv
 
-            # chain rule: tau_eff depends on v through -damping * v
-            ddq_dv = ddq_dv_partial - ddq_dtau @ np.diag(self.damping)
             ddq_du = ddq_dtau @ self.B
 
             data.Jx[:nv_, :nv_] = 0.0
             data.Jx[:nv_, nv_:] = np.eye(nv_)
             data.Jx[nv_:, :nv_] = ddq_dq
-            data.Jx[nv_:, nv_:] = ddq_dv
+            data.Jx[nv_:, nv_:] = ddq_dv_partial
 
             # boost.python squeezes data.Ju down to a 1-D array of shape
             # (ndx,) when nu == 1 (as for the pendubot's single actuated
             # joint), but keeps it 2-D, shape (ndx, nu), for nu > 1 (as
-            # for the Go2's 12 actuated legs) -- handle both.
+            # for the Go2's 12 actuated legs) -- handle both
             if data.Ju.ndim == 1:
                 data.Ju[:nv_] = 0.0
                 data.Ju[nv_:] = ddq_du[:, 0] if ddq_du.ndim > 1 else ddq_du
@@ -115,7 +113,6 @@ class AligatorProblem(ProblemWrapper):
     """ProblemWrapper implementation using the Aligator (proxddp) solver."""
 
     DEFAULT_MU = 0.6
-    DEFAULT_FOOT_HEIGHT = 0.0
 
     def __init__(self, horizon, dt, urdf_path, constructor_parameters=None):
         super().__init__(horizon, dt, urdf_path)
@@ -125,9 +122,6 @@ class AligatorProblem(ProblemWrapper):
         self.actuated_joints = constructor_parameters.get("actuated_joints")
         self.mu = constructor_parameters.get(
             "friction_coefficient", self.DEFAULT_MU
-        )
-        self.foot_target_height = constructor_parameters.get(
-            "foot_target_height", self.DEFAULT_FOOT_HEIGHT
         )
 
         if self.free_flyer:
@@ -139,11 +133,7 @@ class AligatorProblem(ProblemWrapper):
         self.data = self.model.createData()
 
         self.nq, self.nv = self.model.nq, self.model.nv
-        damping = np.asarray(self.model.damping).reshape(-1)
-        self.damping = (
-            damping if damping.size == self.nv else np.zeros(self.nv)
-        )
-
+        # Keep all benchmark backends on the same undamped rigid-body model
         # Actuation matrix B (nv x nu)
         if self.free_flyer:
             self.nu = self.nv - 6
@@ -156,7 +146,7 @@ class AligatorProblem(ProblemWrapper):
                 self.B[row, col] = 1.0
         else:
             # Fully-actuated fallback for problems that specify neither
-            # "free_flyer" nor "actuated_joints".
+            # "free_flyer" nor "actuated_joints"
             self.nu = self.nv
             self.B = np.eye(self.nv)
 
@@ -165,7 +155,7 @@ class AligatorProblem(ProblemWrapper):
 
         # --- per-node bookkeeping populated by the add*() calls below ---
         # self.H is the number of *stages* (control intervals); there are
-        # H + 1 nodes, 0..H, with node H being the terminal one.
+        # H + 1 nodes, 0..H, with node H being the terminal one
         self._node_costs = {k: [] for k in range(self.H + 1)}
         self._frame_vel_bounds = {k: [] for k in range(self.H + 1)}
         self._frame_pos_bounds = {k: [] for k in range(self.H + 1)}
@@ -176,7 +166,7 @@ class AligatorProblem(ProblemWrapper):
         # Caches for objects that don't depend on k, so finalize() builds
         # each cost/constraint/dynamics object once and reuses the same
         # instance across every stage, rather than rebuilding ~H fresh
-        # copies (wasteful, and adds real per-iteration solver overhead).
+        # copies (wasteful, and adds real per-iteration solver overhead)
         self._joint_limit_cache = None
         self._vel_residual_cache = None
         self._ctrl_residual_cache = None
@@ -197,6 +187,9 @@ class AligatorProblem(ProblemWrapper):
         self.us_opt = None
         self.solve_time = None
         self.converged = None
+        self.iterations = None
+        self.objective = None
+        self.constraint_violation = None
 
     # ------------------------------------------------------------------
     # Cost / constraint registration (ProblemWrapper API)
@@ -286,10 +279,10 @@ class AligatorProblem(ProblemWrapper):
         if not contacts_k:
             # No contact set to account for -> the dynamics are identical
             # at every such stage, so build the ODE/integrator once and
-            # hand back the same instance every time.
+            # hand back the same instance every time
             if self._unconstrained_dynamics_cache is None:
                 ode = _UnderactuatedForwardDynamics(
-                    self.space, self.model, self.B, self.damping
+                    self.space, self.model, self.B
                 )
                 # SemiImplEuler (v_next = v + dt*a, q_next = q (+) v_next*dt)
                 # matches the other three formulations' discretization
@@ -297,7 +290,7 @@ class AligatorProblem(ProblemWrapper):
                 # hand-rolled v_next/q_next update, and crocoddyl's
                 # IntegratedActionModelEuler) -- plain IntegratorEuler uses
                 # the *old* v for the position update instead, which is a
-                # different (lower-order) discrete dynamics model.
+                # different (lower-order) discrete dynamics model
                 self._unconstrained_dynamics_cache = (
                     dynamics.IntegratorSemiImplEuler(ode, self.dt)
                 )
@@ -324,7 +317,7 @@ class AligatorProblem(ProblemWrapper):
         # contact-force recovery at a tighter tolerance than what
         # produced xs_opt/us_opt makes the proximal solver do extra
         # constraint-drift correction that shows up as a spurious extra
-        # force component on top of the real support force.
+        # force component on top of the real support force
         self._last_contact_dynamics[k] = cache_key
 
         return (
@@ -367,10 +360,9 @@ class AligatorProblem(ProblemWrapper):
             return state_err[: self.nq]
 
     def _joint_limit_constraints(self):
-        """Box constraints on velocity / torque (and, for floating-base
-        models, configuration) taken directly from the URDF, applied at
-        every stage -- these aren't driven by any explicit ProblemWrapper
-        call. Position is never bounded. No torque constraint is added at
+        """Box constraints on configuration, velocity, and torque taken
+        directly from the URDF, applied at every stage. No torque constraint
+        is added at
         the terminal node, since there's no control there to constrain
         (see `_terminal_joint_limit_constraints` below).
 
@@ -418,12 +410,16 @@ class AligatorProblem(ProblemWrapper):
                 "torque": (torque_err, torque_bound),
             }
         else:
+            q_lo = np.asarray(self.model.lowerPositionLimit).reshape(-1)[: self.nv]
+            q_hi = np.asarray(self.model.upperPositionLimit).reshape(-1)[: self.nv]
+            config_err = zero_residual[: self.nv]
+            config_bound = constraints.BoxConstraint(q_lo, q_hi)
             v_lim = np.asarray(self.model.velocityLimit).reshape(-1)
             vel_err = zero_residual[self.nq : self.nq + self.nv]
             vel_bound = constraints.BoxConstraint(-v_lim, v_lim)
 
             result = {
-                "config": None,
+                "config": (config_err, config_bound),
                 "vel": (vel_err, vel_bound),
                 "torque": (torque_err, torque_bound),
             }
@@ -487,7 +483,7 @@ class AligatorProblem(ProblemWrapper):
                 _, desired_config, weight = entry
                 # desired_config can legitimately differ per node (it
                 # doesn't here, but the API allows it), so this one isn't
-                # cached beyond the residual construction itself.
+                # cached beyond the residual construction itself
                 config_err = self._config_error_residual(desired_config)
                 dim = len(desired_config)
                 cost_stack.addCost(
@@ -498,9 +494,9 @@ class AligatorProblem(ProblemWrapper):
             elif kind == "joint_angle":
                 weight = entry[1]
                 if self.free_flyer:
-                    desired_config = self.x0[7 : 7 + self.nu]
+                    desired_config = np.zeros(self.nu)
                 else:
-                    desired_config = self.x0[: self.nq]
+                    desired_config = np.zeros(self.nq)
                 dim = len(desired_config)
                 cache_key = ("joint_angle", weight, dim)
                 cost = self._quad_cost_cache.get(cache_key)
@@ -522,7 +518,7 @@ class AligatorProblem(ProblemWrapper):
                 weight = entry[1]
                 if constraint_models is None:
                     # No active contacts at this node -- nothing to
-                    # penalize.
+                    # penalize
                     continue
                 for frame, _, _ in contacts_k:
                     force_res = aligator.ContactForceResidual(
@@ -562,7 +558,7 @@ class AligatorProblem(ProblemWrapper):
         # Not cached: unlike _frame_translation_residual (built once with a
         # zero reference and sliced/offset by callers), the desired pose
         # here legitimately varies per node (it's a point on a trajectory),
-        # so a fresh residual is built for each (frame, k) pair.
+        # so a fresh residual is built for each (frame, k) pair
         frame_id = self.model.getFrameId(frame)
         M_des = pin.SE3(R_des, p_des)
         return aligator.FramePlacementResidual(
@@ -583,16 +579,20 @@ class AligatorProblem(ProblemWrapper):
     def _add_stage_constraints(
         self, stage, k, constraint_models, prox_settings
     ):
+        def _add(err, bound):
+            stage.addConstraint(err, bound)
+            self._violation_terms[k].append((err, bound))
+
         for cerr, cbound in self._stage_joint_limit_constraints():
-            stage.addConstraint(cerr, cbound)
+            _add(cerr, cbound)
 
         for frame, lb, ub in self._frame_vel_bounds.get(k, []):
             fv = self._frame_lin_vel_residual(frame)
-            stage.addConstraint(fv, constraints.BoxConstraint(lb, ub))
+            _add(fv, constraints.BoxConstraint(lb, ub))
 
         for frame, lb, ub in self._frame_pos_bounds.get(k, []):
             fp = self._frame_translation_residual(frame)
-            stage.addConstraint(fp, constraints.BoxConstraint(lb, ub))
+            _add(fp, constraints.BoxConstraint(lb, ub))
 
         for frame, max_normal_force, _ in self._contacts.get(k, []):
             force_res = aligator.ContactForceResidual(
@@ -618,18 +618,9 @@ class AligatorProblem(ProblemWrapper):
             cone_res = aligator.LinearFunctionComposition(
                 force_res, A_cone, np.zeros(6)
             )
-            stage.addConstraint(
+            _add(
                 cone_res,
                 constraints.BoxConstraint(-np.inf * np.ones(6), b_cone),
-            )
-
-            frame_id = self.model.getFrameId(frame)
-            p_ref = np.array([0.0, 0.0, self.foot_target_height])
-            fp = aligator.FrameTranslationResidual(
-                self.ndx, self.nu, self.model, p_ref, frame_id
-            )[2:3]
-            stage.addConstraint(
-                fp, constraints.BoxConstraint(np.zeros(1), np.zeros(1))
             )
 
     # ------------------------------------------------------------------
@@ -645,6 +636,14 @@ class AligatorProblem(ProblemWrapper):
             self.x0 = np.zeros(self.nq + self.nv)
             if self.free_flyer:
                 self.x0[6] = 1.0
+
+        # Recorded per stage by _add_stage_constraints()/below, so solve()
+        # can re-evaluate every (err, bound) pair against the optimized
+        # trajectory for the constraint-violation summary, since Aligator's
+        # shooting/constrained-forward-dynamics rollout satisfies the
+        # dynamics exactly by construction, unlike CasadiProblem there is
+        # no dynamics-defect term to fold in here, only path constraints
+        self._violation_terms = {k: [] for k in range(self.H + 1)}
 
         stages = []
         for k in range(self.H):
@@ -665,20 +664,20 @@ class AligatorProblem(ProblemWrapper):
             self.x0, stages, term_cost_stack
         )
 
+        def _add_terminal(err, bound):
+            self.problem.addTerminalConstraint(err, bound)
+            self._violation_terms[self.H].append((err, bound))
+
         for frame, lb, ub in self._frame_vel_bounds.get(self.H, []):
             fv = self._frame_lin_vel_residual(frame)
-            self.problem.addTerminalConstraint(
-                fv, constraints.BoxConstraint(lb, ub)
-            )
+            _add_terminal(fv, constraints.BoxConstraint(lb, ub))
 
         for frame, lb, ub in self._frame_pos_bounds.get(self.H, []):
             fp = self._frame_translation_residual(frame)
-            self.problem.addTerminalConstraint(
-                fp, constraints.BoxConstraint(lb, ub)
-            )
+            _add_terminal(fp, constraints.BoxConstraint(lb, ub))
 
         for cerr, cbound in self._terminal_joint_limit_constraints():
-            self.problem.addTerminalConstraint(cerr, cbound)
+            _add_terminal(cerr, cbound)
 
         self._built = True
 
@@ -690,7 +689,9 @@ class AligatorProblem(ProblemWrapper):
         tol = parameter_dict.get("tol", parameter_dict.get("tolerance", 1e-2))
         mu_init = parameter_dict.get("mu_init", 1e-2)
         max_iters = parameter_dict.get("max_iters", 1000)
-        verbose = parameter_dict.get("verbose", aligator.VerboseLevel.VERBOSE)
+        # Suppress per-iteration logging during timed benchmark runs, though
+        # it stays configurable for interactive debugging
+        verbose = parameter_dict.get("verbose", aligator.VerboseLevel.QUIET)
 
         self.solver = aligator.SolverProxDDP(tol, mu_init, verbose=verbose)
         self.solver.max_iters = max_iters
@@ -699,19 +700,55 @@ class AligatorProblem(ProblemWrapper):
         xs_init = [self.x0.copy() for _ in range(self.H + 1)]
         us_init = [np.zeros(self.nu) for _ in range(self.H)]
 
-        start = time()
+        start = perf_counter()
         self.converged = self.solver.run(self.problem, xs_init, us_init)
-        self.solve_time = time() - start
+        self.solve_time = perf_counter() - start
 
         results = self.solver.results
         self.xs_opt = results.xs
         self.us_opt = results.us
+        self.iterations = getattr(self.solver, "iter", None)
+        if self.iterations is None:
+            self.iterations = getattr(results, "num_iters", None)
+        result_cost = getattr(results, "traj_cost", None)
+        self.objective = (
+            float(result_cost) if result_cost is not None else None
+        )
+        self.constraint_violation = self._evaluate_violation()
 
         print(
             f"[AligatorProblem] Solve time: {self.solve_time:.3f} s, "
             f"converged: {self.converged}"
         )
         return self.converged
+
+    def _evaluate_violation(self):
+        """Sum, over stages, of the worst single bound violation at that
+        stage -- matching SSQP's trajectory_constraint_violation (see
+        ssqp::_cf in src/solvers/ssqp.cpp): per stage, take the infinity
+        norm of how far outside [lb, ub] the (possibly vector-valued)
+        constraint sits, then sum that per-stage worst case across stages.
+        """
+        total = 0.0
+        for k, terms in self._violation_terms.items():
+            if not terms:
+                continue
+            xk = self.xs_opt[k]
+            uk = self.us_opt[k] if k < self.H else np.zeros(self.nu)
+            stage_worst = 0.0
+            for err, bound in terms:
+                data = err.createData()
+                err.evaluate(xk, uk, data)
+                value = np.asarray(data.value, dtype=float).reshape(-1)
+                lb = np.asarray(bound.lower_limit, dtype=float).reshape(-1)
+                ub = np.asarray(bound.upper_limit, dtype=float).reshape(-1)
+                violation = np.maximum(
+                    0.0, np.maximum(lb - value, value - ub)
+                )
+                if violation.size:
+                    stage_worst = max(stage_worst, float(violation.max()))
+            total += stage_worst
+        return total
 
     def save(self, output_json):
         if self.xs_opt is None:
@@ -722,11 +759,11 @@ class AligatorProblem(ProblemWrapper):
             # Build one ContactForceResidual set per distinct
             # (frames, eq_tol) combination actually used during solve --
             # reusing the *exact* constraint_models/prox_settings objects
-            # cached by _build_dynamics_for_stage, not fresh ones. Forces
-            # must be recovered with the same proximal tolerance the
+            # cached by _build_dynamics_for_stage, not fresh ones, since
+            # forces must be recovered with the same proximal tolerance the
             # trajectory was solved with; a different tolerance makes the
             # proximal solver perform extra constraint-drift correction
-            # that shows up as a spurious extra force component.
+            # that shows up as a spurious extra force component
             all_frames = sorted(self._contact_model_cache.keys())
             force_residuals_by_key = {}
             for cache_key, (
@@ -775,12 +812,12 @@ class AligatorProblem(ProblemWrapper):
                         # LOCAL_WORLD_ALIGNED (world-aligned axes),
                         # because that's the frame the friction cone and
                         # foot-height constraint were built in and need
-                        # to stay physically meaningful. But the saved
+                        # to stay physically meaningful, but the saved
                         # JSON convention (matching the other solvers) is
                         # each foot's own LOCAL frame, so rotate it there
                         # for reporting: f_local = R_world_local^T @
                         # f_world, using this stage's actual foot
-                        # orientation.
+                        # orientation
                         q_k = np.asarray(xk[: self.nq])
                         pin.forwardKinematics(self.model, self.data, q_k)
                         pin.updateFramePlacements(self.model, self.data)
@@ -822,7 +859,7 @@ class AligatorProblem(ProblemWrapper):
                 frames_k = list(cache_key[0]) if cache_key is not None else []
                 properties["stages"].append(
                     {
-                        "size": self.ndx,
+                        "size": self.nq + self.nv,
                         "control": self.nu if k < self.H else 0,
                         "nforces": len(frames_k),
                         "ordered_force_frames": (
@@ -859,14 +896,26 @@ class AligatorProblem(ProblemWrapper):
             for k in range(self.H + 1):
                 properties["stages"].append(
                     {
-                        "size": self.ndx,
+                        "size": self.nq + self.nv,
                         "control": self.nu if k < self.H else 0,
                         "nforces": 0,
                         "ordered_force_frames": [] if k < self.H else None,
                     }
                 )
 
-        output = {"properties": properties, "stage_data": stage_data}
+        output = {
+            "benchmark": {
+                "format_version": 1,
+                "solver": "aligator",
+                "success": bool(self.converged),
+                "iterations": self.iterations,
+                "runtime_ms": self.solve_time * 1000.0,
+                "objective": self.objective,
+                "constraint_violation": self.constraint_violation,
+            },
+            "properties": properties,
+            "stage_data": stage_data,
+        }
 
         out_dir = os.path.dirname(output_json)
         if out_dir and not os.path.exists(out_dir):

@@ -249,20 +249,20 @@ def make_panda_circle_problem(problem_wrapper_t, constructor_parameters):
     V_WGT = 9e-6
     # The original trajgen script used SolverMode.InverseDynamics, where u
     # is joint acceleration; this benchmark forces ForwardDynamics, where
-    # u is joint torque. U_WGT is retuned for that scale rather than
-    # reused verbatim -- at the original 3e-3, torque cost dominated
+    # u is joint torque, so U_WGT is retuned for that scale rather than
+    # reused verbatim, since at the original 3e-3, torque cost dominated
     # tracking cost and every backend converged to "barely move" instead
-    # of the circle.
+    # of the circle
     U_WGT = 9e-10
 
     # Box constraint on the end effector's y/z position, nested within the
-    # circle it's meant to trace.
+    # circle it's meant to trace
     CONSTRAINT_VLINES = (-0.15, 0.15)
     CONSTRAINT_HLINES = (0.1, 0.41)
     box_lb = np.array((-np.inf, CONSTRAINT_VLINES[0], CONSTRAINT_HLINES[0]))
     box_ub = np.array((np.inf, CONSTRAINT_VLINES[1], CONSTRAINT_HLINES[1]))
 
-    # Circle center/radius for the traced end effector path (yz-plane).
+    # Circle center/radius for the traced end effector path (yz-plane)
     CX, CY, CZ, CR = 0.3, 0.0, 0.26, 0.22
     omega = 2 * np.pi / (H * problem_wrapper.dt)
 
@@ -277,13 +277,13 @@ def make_panda_circle_problem(problem_wrapper_t, constructor_parameters):
         for k in range(H + 1)
     ]
 
-    # Desired end effector orientation, held fixed throughout the motion.
+    # Desired end effector orientation, held fixed throughout the motion
     Rd = np.eye(3)
     Rd[1, 1] = -1
     Rd[2, 2] = -1
 
     # Nominal arm configuration (7 arm joints + 2 fingers), also used as
-    # the sole initial state.
+    # the sole initial state
     init = np.zeros(18)
     init[:9] = [
         0.0013,
@@ -349,9 +349,9 @@ def make_go2_frog_problem(problem_wrapper_t, constructor_parameters):
 
     FEET = ("FL_foot", "FR_foot", "RL_foot", "RR_foot")
 
-    # Contact phase schedule: (start_step, end_step, feet_in_contact).
-    # Four successive hop cycles with staggered per-leg liftoff, each
-    # separated by a brief full-flight window (empty feet tuple).
+    # Contact phase schedule: (start_step, end_step, feet_in_contact), four
+    # successive hop cycles with staggered per-leg liftoff, each separated
+    # by a brief full-flight window (empty feet tuple)
     CONTACT_SCHEDULE = [
         (0, 24, ("FL_foot", "FR_foot", "RL_foot", "RR_foot")),
         (24, 30, ("FR_foot", "RL_foot", "RR_foot")),
@@ -386,8 +386,8 @@ def make_go2_frog_problem(problem_wrapper_t, constructor_parameters):
                 return feet
         return ()
 
-    # Initial/nominal standing configuration -- same stance as
-    # make_go2_standing_problem/make_go2_jump_problem.
+    # Initial/nominal standing configuration, same stance as
+    # make_go2_standing_problem/make_go2_jump_problem
     base_pos = np.array([0.0, 0.0, 0.3879793820122])
     base_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
 
@@ -397,7 +397,7 @@ def make_go2_frog_problem(problem_wrapper_t, constructor_parameters):
     init[7:19] = base_config
 
     # Target: land 2m forward of the start, back at the nominal standing
-    # height, at rest.
+    # height, at rest
     final_pos = np.array([2.0, 0.0, base_pos[2]])
 
     for k in range(H):

@@ -15,7 +15,7 @@ Replace `[n]` with the number of CPU cores to use for building dependencies from
 After building, run the container using the command below:
 
 ```
-docker run --rm -it -v $PWD:/workspace -v $PWD/../../assets/urdf:/workspace/urdf:ro -v $PWD/../../../build/bindings:/workspace/bindings:ro solver-benchmark:latest
+docker run --rm -it -v $PWD:/workspace -v $PWD/../../examples/assets/urdf:/workspace/urdf:ro -v $PWD/../../build/bindings:/workspace/bindings:ro solver-benchmark:latest
 ```
 
 #### `run_benchmarks.py` script

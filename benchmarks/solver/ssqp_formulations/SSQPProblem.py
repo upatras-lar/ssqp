@@ -1,5 +1,8 @@
-from ProblemWrapper import ProblemWrapper
+import json
+
 import ssqpy
+
+from ProblemWrapper import ProblemWrapper
 
 
 class SSQPProblem(ProblemWrapper):
@@ -83,6 +86,9 @@ class SSQPProblem(ProblemWrapper):
         if not self.model.finalized:
             self.model.finalize()
 
+        if not parameters.get("verbose", False):
+            ssqpy.setSilentMode()
+
         ssqp_params = ssqpy.solvers.ssqpParams()
 
         ssqp_params.max_iter = parameters.get("max_iter", 1000)
@@ -124,8 +130,50 @@ class SSQPProblem(ProblemWrapper):
                 )
 
         self.solver = ssqpy.solvers.ssqp(self.model, ssqp_params)
+        self._benchmark_solver = (
+            "ssqp-hpipm"
+            if ssqp_params.qp_solver_type == ssqpy.solvers.QPSolverType.HPIPM
+            else "ssqp-admm"
+        )
+        self.status, _, _ = self.solver.solve()
 
-        self.solver.solve()
+        convergence_data = self.solver.getConvergenceData()
+
+        print(
+            f"[SSQPY] Solve time: {convergence_data.total_duration / 1000} ms"
+        )
 
     def save(self, output_json):
-        self.solver.write(output_json)
+        if not self.solver.write(output_json):
+            raise OSError(f"Could not write benchmark result to {output_json}")
+
+        # Keep the native SSQP convergence record intact while adding the
+        # small common envelope consumed by the cross-solver visualizer
+        with open(output_json) as f:
+            output = json.load(f)
+        convergence = output.get("convergence", {})
+        # The native writer historically stores the zero-based loop counter
+        # in convergence.iterations, and the trace has one row per attempted
+        # SQP iteration, so it is the unambiguous count for this common
+        # envelope while preserving the native record verbatim
+        iteration_data = convergence.get("iteration_data", [])
+        iterations = len(iteration_data) or convergence.get("iterations")
+        successful_states = {
+            ssqpy.solvers.SolverState.Success,
+            ssqpy.solvers.SolverState.LooseSuccess,
+            ssqpy.solvers.SolverState.ConstraintSuccess,
+        }
+        output["benchmark"] = {
+            "format_version": 1,
+            "solver": self._benchmark_solver,
+            "success": self.status in successful_states,
+            "iterations": iterations,
+            "runtime_ms": convergence.get("runtime_ms"),
+            "objective": convergence.get("trajectory_cost"),
+            "constraint_violation": convergence.get(
+                "trajectory_constraint_violation"
+            ),
+            "stage_gap": convergence.get("trajectory_stage_gap"),
+        }
+        with open(output_json, "w") as f:
+            json.dump(output, f, indent=4)
