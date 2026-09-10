@@ -177,3 +177,5 @@ class SSQPProblem(ProblemWrapper):
         }
         with open(output_json, "w") as f:
             json.dump(output, f, indent=4)
+
+        print(f"[SSQPY] Saved solution to {output_json}")

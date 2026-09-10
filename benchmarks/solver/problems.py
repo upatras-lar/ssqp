@@ -231,6 +231,84 @@ def make_go2_jump_problem(problem_wrapper_t, constructor_parameters):
     return problem_wrapper
 
 
+def make_go2_wheelie_problem(problem_wrapper_t, constructor_parameters):
+    """The Go2 starts standing on all four feet. For a window in the middle
+    of the horizon, the front two feet lose contact (and so bear no force),
+    while the rear two feet stay in contact for the entire horizon. Unlike
+    make_go2_jump_problem, there is no target trajectory for the freed
+    feet; the standing-configuration cost is what pulls the front feet
+    (and the rest of the robot) back down at the end of the window.
+    """
+    H = 200
+    problem_wrapper = problem_wrapper_t(
+        H, 0.01, "urdf/go2/go2.urdf", constructor_parameters
+    )
+
+    START_STEP = 60
+    END_STEP = 140
+
+    A_WGT = 1e-2
+    V_WGT = 1e-4
+    U_WGT = 1e-8
+    F_WGT = 1e-8
+
+    MAX_NORMAL_FORCE = 100
+    FOOT_EQ_TOL = 0.01
+
+    FRONT_FEET = ("FL_foot", "FR_foot")
+    REAR_FEET = ("RL_foot", "RR_foot")
+
+    # Initial and final positions
+    base_pos = np.array([0.0, 0.0, 0.3879793820122])
+    base_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
+
+    # Initial configuration
+    init = np.zeros(37)
+    init[:3] = base_pos
+    init[6] = 1.0
+    init[7:19] = base_config
+
+    for k in range(H):
+        problem_wrapper.addSquaredConfigurationErrorCost(k, base_config, A_WGT)
+        problem_wrapper.addSquaredJointVelocityCost(k, V_WGT)
+        problem_wrapper.addSquaredControlCost(k, U_WGT)
+        problem_wrapper.addSquaredForceCost(k, F_WGT)
+
+        for foot in FRONT_FEET + REAR_FEET:
+            problem_wrapper.addFrameTranslationBound(
+                k,
+                foot,
+                np.array((-np.inf, -np.inf, -FOOT_EQ_TOL)),
+                np.array((np.inf, np.inf, np.inf)),
+            )
+
+        for foot in REAR_FEET:
+            problem_wrapper.addContactConstraint(
+                k, foot, MAX_NORMAL_FORCE, FOOT_EQ_TOL
+            )
+            problem_wrapper.addFrameLinearVelocityBound(
+                k, foot, np.zeros(3), np.zeros(3)
+            )
+
+        if k < START_STEP or k >= END_STEP:
+            for foot in FRONT_FEET:
+                problem_wrapper.addContactConstraint(
+                    k, foot, MAX_NORMAL_FORCE, FOOT_EQ_TOL
+                )
+                problem_wrapper.addFrameLinearVelocityBound(
+                    k, foot, np.zeros(3), np.zeros(3)
+                )
+
+    problem_wrapper.addSquaredConfigurationErrorCost(H, base_config, A_WGT)
+    problem_wrapper.addFrameLinearVelocityBound(
+        H, "base", np.zeros(3), np.zeros(3)
+    )
+
+    problem_wrapper.finalize({"init_states": init})
+
+    return problem_wrapper
+
+
 def make_panda_circle_problem(problem_wrapper_t, constructor_parameters):
     """Ported from examples/trajgen/python/panda_circle.py's hand-written
     ssqpy script: the Panda arm's end effector traces a circular path on

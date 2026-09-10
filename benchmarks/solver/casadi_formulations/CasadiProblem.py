@@ -783,6 +783,10 @@ class CasadiProblem(ProblemWrapper):
         self.constraint_violation = self._evaluate_violation(
             sol, violation_terms
         )
+        print(
+            f"[{self.casadi_plugin}] Solve time: {self.solve_time:.3f} s, "
+            f"converged: {self.converged}"
+        )
         return sol
 
     def _evaluate_violation(self, sol, violation_terms):
@@ -942,4 +946,4 @@ class CasadiProblem(ProblemWrapper):
         with open(output_json, "w") as f:
             json.dump(output, f, indent=4)
 
-        print(f"Saved solution to {output_json}")
+        print(f"[{self.casadi_plugin}] Saved solution to {output_json}")

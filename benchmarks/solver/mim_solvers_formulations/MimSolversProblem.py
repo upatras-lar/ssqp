@@ -563,10 +563,10 @@ class MimSolversProblem(ProblemWrapper):
         self.iterations = int(self.solver.iter)
         self.constraint_violation = self._evaluate_violation()
 
-        print(f"Solve time: {self.solve_time * 1000:.3f} ms")
-        print(f"Final cost: {self.solver.cost}")
-        print(f"Iterations: {self.solver.iter}")
-        print(f"Success: {success}")
+        print(f"[mim_solvers] Solve time: {self.solve_time * 1000:.3f} ms")
+        print(f"[mim_solvers] Final cost: {self.solver.cost}")
+        print(f"[mim_solvers] Iterations: {self.solver.iter}")
+        print(f"[mim_solvers] Success: {success}")
 
     def _evaluate_violation(self):
         """Sum, over stages, of the worst single bound violation at that
@@ -728,4 +728,4 @@ class MimSolversProblem(ProblemWrapper):
         with open(output_json, "w") as f:
             json.dump(output, f, indent=4)
 
-        print(f"Saved solution to {output_json}")
+        print(f"[mim_solvers] Saved solution to {output_json}")

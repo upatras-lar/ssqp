@@ -78,9 +78,7 @@ class _UnderactuatedForwardDynamics(dynamics.ODEAbstract):
             q, v = x[:nq_], x[nq_:]
             tau = self.B @ u
 
-            pin.computeABADerivatives(
-                self.pin_model, self.pin_data, q, v, tau
-            )
+            pin.computeABADerivatives(self.pin_model, self.pin_data, q, v, tau)
             ddq_dq = self.pin_data.ddq_dq
             ddq_dv_partial = self.pin_data.ddq_dv
             ddq_dtau = self.pin_data.Minv
@@ -410,8 +408,12 @@ class AligatorProblem(ProblemWrapper):
                 "torque": (torque_err, torque_bound),
             }
         else:
-            q_lo = np.asarray(self.model.lowerPositionLimit).reshape(-1)[: self.nv]
-            q_hi = np.asarray(self.model.upperPositionLimit).reshape(-1)[: self.nv]
+            q_lo = np.asarray(self.model.lowerPositionLimit).reshape(-1)[
+                : self.nv
+            ]
+            q_hi = np.asarray(self.model.upperPositionLimit).reshape(-1)[
+                : self.nv
+            ]
             config_err = zero_residual[: self.nv]
             config_bound = constraints.BoxConstraint(q_lo, q_hi)
             v_lim = np.asarray(self.model.velocityLimit).reshape(-1)
@@ -717,7 +719,7 @@ class AligatorProblem(ProblemWrapper):
         self.constraint_violation = self._evaluate_violation()
 
         print(
-            f"[AligatorProblem] Solve time: {self.solve_time:.3f} s, "
+            f"[Aligator] Solve time: {self.solve_time:.3f} s, "
             f"converged: {self.converged}"
         )
         return self.converged
@@ -742,9 +744,7 @@ class AligatorProblem(ProblemWrapper):
                 value = np.asarray(data.value, dtype=float).reshape(-1)
                 lb = np.asarray(bound.lower_limit, dtype=float).reshape(-1)
                 ub = np.asarray(bound.upper_limit, dtype=float).reshape(-1)
-                violation = np.maximum(
-                    0.0, np.maximum(lb - value, value - ub)
-                )
+                violation = np.maximum(0.0, np.maximum(lb - value, value - ub))
                 if violation.size:
                     stage_worst = max(stage_worst, float(violation.max()))
             total += stage_worst
@@ -924,4 +924,4 @@ class AligatorProblem(ProblemWrapper):
         with open(output_json, "w") as f:
             json.dump(output, f, indent=4)
 
-        print(f"[AligatorProblem] Saved solution to {output_json}")
+        print(f"[Aligator] Saved solution to {output_json}")

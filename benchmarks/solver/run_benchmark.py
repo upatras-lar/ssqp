@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from benchmark_config import TOLERANCE
+from benchmark_config import TOLERANCE, tolerance_label
 from problems import *
 
 
@@ -10,14 +10,16 @@ def parse_args():
 
     parser.add_argument(
         "problem",
+        nargs="?",
         choices=[
             "pendubot",
             "go2_standing",
             "go2_jump",
+            "go2_wheelie",
             "go2_frog",
             "panda_circle",
         ],
-        help="The benchmarking problem to run",
+        help="The benchmarking problem to run. Ignored if --all-problems is given.",
     )
 
     parser.add_argument(
@@ -33,13 +35,34 @@ def parse_args():
             "mim_solvers",
         ],
         default="ssqp-admm",
-        help="The solver to benchmark. Ignored if --all is given.",
+        help="The solver to benchmark. Ignored if --all-solvers is given.",
     )
 
     parser.add_argument(
-        "--all",
+        "--all-solvers",
         action="store_true",
         help="Run every solver on the given problem, instead of just --solver.",
+    )
+
+    parser.add_argument(
+        "--all-problems",
+        action="store_true",
+        help="Run every problem, instead of just the given problem.",
+    )
+
+    parser.add_argument(
+        "-t",
+        "--tolerance",
+        type=float,
+        default=TOLERANCE,
+        help="Convergence tolerance every solver is run with.",
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print each solver's own per-iteration progress output.",
     )
 
     parser.add_argument(
@@ -71,7 +94,20 @@ def parse_args():
 
 
 args = parse_args()
+if not args.all_problems and args.problem is None:
+    raise SystemExit("Either a problem or --all-problems must be given.")
 inverse_dynamics = args.dynamics_mode == "inverse"
+tolerance = args.tolerance
+
+ALL_PROBLEMS = [
+    "pendubot",
+    "go2_standing",
+    "go2_jump",
+    "go2_wheelie",
+    "go2_frog",
+    "panda_circle",
+]
+problems_to_run = ALL_PROBLEMS if args.all_problems else [args.problem]
 
 ALL_SOLVERS = [
     "ssqp-admm",
@@ -86,7 +122,7 @@ ALL_SOLVERS = [
 # to select for them
 INVERSE_UNSUPPORTED = {"mim_solvers", "aligator"}
 
-if args.all:
+if args.all_solvers:
     solvers = [
         s
         for s in ALL_SOLVERS
@@ -112,21 +148,22 @@ MAX_ITER_BY_PROBLEM = {
     "pendubot": 500,
     "go2_standing": 200,
     "go2_jump": 1000,
+    "go2_wheelie": 1000,
     "go2_frog": 1000,
     "panda_circle": 1000,
 }
-max_iter = MAX_ITER_BY_PROBLEM[args.problem]
-
 problems = {
     "pendubot": make_pendubot_problem,
     "go2_standing": make_go2_standing_problem,
     "go2_jump": make_go2_jump_problem,
+    "go2_wheelie": make_go2_wheelie_problem,
     "go2_frog": make_go2_frog_problem,
     "panda_circle": make_panda_circle_problem,
 }
 
 
-def run_solver(solver):
+def run_solver(problem, solver):
+    max_iter = MAX_ITER_BY_PROBLEM[problem]
     problem_wrapper_t = None
     constructor_parameters = {}
     solve_parameters = {}
@@ -136,9 +173,10 @@ def run_solver(solver):
 
         problem_wrapper_t = SSQPProblem
 
-        is_floating_base = args.problem in (
+        is_floating_base = problem in (
             "go2_standing",
             "go2_jump",
+            "go2_wheelie",
             "go2_frog",
         )
         if inverse_dynamics:
@@ -156,13 +194,14 @@ def run_solver(solver):
             constructor_parameters["solver_mode"] = (
                 ssqpy.model.SolverMode.ForwardDynamics
             )
-        if args.problem == "pendubot":
+        if problem == "pendubot":
             constructor_parameters["actuated_joints"] = [0]
         elif is_floating_base:
             constructor_parameters["free_flyer"] = True
 
-        solve_parameters["tolerance"] = TOLERANCE
+        solve_parameters["tolerance"] = tolerance
         solve_parameters["max_iter"] = max_iter
+        solve_parameters["verbose"] = args.verbose
 
         if solver == "ssqp-admm":
             solve_parameters["qp_solver"] = "admm"
@@ -170,10 +209,10 @@ def run_solver(solver):
             # pendubot/go2's to converge within the outer SQP loop
             solve_parameters["admm_max_iter"] = (
                 400
-                if args.problem == "panda_circle"
-                else (300 if args.problem == "pendubot" else 100)
+                if problem == "panda_circle"
+                else (300 if problem == "pendubot" else 100)
             )
-            solve_parameters["admm_tol"] = 1e-3
+            solve_parameters["admm_tol"] = tolerance / 10
             # rho_update_iter_freq also gates ADMM's own termination check (see
             # ssqp's admm_qp.hpp), so it must be lower than admm_max_iter for
             # ADMM to ever detect convergence and exit early
@@ -182,9 +221,7 @@ def run_solver(solver):
             solve_parameters["admm_warm_start"] = True
         else:
             solve_parameters["qp_solver"] = "hpipm"
-            solve_parameters["hpipm_tol"] = (
-                1e-2 if args.problem == "pendubot" else 1e-3
-            )
+            solve_parameters["hpipm_tol"] = tolerance
 
     elif solver == "mim_solvers":
         from mim_solvers_formulations.MimSolversProblem import (
@@ -196,7 +233,7 @@ def run_solver(solver):
 
         problem_wrapper_t = MimSolversProblem
 
-        if args.problem == "pendubot":
+        if problem == "pendubot":
             pin_model = pin.buildModelFromUrdf(
                 "urdf/double_pendulum/pendubot.urdf"
             )
@@ -205,15 +242,15 @@ def run_solver(solver):
 
             constructor_parameters["floating_base"] = False
             constructor_parameters["actuation_model"] = custom_actuation
-        elif args.problem in ("go2_standing", "go2_jump", "go2_frog"):
+        elif problem in ("go2_standing", "go2_jump", "go2_wheelie", "go2_frog"):
             constructor_parameters["floating_base"] = True
-        elif args.problem == "panda_circle":
+        elif problem == "panda_circle":
             # Explicit: adding a free-flyer joint on top of a fixed-base URDF
             # like panda.urdf doesn't raise, so MimSolversProblem's own
             # try/except fallback to fixed-base would never trigger here
             constructor_parameters["floating_base"] = False
 
-        solve_parameters["tolerance"] = TOLERANCE
+        solve_parameters["tolerance"] = tolerance
         solve_parameters["max_iter"] = max_iter
         # CSQP's convergence check only runs every rho_update_interval QP
         # iterations (csqp.cpp), so it must stay below max_qp_iters for early
@@ -221,23 +258,32 @@ def run_solver(solver):
         # the floating-base/contact-rich problems, so max_qp_iters is raised
         # instead of lowering it
         solve_parameters["max_qp_iters"] = 300
-        solve_parameters["eps_abs"] = 1e-3
-        solve_parameters["eps_rel"] = 1e-3
+        solve_parameters["eps_abs"] = tolerance / 10
+        solve_parameters["eps_rel"] = tolerance / 10
         solve_parameters["adaptive_rho_tolerance"] = 1
         solve_parameters["rho_update_interval"] = 100
+        # CallbackVerbose/CallbackLogger add per-iteration logging and
+        # bookkeeping to the timed solve, so only enable them when asked
+        solve_parameters["callbacks"] = args.verbose
 
     elif solver == "aligator":
+        import aligator
         from aligator_formulations.AligatorProblem import AligatorProblem
 
         problem_wrapper_t = AligatorProblem
 
-        if args.problem == "pendubot":
+        if problem == "pendubot":
             constructor_parameters["actuated_joints"] = [0]
-        elif args.problem in ("go2_standing", "go2_jump", "go2_frog"):
+        elif problem in ("go2_standing", "go2_jump", "go2_wheelie", "go2_frog"):
             constructor_parameters["free_flyer"] = True
 
-        solve_parameters["tol"] = TOLERANCE
+        solve_parameters["tol"] = tolerance
         solve_parameters["mu_init"] = 1e-2
+        solve_parameters["verbose"] = (
+            aligator.VerboseLevel.VERBOSE
+            if args.verbose
+            else aligator.VerboseLevel.QUIET
+        )
         # NOTE: go2_jump doesn't converge here, since the solver can't find
         # a feasible direction from the static initial guess against the
         # contact-switching + terminal foot-placement constraints, and
@@ -253,32 +299,33 @@ def run_solver(solver):
         constructor_parameters["casadi_plugin"] = solver
         constructor_parameters["jit"] = args.jit
         constructor_parameters["inverse_dynamics"] = inverse_dynamics
-        if args.problem == "pendubot":
+        if problem == "pendubot":
             constructor_parameters["actuated_joints"] = [0]
-        elif args.problem in ("go2_standing", "go2_jump", "go2_frog"):
+        elif problem in ("go2_standing", "go2_jump", "go2_wheelie", "go2_frog"):
             constructor_parameters["free_flyer"] = True
 
         # Keep backend diagnostics out of the timed benchmark and console
-        # output for both plugins: print_time is CasADi's own end-of-solve
-        # timing breakdown, unused since the wrapper measures the complete
-        # opti.solve() call consistently for both, and print_level silences
-        # the per-iteration progress log those solvers print by default,
-        # which is synchronous console I/O happening *inside* the timed
-        # opti.solve() call otherwise, and every other backend is already
-        # quiet by default (see MimSolversProblem/AligatorProblem), so
-        # leaving these on would only slow down and inflate fatrop/ipopt's
-        # measured runtime
-        solve_parameters["print_time"] = False
+        # output for both plugins by default: print_time is CasADi's own
+        # end-of-solve timing breakdown, unused since the wrapper measures
+        # the complete opti.solve() call consistently for both, and
+        # print_level silences the per-iteration progress log those solvers
+        # print by default, which is synchronous console I/O happening
+        # *inside* the timed opti.solve() call otherwise, and every other
+        # backend is already quiet by default (see
+        # MimSolversProblem/AligatorProblem), so leaving these on would only
+        # slow down and inflate fatrop/ipopt's measured runtime; --verbose
+        # opts back into them for interactive troubleshooting
+        solve_parameters["print_time"] = args.verbose
 
         if solver == "fatrop":
             # nx/nu/ng/N + structure_detection="manual" are filled in by
             # CasadiProblem.solve() once it knows the per-stage dimensions
             solve_parameters["fatrop"] = {
-                "tol": TOLERANCE,
+                "tol": tolerance,
                 "max_iter": max_iter,
-                "print_level": 0,
+                "print_level": 5 if args.verbose else 0,
             }
-            if args.problem in ("go2_standing", "go2_jump"):
+            if problem in ("go2_standing", "go2_jump", "go2_wheelie"):
                 # Avoids an unrecoverable restoration phase from the
                 # zero-velocity/static initial guess against go2's many
                 # contact/velocity constraints
@@ -286,17 +333,17 @@ def run_solver(solver):
         else:
             solve_parameters["ipopt"] = {
                 "max_iter": max_iter,
-                "tol": TOLERANCE,
+                "tol": tolerance,
                 "acceptable_tol": 1e-3,
                 "mu_strategy": "adaptive",
-                "print_level": 0,
+                "print_level": 5 if args.verbose else 0,
                 "sb": "yes",  # suppresses the startup banner too
             }
-            if args.problem == "go2_jump":
+            if problem in ("go2_jump", "go2_wheelie"):
                 # Same restoration-phase issue as Fatrop above
                 solve_parameters["ipopt"]["mu_init"] = 1.0
 
-    problem_wrapper = problems[args.problem](
+    problem_wrapper = problems[problem](
         problem_wrapper_t, constructor_parameters
     )
 
@@ -308,26 +355,29 @@ def run_solver(solver):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
-    output_name = args.problem
+    output_name = problem
     if inverse_dynamics:
         output_name += "_inverse_dynamics"
+    output_name += f"_tol_{tolerance_label(tolerance)}"
 
     problem_wrapper.save(save_path + output_name + ".json")
 
 
-if len(solvers) == 1:
-    run_solver(solvers[0])
+if len(problems_to_run) == 1 and len(solvers) == 1:
+    run_solver(problems_to_run[0], solvers[0])
 else:
     failures = []
-    for solver in solvers:
-        print(f"=== {solver} ===")
-        try:
-            run_solver(solver)
-        except Exception as exc:
-            print(f"{solver} failed: {exc}")
-            failures.append(solver)
+    for problem in problems_to_run:
+        for solver in solvers:
+            print(f"=== {problem} / {solver} ===")
+            try:
+                run_solver(problem, solver)
+            except Exception as exc:
+                print(f"{problem}/{solver} failed: {exc}")
+                failures.append(f"{problem}/{solver}")
 
+    total = len(problems_to_run) * len(solvers)
     print()
-    print(f"{len(solvers) - len(failures)}/{len(solvers)} solvers succeeded.")
+    print(f"{total - len(failures)}/{total} runs terminated without crashing.")
     if failures:
         print(f"Failed: {', '.join(failures)}")

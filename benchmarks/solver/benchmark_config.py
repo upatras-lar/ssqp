@@ -12,3 +12,12 @@ used to produce the data it's plotting).
 # fairest guarantee available short of reimplementing each library's own
 # termination criterion
 TOLERANCE = 1e-2
+
+
+def tolerance_label(tolerance):
+    """Filesystem-safe label for a tolerance value, e.g. 1e-2 -> "0_01"
+
+    Used by run_benchmark.py and plot_benchmarks.py to keep saved data and
+    plots from different tolerance levels from overwriting each other
+    """
+    return str(tolerance).replace(".", "_")

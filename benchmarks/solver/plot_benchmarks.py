@@ -3,7 +3,7 @@
 violation for one benchmark problem.
 
 Reads the JSON files written by ``run_benchmark.py`` (one per solver, under
-``<data-dir>/<solver>/<problem>.json``) and bars each solver's reported
+``<data-dir>/<solver>/<problem>_tol_<tolerance>.json``) and bars each solver's reported
 runtime, iteration count, final objective, and constraint violation side
 by side, using the common "benchmark" summary every solver wrapper writes.
 Constraint violation is the sum, over stages, of the worst single bound
@@ -11,13 +11,13 @@ violation at that stage (position/velocity/torque/friction, and, for the
 direct-transcription solvers, the dynamics-transition defect) -- it is
 what makes the comparison fair: a solver that is fast or takes few
 iterations but returns an infeasible trajectory is not actually better.
-The dashed line on that panel is TOLERANCE (see benchmark_config.py): the
-same nominal convergence tolerance every solver is run with.
 
 Example
 -------
     python plot_benchmarks.py go2_standing
     python plot_benchmarks.py pendubot --show
+    python plot_benchmarks.py pendubot --tolerance 1e-3
+    python plot_benchmarks.py --all-problems
 """
 
 import argparse
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from benchmark_config import TOLERANCE
+from benchmark_config import TOLERANCE, tolerance_label
 
 # A fixed identity -> color mapping, assigned once and never reassigned
 # based on which solvers happen to have a result for a given problem, since
@@ -60,28 +60,46 @@ def _parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "problem",
+        nargs="?",
         choices=[
             "pendubot",
             "go2_standing",
             "go2_jump",
+            "go2_wheelie",
             "go2_frog",
             "panda_circle",
         ],
-        help="The benchmarking problem to plot",
+        help="The benchmarking problem to plot. Ignored if --all-problems is given.",
     )
     parser.add_argument(
         "-d", "--data-dir", type=Path, default=Path(__file__).parent / "data"
     )
     parser.add_argument(
-        "-o", "--output", type=Path, help="Output image path (PNG by default)."
+        "-t",
+        "--tolerance",
+        type=float,
+        default=TOLERANCE,
+        help="Convergence tolerance the results to plot were run with.",
+    )
+    parser.add_argument(
+        "--all-problems",
+        action="store_true",
+        help="Plot every problem, instead of just the given problem.",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        help="Output image path (PNG by default). Ignored if --all-problems is given.",
     )
     parser.add_argument("--show", action="store_true")
     return parser.parse_args()
 
 
-def load_results(data_dir, problem):
+def load_results(data_dir, problem, tolerance):
     results = {}
-    for path in sorted(Path(data_dir).glob(f"*/{problem}.json")):
+    pattern = f"*/{problem}_tol_{tolerance_label(tolerance)}.json"
+    for path in sorted(Path(data_dir).glob(pattern)):
         try:
             with path.open() as f:
                 result = json.load(f)
@@ -90,12 +108,15 @@ def load_results(data_dir, problem):
             continue
         benchmark = result.get("benchmark")
         if not benchmark:
-            print(f"Skipping {path}: no \"benchmark\" summary")
+            print(f'Skipping {path}: no "benchmark" summary')
             continue
         solver = benchmark.get("solver") or path.parent.name
         results[solver] = benchmark
     if not results:
-        raise SystemExit(f"No results for {problem!r} found below {data_dir}")
+        raise SystemExit(
+            f"No results for {problem!r} at tolerance {tolerance!r} found "
+            f"below {data_dir}"
+        )
     return results
 
 
@@ -112,7 +133,7 @@ def _style_axes(ax):
     ax.title.set_color(INK_PRIMARY)
 
 
-def plot_results(problem, results, output, show):
+def plot_results(problem, results, tolerance, output, show):
     # Select a non-interactive backend unless the user explicitly requests a
     # window, which keeps the script usable in Docker/CI without a display
     import matplotlib
@@ -133,13 +154,18 @@ def plot_results(problem, results, output, show):
     fig, axes = plt.subplots(2, 2, figsize=(11, 8.5), constrained_layout=True)
     fig.set_facecolor(SURFACE)
     fig.suptitle(
-        f"{problem}: solver comparison", color=INK_PRIMARY, fontsize=15,
+        f"{problem}: solver comparison",
+        color=INK_PRIMARY,
+        fontsize=15,
         fontweight="bold",
     )
     fig.text(
-        0.5, 0.955,
-        f"All solvers run to the same nominal tolerance ({TOLERANCE:g})",
-        ha="center", color=INK_SECONDARY, fontsize=10,
+        0.5,
+        0.955,
+        f"All solvers run to the same nominal tolerance ({tolerance:g})",
+        ha="center",
+        color=INK_SECONDARY,
+        fontsize=10,
     )
 
     for ax, values, title in (
@@ -152,9 +178,7 @@ def plot_results(problem, results, output, show):
             [v if v is not None else np.nan for v in values], dtype=float
         )
         _style_axes(ax)
-        ax.bar(
-            x, plotted, width=0.6, color=colors, edgecolor="none", zorder=3
-        )
+        ax.bar(x, plotted, width=0.6, color=colors, edgecolor="none", zorder=3)
         ax.set_title(title, fontsize=11, fontweight="bold", pad=10)
         ax.set_xticks(x, solvers, rotation=30, ha="right")
         # A log scale keeps the fastest/slowest solvers both legible when
@@ -167,30 +191,31 @@ def plot_results(problem, results, output, show):
             if ok is False:
                 y = plotted[i] if np.isfinite(plotted[i]) else 0.0
                 ax.text(
-                    i, y, "failed", ha="center", va="bottom", fontsize=8,
-                    color=STATUS_CRITICAL, fontweight="bold", zorder=4,
+                    i,
+                    y,
+                    "failed",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                    color=STATUS_CRITICAL,
+                    fontweight="bold",
+                    zorder=4,
                 )
 
-    # The one piece of cross-cutting information a bar chart can't carry on
-    # its own axis: the shared target every solver's own convergence check
-    # is bound to, so a bar that clears it can be read as "feasible", not
-    # just "small compared to its neighbors"
-    ax_violation = axes[1, 1]
-    ax_violation.axhline(
-        TOLERANCE, color=INK_SECONDARY, linestyle="--", linewidth=1.2, zorder=2
-    )
-    ax_violation.text(
-        len(solvers) - 0.4, TOLERANCE, f" tolerance ({TOLERANCE:g})",
-        color=INK_SECONDARY, fontsize=8, va="bottom", ha="right",
-    )
-
     handles = [
-        plt.Rectangle((0, 0), 1, 1, facecolor=SOLVER_COLORS.get(s, DEFAULT_COLOR))
+        plt.Rectangle(
+            (0, 0), 1, 1, facecolor=SOLVER_COLORS.get(s, DEFAULT_COLOR)
+        )
         for s in solvers
     ]
     fig.legend(
-        handles, solvers, loc="lower center", ncol=len(solvers),
-        bbox_to_anchor=(0.5, -0.02), frameon=False, fontsize=9,
+        handles,
+        solvers,
+        loc="lower center",
+        ncol=len(solvers),
+        bbox_to_anchor=(0.5, -0.02),
+        frameon=False,
+        fontsize=9,
         labelcolor=INK_SECONDARY,
     )
 
@@ -202,8 +227,37 @@ def plot_results(problem, results, output, show):
         plt.show()
 
 
+ALL_PROBLEMS = [
+    "pendubot",
+    "go2_standing",
+    "go2_jump",
+    "go2_wheelie",
+    "go2_frog",
+    "panda_circle",
+]
+
+
+def _default_output(data_dir, problem, tolerance):
+    tol_label = tolerance_label(tolerance)
+    return data_dir / "plots" / f"{problem}_tol_{tol_label}.png"
+
+
 if __name__ == "__main__":
     args = _parse_args()
-    results = load_results(args.data_dir, args.problem)
-    output = args.output or (args.data_dir / "plots" / f"{args.problem}.png")
-    plot_results(args.problem, results, output, args.show)
+    if not args.all_problems and args.problem is None:
+        raise SystemExit("Either a problem or --all-problems must be given.")
+    problems_to_plot = ALL_PROBLEMS if args.all_problems else [args.problem]
+
+    for problem in problems_to_plot:
+        try:
+            results = load_results(args.data_dir, problem, args.tolerance)
+        except SystemExit as exc:
+            if not args.all_problems:
+                raise
+            print(exc)
+            continue
+        if args.output and not args.all_problems:
+            output = args.output
+        else:
+            output = _default_output(args.data_dir, problem, args.tolerance)
+        plot_results(problem, results, args.tolerance, output, args.show)
