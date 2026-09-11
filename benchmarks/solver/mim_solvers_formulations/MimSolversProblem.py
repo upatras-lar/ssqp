@@ -537,6 +537,19 @@ class MimSolversProblem(ProblemWrapper):
         self.solver.use_filter_line_search = parameters.get(
             "use_filter_line_search", True
         )
+        # Left at SolverCSQP()'s own default unless explicitly passed
+        if "reset_rho" in parameters:
+            self.solver.reset_rho = parameters["reset_rho"]
+        if "reset_y" in parameters:
+            self.solver.reset_y = parameters["reset_y"]
+        if "update_rho_with_heuristic" in parameters:
+            self.solver.update_rho_with_heuristic = parameters[
+                "update_rho_with_heuristic"
+            ]
+        if "mu_constraint" in parameters:
+            self.solver.mu_constraint = parameters["mu_constraint"]
+        if "mu_dynamic" in parameters:
+            self.solver.mu_dynamic = parameters["mu_dynamic"]
 
         # Callbacks add per-iteration logging and bookkeeping to the timed
         # solve, so keep them opt-in for benchmark runs, while retaining the
@@ -549,8 +562,12 @@ class MimSolversProblem(ProblemWrapper):
                 ]
             )
 
-        xs_init = [self.x0.copy() for _ in range(self.H + 1)]
-        us_init = [np.zeros(self.nu) for _ in range(self.H)]
+        xs_init = parameters.get("xs_init") or [
+            self.x0.copy() for _ in range(self.H + 1)
+        ]
+        us_init = parameters.get("us_init") or [
+            np.zeros(self.nu) for _ in range(self.H)
+        ]
 
         start = time.perf_counter()
         success = self.solver.solve(

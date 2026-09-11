@@ -161,6 +161,107 @@ problems = {
     "panda_circle": make_panda_circle_problem,
 }
 
+# Per-(problem, solver) solve_parameters overrides, applied right before
+# solve() on top of that solver's generic defaults above -- the generic
+# defaults are shared across problems for a fair comparison, but some
+# (problem, solver) pairs need something else, and a value may be a
+# callable(tolerance) instead of a constant when it needs to scale with
+# -t/--tolerance the way the generic default does. A (problem, solver) pair
+# with no entry here behaves exactly as it did before this dict existed
+PROBLEM_SOLVER_OVERRIDES = {
+    ("pendubot", "ssqp-hpipm"): {
+        # The generic hpipm_tol = tolerance / 10 leaves pendubot's inner
+        # HPIPM solve tighter than the outer SQP tolerance ever demands,
+        # and it runs to max_iter without converging -- matching hpipm_tol
+        # to the outer tolerance fixes it, and square_root_riccati=False
+        # shaves further time off on top without changing the iteration
+        # count
+        "hpipm_tol": lambda tolerance: tolerance,
+        "hpipm_square_root_riccati": False,
+    },
+    ("go2_jump", "ssqp-hpipm"): {
+        # These four flags together roughly triple go2_jump's convergence
+        # speed over the shared defaults, but split_step and warm_start
+        # individually break go2_frog's convergence entirely, so the combo
+        # is scoped to go2_jump rather than applied generically
+        "hpipm_split_step": True,
+        "hpipm_prediction_correction": True,
+        "hpipm_warm_start": True,
+        "hpipm_square_root_riccati": False,
+    },
+    ("go2_wheelie", "ssqp-hpipm"): {
+        # split_step is the one flag that helps go2_wheelie -- unlike
+        # go2_jump, pairing it with square_root_riccati=False is markedly
+        # slower here, so that one stays at its default
+        "hpipm_split_step": True,
+    },
+    ("pendubot", "ssqp-admm"): {
+        # alpha=1.8 converges faster than the default 1.6, with
+        # reset_rho/reset_y left at their defaults
+        "admm_alpha": 1.8,
+    },
+    ("go2_jump", "ssqp-admm"): {
+        # The default alpha=1.6 never converges for go2_jump within the
+        # iteration budget -- alpha=1.8 is what actually makes it
+        # converge, not just a speed improvement
+        "admm_alpha": 1.8,
+    },
+    ("go2_wheelie", "ssqp-admm"): {
+        # The default alpha=1.6 also never converges for go2_wheelie, and
+        # unlike pendubot/go2_jump, alpha=1.8 alone still converges slowly
+        # here -- turning off both resets converges faster and more
+        # reliably
+        "admm_reset_rho": False,
+        "admm_reset_y": False,
+        "admm_alpha": 1.0,
+    },
+    ("pendubot", "mim_solvers"): {
+        # Turning off all three converges faster here, trading more
+        # iterations for less wall-clock time per iteration -- contact-
+        # switching problems (go2_jump/go2_wheelie/go2_frog) are excluded
+        # since mim_solvers doesn't yet handle those regardless of these
+        # settings
+        "reset_rho": False,
+        "reset_y": False,
+        "update_rho_with_heuristic": False,
+    },
+    ("go2_standing", "mim_solvers"): {
+        # Same combo as pendubot above, same reasoning
+        "reset_rho": False,
+        "reset_y": False,
+        "update_rho_with_heuristic": False,
+    },
+    ("panda_circle", "mim_solvers"): {
+        # The defaults never converge at all for panda_circle -- this
+        # combo is what fixes it
+        "reset_rho": False,
+        "reset_y": False,
+        "update_rho_with_heuristic": False,
+    },
+    ("go2_jump", "ipopt"): {
+        # Ipopt's default exact Hessian never converges for go2_jump --
+        # the BFGS approximation does, and pendubot/go2_standing converge
+        # faster with the exact Hessian left alone, so this stays scoped
+        # here rather than applied generically
+        "ipopt": {"hessian_approximation": "limited-memory"},
+    },
+    ("go2_wheelie", "ipopt"): {
+        # Same as go2_jump above, same reasoning
+        "ipopt": {"hessian_approximation": "limited-memory"},
+    },
+    ("go2_standing", "fatrop"): {
+        # mu_init=0.1 converges faster here than the mu_init=1.0 already
+        # set above for the restoration-phase issue, without reintroducing
+        # it
+        "fatrop": {"mu_init": 0.1},
+    },
+    ("panda_circle", "fatrop"): {
+        # mu_init=1.0 roughly halves panda_circle's solve time over
+        # fatrop's own default
+        "fatrop": {"mu_init": 1.0},
+    },
+}
+
 
 def run_solver(problem, solver):
     max_iter = MAX_ITER_BY_PROBLEM[problem]
@@ -221,7 +322,7 @@ def run_solver(problem, solver):
             solve_parameters["admm_warm_start"] = True
         else:
             solve_parameters["qp_solver"] = "hpipm"
-            solve_parameters["hpipm_tol"] = tolerance
+            solve_parameters["hpipm_tol"] = tolerance / 10
 
     elif solver == "mim_solvers":
         from mim_solvers_formulations.MimSolversProblem import (
@@ -242,7 +343,12 @@ def run_solver(problem, solver):
 
             constructor_parameters["floating_base"] = False
             constructor_parameters["actuation_model"] = custom_actuation
-        elif problem in ("go2_standing", "go2_jump", "go2_wheelie", "go2_frog"):
+        elif problem in (
+            "go2_standing",
+            "go2_jump",
+            "go2_wheelie",
+            "go2_frog",
+        ):
             constructor_parameters["floating_base"] = True
         elif problem == "panda_circle":
             # Explicit: adding a free-flyer joint on top of a fixed-base URDF
@@ -274,7 +380,12 @@ def run_solver(problem, solver):
 
         if problem == "pendubot":
             constructor_parameters["actuated_joints"] = [0]
-        elif problem in ("go2_standing", "go2_jump", "go2_wheelie", "go2_frog"):
+        elif problem in (
+            "go2_standing",
+            "go2_jump",
+            "go2_wheelie",
+            "go2_frog",
+        ):
             constructor_parameters["free_flyer"] = True
 
         solve_parameters["tol"] = tolerance
@@ -301,7 +412,12 @@ def run_solver(problem, solver):
         constructor_parameters["inverse_dynamics"] = inverse_dynamics
         if problem == "pendubot":
             constructor_parameters["actuated_joints"] = [0]
-        elif problem in ("go2_standing", "go2_jump", "go2_wheelie", "go2_frog"):
+        elif problem in (
+            "go2_standing",
+            "go2_jump",
+            "go2_wheelie",
+            "go2_frog",
+        ):
             constructor_parameters["free_flyer"] = True
 
         # Keep backend diagnostics out of the timed benchmark and console
@@ -346,6 +462,19 @@ def run_solver(problem, solver):
     problem_wrapper = problems[problem](
         problem_wrapper_t, constructor_parameters
     )
+
+    for key, val in PROBLEM_SOLVER_OVERRIDES.get((problem, solver), {}).items():
+        val = val(tolerance) if callable(val) else val
+        # A dict value merges into an existing dict-valued default (e.g.
+        # fatrop/ipopt's nested options dict) instead of replacing it
+        # outright, so an override doesn't have to repeat every option the
+        # generic defaults above already set
+        if isinstance(val, dict) and isinstance(
+            solve_parameters.get(key), dict
+        ):
+            solve_parameters[key].update(val)
+        else:
+            solve_parameters[key] = val
 
     problem_wrapper.solve(solve_parameters)
 

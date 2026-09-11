@@ -106,6 +106,23 @@ class SSQPProblem(ProblemWrapper):
             ssqp_params.hpipmParams.tol_ineq = parameters.get(
                 "hpipm_tol", 1e-3
             )
+            # Left at hpipmParams()'s own default unless explicitly passed
+            if "hpipm_split_step" in parameters:
+                ssqp_params.hpipmParams.split_step = parameters[
+                    "hpipm_split_step"
+                ]
+            if "hpipm_prediction_correction" in parameters:
+                ssqp_params.hpipmParams.prediction_correction = parameters[
+                    "hpipm_prediction_correction"
+                ]
+            if "hpipm_warm_start" in parameters:
+                ssqp_params.hpipmParams.warm_start = parameters[
+                    "hpipm_warm_start"
+                ]
+            if "hpipm_square_root_riccati" in parameters:
+                ssqp_params.hpipmParams.square_root_riccati = parameters[
+                    "hpipm_square_root_riccati"
+                ]
         else:
             ssqp_params.admmParams.max_iter = parameters.get(
                 "admm_max_iter", 100
@@ -128,6 +145,15 @@ class SSQPProblem(ProblemWrapper):
                 ssqp_params.admmParams.warm_start = parameters.get(
                     "admm_warm_start", True
                 )
+            # Left at admmParams()'s own default unless explicitly passed
+            if "admm_reset_rho" in parameters:
+                ssqp_params.admmParams.reset_rho = parameters[
+                    "admm_reset_rho"
+                ]
+            if "admm_reset_y" in parameters:
+                ssqp_params.admmParams.reset_y = parameters["admm_reset_y"]
+            if "admm_alpha" in parameters:
+                ssqp_params.admmParams.alpha = parameters["admm_alpha"]
 
         self.solver = ssqpy.solvers.ssqp(self.model, ssqp_params)
         self._benchmark_solver = (

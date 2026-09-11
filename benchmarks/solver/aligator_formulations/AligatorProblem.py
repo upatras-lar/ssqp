@@ -259,16 +259,23 @@ class AligatorProblem(ProblemWrapper):
         cm = self._contact_model_cache.get(frame)
         if cm is None:
             frame_id = self.model.getFrameId(frame)
+            # The second joint/placement pair anchors the contact to the
+            # foot's actual world placement at the initial state (self.data
+            # is updated by finalize() before any stage is built) -- without
+            # it, the constructor defaults to anchoring against the world
+            # origin instead of where the foot actually is
             cm = pin.RigidConstraintModel(
                 pin.ContactType.CONTACT_3D,
                 self.model,
                 self.model.frames[frame_id].parentJoint,
                 self.model.frames[frame_id].placement,
+                0,
+                self.data.oMf[frame_id],
                 pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
             )
             cm.name = frame
-            cm.corrector.Kp[:] = np.zeros(3)
-            cm.corrector.Kd[:] = np.zeros(3)
+            cm.corrector.Kp[:] = (0.0, 0.0, 100.0)
+            cm.corrector.Kd[:] = 50.0
             self._contact_model_cache[frame] = cm
         return cm
 
@@ -300,7 +307,14 @@ class AligatorProblem(ProblemWrapper):
         cached = self._contact_dynamics_cache.get(cache_key)
         if cached is None:
             constraint_models = [self._get_contact_model(f) for f in frames]
-            prox_settings = pin.ProximalSettings(eq_tol, 1e-10, 10)
+            # The proximal accuracy governs how precisely the contact
+            # dynamics itself holds at every stage, which is a numerical
+            # fidelity setting distinct from eq_tol (the outer bound
+            # constraint's allowed violation) -- reusing eq_tol here made
+            # the contact solve as loose as the loosest bound constraint in
+            # the problem, matching every other Aligator example's fixed,
+            # tight accuracy instead
+            prox_settings = pin.ProximalSettings(1e-9, 1e-10, 20)
             cached = (constraint_models, prox_settings)
             self._contact_dynamics_cache[cache_key] = cached
         constraint_models, prox_settings = cached
@@ -588,7 +602,16 @@ class AligatorProblem(ProblemWrapper):
         for cerr, cbound in self._stage_joint_limit_constraints():
             _add(cerr, cbound)
 
+        # A frame that's an active contact at this same stage already has
+        # its velocity pinned to (near) zero by the rigid contact dynamics
+        # itself (see _build_dynamics_for_stage) -- adding a second, exact
+        # hard constraint on the same quantity here is redundant and makes
+        # the constraint Jacobian near-singular at every such node, which
+        # in practice stalls ProxDDP instead of speeding it up
+        active_contact_frames = {c[0] for c in self._contacts.get(k, [])}
         for frame, lb, ub in self._frame_vel_bounds.get(k, []):
+            if frame in active_contact_frames:
+                continue
             fv = self._frame_lin_vel_residual(frame)
             _add(fv, constraints.BoxConstraint(lb, ub))
 
@@ -596,7 +619,7 @@ class AligatorProblem(ProblemWrapper):
             fp = self._frame_translation_residual(frame)
             _add(fp, constraints.BoxConstraint(lb, ub))
 
-        for frame, max_normal_force, _ in self._contacts.get(k, []):
+        for frame, max_normal_force, eq_tol in self._contacts.get(k, []):
             force_res = aligator.ContactForceResidual(
                 self.ndx,
                 self.model,
@@ -625,6 +648,25 @@ class AligatorProblem(ProblemWrapper):
                 constraints.BoxConstraint(-np.inf * np.ones(6), b_cone),
             )
 
+            # The friction cone alone only bounds the *force*, not the
+            # foot's own height, and the rigid contact dynamics pulls the
+            # foot back toward its resting height only through the
+            # corrector's finite settling dynamics, so a foot that
+            # re-enters contact away from that height (e.g. landing after
+            # a lifted-foot window) hovers and sinks back over many stages
+            # instead of being on the ground immediately -- pinning height
+            # to within eq_tol here (x/y left unconstrained, matching the
+            # corrector's own z-only Kp) is what "in contact" actually
+            # means and closes that gap
+            fp = self._frame_translation_residual(frame)
+            _add(
+                fp,
+                constraints.BoxConstraint(
+                    np.array([-np.inf, -np.inf, -eq_tol]),
+                    np.array([np.inf, np.inf, eq_tol]),
+                ),
+            )
+
     # ------------------------------------------------------------------
     # ProblemWrapper API: finalize / solve / save
     # ------------------------------------------------------------------
@@ -638,6 +680,12 @@ class AligatorProblem(ProblemWrapper):
             self.x0 = np.zeros(self.nq + self.nv)
             if self.free_flyer:
                 self.x0[6] = 1.0
+
+        # Contact models anchor each foot to its actual world placement at
+        # the initial state, so this has to run before any stage is built
+        if self.free_flyer:
+            pin.forwardKinematics(self.model, self.data, self.x0[: self.nq])
+            pin.updateFramePlacements(self.model, self.data)
 
         # Recorded per stage by _add_stage_constraints()/below, so solve()
         # can re-evaluate every (err, bound) pair against the optimized
@@ -670,13 +718,34 @@ class AligatorProblem(ProblemWrapper):
             self.problem.addTerminalConstraint(err, bound)
             self._violation_terms[self.H].append((err, bound))
 
+        # Same redundancy as in _add_stage_constraints: a frame that was an
+        # active contact on the last stage (H - 1) already has its velocity
+        # pinned by the rigid contact dynamics that produced xs[H]
+        terminal_contacts = self._contacts.get(self.H - 1, [])
+        terminal_active_contact_frames = {c[0] for c in terminal_contacts}
         for frame, lb, ub in self._frame_vel_bounds.get(self.H, []):
+            if frame in terminal_active_contact_frames:
+                continue
             fv = self._frame_lin_vel_residual(frame)
             _add_terminal(fv, constraints.BoxConstraint(lb, ub))
 
         for frame, lb, ub in self._frame_pos_bounds.get(self.H, []):
             fp = self._frame_translation_residual(frame)
             _add_terminal(fp, constraints.BoxConstraint(lb, ub))
+
+        # Mirrors the height bound added in _add_stage_constraints, for a
+        # frame still in contact going into the terminal node -- without
+        # it the terminal state is the one place in the whole horizon with
+        # no floor on how far a stance foot's height can have drifted
+        for frame, _, eq_tol in terminal_contacts:
+            fp = self._frame_translation_residual(frame)
+            _add_terminal(
+                fp,
+                constraints.BoxConstraint(
+                    np.array([-np.inf, -np.inf, -eq_tol]),
+                    np.array([np.inf, np.inf, eq_tol]),
+                ),
+            )
 
         for cerr, cbound in self._terminal_joint_limit_constraints():
             _add_terminal(cerr, cbound)
@@ -697,10 +766,31 @@ class AligatorProblem(ProblemWrapper):
 
         self.solver = aligator.SolverProxDDP(tol, mu_init, verbose=verbose)
         self.solver.max_iters = max_iters
+        # Left at SolverProxDDP()'s own default unless explicitly passed
+        if "rollout_type" in parameter_dict:
+            self.solver.rollout_type = parameter_dict["rollout_type"]
+        if "linear_solver_choice" in parameter_dict:
+            self.solver.linear_solver_choice = parameter_dict[
+                "linear_solver_choice"
+            ]
+        if "ls_mode" in parameter_dict:
+            self.solver.ls_mode = parameter_dict["ls_mode"]
+        if "multiplier_update_mode" in parameter_dict:
+            self.solver.multiplier_update_mode = parameter_dict[
+                "multiplier_update_mode"
+            ]
+        if "sa_strategy" in parameter_dict:
+            self.solver.sa_strategy = parameter_dict["sa_strategy"]
+        if "num_threads" in parameter_dict:
+            self.solver.setNumThreads(parameter_dict["num_threads"])
         self.solver.setup(self.problem)
 
-        xs_init = [self.x0.copy() for _ in range(self.H + 1)]
-        us_init = [np.zeros(self.nu) for _ in range(self.H)]
+        xs_init = parameter_dict.get("xs_init") or [
+            self.x0.copy() for _ in range(self.H + 1)
+        ]
+        us_init = parameter_dict.get("us_init") or [
+            np.zeros(self.nu) for _ in range(self.H)
+        ]
 
         start = perf_counter()
         self.converged = self.solver.run(self.problem, xs_init, us_init)

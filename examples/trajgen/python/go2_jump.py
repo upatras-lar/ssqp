@@ -21,8 +21,6 @@ A_WGT = 1e-3
 V_WGT = 1e-2
 U_WGT = 1e-4
 F_WGT = 1e-3
-TF_WGT = 1.0
-RF_WGT = 1.0
 C_WGT = 1e-3
 
 MAX_NORMAL_FORCE = 100

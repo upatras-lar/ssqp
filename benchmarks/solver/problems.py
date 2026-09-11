@@ -298,11 +298,28 @@ def make_go2_wheelie_problem(problem_wrapper_t, constructor_parameters):
                 problem_wrapper.addFrameLinearVelocityBound(
                     k, foot, np.zeros(3), np.zeros(3)
                 )
+        elif k in (START_STEP, END_STEP):
+            # The loop above only reaches k < H, so without this, the front
+            # feet's zero-velocity bound would lapse for exactly one stage
+            # at each end of the window (the contact force from the
+            # adjacent stance stage still governs the transition into it,
+            # but nothing then pins the resulting velocity), letting the
+            # solver launch the foot at an unconstrained speed right as
+            # contact is dropped or picked back up
+            for foot in FRONT_FEET:
+                problem_wrapper.addFrameLinearVelocityBound(
+                    k, foot, np.zeros(3), np.zeros(3)
+                )
 
     problem_wrapper.addSquaredConfigurationErrorCost(H, base_config, A_WGT)
     problem_wrapper.addFrameLinearVelocityBound(
         H, "base", np.zeros(3), np.zeros(3)
     )
+
+    for foot in FRONT_FEET + REAR_FEET:
+        problem_wrapper.addFrameLinearVelocityBound(
+            H, foot, np.zeros(3), np.zeros(3)
+        )
 
     problem_wrapper.finalize({"init_states": init})
 

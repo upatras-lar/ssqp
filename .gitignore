@@ -43,6 +43,7 @@
 /out.txt
 /TODO.md
 /perf*
+/benchmarks/solver/go2_wheelie*
 
 # General filenames to always skip
 __pycache__
