@@ -31,6 +31,8 @@ sequence with no other changes to the problem.
 
 **Solve time:** 3.3 s (10 iterations, HPIPM)
 
+**Formulation:** `ForwardDynamics`
+
 ## Go2 Frog
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
@@ -46,6 +48,8 @@ example of just how expressive per-stage contact scheduling is: nothing about th
 the ground when is just as representable as a standard one.
 
 **Solve time:** 4.1 s (19 iterations, HPIPM)
+
+**Formulation:** `ReducedInverseDynamics`
 
 ## Go2 Multi-Jump
 
@@ -63,6 +67,8 @@ four-foot stance every time.
 
 **Solve time:** 13.8 s (93 iterations, ADMM)
 
+**Formulation:** `ReducedInverseDynamics`
+
 ## G1 Jump
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
@@ -77,6 +83,8 @@ contact per foot, as a flat foot actually needs to resist tipping, not just slip
 solver 8 simultaneous contact constraints to schedule per stance stage instead of Go2's 4.
 
 **Solve time:** 8.2 s (13 iterations, HPIPM)
+
+**Formulation:** `ReducedInverseDynamics`
 
 ## G1 Walk
 
@@ -95,6 +103,8 @@ weight also damps the hip-yaw joints specifically, keeping the walk heading stra
 
 **Solve time:** 9.2 s (17 iterations, HPIPM)
 
+**Formulation:** `ReducedInverseDynamics`
+
 ## Panda Circle
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
@@ -111,3 +121,5 @@ in detail (including the unconstrained comparison) in
 closed-loop MPC example in [Panda Circle (MPC)](examples/panda-circle-mpc.md).
 
 **Solve time:** 0.5 s (6 iterations, HPIPM)
+
+**Formulation:** `InverseDynamics`

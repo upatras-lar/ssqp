@@ -24,12 +24,14 @@ Solver benchmarks, comparing SSQP against other OCP solvers on a shared set of p
 A few examples are covered in detail:
 
 * [Pendubot Swing-Up](examples/pendubot.md): `trajgen`, XML-based model, predefined costs, and a swing-up
-  scheduling trick
+  scheduling trick, `ForwardDynamics` mode
 * [Panda Circle (Trajectory Generation)](examples/panda-circle-trajgen.md): `trajgen`, frame-relative pose
   tracking, a real box constraint, `InverseDynamics` mode
-* [Go2 Jump](examples/go2-jump.md): `trajgen`, per-stage contact scheduling for a jump (stance → flight → stance)
+* [Go2 Jump](examples/go2-jump.md): `trajgen`, per-stage contact scheduling for a jump (stance → flight → stance),
+  `ReducedInverseDynamics` mode
 * [Panda Circle (MPC)](examples/panda-circle-mpc.md): `mujoco_mpc`, the same circle tracked in closed-loop MPC
-  against a live MuJoCo simulation, with per-step target retargeting
+  against a live MuJoCo simulation, with per-step target retargeting, `ForwardDynamics` mode by default
+  (`INVERSE_MODE` switches to `InverseDynamics`)
 
 ## Running the Python examples
 
