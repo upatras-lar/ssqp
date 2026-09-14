@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Plot per-solver runtime, iteration count, objective, and constraint
-violation for one benchmark problem.
+violation for one benchmark problem
 
 Reads the JSON files written by ``run_benchmark.py`` (one per solver, under
-``<data-dir>/<solver>/<problem>_tol_<tolerance>.json``) and bars each solver's reported
-runtime, iteration count, final objective, and constraint violation side
-by side, using the common "benchmark" summary every solver wrapper writes.
+``<data-dir>/<solver>/<problem>_tol_<tolerance>.json``) and bars each solver's
+reported runtime, iteration count, final objective, and constraint violation
+side by side, using the common "benchmark" summary every solver wrapper writes
 Constraint violation is the sum, over stages, of the worst single bound
 violation at that stage (position/velocity/torque/friction, and, for the
 direct-transcription solvers, the dynamics-transition defect) -- it is
 what makes the comparison fair: a solver that is fast or takes few
-iterations but returns an infeasible trajectory is not actually better.
+iterations but returns an infeasible trajectory is not actually better
 
 Example
 -------
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from benchmark_config import TOLERANCE, tolerance_label
+from common.benchmark_config import TOLERANCE, tolerance_label
 
 # A fixed identity -> color mapping, assigned once and never reassigned
 # based on which solvers happen to have a result for a given problem, since
@@ -68,6 +68,8 @@ def _parse_args():
             "go2_wheelie",
             "go2_frog",
             "panda_circle",
+            "duffing_local",
+            "duffing_global",
         ],
         help="The benchmarking problem to plot. Ignored if --all-problems is given.",
     )
@@ -234,6 +236,8 @@ ALL_PROBLEMS = [
     "go2_wheelie",
     "go2_frog",
     "panda_circle",
+    "duffing_local",
+    "duffing_global",
 ]
 
 

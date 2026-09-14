@@ -30,7 +30,7 @@ import numpy as np
 import pinocchio as pin
 from pinocchio import casadi as cpin
 
-from ProblemWrapper import ProblemWrapper
+from common.ProblemWrapper import ProblemWrapper
 
 # Optional JIT compilation (run_benchmark.py's --jit flag, threaded
 # through as constructor_parameters["jit"]) of each cached low-level
@@ -418,9 +418,7 @@ class CasadiProblem(ProblemWrapper):
         q_next = cpin.integrate(self.cmodel, q_s, v_next * self.dt)
         x_next = ca.vertcat(q_next, v_next)
 
-        fn = ca.Function(
-            "f_invdyn", [q_s, v_s, a_s], [x_next], self._jit_opts
-        )
+        fn = ca.Function("f_invdyn", [q_s, v_s, a_s], [x_next], self._jit_opts)
         self._invdyn_dyn_fn_cache = fn
         return fn
 
@@ -747,10 +745,13 @@ class CasadiProblem(ProblemWrapper):
         opti.minimize(J)
 
         # -- initial guess --
-        for k in range(self.N):
-            opti.set_initial(x[k], ca.DM(x0))
-            if nu_list[k] > 0:
-                opti.set_initial(u[k], ca.DM.zeros(nu_list[k]))
+        def _set_cold_start_guess():
+            for k in range(self.N):
+                opti.set_initial(x[k], ca.DM(x0))
+                if nu_list[k] > 0:
+                    opti.set_initial(u[k], ca.DM.zeros(nu_list[k]))
+
+        _set_cold_start_guess()
 
         if plugin == "fatrop":
             solve_params.setdefault("structure_detection", "manual")
@@ -760,6 +761,27 @@ class CasadiProblem(ProblemWrapper):
             solve_params.setdefault("N", H)
 
         opti.solver(plugin, solve_params)
+
+        if self._jit_opts is _JIT_OPTIONS:
+            # opti.solver() above only selects the plugin/options; the
+            # NLP's own derivative functions (nlp_jac_g, nlp_hess_l, ...)
+            # aren't actually built, and therefore not JIT-compiled, until
+            # this solver instance's first solve() call, so without this
+            # warm-up that one-time gcc compile+link cost would land
+            # inside the timed region below on every solve(), instead of
+            # being paid once ahead of time as --jit intends
+            # Reusing this same Opti/nlpsol instance for a throwaway
+            # untimed solve forces that compilation now, whether it
+            # converges is irrelevant, only that it exercises every
+            # derivative path the real solve will need
+            # The initial guess is then reset back to the cold-start
+            # values so the timed solve below still measures genuine
+            # from-scratch convergence
+            try:
+                opti.solve()
+            except RuntimeError:
+                pass
+            _set_cold_start_guess()
 
         try:
             start = time.perf_counter()
@@ -796,6 +818,7 @@ class CasadiProblem(ProblemWrapper):
         norm of how far outside [lb, ub] the (possibly vector-valued)
         constraint sits, then sum that per-stage worst case across stages.
         """
+
         def _num(term):
             # A bound is either a plain constant (the usual case) or, for
             # the dynamics-transition term, itself a symbolic expression
@@ -889,9 +912,7 @@ class CasadiProblem(ProblemWrapper):
                 else:
                     stage["control"] = [float(v) for v in uk[: self.n_act]]
                     if uk.shape[0] > self.n_act:
-                        stage["forces"] = [
-                            float(v) for v in uk[self.n_act :]
-                        ]
+                        stage["forces"] = [float(v) for v in uk[self.n_act :]]
 
             stage_data.append(stage)
 

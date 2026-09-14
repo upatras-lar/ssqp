@@ -7,7 +7,7 @@ import pinocchio as pin
 import crocoddyl
 import mim_solvers
 import numpy as np
-from ProblemWrapper import ProblemWrapper
+from common.ProblemWrapper import ProblemWrapper
 
 
 class PendubotActuationModel(crocoddyl.ActuationModelAbstract):
@@ -104,7 +104,9 @@ class MimSolversProblem(ProblemWrapper):
         # objects exist
         self._force_cost_weights = {}
         self._force_cost_count = {}
-        self.friction_coeff = float(parameters.get("friction_coefficient", 0.6))
+        self.friction_coeff = float(
+            parameters.get("friction_coefficient", 0.6)
+        )
 
         # Pre-allocate URDF-derived position, velocity, and torque bounds
         self._setup_default_bounds()
@@ -147,8 +149,12 @@ class MimSolversProblem(ProblemWrapper):
             lb_q[6 : 6 + self.nv - 6] = q_lb
             ub_q[6 : 6 + self.nv - 6] = q_ub
         else:
-            q_lb = np.asarray(self.model.lowerPositionLimit, dtype=float)[: self.nv]
-            q_ub = np.asarray(self.model.upperPositionLimit, dtype=float)[: self.nv]
+            q_lb = np.asarray(self.model.lowerPositionLimit, dtype=float)[
+                : self.nv
+            ]
+            q_ub = np.asarray(self.model.upperPositionLimit, dtype=float)[
+                : self.nv
+            ]
             lb_q[: self.nv] = q_lb
             ub_q[: self.nv] = q_ub
         self.position_constraint = crocoddyl.ConstraintModelResidual(
@@ -157,7 +163,9 @@ class MimSolversProblem(ProblemWrapper):
 
         # Control bounds
         if self.nu > 0:
-            effort = np.asarray(self.model.effortLimit, dtype=float).reshape(-1)
+            effort = np.asarray(self.model.effortLimit, dtype=float).reshape(
+                -1
+            )
             if self.model.joints[1].shortname() == "JointModelFreeFlyer":
                 effort = effort[-self.nu :]
             else:

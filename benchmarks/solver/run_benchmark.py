@@ -1,8 +1,18 @@
 import argparse
 import os
 
-from benchmark_config import TOLERANCE, tolerance_label
-from problems import *
+# Must be set before numpy/aligator/etc (imported below) load their BLAS
+# backend, since large problems (e.g. duffing_local/global at a big
+# --duffing-m) cross BLAS's own auto-parallelization threshold once
+# unset, causing thread-pool oversubscription on a many-core host rather
+# than a speedup, with solve time dominated by scheduling noise instead
+# of actual work
+# setdefault() leaves an explicit external setting in place
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+
+from common.benchmark_config import TOLERANCE, tolerance_label
+from common.problems import *
 
 
 def parse_args():
@@ -18,6 +28,8 @@ def parse_args():
             "go2_wheelie",
             "go2_frog",
             "panda_circle",
+            "duffing_local",
+            "duffing_global",
         ],
         help="The benchmarking problem to run. Ignored if --all-problems is given.",
     )
@@ -90,6 +102,27 @@ def parse_args():
         ),
     )
 
+    parser.add_argument(
+        "--duffing-m",
+        type=int,
+        default=None,
+        help=(
+            "Only meaningful for duffing_local/duffing_global: number of "
+            "coupled oscillators (state dimension nx=2m, control dimension "
+            "nu=m). Defaults to the problem's own preset (16) if omitted."
+        ),
+    )
+
+    parser.add_argument(
+        "--duffing-horizon",
+        type=int,
+        default=None,
+        help=(
+            "Only meaningful for duffing_local/duffing_global: OCP horizon. "
+            "Defaults to the problem's own preset (80) if omitted."
+        ),
+    )
+
     return parser.parse_args()
 
 
@@ -106,6 +139,8 @@ ALL_PROBLEMS = [
     "go2_wheelie",
     "go2_frog",
     "panda_circle",
+    "duffing_local",
+    "duffing_global",
 ]
 problems_to_run = ALL_PROBLEMS if args.all_problems else [args.problem]
 
@@ -121,6 +156,21 @@ ALL_SOLVERS = [
 # ProblemWrapper implementations); there is no inverse-dynamics formulation
 # to select for them
 INVERSE_UNSUPPORTED = {"mim_solvers", "aligator"}
+
+# The Duffing oscillator problems have no robot/URDF underneath them, so
+# each solver builds them directly on its own custom-dynamics extension
+# point
+DUFFING_PROBLEMS = {"duffing_local", "duffing_global"}
+
+if (
+    not args.all_problems
+    and args.problem not in DUFFING_PROBLEMS
+    and (args.duffing_m is not None or args.duffing_horizon is not None)
+):
+    raise SystemExit(
+        "--duffing-m/--duffing-horizon only apply to duffing_local/"
+        f"duffing_global, not --problem {args.problem}"
+    )
 
 if args.all_solvers:
     solvers = [
@@ -140,10 +190,18 @@ else:
             "--dynamics-mode inverse is not supported for "
             f"--solver {args.solver} (see --help for why)"
         )
+    if (
+        not args.all_problems
+        and args.problem in DUFFING_PROBLEMS
+        and inverse_dynamics
+    ):
+        raise SystemExit(
+            f"--dynamics-mode inverse is not meaningful for {args.problem} "
+            "(it has no robot dynamics to invert)"
+        )
     solvers = [args.solver]
 
-# Outer-iteration caps, sized per problem from observed convergence
-# behavior rather than one flat number for everything
+# Outer-iteration caps, sized per problem from observed convergence behavior
 MAX_ITER_BY_PROBLEM = {
     "pendubot": 500,
     "go2_standing": 200,
@@ -151,6 +209,8 @@ MAX_ITER_BY_PROBLEM = {
     "go2_wheelie": 1000,
     "go2_frog": 1000,
     "panda_circle": 1000,
+    "duffing_local": 300,
+    "duffing_global": 300,
 }
 problems = {
     "pendubot": make_pendubot_problem,
@@ -159,116 +219,106 @@ problems = {
     "go2_wheelie": make_go2_wheelie_problem,
     "go2_frog": make_go2_frog_problem,
     "panda_circle": make_panda_circle_problem,
+    "duffing_local": make_duffing_local_problem,
+    "duffing_global": make_duffing_global_problem,
 }
 
 # Per-(problem, solver) solve_parameters overrides, applied right before
-# solve() on top of that solver's generic defaults above -- the generic
-# defaults are shared across problems for a fair comparison, but some
-# (problem, solver) pairs need something else, and a value may be a
-# callable(tolerance) instead of a constant when it needs to scale with
-# -t/--tolerance the way the generic default does. A (problem, solver) pair
-# with no entry here behaves exactly as it did before this dict existed
+# solve() on top of that solver's generic defaults above
 PROBLEM_SOLVER_OVERRIDES = {
     ("pendubot", "ssqp-hpipm"): {
-        # The generic hpipm_tol = tolerance / 10 leaves pendubot's inner
-        # HPIPM solve tighter than the outer SQP tolerance ever demands,
-        # and it runs to max_iter without converging -- matching hpipm_tol
-        # to the outer tolerance fixes it, and square_root_riccati=False
-        # shaves further time off on top without changing the iteration
-        # count
         "hpipm_tol": lambda tolerance: tolerance,
         "hpipm_square_root_riccati": False,
     },
     ("go2_jump", "ssqp-hpipm"): {
-        # These four flags together roughly triple go2_jump's convergence
-        # speed over the shared defaults, but split_step and warm_start
-        # individually break go2_frog's convergence entirely, so the combo
-        # is scoped to go2_jump rather than applied generically
         "hpipm_split_step": True,
         "hpipm_prediction_correction": True,
         "hpipm_warm_start": True,
         "hpipm_square_root_riccati": False,
     },
     ("go2_wheelie", "ssqp-hpipm"): {
-        # split_step is the one flag that helps go2_wheelie -- unlike
-        # go2_jump, pairing it with square_root_riccati=False is markedly
-        # slower here, so that one stays at its default
         "hpipm_split_step": True,
     },
     ("pendubot", "ssqp-admm"): {
-        # alpha=1.8 converges faster than the default 1.6, with
-        # reset_rho/reset_y left at their defaults
         "admm_alpha": 1.8,
     },
     ("go2_jump", "ssqp-admm"): {
-        # The default alpha=1.6 never converges for go2_jump within the
-        # iteration budget -- alpha=1.8 is what actually makes it
-        # converge, not just a speed improvement
         "admm_alpha": 1.8,
     },
     ("go2_wheelie", "ssqp-admm"): {
-        # The default alpha=1.6 also never converges for go2_wheelie, and
-        # unlike pendubot/go2_jump, alpha=1.8 alone still converges slowly
-        # here -- turning off both resets converges faster and more
-        # reliably
         "admm_reset_rho": False,
         "admm_reset_y": False,
         "admm_alpha": 1.0,
     },
     ("pendubot", "mim_solvers"): {
-        # Turning off all three converges faster here, trading more
-        # iterations for less wall-clock time per iteration -- contact-
-        # switching problems (go2_jump/go2_wheelie/go2_frog) are excluded
-        # since mim_solvers doesn't yet handle those regardless of these
-        # settings
         "reset_rho": False,
         "reset_y": False,
         "update_rho_with_heuristic": False,
     },
     ("go2_standing", "mim_solvers"): {
-        # Same combo as pendubot above, same reasoning
         "reset_rho": False,
         "reset_y": False,
         "update_rho_with_heuristic": False,
     },
     ("panda_circle", "mim_solvers"): {
-        # The defaults never converge at all for panda_circle -- this
-        # combo is what fixes it
         "reset_rho": False,
         "reset_y": False,
         "update_rho_with_heuristic": False,
     },
     ("go2_jump", "ipopt"): {
-        # Ipopt's default exact Hessian never converges for go2_jump --
-        # the BFGS approximation does, and pendubot/go2_standing converge
-        # faster with the exact Hessian left alone, so this stays scoped
-        # here rather than applied generically
         "ipopt": {"hessian_approximation": "limited-memory"},
     },
     ("go2_wheelie", "ipopt"): {
-        # Same as go2_jump above, same reasoning
         "ipopt": {"hessian_approximation": "limited-memory"},
     },
     ("go2_standing", "fatrop"): {
-        # mu_init=0.1 converges faster here than the mu_init=1.0 already
-        # set above for the restoration-phase issue, without reintroducing
-        # it
         "fatrop": {"mu_init": 0.1},
     },
     ("panda_circle", "fatrop"): {
-        # mu_init=1.0 roughly halves panda_circle's solve time over
-        # fatrop's own default
         "fatrop": {"mu_init": 1.0},
     },
 }
 
 
 def run_solver(problem, solver):
+    if problem in DUFFING_PROBLEMS and inverse_dynamics:
+        raise ValueError(
+            f"--dynamics-mode inverse is not meaningful for {problem} (it "
+            "has no robot dynamics to invert)"
+        )
+
     max_iter = MAX_ITER_BY_PROBLEM[problem]
     problem_wrapper_t = None
     constructor_parameters = {}
     solve_parameters = {}
-    if solver == "ssqp-admm" or solver == "ssqp-hpipm":
+    if problem in DUFFING_PROBLEMS and (
+        solver == "ssqp-admm" or solver == "ssqp-hpipm"
+    ):
+        from ssqp_formulations.SSQPDuffingProblem import SSQPDuffingProblem
+
+        problem_wrapper_t = SSQPDuffingProblem
+
+        if args.duffing_m is not None:
+            constructor_parameters["m"] = args.duffing_m
+        if args.duffing_horizon is not None:
+            constructor_parameters["horizon"] = args.duffing_horizon
+
+        solve_parameters["tolerance"] = tolerance
+        solve_parameters["max_iter"] = max_iter
+        solve_parameters["verbose"] = args.verbose
+
+        if solver == "ssqp-admm":
+            solve_parameters["qp_solver"] = "admm"
+            solve_parameters["admm_max_iter"] = 100
+            solve_parameters["admm_tol"] = tolerance / 10
+            solve_parameters["admm_adaptive_rho_tolerance"] = 5
+            solve_parameters["admm_rho_update_iter_freq"] = 25
+            solve_parameters["admm_warm_start"] = True
+        else:
+            solve_parameters["qp_solver"] = "hpipm"
+            solve_parameters["hpipm_tol"] = tolerance / 10
+
+    elif solver == "ssqp-admm" or solver == "ssqp-hpipm":
         import ssqpy
         from ssqp_formulations.SSQPProblem import SSQPProblem
 
@@ -281,11 +331,6 @@ def run_solver(problem, solver):
             "go2_frog",
         )
         if inverse_dynamics:
-            # Plain InverseDynamics enforces an unactuated floating base via
-            # explicit zero-torque equality constraints; ReducedInverseDynamics
-            # instead bakes that in implicitly through state propagation, which
-            # is the better-conditioned choice whenever a floating base is
-            # present (see SolverMode's docstring in include/types.hpp)
             constructor_parameters["solver_mode"] = (
                 ssqpy.model.SolverMode.ReducedInverseDynamics
                 if is_floating_base
@@ -324,6 +369,27 @@ def run_solver(problem, solver):
             solve_parameters["qp_solver"] = "hpipm"
             solve_parameters["hpipm_tol"] = tolerance / 10
 
+    elif problem in DUFFING_PROBLEMS and solver == "mim_solvers":
+        from mim_solvers_formulations.MimSolversDuffingProblem import (
+            MimSolversDuffingProblem,
+        )
+
+        problem_wrapper_t = MimSolversDuffingProblem
+
+        if args.duffing_m is not None:
+            constructor_parameters["m"] = args.duffing_m
+        if args.duffing_horizon is not None:
+            constructor_parameters["horizon"] = args.duffing_horizon
+
+        solve_parameters["tolerance"] = tolerance
+        solve_parameters["max_iter"] = max_iter
+        solve_parameters["max_qp_iters"] = 300
+        solve_parameters["eps_abs"] = tolerance / 10
+        solve_parameters["eps_rel"] = tolerance / 10
+        solve_parameters["adaptive_rho_tolerance"] = 1
+        solve_parameters["rho_update_interval"] = 100
+        solve_parameters["callbacks"] = args.verbose
+
     elif solver == "mim_solvers":
         from mim_solvers_formulations.MimSolversProblem import (
             MimSolversProblem,
@@ -358,11 +424,6 @@ def run_solver(problem, solver):
 
         solve_parameters["tolerance"] = tolerance
         solve_parameters["max_iter"] = max_iter
-        # CSQP's convergence check only runs every rho_update_interval QP
-        # iterations (csqp.cpp), so it must stay below max_qp_iters for early
-        # exit to ever trigger, and a lower rho_update_interval destabilizes
-        # the floating-base/contact-rich problems, so max_qp_iters is raised
-        # instead of lowering it
         solve_parameters["max_qp_iters"] = 300
         solve_parameters["eps_abs"] = tolerance / 10
         solve_parameters["eps_rel"] = tolerance / 10
@@ -371,6 +432,28 @@ def run_solver(problem, solver):
         # CallbackVerbose/CallbackLogger add per-iteration logging and
         # bookkeeping to the timed solve, so only enable them when asked
         solve_parameters["callbacks"] = args.verbose
+
+    elif problem in DUFFING_PROBLEMS and solver == "aligator":
+        import aligator
+        from aligator_formulations.AligatorDuffingProblem import (
+            AligatorDuffingProblem,
+        )
+
+        problem_wrapper_t = AligatorDuffingProblem
+
+        if args.duffing_m is not None:
+            constructor_parameters["m"] = args.duffing_m
+        if args.duffing_horizon is not None:
+            constructor_parameters["horizon"] = args.duffing_horizon
+
+        solve_parameters["tol"] = tolerance
+        solve_parameters["mu_init"] = 1e-2
+        solve_parameters["verbose"] = (
+            aligator.VerboseLevel.VERBOSE
+            if args.verbose
+            else aligator.VerboseLevel.QUIET
+        )
+        solve_parameters["max_iters"] = max_iter
 
     elif solver == "aligator":
         import aligator
@@ -395,12 +478,41 @@ def run_solver(problem, solver):
             if args.verbose
             else aligator.VerboseLevel.QUIET
         )
-        # NOTE: go2_jump doesn't converge here, since the solver can't find
-        # a feasible direction from the static initial guess against the
-        # contact-switching + terminal foot-placement constraints, and
-        # likely needs a kinematically-sensible initial guess rather than
-        # mu_init tuning (several values tried, none converge)
         solve_parameters["max_iters"] = max_iter
+
+    elif problem in DUFFING_PROBLEMS and (
+        solver == "fatrop" or solver == "ipopt"
+    ):
+        from casadi_formulations.CasadiDuffingProblem import (
+            CasadiDuffingProblem,
+        )
+
+        problem_wrapper_t = CasadiDuffingProblem
+
+        if args.duffing_m is not None:
+            constructor_parameters["m"] = args.duffing_m
+        if args.duffing_horizon is not None:
+            constructor_parameters["horizon"] = args.duffing_horizon
+        constructor_parameters["casadi_plugin"] = solver
+        constructor_parameters["jit"] = args.jit
+
+        solve_parameters["print_time"] = args.verbose
+
+        if solver == "fatrop":
+            solve_parameters["fatrop"] = {
+                "tol": tolerance,
+                "max_iter": max_iter,
+                "print_level": 5 if args.verbose else 0,
+            }
+        else:
+            solve_parameters["ipopt"] = {
+                "max_iter": max_iter,
+                "tol": tolerance,
+                "acceptable_tol": 1e-3,
+                "mu_strategy": "adaptive",
+                "print_level": 5 if args.verbose else 0,
+                "sb": "yes",
+            }
 
     elif solver == "fatrop" or solver == "ipopt":
         from casadi_formulations.CasadiProblem import CasadiProblem
@@ -420,17 +532,6 @@ def run_solver(problem, solver):
         ):
             constructor_parameters["free_flyer"] = True
 
-        # Keep backend diagnostics out of the timed benchmark and console
-        # output for both plugins by default: print_time is CasADi's own
-        # end-of-solve timing breakdown, unused since the wrapper measures
-        # the complete opti.solve() call consistently for both, and
-        # print_level silences the per-iteration progress log those solvers
-        # print by default, which is synchronous console I/O happening
-        # *inside* the timed opti.solve() call otherwise, and every other
-        # backend is already quiet by default (see
-        # MimSolversProblem/AligatorProblem), so leaving these on would only
-        # slow down and inflate fatrop/ipopt's measured runtime; --verbose
-        # opts back into them for interactive troubleshooting
         solve_parameters["print_time"] = args.verbose
 
         if solver == "fatrop":
@@ -442,9 +543,6 @@ def run_solver(problem, solver):
                 "print_level": 5 if args.verbose else 0,
             }
             if problem in ("go2_standing", "go2_jump", "go2_wheelie"):
-                # Avoids an unrecoverable restoration phase from the
-                # zero-velocity/static initial guess against go2's many
-                # contact/velocity constraints
                 solve_parameters["fatrop"]["mu_init"] = 1.0
         else:
             solve_parameters["ipopt"] = {
@@ -463,7 +561,9 @@ def run_solver(problem, solver):
         problem_wrapper_t, constructor_parameters
     )
 
-    for key, val in PROBLEM_SOLVER_OVERRIDES.get((problem, solver), {}).items():
+    for key, val in PROBLEM_SOLVER_OVERRIDES.get(
+        (problem, solver), {}
+    ).items():
         val = val(tolerance) if callable(val) else val
         # A dict value merges into an existing dict-valued default (e.g.
         # fatrop/ipopt's nested options dict) instead of replacing it
@@ -487,6 +587,13 @@ def run_solver(problem, solver):
     output_name = problem
     if inverse_dynamics:
         output_name += "_inverse_dynamics"
+    if problem in DUFFING_PROBLEMS and (
+        args.duffing_m is not None or args.duffing_horizon is not None
+    ):
+        # Keeps a scaled run from overwriting the preset's own default-size
+        # result (or another scaled run at a different size), without
+        # changing the default filename plot_benchmarks.py already expects
+        output_name += f"_m{problem_wrapper.problem.m}_N{problem_wrapper.H}"
     output_name += f"_tol_{tolerance_label(tolerance)}"
 
     problem_wrapper.save(save_path + output_name + ".json")

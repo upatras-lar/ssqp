@@ -1,5 +1,7 @@
 import numpy as np
 
+from common.oscillators import DuffingConfig
+
 
 def make_pendubot_problem(problem_wrapper_t, constructor_parameters):
     problem_wrapper = problem_wrapper_t(
@@ -526,5 +528,60 @@ def make_go2_frog_problem(problem_wrapper_t, constructor_parameters):
     )
 
     problem_wrapper.finalize({"init_states": init})
+
+    return problem_wrapper
+
+
+def make_duffing_local_problem(problem_wrapper_t, constructor_parameters):
+    m = constructor_parameters.pop("m", None) or 16
+    H = constructor_parameters.pop("horizon", None) or 80
+
+    cfg = DuffingConfig(
+        m=m,
+        coupling="local",
+        local_scaling="fixed",
+        dt=0.05,
+        damping=0.15,
+        stiffness=1.0,
+        cubic=0.25,
+        coupling_strength=0.4,
+        q_weight=1.0,
+        v_weight=0.1,
+        u_weight=1e-2,
+        quartic_cost=0.0,
+        terminal_q_weight=10.0,
+        terminal_v_weight=1.0,
+        normalize_cost_by_m=True,
+    )
+
+    problem_wrapper = problem_wrapper_t(H, cfg.dt, cfg, constructor_parameters)
+    problem_wrapper.finalize()
+
+    return problem_wrapper
+
+
+def make_duffing_global_problem(problem_wrapper_t, constructor_parameters):
+    m = constructor_parameters.pop("m", None) or 16
+    H = constructor_parameters.pop("horizon", None) or 80
+
+    cfg = DuffingConfig(
+        m=m,
+        coupling="global",
+        dt=0.05,
+        damping=0.15,
+        stiffness=1.0,
+        cubic=0.25,
+        coupling_strength=0.4,
+        q_weight=1.0,
+        v_weight=0.1,
+        u_weight=1e-2,
+        quartic_cost=0.0,
+        terminal_q_weight=10.0,
+        terminal_v_weight=1.0,
+        normalize_cost_by_m=True,
+    )
+
+    problem_wrapper = problem_wrapper_t(H, cfg.dt, cfg, constructor_parameters)
+    problem_wrapper.finalize()
 
     return problem_wrapper

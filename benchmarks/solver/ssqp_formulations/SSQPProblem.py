@@ -2,7 +2,7 @@ import json
 
 import ssqpy
 
-from ProblemWrapper import ProblemWrapper
+from common.ProblemWrapper import ProblemWrapper
 
 
 class SSQPProblem(ProblemWrapper):
@@ -147,9 +147,7 @@ class SSQPProblem(ProblemWrapper):
                 )
             # Left at admmParams()'s own default unless explicitly passed
             if "admm_reset_rho" in parameters:
-                ssqp_params.admmParams.reset_rho = parameters[
-                    "admm_reset_rho"
-                ]
+                ssqp_params.admmParams.reset_rho = parameters["admm_reset_rho"]
             if "admm_reset_y" in parameters:
                 ssqp_params.admmParams.reset_y = parameters["admm_reset_y"]
             if "admm_alpha" in parameters:
