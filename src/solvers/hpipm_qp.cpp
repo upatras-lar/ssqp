@@ -162,24 +162,24 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     for (uint k = 0; k < _qp.dims.horizon; ++k)
         _S[k].resize(_qp.dims.stage_control[k], _qp.dims.stage_state[k]);
 
-    int dim_size   = d_ocp_qp_dim_memsize(_qp.dims.horizon);
+    hpipm_size_t dim_size = d_ocp_qp_dim_memsize(_qp.dims.horizon);
     _hpipm_dim_mem = malloc(dim_size);
     d_ocp_qp_dim_create(_qp.dims.horizon, &_hpipm_data->dim, _hpipm_dim_mem);
 
     set_stage_sizes();
 
     // Allocate QP problem structure
-    int qp_size   = d_ocp_qp_memsize(&_hpipm_data->dim);
+    hpipm_size_t qp_size = d_ocp_qp_memsize(&_hpipm_data->dim);
     _hpipm_qp_mem = malloc(qp_size);
     d_ocp_qp_create(&_hpipm_data->dim, &_hpipm_data->qp, _hpipm_qp_mem);
 
     // Allocate solution structure
-    int sol_size   = d_ocp_qp_sol_memsize(&_hpipm_data->dim);
+    hpipm_size_t sol_size = d_ocp_qp_sol_memsize(&_hpipm_data->dim);
     _hpipm_sol_mem = malloc(sol_size);
     d_ocp_qp_sol_create(&_hpipm_data->dim, &_hpipm_data->sol, _hpipm_sol_mem);
 
     // Allocate IPM arguments
-    int arg_size   = d_ocp_qp_ipm_arg_memsize(&_hpipm_data->dim);
+    hpipm_size_t arg_size = d_ocp_qp_ipm_arg_memsize(&_hpipm_data->dim);
     _hpipm_arg_mem = malloc(arg_size);
     d_ocp_qp_ipm_arg_create(&_hpipm_data->dim,
                             &_hpipm_data->arg,
@@ -227,7 +227,8 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     d_ocp_qp_ipm_arg_set_split_step(&split_step_int, &_hpipm_data->arg);
 
     // Allocate _hpipm_data->ws (size depends on arg settings)
-    int ws_size = d_ocp_qp_ipm_ws_memsize(&_hpipm_data->dim, &_hpipm_data->arg);
+    hpipm_size_t ws_size =
+      d_ocp_qp_ipm_ws_memsize(&_hpipm_data->dim, &_hpipm_data->arg);
     _hpipm_ws_mem = malloc(ws_size);
     d_ocp_qp_ipm_ws_create(&_hpipm_data->dim,
                            &_hpipm_data->arg,
