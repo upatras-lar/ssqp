@@ -2,7 +2,51 @@ import json
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import argparse
+
+# Categorical palette (colorblind-safe, fixed order - never cycled per series
+# count) and chart chrome, shared across all panels
+PALETTE = [
+    "#2a78d6",  # blue
+    "#eb6834",  # orange
+    "#1baf7a",  # aqua
+    "#eda100",  # yellow
+    "#e87ba4",  # magenta
+    "#008300",  # green
+    "#4a3aa7",  # violet
+    "#e34948",  # red
+]
+
+CHART_SURFACE = "#fcfcfb"
+PAGE_PLANE = "#f9f9f7"
+INK_PRIMARY = "#0b0b0b"
+INK_SECONDARY = "#52514e"
+INK_MUTED = "#898781"
+GRIDLINE = "#e1e0d9"
+BASELINE = "#c3c2b7"
+
+
+def pretty_label(stem, prefix):
+    return stem.replace(prefix, "").replace("_", " ").title()
+
+
+def style_axis(ax, xlabel, ylabel, title):
+    ax.set_facecolor(CHART_SURFACE)
+    ax.set_title(
+        title, fontsize=11, fontweight="bold", color=INK_PRIMARY, pad=10
+    )
+    ax.set_xlabel(xlabel, fontsize=9.5, color=INK_SECONDARY)
+    ax.set_ylabel(ylabel, fontsize=9.5, color=INK_SECONDARY)
+    ax.tick_params(colors=INK_MUTED, labelsize=8.5)
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.grid(True, axis="y", color=GRIDLINE, linewidth=0.8, zorder=0)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(BASELINE)
+    ax.legend(frameon=False, fontsize=8.5, labelcolor=INK_SECONDARY)
 
 
 def parse_args():
@@ -18,10 +62,16 @@ def parse_args():
     )
 
     parser.add_argument(
-        "-m",
-        "--model",
-        required=True,
+        "model",
         help="The problem model (result data starting with `[model]_` will be used for plotting)",
+    )
+
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm"],
+        default="admm",
+        help="The QP backend whose result files should be plotted",
     )
 
     return parser.parse_args()
@@ -31,12 +81,17 @@ def collect_problem_solved_statistics(filepath):
     with open(filepath) as f:
         problems = json.load(f)
 
+    # failed problems never count as solved, but still count towards the
+    # total, so they pull the percentage down rather than being ignored
+    solved_problems = [p for p in problems if not p.get("failed")]
+
     max_sqp_iter = max(
-        len(problem["convergence"]["iteration_data"]) for problem in problems
+        len(problem["convergence"]["iteration_data"])
+        for problem in solved_problems
     )
     iteration_ps_perc = np.zeros(max_sqp_iter)
 
-    for problem in problems:
+    for problem in solved_problems:
         # subtract 1 so iteration index starts at 0
         idx = problem["convergence"]["iterations"]
         if idx < max_sqp_iter:
@@ -53,6 +108,8 @@ def collect_cost_statistics(filepath):
     with open(filepath) as f:
         problems = json.load(f)
 
+    problems = [p for p in problems if not p.get("failed")]
+
     max_sqp_iter = max(
         len(problem["convergence"]["iteration_data"]) for problem in problems
     )
@@ -65,7 +122,13 @@ def collect_cost_statistics(filepath):
         costs = []
 
         for iter in iteration_data:
-            costs.append(max(iter["stage_costs"]))
+            # some later iterations may not have per-stage data recorded;
+            # treat those as unchanged from the last known value
+            stage_costs = iter.get("stage_costs")
+            if stage_costs is not None:
+                costs.append(max(stage_costs))
+            elif costs:
+                costs.append(costs[-1])
 
         while len(costs) < max_sqp_iter:
             costs.append(costs[-1])
@@ -85,6 +148,8 @@ def collect_violation_statistics(filepath):
     with open(filepath) as f:
         problems = json.load(f)
 
+    problems = [p for p in problems if not p.get("failed")]
+
     max_sqp_iter = max(
         len(problem["convergence"]["iteration_data"]) for problem in problems
     )
@@ -97,13 +162,24 @@ def collect_violation_statistics(filepath):
         violations = []
 
         for iter in iteration_data:
-            stage_gap_norm = max(iter["stage_gap_violations"])
-            stage_constraint_violation_norm = max(
-                iter["stage_constraint_violations"]
+            # some later iterations may not have per-stage data recorded;
+            # treat those as unchanged from the last known value
+            stage_gap_violations = iter.get("stage_gap_violations")
+            stage_constraint_violations = iter.get(
+                "stage_constraint_violations"
             )
-            violations.append(
-                max(stage_gap_norm, stage_constraint_violation_norm)
-            )
+            if (
+                stage_gap_violations is not None
+                and stage_constraint_violations is not None
+            ):
+                violations.append(
+                    max(
+                        max(stage_gap_violations),
+                        max(stage_constraint_violations),
+                    )
+                )
+            elif violations:
+                violations.append(violations[-1])
 
         while len(violations) < max_sqp_iter:
             violations.append(violations[-1])
@@ -175,38 +251,48 @@ def collect_time_to_satisfaction(filepath, include_cost=False):
 args = parse_args()
 data_dir = Path(args.data_dir)
 
-files = sorted([file for file in data_dir.glob(f"{args.model}_admm_*.json")])
+result_prefix = f"{args.model}_{args.qp_solver}_"
+
+files = sorted([file for file in data_dir.glob(f"{result_prefix}*.json")])
+
+if not files:
+    raise SystemExit(
+        f"No result files matching '{result_prefix}*.json' found in "
+        f"{data_dir}. Did you run run_benchmark.py with -q {args.qp_solver}?"
+    )
+
+plt.rcParams["font.family"] = "sans-serif"
 
 all_data = {}
 for filepath in files:
-    label = filepath.stem.replace(f"{args.model}_admm_", "").capitalize()
+    label = pretty_label(filepath.stem, result_prefix)
     all_data[label] = collect_problem_solved_statistics(filepath)
 
-file_labels = list(all_data.keys())
-colors = plt.cm.tab10.colors
-
-fig, axes = plt.subplots(1, 3, figsize=(14, 5))
-fig.suptitle(f"{args.model.capitalize()} Task")
+fig, axes = plt.subplots(1, 3, figsize=(15, 5), facecolor=PAGE_PLANE)
+fig.suptitle(
+    f"{args.model.replace('_', ' ').title()} — {args.qp_solver.upper()}",
+    fontsize=13,
+    fontweight="bold",
+    color=INK_PRIMARY,
+)
 
 # =========================
 # First Plot (Problems Solved /w SQP iterations)
 # =========================
 ax1 = axes[0]
 
-for i, label in enumerate(file_labels):
+for i, label in enumerate(all_data):
     y = all_data[label]
     x = np.arange(1, len(y) + 1)
     ax1.plot(
         x,
         y,
         label=label,
-        color=colors[i % len(colors)],
+        color=PALETTE[i % len(PALETTE)],
+        linewidth=1.75,
     )
 
-ax1.set_xlabel("SQP Iteration")
-ax1.set_ylabel("Converged Problems [%]")
-ax1.grid(True)
-ax1.legend()
+style_axis(ax1, "SQP Iteration", "Converged Problems [%]", "Problems Solved")
 
 # =========================
 # Second Plot (Costs)
@@ -214,35 +300,21 @@ ax1.legend()
 ax2 = axes[1]
 
 for i, filepath in enumerate(files):
-    label = filepath.stem.replace(f"{args.model}_admm_", "").capitalize()
+    label = pretty_label(filepath.stem, result_prefix)
 
     median, p25, p75 = collect_cost_statistics(filepath)
 
     x = np.arange(1, len(median) + 1)
-    color = colors[i % len(colors)]
+    color = PALETTE[i % len(PALETTE)]
 
     # Median line
-    ax2.plot(
-        x,
-        median,
-        label=f"{label}",
-        color=color,
-    )
+    ax2.plot(x, median, label=label, color=color, linewidth=1.75)
 
     # Interquartile band (25–75%)
-    ax2.fill_between(
-        x,
-        p25,
-        p75,
-        alpha=0.2,
-        color=color,
-    )
+    ax2.fill_between(x, p25, p75, alpha=0.15, color=color, linewidth=0)
 
-ax2.set_xlabel("SQP Iteration")
-ax2.set_ylabel("Cost")
 ax2.set_yscale("log")
-ax2.grid(True)
-ax2.legend()
+style_axis(ax2, "SQP Iteration", "Cost", "Cost")
 
 # =========================
 # Third Plot (Violations)
@@ -250,36 +322,24 @@ ax2.legend()
 ax3 = axes[2]
 
 for i, filepath in enumerate(files):
-    label = filepath.stem.replace(f"{args.model}_admm_", "").capitalize()
+    label = pretty_label(filepath.stem, result_prefix)
 
     median, p25, p75 = collect_violation_statistics(filepath)
 
     x = np.arange(1, len(median) + 1)
-    color = colors[i % len(colors)]
+    color = PALETTE[i % len(PALETTE)]
 
     # Median line
-    ax3.plot(
-        x,
-        median,
-        label=f"{label}",
-        color=color,
-    )
+    ax3.plot(x, median, label=label, color=color, linewidth=1.75)
 
     # Interquartile band (25–75%)
-    ax3.fill_between(
-        x,
-        p25,
-        p75,
-        alpha=0.2,
-        color=color,
-    )
+    ax3.fill_between(x, p25, p75, alpha=0.15, color=color, linewidth=0)
 
-ax3.set_xlabel("SQP Iteration")
-ax3.set_ylabel("Constraint Violations")
 ax3.set_yscale("log")
-ax3.grid(True)
-ax3.legend()
+style_axis(
+    ax3, "SQP Iteration", "Constraint Violations", "Constraint Violation"
+)
 
 plt.tight_layout()
-plt.savefig(f"data/plots/plot_{args.model}.pdf")
+plt.savefig(f"data/plots/plot_{args.model}_{args.qp_solver}.pdf")
 plt.show()

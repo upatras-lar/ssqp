@@ -3,7 +3,6 @@ from os.path import isdir
 
 directories = [
     "trajgen/data",
-    "trajgen/data/parameters",
     "trajgen/data/results",
     "trajgen/data/plots",
     "mpc/data",

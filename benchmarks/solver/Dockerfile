@@ -67,9 +67,21 @@ RUN pip install --upgrade \
     setuptools \
     wheel \
     numpy \
-    scipy
+    scipy \
+    matplotlib
 
 WORKDIR /opt
+
+# ============================================================
+# Native-arch compiler flags
+# Applied to every build below (autotools picks these up via
+# CFLAGS/CXXFLAGS/FFLAGS, CMake via its environment-seeded
+# CMAKE_<LANG>_FLAGS) so all solvers build on even footing.
+# ============================================================
+
+ENV CFLAGS="-O3 -march=native"
+ENV CXXFLAGS="-O3 -march=native"
+ENV FFLAGS="-O3 -march=native"
 
 # ============================================================
 # MUMPS
@@ -107,7 +119,8 @@ RUN git clone https://github.com/coin-or/Ipopt.git /opt/ipopt \
 # Builds its pinned Fatrop / HPIPM / BLASFEO dependencies.
 # ============================================================
 
-RUN git clone --recursive https://github.com/casadi/casadi.git /opt/casadi
+RUN git clone --recursive --branch 3.8.0 \
+    https://github.com/casadi/casadi.git /opt/casadi
 
 WORKDIR /opt/casadi
 RUN mkdir build

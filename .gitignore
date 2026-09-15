@@ -56,6 +56,7 @@ MUJOCO_LOG.TXT
 .env
 jit_tmp*
 tmp_casadi_compiler_shell*
+tmp*
 
 # LLM generated files
 /.codex/

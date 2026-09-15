@@ -1,9 +1,3 @@
----
-hide:
-  - navigation
----
-
-
 # Benchmarks
 
 [`benchmarks/solver/`](https://github.com/upatras-lar/ssqp/tree/main/benchmarks/solver) compares SSQP against a

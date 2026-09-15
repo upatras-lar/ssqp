@@ -66,8 +66,12 @@ def parse_args():
         "-t",
         "--tolerance",
         type=float,
-        default=TOLERANCE,
-        help="Convergence tolerance every solver is run with.",
+        nargs="+",
+        default=[TOLERANCE],
+        help=(
+            "Convergence tolerance every solver is run with. Provide "
+            "multiple values to run a tolerance sweep."
+        ),
     )
 
     parser.add_argument(
@@ -123,6 +127,29 @@ def parse_args():
         ),
     )
 
+    parser.add_argument(
+        "--duffing-grid-m",
+        type=int,
+        nargs="+",
+        default=None,
+        help=(
+            "Grid search: run every solver already selected (--solver or "
+            "--all-solvers) against every (m, horizon) combination in the "
+            "Cartesian product of this list and --duffing-grid-horizon, "
+            "instead of a single run. Both must be given together, in "
+            "place of --duffing-m/--duffing-horizon, and --problem must be "
+            "duffing_local or duffing_global."
+        ),
+    )
+
+    parser.add_argument(
+        "--duffing-grid-horizon",
+        type=int,
+        nargs="+",
+        default=None,
+        help="The horizon side of --duffing-grid-m's grid search.",
+    )
+
     return parser.parse_args()
 
 
@@ -130,7 +157,7 @@ args = parse_args()
 if not args.all_problems and args.problem is None:
     raise SystemExit("Either a problem or --all-problems must be given.")
 inverse_dynamics = args.dynamics_mode == "inverse"
-tolerance = args.tolerance
+tolerances_to_run = args.tolerance
 
 ALL_PROBLEMS = [
     "pendubot",
@@ -170,6 +197,28 @@ if (
     raise SystemExit(
         "--duffing-m/--duffing-horizon only apply to duffing_local/"
         f"duffing_global, not --problem {args.problem}"
+    )
+
+grid_search = (
+    args.duffing_grid_m is not None or args.duffing_grid_horizon is not None
+)
+if grid_search and (
+    args.duffing_grid_m is None or args.duffing_grid_horizon is None
+):
+    raise SystemExit(
+        "--duffing-grid-m and --duffing-grid-horizon must be given together"
+    )
+if grid_search and (
+    args.duffing_m is not None or args.duffing_horizon is not None
+):
+    raise SystemExit(
+        "--duffing-grid-m/--duffing-grid-horizon replace --duffing-m/"
+        "--duffing-horizon for a grid search, don't combine them"
+    )
+if grid_search and (args.all_problems or args.problem not in DUFFING_PROBLEMS):
+    raise SystemExit(
+        "--duffing-grid-m/--duffing-grid-horizon need a single --problem "
+        "of duffing_local or duffing_global, not --all-problems"
     )
 
 if args.all_solvers:
@@ -599,21 +648,62 @@ def run_solver(problem, solver):
     problem_wrapper.save(save_path + output_name + ".json")
 
 
-if len(problems_to_run) == 1 and len(solvers) == 1:
-    run_solver(problems_to_run[0], solvers[0])
-else:
-    failures = []
-    for problem in problems_to_run:
-        for solver in solvers:
-            print(f"=== {problem} / {solver} ===")
-            try:
-                run_solver(problem, solver)
-            except Exception as exc:
-                print(f"{problem}/{solver} failed: {exc}")
-                failures.append(f"{problem}/{solver}")
+for tolerance in tolerances_to_run:
+    if len(tolerances_to_run) > 1:
+        print(f"##### tolerance = {tolerance:g} #####")
 
-    total = len(problems_to_run) * len(solvers)
-    print()
-    print(f"{total - len(failures)}/{total} runs terminated without crashing.")
-    if failures:
-        print(f"Failed: {', '.join(failures)}")
+    if grid_search:
+        problem = problems_to_run[0]
+        failures = []
+        total = (
+            len(args.duffing_grid_m)
+            * len(args.duffing_grid_horizon)
+            * len(solvers)
+        )
+        for m in args.duffing_grid_m:
+            for horizon in args.duffing_grid_horizon:
+                # run_solver() reads these off args itself (see its
+                # constructor_parameters["m"]/["horizon"] handling), so
+                # setting them here is what actually drives each grid point
+                args.duffing_m = m
+                args.duffing_horizon = horizon
+                for solver in solvers:
+                    print(
+                        f"=== {problem} / {solver} / m={m}, horizon={horizon} ==="
+                    )
+                    try:
+                        run_solver(problem, solver)
+                    except Exception as exc:
+                        print(
+                            f"{problem}/{solver}/m={m}_N={horizon} failed: {exc}"
+                        )
+                        failures.append(
+                            f"{problem}/{solver}/m={m}_N={horizon}"
+                        )
+
+        print()
+        print(
+            f"{total - len(failures)}/{total} runs terminated without crashing."
+        )
+        if failures:
+            print(f"Failed: {', '.join(failures)}")
+    elif len(problems_to_run) == 1 and len(solvers) == 1:
+        run_solver(problems_to_run[0], solvers[0])
+    else:
+        failures = []
+        for problem in problems_to_run:
+            for solver in solvers:
+                print(f"=== {problem} / {solver} ===")
+                try:
+                    run_solver(problem, solver)
+                except Exception as exc:
+                    print(f"{problem}/{solver} failed: {exc}")
+                    failures.append(f"{problem}/{solver}")
+
+        total = len(problems_to_run) * len(solvers)
+        print()
+        print(
+            f"{total - len(failures)}/{total} runs terminated without crashing."
+        )
+        if failures:
+            print(f"Failed: {', '.join(failures)}")

@@ -587,25 +587,46 @@ class MimSolversProblem(ProblemWrapper):
         self.converged = bool(success)
         self.iterations = int(self.solver.iter)
         self.constraint_violation = self._evaluate_violation()
+        self.stage_gap = self._evaluate_stage_gap()
 
         print(f"[mim_solvers] Solve time: {self.solve_time * 1000:.3f} ms")
         print(f"[mim_solvers] Final cost: {self.solver.cost}")
         print(f"[mim_solvers] Iterations: {self.solver.iter}")
         print(f"[mim_solvers] Success: {success}")
 
+    def _evaluate_stage_gap(self):
+        """Sum, over stages, of the infinity norm of how far the reported
+        trajectory's x_{k+1} sits from this stage's own discrete-dynamics
+        transition -- CSQP tracks this defect internally during
+        optimization and only drives it toward zero as tightly as the
+        outer tolerance demands, so it's generally nonzero at
+        convergence, same as SSQP's own trajectory_stage_gap. Uses
+        self.state.diff() rather than plain subtraction, since a
+        floating-base state's quaternion component isn't a flat vector
+        space"""
+        xs = list(self.solver.xs)
+        us = list(self.solver.us)
+        self.problem.calc(xs, us)
+
+        total = 0.0
+        for k in range(self.H):
+            xnext = np.asarray(self.problem.runningDatas[k].xnext)
+            defect = self.state.diff(xnext, xs[k + 1])
+            total += float(np.max(np.abs(defect)))
+        return total
+
     def _evaluate_violation(self):
         """Sum, over stages, of the worst single bound violation at that
         stage -- matching SSQP's trajectory_constraint_violation (see
         ssqp::_cf in src/solvers/ssqp.cpp): per stage, take the infinity
         norm of how far outside [lb, ub] the (possibly vector-valued)
-        constraint sits, then sum that per-stage worst case across stages.
-
-        Crocoddyl's shooting rollout satisfies the dynamics exactly by
-        construction, so unlike CasadiProblem there is no dynamics-defect
-        term to fold in here -- only the path constraints each
-        ConstraintModelManager already aggregates into g/g_lb/g_ub.
-        Recomputed explicitly on the reported xs/us rather than trusting
-        whatever trial the solver's internal data was last evaluated at.
+        constraint sits, then sum that per-stage worst case across
+        stages, using only the path constraints each
+        ConstraintModelManager already aggregates into g/g_lb/g_ub (the
+        dynamics-transition defect is tracked separately, in
+        _evaluate_stage_gap). Recomputed explicitly on the reported xs/us
+        rather than trusting whatever trial the solver's internal data
+        was last evaluated at.
         """
         self.problem.calc(list(self.solver.xs), list(self.solver.us))
 
@@ -712,6 +733,7 @@ class MimSolversProblem(ProblemWrapper):
                 "runtime_ms": self.solve_time * 1000.0,
                 "objective": float(self.solver.cost),
                 "constraint_violation": self.constraint_violation,
+                "stage_gap": self.stage_gap,
             },
             "properties": {
                 "horizon": self.H,

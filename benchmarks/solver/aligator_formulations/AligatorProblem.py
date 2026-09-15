@@ -32,7 +32,7 @@ import pinocchio as pin
 import aligator
 from aligator import constraints, dynamics, manifolds
 
-from ProblemWrapper import ProblemWrapper
+from common.ProblemWrapper import ProblemWrapper
 
 
 class _UnderactuatedForwardDynamics(dynamics.ODEAbstract):
@@ -188,6 +188,7 @@ class AligatorProblem(ProblemWrapper):
         self.iterations = None
         self.objective = None
         self.constraint_violation = None
+        self.stage_gap = None
 
     # ------------------------------------------------------------------
     # Cost / constraint registration (ProblemWrapper API)
@@ -689,10 +690,8 @@ class AligatorProblem(ProblemWrapper):
 
         # Recorded per stage by _add_stage_constraints()/below, so solve()
         # can re-evaluate every (err, bound) pair against the optimized
-        # trajectory for the constraint-violation summary, since Aligator's
-        # shooting/constrained-forward-dynamics rollout satisfies the
-        # dynamics exactly by construction, unlike CasadiProblem there is
-        # no dynamics-defect term to fold in here, only path constraints
+        # trajectory for the constraint-violation summary -- the
+        # dynamics-transition defect is tracked separately, as stage_gap
         self._violation_terms = {k: [] for k in range(self.H + 1)}
 
         stages = []
@@ -807,12 +806,34 @@ class AligatorProblem(ProblemWrapper):
             float(result_cost) if result_cost is not None else None
         )
         self.constraint_violation = self._evaluate_violation()
+        self.stage_gap = self._evaluate_stage_gap()
 
         print(
             f"[Aligator] Solve time: {self.solve_time:.3f} s, "
             f"converged: {self.converged}"
         )
         return self.converged
+
+    def _evaluate_stage_gap(self):
+        """Sum, over stages, of the infinity norm of how far the reported
+        trajectory's x_{k+1} sits from this stage's own discrete-dynamics
+        transition F(x_k, u_k) -- ProxDDP tracks this defect internally
+        during optimization and only drives it toward zero as tightly as
+        the outer tolerance demands, so it's generally nonzero at
+        convergence, same as SSQP's own trajectory_stage_gap. Uses
+        self.space.difference() rather than plain subtraction, since a
+        free-flyer state's quaternion component isn't a flat vector
+        space"""
+        total = 0.0
+        for k in range(self.H):
+            stage_dynamics = self.problem.stages[k].dynamics
+            data = stage_dynamics.createData()
+            stage_dynamics.forward(self.xs_opt[k], self.us_opt[k], data)
+            defect = self.space.difference(
+                np.asarray(data.xnext), np.asarray(self.xs_opt[k + 1])
+            )
+            total += float(np.max(np.abs(defect)))
+        return total
 
     def _evaluate_violation(self):
         """Sum, over stages, of the worst single bound violation at that
@@ -1002,6 +1023,7 @@ class AligatorProblem(ProblemWrapper):
                 "runtime_ms": self.solve_time * 1000.0,
                 "objective": self.objective,
                 "constraint_violation": self.constraint_violation,
+                "stage_gap": self.stage_gap,
             },
             "properties": properties,
             "stage_data": stage_data,

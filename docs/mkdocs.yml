@@ -53,7 +53,9 @@ nav:
       - Panda Circle (Trajectory Generation): examples/panda-circle-trajgen.md
       - Go2 Jump: examples/go2-jump.md
       - Panda Circle (MPC): examples/panda-circle-mpc.md
-  - Benchmarks: benchmarks.md
+  - Benchmarks:
+      - Solver: benchmarks.md
+      - Solver Modes: benchmarks-solver-modes.md
   - Python API Reference:
       - Overview: reference/index.md
       - ssqpy: reference/ssqpy.md

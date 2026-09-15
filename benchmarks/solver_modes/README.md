@@ -26,26 +26,30 @@ Once activated, you can now install the required dependencies using PIP:
 pip install numpy matplotlib PyQt6
 ```
 
-Obviously, you will also need to have built _ssqpy_, the library's Python bindings, and have them available to Python. We suggest that logging be disabled for the build, such that outputs to the terminal do not slow down the solver.
+Obviously, you will also need to have built _ssqpy_, the library's Python bindings, and have them available to Python.
 
 Following this, you can execute benchmarking scripts for trajectory generation or MPC.
 
 #### Trajectory Generation
-In the `trajgen/` directory, you will find various scripts used for benchmarking the performance of forward and inverse dynamics for trajectory generation. We currently run these benchmarks on certain randomly generated problems for the Pendubot, the Franka Emika Panda and the Go2 robots.
+In the `trajgen/` directory, you will find scripts used for benchmarking the performance of the different solver modes (forward dynamics, inverse dynamics and, where applicable, reduced inverse dynamics) for trajectory generation. Problems for the Pendubot, the Franka Emika Panda and the Go2 robots are generated in `problems.py`. We currently run these benchmarks on certain randomly generated problems for each of these systems; `go2_multi_jump` and `g1_jump` are each a single, fixed problem instead, ported from the examples gallery.
 
-For the former two (Pendubot and Panda), you will require a parameter file in order to benchmark. In the `trajgen/data/params` repository, we already provide some sample parameter files for these systems, for both forward and inverse dynamics. If you'd instead like to perform parameter search on your own, you can use the `panda_param_search` and `pendubot_param_search` scripts. If you'd further like to customize which parameters are included in the parameter set to search through, look through these scripts and add these parameter values to the appropriate parameter set generation functions.
+To actually perform the benchmarks, move to the `trajgen/` directory and use the `run_benchmark` script:
 
-To actually perform the benchmarks, move to the `trajgen/` directory and use the following scripts:
+```
+python run_benchmark.py [pendubot|panda|go2|go2_multi_jump|g1_jump] -q [admm|hpipm]
+```
 
-* `pendubot_benchmark`
-* `panda_benchmark`
-* `go2_benchmark`
+The `model` positional argument selects which system to benchmark, and `-q`/`--qp-solver` selects the QP backend to use (`admm` by default). By default, all dynamics modes supported by the chosen model are benchmarked in parallel; use `--modes` to run only a subset (e.g. `--modes forward inverse`). Use `-n`/`--n-problems` to change the number of problems generated (50 by default, ignored by `go2_multi_jump`/`g1_jump`), and `--horizon` to change the horizon used for the Pendubot (200 by default).
 
-If you'd like to change the number of problems generated for each system, use the `N_problems` variable declared at the start of each of these scripts.
+Pass `--all-problems` instead of a model name to benchmark every available model in one invocation:
 
-Once each of these scripts is done executing, the resulting data files can be located at `trajgen/data/results`.
+```
+python run_benchmark.py --all-problems -q [admm|hpipm]
+```
 
-To generate plots using these files, you can use the `plot` script. Run `python plot.py -h` for a list of options for the script. Generally, you can just execute `python plot.py -m [model]` to generate plots for some model, such as `python plot.py -m pendubot` for the Pendubot, assuming the necessary data files have been created.
+Once the script is done executing, the resulting data files can be located at `trajgen/data/results`.
+
+To generate plots using these files, you can use the `plot` script. Run `python plot.py -h` for a list of options for the script. Generally, you can just execute `python plot.py [model] -q [admm|hpipm]` to generate plots for some model and QP backend, such as `python plot.py pendubot` for the Pendubot, assuming the necessary data files have been created.
 
 #### MPC
 The MPC benchmarking scripts are located in the `mpc/` directory. For MPC, we utilize a predefined task for each model and assess the solver's capability to perform that task in real time.

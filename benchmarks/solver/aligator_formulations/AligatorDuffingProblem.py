@@ -121,6 +121,7 @@ class AligatorDuffingProblem:
         self.iterations = None
         self.objective = None
         self.constraint_violation = None
+        self.stage_gap = None
 
     def finalize(self, parameter_dict=None):
         self.x0 = self.problem.initial_state()
@@ -172,17 +173,33 @@ class AligatorDuffingProblem:
         self.objective = (
             float(result_cost) if result_cost is not None else None
         )
-        # Aligator's shooting rollout satisfies the dynamics exactly by
-        # construction, and there are no path constraints in this problem
-        # (unlike CasadiDuffingProblem's direct transcription, which has a
-        # dynamics-defect term to fold in), so there's nothing to report
+        # No path constraints in this problem (unlike CasadiDuffingProblem's
+        # direct transcription), so there's nothing to report here -- the
+        # dynamics-transition defect is tracked separately below, as
+        # stage_gap
         self.constraint_violation = 0.0
+        self.stage_gap = self._evaluate_stage_gap()
 
         print(
             f"[Aligator] Solve time: {self.solve_time:.3f} s, "
             f"converged: {self.converged}"
         )
         return self.converged
+
+    def _evaluate_stage_gap(self):
+        """Sum, over stages, of the infinity norm of how far the reported
+        trajectory's x_{k+1} sits from problem.dynamics(x_k, u_k) --
+        ProxDDP tracks this defect internally during optimization
+        (workspace.dyn_slacks) and only drives it toward zero as tightly
+        as the outer tolerance demands, so it's generally nonzero at
+        convergence, same as SSQP's own trajectory_stage_gap"""
+        total = 0.0
+        for k in range(self.H):
+            defect = np.asarray(self.xs_opt[k + 1]) - self.problem.dynamics(
+                np.asarray(self.xs_opt[k]), np.asarray(self.us_opt[k])
+            )
+            total += float(np.max(np.abs(defect)))
+        return total
 
     def save(self, output_json):
         if self.xs_opt is None:
@@ -201,6 +218,7 @@ class AligatorDuffingProblem:
                 "runtime_ms": self.solve_time * 1000.0,
                 "objective": self.objective,
                 "constraint_violation": self.constraint_violation,
+                "stage_gap": self.stage_gap,
             }
         }
         with open(output_json, "w") as f:
