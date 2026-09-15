@@ -521,6 +521,41 @@ class Model
     VecX getFullAccelerationVector(const VecX &x, const VecX &u,
                                    const uint k = 0) const;
 
+    /** Returns the actuated-joint torque vector implied by the inverse
+     * dynamics computation for the given state and controls, accounting for
+     * any forces present at stage `k`
+     *
+     * For InverseDynamics mode, this is the RNEA torque computed directly
+     * from the (full) acceleration control. For ReducedInverseDynamics mode,
+     * the full acceleration vector is reconstructed first (see
+     * getFullAccelerationVector), and only the actuated joints' torque is
+     * returned, since by construction the unactuated joints' torque is
+     * always zero
+     *
+     * Input:
+     *  - `x`: The model state
+     *  - `u`: The model controls
+     *  - `k`: The model stage (only required if there are forces present at
+     *     that stage)
+     *
+     * Note: XML-based function
+     * Note: Assumes the model is in InverseDynamics or ReducedInverseDynamics
+     *   mode
+     */
+    VecX getActuatedTorqueVector(const VecX &x, const VecX &u,
+                                 const uint k = 0) const;
+
+    /** Derivatives of getActuatedTorqueVector with respect to the state (x)
+     * and controls (u)
+     *
+     * Output:
+     *  - `dtau_dx`: derivative with respect to the state (nu x 2*nv)
+     *  - `dtau_du`: derivative with respect to the controls (nu x u.size())
+     */
+    void getActuatedTorqueVectorDerivatives(const VecX &x, const VecX &u,
+                                            MatX &dtau_dx, MatX &dtau_du,
+                                            const uint k = 0) const;
+
     VecX randomState(const uint stage) const;
     VecX randomControls(const uint stage) const;
 
@@ -707,6 +742,19 @@ class Model
       const std::vector<uint> &unactuated_joints, const VecX &ddq,
       _ReducedInverseDynamicsScratch &scratch,
       const std::vector<Vec6> &joint_forces, const MatX &Jf_full) const;
+
+    /** Derivatives of getActuatedTorqueVectorDerivatives for
+     * ReducedInverseDynamics mode: composes
+     * _calculateReducedInverseFullAcceleration/Derivatives with the RNEA
+     * torque derivatives (see getActuatedTorqueVectorDerivatives), then
+     * restricts to the actuated joints' rows
+     */
+    template<bool FloatingBase, bool WithForces>
+    void _getActuatedTorqueVectorReducedDerivatives(const VecX &x,
+                                                    const VecX &u,
+                                                    const uint  k,
+                                                    MatX &dtau_dx,
+                                                    MatX &dtau_du) const;
 
     // Functionality functions
 

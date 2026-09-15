@@ -287,12 +287,14 @@ void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
 // SquaredIDTorqueCost
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model       &model,
                                          const double       weight,
-                                         const std::string &name)
+                                         const std::string &name,
+                                         const uint          k)
   : StageCost(name)
   , _model(std::make_shared<Model>(model))
   , _nq(model.nq())
   , _nv(model.nv())
   , _nu(model.nu())
+  , _k(k)
   , _weight(_nu)
 {
     // clang-format off
@@ -305,12 +307,14 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model       &model,
     _weight.setConstant(weight);
 }
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const VecX &weight,
-                                         const std::string &name)
+                                         const std::string &name,
+                                         const uint          k)
   : StageCost(name)
   , _model(std::make_shared<Model>(model))
   , _nq(model.nq())
   , _nv(model.nv())
   , _nu(model.nu())
+  , _k(k)
   , _weight(weight)
 {
     // clang-format off
@@ -336,12 +340,10 @@ void SquaredIDTorqueCost::set_weight(const VecX &weight)
 
 VecX SquaredIDTorqueCost::evaluate(const VecX &x, const VecX &u) const
 {
-    // TODO: joint forces?
     return (Scalar()
             << 0.5 *
                  (_weight.array() *
-                  _model->inverseDynamics(x.head(_nq), x.tail(_nv), u.head(_nu))
-                    .array())
+                  _model->getActuatedTorqueVector(x, u, _k).array())
                    .matrix()
                    .squaredNorm())
       .finished();
@@ -352,78 +354,45 @@ void SquaredIDTorqueCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 {
     VecX w_tau =
       _weight.array().square() *
-      _model->inverseDynamics(x.head(_nq), x.tail(_nv), u.head(_nu)).array();
+      _model->getActuatedTorqueVector(x, u, _k).array();
 
-    MatX ddq_dq, ddq_dv, M;
-    _model->inverseDynamicsDerivatives(x.head(_nq),
-                                       x.tail(_nv),
-                                       u.head(_nu),
-                                       ddq_dq,
-                                       ddq_dv,
-                                       M);
+    MatX dtau_dx, dtau_du;
+    _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
 
-    dx.setZero(2 * _nv);
-    dx.head(_nv) = ddq_dq.transpose() * w_tau;
-    dx.tail(_nv) = ddq_dv.transpose() * w_tau;
-
-    du.setZero(u.size());
-    du.head(_nu) = M.transpose() * w_tau;
+    dx = dtau_dx.transpose() * w_tau;
+    du = dtau_du.transpose() * w_tau;
 }
 
 void SquaredIDTorqueCost::hessian_xx(const VecX &x, const VecX &u,
                                      MatX &Hxx) const
 {
-    MatX ddq_dq, ddq_dv, M;
-    _model->inverseDynamicsDerivatives(x.head(_nq),
-                                       x.tail(_nv),
-                                       u.head(_nu),
-                                       ddq_dq,
-                                       ddq_dv,
-                                       M);
-
-    Hxx.resize(2 * _nv, 2 * _nv);
+    MatX dtau_dx, dtau_du;
+    _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
 
     MatX W2 = _weight.array().square().matrix().asDiagonal();
 
-    Hxx.topLeftCorner(_nv, _nv)     = ddq_dq.transpose() * W2 * ddq_dq;
-    Hxx.topRightCorner(_nv, _nv)    = ddq_dq.transpose() * W2 * ddq_dv;
-    Hxx.bottomLeftCorner(_nv, _nv)  = Hxx.topRightCorner(_nv, _nv).transpose();
-    Hxx.bottomRightCorner(_nv, _nv) = ddq_dv.transpose() * W2 * ddq_dv;
+    Hxx = dtau_dx.transpose() * W2 * dtau_dx;
 }
 
 void SquaredIDTorqueCost::hessian_xu(const VecX &x, const VecX &u,
                                      MatX &Hxu) const
 {
-    MatX ddq_dq, ddq_dv, M;
-    _model->inverseDynamicsDerivatives(x.head(_nq),
-                                       x.tail(_nv),
-                                       u.head(_nu),
-                                       ddq_dq,
-                                       ddq_dv,
-                                       M);
-
-    Hxu.resize(2 * _nv, u.size());
+    MatX dtau_dx, dtau_du;
+    _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
 
     MatX W2 = _weight.array().square().matrix().asDiagonal();
 
-    Hxu.topRows(_nv)    = ddq_dq.transpose() * W2 * M;
-    Hxu.bottomRows(_nv) = ddq_dv.transpose() * W2 * M;
+    Hxu = dtau_dx.transpose() * W2 * dtau_du;
 }
 
 void SquaredIDTorqueCost::hessian_uu(const VecX &x, const VecX &u,
                                      MatX &Huu) const
 {
-    MatX ddq_dq, ddq_dv, M;
-    _model->inverseDynamicsDerivatives(x.head(_nq),
-                                       x.tail(_nv),
-                                       u.head(_nu),
-                                       ddq_dq,
-                                       ddq_dv,
-                                       M);
+    MatX dtau_dx, dtau_du;
+    _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
 
-    Huu.resize(u.size(), u.size());
-
-    Huu = M.transpose() * _weight.array().square().matrix().asDiagonal() * M;
+    Huu = dtau_du.transpose() * _weight.array().square().matrix().asDiagonal() *
+          dtau_du;
 }
 
 // SquaredForceCost

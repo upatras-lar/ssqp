@@ -1488,5 +1488,83 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
         dtau_daj.col(i) = dtau_da.col(offset + actuated_joints[i]);
     }
 }
+
+template<bool FloatingBase, bool WithForces>
+void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
+                                                        const VecX &u,
+                                                        const uint  k,
+                                                        MatX &dtau_dx,
+                                                        MatX &dtau_du) const
+{
+    VecX q    = x.head(_dims.nq);
+    VecX v    = x.tail(_dims.nv);
+    VecX ctrl = u.head(_dims.nu);
+    VecX f    = u.tail(3 * _forces[k].size());
+
+    _ReducedInverseDynamicsScratch scratch;
+    std::vector<Vec6> joint_forces(_dims.total_joints);
+    MatX               Jf_full(3 * _forces[k].size(), _dims.nv);
+
+    VecX ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
+                                                        WithForces>(
+      q,
+      v,
+      ctrl,
+      f,
+      _forces[k],
+      _actuated_joints,
+      _unactuated_joints,
+      scratch,
+      joint_forces,
+      Jf_full);
+
+    _calculateReducedInverseFullAccelerationDerivatives<FloatingBase,
+                                                        WithForces>(
+      q,
+      v,
+      ctrl,
+      f,
+      _forces[k],
+      _actuated_joints,
+      _unactuated_joints,
+      ddq,
+      scratch,
+      joint_forces,
+      Jf_full);
+
+    const MatX &dtau_dq = scratch.dtau_dq;
+    const MatX &dtau_dv = scratch.dtau_dv;
+    const MatX &dtau_da = scratch.dtau_da;
+    const MatX &da_dq   = scratch.da_dq;
+    const MatX &da_dv   = scratch.da_dv;
+    const MatX &da_daj  = scratch.da_daj;
+
+    MatX dX_full(_dims.nv, 2 * _dims.nv);
+    MatX dU_full(_dims.nv, _dims.nu + 3 * _forces[k].size());
+
+    dX_full.leftCols(_dims.nv)  = dtau_dq + dtau_da * da_dq;
+    dX_full.rightCols(_dims.nv) = dtau_dv + dtau_da * da_dv;
+    dU_full.leftCols(_dims.nu)  = dtau_da * da_daj;
+
+    if constexpr (WithForces)
+    {
+        const MatX &da_df = scratch.da_df;
+
+        dU_full.rightCols(3 * _forces[k].size()) =
+          -Jf_full.transpose() + dtau_da * da_df;
+    }
+
+    uint offset = FloatingBase ? 6 : 0;
+
+    dtau_dx.resize(_dims.nu, 2 * _dims.nv);
+    dtau_du.resize(_dims.nu, u.size());
+
+    for (uint i = 0; i < _dims.nu; ++i)
+    {
+        uint true_i = offset + _actuated_joints[i];
+        dtau_dx.row(i) = dX_full.row(true_i);
+        dtau_du.row(i) = dU_full.row(true_i);
+    }
+}
 }
 }

@@ -304,25 +304,36 @@ void bind_Costs(nb::module_ &m)
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
 
         where:
-         - $\boldsymbol{\tau}$ is the torque caused by the controls
+         - $\boldsymbol{\tau}$ is the actuated-joint torque caused by the controls
          - $\boldsymbol{w}$ is the weight on the torque term
 
         Note that this cost assumes inverse dynamics is being used (i.e. treats
         controls as accelerations)
 
         Assumes:
-         - The model is in Inverse Dynamics mode, such that the state is made up of
-           configuration and velocity and the controls are made up of accelerations
-           (including base) and potential forces
+         - The model is in Inverse Dynamics or Reduced Inverse Dynamics mode,
+           such that the state is made up of configuration and velocity and
+           the controls are made up of accelerations (including base, for
+           Inverse Dynamics; actuated joints only, for Reduced Inverse
+           Dynamics) and potential forces
+
+        `k` (the model stage) only matters when there are forces present at
+        that stage. Construct one instance per stage (rather than sharing a
+        single instance across stages via Model.addCost) whenever forces
+        vary between the stages a cost is added to
         )doc")
-      .def(nb::init<const Model &, const double, const std::string &>(),
+      .def(nb::init<const Model &, const double, const std::string &,
+                    const uint>(),
            nb::arg("model"),
            nb::arg("weight"),
-           nb::arg("name") = "")
-      .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::arg("name") = "",
+           nb::arg("k")    = 0)
+      .def(nb::init<const Model &, const VecX &, const std::string &,
+                    const uint>(),
            nb::arg("model"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("name") = "",
+           nb::arg("k")    = 0)
       .def("set_weight",
            static_cast<void (SquaredIDTorqueCost::*)(const double)>(
              &SquaredIDTorqueCost::set_weight),

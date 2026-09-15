@@ -82,6 +82,13 @@ std::shared_ptr<Test> get_squared_joint_velocity_cost_grad_test();
 std::shared_ptr<Test> get_squared_joint_velocity_cost_floating_base_grad_test();
 std::shared_ptr<Test> get_squared_control_cost_grad_test();
 std::shared_ptr<Test> get_squared_ID_torque_cost_grad_test();
+std::shared_ptr<Test> get_squared_ID_torque_cost_reduced_grad_test(
+  const uint seed = 42);
+std::shared_ptr<Test> get_squared_ID_torque_cost_floating_base_grad_test(
+  const uint seed = 42);
+std::shared_ptr<Test>
+get_squared_ID_torque_cost_reduced_floating_base_grad_test(
+  const uint seed = 42);
 std::shared_ptr<Test> get_squared_force_cost_grad_test();
 std::shared_ptr<Test> get_squared_configuration_error_cost_grad_test();
 std::shared_ptr<Test>

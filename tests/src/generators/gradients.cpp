@@ -1112,6 +1112,130 @@ std::shared_ptr<Test> get_squared_ID_torque_cost_grad_test()
     return cost_test;
 }
 
+std::shared_ptr<Test> get_squared_ID_torque_cost_reduced_grad_test(
+  const uint seed)
+{
+    std::mt19937 rng(seed);
+
+    model::Model::Structure model_structure;
+    model_structure.urdf_path   = "examples/assets/urdf/panda/panda.urdf";
+    model_structure.free_flyer  = false;
+    model_structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    set_model_unactuated_joints(model, rng);
+
+    for (uint k = 0; k < model->dims().horizon; ++k)
+    {
+        model
+          ->addCost<model::stagewise::predefined::costs::SquaredIDTorqueCost>(
+            k,
+            *model.get(),
+            0.74);
+    }
+
+    model
+      ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+        2,
+        *model.get(),
+        1.0);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("SquaredIDTorqueCostReducedGradTest",
+                                   model,
+                                   0,
+                                   100,
+                                   1e-5);
+
+    return cost_test;
+}
+
+std::shared_ptr<Test> get_squared_ID_torque_cost_floating_base_grad_test(
+  const uint seed)
+{
+    std::mt19937 rng(seed);
+
+    model::Model::Structure model_structure;
+    model_structure.urdf_path   = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer  = true;
+    model_structure.solver_mode = model::SolverMode::InverseDynamics;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    add_forces_to_model(model, rng);
+
+    for (uint k = 0; k < model->dims().horizon; ++k)
+    {
+        model
+          ->addCost<model::stagewise::predefined::costs::SquaredIDTorqueCost>(
+            k,
+            *model.get(),
+            0.74);
+    }
+
+    model
+      ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+        2,
+        *model.get(),
+        1.0);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("SquaredIDTorqueCostFloatingBaseGradTest",
+                                   model,
+                                   0,
+                                   100,
+                                   1e-4);
+
+    return cost_test;
+}
+
+std::shared_ptr<Test>
+get_squared_ID_torque_cost_reduced_floating_base_grad_test(const uint seed)
+{
+    std::mt19937 rng(seed);
+
+    model::Model::Structure model_structure;
+    model_structure.urdf_path   = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer  = true;
+    model_structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    add_forces_to_model(model, rng);
+    set_model_unactuated_joints(model, rng);
+
+    for (uint k = 0; k < model->dims().horizon; ++k)
+    {
+        model
+          ->addCost<model::stagewise::predefined::costs::SquaredIDTorqueCost>(
+            k,
+            *model.get(),
+            0.74);
+    }
+
+    model
+      ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+        2,
+        *model.get(),
+        1.0);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
+      "SquaredIDTorqueCostReducedFloatingBaseGradTest",
+      model,
+      0,
+      100,
+      1e-4);
+
+    return cost_test;
+}
+
 std::shared_ptr<Test> get_squared_force_cost_grad_test()
 {
     model::Model::Structure model_structure;

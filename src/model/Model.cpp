@@ -1418,6 +1418,120 @@ VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,
     }
 }
 
+VecX Model::getActuatedTorqueVector(const VecX &x, const VecX &u,
+                                    const uint k) const
+{
+    VecX q = x.head(_dims.nq);
+    VecX v = x.tail(_dims.nv);
+
+    if (_solver_mode == SolverMode::ReducedInverseDynamics)
+    {
+        VecX full_accel = getFullAccelerationVector(x, u, k);
+
+        VecX tau;
+
+        if (_forces[k].empty())
+        {
+            tau = inverseDynamics(q, v, full_accel);
+        }
+        else
+        {
+            std::vector<Vec6> joint_forces(_dims.total_joints);
+            _calculateJointForces(q,
+                                  u.tail(3 * _forces[k].size()),
+                                  _forces[k],
+                                  joint_forces);
+            tau = inverseDynamics(q, v, full_accel, joint_forces);
+        }
+
+        uint offset = _free_flyer ? 6 : 0;
+        VecX tau_act(_dims.nu);
+
+        for (uint i = 0; i < _dims.nu; ++i)
+        {
+            tau_act[i] = tau[offset + _actuated_joints[i]];
+        }
+
+        return tau_act;
+    }
+
+    // InverseDynamics (non-reduced): the acceleration control is the full
+    // acceleration vector, and every joint is actuated (nu == nv)
+    VecX a = u.head(_dims.nv);
+
+    if (_forces[k].empty())
+    {
+        return inverseDynamics(q, v, a);
+    }
+
+    std::vector<Vec6> joint_forces(_dims.total_joints);
+    _calculateJointForces(q, u.tail(3 * _forces[k].size()), _forces[k],
+                          joint_forces);
+
+    return inverseDynamics(q, v, a, joint_forces);
+}
+
+void Model::getActuatedTorqueVectorDerivatives(const VecX &x, const VecX &u,
+                                               MatX &dtau_dx, MatX &dtau_du,
+                                               const uint k) const
+{
+    if (_solver_mode == SolverMode::ReducedInverseDynamics)
+    {
+        auto ct_floating_base = to_compile_time(_free_flyer);
+        auto ct_with_forces   = to_compile_time(!_forces[k].empty());
+
+        std::visit(
+          [this, &x, &u, k, &dtau_dx, &dtau_du](auto fb, auto wf)
+          {
+              _getActuatedTorqueVectorReducedDerivatives<fb.value, wf.value>(
+                x,
+                u,
+                k,
+                dtau_dx,
+                dtau_du);
+          },
+          ct_floating_base,
+          ct_with_forces);
+
+        return;
+    }
+
+    VecX q = x.head(_dims.nq);
+    VecX v = x.tail(_dims.nv);
+    VecX a = u.head(_dims.nv);
+
+    MatX dtau_dq, dtau_dv, M;
+
+    dtau_dx.resize(_dims.nv, 2 * _dims.nv);
+    dtau_du.setZero(_dims.nv, u.size());
+
+    if (_forces[k].empty())
+    {
+        inverseDynamicsDerivatives(q, v, a, dtau_dq, dtau_dv, M);
+
+        dtau_du.leftCols(_dims.nv) = M;
+    }
+    else
+    {
+        std::vector<Vec6> joint_forces(_dims.total_joints);
+        MatX               Jf_full(3 * _forces[k].size(), _dims.nv);
+
+        _calculateJointForcesAndJacobian(q,
+                                         u.tail(3 * _forces[k].size()),
+                                         _forces[k],
+                                         joint_forces,
+                                         Jf_full);
+
+        inverseDynamicsDerivatives(q, v, a, joint_forces, dtau_dq, dtau_dv, M);
+
+        dtau_du.leftCols(_dims.nv)                = M;
+        dtau_du.rightCols(3 * _forces[k].size())  = -Jf_full.transpose();
+    }
+
+    dtau_dx.leftCols(_dims.nv)  = dtau_dq;
+    dtau_dx.rightCols(_dims.nv) = dtau_dv;
+}
+
 VecX Model::randomState(const uint stage) const
 {
     // TODO: Velocity limit

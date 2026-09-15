@@ -132,26 +132,34 @@ class SquaredControlCost : public StageCost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2$
  * where:
- *  - $\boldsymbol{\tau}$ is the torque caused by the controls
+ *  - $\boldsymbol{\tau}$ is the actuated-joint torque caused by the controls
+ *    (see Model::getActuatedTorqueVector)
  *  - $\boldsymbol{w}$ is the weight on the torque term
- * 
+ *
  * Note that this cost assumes inverse dynamics is being used (i.e. treats
  * controls as accelerations)
- * 
+ *
  * Assumes:
- *  - The model is in Inverse Dynamics mode, such that the state is made up of
- *    configuration and velocity and the controls are made up of accelerations
- *    (including base) and potential forces
+ *  - The model is in Inverse Dynamics or Reduced Inverse Dynamics mode, such
+ *    that the state is made up of configuration and velocity and the
+ *    controls are made up of accelerations (including base, for Inverse
+ *    Dynamics; actuated joints only, for Reduced Inverse Dynamics) and
+ *    potential forces
+ *
+ * `k` (the model stage) only matters when there are forces present at that
+ * stage; it selects which of those forces this cost accounts for, since a
+ * cost added at multiple stages otherwise has no way to know which one it's
+ * currently being evaluated at. Construct one instance per stage (rather
+ * than sharing a single instance across stages via Model::addCost) whenever
+ * forces vary between the stages a cost is added to
  */
-// TODO: Take into account any joint forces
-// TODO: Make for ReducedInverse
 class SquaredIDTorqueCost : public StageCost
 {
   public:
     SquaredIDTorqueCost(const Model &model, const double weight,
-                        const std::string &name = "");
+                        const std::string &name = "", const uint k = 0);
     SquaredIDTorqueCost(const Model &model, const VecX &weight,
-                        const std::string &name = "");
+                        const std::string &name = "", const uint k = 0);
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
@@ -165,7 +173,7 @@ class SquaredIDTorqueCost : public StageCost
 
   protected:
     const std::shared_ptr<Model> _model;
-    const uint                   _nq, _nv, _nu;
+    const uint                   _nq, _nv, _nu, _k;
     VecX                         _weight;
 };
 
