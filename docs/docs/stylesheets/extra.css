@@ -19,3 +19,26 @@
 [data-md-color-scheme="default"][data-md-color-primary="black"] .md-nav--primary .md-nav__title[for="__drawer"] {
   background-color: hsl(225deg 12% 18%);
 }
+
+.tolerance-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 1em 0;
+  position: sticky;
+  top: var(--tolerance-select-top, 2.4rem);
+  z-index: 2;
+  background-color: var(--md-default-bg-color);
+  padding: 0.5em 0.75em;
+  border-radius: 0.2em;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.tolerance-select select {
+  font: inherit;
+  color: inherit;
+  background-color: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2em;
+  padding: 0.2em 0.4em;
+}

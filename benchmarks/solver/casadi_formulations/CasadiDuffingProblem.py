@@ -241,7 +241,7 @@ class CasadiDuffingProblem:
 
         opti.solver(plugin, solve_params)
 
-        if self._jit_opts is _JIT_OPTIONS:
+        if self._jit_opts is _JIT_OPTIONS or plugin == "fatrop":
             # opti.solver() above only selects the plugin/options; the
             # NLP's own derivative functions (nlp_jac_g, nlp_hess_l, ...)
             # aren't actually built, and therefore not JIT-compiled, until
@@ -249,10 +249,16 @@ class CasadiDuffingProblem:
             # warm-up that one-time gcc compile+link cost would land inside
             # the timed region below on every solve(), instead of being paid
             # once ahead of time as --jit intends
+            # Fatrop's structure_detection="manual" pays its own one-time
+            # cost on that same first solve() call, unrelated to --jit --
+            # CasADi has to translate the flat NLP Jacobian/Hessian into
+            # Fatrop's per-stage block layout, and that translation scales
+            # far worse than linearly with per-stage size, so it needs the
+            # same warm-up treatment regardless of whether --jit is set
             # Reusing this same Opti/nlpsol instance for a throwaway
-            # untimed solve forces that compilation now, whether it
-            # converges is irrelevant, only that it exercises every
-            # derivative path the real solve will need
+            # untimed solve forces both of these one-time costs now,
+            # whether it converges is irrelevant, only that it exercises
+            # every derivative path the real solve will need
             # The initial guess is then reset back to the cold-start
             # values so the timed solve below still measures genuine
             # from-scratch convergence, with the same iteration count as

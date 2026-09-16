@@ -48,14 +48,14 @@ python plot.py pendubot -q hpipm
 The same [Pendubot Swing-Up](examples/pendubot.md) problem as in the solver benchmarks, run here with a randomized
 target configuration per problem, comparing `ForwardDynamics` against `InverseDynamics`.
 
-<img src="../assets/solver_modes_pendubot.png" style="display: block; margin: 0 auto; max-width: 90%; border-radius: 8px;">
+<img src="../assets/solver_modes_pendubot.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
 
 ## Panda
 
 The Franka Panda reaching random targets within its feasible region, comparing `ForwardDynamics` against
 `InverseDynamics`.
 
-<img src="../assets/solver_modes_panda.png" style="display: block; margin: 0 auto; max-width: 90%; border-radius: 8px;">
+<img src="../assets/solver_modes_panda.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
 
 ## Go2
 
@@ -63,21 +63,22 @@ The Go2 quadruped walking to a randomized target pose, comparing all three dynam
 `InverseDynamics`, and `ReducedInverseDynamics` (which propagates the unactuated floating base implicitly instead of
 constraining it explicitly).
 
-<img src="../assets/solver_modes_go2.png" style="display: block; margin: 0 auto; max-width: 90%; border-radius: 8px;">
+<img src="../assets/solver_modes_go2.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
 
 ## Go2 Multi Jump
 
 The Go2 performing five jumps in place, landing on a different combination of feet in each gap between jumps (see
 [Go2 Multi-Jump](gallery.md#go2-multi-jump)). Unlike the models above, this problem keeps the same fixed
 choreography across runs rather than randomizing targets, so only a single generated problem is benchmarked per
-mode; there's no convergence trace to aggregate into a plot, just that one run's runtime, iteration count, and
-final cost, using HPIPM.
+mode; there's no convergence trace to aggregate into a plot, just that one run's runtime, iteration count, final
+cost, and constraint violation, using HPIPM. Constraint violation is the same worst per-stage quantity described
+above (bounds and dynamics-transition defect), against the shared tolerance of `1e-2`.
 
-| Dynamics Mode | Runtime | Iterations | Final Cost |
-| --- | --- | --- | --- |
-| `ForwardDynamics` | 257.3 s | 936 | 0.0463 |
-| `InverseDynamics` | 310.5 s | 1000\* | 0.0337 |
-| `ReducedInverseDynamics` | 47.9 s | 174 | 0.0456 |
+| Dynamics Mode | Runtime | Iterations | Final Cost | Constraint Violation |
+| --- | :---: | :---: | :---: | :---: |
+| `ForwardDynamics` | 257.3 s | 936 | 0.0463 | 0.129 |
+| `InverseDynamics` | 310.5 s | 1000\* | 0.0337 | 4261.8 |
+| `ReducedInverseDynamics` | 47.9 s | 174 | 0.0456 | 0.253 |
 
 \* Hit the 1000-iteration cap without meeting the solver's convergence criterion.
 
@@ -86,8 +87,8 @@ final cost, using HPIPM.
 The Unitree G1 humanoid jumping vertically in place (see [G1 Jump](gallery.md#g1-jump)). Same single
 fixed-choreography problem setup as [Go2 Multi Jump](#go2-multi-jump), benchmarked with HPIPM.
 
-| Dynamics Mode | Runtime | Iterations | Final Cost |
-| --- | --- | --- | --- |
-| `ForwardDynamics` | 215.0 s | 244 | 0.7592 |
-| `InverseDynamics` | 37.4 s | 46 | 0.7530 |
-| `ReducedInverseDynamics` | 12.8 s | 17 | 0.7549 |
+| Dynamics Mode | Runtime | Iterations | Final Cost | Constraint Violation |
+| --- | :---: | :---: | :---: | :---: |
+| `ForwardDynamics` | 215.0 s | 244 | 0.7592 | 0.154 |
+| `InverseDynamics` | 37.4 s | 46 | 0.7530 | 0.198 |
+| `ReducedInverseDynamics` | 12.8 s | 17 | 0.7549 | 0.032 |

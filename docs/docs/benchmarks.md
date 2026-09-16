@@ -30,6 +30,18 @@ every solver's own termination criterion for an exact match isn't practical.
     SSQP is faster or higher-quality than any of the others; the goal is to give a rough sense of where SSQP sits
     relative to the state of the art on a shared set of problems, not to crown a winner.
 
+<div class="tolerance-select">
+  <label for="benchmark-tolerance"><strong>Tolerance:</strong></label>
+  <select id="benchmark-tolerance">
+    <option value="0_001">1e-3</option>
+    <option value="0_005">5e-3</option>
+    <option value="0_01" selected>1e-2 (default)</option>
+    <option value="0_05">5e-2</option>
+    <option value="0_1">1e-1</option>
+  </select>
+  <span>&mdash; every plot below updates to match the selected tolerance.</span>
+</div>
+
 ## Problem sizes
 
 The problems range from Pendubot's long, low-dimensional swing-up to Go2 Frog's short but heavily constrained,
@@ -80,6 +92,14 @@ python run_benchmark.py [problem] -s [solver]
 python plot_benchmarks.py pendubot
 ```
 
+The [Coupled Oscillators](#coupled-oscillators) problems below are swept over problem size instead, via
+`--duffing-grid-m`/`--duffing-grid-horizon`, and rendered with `plot_grid_search.py`:
+
+```bash
+python run_benchmark.py duffing_local --all-solvers --duffing-grid-m 2 4 16 64 256 --duffing-grid-horizon 20 100 200 500 1000
+python plot_grid_search.py duffing_local --duffing-grid-m 2 4 16 64 256 --duffing-grid-horizon 20 100 200 500 1000
+```
+
 ## Pendubot
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
@@ -89,7 +109,7 @@ python plot_benchmarks.py pendubot
 The [Pendubot Swing-Up](examples/pendubot.md) problem: an underactuated double pendulum swinging from hanging to
 upright, actuated at the shoulder joint only.
 
-<img src="../assets/pendubot_benchmark.png" style="display: block; margin: 0 auto; max-width: 70%; border-radius: 8px;">
+<img src="../assets/pendubot_benchmark_tol_0_01.png" data-benchmark="pendubot" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Go2 Standing
 
@@ -100,7 +120,7 @@ upright, actuated at the shoulder joint only.
 The Go2 quadruped holding a fixed standing configuration, all four feet in contact throughout, with no other motion
 target. A short, contact-heavy but otherwise static regulation problem.
 
-<img src="../assets/go2_standing_benchmark.png" style="display: block; margin: 0 auto; max-width: 70%; border-radius: 8px;">
+<img src="../assets/go2_standing_benchmark_tol_0_01.png" data-benchmark="go2_standing" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Go2 Jump
 
@@ -111,7 +131,7 @@ target. A short, contact-heavy but otherwise static regulation problem.
 The [Go2 Jump](examples/go2-jump.md) problem: stance, flight, stance, with all four feet leaving the ground for a
 scheduled window in the middle and landing back at a specified footprint. In this case, the front left foot has _no contact_ and, therefore, should always remain in air.
 
-<img src="../assets/go2_jump_benchmark.png" style="display: block; margin: 0 auto; max-width: 70%; border-radius: 8px;">
+<img src="../assets/go2_jump_benchmark_tol_0_01.png" data-benchmark="go2_jump" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Go2 Wheelie
 
@@ -124,7 +144,7 @@ lift off for a window in the middle and come back down at the end. Unlike [Go2 J
 trajectory for the freed feet; the standing-configuration cost is what pulls them (and the rest of the robot) back
 down once the window closes.
 
-<img src="../assets/go2_wheelie_benchmark.png" style="display: block; margin: 0 auto; max-width: 70%; border-radius: 8px;">
+<img src="../assets/go2_wheelie_benchmark_tol_0_01.png" data-benchmark="go2_wheelie" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Go2 Frog
 
@@ -136,7 +156,7 @@ A longer, four-hop bounding motion 2 meters forward, with staggered per-leg lift
 windows between hops rather than Go2 Jump's single synchronized flight phase. The same motion also appears, run
 directly rather than through the benchmark harness, as [Go2 Frog](gallery.md#go2-frog) in the Gallery.
 
-<img src="../assets/go2_frog_benchmark.png" style="display: block; margin: 0 auto; max-width: 70%; border-radius: 8px;">
+<img src="../assets/go2_frog_benchmark_tol_0_01.png" data-benchmark="go2_frog" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Panda Circle
 
@@ -149,4 +169,24 @@ constrained to a rectangular window inscribed in that circle, same as
 [Panda Circle (Trajectory Generation)](examples/panda-circle-trajgen.md), reformulated here in
 `ForwardDynamics` mode (torque-actuated) so every backend solves an equivalent problem.
 
-<img src="../assets/panda_circle_benchmark.png" style="display: block; margin: 0 auto; max-width: 70%; border-radius: 8px;">
+<img src="../assets/panda_circle_benchmark_tol_0_01.png" data-benchmark="panda_circle" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+
+## Coupled Oscillators
+
+A scalable benchmark instead of a fixed-size one: `m` weakly-coupled Duffing oscillators (state
+`x = [q_1, ..., q_m, v_1, ..., v_m]`, one control force per oscillator), swept over both `m` and the horizon to see
+how each solver scales with problem size. Two coupling topologies are benchmarked: `duffing_local`, where
+oscillator `i` only interacts with its immediate neighbors (a discrete Laplacian), and `duffing_global`, where
+every oscillator interacts with every other one through a sinusoidal coupling term.
+
+Each plot below lines runtime (left axis, solid) and iterations (right axis, dashed) per solver, faceted by the
+other swept variable; a missing point means that solver wasn't run at that grid point, while a point where the
+solver ran but didn't converge is marked with a red X.
+
+### Local Coupling
+
+<img src="../assets/duffing_local_benchmark_tol_0_01.png" data-benchmark="duffing_local" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+
+### Global Coupling
+
+<img src="../assets/duffing_global_benchmark_tol_0_01.png" data-benchmark="duffing_global" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">

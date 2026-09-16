@@ -3,7 +3,7 @@ site_description: Structure-exploiting Sequential Quadratic Programming for Opti
 repo_url: https://github.com/upatras-lar/ssqp
 repo_name: upatras-lar/ssqp
 edit_uri: edit/main/docs/docs/
-dev_addr: 'localhost:8000'
+dev_addr: '150.140.184.35:8000'
 
 hooks:
   - hooks/fix_mkdoxy.py
@@ -102,6 +102,7 @@ extra_css:
 extra_javascript:
   - javascripts/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+  - javascripts/benchmark-tolerance.js
 
 plugins:
   - search

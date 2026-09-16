@@ -31,6 +31,15 @@ def pretty_label(stem, prefix):
     return stem.replace(prefix, "").replace("_", " ").title()
 
 
+def axis_log_scale(values):
+    """Whether an axis plotting these values should use a log scale --
+    true once the largest and smallest positive values are far enough
+    apart (>=10x) that a linear scale would flatten the smaller ones to
+    invisibility"""
+    positive = [v for v in values if v is not None and np.isfinite(v) and v > 0]
+    return len(positive) >= 2 and max(positive) / min(positive) >= 10
+
+
 def style_axis(ax, xlabel, ylabel, title):
     ax.set_facecolor(CHART_SURFACE)
     ax.set_title(
@@ -268,7 +277,7 @@ for filepath in files:
     label = pretty_label(filepath.stem, result_prefix)
     all_data[label] = collect_problem_solved_statistics(filepath)
 
-fig, axes = plt.subplots(1, 3, figsize=(15, 5), facecolor=PAGE_PLANE)
+fig, axes = plt.subplots(3, 1, figsize=(5, 10), facecolor=PAGE_PLANE)
 fig.suptitle(
     f"{args.model.replace('_', ' ').title()} — {args.qp_solver.upper()}",
     fontsize=13,
@@ -299,10 +308,14 @@ style_axis(ax1, "SQP Iteration", "Converged Problems [%]", "Problems Solved")
 # =========================
 ax2 = axes[1]
 
+cost_values = []
 for i, filepath in enumerate(files):
     label = pretty_label(filepath.stem, result_prefix)
 
     median, p25, p75 = collect_cost_statistics(filepath)
+    cost_values.extend(median)
+    cost_values.extend(p25)
+    cost_values.extend(p75)
 
     x = np.arange(1, len(median) + 1)
     color = PALETTE[i % len(PALETTE)]
@@ -313,7 +326,8 @@ for i, filepath in enumerate(files):
     # Interquartile band (25–75%)
     ax2.fill_between(x, p25, p75, alpha=0.15, color=color, linewidth=0)
 
-ax2.set_yscale("log")
+if axis_log_scale(cost_values):
+    ax2.set_yscale("log")
 style_axis(ax2, "SQP Iteration", "Cost", "Cost")
 
 # =========================
@@ -321,10 +335,14 @@ style_axis(ax2, "SQP Iteration", "Cost", "Cost")
 # =========================
 ax3 = axes[2]
 
+violation_values = []
 for i, filepath in enumerate(files):
     label = pretty_label(filepath.stem, result_prefix)
 
     median, p25, p75 = collect_violation_statistics(filepath)
+    violation_values.extend(median)
+    violation_values.extend(p25)
+    violation_values.extend(p75)
 
     x = np.arange(1, len(median) + 1)
     color = PALETTE[i % len(PALETTE)]
@@ -335,7 +353,8 @@ for i, filepath in enumerate(files):
     # Interquartile band (25–75%)
     ax3.fill_between(x, p25, p75, alpha=0.15, color=color, linewidth=0)
 
-ax3.set_yscale("log")
+if axis_log_scale(violation_values):
+    ax3.set_yscale("log")
 style_axis(
     ax3, "SQP Iteration", "Constraint Violations", "Constraint Violation"
 )

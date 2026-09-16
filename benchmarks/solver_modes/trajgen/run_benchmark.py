@@ -80,12 +80,27 @@ def parse_args():
         ),
     )
 
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=None,
+        help=(
+            "Maximum number of model/mode combinations to run at once, "
+            "each in its own process. Defaults to running all of them "
+            "concurrently, uncapped."
+        ),
+    )
+
     args = parser.parse_args()
 
     if args.all_problems == (args.model is not None):
         parser.error(
             "pass exactly one of a model or --all-problems, not both/neither"
         )
+
+    if args.jobs is not None and args.jobs < 1:
+        parser.error("--jobs must be at least 1")
 
     return args
 
@@ -267,18 +282,13 @@ args = parse_args()
 
 models = list(MODEL_MODES.keys()) if args.all_problems else [args.model]
 
-processes = [
-    multiprocessing.Process(
-        target=run,
-        args=(model, mode, args.qp_solver, args.n_problems, args.horizon),
-    )
+tasks = [
+    (model, mode, args.qp_solver, args.n_problems, args.horizon)
     for model in models
     for mode in (args.modes or MODEL_MODES[model])
     if mode in MODEL_MODES[model]
 ]
 
-for p in processes:
-    p.start()
-
-for p in processes:
-    p.join()
+if tasks:
+    with multiprocessing.Pool(processes=args.jobs or len(tasks)) as pool:
+        pool.starmap(run, tasks)

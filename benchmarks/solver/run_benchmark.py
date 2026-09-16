@@ -1,5 +1,9 @@
 import argparse
 import os
+import subprocess
+import sys
+import threading
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 # Must be set before numpy/aligator/etc (imported below) load their BLAS
 # backend, since large problems (e.g. duffing_local/global at a big
@@ -13,6 +17,18 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 from common.benchmark_config import TOLERANCE, tolerance_label
 from common.problems import *
+
+
+def _read_meminfo_kb(key):
+    with open("/proc/meminfo") as f:
+        for line in f:
+            if line.startswith(key + ":"):
+                return int(line.split()[1])
+    raise RuntimeError(f"{key} not found in /proc/meminfo")
+
+
+def total_memory_bytes():
+    return _read_meminfo_kb("MemTotal") * 1024
 
 
 def parse_args():
@@ -138,7 +154,9 @@ def parse_args():
             "Cartesian product of this list and --duffing-grid-horizon, "
             "instead of a single run. Both must be given together, in "
             "place of --duffing-m/--duffing-horizon, and --problem must be "
-            "duffing_local or duffing_global."
+            "duffing_local or duffing_global. With --all-problems, the grid "
+            "applies only to duffing_local/duffing_global; every other "
+            "problem still runs a single run per solver."
         ),
     )
 
@@ -150,12 +168,80 @@ def parse_args():
         help="The horizon side of --duffing-grid-m's grid search.",
     )
 
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help=(
+            "Skip a run if its output JSON file already exists, instead of "
+            "re-running it and overwriting the file. Useful for resuming a "
+            "large sweep after a crash or a partial run."
+        ),
+    )
+
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=1,
+        help=(
+            "Number of runs (problem/solver/tolerance/grid-point "
+            "combinations) to execute at once. Each run happens in its own "
+            "subprocess (re-invoking this script for a single run), which "
+            "also works around a CasADi JIT bug that leaks a file "
+            "descriptor per compiled function (see --jit): staying in one "
+            "process for a long sweep would otherwise accumulate leaked "
+            "descriptors until the OS's open-file limit is hit."
+        ),
+    )
+
+    parser.add_argument(
+        "--memory-budget-fraction",
+        type=float,
+        default=0.9,
+        help=(
+            "When running more than one job (see --jobs), cap the total "
+            "memory the scheduler will let concurrently-running runs "
+            "reserve to this fraction of total system RAM. Each run's own "
+            "share is estimated up front (a formula based on m/horizon for "
+            "duffing_local/duffing_global, or a flat ~2 GiB for every "
+            "other problem, see estimate_memory_bytes()) and reserved the "
+            "moment it launches, before the OS shows any real usage, so "
+            "the budget accounts for runs that haven't ramped up their "
+            "memory use yet -- not just runs the OS already reports as "
+            "using memory. A run that doesn't fit is queued until enough "
+            "already-running runs finish and release their share."
+        ),
+    )
+
+    parser.add_argument(
+        "--max-memory-retries",
+        type=int,
+        default=3,
+        help=(
+            "How many times to re-queue a run that gets killed by the "
+            "OS's OOM killer (i.e. our own estimate under-predicted its "
+            "real memory use and the system ran out despite "
+            "--memory-budget-fraction) before giving up on it and "
+            "reporting it as a failure. Only applies to runs dispatched "
+            "as their own subprocess (see --jobs); an OOM kill on a lone "
+            "run (neither --all-problems/--all-solvers nor a grid "
+            "search) is reported immediately."
+        ),
+    )
+
     return parser.parse_args()
 
 
 args = parse_args()
 if not args.all_problems and args.problem is None:
     raise SystemExit("Either a problem or --all-problems must be given.")
+if args.jobs < 1:
+    raise SystemExit("--jobs must be at least 1")
+if not 0 < args.memory_budget_fraction <= 1:
+    raise SystemExit("--memory-budget-fraction must be between 0 (exclusive) and 1")
+if args.max_memory_retries < 0:
+    raise SystemExit("--max-memory-retries must be at least 0")
+
 inverse_dynamics = args.dynamics_mode == "inverse"
 tolerances_to_run = args.tolerance
 
@@ -215,10 +301,14 @@ if grid_search and (
         "--duffing-grid-m/--duffing-grid-horizon replace --duffing-m/"
         "--duffing-horizon for a grid search, don't combine them"
     )
-if grid_search and (args.all_problems or args.problem not in DUFFING_PROBLEMS):
+if (
+    grid_search
+    and not args.all_problems
+    and args.problem not in DUFFING_PROBLEMS
+):
     raise SystemExit(
-        "--duffing-grid-m/--duffing-grid-horizon need a single --problem "
-        "of duffing_local or duffing_global, not --all-problems"
+        "--duffing-grid-m/--duffing-grid-horizon need --problem to be "
+        "duffing_local or duffing_global, or --all-problems"
     )
 
 if args.all_solvers:
@@ -648,62 +738,288 @@ def run_solver(problem, solver):
     problem_wrapper.save(save_path + output_name + ".json")
 
 
+# Must match the presets in common/problems.py's make_duffing_local/
+# global_problem: used below both to predict a duffing run's output
+# filename for --skip-existing, and as the (m, horizon) a run without an
+# explicit --duffing-m/--duffing-horizon actually solves, for
+# estimate_memory_bytes()
+DUFFING_DEFAULT_M = 16
+DUFFING_DEFAULT_HORIZON = 80
+
+
+def expected_output_path(problem, solver, tolerance, duffing_m, duffing_horizon):
+    """Predict the JSON path run_solver() will save for this combination.
+
+    Mirrors run_solver()'s own output_name construction, so --skip-existing
+    can check for the file before paying for a subprocess/solve.
+    """
+    save_path = f"data/{solver}/".replace("-", "_")
+    output_name = problem
+    if inverse_dynamics:
+        output_name += "_inverse_dynamics"
+    if problem in DUFFING_PROBLEMS and (
+        duffing_m is not None or duffing_horizon is not None
+    ):
+        m = duffing_m if duffing_m is not None else DUFFING_DEFAULT_M
+        horizon = (
+            duffing_horizon
+            if duffing_horizon is not None
+            else DUFFING_DEFAULT_HORIZON
+        )
+        output_name += f"_m{m}_N{horizon}"
+    output_name += f"_tol_{tolerance_label(tolerance)}"
+    return save_path + output_name + ".json"
+
+
+# Rough model of a duffing run's peak memory, used to reserve its share of
+# --memory-budget-fraction before it launches (see run_in_subprocess):
+# state dim nx=2m, control dim nu=m, so a per-stage dense block (the
+# dominant term for Riccati/dense-block solvers like SSQP/HPIPM, and a
+# generous upper bound for the sparser CasADi/Aligator/crocoddyl
+# formulations) is (nx+nu) x (nx+nu) floats, summed over the horizon.
+# DUFFING_MEM_BYTES_PER_ELEMENT covers a handful of such matrices a solver
+# plausibly keeps at once (factorization, forward/backward pass, ...).
+# These are rough defaults, not a calibrated model -- tune them if a real
+# sweep shows the estimate is consistently too high or too low.
+DUFFING_MEM_BASE_BYTES = 512 * 1024**2  # fixed overhead: Python + imports
+DUFFING_MEM_BYTES_PER_ELEMENT = 32
+NON_DUFFING_MEMORY_ESTIMATE_BYTES = 2 * 1024**3  # flat guess, see --memory-budget-fraction
+
+# Spot-checked against one real measurement (duffing_local, m=128,
+# horizon=500, --jit where applicable): actual/predicted peak RSS was
+# ssqp-admm 1.17x, ssqp-hpipm 1.24x, fatrop 3.61x, ipopt 0.17x, aligator
+# 2.06x, mim_solvers 0.70x, rounded up here for some safety margin. Only
+# one data point per solver, not a calibrated curve -- revisit if a real
+# sweep shows a solver's estimate is consistently off.
+# fatrop's multiplier is the least trustworthy of the six: at that same
+# size it also took ~19 minutes of pure NLP setup (CasADi building
+# Fatrop's block-structured Jacobian/Hessian for structure_detection=
+# "manual"), vs. single-digit seconds for every other solver on the exact
+# same problem, apparently scaling worse than linearly with problem size.
+# That's a wall-clock risk this memory multiplier can't capture -- expect
+# fatrop to dominate a sweep's runtime at large duffing sizes regardless.
+DUFFING_SOLVER_MEM_MULTIPLIER = {
+    "ssqp-admm": 1.25,
+    "ssqp-hpipm": 1.3,
+    "fatrop": 4.0,
+    "ipopt": 0.3,
+    "aligator": 2.25,
+    "mim_solvers": 0.85,
+}
+
+
+def estimate_memory_bytes(problem, solver, duffing_m, duffing_horizon):
+    if problem not in DUFFING_PROBLEMS:
+        return NON_DUFFING_MEMORY_ESTIMATE_BYTES
+    m = duffing_m if duffing_m is not None else DUFFING_DEFAULT_M
+    horizon = (
+        duffing_horizon if duffing_horizon is not None else DUFFING_DEFAULT_HORIZON
+    )
+    nx, nu = 2 * m, m
+    base_estimate = (
+        DUFFING_MEM_BASE_BYTES
+        + DUFFING_MEM_BYTES_PER_ELEMENT * (nx + nu) ** 2 * horizon
+    )
+    return int(base_estimate * DUFFING_SOLVER_MEM_MULTIPLIER[solver])
+
+
+def build_run_command(problem, solver, tolerance, duffing_m, duffing_horizon):
+    """Re-invoke this script for a single problem/solver/tolerance run.
+
+    Used to run each item of a sweep in its own subprocess, so a leaked fd
+    (e.g. CasADi's JIT compiler leaking one per compiled function, see
+    --jit) can't accumulate across a long sweep and exhaust the open-file
+    limit.
+    """
+    cmd = [
+        sys.executable,
+        os.path.abspath(__file__),
+        problem,
+        "-s",
+        solver,
+        "-t",
+        str(tolerance),
+    ]
+    if inverse_dynamics:
+        cmd += ["--dynamics-mode", "inverse"]
+    if args.verbose:
+        cmd.append("--verbose")
+    if args.jit:
+        cmd.append("--jit")
+    if duffing_m is not None:
+        cmd += ["--duffing-m", str(duffing_m)]
+    if duffing_horizon is not None:
+        cmd += ["--duffing-horizon", str(duffing_horizon)]
+    return cmd
+
+
+# Tracks how much of --memory-budget-fraction is currently reserved by
+# still-running runs (see estimate_memory_bytes()), so a new run's
+# admission decision accounts for runs that haven't shown up in the OS's
+# own memory accounting yet, not just runs whose usage is already visible
+MEMORY_BUDGET_BYTES = int(total_memory_bytes() * args.memory_budget_fraction)
+_memory_cv = threading.Condition()
+_reserved_bytes = 0
+
+
+def _reserve_memory(label, amount):
+    global _reserved_bytes
+    with _memory_cv:
+        if _reserved_bytes > 0 and _reserved_bytes + amount > MEMORY_BUDGET_BYTES:
+            print(
+                f"{label}: waiting for memory budget "
+                f"({_reserved_bytes / 1024**3:.1f} GiB already reserved, "
+                f"needs {amount / 1024**3:.1f} GiB, budget is "
+                f"{MEMORY_BUDGET_BYTES / 1024**3:.1f} GiB)..."
+            )
+        # Only block on other runs' reservations, not on this one alone:
+        # a single run whose own estimate exceeds the whole budget still
+        # has to run eventually, so let it through once nothing else is
+        # holding a reservation instead of deadlocking forever
+        while _reserved_bytes > 0 and _reserved_bytes + amount > MEMORY_BUDGET_BYTES:
+            _memory_cv.wait()
+        _reserved_bytes += amount
+
+
+def _release_memory(amount):
+    global _reserved_bytes
+    with _memory_cv:
+        _reserved_bytes -= amount
+        _memory_cv.notify_all()
+
+
+def run_in_subprocess(item, attempt):
+    label, banner, cmd, estimate = item
+    retry_note = f" (retry {attempt})" if attempt else ""
+    _reserve_memory(label, estimate)
+    try:
+        print(banner + retry_note)
+        result = subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
+    finally:
+        _release_memory(estimate)
+
+    if result.returncode == 0:
+        return "ok", attempt
+
+    stderr_lines = result.stderr.strip().splitlines()
+    err = stderr_lines[-1] if stderr_lines else f"exit code {result.returncode}"
+    # -9 is SIGKILL: our own estimate under-predicted and the OS's OOM
+    # killer stepped in
+    out_of_memory = result.returncode == -9
+    if out_of_memory:
+        print(f"{label} ran out of memory{retry_note}: {err}")
+        return "memory", attempt
+    print(f"{label} failed{retry_note}: {err}")
+    return "failed", attempt
+
+
+def run_items(items):
+    """Run every item in its own subprocess, up to --jobs at once.
+
+    An out-of-memory failure (see run_in_subprocess) is re-queued instead
+    of being reported right away, up to --max-memory-retries times.
+    """
+    failures = []
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        futures = {
+            pool.submit(run_in_subprocess, item, 0): item for item in items
+        }
+        while futures:
+            done, _ = wait(futures, return_when=FIRST_COMPLETED)
+            for future in done:
+                item = futures.pop(future)
+                status, attempt = future.result()
+                if status == "ok":
+                    continue
+                if status == "memory" and attempt < args.max_memory_retries:
+                    futures[
+                        pool.submit(run_in_subprocess, item, attempt + 1)
+                    ] = item
+                else:
+                    failures.append(item[0])
+    return failures
+
+
 for tolerance in tolerances_to_run:
     if len(tolerances_to_run) > 1:
         print(f"##### tolerance = {tolerance:g} #####")
 
-    if grid_search:
-        problem = problems_to_run[0]
-        failures = []
-        total = (
-            len(args.duffing_grid_m)
-            * len(args.duffing_grid_horizon)
-            * len(solvers)
-        )
-        for m in args.duffing_grid_m:
-            for horizon in args.duffing_grid_horizon:
-                # run_solver() reads these off args itself (see its
-                # constructor_parameters["m"]/["horizon"] handling), so
-                # setting them here is what actually drives each grid point
-                args.duffing_m = m
-                args.duffing_horizon = horizon
-                for solver in solvers:
-                    print(
-                        f"=== {problem} / {solver} / m={m}, horizon={horizon} ==="
-                    )
-                    try:
-                        run_solver(problem, solver)
-                    except Exception as exc:
-                        print(
-                            f"{problem}/{solver}/m={m}_N={horizon} failed: {exc}"
-                        )
-                        failures.append(
-                            f"{problem}/{solver}/m={m}_N={horizon}"
-                        )
-
-        print()
-        print(
-            f"{total - len(failures)}/{total} runs terminated without crashing."
-        )
-        if failures:
-            print(f"Failed: {', '.join(failures)}")
-    elif len(problems_to_run) == 1 and len(solvers) == 1:
-        run_solver(problems_to_run[0], solvers[0])
+    if not grid_search and len(problems_to_run) == 1 and len(solvers) == 1:
+        problem, solver = problems_to_run[0], solvers[0]
+        if args.skip_existing and os.path.exists(
+            expected_output_path(
+                problem, solver, tolerance, args.duffing_m, args.duffing_horizon
+            )
+        ):
+            print(f"Skipping {problem}/{solver}: output file already exists")
+        else:
+            run_solver(problem, solver)
     else:
-        failures = []
+        items = []
+        skipped = 0
         for problem in problems_to_run:
-            for solver in solvers:
-                print(f"=== {problem} / {solver} ===")
-                try:
-                    run_solver(problem, solver)
-                except Exception as exc:
-                    print(f"{problem}/{solver} failed: {exc}")
-                    failures.append(f"{problem}/{solver}")
+            if grid_search and problem in DUFFING_PROBLEMS:
+                for m in args.duffing_grid_m:
+                    for horizon in args.duffing_grid_horizon:
+                        for solver in solvers:
+                            label = f"{problem}/{solver}/m={m}_N={horizon}"
+                            if args.skip_existing and os.path.exists(
+                                expected_output_path(
+                                    problem, solver, tolerance, m, horizon
+                                )
+                            ):
+                                print(
+                                    f"Skipping {label}: output file already exists"
+                                )
+                                skipped += 1
+                                continue
+                            banner = (
+                                f"=== {problem} / {solver} / m={m}, "
+                                f"horizon={horizon} ==="
+                            )
+                            cmd = build_run_command(
+                                problem, solver, tolerance, m, horizon
+                            )
+                            estimate = estimate_memory_bytes(
+                                problem, solver, m, horizon
+                            )
+                            items.append((label, banner, cmd, estimate))
+            else:
+                for solver in solvers:
+                    label = f"{problem}/{solver}"
+                    if args.skip_existing and os.path.exists(
+                        expected_output_path(
+                            problem,
+                            solver,
+                            tolerance,
+                            args.duffing_m,
+                            args.duffing_horizon,
+                        )
+                    ):
+                        print(f"Skipping {label}: output file already exists")
+                        skipped += 1
+                        continue
+                    banner = f"=== {problem} / {solver} ==="
+                    cmd = build_run_command(
+                        problem,
+                        solver,
+                        tolerance,
+                        args.duffing_m,
+                        args.duffing_horizon,
+                    )
+                    estimate = estimate_memory_bytes(
+                        problem, solver, args.duffing_m, args.duffing_horizon
+                    )
+                    items.append((label, banner, cmd, estimate))
 
-        total = len(problems_to_run) * len(solvers)
+        failures = run_items(items)
+
+        total = len(items)
         print()
         print(
             f"{total - len(failures)}/{total} runs terminated without crashing."
         )
+        if skipped:
+            print(f"{skipped} run(s) skipped (output file already exists).")
         if failures:
             print(f"Failed: {', '.join(failures)}")

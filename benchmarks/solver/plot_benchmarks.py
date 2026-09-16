@@ -18,6 +18,7 @@ Example
     python plot_benchmarks.py go2_standing
     python plot_benchmarks.py pendubot --show
     python plot_benchmarks.py pendubot --tolerance 1e-3
+    python plot_benchmarks.py pendubot --tolerance 1e-2 1e-3
     python plot_benchmarks.py --all-problems
 """
 
@@ -81,8 +82,12 @@ def _parse_args():
         "-t",
         "--tolerance",
         type=float,
-        default=TOLERANCE,
-        help="Convergence tolerance the results to plot were run with.",
+        nargs="+",
+        default=[TOLERANCE],
+        help=(
+            "Convergence tolerance the results to plot were run with. "
+            "Provide multiple values to plot each one."
+        ),
     )
     parser.add_argument(
         "--all-problems",
@@ -224,7 +229,9 @@ def _use_plain_log_labels(axis):
     axis.set_minor_formatter(mticker.NullFormatter())
 
 
-def plot_results(problem, results, tolerance, output, show, duffing_label=None):
+def plot_results(
+    problem, results, tolerance, output, show, duffing_label=None
+):
     # Select a non-interactive backend unless the user explicitly requests a
     # window, which keeps the script usable in Docker/CI without a display
     import matplotlib
@@ -362,26 +369,29 @@ if __name__ == "__main__":
         )
     problems_to_plot = ALL_PROBLEMS if args.all_problems else [args.problem]
 
+    single_run = not args.all_problems and len(args.tolerance) == 1
+
     for problem in problems_to_plot:
         suffix = _duffing_suffix(problem, args.duffing_m, args.duffing_horizon)
         duffing_label = _duffing_label(
             problem, args.duffing_m, args.duffing_horizon
         )
-        try:
-            results = load_results(
-                args.data_dir, problem, args.tolerance, suffix
+        for tolerance in args.tolerance:
+            try:
+                results = load_results(
+                    args.data_dir, problem, tolerance, suffix
+                )
+            except SystemExit as exc:
+                if single_run:
+                    raise
+                print(exc)
+                continue
+            if args.output and single_run:
+                output = args.output
+            else:
+                output = _default_output(
+                    args.data_dir, problem, tolerance, suffix
+                )
+            plot_results(
+                problem, results, tolerance, output, args.show, duffing_label
             )
-        except SystemExit as exc:
-            if not args.all_problems:
-                raise
-            print(exc)
-            continue
-        if args.output and not args.all_problems:
-            output = args.output
-        else:
-            output = _default_output(
-                args.data_dir, problem, args.tolerance, suffix
-            )
-        plot_results(
-            problem, results, args.tolerance, output, args.show, duffing_label
-        )
