@@ -10,17 +10,16 @@ import time
 import casadi as ca
 import numpy as np
 
+from common.jit_cache import (
+    base_jit_options,
+    jit_function_options,
+    named_jit_options,
+)
 from common.oscillators import CoupledDuffingOCP, DuffingConfig
 
-# Same rationale as CasadiProblem's _JIT_OPTIONS: JIT-compile each cached
-# dynamics/cost ca.Function individually (built once, called at every
-# stage) rather than the whole assembled NLP
-_JIT_OPTIONS = {
-    "jit": True,
-    "compiler": "shell",
-    "jit_options": {"compiler": "gcc", "flags": ["-O3"]},
-}
-_NO_JIT_OPTIONS = {}
+# Same rationale as CasadiProblem's ca.Function jit options: JIT-compile
+# each cached dynamics/cost ca.Function individually (built once, called
+# at every stage) rather than the whole assembled NLP.
 
 
 class CasadiDuffingProblem:
@@ -33,8 +32,14 @@ class CasadiDuffingProblem:
         self.dt = dt
         self.problem = CoupledDuffingOCP(duffing_config)
         self.casadi_plugin = cp.get("casadi_plugin", "ipopt")
-        self._jit_opts = (
-            _JIT_OPTIONS if cp.get("jit", False) else _NO_JIT_OPTIONS
+        self._jit_enabled = bool(cp.get("jit", False))
+        self._cold_start = bool(cp.get("cold_start", False))
+        self._jit_opts = jit_function_options(
+            base_jit_options(cp.get("jit_opt_level", "O3")),
+            self._jit_enabled,
+            self.casadi_plugin,
+            repr(duffing_config),
+            horizon,
         )
 
         self.N = horizon + 1
@@ -59,6 +64,11 @@ class CasadiDuffingProblem:
         # only so run_benchmark.py's generic dispatch (which calls
         # finalize() before solve()) has something to call
         pass
+
+    def _jit_fn(self, name, inputs, outputs):
+        return ca.Function(
+            name, inputs, outputs, named_jit_options(self._jit_opts, name)
+        )
 
     # Cached symbolic dynamics/cost, built once in SX and reused via
     # ca.Function at every stage (same rationale as CasadiProblem's
@@ -101,7 +111,7 @@ class CasadiDuffingProblem:
         q_next = q + self.dt * v
         x_next = ca.vertcat(q_next, v_next)
 
-        fn = ca.Function("f_duffing_dyn", [q, v, u], [x_next], self._jit_opts)
+        fn = self._jit_fn("f_duffing_dyn", [q, v, u], [x_next])
         self._dyn_fn = fn
         return fn
 
@@ -131,9 +141,7 @@ class CasadiDuffingProblem:
             + 0.25 * cfg.quartic_cost * ca.sumsqr(q**2)
         )
 
-        fn = ca.Function(
-            "f_duffing_stage_cost", [q, v, u], [value], self._jit_opts
-        )
+        fn = self._jit_fn("f_duffing_stage_cost", [q, v, u], [value])
         self._stage_cost_fn = fn
         return fn
 
@@ -154,9 +162,7 @@ class CasadiDuffingProblem:
             + 0.25 * cfg.terminal_quartic_cost * ca.sumsqr(q**2)
         )
 
-        fn = ca.Function(
-            "f_duffing_terminal_cost", [q, v], [value], self._jit_opts
-        )
+        fn = self._jit_fn("f_duffing_terminal_cost", [q, v], [value])
         self._terminal_cost_fn = fn
         return fn
 
@@ -241,28 +247,10 @@ class CasadiDuffingProblem:
 
         opti.solver(plugin, solve_params)
 
-        if self._jit_opts is _JIT_OPTIONS or plugin == "fatrop":
-            # opti.solver() above only selects the plugin/options; the
-            # NLP's own derivative functions (nlp_jac_g, nlp_hess_l, ...)
-            # aren't actually built, and therefore not JIT-compiled, until
-            # this solver instance's first solve() call, so without this
-            # warm-up that one-time gcc compile+link cost would land inside
-            # the timed region below on every solve(), instead of being paid
-            # once ahead of time as --jit intends
-            # Fatrop's structure_detection="manual" pays its own one-time
-            # cost on that same first solve() call, unrelated to --jit --
-            # CasADi has to translate the flat NLP Jacobian/Hessian into
-            # Fatrop's per-stage block layout, and that translation scales
-            # far worse than linearly with per-stage size, so it needs the
-            # same warm-up treatment regardless of whether --jit is set
-            # Reusing this same Opti/nlpsol instance for a throwaway
-            # untimed solve forces both of these one-time costs now,
-            # whether it converges is irrelevant, only that it exercises
-            # every derivative path the real solve will need
-            # The initial guess is then reset back to the cold-start
-            # values so the timed solve below still measures genuine
-            # from-scratch convergence, with the same iteration count as
-            # without this warm-up
+        if self._jit_enabled or plugin == "fatrop" or self._cold_start:
+            # Throwaway solve to force one-time costs (JIT compile,
+            # Fatrop's structure_detection setup) out of the timed region
+            # below; initial guess gets reset afterwards
             try:
                 opti.solve()
             except RuntimeError:

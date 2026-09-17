@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument(
         "-s",
         "--solver",
-        nargs="?",
+        nargs="+",
         choices=[
             "ssqp-admm",
             "ssqp-hpipm",
@@ -62,8 +62,11 @@ def parse_args():
             "aligator",
             "mim_solvers",
         ],
-        default="ssqp-admm",
-        help="The solver to benchmark. Ignored if --all-solvers is given.",
+        default=["ssqp-admm"],
+        help=(
+            "The solver(s) to benchmark. Provide multiple values to run "
+            "each. Ignored if --all-solvers is given."
+        ),
     )
 
     parser.add_argument(
@@ -108,6 +111,32 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--jit-opt-level",
+        choices=["O0", "O1", "O2", "O3"],
+        default="O3",
+        help=(
+            "gcc optimization level for --jit's generated C code. Lower "
+            "this for problems where -O3 takes hours or never finishes "
+            "(e.g. duffing at a large --duffing-m); -O0 trades slower "
+            "generated code for a compile that actually completes. Only "
+            "meaningful with --jit."
+        ),
+    )
+
+    parser.add_argument(
+        "--cold-start",
+        action="store_true",
+        help=(
+            "For the CasADi-based solvers (fatrop/ipopt) only: run one "
+            "untimed throwaway solve first so the timed solve doesn't pay "
+            "for one-time setup costs (JIT compile, Fatrop's "
+            "structure_detection='manual'). Fatrop and any --jit run "
+            "already do this unconditionally; this extends it to Ipopt "
+            "without --jit."
+        ),
+    )
+
+    parser.add_argument(
         "--dynamics-mode",
         choices=["forward", "inverse"],
         default="forward",
@@ -125,47 +154,34 @@ def parse_args():
     parser.add_argument(
         "--duffing-m",
         type=int,
+        nargs="+",
         default=None,
         help=(
             "Only meaningful for duffing_local/duffing_global: number of "
             "coupled oscillators (state dimension nx=2m, control dimension "
-            "nu=m). Defaults to the problem's own preset (16) if omitted."
+            "nu=m). Defaults to the problem's own preset (16) if omitted. "
+            "Provide multiple values (together with a multi-valued "
+            "--duffing-horizon, or on its own) to run a grid search: every "
+            "solver already selected (--solver or --all-solvers) is run "
+            "against every (m, horizon) combination in the Cartesian "
+            "product of this and --duffing-horizon, instead of a single "
+            "run. With --all-problems, the grid applies only to "
+            "duffing_local/duffing_global; every other problem still runs "
+            "a single run per solver."
         ),
     )
 
     parser.add_argument(
         "--duffing-horizon",
         type=int,
+        nargs="+",
         default=None,
         help=(
             "Only meaningful for duffing_local/duffing_global: OCP horizon. "
-            "Defaults to the problem's own preset (80) if omitted."
+            "Defaults to the problem's own preset (80) if omitted. Provide "
+            "multiple values to run a grid search against --duffing-m (see "
+            "its help)."
         ),
-    )
-
-    parser.add_argument(
-        "--duffing-grid-m",
-        type=int,
-        nargs="+",
-        default=None,
-        help=(
-            "Grid search: run every solver already selected (--solver or "
-            "--all-solvers) against every (m, horizon) combination in the "
-            "Cartesian product of this list and --duffing-grid-horizon, "
-            "instead of a single run. Both must be given together, in "
-            "place of --duffing-m/--duffing-horizon, and --problem must be "
-            "duffing_local or duffing_global. With --all-problems, the grid "
-            "applies only to duffing_local/duffing_global; every other "
-            "problem still runs a single run per solver."
-        ),
-    )
-
-    parser.add_argument(
-        "--duffing-grid-horizon",
-        type=int,
-        nargs="+",
-        default=None,
-        help="The horizon side of --duffing-grid-m's grid search.",
     )
 
     parser.add_argument(
@@ -219,9 +235,7 @@ def parse_args():
         default=3,
         help=(
             "How many times to re-queue a run that gets killed by the "
-            "OS's OOM killer (i.e. our own estimate under-predicted its "
-            "real memory use and the system ran out despite "
-            "--memory-budget-fraction) before giving up on it and "
+            "OS's OOM killer before giving up on it and "
             "reporting it as a failure. Only applies to runs dispatched "
             "as their own subprocess (see --jobs); an OOM kill on a lone "
             "run (neither --all-problems/--all-solvers nor a grid "
@@ -238,7 +252,9 @@ if not args.all_problems and args.problem is None:
 if args.jobs < 1:
     raise SystemExit("--jobs must be at least 1")
 if not 0 < args.memory_budget_fraction <= 1:
-    raise SystemExit("--memory-budget-fraction must be between 0 (exclusive) and 1")
+    raise SystemExit(
+        "--memory-budget-fraction must be between 0 (exclusive) and 1"
+    )
 if args.max_memory_retries < 0:
     raise SystemExit("--max-memory-retries must be at least 0")
 
@@ -285,31 +301,23 @@ if (
         f"duffing_global, not --problem {args.problem}"
     )
 
-grid_search = (
-    args.duffing_grid_m is not None or args.duffing_grid_horizon is not None
+duffing_m_list = args.duffing_m if args.duffing_m is not None else [None]
+duffing_horizon_list = (
+    args.duffing_horizon if args.duffing_horizon is not None else [None]
 )
-if grid_search and (
-    args.duffing_grid_m is None or args.duffing_grid_horizon is None
-):
-    raise SystemExit(
-        "--duffing-grid-m and --duffing-grid-horizon must be given together"
-    )
-if grid_search and (
-    args.duffing_m is not None or args.duffing_horizon is not None
-):
-    raise SystemExit(
-        "--duffing-grid-m/--duffing-grid-horizon replace --duffing-m/"
-        "--duffing-horizon for a grid search, don't combine them"
-    )
+grid_search = len(duffing_m_list) * len(duffing_horizon_list) > 1
 if (
     grid_search
     and not args.all_problems
     and args.problem not in DUFFING_PROBLEMS
 ):
     raise SystemExit(
-        "--duffing-grid-m/--duffing-grid-horizon need --problem to be "
-        "duffing_local or duffing_global, or --all-problems"
+        "--duffing-m/--duffing-horizon with multiple values need --problem "
+        "to be duffing_local or duffing_global, or --all-problems"
     )
+
+duffing_m_scalar = duffing_m_list[0] if not grid_search else None
+duffing_horizon_scalar = duffing_horizon_list[0] if not grid_search else None
 
 if args.all_solvers:
     solvers = [
@@ -324,10 +332,11 @@ if args.all_solvers:
             "not supported for them."
         )
 else:
-    if inverse_dynamics and args.solver in INVERSE_UNSUPPORTED:
+    unsupported = [s for s in args.solver if s in INVERSE_UNSUPPORTED]
+    if inverse_dynamics and unsupported:
         raise SystemExit(
             "--dynamics-mode inverse is not supported for "
-            f"--solver {args.solver} (see --help for why)"
+            f"--solver {', '.join(unsupported)} (see --help for why)"
         )
     if (
         not args.all_problems
@@ -338,12 +347,12 @@ else:
             f"--dynamics-mode inverse is not meaningful for {args.problem} "
             "(it has no robot dynamics to invert)"
         )
-    solvers = [args.solver]
+    solvers = args.solver
 
 # Outer-iteration caps, sized per problem from observed convergence behavior
 MAX_ITER_BY_PROBLEM = {
     "pendubot": 500,
-    "go2_standing": 200,
+    "go2_standing": 500,
     "go2_jump": 1000,
     "go2_wheelie": 1000,
     "go2_frog": 1000,
@@ -378,16 +387,31 @@ PROBLEM_SOLVER_OVERRIDES = {
     ("go2_wheelie", "ssqp-hpipm"): {
         "hpipm_split_step": True,
     },
+    ("go2_frog", "ssqp-hpipm"): {
+        "hpipm_square_root_riccati": False,
+    },
     ("pendubot", "ssqp-admm"): {
         "admm_alpha": 1.8,
     },
+    ("go2_standing", "ssqp-admm"): {
+        "admm_reset_rho": False,
+        "admm_reset_y": False,
+    },
     ("go2_jump", "ssqp-admm"): {
         "admm_alpha": 1.8,
+        "admm_max_iter": 300,
+        "admm_reset_rho": False,
+        "admm_reset_y": False,
     },
     ("go2_wheelie", "ssqp-admm"): {
         "admm_reset_rho": False,
         "admm_reset_y": False,
         "admm_alpha": 1.0,
+    },
+    ("go2_frog", "ssqp-admm"): {
+        "admm_max_iter": 300,
+        "admm_reset_rho": False,
+        "admm_reset_y": False,
     },
     ("pendubot", "mim_solvers"): {
         "reset_rho": False,
@@ -395,14 +419,23 @@ PROBLEM_SOLVER_OVERRIDES = {
         "update_rho_with_heuristic": False,
     },
     ("go2_standing", "mim_solvers"): {
-        "reset_rho": False,
-        "reset_y": False,
+        "reset_rho": True,
+        "reset_y": True,
         "update_rho_with_heuristic": False,
     },
     ("panda_circle", "mim_solvers"): {
         "reset_rho": False,
         "reset_y": False,
         "update_rho_with_heuristic": False,
+    },
+    ("go2_jump", "aligator"): {
+        "mu_init": 0.0005,
+    },
+    ("go2_wheelie", "aligator"): {
+        "mu_init": 0.001,
+    },
+    ("pendubot", "aligator"): {
+        "mu_init": 0.002,
     },
     ("go2_jump", "ipopt"): {
         "ipopt": {"hessian_approximation": "limited-memory"},
@@ -437,10 +470,10 @@ def run_solver(problem, solver):
 
         problem_wrapper_t = SSQPDuffingProblem
 
-        if args.duffing_m is not None:
-            constructor_parameters["m"] = args.duffing_m
-        if args.duffing_horizon is not None:
-            constructor_parameters["horizon"] = args.duffing_horizon
+        if duffing_m_scalar is not None:
+            constructor_parameters["m"] = duffing_m_scalar
+        if duffing_horizon_scalar is not None:
+            constructor_parameters["horizon"] = duffing_horizon_scalar
 
         solve_parameters["tolerance"] = tolerance
         solve_parameters["max_iter"] = max_iter
@@ -515,10 +548,10 @@ def run_solver(problem, solver):
 
         problem_wrapper_t = MimSolversDuffingProblem
 
-        if args.duffing_m is not None:
-            constructor_parameters["m"] = args.duffing_m
-        if args.duffing_horizon is not None:
-            constructor_parameters["horizon"] = args.duffing_horizon
+        if duffing_m_scalar is not None:
+            constructor_parameters["m"] = duffing_m_scalar
+        if duffing_horizon_scalar is not None:
+            constructor_parameters["horizon"] = duffing_horizon_scalar
 
         solve_parameters["tolerance"] = tolerance
         solve_parameters["max_iter"] = max_iter
@@ -580,10 +613,10 @@ def run_solver(problem, solver):
 
         problem_wrapper_t = AligatorDuffingProblem
 
-        if args.duffing_m is not None:
-            constructor_parameters["m"] = args.duffing_m
-        if args.duffing_horizon is not None:
-            constructor_parameters["horizon"] = args.duffing_horizon
+        if duffing_m_scalar is not None:
+            constructor_parameters["m"] = duffing_m_scalar
+        if duffing_horizon_scalar is not None:
+            constructor_parameters["horizon"] = duffing_horizon_scalar
 
         solve_parameters["tol"] = tolerance
         solve_parameters["mu_init"] = 1e-2
@@ -628,12 +661,14 @@ def run_solver(problem, solver):
 
         problem_wrapper_t = CasadiDuffingProblem
 
-        if args.duffing_m is not None:
-            constructor_parameters["m"] = args.duffing_m
-        if args.duffing_horizon is not None:
-            constructor_parameters["horizon"] = args.duffing_horizon
+        if duffing_m_scalar is not None:
+            constructor_parameters["m"] = duffing_m_scalar
+        if duffing_horizon_scalar is not None:
+            constructor_parameters["horizon"] = duffing_horizon_scalar
         constructor_parameters["casadi_plugin"] = solver
         constructor_parameters["jit"] = args.jit
+        constructor_parameters["jit_opt_level"] = args.jit_opt_level
+        constructor_parameters["cold_start"] = args.cold_start
 
         solve_parameters["print_time"] = args.verbose
 
@@ -660,6 +695,8 @@ def run_solver(problem, solver):
 
         constructor_parameters["casadi_plugin"] = solver
         constructor_parameters["jit"] = args.jit
+        constructor_parameters["jit_opt_level"] = args.jit_opt_level
+        constructor_parameters["cold_start"] = args.cold_start
         constructor_parameters["inverse_dynamics"] = inverse_dynamics
         if problem == "pendubot":
             constructor_parameters["actuated_joints"] = [0]
@@ -727,7 +764,7 @@ def run_solver(problem, solver):
     if inverse_dynamics:
         output_name += "_inverse_dynamics"
     if problem in DUFFING_PROBLEMS and (
-        args.duffing_m is not None or args.duffing_horizon is not None
+        duffing_m_scalar is not None or duffing_horizon_scalar is not None
     ):
         # Keeps a scaled run from overwriting the preset's own default-size
         # result (or another scaled run at a different size), without
@@ -747,7 +784,9 @@ DUFFING_DEFAULT_M = 16
 DUFFING_DEFAULT_HORIZON = 80
 
 
-def expected_output_path(problem, solver, tolerance, duffing_m, duffing_horizon):
+def expected_output_path(
+    problem, solver, tolerance, duffing_m, duffing_horizon
+):
     """Predict the JSON path run_solver() will save for this combination.
 
     Mirrors run_solver()'s own output_name construction, so --skip-existing
@@ -771,37 +810,16 @@ def expected_output_path(problem, solver, tolerance, duffing_m, duffing_horizon)
     return save_path + output_name + ".json"
 
 
-# Rough model of a duffing run's peak memory, used to reserve its share of
-# --memory-budget-fraction before it launches (see run_in_subprocess):
-# state dim nx=2m, control dim nu=m, so a per-stage dense block (the
-# dominant term for Riccati/dense-block solvers like SSQP/HPIPM, and a
-# generous upper bound for the sparser CasADi/Aligator/crocoddyl
-# formulations) is (nx+nu) x (nx+nu) floats, summed over the horizon.
-# DUFFING_MEM_BYTES_PER_ELEMENT covers a handful of such matrices a solver
-# plausibly keeps at once (factorization, forward/backward pass, ...).
-# These are rough defaults, not a calibrated model -- tune them if a real
-# sweep shows the estimate is consistently too high or too low.
 DUFFING_MEM_BASE_BYTES = 512 * 1024**2  # fixed overhead: Python + imports
 DUFFING_MEM_BYTES_PER_ELEMENT = 32
-NON_DUFFING_MEMORY_ESTIMATE_BYTES = 2 * 1024**3  # flat guess, see --memory-budget-fraction
+NON_DUFFING_MEMORY_ESTIMATE_BYTES = (
+    2 * 1024**3
+)  # flat guess, see --memory-budget-fraction
 
-# Spot-checked against one real measurement (duffing_local, m=128,
-# horizon=500, --jit where applicable): actual/predicted peak RSS was
-# ssqp-admm 1.17x, ssqp-hpipm 1.24x, fatrop 3.61x, ipopt 0.17x, aligator
-# 2.06x, mim_solvers 0.70x, rounded up here for some safety margin. Only
-# one data point per solver, not a calibrated curve -- revisit if a real
-# sweep shows a solver's estimate is consistently off.
-# fatrop's multiplier is the least trustworthy of the six: at that same
-# size it also took ~19 minutes of pure NLP setup (CasADi building
-# Fatrop's block-structured Jacobian/Hessian for structure_detection=
-# "manual"), vs. single-digit seconds for every other solver on the exact
-# same problem, apparently scaling worse than linearly with problem size.
-# That's a wall-clock risk this memory multiplier can't capture -- expect
-# fatrop to dominate a sweep's runtime at large duffing sizes regardless.
 DUFFING_SOLVER_MEM_MULTIPLIER = {
     "ssqp-admm": 1.25,
     "ssqp-hpipm": 1.3,
-    "fatrop": 4.0,
+    "fatrop": 2.0,
     "ipopt": 0.3,
     "aligator": 2.25,
     "mim_solvers": 0.85,
@@ -813,7 +831,9 @@ def estimate_memory_bytes(problem, solver, duffing_m, duffing_horizon):
         return NON_DUFFING_MEMORY_ESTIMATE_BYTES
     m = duffing_m if duffing_m is not None else DUFFING_DEFAULT_M
     horizon = (
-        duffing_horizon if duffing_horizon is not None else DUFFING_DEFAULT_HORIZON
+        duffing_horizon
+        if duffing_horizon is not None
+        else DUFFING_DEFAULT_HORIZON
     )
     nx, nu = 2 * m, m
     base_estimate = (
@@ -846,6 +866,10 @@ def build_run_command(problem, solver, tolerance, duffing_m, duffing_horizon):
         cmd.append("--verbose")
     if args.jit:
         cmd.append("--jit")
+    if args.jit_opt_level != "O3":
+        cmd += ["--jit-opt-level", args.jit_opt_level]
+    if args.cold_start:
+        cmd.append("--cold-start")
     if duffing_m is not None:
         cmd += ["--duffing-m", str(duffing_m)]
     if duffing_horizon is not None:
@@ -865,7 +889,10 @@ _reserved_bytes = 0
 def _reserve_memory(label, amount):
     global _reserved_bytes
     with _memory_cv:
-        if _reserved_bytes > 0 and _reserved_bytes + amount > MEMORY_BUDGET_BYTES:
+        if (
+            _reserved_bytes > 0
+            and _reserved_bytes + amount > MEMORY_BUDGET_BYTES
+        ):
             print(
                 f"{label}: waiting for memory budget "
                 f"({_reserved_bytes / 1024**3:.1f} GiB already reserved, "
@@ -876,7 +903,10 @@ def _reserve_memory(label, amount):
         # a single run whose own estimate exceeds the whole budget still
         # has to run eventually, so let it through once nothing else is
         # holding a reservation instead of deadlocking forever
-        while _reserved_bytes > 0 and _reserved_bytes + amount > MEMORY_BUDGET_BYTES:
+        while (
+            _reserved_bytes > 0
+            and _reserved_bytes + amount > MEMORY_BUDGET_BYTES
+        ):
             _memory_cv.wait()
         _reserved_bytes += amount
 
@@ -891,18 +921,33 @@ def _release_memory(amount):
 def run_in_subprocess(item, attempt):
     label, banner, cmd, estimate = item
     retry_note = f" (retry {attempt})" if attempt else ""
+    parallel = args.jobs > 1
     _reserve_memory(label, estimate)
     try:
-        print(banner + retry_note)
-        result = subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
+        if parallel:
+            # Captured and printed as one block below instead of streamed
+            # live, since interleaved live output from several jobs isn't
+            # legible anyway
+            result = subprocess.run(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+        else:
+            print(banner + retry_note)
+            result = subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
     finally:
         _release_memory(estimate)
 
     if result.returncode == 0:
+        if parallel:
+            print(f"{banner}{retry_note}\n{result.stdout}", end="")
         return "ok", attempt
 
     stderr_lines = result.stderr.strip().splitlines()
-    err = stderr_lines[-1] if stderr_lines else f"exit code {result.returncode}"
+    err = (
+        stderr_lines[-1] if stderr_lines else f"exit code {result.returncode}"
+    )
+    if parallel:
+        print(f"{banner}{retry_note}\n{result.stdout}", end="")
     # -9 is SIGKILL: our own estimate under-predicted and the OS's OOM
     # killer stepped in
     out_of_memory = result.returncode == -9
@@ -948,7 +993,11 @@ for tolerance in tolerances_to_run:
         problem, solver = problems_to_run[0], solvers[0]
         if args.skip_existing and os.path.exists(
             expected_output_path(
-                problem, solver, tolerance, args.duffing_m, args.duffing_horizon
+                problem,
+                solver,
+                tolerance,
+                duffing_m_scalar,
+                duffing_horizon_scalar,
             )
         ):
             print(f"Skipping {problem}/{solver}: output file already exists")
@@ -959,10 +1008,23 @@ for tolerance in tolerances_to_run:
         skipped = 0
         for problem in problems_to_run:
             if grid_search and problem in DUFFING_PROBLEMS:
-                for m in args.duffing_grid_m:
-                    for horizon in args.duffing_grid_horizon:
+                for m in duffing_m_list:
+                    for horizon in duffing_horizon_list:
+                        # Only the display text needs the resolved default:
+                        # expected_output_path/build_run_command/
+                        # estimate_memory_bytes already resolve None
+                        # themselves
+                        display_m = m if m is not None else DUFFING_DEFAULT_M
+                        display_horizon = (
+                            horizon
+                            if horizon is not None
+                            else DUFFING_DEFAULT_HORIZON
+                        )
                         for solver in solvers:
-                            label = f"{problem}/{solver}/m={m}_N={horizon}"
+                            label = (
+                                f"{problem}/{solver}/"
+                                f"m={display_m}_N={display_horizon}"
+                            )
                             if args.skip_existing and os.path.exists(
                                 expected_output_path(
                                     problem, solver, tolerance, m, horizon
@@ -974,8 +1036,8 @@ for tolerance in tolerances_to_run:
                                 skipped += 1
                                 continue
                             banner = (
-                                f"=== {problem} / {solver} / m={m}, "
-                                f"horizon={horizon} ==="
+                                f"=== {problem} / {solver} / m={display_m}, "
+                                f"horizon={display_horizon} ==="
                             )
                             cmd = build_run_command(
                                 problem, solver, tolerance, m, horizon
@@ -992,8 +1054,8 @@ for tolerance in tolerances_to_run:
                             problem,
                             solver,
                             tolerance,
-                            args.duffing_m,
-                            args.duffing_horizon,
+                            duffing_m_scalar,
+                            duffing_horizon_scalar,
                         )
                     ):
                         print(f"Skipping {label}: output file already exists")
@@ -1004,11 +1066,14 @@ for tolerance in tolerances_to_run:
                         problem,
                         solver,
                         tolerance,
-                        args.duffing_m,
-                        args.duffing_horizon,
+                        duffing_m_scalar,
+                        duffing_horizon_scalar,
                     )
                     estimate = estimate_memory_bytes(
-                        problem, solver, args.duffing_m, args.duffing_horizon
+                        problem,
+                        solver,
+                        duffing_m_scalar,
+                        duffing_horizon_scalar,
                     )
                     items.append((label, banner, cmd, estimate))
 

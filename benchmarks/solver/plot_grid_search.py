@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Plot how runtime and iterations scale with problem size for a Duffing
-oscillator grid search (see run_benchmark.py's
---duffing-grid-m/--duffing-grid-horizon).
+oscillator grid search (see run_benchmark.py's --duffing-m/--duffing-horizon).
 
 Reads the same per-solver JSON files run_benchmark.py writes for every
 (m, horizon) grid point (reusing plot_benchmarks.py's load_results
@@ -19,9 +18,9 @@ marked with a red X on top of its usual marker.
 Example
 -------
     python plot_grid_search.py duffing_local \\
-        --duffing-grid-m 8 16 32 64 --duffing-grid-horizon 20 40 80
+        --duffing-m 8 16 32 64 --duffing-horizon 20 40 80
     python plot_grid_search.py duffing_local \\
-        --duffing-grid-m 8 16 32 64 --duffing-grid-horizon 20 40 80 \\
+        --duffing-m 8 16 32 64 --duffing-horizon 20 40 80 \\
         --tolerance 1e-2 1e-3
 """
 
@@ -43,6 +42,7 @@ from plot_benchmarks import (
     _style_axes,
     _use_plain_log_labels,
     load_results,
+    runtime_unit,
 )
 
 METRICS = (
@@ -59,14 +59,14 @@ def _parse_args():
         help="The Duffing problem the grid search was run on.",
     )
     parser.add_argument(
-        "--duffing-grid-m",
+        "--duffing-m",
         type=int,
         nargs="+",
         required=True,
         help="The m values swept (matches run_benchmark.py's own flag).",
     )
     parser.add_argument(
-        "--duffing-grid-horizon",
+        "--duffing-horizon",
         type=int,
         nargs="+",
         required=True,
@@ -95,11 +95,20 @@ def _parse_args():
         type=Path,
         help="Output image path (default: <data-dir>/plots/...).",
     )
+    parser.add_argument(
+        "-s",
+        "--solvers",
+        nargs="+",
+        choices=list(SOLVER_COLORS),
+        help="Limit the plot to these solvers, instead of every solver with results.",
+    )
     parser.add_argument("--show", action="store_true")
     return parser.parse_args()
 
 
-def load_grid_results(data_dir, problem, tolerance, grid_m, grid_horizon):
+def load_grid_results(
+    data_dir, problem, tolerance, grid_m, grid_horizon, solvers=None
+):
     """{horizon: {m: {solver: benchmark_dict}}}, dropping grid points with
     nothing on disk rather than aborting the whole sweep"""
     grid = {}
@@ -109,7 +118,7 @@ def load_grid_results(data_dir, problem, tolerance, grid_m, grid_horizon):
             suffix = f"_m{m}_N{horizon}"
             try:
                 grid[horizon][m] = load_results(
-                    data_dir, problem, tolerance, suffix
+                    data_dir, problem, tolerance, suffix, solvers
                 )
             except SystemExit:
                 continue
@@ -185,6 +194,8 @@ def _render_block(
     colors,
     log_scale,
     section_title,
+    runtime_divisor,
+    runtime_label,
 ):
     """Draws one column of len(facet_values) panels (m or horizon on the
     x-axis, the other swept variable as facet rows), each combining
@@ -224,7 +235,11 @@ def _render_block(
                         continue
                     value = benchmark.get(key)
                     if value is not None:
-                        ys[i] = value
+                        ys[i] = (
+                            value / runtime_divisor
+                            if key == "runtime_ms"
+                            else value
+                        )
                     if benchmark.get("success") is False:
                         failed_idx.append(i)
                 if np.all(np.isnan(ys)):
@@ -269,7 +284,7 @@ def _render_block(
             f"{facet_label} = {facet}", fontsize=11, fontweight="bold", pad=10
         )
         ax.set_xlabel(x_label, fontsize=10, color=INK_SECONDARY)
-        ax.set_ylabel("Runtime [ms]", fontsize=10, color=INK_SECONDARY)
+        ax.set_ylabel(runtime_label, fontsize=10, color=INK_SECONDARY)
         ax2.set_ylabel("Iterations", fontsize=10, color=INK_SECONDARY)
 
 
@@ -304,6 +319,14 @@ def plot_grid(problem, grid, grid_m, grid_horizon, tolerance, output, show):
             for b in benchmarks.values()
         )
         log_scale[key] = _axis_log_scale(values)
+
+    runtime_values = (
+        b.get("runtime_ms")
+        for m_results in grid.values()
+        for benchmarks in m_results.values()
+        for b in benchmarks.values()
+    )
+    runtime_divisor, runtime_label = runtime_unit(runtime_values)
 
     nrows = max(len(grid_horizon), len(grid_m))
     block_w = 6.3  # one twin-axis panel needs more width than height
@@ -354,7 +377,7 @@ def plot_grid(problem, grid, grid_m, grid_horizon, tolerance, output, show):
     ]
     fig.legend(
         metric_handles,
-        ["Runtime [ms] (left axis)", "Iterations (right axis)"],
+        [f"{runtime_label} (left axis)", "Iterations (right axis)"],
         loc="upper center",
         bbox_to_anchor=(0.5, 1 - 1.0 / fig_h),
         ncol=2,
@@ -375,6 +398,8 @@ def plot_grid(problem, grid, grid_m, grid_horizon, tolerance, output, show):
         colors,
         log_scale,
         "Scaling with m",
+        runtime_divisor,
+        runtime_label,
     )
     _render_block(
         subfig_horizon,
@@ -387,6 +412,8 @@ def plot_grid(problem, grid, grid_m, grid_horizon, tolerance, output, show):
         colors,
         log_scale,
         "Scaling with horizon",
+        runtime_divisor,
+        runtime_label,
     )
 
     handles = [
@@ -427,8 +454,9 @@ if __name__ == "__main__":
             args.data_dir,
             args.problem,
             tolerance,
-            args.duffing_grid_m,
-            args.duffing_grid_horizon,
+            args.duffing_m,
+            args.duffing_horizon,
+            args.solvers,
         )
         output = (
             args.output
@@ -439,8 +467,8 @@ if __name__ == "__main__":
             plot_grid(
                 args.problem,
                 grid,
-                args.duffing_grid_m,
-                args.duffing_grid_horizon,
+                args.duffing_m,
+                args.duffing_horizon,
                 tolerance,
                 output,
                 args.show,

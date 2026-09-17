@@ -30,6 +30,11 @@ import numpy as np
 import pinocchio as pin
 from pinocchio import casadi as cpin
 
+from common.jit_cache import (
+    base_jit_options,
+    jit_function_options,
+    named_jit_options,
+)
 from common.ProblemWrapper import ProblemWrapper
 
 # Optional JIT compilation (run_benchmark.py's --jit flag, threaded
@@ -39,13 +44,7 @@ from common.ProblemWrapper import ProblemWrapper
 # across all H stages, and this is where nearly all of
 # nlp_g/nlp_jac_g/nlp_hess_l's cost lives, so it captures most of
 # codegen's per-iteration speedup without asking gcc to compile one
-# function covering the entire (H-stage) NLP at once
-_JIT_OPTIONS = {
-    "jit": True,
-    "compiler": "shell",
-    "jit_options": {"compiler": "gcc", "flags": ["-O3"]},
-}
-_NO_JIT_OPTIONS = {}
+# function covering the entire (H-stage) NLP at once.
 
 
 class CasadiProblem(ProblemWrapper):
@@ -57,11 +56,20 @@ class CasadiProblem(ProblemWrapper):
         self.free_flyer = bool(cp.get("free_flyer", False))
         self.actuated_joints = cp.get("actuated_joints", None)
         self.friction_coeff = float(cp.get("friction_coeff", 0.6))
-        self._jit_opts = (
-            _JIT_OPTIONS if cp.get("jit", False) else _NO_JIT_OPTIONS
-        )
         self.casadi_plugin = cp.get("casadi_plugin", "ipopt")
         self.inverse_dynamics = bool(cp.get("inverse_dynamics", False))
+        self._jit_enabled = bool(cp.get("jit", False))
+        self._cold_start = bool(cp.get("cold_start", False))
+        self._jit_opts = jit_function_options(
+            base_jit_options(cp.get("jit_opt_level", "O3")),
+            self._jit_enabled,
+            self.casadi_plugin,
+            urdf_path,
+            horizon,
+            self.free_flyer,
+            self.actuated_joints,
+            self.inverse_dynamics,
+        )
 
         # Number of OCP nodes: k = 0 .. horizon inclusive
         self.N = horizon + 1
@@ -235,6 +243,11 @@ class CasadiProblem(ProblemWrapper):
     # embeds the compiled SX graph as a black-box node inside the MX
     # graph, which is exactly what Opti needs
     # ------------------------------------------------------------------
+    def _jit_fn(self, name, inputs, outputs):
+        return ca.Function(
+            name, inputs, outputs, named_jit_options(self._jit_opts, name)
+        )
+
     def _config_error(self, q_mx, desired_config):
         """Config-error residual (MX expr): a full-nq desired config uses
         the proper manifold difference (needed for e.g. the pendubot's
@@ -266,9 +279,7 @@ class CasadiProblem(ProblemWrapper):
         else:
             d_s = ca.SX.sym("d", self.nq - self._base_nq)
             err = q_s[self._base_nq :] - d_s
-        fn = ca.Function(
-            f"f_cfg_err_{mode}", [q_s, d_s], [err], self._jit_opts
-        )
+        fn = self._jit_fn(f"f_cfg_err_{mode}", [q_s, d_s], [err])
         self._cfg_err_fn_cache[mode] = fn
         return fn
 
@@ -291,9 +302,7 @@ class CasadiProblem(ProblemWrapper):
             pin.ReferenceFrame.LOCAL_WORLD_ALIGNED,
         ).linear
         p_z = self.cdata_kin.oMf[fid].translation[2]
-        fn = ca.Function(
-            f"f_kin_{frame}", [q_s, v_s], [v_frame, p_z], self._jit_opts
-        )
+        fn = self._jit_fn(f"f_kin_{frame}", [q_s, v_s], [v_frame, p_z])
         self._frame_kin_fn_cache[frame] = fn
         return fn
 
@@ -309,7 +318,7 @@ class CasadiProblem(ProblemWrapper):
         cpin.forwardKinematics(self.cmodel, self.cdata_kin, q_s)
         cpin.updateFramePlacements(self.cmodel, self.cdata_kin)
         p_frame = self.cdata_kin.oMf[fid].translation
-        fn = ca.Function(f"f_pos_{frame}", [q_s], [p_frame], self._jit_opts)
+        fn = self._jit_fn(f"f_pos_{frame}", [q_s], [p_frame])
         self._frame_pos_fn_cache[frame] = fn
         return fn
 
@@ -325,11 +334,8 @@ class CasadiProblem(ProblemWrapper):
         cpin.forwardKinematics(self.cmodel, self.cdata_kin, q_s)
         cpin.updateFramePlacements(self.cmodel, self.cdata_kin)
         oMf = self.cdata_kin.oMf[fid]
-        fn = ca.Function(
-            f"f_placement_{frame}",
-            [q_s],
-            [oMf.rotation, oMf.translation],
-            self._jit_opts,
+        fn = self._jit_fn(
+            f"f_placement_{frame}", [q_s], [oMf.rotation, oMf.translation]
         )
         self._frame_placement_fn_cache[frame] = fn
         return fn
@@ -352,9 +358,7 @@ class CasadiProblem(ProblemWrapper):
         T = cpin.SE3(R_s, p_s)
         Td = cpin.SE3(Rd_s, pd_s)
         err = cpin.log6(Td.inverse() * T).vector
-        fn = ca.Function(
-            "f_log6", [R_s, p_s, Rd_s, pd_s], [err], self._jit_opts
-        )
+        fn = self._jit_fn("f_log6", [R_s, p_s, Rd_s, pd_s], [err])
         self._log6_fn_cache = fn
         return fn
 
@@ -392,9 +396,7 @@ class CasadiProblem(ProblemWrapper):
         x_next = ca.vertcat(q_next, v_next)
 
         name = "f_dyn_" + ("_".join(frames) if frames else "free")
-        fn = ca.Function(
-            name, [q_s, v_s, tau_act_s, f_feet_s], [x_next], self._jit_opts
-        )
+        fn = self._jit_fn(name, [q_s, v_s, tau_act_s, f_feet_s], [x_next])
         self._dyn_fn_cache[frames] = fn
         return fn
 
@@ -418,7 +420,7 @@ class CasadiProblem(ProblemWrapper):
         q_next = cpin.integrate(self.cmodel, q_s, v_next * self.dt)
         x_next = ca.vertcat(q_next, v_next)
 
-        fn = ca.Function("f_invdyn", [q_s, v_s, a_s], [x_next], self._jit_opts)
+        fn = self._jit_fn("f_invdyn", [q_s, v_s, a_s], [x_next])
         self._invdyn_dyn_fn_cache = fn
         return fn
 
@@ -455,9 +457,7 @@ class CasadiProblem(ProblemWrapper):
         tau_eff = tau
 
         name = "f_effort_" + ("_".join(frames) if frames else "free")
-        fn = ca.Function(
-            name, [q_s, v_s, a_s, f_feet_s], [tau_eff], self._jit_opts
-        )
+        fn = self._jit_fn(name, [q_s, v_s, a_s, f_feet_s], [tau_eff])
         self._invdyn_effort_fn_cache[frames] = fn
         return fn
 
@@ -762,27 +762,7 @@ class CasadiProblem(ProblemWrapper):
 
         opti.solver(plugin, solve_params)
 
-        if self._jit_opts is _JIT_OPTIONS or plugin == "fatrop":
-            # opti.solver() above only selects the plugin/options; the
-            # NLP's own derivative functions (nlp_jac_g, nlp_hess_l, ...)
-            # aren't actually built, and therefore not JIT-compiled, until
-            # this solver instance's first solve() call, so without this
-            # warm-up that one-time gcc compile+link cost would land
-            # inside the timed region below on every solve(), instead of
-            # being paid once ahead of time as --jit intends
-            # Fatrop's structure_detection="manual" pays its own one-time
-            # cost on that same first solve() call, unrelated to --jit --
-            # CasADi has to translate the flat NLP Jacobian/Hessian into
-            # Fatrop's per-stage block layout, and that translation scales
-            # far worse than linearly with per-stage size, so it needs the
-            # same warm-up treatment regardless of whether --jit is set
-            # Reusing this same Opti/nlpsol instance for a throwaway
-            # untimed solve forces both of these one-time costs now,
-            # whether it converges is irrelevant, only that it exercises
-            # every derivative path the real solve will need
-            # The initial guess is then reset back to the cold-start
-            # values so the timed solve below still measures genuine
-            # from-scratch convergence
+        if self._jit_enabled or self._cold_start:
             try:
                 opti.solve()
             except RuntimeError:

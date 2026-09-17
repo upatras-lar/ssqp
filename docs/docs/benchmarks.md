@@ -30,6 +30,14 @@ every solver's own termination criterion for an exact match isn't practical.
     SSQP is faster or higher-quality than any of the others; the goal is to give a rough sense of where SSQP sits
     relative to the state of the art on a shared set of problems, not to crown a winner.
 
+!!! warning "Known gaps"
+    * On the Go2 problems, we were unable to get JIT compilation working, so a fair benchmark for Fatrop and Ipopt
+      (which rely on it) wasn't possible there.
+    * On the contact-switching problems (Go2 Jump, Go2 Wheelie, Go2 Frog), we were unable to get mim_solvers to
+      work, so it's excluded from those benchmarks.
+    * On Go2 Frog specifically, we were also unable to get Aligator to converge, leaving only the two SSQP
+      solvers.
+
 <div class="tolerance-select">
   <label for="benchmark-tolerance"><strong>Tolerance:</strong></label>
   <select id="benchmark-tolerance">
@@ -93,11 +101,11 @@ python plot_benchmarks.py pendubot
 ```
 
 The [Coupled Oscillators](#coupled-oscillators) problems below are swept over problem size instead, via
-`--duffing-grid-m`/`--duffing-grid-horizon`, and rendered with `plot_grid_search.py`:
+`--duffing-m`/`--duffing-horizon` (multiple values run a grid search), and rendered with `plot_grid_search.py`:
 
 ```bash
-python run_benchmark.py duffing_local --all-solvers --duffing-grid-m 2 4 16 64 256 --duffing-grid-horizon 20 100 200 500 1000
-python plot_grid_search.py duffing_local --duffing-grid-m 2 4 16 64 256 --duffing-grid-horizon 20 100 200 500 1000
+python run_benchmark.py duffing_local --all-solvers --duffing-m 2 4 16 64 256 --duffing-horizon 20 100 200 500 1000
+python plot_grid_search.py duffing_local --duffing-m 2 4 16 64 256 --duffing-horizon 20 100 200 500 1000
 ```
 
 ## Pendubot
@@ -155,6 +163,9 @@ down once the window closes.
 A longer, four-hop bounding motion 2 meters forward, with staggered per-leg liftoff/landing and brief full-flight
 windows between hops rather than Go2 Jump's single synchronized flight phase. The same motion also appears, run
 directly rather than through the benchmark harness, as [Go2 Frog](gallery.md#go2-frog) in the Gallery.
+
+mim_solvers and Aligator both failed to converge on this problem (see "Known gaps" above), so only the two SSQP
+solvers are meaningfully compared below.
 
 <img src="../assets/go2_frog_benchmark_tol_0_01.png" data-benchmark="go2_frog" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 

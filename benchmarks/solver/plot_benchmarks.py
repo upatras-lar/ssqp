@@ -95,6 +95,13 @@ def _parse_args():
         help="Plot every problem, instead of just the given problem.",
     )
     parser.add_argument(
+        "-s",
+        "--solvers",
+        nargs="+",
+        choices=list(SOLVER_COLORS),
+        help="Limit the plot to these solvers, instead of every solver with results.",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         type=Path,
@@ -167,7 +174,7 @@ def _duffing_label(problem, duffing_m, duffing_horizon):
     return f"m={m}, horizon={horizon}"
 
 
-def load_results(data_dir, problem, tolerance, suffix=""):
+def load_results(data_dir, problem, tolerance, suffix="", solvers=None):
     results = {}
     pattern = f"*/{problem}{suffix}_tol_{tolerance_label(tolerance)}.json"
     for path in sorted(Path(data_dir).glob(pattern)):
@@ -180,6 +187,10 @@ def load_results(data_dir, problem, tolerance, suffix=""):
         benchmark = result.get("benchmark")
         if not benchmark:
             print(f'Skipping {path}: no "benchmark" summary')
+            continue
+        if solvers is not None and (
+            benchmark.get("solver") or path.parent.name
+        ) not in solvers:
             continue
         # SSQP reports the dynamics-transition defect as a separate
         # "stage_gap" field, since its multi-shooting formulation can
@@ -229,6 +240,24 @@ def _use_plain_log_labels(axis):
     axis.set_minor_formatter(mticker.NullFormatter())
 
 
+# Runtimes switch from ms to s once the largest one would otherwise print as
+# a multi-thousand-ms number
+RUNTIME_SECONDS_THRESHOLD_MS = 10000
+
+
+def runtime_unit(values):
+    """Picks seconds over milliseconds for a set of runtime_ms values when
+    the largest one is at least RUNTIME_SECONDS_THRESHOLD_MS, so large
+    runtimes don't get plotted as unwieldy multi-thousand-ms numbers.
+    Returns (divisor, axis label); divide the raw ms values by divisor."""
+    positive = [
+        v for v in values if v is not None and np.isfinite(v) and v > 0
+    ]
+    if positive and max(positive) >= RUNTIME_SECONDS_THRESHOLD_MS:
+        return 1000, "Runtime [s]"
+    return 1, "Runtime [ms]"
+
+
 def plot_results(
     problem, results, tolerance, output, show, duffing_label=None
 ):
@@ -243,6 +272,8 @@ def plot_results(
     solvers = sorted(results)
     colors = [SOLVER_COLORS.get(s, DEFAULT_COLOR) for s in solvers]
     runtime_ms = [results[s].get("runtime_ms") for s in solvers]
+    runtime_divisor, runtime_label = runtime_unit(runtime_ms)
+    runtime = [v / runtime_divisor if v is not None else v for v in runtime_ms]
     iterations = [results[s].get("iterations") for s in solvers]
     objective = [results[s].get("objective") for s in solvers]
     violation = [results[s].get("constraint_violation") for s in solvers]
@@ -278,7 +309,7 @@ def plot_results(
     )
 
     for ax, values, title in (
-        (axes[0, 0], runtime_ms, "Runtime [ms]"),
+        (axes[0, 0], runtime, runtime_label),
         (axes[0, 1], iterations, "Iterations"),
         (axes[1, 0], objective, "Final objective"),
         (axes[1, 1], violation, "Constraint violation"),
@@ -379,7 +410,7 @@ if __name__ == "__main__":
         for tolerance in args.tolerance:
             try:
                 results = load_results(
-                    args.data_dir, problem, tolerance, suffix
+                    args.data_dir, problem, tolerance, suffix, args.solvers
                 )
             except SystemExit as exc:
                 if single_run:
