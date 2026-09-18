@@ -36,8 +36,8 @@ python run_benchmark.py [pendubot|panda|go2] -q hpipm
 ```
 
 `--modes` restricts which dynamics modes are run (all applicable modes by default), and `-n`/`--n-problems` changes
-how many problems are generated (50 by default). Results land in `trajgen/data/results`; `plot.py` then renders one
-model's results into the plots shown below:
+how many problems are generated (50 by default; the Pendubot, Panda, and Go2 plots below were generated with `-n
+500`). Results land in `trajgen/data/results`; `plot.py` then renders one model's results into the plots shown below:
 
 ```bash
 python plot.py pendubot -q hpipm

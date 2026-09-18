@@ -54,7 +54,8 @@ nav:
       - Go2 Jump: examples/go2-jump.md
       - Panda Circle (MPC): examples/panda-circle-mpc.md
   - Benchmarks:
-      - Solver: benchmarks.md
+      - Overview: benchmarks.md
+      - Solver: benchmarks-solver.md
       - Solver Modes: benchmarks-solver-modes.md
   - Python API Reference:
       - Overview: reference/index.md

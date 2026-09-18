@@ -87,6 +87,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--circle",
+        nargs=4,
+        type=float,
+        help="A circle to visualize, on the yz-plane (cx cy cz radius)",
+    )
+
+    parser.add_argument(
         "--box-region",
         nargs=6,
         type=float,
@@ -158,6 +165,19 @@ if args.goal:
         point_size=0.02,
     )
 
+if args.circle:
+    cx, cy, cz, cr = args.circle
+    theta = np.linspace(0, 2 * np.pi, 64)
+    server.scene.add_spline_catmull_rom(
+        "/circle",
+        points=np.stack(
+            [np.full_like(theta, cx), cy + cr * np.cos(theta), cz + cr * np.sin(theta)],
+            axis=1,
+        ),
+        closed=True,
+        color=(0.0, 1.0, 0.0),
+    )
+
 if args.box_region:
     lower = args.box_region[:3]
     upper = args.box_region[3:]
@@ -197,7 +217,7 @@ if args.box_region:
     server.scene.add_line_segments(
         name="/feasible_region",
         points=edges,
-        colors=(0.0, 1.0, 0.0),  # green
+        colors=(1.0, 0.0, 0.0),  # red
         line_width=2.0,
     )
 

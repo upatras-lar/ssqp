@@ -1,209 +1,39 @@
 # Benchmarks
 
-[`benchmarks/solver/`](https://github.com/upatras-lar/ssqp/tree/main/benchmarks/solver) compares SSQP against a
-handful of other OCP solvers on the same set of problems. Every solver formulates the identical problem through
-[`ProblemWrapper`](https://github.com/upatras-lar/ssqp/blob/main/benchmarks/solver/ProblemWrapper.py), an abstract
-interface (costs, constraints, `finalize`, `solve`, `save`) with one subclass per backend translating those calls
-into that backend's own API, so a given problem stays defined once while every solver attempts the same costs and
-constraints on it.
+[`benchmarks/`](https://github.com/upatras-lar/ssqp/tree/main/benchmarks) contains two independent sets of
+benchmarks, covering two different questions:
 
-Six solvers are compared:
+* **[Solver](benchmarks-solver.md)**: how does SSQP compare against other established OCP solvers (Fatrop, Ipopt, Aligator,
+  mim_solvers/CSQP) on the same robotics problems, each one solved through a shared problem definition so every
+  solver attempts the same costs and constraints?
+* **[Solver Modes](benchmarks-solver-modes.md)**: within SSQP itself, how does the choice of dynamics formulation
+  (`ForwardDynamics`, `InverseDynamics`, `ReducedInverseDynamics`, see [Model](concepts/model.md#solver-mode))
+  affect convergence on a given problem?
 
-* `ssqp-admm` / `ssqp-hpipm`: SSQP itself, using the two per-stage QP backends described in
-  [QP Solvers](concepts/qp-solvers.md)
-* `fatrop` / `ipopt`: formulated through [CasADi](https://web.casadi.org/)'s `Opti` stack, solved with the
-  respective plugin
-* `aligator`: [Aligator](https://github.com/Simple-Robotics/aligator)
-* `mim_solvers`: [mim_solvers](https://github.com/machines-in-motion/mim_solvers)' CSQP, built on
-  [Crocoddyl](https://github.com/loco-3d/crocoddyl)
+## Why we run these
 
-All six are run to the same nominal tolerance (`1e-2`, see
-[`benchmark_config.py`](https://github.com/upatras-lar/ssqp/blob/main/benchmarks/solver/benchmark_config.py)), even
-though that tolerance bounds a different internal quantity for each (SSQP's per-stage KKT/constraint residual,
-Fatrop/Ipopt's scaled KKT error, Aligator's primal-dual residual, CSQP's convergence gap), since reimplementing
-every solver's own termination criterion for an exact match isn't practical.
+Neither set of benchmarks exists to produce a single headline number. The Solver benchmarks exist to give a rough,
+honest sense of where SSQP sits relative to the state of the art on realistic robotics OCPs, rather than only ever
+being evaluated in isolation. The Solver Mode benchmarks exist for a more practical reason: SSQP supports several
+ways to formulate the same underlying problem, and picking well between them matters for how fast and how
+reliably a given problem actually solves, so we wanted data to back that choice rather than intuition alone.
 
-!!! note "On fairness"
-    A fully fair, apples-to-apples comparison across six independent solver codebases is close to impossible: each
-    has its own convergence criterion (see above), its own QP backend and warm-starting strategy, its own default
-    tuning, and its own years of separate engineering investment behind it. These benchmarks are not a claim that
-    SSQP is faster or higher-quality than any of the others; the goal is to give a rough sense of where SSQP sits
-    relative to the state of the art on a shared set of problems, not to crown a winner.
+## General conclusions
 
-!!! warning "Known gaps"
-    * On the Go2 problems, we were unable to get JIT compilation working, so a fair benchmark for Fatrop and Ipopt
-      (which rely on it) wasn't possible there.
-    * On the contact-switching problems (Go2 Jump, Go2 Wheelie, Go2 Frog), we were unable to get mim_solvers to
-      work, so it's excluded from those benchmarks.
-    * On Go2 Frog specifically, we were also unable to get Aligator to converge, leaving only the two SSQP
-      solvers.
-    * On Duffing Local, Fatrop is missing at `m = 256` for the two largest horizons (`N = 500` and `N = 1000`):
-      JIT-compiling its formulation at that size requires more memory and time than a fair evaluation could
-      accommodate, so those points were left out rather than run unfairly.
-    * On Duffing Global, whose all-to-all coupling makes for a much denser formulation, both Fatrop and Ipopt are
-      missing entirely at `m = 256` (every horizon) for the same JIT compilation reason.
+Across the Solver benchmarks, SSQP is competitive with the other solvers on this shared problem set; see the "On
+fairness" note on the [Solver Benchmarks](benchmarks-solver.md) page for why that's phrased carefully rather than as a
+claim of being faster or higher-quality than any specific one of them.
 
-Using the selector below, you may change the tolerance to view the corresponding plots for each problem.
+Across the Solver Mode benchmarks, the clearest pattern is with floating-base, legged problems:
+`ReducedInverseDynamics` tends to converge in fewer iterations and less time than `ForwardDynamics` or
+`InverseDynamics` there (see the [Go2 Multi Jump](benchmarks-solver-modes.md#go2-multi-jump) and [G1
+Jump](benchmarks-solver-modes.md#g1-jump) tables). It also tends to produce solutions of higher quality.
+Both sets of plots go into the actual per-problem numbers; this page is only meant as a starting point before reading 
+either in full.
 
-<div class="tolerance-select">
-  <label for="benchmark-tolerance"><strong>Tolerance:</strong></label>
-  <select id="benchmark-tolerance">
-    <option value="0_001">1e-3</option>
-    <option value="0_005">5e-3</option>
-    <option value="0_01" selected>1e-2</option>
-    <option value="0_05">5e-2</option>
-    <option value="0_1">1e-1</option>
-  </select>
+<div class="grid cards" markdown>
+
+- **[Solver Benchmarks](benchmarks-solver.md)**: SSQP vs. other OCP solvers, problem by problem
+- **[Solver Mode Benchmarks](benchmarks-solver-modes.md)**: SSQP's own dynamics modes, compared against each other
+
 </div>
-
-## Problem sizes
-
-The problems range from Pendubot's long, low-dimensional swing-up to Go2 Frog's short but heavily constrained,
-contact-switching locomotion. Sizes below are per SSQP's own direct-transcription formulation (state = generalized
-position + velocity, control = generalized torque plus one force variable per active contact); a range means the
-value changes over the horizon with the contact schedule.
-
-| Problem | Horizon | State Dimension | Control Dimension | Constraints per Stage | NLP size (vars / constraints) |
-| --- | --- | --- | --- | --- | --- |
-| [Pendubot](#pendubot) | 2500 steps (2.5 s) | 4 | 2 | 6 (terminal: 4) | 15,004 / 15,004 |
-| [Go2 Standing](#go2-standing) | 100 steps (1 s) | 37 | 30 | 72 (terminal: 27) | 6,737 / 7,227 |
-| [Go2 Jump](#go2-jump) | 150 steps (1.5 s) | 37 | 18–27\* | 51–78 (terminal: 42) | 9,367 / 10,932 |
-| [Go2 Wheelie](#go2-wheelie) | 200 steps (2 s) | 37 | 24–30\* | 66–84 (terminal: 39) | 12,957 / 15,405 |
-| [Go2 Frog](#go2-frog) | 300 steps (3 s) | 37 | 18–30\* | 48–84 (terminal: 30) | 18,841 / 21,342 |
-| [Panda Circle](#panda-circle) | 400 steps (4 s) | 18 | 9 | 30 (terminal: 21) | 10,818 / 12,021 |
-
-\* Varies with the number of feet in contact at each stage: every active contact adds a 3D force variable to that
-stage's control vector, so the dimension shrinks during flight phases and grows back during stance.
-
-## Reading the plots
-
-Each plot bars four quantities per solver, side by side:
-
-* **Runtime**, in milliseconds
-* **Iterations**, the outer solve loop's iteration count
-* **Final objective**, the converged cost
-* **Constraint violation**, the worst single bound violation at any stage (position, velocity, torque, friction,
-  and, for the direct-transcription solvers, the dynamics-transition defect), against a dashed line marking the
-  shared tolerance
-
-A fast, few-iteration solve is not a meaningful win if the trajectory it returns is infeasible, which is what the
-constraint violation panel is for. A solver that fails to converge for a given problem is labeled "failed" rather
-than silently omitted or plotted at zero.
-
-## Running the benchmarks yourself
-
-See the [`solver/` README](https://github.com/upatras-lar/ssqp/blob/main/benchmarks/solver/README.md) for the full
-setup (a Docker image is provided, since several of these solvers pull in their own heavy dependency chains).
-Once set up:
-
-```bash
-python run_benchmark.py [problem] -s [solver]
-```
-
-`plot_benchmarks.py` then renders one problem's `data/<solver>/<problem>.json` results into the plots shown below:
-
-```bash
-python plot_benchmarks.py pendubot
-```
-
-The [Coupled Oscillators](#coupled-oscillators) problems below are swept over problem size instead, via
-`--duffing-m`/`--duffing-horizon` (multiple values run a grid search), and rendered with `plot_grid_search.py`:
-
-```bash
-python run_benchmark.py duffing_local --all-solvers --duffing-m 2 4 16 64 256 --duffing-horizon 20 100 200 500 1000
-python plot_grid_search.py duffing_local --duffing-m 2 4 16 64 256 --duffing-horizon 20 100 200 500 1000
-```
-
-## Pendubot
-
-<video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_pendubot.mp4" type="video/mp4">
-</video>
-
-The [Pendubot Swing-Up](examples/pendubot.md) problem: an underactuated double pendulum swinging from hanging to
-upright, actuated at the shoulder joint only.
-
-<img src="../assets/pendubot_benchmark_tol_0_01.png" data-benchmark="pendubot" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
-
-## Go2 Standing
-
-<video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_go2_standing.mp4" type="video/mp4">
-</video>
-
-The Go2 quadruped holding a fixed standing configuration, all four feet in contact throughout, with no other motion
-target. A short, contact-heavy but otherwise static regulation problem.
-
-<img src="../assets/go2_standing_benchmark_tol_0_01.png" data-benchmark="go2_standing" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
-
-## Go2 Jump
-
-<video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_go2_jump.mp4" type="video/mp4">
-</video>
-
-The [Go2 Jump](examples/go2-jump.md) problem: stance, flight, stance, with all four feet leaving the ground for a
-scheduled window in the middle and landing back at a specified footprint. In this case, the front left foot has _no contact_ and, therefore, should always remain in air.
-
-<img src="../assets/go2_jump_benchmark_tol_0_01.png" data-benchmark="go2_jump" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
-
-## Go2 Wheelie
-
-<video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_go2_wheelie.mp4" type="video/mp4">
-</video>
-
-The Go2 rearing up on its rear two feet: the rear feet stay in stance for the whole horizon, while the front two
-lift off for a window in the middle and come back down at the end. Unlike [Go2 Jump](#go2-jump), there's no target
-trajectory for the freed feet; the standing-configuration cost is what pulls them (and the rest of the robot) back
-down once the window closes.
-
-<img src="../assets/go2_wheelie_benchmark_tol_0_01.png" data-benchmark="go2_wheelie" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
-
-## Go2 Frog
-
-<video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_go2_frog.mp4" type="video/mp4">
-</video>
-
-A longer, four-hop bounding motion 2 meters forward, with staggered per-leg liftoff/landing and brief full-flight
-windows between hops rather than Go2 Jump's single synchronized flight phase. The same motion also appears, run
-directly rather than through the benchmark harness, as [Go2 Frog](gallery.md#go2-frog) in the Gallery.
-
-mim_solvers and Aligator both failed to converge on this problem (see "Known gaps" above), so only the two SSQP
-solvers are meaningfully compared below.
-
-<img src="../assets/go2_frog_benchmark_tol_0_01.png" data-benchmark="go2_frog" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
-
-## Panda Circle
-
-<video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_panda_circle.mp4" type="video/mp4">
-</video>
-
-The Franka Panda tracing a circular end effector path in task space via frame-pose tracking costs, additionally
-constrained to a rectangular window inscribed in that circle, same as
-[Panda Circle (Trajectory Generation)](examples/panda-circle-trajgen.md), reformulated here in
-`ForwardDynamics` mode (torque-actuated) so every backend solves an equivalent problem.
-
-<img src="../assets/panda_circle_benchmark_tol_0_01.png" data-benchmark="panda_circle" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
-
-## Coupled Oscillators
-
-A scalable benchmark instead of a fixed-size one: `m` weakly-coupled Duffing oscillators (state
-`x = [q_1, ..., q_m, v_1, ..., v_m]`, one control force per oscillator), swept over both `m` and the horizon to see
-how each solver scales with problem size. Two coupling topologies are benchmarked: `duffing_local`, where
-oscillator `i` only interacts with its immediate neighbors (a discrete Laplacian), and `duffing_global`, where
-every oscillator interacts with every other one through a sinusoidal coupling term.
-
-Each plot below lines runtime (left axis, solid) and iterations (right axis, dashed) per solver, faceted by the
-other swept variable; a missing point means that solver wasn't run at that grid point, while a point where the
-solver ran but didn't converge is marked with a red X.
-
-### Local Coupling
-
-<img src="../assets/duffing_local_benchmark_tol_0_01.png" data-benchmark="duffing_local" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
-
-### Global Coupling
-
-<img src="../assets/duffing_global_benchmark_tol_0_01.png" data-benchmark="duffing_global" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">

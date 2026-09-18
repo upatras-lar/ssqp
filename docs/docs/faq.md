@@ -75,6 +75,47 @@ interface each one requires.
     };
     ```
 
+## How do I track a target pose vs. a target joint configuration?
+
+Two different predefined costs cover these, and picking between them depends on what you actually care about
+matching:
+
+=== "Python"
+
+    ```python
+    # Joint-space: match a specific set of joint angles
+    ssqpy.model.costs.SquaredConfigurationErrorCost(model, desired_configuration, weight)
+
+    # Task-space: match a frame's position and orientation, regardless of joint angles
+    ssqpy.model.costs.FrameSquaredPoseErrorCost(
+        model, "frame_name", desired_position, desired_rotation, translation_weight, rotation_weight
+    )
+    ```
+
+=== "C++"
+
+    ```cpp
+    #include "model/stagewise/predefined/Costs.hpp"
+
+    model.addCost<ssqp::model::stagewise::predefined::costs::SquaredConfigurationErrorCost>(
+        k, model, desired_configuration, weight);
+
+    model.addCost<ssqp::model::stagewise::predefined::costs::FrameSquaredPoseErrorCost>(
+        k, model, "frame_name", desired_pose, translation_weight, rotation_weight);
+    ```
+
+`SquaredConfigurationErrorCost` penalizes deviation from an exact set of joint angles; use it when the
+configuration itself is what matters, as in [Pendubot](examples/pendubot.md)'s swing-up target.
+`FrameSquaredPoseErrorCost` penalizes deviation of a named frame's pose (position and/or orientation) in task
+space, ignoring which joint angles get there; use it for manipulation-style tasks specified by where something
+should end up, as in [Panda Circle](examples/panda-circle-trajgen.md)'s end-effector circle.
+
+The two aren't mutually exclusive: for a redundant arm (more joints than the 6 DOF a pose constrains), tracking
+pose alone leaves the extra joint-space freedom unconstrained, which can drift over a long closed-loop run.
+[Panda Circle (MPC)](examples/panda-circle-mpc.md#building-the-short-horizon-model) adds a small
+`SquaredConfigurationErrorCost` toward a nominal configuration alongside the pose-tracking cost for exactly this
+reason.
+
 ## How do I build a model from a URDF or MJCF file?
 
 === "Python"
@@ -107,6 +148,46 @@ interface each one requires.
     ```
 
 See [Model](concepts/model.md) for the full set of constructor and `finalize` arguments.
+
+## How do I choose a good initial guess?
+
+SSQP is a local solver: it improves on whatever guess it's given rather than searching globally, so the initial
+guess affects both how fast it converges and which local solution it lands on. `init_states`/`init_controls`
+passed to `finalize` do double duty: they fix $\boldsymbol{x}_0$ (which the solver cannot change) *and* seed the
+guess for every other stage before the solver improves on it.
+
+=== "Python"
+
+    ```python
+    model.finalize(init_states=my_init_state)
+    ```
+
+=== "C++"
+
+    ```cpp
+    config.init_states = {my_init_state};
+    model.finalize(config);
+    ```
+
+There's no single right way to build one; which approach fits depends on the problem:
+
+* No guess at all falls back to SSQP's own manifold-aware neutral configuration (e.g. angle $0$ on a joint's
+  tangent/circle manifold rather than literal zero, which wouldn't be a valid point on it), which is enough for
+  straightforward problems; see [Pendubot](examples/pendubot.md).
+* A single configuration already close to the expected solution, repeated across every stage, helps a lot when you
+  have domain knowledge about roughly where the solution should be; see
+  [Panda Circle](examples/panda-circle-trajgen.md#building-the-model).
+* For contact-rich problems, the *control* guess matters as much as the state one: seeding contact forces at a
+  static-equilibrium value (e.g. each foot supporting its share of the robot's weight) avoids wasting early
+  iterations discovering that a standing robot needs to push against the ground; see
+  [Go2 Jump](examples/go2-jump.md#initial-state-and-a-static-equilibrium-initial-guess).
+
+A guess that actively points the wrong way can be worse than no guess at all; see the swing-up scheduling trick in
+[Pendubot](examples/pendubot.md#costs-and-why-the-tracking-cost-turns-on-late) for a case where the fix was
+designing the costs around this rather than picking a better guess directly.
+
+See [`finalize` arguments](concepts/model.md#finalize-arguments) in Model for the full set of initial-guess-related
+options.
 
 ## How do I solve a trajectory optimization problem?
 
@@ -172,6 +253,56 @@ See [The SSQP Solver](concepts/solver.md) for termination criteria, line search 
 
 See [MPC](concepts/mpc.md) for warm-starting details and how `sqp_iters`/`qp_iters` bound per-step solve time.
 
+## What happens if MPC fails to converge mid-run, and how do I detect it?
+
+`mpc.step(...)` always returns an `(x, u)` trajectory, even if that step's SSQP iterations didn't fully converge
+within the tight per-step budget (`sqp_iters`/`qp_iters`): it has to return *something* for the control loop to
+apply, so it doesn't raise or signal failure on its own. To actually check whether a given step converged, keep
+convergence data and inspect it after each step:
+
+=== "Python"
+
+    ```python
+    mpc = ssqpy.solvers.MPC(model, sqp_iters=5, qp_iters=50, keep_convergence_data=True)
+
+    while running:
+        x, u = mpc.step(read_state())
+        apply_controls(u.stage(0))
+
+        data = mpc.getConvergenceData()[-1]
+        if data.max_iter_reached and not data.loose_success:
+            print("MPC step did not converge")
+    ```
+
+=== "C++"
+
+    ```cpp
+    ssqp::solvers::MPC::Params mpc_params;
+    mpc_params.keep_convergence_data = true;
+    ssqp::solvers::MPC mpc(model, mpc_params);
+
+    while (running)
+    {
+        auto [x, u] = mpc.step(read_state());
+        apply_controls(u.stage(0));
+
+        const auto &data = mpc.getConvergenceData().back();
+        if (data.max_iter_reached && !data.loose_success)
+            std::cout << "MPC step did not converge" << std::endl;
+    }
+    ```
+
+An occasional non-converged step is usually not fatal in a receding-horizon loop with good warm-starting (see
+[Warm-starting](concepts/mpc.md#warm-starting) in MPC): the next step re-solves with fresh state feedback rather
+than letting the error compound open-loop. A persistent run of failures is worth investigating the same way as an
+offline non-converging solve (see
+[How do I inspect solver convergence?](#how-do-i-inspect-solver-convergence-or-debug-why-it-isnt-converging)), and
+is often a sign that `sqp_iters`/`qp_iters` is too tight for how far the state has drifted from the warm start, or
+that the tracked target has left the problem's feasible region. Note this is a different failure mode from the
+per-step solve simply running too *slowly* to keep up with real time, which
+[Panda Circle (MPC)](examples/panda-circle-mpc.md#the-simulation-loop) flags via a separate printed
+control-frequency counter rather than convergence data.
+
 ## How do I switch between the ADMM and HPIPM QP solvers?
 
 HPIPM requires building SSQP with `-DWITH_HPIPM=ON` (see
@@ -219,6 +350,81 @@ See [QP Solvers](concepts/qp-solvers.md) for the tunable parameters of each back
 In C++, the templated `addConstraints<C>` automatically creates and wires up the force the contact needs (it reads
 `required_forces()`/`force_frame()` off the constraint); this is exactly the convenience the Python
 `addContactConstraint` wraps. See [Contacts and forces](concepts/model.md#contacts-and-forces) in Model.
+
+## How do I schedule contacts over a trajectory (a gait, a jump, ...)?
+
+[How do I add a contact constraint?](#how-do-i-add-a-contact-constraint-eg-for-a-robot-foot) covers a single
+contact at a single stage; a gait or a jump needs that decision to change per foot, per stage, over the whole
+horizon. There isn't a dedicated scheduling API for this: it's the same `addContactConstraint`/`addConstraints`
+calls as always, driven by a schedule you compute yourself and apply inside your own per-stage loop. Two ways to
+turn a contact on/off for a given stage:
+
+=== "Python"
+
+    ```python
+    for k in range(H):
+        if in_stance(k, "foot_frame"):
+            # Only add it for the stages where it should apply
+            model.addContactConstraint(k, "foot_frame", mu=0.6, max_normal_force=200.0)
+
+    # ...or add it unconditionally everywhere, and toggle it afterward
+    velocity_bound = ssqpy.model.constraints.FrameLinearVelocityBound(model, "foot_frame", lb, ub)
+    velocity_bound.set_enabled(False)
+    ```
+
+=== "C++"
+
+    ```cpp
+    for (uint k = 0; k < H; ++k)
+    {
+        if (in_stance(k, "foot_frame"))
+            model.addConstraints<ssqp::model::stagewise::predefined::constraints::ContactConstraint>(
+                k, model, "foot_frame", 0.6, 200.0);
+    }
+
+    // ...or add it unconditionally everywhere, and toggle it afterward
+    auto velocity_bound = model.addConstraints<FrameLinearVelocityBound>(k, model, "foot_frame", lb, ub);
+    velocity_bound->set_enabled(false);
+    ```
+
+The two approaches suit different situations: conditionally calling `addContactConstraint` only inside the stages
+where a foot is grounded is simplest when the schedule is just a stage-index check. `set_enabled` is more
+convenient when a constraint's applicability depends on something more complex than that, or when you want to
+create the constraint object once upfront and reuse it. Neither approach requires all feet (or any other set of
+contacts) to share the same schedule; per-foot, per-stage toggling is exactly what makes asymmetric gaits
+representable with the same building blocks. Inside a fully airborne window, adding no contact constraints at all
+for any foot lets the dynamics reduce to free-fall, which is usually what you want for a flight phase. See
+[Go2 Jump](examples/go2-jump.md#the-per-stage-loop-stance-flight-stance) for a complete worked example, including
+both toggling styles side by side.
+
+## How do I choose a solver mode?
+
+`ForwardDynamics`, `InverseDynamics`, and `ReducedInverseDynamics` all solve the same underlying problem, just
+formulated differently (see [Solver mode](concepts/model.md#solver-mode) in Model for what each one actually
+changes); which one converges best depends on the problem:
+
+* **`ForwardDynamics`** (torque controls) is the most direct formulation and a reasonable default when there's no
+  particular reason to prefer one of the others; see [Pendubot](examples/pendubot.md).
+* **`InverseDynamics`** (acceleration controls) can ease convergence for fully-actuated systems: accelerations
+  enter the dynamics linearly, so the QP built at each iteration is a better local approximation than it would be
+  with torques, where that mapping is nonlinear in the configuration; see
+  [Panda Circle](examples/panda-circle-trajgen.md#building-the-model).
+* **`ReducedInverseDynamics`** (acceleration controls, unactuated DOFs propagated implicitly) is for free-flyer
+  systems, e.g. legged robots, where the base isn't directly actuated; the base's 6 degrees of freedom are
+  enforced through the dynamics instead of being treated as free control inputs, which `InverseDynamics` alone
+  wouldn't handle; see [Go2 Jump](examples/go2-jump.md).
+
+If you're not sure and the problem is floating-base, `ReducedInverseDynamics` is worth trying first: across the
+[Solver Mode benchmarks](benchmarks-solver-modes.md), it tends to converge in noticeably fewer iterations and less
+time than the alternatives on legged problems specifically (see the
+[general conclusions](benchmarks.md#general-conclusions) on the Benchmarks page). For a fully-actuated system,
+comparing `ForwardDynamics` against `InverseDynamics` directly on your own problem is more reliable than assuming
+one is always better; see the ["Things to try"](examples/panda-circle-trajgen.md#things-to-try) section of Panda
+Circle for exactly this comparison.
+
+See
+[How do I change the solver mode or integration scheme?](#how-do-i-change-the-solver-mode-or-integration-scheme)
+for the syntax to actually set it.
 
 ## How do I change the solver mode or integration scheme?
 
