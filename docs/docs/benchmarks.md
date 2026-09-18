@@ -37,17 +37,23 @@ every solver's own termination criterion for an exact match isn't practical.
       work, so it's excluded from those benchmarks.
     * On Go2 Frog specifically, we were also unable to get Aligator to converge, leaving only the two SSQP
       solvers.
+    * On Duffing Local, Fatrop is missing at `m = 256` for the two largest horizons (`N = 500` and `N = 1000`):
+      JIT-compiling its formulation at that size requires more memory and time than a fair evaluation could
+      accommodate, so those points were left out rather than run unfairly.
+    * On Duffing Global, whose all-to-all coupling makes for a much denser formulation, both Fatrop and Ipopt are
+      missing entirely at `m = 256` (every horizon) for the same JIT compilation reason.
+
+Using the selector below, you may change the tolerance to view the corresponding plots for each problem.
 
 <div class="tolerance-select">
   <label for="benchmark-tolerance"><strong>Tolerance:</strong></label>
   <select id="benchmark-tolerance">
     <option value="0_001">1e-3</option>
     <option value="0_005">5e-3</option>
-    <option value="0_01" selected>1e-2 (default)</option>
+    <option value="0_01" selected>1e-2</option>
     <option value="0_05">5e-2</option>
     <option value="0_1">1e-1</option>
   </select>
-  <span>&mdash; every plot below updates to match the selected tolerance.</span>
 </div>
 
 ## Problem sizes

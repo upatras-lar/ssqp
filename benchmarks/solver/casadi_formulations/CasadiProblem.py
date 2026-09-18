@@ -69,6 +69,7 @@ class CasadiProblem(ProblemWrapper):
             self.free_flyer,
             self.actuated_joints,
             self.inverse_dynamics,
+            cache_only=bool(cp.get("jit_cache_only", False)),
         )
 
         # Number of OCP nodes: k = 0 .. horizon inclusive

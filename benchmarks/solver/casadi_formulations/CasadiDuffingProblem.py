@@ -40,6 +40,7 @@ class CasadiDuffingProblem:
             self.casadi_plugin,
             repr(duffing_config),
             horizon,
+            cache_only=bool(cp.get("jit_cache_only", False)),
         )
 
         self.N = horizon + 1

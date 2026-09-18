@@ -16,6 +16,7 @@ os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 from common.benchmark_config import TOLERANCE, tolerance_label
+from common.jit_cache import JitCacheMiss
 from common.problems import *
 
 
@@ -120,6 +121,17 @@ def parse_args():
             "(e.g. duffing at a large --duffing-m); -O0 trades slower "
             "generated code for a compile that actually completes. Only "
             "meaningful with --jit."
+        ),
+    )
+
+    parser.add_argument(
+        "--jit-cache-only",
+        action="store_true",
+        help=(
+            "For the CasADi-based solvers (fatrop/ipopt) only: only use "
+            "already-compiled JIT artifacts (see --jit); skip a run "
+            "instead of compiling if its .jit_cache directory doesn't "
+            "already exist. Only meaningful with --jit."
         ),
     )
 
@@ -668,6 +680,7 @@ def run_solver(problem, solver):
         constructor_parameters["casadi_plugin"] = solver
         constructor_parameters["jit"] = args.jit
         constructor_parameters["jit_opt_level"] = args.jit_opt_level
+        constructor_parameters["jit_cache_only"] = args.jit_cache_only
         constructor_parameters["cold_start"] = args.cold_start
 
         solve_parameters["print_time"] = args.verbose
@@ -696,6 +709,7 @@ def run_solver(problem, solver):
         constructor_parameters["casadi_plugin"] = solver
         constructor_parameters["jit"] = args.jit
         constructor_parameters["jit_opt_level"] = args.jit_opt_level
+        constructor_parameters["jit_cache_only"] = args.jit_cache_only
         constructor_parameters["cold_start"] = args.cold_start
         constructor_parameters["inverse_dynamics"] = inverse_dynamics
         if problem == "pendubot":
@@ -868,6 +882,8 @@ def build_run_command(problem, solver, tolerance, duffing_m, duffing_horizon):
         cmd.append("--jit")
     if args.jit_opt_level != "O3":
         cmd += ["--jit-opt-level", args.jit_opt_level]
+    if args.jit_cache_only:
+        cmd.append("--jit-cache-only")
     if args.cold_start:
         cmd.append("--cold-start")
     if duffing_m is not None:
@@ -1002,7 +1018,10 @@ for tolerance in tolerances_to_run:
         ):
             print(f"Skipping {problem}/{solver}: output file already exists")
         else:
-            run_solver(problem, solver)
+            try:
+                run_solver(problem, solver)
+            except JitCacheMiss as e:
+                print(f"Skipping {problem}/{solver}: no JIT cache at {e}")
     else:
         items = []
         skipped = 0

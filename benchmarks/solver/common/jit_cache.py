@@ -10,6 +10,13 @@ import hashlib
 import os
 
 
+class JitCacheMiss(Exception):
+    """Raised by jit_function_options when cache_only is set and this
+    identity has no previously-compiled artifacts yet (see
+    run_benchmark.py's --jit-cache-only).
+    """
+
+
 def base_jit_options(opt_level="O3"):
     """Base "jit": True ca.Function options, before jit_function_options
     adds the per-instance cache directory.
@@ -25,7 +32,9 @@ def base_jit_options(opt_level="O3"):
     }
 
 
-def jit_function_options(base_options, jit_requested, *identity_parts):
+def jit_function_options(
+    base_options, jit_requested, *identity_parts, cache_only=False
+):
     """Per-instance ca.Function options for a --jit-enabled problem.
 
     Pins the JIT temp filename (jit_temp_suffix=False) so repeated
@@ -33,6 +42,11 @@ def jit_function_options(base_options, jit_requested, *identity_parts):
     horizon/free_flyer) hit ccache instead of recompiling. Each identity
     gets its own directory, so differently-identified problems running
     concurrently (--jobs > 1) never race on the same temp file.
+
+    With cache_only, raises JitCacheMiss instead of compiling when this
+    identity's directory doesn't already exist or is empty, i.e. nothing
+    has been compiled for it before (see run_benchmark.py's
+    --jit-cache-only).
     """
     if not jit_requested:
         return {}
@@ -41,6 +55,12 @@ def jit_function_options(base_options, jit_requested, *identity_parts):
         "|".join(str(part) for part in identity_parts).encode()
     ).hexdigest()[:16]
     directory = os.path.join(".jit_cache", tag) + os.sep
+
+    if cache_only and not (
+        os.path.isdir(directory) and os.listdir(directory)
+    ):
+        raise JitCacheMiss(directory)
+
     os.makedirs(directory, exist_ok=True)
 
     options = dict(base_options)
