@@ -7,6 +7,7 @@ from go2_controllers.JointSpacePD import JointSpacePD
 from utils_go2_mujoco import (
     ssqp_to_mujoco_state,
     ssqp_to_mujoco_control,
+    ssqp_to_mujoco_ctrl_kin,
     mujoco_to_ssqp_state,
 )
 
@@ -290,8 +291,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         # mjdata.qpos = xk[:nq]
 
         mjdata.ctrl = (
-            ssqp_to_mujoco_control(Kp * (xk[7:19] - state[7:19]))
-            + ssqp_to_mujoco_control(Kd * (xk[25:] - state[25:]))
+            ssqp_to_mujoco_ctrl_kin(Kp * (xk[7:19] - state[7:19]))
+            + ssqp_to_mujoco_ctrl_kin(Kd * (xk[25:] - state[25:]))
             + uk[6:18]
         )
 

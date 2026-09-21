@@ -6,6 +6,7 @@ from time import time, sleep
 from utils_go2_mujoco import (
     ssqp_to_mujoco_state,
     ssqp_to_mujoco_control,
+    ssqp_to_mujoco_ctrl_kin,
 )
 
 ssqpy.setSilentMode()
@@ -50,8 +51,9 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         # mjdata.qpos[0:19] = xk[0:19]
 
         mjdata.ctrl = (
-            Kp * (xk[7:19] - state[7:19])
-            + Kd * (xk[25:] - state[25:])
+            ssqp_to_mujoco_ctrl_kin(
+                Kp * (xk[7:19] - state[7:19]) + Kd * (xk[25:] - state[25:])
+            )
             + uk[6:18]
         )
         print(mjdata.ctrl)
