@@ -199,6 +199,8 @@ int main(int argc, char **argv)
       ssqp::tests::generators::get_squared_control_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::get_squared_force_cost_grad_test());
+    tests.addTest(ssqp::tests::generators::get_squared_wrench_cost_grad_test());
+    tests.addTest(ssqp::tests::generators::get_wrench_dynamics_grad_test());
 
     tests.addTest(ssqp::tests::generators::
                     get_squared_configuration_error_cost_grad_test());

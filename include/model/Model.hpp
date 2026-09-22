@@ -300,16 +300,28 @@ class Model
       const uint                                          k,
       const std::shared_ptr<stagewise::StageConstraints> &constraints);
 
-    // Add a new external force as an additional decision variable for stage k
-    // on the given frame
+    // Add a new external linear force (ForceDim::Linear) as an additional
+    // decision variable for stage k on the given frame
     // Returns the newly created force
     std::shared_ptr<Force> addForce(const uint k, const std::string &frame);
 
-    // Returns the number of external forces added for a given stage
+    // Same as addForce, but the added force is a full spatial wrench
+    // (ForceDim::Wrench): a linear force plus a moment/torque, e.g. rotor
+    // thrust plus reaction/drag torque
+    // Returns the newly created force
+    std::shared_ptr<Force> addWrench(const uint k, const std::string &frame);
+
+    // Returns the number of linear forces added for a given stage
     uint nforces(const uint k) const;
+
+    // Returns the number of wrenches added for a given stage
+    uint nwrenches(const uint k) const;
 
     // Vector containing frame names, ordered 1-1 with forces for stage k
     std::vector<std::string> orderedForceFrames(const uint k) const;
+
+    // Vector containing frame names, ordered 1-1 with wrenches for stage k
+    std::vector<std::string> orderedWrenchFrames(const uint k) const;
 
     // Whether the model has a frame with the given name
     bool hasFrame(const std::string &frame) const;
@@ -598,6 +610,7 @@ class Model
     DynamicsContainer                                _dynamics;
     ConstraintsContainer                             _constraints;
     std::vector<std::vector<std::shared_ptr<Force>>> _forces;
+    std::vector<std::vector<std::shared_ptr<Force>>> _wrenches;
 
     // Optional custom properties for non-XML models
     bool             _has_custom_properties = false;
@@ -605,13 +618,23 @@ class Model
 
     // Helper functions
 
+    // Shared implementation of addForce/addWrench: pushes a new Force of the
+    // given dimension onto _forces[k] (Linear) or _wrenches[k] (Wrench)
+    std::shared_ptr<Force> _addForce(const uint k, const std::string &frame,
+                                     const ForceDim dim);
+
+    // Total control-vector width occupied by stage k's forces and wrenches,
+    // i.e. `3 * nforces(k) + 6 * nwrenches(k)`
+    uint _forceControlWidth(const uint k) const;
+
     /** Calculates joint forces given a configuration and an external force
      * vector
      * Input:
      *  - `q`: The model configuration
-     *  - `f`: Stacked vector of external forces (the force part of the control
-     *    vector)
-     *  - `force_data`: Vector of data about each force in `f`
+     *  - `f`: Stacked vector of external forces (the force part of the
+     *    control vector): linear forces first, then wrenches
+     *  - `force_data`: Vector of data about each linear force in `f`
+     *  - `wrench_data`: Vector of data about each wrench in `f`
      *
      * Output:
      *  - `joint_forces`: A vector of 6D forces, one for each of the model's
@@ -620,6 +643,7 @@ class Model
     void _calculateJointForces(
       const VecX &q, const VecX &f,
       const std::vector<std::shared_ptr<Force>> &force_data,
+      const std::vector<std::shared_ptr<Force>> &wrench_data,
       std::vector<Vec6>                         &joint_forces) const;
 
     /** Calculates joint forces and total force jacobian given a configuration
@@ -631,11 +655,12 @@ class Model
      * Output:
      *  - `joint_forces`: Same as in _calculateJointForces
      *  - `Jf_full`: The full force jacobian; must already be sized
-     *     (`3 * force_data.size()` x `_dims.nv`)
+     *     (`3 * force_data.size() + 6 * wrench_data.size()` x `_dims.nv`)
      */
     void _calculateJointForcesAndJacobian(
       const VecX &q, const VecX &f,
       const std::vector<std::shared_ptr<Force>> &force_data,
+      const std::vector<std::shared_ptr<Force>> &wrench_data,
       std::vector<Vec6> &joint_forces, MatX &Jf_full) const;
 
     /** Persistent scratch for the ReducedInverseDynamics mode's acceleration
@@ -679,7 +704,8 @@ class Model
      *  - `ctrl`: The non-force part of the control vector; this is assumed to
      *     be the accelerations for each of the actuated joints
      *  - `f`: The force part of the control vector
-     *  - `force_data`: Vector of data about each force in `f`
+     *  - `force_data`: Vector of data about each linear force in `f`
+     *  - `wrench_data`: Vector of data about each wrench in `f`
      *  - `actuated_joints`: Vector of indices of joints that are actuated
      *  - `unactuated_joints`: Complement vector of `actuated_joints`
      *
@@ -696,6 +722,7 @@ class Model
     VecX _calculateReducedInverseFullAcceleration(
       const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
       const std::vector<std::shared_ptr<Force>> &force_data,
+      const std::vector<std::shared_ptr<Force>> &wrench_data,
       const std::vector<uint>                   &actuated_joints,
       const std::vector<uint>                   &unactuated_joints,
       _ReducedInverseDynamicsScratch &scratch, std::vector<Vec6> &joint_forces,
@@ -709,7 +736,8 @@ class Model
      *  - `ctrl`: The non-force part of the control vector; this is assumed to
      *     be the accelerations for each of the actuated joints
      *  - `f`: The force part of the control vector
-     *  - `force_data`: Vector of data about each force in `f`
+     *  - `force_data`: Vector of data about each linear force in `f`
+     *  - `wrench_data`: Vector of data about each wrench in `f`
      *  - `actuated_joints`: Vector of indices of joints that are actuated
      *  - `unactuated_joints`: Complement vector of `actuated_joints`
      *
@@ -742,6 +770,7 @@ class Model
     void _calculateReducedInverseFullAccelerationDerivatives(
       const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
       const std::vector<std::shared_ptr<Force>> &force_data,
+      const std::vector<std::shared_ptr<Force>> &wrench_data,
       const std::vector<uint>                   &actuated_joints,
       const std::vector<uint> &unactuated_joints, const VecX &ddq,
       _ReducedInverseDynamicsScratch &scratch,
@@ -775,13 +804,17 @@ class Model
 
     /** Context for `_makeStageDynamics` for a given stage
      * Data:
-     *  - `force_data`: Vector containing a Force object for each force
+     *  - `force_data`: Vector containing a Force object for each linear force
+     *  - `wrench_data`: Vector containing a Force object for each wrench
      *  - `init_state`: Initial state for stage
      *  - `init_control`: Initial controls for stage
      *  - `nq`: The configuration size for this stage
      *  - `nv`: The velocity size for this stage
      *  - `nu`: The size of the non-force part of the controls for this stage
-     *  - `nf`: The size of the force part of the controls for this stage
+     *  - `nf`: The number of linear forces for this stage
+     *  - `nw`: The number of wrenches for this stage
+     *  - `force_width`: The size of the force part of the controls for this
+     *     stage, i.e. `3 * nf + 6 * nw`
      *  - `actuated_joints`: Vector of indices of joints that are actuated
      *  - `unactuated_joints`: Complement vector of `actuated_joints`
      *  - `floating_base`: Whether the model has a floating base for this stage
@@ -789,9 +822,10 @@ class Model
     struct _StageDynamicsContext
     {
         std::vector<std::shared_ptr<Force>> force_data;
+        std::vector<std::shared_ptr<Force>> wrench_data;
         VecX                                init_state;
         VecX                                init_control;
-        uint                                nq, nv, nu, nf;
+        uint                                nq, nv, nu, nf, nw, force_width;
         std::vector<uint>                   actuated_joints, unactuated_joints;
         std::string                         stage_dynamics_name;
 
@@ -823,12 +857,30 @@ class Model
 
     /** Context for `_makeStageConstraints` for a given stage
      * Data:
-     *  - `force_data`: Vector containing a Force object for each force
+     *  - `force_data`: Vector containing a Force object for each linear force
+     *  - `wrench_data`: Vector containing a Force object for each wrench
+     *  - `nq`: The configuration size for this stage
+     *  - `nv`: The velocity size for this stage
+     *  - `nu`: The size of the non-force part of the controls for this stage
+     *  - `nf`: The number of linear forces for this stage
+     *  - `nw`: The number of wrenches for this stage
+     *  - `force_width`: The size of the force part of the controls for this
+     *     stage, i.e. `3 * nf + 6 * nw`
+     *  - `njoints`: The number of actuated joints for this stage
+     *  - `actuated_joints`: Vector of indices of joints that are actuated
+     *  - `unactuated_joints`: Complement vector of `actuated_joints`
+     *  - `stage_constraints_name`: Name given to the built constraints object
+     *  - `lower_pos_bound`, `upper_pos_bound`: Lower/upper joint position
+     *     bounds
+     *  - `vel_bound`: Symmetric joint velocity bound
+     *  - `tau_bound`: Symmetric joint torque bound
      */
     struct _StageInnateConstraintsContext
     {
         std::vector<std::shared_ptr<Force>> force_data;
-        uint                                nq, nv, nu, nf, njoints;
+        std::vector<std::shared_ptr<Force>> wrench_data;
+        uint                                nq, nv, nu, nf, nw, force_width,
+          njoints;
         std::vector<uint>                   actuated_joints, unactuated_joints;
         std::string                         stage_constraints_name;
         VecX lower_pos_bound, upper_pos_bound, vel_bound, tau_bound;

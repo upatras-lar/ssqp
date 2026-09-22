@@ -1268,6 +1268,66 @@ std::shared_ptr<Test> get_squared_force_cost_grad_test()
     return cost_test;
 }
 
+// Same as get_squared_force_cost_grad_test, but with a wrench (ForceDim::Wrench)
+// instead of a linear force, checking that SquaredForceCost's gradient is
+// still correct over the wider (6, not 3) force block
+std::shared_ptr<Test> get_squared_wrench_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    model->addWrench(0, "FL_foot");
+
+    for (uint k = 0; k < model->dims().horizon; ++k)
+    {
+        model->addCost<model::stagewise::predefined::costs::SquaredForceCost>(
+          k,
+          *model.get(),
+          9.78);
+    }
+
+    model
+      ->addCost<model::stagewise::predefined::costs::SquaredJointVelocityCost>(
+        2,
+        *model.get(),
+        1.0);
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("SquaredWrenchCostGradTest", model, 0);
+
+    return cost_test;
+}
+
+// Checks the dynamics gradient when a wrench (not a linear force) is applied
+// at a free-flying body's own base frame, i.e. zero lever arm: any resulting
+// angular acceleration must come from the wrench's moment, so this is the
+// one case that could not be produced by a ForceDim::Linear force at the
+// same frame, isolating the new 6D wrench dynamics path
+std::shared_ptr<Test> get_wrench_dynamics_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.urdf_path   = "examples/assets/urdf/floating_body/floating_body.urdf";
+    model_structure.free_flyer  = true;
+    model_structure.solver_mode = model::SolverMode::ForwardDynamics;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    setup_model(model);
+    model->addWrench(0, "base_link");
+    model->finalize();
+
+    return std::make_shared<FDGradDynamics>("WrenchDynamicsGradTest",
+                                            model,
+                                            0,
+                                            100,
+                                            1e-4);
+}
+
 std::shared_ptr<Test> get_squared_configuration_error_cost_grad_test()
 {
     model::Model::Structure model_structure;

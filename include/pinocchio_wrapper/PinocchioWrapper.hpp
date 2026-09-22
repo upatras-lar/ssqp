@@ -114,6 +114,12 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
                                      const Eigen::Vector3d            &force,
                                      uint &joint_id);
 
+// Same as framejMfAct, but for a full spatial wrench (linear force plus
+// moment/torque) rather than a pure linear force
+Eigen::Vector<double, 6> framejMfActWrench(
+  const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
+  const Eigen::Vector<double, 6> &wrench, uint &joint_id);
+
 // Output-buffer version; resizes `M` as needed
 void crba(const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
           Eigen::MatrixXd &M, bool local = false);

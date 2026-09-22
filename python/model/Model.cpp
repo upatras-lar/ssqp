@@ -147,6 +147,27 @@ void bind_Model(nb::module_ &m)
       .value("DoublePendulum", Preset::DoublePendulum)
       .export_values();
 
+    nb::enum_<ForceDim>(m, "ForceDim", R"doc(
+        The number of control-vector components a Force occupies
+        Options:
+         - Linear: A pure point force (e.g. ground contact), no moment
+         - Wrench: A full spatial force (linear + angular), e.g. rotor thrust
+           plus reaction/drag torque
+        )doc")
+      .value("Linear", ForceDim::Linear)
+      .value("Wrench", ForceDim::Wrench)
+      .export_values();
+
+    nb::class_<Force>(m, "Force", R"doc(
+        A external force added to a model stage via Model.addForce/addWrench.
+        )doc")
+      .def_ro("frame", &Force::frame, "The frame this force is applied at.")
+      .def_ro("force_index",
+              &Force::force_index,
+              "Index of this force among those of the same type (force/wrench) "
+              "added at the same stage.")
+      .def_ro("dim", &Force::dim, "The number of components this force has.");
+
     nb::class_<Model::CustomProperties>(
       m,
       "CustomProperties",
@@ -676,13 +697,39 @@ void bind_Model(nb::module_ &m)
                 throw std::runtime_error("Provided frame does not exist");
             }
 
-            std::shared_ptr<Force> f = self.addForce(k, frame);
-            return f->force_index;
+            return self.addForce(k, frame);
         },
         nb::arg("k"),
         nb::arg("frame"),
         R"doc(
-        Add a force on a frame at a stage.
+        Add a linear force (ForceDim.Linear) on a frame at a stage.
+        Only defined if the model was initialized using an XML file.
+        For this method to be called, the model must not be finalized.
+        )doc")
+      .def(
+        "addWrench",
+        [](Model &self, const uint k, const std::string &frame)
+        {
+            if (self.finalized())
+            {
+                throw std::runtime_error("Model is finalized");
+            }
+            if (!self.xml())
+            {
+                throw std::runtime_error("Model was not loaded from XML");
+            }
+            if (!self.hasFrame(frame))
+            {
+                throw std::runtime_error("Provided frame does not exist");
+            }
+
+            return self.addWrench(k, frame);
+        },
+        nb::arg("k"),
+        nb::arg("frame"),
+        R"doc(
+        Add a full spatial wrench (ForceDim.Wrench, force plus moment) on a
+        frame at a stage.
         Only defined if the model was initialized using an XML file.
         For this method to be called, the model must not be finalized.
         )doc")

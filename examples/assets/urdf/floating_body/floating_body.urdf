@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<robot name="floating_body">
+
+    <!-- A single free-flying rigid body, with no other joints, used to test
+         wrench (Force with ForceDim::Wrench) dynamics in isolation: a wrench
+         added at base_link has zero lever arm, so any resulting angular
+         acceleration must come from the wrench's moment, not a force's
+         lever-arm torque -->
+    <link name="base_link">
+        <inertial>
+            <mass value="1.0" />
+            <origin xyz="0 0 0" />
+            <inertia ixx="0.1" iyy="0.1" izz="0.1"
+                ixy="0.0" ixz="0.0" iyz="0.0" />
+        </inertial>
+    </link>
+
+</robot>

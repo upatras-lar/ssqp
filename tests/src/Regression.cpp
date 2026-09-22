@@ -444,6 +444,79 @@ void modelFromPresetRejectsConflictingFields()
     require(threw,
             "from_preset combined with urdf_path must throw invalid_argument");
 }
+
+// A free-flying body with no joints and no linear forces can only be rotated
+// via a wrench's moment; solving to a target orientation is a direct
+// end-to-end check that the solver actually exploits wrench dynamics, not
+// just that the dynamics gradient is correct in isolation
+void wrenchRotatesFloatingBody()
+{
+    using namespace model::stagewise::predefined::costs;
+
+    const uint   H  = 10;
+    const double dt = 0.05;
+
+    model::Model::Structure structure;
+    structure.urdf_path   = "examples/assets/urdf/floating_body/floating_body.urdf";
+    structure.free_flyer  = true;
+    structure.solver_mode = model::SolverMode::ForwardDynamics;
+
+    auto model = std::make_shared<model::Model>(H, dt, structure);
+
+    for (uint k = 0; k < H; ++k)
+    {
+        model->addWrench(k, "base_link");
+        model->addCost<SquaredControlCost>(k, *model, 1e-3);
+        model->addCost<SquaredForceCost>(k, *model, 1e-3);
+    }
+
+    Mat3 desired_rotation =
+      Eigen::AngleAxisd(M_PI / 2.0, Vec3::UnitZ()).toRotationMatrix();
+    model->addCost<FloatingBaseSquaredRotationErrorCost>(H,
+                                                         *model,
+                                                         desired_rotation,
+                                                         50.0);
+
+    VecX init_state = VecX::Zero(model->nq() + model->nv());
+    init_state[6]   = 1.0; // Identity quaternion (x, y, z, w)
+
+    model::Model::Config config;
+    config.init_states = { init_state };
+    model->finalize(config);
+
+    solvers::ssqp::Params params;
+    params.max_iter             = 100;
+    params.tolerance            = 1e-3;
+    params.constraint_tolerance = 1e-4;
+    params.loose_success        = true;
+
+    solvers::ssqp        solver(*model, params);
+    solvers::ssqp::Guess guess(model->dims(), model->linear_dims());
+    solver.reinitialize();
+
+    const auto state = solver.solve(guess);
+    require(state == solvers::SUCCESS,
+            "SQP must converge for the wrench-only rotation problem (" +
+              solvers::to_string(state) + ")");
+
+    const VecX final_state = guess.x.stage(H);
+    Eigen::Quaterniond q_final(final_state[6],
+                               final_state[3],
+                               final_state[4],
+                               final_state[5]);
+    Mat3 R_final = q_final.toRotationMatrix();
+
+    double cos_angle =
+      ((R_final.transpose() * desired_rotation).trace() - 1.0) / 2.0;
+    cos_angle          = std::clamp(cos_angle, -1.0, 1.0);
+    double angle_error = std::acos(cos_angle);
+
+    require(angle_error < 0.1,
+            "Body must rotate to within ~5.7 degrees of the target "
+            "orientation using only wrench torque (no joints, no linear "
+            "forces); got " +
+              std::to_string(angle_error) + " rad error");
+}
 }
 void addQPRegressionTests(TestContainer &tests);
 void addRegressionTests(TestContainer &tests)
@@ -467,6 +540,8 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_ModelFromPreset_RejectsConflictingFields",
       modelFromPresetRejectsConflictingFields));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_WrenchRotatesFloatingBody", wrenchRotatesFloatingBody));
     std::vector<solvers::ssqp::QPSolverType> backends { solvers::ssqp::ADMM };
 #ifdef WITH_HPIPM
     backends.push_back(solvers::ssqp::HPIPM);

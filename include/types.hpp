@@ -146,19 +146,32 @@ struct Dimensions
     uint total_joints; // Number of total joints
 };
 
+// The number of control-vector components a Force occupies
+// Linear: a pure point force (e.g. ground contact), no moment
+// Wrench: a full spatial force (linear + angular), e.g. rotor thrust plus
+// reaction/drag torque
+enum ForceDim
+{
+    Linear = 3,
+    Wrench = 6,
+};
+
 // An external force on some frame
 struct Force
 {
     std::string frame;
-    uint        force_index;
-    bool        ignore = false;
+    // index of this force within its own dim's list for its stage (forces or
+    // wrenches, depending on this force's type)
+    uint     force_index;
+    ForceDim dim    = Linear;
+    bool     ignore = false;
     // Index of `frame` within the model, resolved once by Model::addForce
     // (avoids repeatedly resolving the frame name by linear search on every
     // dynamics evaluation)
     uint frame_id = 0;
 
     Force() = default;
-    Force(const std::string &frame, const uint force_index);
+    Force(const std::string &frame, const uint force_index, const ForceDim dim);
 };
 
 /** Integration Scheme

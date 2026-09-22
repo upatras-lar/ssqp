@@ -131,7 +131,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                       SM == SolverMode::ReducedInverseDynamics)
         {
             v = x.tail(ctx->nv);
-            f = u.tail(3 * ctx->nf);
+            f = u.tail(ctx->force_width);
         }
 
         if constexpr (SM == SolverMode::ForwardDynamics)
@@ -171,6 +171,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                     _calculateJointForces(q,
                                           f,
                                           ctx->force_data,
+                                          ctx->wrench_data,
                                           ctx->joint_forces_scratch);
 
                     ddq = pinocchio_wrapper::aba(_impl,
@@ -197,6 +198,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                   ctrl,
                   f,
                   ctx->force_data,
+                  ctx->wrench_data,
                   ctx->actuated_joints,
                   ctx->unactuated_joints,
                   ctx->reduced_id_scratch,
@@ -238,7 +240,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                       SM == SolverMode::ReducedInverseDynamics)
         {
             v = x.tail(ctx->nv);
-            f = u.tail(3 * ctx->nf);
+            f = u.tail(ctx->force_width);
         }
 
         if constexpr (SM == SolverMode::ForwardDynamics)
@@ -260,7 +262,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         if constexpr (SM == SolverMode::Kinematics)
         {
             dX.setZero(ctx->nv, ctx->nv);
-            dU.setZero(ctx->nv, ctx->nu + 3 * ctx->nf);
+            dU.setZero(ctx->nv, ctx->nu + ctx->force_width);
 
             MatX Jint_v = MatX::Zero(ctx->nv, ctx->nv);
 
@@ -285,6 +287,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                     _calculateJointForcesAndJacobian(q,
                                                      f,
                                                      ctx->force_data,
+                                                     ctx->wrench_data,
                                                      ctx->joint_forces_scratch,
                                                      ctx->jf_full_scratch);
 
@@ -360,6 +363,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                       ctrl,
                       f,
                       ctx->force_data,
+                      ctx->wrench_data,
                       ctx->actuated_joints,
                       ctx->unactuated_joints,
                       ctx->reduced_id_scratch,
@@ -377,7 +381,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_v, 1);
 
             dX.setZero(2 * ctx->nv, 2 * ctx->nv);
-            dU.setZero(2 * ctx->nv, ctx->nu + 3 * ctx->nf);
+            dU.setZero(2 * ctx->nv, ctx->nu + ctx->force_width);
 
             if constexpr (IS == IntegrationScheme::ExplicitEuler)
             {
@@ -407,7 +411,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
                     if constexpr (WithForces)
                     {
-                        dU.bottomRightCorner(ctx->nv, 3 * ctx->nf) =
+                        dU.bottomRightCorner(ctx->nv, ctx->force_width) =
                           Minv * ctx->jf_full_scratch.transpose() * _dt;
                     }
                 }
@@ -427,6 +431,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                       ctrl,
                       f,
                       ctx->force_data,
+                      ctx->wrench_data,
                       ctx->actuated_joints,
                       ctx->unactuated_joints,
                       ctx->reduced_id_scratch,
@@ -440,6 +445,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                                   ctrl,
                                   f,
                                   ctx->force_data,
+                                  ctx->wrench_data,
                                   ctx->actuated_joints,
                                   ctx->unactuated_joints,
                                   ddq,
@@ -458,7 +464,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
                     if constexpr (WithForces)
                     {
-                        dU.bottomRightCorner(ctx->nv, 3 * ctx->nf) =
+                        dU.bottomRightCorner(ctx->nv, ctx->force_width) =
                           ctx->reduced_id_scratch.da_df * _dt;
                     }
                 }
@@ -498,10 +504,10 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                     {
                         MatX Gforce = Minv * ctx->jf_full_scratch.transpose();
 
-                        dU.bottomRightCorner(ctx->nv, 3 * ctx->nf) =
+                        dU.bottomRightCorner(ctx->nv, ctx->force_width) =
                           Gforce * _dt;
-                        dU.topRightCorner(ctx->nv, 3 * ctx->nf) =
-                          Jint_v * dU.bottomRightCorner(ctx->nv, 3 * ctx->nf) *
+                        dU.topRightCorner(ctx->nv, ctx->force_width) =
+                          Jint_v * dU.bottomRightCorner(ctx->nv, ctx->force_width) *
                           _dt;
                     }
                 }
@@ -526,6 +532,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                                   ctrl,
                                   f,
                                   ctx->force_data,
+                                  ctx->wrench_data,
                                   ctx->actuated_joints,
                                   ctx->unactuated_joints,
                                   ddq,
@@ -552,10 +559,10 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
                     if constexpr (WithForces)
                     {
-                        dU.bottomRightCorner(ctx->nv, 3 * ctx->nf) =
+                        dU.bottomRightCorner(ctx->nv, ctx->force_width) =
                           ctx->reduced_id_scratch.da_df * _dt;
-                        dU.topRightCorner(ctx->nv, 3 * ctx->nf) =
-                          Jint_v * dU.bottomRightCorner(ctx->nv, 3 * ctx->nf) *
+                        dU.topRightCorner(ctx->nv, ctx->force_width) =
+                          Jint_v * dU.bottomRightCorner(ctx->nv, ctx->force_width) *
                           _dt;
                     }
                 }
@@ -583,25 +590,25 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
     {
         if constexpr (SM == SolverMode::Kinematics)
         {
-            Pxu.setZero(ctx->nv, ctx->nu + 3 * ctx->nf);
+            Pxu.setZero(ctx->nv, ctx->nu + ctx->force_width);
         }
         else if constexpr (SM == SolverMode::ForwardDynamics ||
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-            Pxu.setZero(2 * ctx->nv, ctx->nu + 3 * ctx->nf);
+            Pxu.setZero(2 * ctx->nv, ctx->nu + ctx->force_width);
         }
     };
 
     auto dyn_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu.setZero(ctx->nu + 3 * ctx->nf, ctx->nu + 3 * ctx->nf); };
+    { Puu.setZero(ctx->nu + ctx->force_width, ctx->nu + ctx->force_width); };
 
     if constexpr (SM == SolverMode::Kinematics)
     {
         return stagewise::factory::make_dynamics({ ctx->stage_dynamics_name },
                                                  ctx->nq,
-                                                 ctx->nu + 3 * ctx->nf,
+                                                 ctx->nu + ctx->force_width,
                                                  ctx->nq,
                                                  ctx->nv,
                                                  ctx->init_state,
@@ -619,7 +626,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
     {
         return stagewise::factory::make_dynamics({ ctx->stage_dynamics_name },
                                                  ctx->nq + ctx->nv,
-                                                 ctx->nu + 3 * ctx->nf,
+                                                 ctx->nu + ctx->force_width,
                                                  ctx->nq + ctx->nv,
                                                  2 * ctx->nv,
                                                  ctx->init_state,
@@ -770,7 +777,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
             }
             else
             {
-                dU.setZero(_bounded_joint_indices.size(), ctx->nu + 3 * ctx->nf);
+                dU.setZero(_bounded_joint_indices.size(), ctx->nu + ctx->force_width);
             }
         }
         else if constexpr (IsTerminal)
@@ -783,14 +790,14 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
             dX.setZero(_bounded_joint_indices.size() + 2 * nv_reduced,
                        2 * ctx->nv);
             dU.setZero(_bounded_joint_indices.size() + 2 * nv_reduced,
-                       ctx->nu + 3 * ctx->nf);
+                       ctx->nu + ctx->force_width);
         }
         else if constexpr (SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
             dX.setZero(_bounded_joint_indices.size() + nv_reduced, 2 * ctx->nv);
             dU.setZero(_bounded_joint_indices.size() + nv_reduced,
-                       ctx->nu + 3 * ctx->nf);
+                       ctx->nu + ctx->force_width);
         }
 
         for (uint i = 0; i < _bounded_joint_indices.size(); ++i)
@@ -863,19 +870,19 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     {
         if constexpr (SM == SolverMode::Kinematics)
         {
-            Pxu.setZero(ctx->nv, ctx->nu + 3 * ctx->nf);
+            Pxu.setZero(ctx->nv, ctx->nu + ctx->force_width);
         }
         else if constexpr (SM == SolverMode::ForwardDynamics ||
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-            Pxu.setZero(2 * ctx->nv, ctx->nu + 3 * ctx->nf);
+            Pxu.setZero(2 * ctx->nv, ctx->nu + ctx->force_width);
         }
     };
 
     auto innate_constraint_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu.setZero(ctx->nu + 3 * ctx->nf, ctx->nu + 3 * ctx->nf); };
+    { Puu.setZero(ctx->nu + ctx->force_width, ctx->nu + ctx->force_width); };
 
     if constexpr (SM == SolverMode::Kinematics)
     {
@@ -1009,7 +1016,7 @@ Model::_makeStageIDTorqueConstraints(
         VecX q    = x.head(ctx->nq);
         VecX v    = x.tail(ctx->nv);
         VecX ctrl = u.head(ctx->nu);
-        VecX f    = u.tail(3 * ctx->nf);
+        VecX f    = u.tail(ctx->force_width);
 
         VecX ddq;
 
@@ -1022,6 +1029,7 @@ Model::_makeStageIDTorqueConstraints(
               ctrl,
               f,
               ctx->force_data,
+              ctx->wrench_data,
               ctx->actuated_joints,
               ctx->unactuated_joints,
               ctx->reduced_id_scratch,
@@ -1037,7 +1045,8 @@ Model::_makeStageIDTorqueConstraints(
 
         if constexpr (WithForces)
         {
-            _calculateJointForces(q, f, ctx->force_data, ctx->joint_forces_scratch);
+            _calculateJointForces(q, f, ctx->force_data, ctx->wrench_data,
+                                  ctx->joint_forces_scratch);
 
             tau = inverseDynamics(q, v, ddq, ctx->joint_forces_scratch);
         }
@@ -1073,10 +1082,10 @@ Model::_makeStageIDTorqueConstraints(
         VecX q    = x.head(ctx->nq);
         VecX v    = x.tail(ctx->nv);
         VecX ctrl = u.head(ctx->nu);
-        VecX f    = u.tail(3 * ctx->nf);
+        VecX f    = u.tail(ctx->force_width);
 
         dX.setZero(ctx->nu, 2 * ctx->nv);
-        dU.setZero(ctx->nu, ctx->nu + 3 * ctx->nf);
+        dU.setZero(ctx->nu, ctx->nu + ctx->force_width);
 
         if constexpr (ReducedInverseDynamics)
         {
@@ -1087,6 +1096,7 @@ Model::_makeStageIDTorqueConstraints(
               ctrl,
               f,
               ctx->force_data,
+              ctx->wrench_data,
               ctx->actuated_joints,
               ctx->unactuated_joints,
               ctx->reduced_id_scratch,
@@ -1100,6 +1110,7 @@ Model::_makeStageIDTorqueConstraints(
               ctrl,
               f,
               ctx->force_data,
+              ctx->wrench_data,
               ctx->actuated_joints,
               ctx->unactuated_joints,
               ddq,
@@ -1116,7 +1127,7 @@ Model::_makeStageIDTorqueConstraints(
             const MatX &da_df   = ctx->reduced_id_scratch.da_df;
 
             MatX dX_full(ctx->nv, 2 * ctx->nv);
-            MatX dU_full(ctx->nv, ctx->nu + 3 * ctx->nf);
+            MatX dU_full(ctx->nv, ctx->nu + ctx->force_width);
 
             dX_full.leftCols(ctx->nv)  = dtau_dq + dtau_da * da_dq;
             dX_full.rightCols(ctx->nv) = dtau_dv + dtau_da * da_dv;
@@ -1124,7 +1135,7 @@ Model::_makeStageIDTorqueConstraints(
 
             if constexpr (WithForces)
             {
-                dU_full.rightCols(3 * ctx->nf) =
+                dU_full.rightCols(ctx->force_width) =
                   -ctx->jf_full_scratch.transpose() + dtau_da * da_df;
             }
 
@@ -1150,6 +1161,7 @@ Model::_makeStageIDTorqueConstraints(
                 _calculateJointForcesAndJacobian(q,
                                                  f,
                                                  ctx->force_data,
+                                                 ctx->wrench_data,
                                                  ctx->joint_forces_scratch,
                                                  ctx->jf_full_scratch);
 
@@ -1179,7 +1191,7 @@ Model::_makeStageIDTorqueConstraints(
 
             if constexpr (WithForces)
             {
-                dU.rightCols(3 * ctx->nf) = -ctx->jf_full_scratch.transpose();
+                dU.rightCols(ctx->force_width) = -ctx->jf_full_scratch.transpose();
             }
         }
     };
@@ -1190,11 +1202,11 @@ Model::_makeStageIDTorqueConstraints(
 
     auto innate_constraint_hessprod_xu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
-    { Pxu.setZero(2 * ctx->nv, ctx->nu + 3 * ctx->nf); };
+    { Pxu.setZero(2 * ctx->nv, ctx->nu + ctx->force_width); };
 
     auto innate_constraint_hessprod_uu =
       [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu.setZero(ctx->nu + 3 * ctx->nf, ctx->nu + 3 * ctx->nf); };
+    { Puu.setZero(ctx->nu + ctx->force_width, ctx->nu + ctx->force_width); };
 
     return stagewise::factory::make_constraints(
       { ctx->stage_constraints_name },
@@ -1214,6 +1226,7 @@ template<bool FloatingBase, bool WithForces>
 VecX Model::_calculateReducedInverseFullAcceleration(
   const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
   const std::vector<std::shared_ptr<Force>> &force_data,
+  const std::vector<std::shared_ptr<Force>> &wrench_data,
   const std::vector<uint>                   &actuated_joints,
   const std::vector<uint>          &unactuated_joints,
   _ReducedInverseDynamicsScratch &scratch, std::vector<Vec6> &joint_forces,
@@ -1238,6 +1251,7 @@ VecX Model::_calculateReducedInverseFullAcceleration(
         _calculateJointForcesAndJacobian(q,
                                          f,
                                          force_data,
+                                         wrench_data,
                                          joint_forces,
                                          Jf_full);
 
@@ -1329,14 +1343,15 @@ template<bool FloatingBase, bool WithForces>
 void Model::_calculateReducedInverseFullAccelerationDerivatives(
   const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
   const std::vector<std::shared_ptr<Force>> &force_data,
+  const std::vector<std::shared_ptr<Force>> &wrench_data,
   const std::vector<uint>                   &actuated_joints,
   const std::vector<uint> &unactuated_joints, const VecX &ddq,
   _ReducedInverseDynamicsScratch &scratch,
   const std::vector<Vec6> &joint_forces, const MatX &Jf_full) const
 {
-    const uint nv = v.size();
-    const uint nu = ctrl.size();
-    const uint nf = f.size() / 3;
+    const uint nv          = v.size();
+    const uint nu          = ctrl.size();
+    const uint force_width = f.size();
 
     const MatX              &Muu      = scratch.Muu;
     const MatX              &Muj      = scratch.Muj;
@@ -1360,7 +1375,7 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
     MatX &da_df_reordered  = scratch.da_df_reordered;
 
     uint n_unact = nv - nu;
-    Ju.resize(3 * nf, n_unact);
+    Ju.resize(force_width, n_unact);
 
     if constexpr (WithForces)
     {
@@ -1426,7 +1441,7 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
 
     if constexpr (WithForces)
     {
-        da_df_reordered.setZero(nv, 3 * nf);
+        da_df_reordered.setZero(nv, force_width);
 
         da_df_reordered.topRows(n_unact) = Muu_ldlt.solve(Ju.transpose());
     }
@@ -1437,7 +1452,7 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
 
     if constexpr (WithForces)
     {
-        da_df.setZero(nv, 3 * nf);
+        da_df.setZero(nv, force_width);
     }
 
     if constexpr (FloatingBase)
@@ -1499,11 +1514,11 @@ void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
     VecX q    = x.head(_dims.nq);
     VecX v    = x.tail(_dims.nv);
     VecX ctrl = u.head(_dims.nu);
-    VecX f    = u.tail(3 * _forces[k].size());
+    VecX f    = u.tail(_forceControlWidth(k));
 
     _ReducedInverseDynamicsScratch scratch;
     std::vector<Vec6> joint_forces(_dims.total_joints);
-    MatX               Jf_full(3 * _forces[k].size(), _dims.nv);
+    MatX               Jf_full(_forceControlWidth(k), _dims.nv);
 
     VecX ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
                                                         WithForces>(
@@ -1512,6 +1527,7 @@ void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
       ctrl,
       f,
       _forces[k],
+      _wrenches[k],
       _actuated_joints,
       _unactuated_joints,
       scratch,
@@ -1525,6 +1541,7 @@ void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
       ctrl,
       f,
       _forces[k],
+      _wrenches[k],
       _actuated_joints,
       _unactuated_joints,
       ddq,
@@ -1540,7 +1557,7 @@ void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
     const MatX &da_daj  = scratch.da_daj;
 
     MatX dX_full(_dims.nv, 2 * _dims.nv);
-    MatX dU_full(_dims.nv, _dims.nu + 3 * _forces[k].size());
+    MatX dU_full(_dims.nv, _dims.nu + _forceControlWidth(k));
 
     dX_full.leftCols(_dims.nv)  = dtau_dq + dtau_da * da_dq;
     dX_full.rightCols(_dims.nv) = dtau_dv + dtau_da * da_dv;
@@ -1550,7 +1567,7 @@ void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
     {
         const MatX &da_df = scratch.da_df;
 
-        dU_full.rightCols(3 * _forces[k].size()) =
+        dU_full.rightCols(_forceControlWidth(k)) =
           -Jf_full.transpose() + dtau_da * da_df;
     }
 

@@ -67,6 +67,7 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
   , _constraints(horizon + 1)
   , _dynamics(horizon + 1) //H+1 to keep init_states for final stage
   , _forces(horizon + 1)
+  , _wrenches(horizon + 1)
   , _solver_mode(structure.solver_mode)
   , _integration(structure.integration)
   , _ignore_innate(structure.ignore_innate_constraints)
@@ -484,7 +485,9 @@ void Model::_buildXMLInnateConstraints(const Config &config)
     {
         ctx.stage_constraints_name =
           "StageInnateConstraints" + std::to_string(k);
-        ctx.nf = _forces[k].size();
+        ctx.nf          = _forces[k].size();
+        ctx.nw          = _wrenches[k].size();
+        ctx.force_width = _forceControlWidth(k);
 
         auto ctx_ptr =
           std::make_shared<const _StageInnateConstraintsContext>(ctx);
@@ -545,9 +548,12 @@ void Model::_buildXMLIDTorqueConstraints(const Config &config)
     {
         ctx.stage_constraints_name =
           "StageIDTorqueConstraints" + std::to_string(k);
-        ctx.nf         = _forces[k].size();
-        ctx.force_data = _forces[k];
-        ctx.jf_full_scratch.resize(3 * ctx.nf, _dims.nv);
+        ctx.nf          = _forces[k].size();
+        ctx.nw          = _wrenches[k].size();
+        ctx.force_data  = _forces[k];
+        ctx.wrench_data = _wrenches[k];
+        ctx.force_width = _forceControlWidth(k);
+        ctx.jf_full_scratch.resize(ctx.force_width, _dims.nv);
 
         auto ctx_ptr =
           std::make_shared<const _StageInnateConstraintsContext>(ctx);
@@ -563,7 +569,7 @@ void Model::_buildXMLIDTorqueConstraints(const Config &config)
             ct_floating_base,
             _solver_mode == SolverMode::ReducedInverseDynamics ? ct_true
                                                                : ct_false,
-            ctx.nf == 0 ? ct_false : ct_true);
+            ctx.force_width == 0 ? ct_false : ct_true);
 
         _constraints[k] =
           _constraints[k] == nullptr
@@ -681,15 +687,18 @@ void Model::_buildXMLDynamics(const Config &config)
     {
         ctx.stage_dynamics_name = "StageDynamics" + std::to_string(k);
         ctx.nf                  = _forces[k].size();
+        ctx.nw                  = _wrenches[k].size();
         ctx.force_data          = _forces[k];
-        ctx.jf_full_scratch.resize(3 * ctx.nf, _dims.nv);
+        ctx.wrench_data         = _wrenches[k];
+        ctx.force_width         = _forceControlWidth(k);
+        ctx.jf_full_scratch.resize(ctx.force_width, _dims.nv);
 
         ctx.init_state =
           init_state.size() != 0 ? init_state : config.init_states[k];
 
         ctx.init_control =
           (config.init_controls.size() == 0 || k == _dims.horizon)
-            ? VecX::Zero(ctx.nu + 3 * ctx.nf)
+            ? VecX::Zero(ctx.nu + ctx.force_width)
             : (config.init_controls.size() == 1 ? config.init_controls[0]
                                                 : config.init_controls[k]);
 
@@ -702,7 +711,7 @@ void Model::_buildXMLDynamics(const Config &config)
                 ctx_ptr);
           },
           ct_floating_base,
-          ctx.nf == 0 ? ct_false : ct_true,
+          ctx.force_width == 0 ? ct_false : ct_true,
           ct_sm,
           ct_is);
     }
@@ -850,7 +859,8 @@ void Model::addConstraints(
       stagewise::factory::merge_constraints(_constraints[k], constraints);
 }
 
-std::shared_ptr<Force> Model::addForce(const uint k, const std::string &frame)
+std::shared_ptr<Force> Model::_addForce(const uint k, const std::string &frame,
+                                        const ForceDim dim)
 {
     if (_finalized)
     {
@@ -858,17 +868,40 @@ std::shared_ptr<Force> Model::addForce(const uint k, const std::string &frame)
                                  "already finalized");
     }
 
+    std::vector<std::shared_ptr<Force>> &list =
+      dim == ForceDim::Linear ? _forces[k] : _wrenches[k];
+
     std::shared_ptr<Force> force =
-      std::make_shared<Force>(frame, _forces[k].size());
+      std::make_shared<Force>(frame, list.size(), dim);
     force->frame_id = pinocchio_wrapper::getFrameId(_impl, frame);
 
-    _forces[k].push_back(force);
-    return _forces[k].back();
+    list.push_back(force);
+    return list.back();
+}
+
+std::shared_ptr<Force> Model::addForce(const uint k, const std::string &frame)
+{
+    return _addForce(k, frame, ForceDim::Linear);
+}
+
+std::shared_ptr<Force> Model::addWrench(const uint k, const std::string &frame)
+{
+    return _addForce(k, frame, ForceDim::Wrench);
+}
+
+uint Model::_forceControlWidth(const uint k) const
+{
+    return 3 * _forces[k].size() + 6 * _wrenches[k].size();
 }
 
 uint Model::nforces(const uint k) const
 {
     return _forces[k].size();
+}
+
+uint Model::nwrenches(const uint k) const
+{
+    return _wrenches[k].size();
 }
 
 std::vector<std::string> Model::orderedForceFrames(const uint k) const
@@ -878,6 +911,18 @@ std::vector<std::string> Model::orderedForceFrames(const uint k) const
     for (uint i = 0; i < _forces[k].size(); ++i)
     {
         frames.push_back(_forces[k][i]->frame);
+    }
+
+    return frames;
+}
+
+std::vector<std::string> Model::orderedWrenchFrames(const uint k) const
+{
+    std::vector<std::string> frames;
+
+    for (uint i = 0; i < _wrenches[k].size(); ++i)
+    {
+        frames.push_back(_wrenches[k][i]->frame);
     }
 
     return frames;
@@ -1411,22 +1456,24 @@ VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,
         return u.head(_dims.nv);
     case SolverMode::ReducedInverseDynamics:
         auto ct_floating_base = to_compile_time(_free_flyer);
-        auto ct_with_forces   = to_compile_time(!_forces[k].empty());
+        auto ct_with_forces =
+          to_compile_time(!_forces[k].empty() || !_wrenches[k].empty());
 
         return std::visit(
           [this, x, u, k](auto fb, auto wf)
           {
               _ReducedInverseDynamicsScratch scratch;
               std::vector<Vec6> joint_forces(_dims.total_joints);
-              MatX               Jf_full(3 * _forces[k].size(), _dims.nv);
+              MatX               Jf_full(_forceControlWidth(k), _dims.nv);
 
               return _calculateReducedInverseFullAcceleration<fb.value,
                                                               wf.value>(
                 x.head(_dims.nq),
                 x.tail(_dims.nv),
                 u.head(_dims.nu),
-                u.tail(3 * _forces[k].size()),
+                u.tail(_forceControlWidth(k)),
                 _forces[k],
+                _wrenches[k],
                 _actuated_joints,
                 _unactuated_joints,
                 scratch,
@@ -1450,7 +1497,7 @@ VecX Model::getActuatedTorqueVector(const VecX &x, const VecX &u,
 
         VecX tau;
 
-        if (_forces[k].empty())
+        if (_forces[k].empty() && _wrenches[k].empty())
         {
             tau = inverseDynamics(q, v, full_accel);
         }
@@ -1458,8 +1505,9 @@ VecX Model::getActuatedTorqueVector(const VecX &x, const VecX &u,
         {
             std::vector<Vec6> joint_forces(_dims.total_joints);
             _calculateJointForces(q,
-                                  u.tail(3 * _forces[k].size()),
+                                  u.tail(_forceControlWidth(k)),
                                   _forces[k],
+                                  _wrenches[k],
                                   joint_forces);
             tau = inverseDynamics(q, v, full_accel, joint_forces);
         }
@@ -1479,14 +1527,14 @@ VecX Model::getActuatedTorqueVector(const VecX &x, const VecX &u,
     // acceleration vector, and every joint is actuated (nu == nv)
     VecX a = u.head(_dims.nv);
 
-    if (_forces[k].empty())
+    if (_forces[k].empty() && _wrenches[k].empty())
     {
         return inverseDynamics(q, v, a);
     }
 
     std::vector<Vec6> joint_forces(_dims.total_joints);
-    _calculateJointForces(q, u.tail(3 * _forces[k].size()), _forces[k],
-                          joint_forces);
+    _calculateJointForces(q, u.tail(_forceControlWidth(k)), _forces[k],
+                          _wrenches[k], joint_forces);
 
     return inverseDynamics(q, v, a, joint_forces);
 }
@@ -1498,7 +1546,8 @@ void Model::getActuatedTorqueVectorDerivatives(const VecX &x, const VecX &u,
     if (_solver_mode == SolverMode::ReducedInverseDynamics)
     {
         auto ct_floating_base = to_compile_time(_free_flyer);
-        auto ct_with_forces   = to_compile_time(!_forces[k].empty());
+        auto ct_with_forces =
+          to_compile_time(!_forces[k].empty() || !_wrenches[k].empty());
 
         std::visit(
           [this, &x, &u, k, &dtau_dx, &dtau_du](auto fb, auto wf)
@@ -1525,7 +1574,7 @@ void Model::getActuatedTorqueVectorDerivatives(const VecX &x, const VecX &u,
     dtau_dx.resize(_dims.nv, 2 * _dims.nv);
     dtau_du.setZero(_dims.nv, u.size());
 
-    if (_forces[k].empty())
+    if (_forces[k].empty() && _wrenches[k].empty())
     {
         inverseDynamicsDerivatives(q, v, a, dtau_dq, dtau_dv, M);
 
@@ -1534,18 +1583,19 @@ void Model::getActuatedTorqueVectorDerivatives(const VecX &x, const VecX &u,
     else
     {
         std::vector<Vec6> joint_forces(_dims.total_joints);
-        MatX               Jf_full(3 * _forces[k].size(), _dims.nv);
+        MatX               Jf_full(_forceControlWidth(k), _dims.nv);
 
         _calculateJointForcesAndJacobian(q,
-                                         u.tail(3 * _forces[k].size()),
+                                         u.tail(_forceControlWidth(k)),
                                          _forces[k],
+                                         _wrenches[k],
                                          joint_forces,
                                          Jf_full);
 
         inverseDynamicsDerivatives(q, v, a, joint_forces, dtau_dq, dtau_dv, M);
 
-        dtau_du.leftCols(_dims.nv)                = M;
-        dtau_du.rightCols(3 * _forces[k].size())  = -Jf_full.transpose();
+        dtau_du.leftCols(_dims.nv)               = M;
+        dtau_du.rightCols(_forceControlWidth(k)) = -Jf_full.transpose();
     }
 
     dtau_dx.leftCols(_dims.nv)  = dtau_dq;
@@ -1584,7 +1634,7 @@ VecX Model::randomState(const uint stage) const
 VecX Model::randomControls(const uint stage) const
 {
     // TODO: Effort limit
-    VecX ru = _randomVector(_dims.nu + 3 * _forces[stage].size());
+    VecX ru = _randomVector(_dims.nu + _forceControlWidth(stage));
     return ru;
 }
 
@@ -1614,6 +1664,7 @@ VecX Model::_randomVector(const uint size, const double start,
 void Model::_calculateJointForces(
   const VecX &q, const VecX &f,
   const std::vector<std::shared_ptr<Force>> &force_data,
+  const std::vector<std::shared_ptr<Force>> &wrench_data,
   std::vector<Vec6>                         &joint_forces) const
 {
     pinocchio_wrapper::computeJointJacobians(_impl, q);
@@ -1636,11 +1687,30 @@ void Model::_calculateJointForces(
 
         joint_forces[joint_id] += f_res;
     }
+
+    uint offset = 3 * force_data.size();
+
+    for (uint i = 0; i < wrench_data.size(); ++i)
+    {
+        if (wrench_data[i]->ignore)
+        {
+            continue;
+        }
+
+        Vec6 wi = f.segment(offset + 6 * i, 6);
+
+        uint joint_id;
+        Vec6 f_res = pinocchio_wrapper::framejMfActWrench(
+          _impl, wrench_data[i]->frame_id, wi, joint_id);
+
+        joint_forces[joint_id] += f_res;
+    }
 }
 
 void Model::_calculateJointForcesAndJacobian(
   const VecX &q, const VecX &f,
   const std::vector<std::shared_ptr<Force>> &force_data,
+  const std::vector<std::shared_ptr<Force>> &wrench_data,
   std::vector<Vec6> &joint_forces, MatX &Jf_full) const
 {
     pinocchio_wrapper::computeJointJacobians(_impl, q);
@@ -1671,6 +1741,27 @@ void Model::_calculateJointForcesAndJacobian(
                                                     force_data[i]->frame_id,
                                                     fi,
                                                     joint_id);
+
+        joint_forces[joint_id] += f_res;
+    }
+
+    uint offset = 3 * force_data.size();
+
+    for (uint i = 0; i < wrench_data.size(); ++i)
+    {
+        if (wrench_data[i]->ignore)
+        {
+            continue;
+        }
+
+        frameJacobian(wrench_data[i]->frame_id, true, J6);
+        Jf_full.block(offset + 6 * i, 0, 6, _dims.nv) = J6;
+
+        Vec6 wi = f.segment(offset + 6 * i, 6);
+
+        uint joint_id;
+        Vec6 f_res = pinocchio_wrapper::framejMfActWrench(
+          _impl, wrench_data[i]->frame_id, wi, joint_id);
 
         joint_forces[joint_id] += f_res;
     }

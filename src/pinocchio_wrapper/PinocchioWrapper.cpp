@@ -274,6 +274,20 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
     return res.toVector();
 }
 
+Eigen::Vector<double, 6> framejMfActWrench(
+  const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
+  const Eigen::Vector<double, 6> &wrench, uint &joint_id)
+{
+    pinocchio::Force f = pinocchio::Force::Zero();
+    f.linear()          = wrench.head<3>();
+    f.angular()         = wrench.tail<3>();
+
+    pinocchio::Force res = impl->model.frames[frame_id].placement.act(f);
+    joint_id             = impl->model.frames[frame_id].parentJoint;
+
+    return res.toVector();
+}
+
 void crba(const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
          Eigen::MatrixXd &M, bool local)
 {
