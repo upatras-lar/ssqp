@@ -98,6 +98,22 @@ void buildModelFromUrdf(const std::string         &urdf,
     impl->data.emplace(impl->model);
 }
 
+void buildModelFromUrdfXML(const std::string         &urdf,
+                           std::shared_ptr<ModelImpl> impl, bool free_flyer)
+{
+    if (free_flyer)
+    {
+        pinocchio::urdf::buildModelFromXML(urdf,
+                                           pinocchio::JointModelFreeFlyer(),
+                                           impl->model);
+    }
+    else
+    {
+        pinocchio::urdf::buildModelFromXML(urdf, impl->model);
+    }
+    impl->data.emplace(impl->model);
+}
+
 void buildModelFromMjcf(const std::string         &mjcf,
                         std::shared_ptr<ModelImpl> impl, bool free_flyer)
 {

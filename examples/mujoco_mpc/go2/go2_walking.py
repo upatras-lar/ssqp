@@ -240,7 +240,7 @@ hpipm_params.tol_eq = 1e-4
 hpipm_params.tol_ineq = 1e-4
 ssqp_params.hpipmParams = hpipm_params
 
-mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
+mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=8, qp_iters=100)
 
 # joint_space_pd_controller = JointSpacePD(mpc, init_state, Kp=2.0, Kd=0.05)
 
@@ -257,6 +257,10 @@ Kp = 0.01
 Kd = 2 * np.sqrt(Kp)
 
 stage = 0
+# stage indexes the plan (mpc_dt per step), so only advance it once per
+# planning step, not every simulation step
+STAGE_EVERY = round(mpc_dt / dt)
+step = 0
 
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
@@ -296,8 +300,10 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             + uk[6:18]
         )
 
-        stage += 1
-        update_model(stage)
+        step += 1
+        if step % STAGE_EVERY == 0:
+            stage += 1
+            update_model(stage)
 
         mujoco.mj_step(mjmodel, mjdata)
         viewer.sync()

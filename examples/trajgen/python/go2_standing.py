@@ -33,9 +33,8 @@ init[7:19] = base_config
 model = ssqpy.model.Model(
     HORIZON,
     dt,
-    urdf_path="../../assets/urdf/go2/go2.urdf",
+    from_preset=ssqpy.model.Preset.Go2,
     # mjcf_path="../../assets/mjcf/go2/go2.xml",
-    free_flyer=True,
     # solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 

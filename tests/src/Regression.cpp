@@ -406,6 +406,44 @@ void innateTorqueBoundsAreEnforced()
         constraint->evaluate(x, VecX::Constant(model->nu(), -1.1 * tau_bound))),
       "A control below -tau_bound must violate the torque constraint");
 }
+
+// A preset must build the same model as loading its URDF by path directly
+void modelFromPresetMatchesUrdfPath()
+{
+    model::Model::Structure preset_structure;
+    preset_structure.from_preset = model::Preset::Go2;
+    model::Model preset_model(1, 0.01, preset_structure);
+
+    model::Model::Structure path_structure;
+    path_structure.urdf_path  = "examples/assets/urdf/go2/go2.urdf";
+    path_structure.free_flyer = true;
+    model::Model path_model(1, 0.01, path_structure);
+
+    require(preset_model.nq() == path_model.nq(),
+            "Preset model nq must match the equivalent urdf_path model");
+    require(preset_model.nv() == path_model.nv(),
+            "Preset model nv must match the equivalent urdf_path model");
+}
+
+// from_preset is mutually exclusive with urdf_path
+void modelFromPresetRejectsConflictingFields()
+{
+    model::Model::Structure structure;
+    structure.from_preset = model::Preset::Go2;
+    structure.urdf_path   = "examples/assets/urdf/go2/go2.urdf";
+
+    bool threw = false;
+    try
+    {
+        model::Model model(1, 0.01, structure);
+    }
+    catch (const std::invalid_argument &)
+    {
+        threw = true;
+    }
+    require(threw,
+            "from_preset combined with urdf_path must throw invalid_argument");
+}
 }
 void addQPRegressionTests(TestContainer &tests);
 void addRegressionTests(TestContainer &tests)
@@ -423,6 +461,12 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_InnateTorqueBounds_AreEnforced",
       innateTorqueBoundsAreEnforced));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_ModelFromPreset_MatchesUrdfPath",
+      modelFromPresetMatchesUrdfPath));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_ModelFromPreset_RejectsConflictingFields",
+      modelFromPresetRejectsConflictingFields));
     std::vector<solvers::ssqp::QPSolverType> backends { solvers::ssqp::ADMM };
 #ifdef WITH_HPIPM
     backends.push_back(solvers::ssqp::HPIPM);

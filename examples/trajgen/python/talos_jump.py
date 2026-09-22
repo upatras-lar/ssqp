@@ -28,8 +28,7 @@ R_WGT = 3.0
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../assets/urdf/talos/talos.urdf",
-    free_flyer=True,
+    from_preset=ssqpy.model.Preset.Talos,
     solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 

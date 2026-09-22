@@ -38,12 +38,10 @@ init[6] = 1.0
 init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Create an SSQP model
-# Since the A1 has a floating base, we must set free_flyer to True
 model = ssqpy.model.Model(
     HORIZON,
     dt,
-    urdf_path="../../assets/urdf/a1/a1.urdf",
-    free_flyer=True,
+    from_preset=ssqpy.model.Preset.A1,
     solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 

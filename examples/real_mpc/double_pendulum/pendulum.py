@@ -25,7 +25,7 @@ TIP_WGT = 3.0
 model = ssqpy.model.Model(
     MPC_H,
     dt,
-    urdf_path="../../assets/urdf/double_pendulum/double_pendulum.urdf",
+    from_preset=ssqpy.model.Preset.DoublePendulum,
     solver_mode=(
         ssqpy.model.SolverMode.InverseDynamics
         if INVERSE_MODE

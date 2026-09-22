@@ -73,6 +73,9 @@ class Model
      *     description is used)
      *  - `free_flyer`: Whether the model has a floating base (only relevant
      *     if initialized through XML)
+     *  - `from_preset`: A URDF preset to build the model from (default 
+     *     `Preset::None`); mutually exclusive with `urdf_path`, `mjcf_path` 
+     *     and `free_flyer`
      *  - `terrain`: The ground terrain (default flat at z=0)
      *  - `solver_mode`: The solver mode to use (default `ForwardDynamics`)
      *  - `integration`: The integration scheme to use (default Semi-Implicit
@@ -87,6 +90,7 @@ class Model
         std::string                       urdf_path;
         std::string                       mjcf_path;
         bool                              free_flyer  = false;
+        Preset                            from_preset = Preset::None;
         std::shared_ptr<terrain::Terrain> terrain     = nullptr;
         SolverMode                        solver_mode = ForwardDynamics;
         IntegrationScheme                 integration = SemiImplicitEuler;
@@ -751,8 +755,7 @@ class Model
      */
     template<bool FloatingBase, bool WithForces>
     void _getActuatedTorqueVectorReducedDerivatives(const VecX &x,
-                                                    const VecX &u,
-                                                    const uint  k,
+                                                    const VecX &u, const uint k,
                                                     MatX &dtau_dx,
                                                     MatX &dtau_du) const;
 

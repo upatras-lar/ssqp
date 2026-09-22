@@ -1,5 +1,7 @@
 #include "model/Model.hpp"
 
+#include "model/presets/Presets.hpp"
+
 namespace ssqp
 {
 namespace model
@@ -88,13 +90,31 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
     _lin_dims.stage_control.resize(_lin_dims.horizon);
     _lin_dims.stage_constraint.resize(_lin_dims.horizon + 1);
 
-    _xml = !structure.urdf_path.empty() || !structure.mjcf_path.empty();
+    if (structure.from_preset != Preset::None
+        && (!structure.urdf_path.empty() || !structure.mjcf_path.empty()
+            || structure.free_flyer))
+    {
+        throw std::invalid_argument(
+          "Structure::from_preset is mutually exclusive with urdf_path, "
+          "mjcf_path and free_flyer");
+    }
+
+    _xml = !structure.urdf_path.empty() || !structure.mjcf_path.empty()
+           || structure.from_preset != Preset::None;
 
     if (_xml)
     {
         _impl = pinocchio_wrapper::makeImpl();
 
-        if (!structure.urdf_path.empty())
+        if (structure.from_preset != Preset::None)
+        {
+            _free_flyer = presets::freeFlyer(structure.from_preset);
+            pinocchio_wrapper::buildModelFromUrdfXML(
+              std::string(presets::urdf(structure.from_preset)),
+              _impl,
+              _free_flyer);
+        }
+        else if (!structure.urdf_path.empty())
         {
             pinocchio_wrapper::buildModelFromUrdf(structure.urdf_path,
                                                   _impl,

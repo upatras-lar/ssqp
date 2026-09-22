@@ -53,7 +53,7 @@ Rd[2, 2] = -1
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
-    urdf_path="../../assets/urdf/panda/panda.urdf",
+    from_preset=ssqpy.model.Preset.Panda,
     solver_mode=(
         ssqpy.model.SolverMode.InverseDynamics
         if INVERSE_MODE

@@ -29,7 +29,7 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
     model = ssqpy.model.Model(
         MPC_H,
         dt,
-        urdf_path="../../assets/urdf/panda/panda.urdf",
+        from_preset=ssqpy.model.Preset.Panda,
         solver_mode=dynamics_mode,
     )
 
@@ -97,7 +97,7 @@ def get_reset_model(dynamics_mode):
     model = ssqpy.model.Model(
         MPC_H,
         dt,
-        urdf_path="../../assets/urdf/panda/panda.urdf",
+        from_preset=ssqpy.model.Preset.Panda,
         solver_mode=dynamics_mode,
     )
 
@@ -179,7 +179,7 @@ def get_circle_model(dynamics_mode, constrain=False):
     model = ssqpy.model.Model(
         MPC_H,
         MPC_dt,
-        urdf_path="../../assets/urdf/panda/panda.urdf",
+        from_preset=ssqpy.model.Preset.Panda,
         solver_mode=dynamics_mode,
     )
 
@@ -308,7 +308,7 @@ def get_sequence_model(dynamics_mode, constrain=False):
     model = ssqpy.model.Model(
         MPC_H,
         MPC_dt,
-        urdf_path="../../assets/urdf/panda/panda.urdf",
+        from_preset=ssqpy.model.Preset.Panda,
         solver_mode=dynamics_mode,
     )
 

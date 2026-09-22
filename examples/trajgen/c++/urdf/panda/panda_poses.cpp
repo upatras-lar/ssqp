@@ -139,7 +139,7 @@ int main()
                                                  ssqp::model::ZeroHessian_uu);
 
     ssqp::model::Model::Structure model_structure;
-    model_structure.urdf_path = "examples/assets/urdf/panda/panda.urdf";
+    model_structure.from_preset = ssqp::model::Preset::Panda;
 
     ssqp::model::Model::Config model_config;
     model_config.stage_cost    = cost;

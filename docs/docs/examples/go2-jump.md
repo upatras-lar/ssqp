@@ -12,10 +12,11 @@ configuring solver parameters. It builds directly on [Panda Circle](panda-circle
 ## Setup
 
 ```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:1:41"
+--8<-- "examples/trajgen/python/go2_jump.py:1:40"
 ```
 
-`ReducedInverseDynamics` [solver mode](../concepts/model.md#solver-mode) is used, with `free_flyer=True` since the
+`ReducedInverseDynamics` [solver mode](../concepts/model.md#solver-mode) is used, with the `Go2`
+[preset](../concepts/model.md#built-in-presets) (which fixes `free_flyer=True` for you) since the
 Go2's base isn't bolted to anything: it's a free-floating rigid body (position + orientation on $SE(3)$, another
 instance of the [manifold-valued states](../concepts/costs-constraints-dynamics.md#manifold-valued-states) SSQP
 handles) whose motion is determined entirely by the forces the legs exert on the ground, not by any actuator
@@ -30,7 +31,7 @@ forces become part of the optimization below.
 ## Initial state and a static-equilibrium initial guess
 
 ```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:43:57"
+--8<-- "examples/trajgen/python/go2_jump.py:42:56"
 ```
 
 `base_config` is a standing crouch pose, repeated for all four legs (each leg's three joints get the same
@@ -44,7 +45,7 @@ iterations just discovering that a standing robot needs to push against the grou
 ## Costs and reusable constraint objects
 
 ```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:59:114"
+--8<-- "examples/trajgen/python/go2_jump.py:58:113"
 ```
 
 Regularization costs (joint angle, velocity, control, force, and a configuration-tracking cost pulling toward the
@@ -63,7 +64,7 @@ below:
 ## The per-stage loop: stance, flight, stance
 
 ```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:116:162"
+--8<-- "examples/trajgen/python/go2_jump.py:115:161"
 ```
 
 Every stage gets the regularization costs and the position/head bounds unconditionally; those don't depend on
@@ -95,7 +96,7 @@ something more complex than a single stage-index check.
 ## Terminal stage: settle into a landing footprint
 
 ```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:164:213"
+--8<-- "examples/trajgen/python/go2_jump.py:163:212"
 ```
 
 At the terminal stage, a zero base-velocity constraint asks the robot to be at rest, and each foot gets a
@@ -109,7 +110,7 @@ inside the stance branch) something concrete to converge back onto.
 ## Solving, with object-based parameter configuration
 
 ```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:215:249"
+--8<-- "examples/trajgen/python/go2_jump.py:214:248"
 ```
 
 Rather than passing `admm_`/`hpipm_`-prefixed keyword arguments (as in [Pendubot](pendubot.md)), this example

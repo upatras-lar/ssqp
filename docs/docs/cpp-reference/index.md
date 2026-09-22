@@ -31,6 +31,7 @@ All library code lives under `ssqp::`, mirroring the Python package layout:
 * `ssqp::model::stagewise`: `StageCost`, `StageDynamics`, `StageConstraints`, `Function`, and their predefined
   implementations (in `model/stagewise/predefined/`)
 * `ssqp::model::terrain`: `Terrain` and predefined terrains (in `model/terrain/predefined/`)
+* `ssqp::model::presets`: URDFs baked into the binary at build time, looked up by `Model::Structure::from_preset`
 * `ssqp::solvers`: `ssqp`, `MPC`, `QPSolver`, `admm_qp`, `hpipm_qp`, `lqr`
 * `ssqp::step`: the filter and merit line search implementations
 * `ssqp::param_search`: dynamics parameter and hyperparameter search
@@ -44,6 +45,7 @@ All library code lives under `ssqp::`, mirroring the Python package layout:
 | `ssqp::model::stagewise::Function` / `StageCost` / `StageDynamics` / `StageConstraints` | `include/model/stagewise/Function.hpp`, `StageCost.hpp`, `StageDynamics.hpp`, `StageConstraints.hpp` |
 | Predefined costs / constraints | `include/model/stagewise/predefined/Costs.hpp`, `Constraints.hpp` |
 | `ssqp::model::terrain::Terrain` / `FlatTerrain` | `include/model/terrain/Terrain.hpp`, `include/model/terrain/predefined/FlatTerrain.hpp` |
+| `ssqp::model::presets` | `include/model/presets/Presets.hpp` |
 | `ssqp::solvers::ssqp` | `include/solvers/ssqp.hpp` |
 | Filter / merit line search | `include/sqp_step/filter.hpp`, `include/sqp_step/merit.hpp` |
 | `ssqp::solvers::QPSolver` / `admm_qp` / `hpipm_qp` | `include/solvers/qp.hpp`, `admm_qp.hpp`, `hpipm_qp.hpp` |

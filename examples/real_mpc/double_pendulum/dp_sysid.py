@@ -65,7 +65,7 @@ MPC_H = 1
 model = ssqpy.model.Model(
     MPC_H,
     dt,
-    urdf_path="../../assets/urdf/double_pendulum/double_pendulum.urdf",
+    from_preset=ssqpy.model.Preset.DoublePendulum,
     actuated_joints=[0, 1],
     solver_mode=ssqpy.model.SolverMode.InverseDynamics,
 )

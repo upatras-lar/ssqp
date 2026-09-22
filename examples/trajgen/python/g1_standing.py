@@ -25,8 +25,7 @@ MAX_NORMAL_FORCE = 340
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../assets/urdf/g1/g1_23dof.urdf",
-    free_flyer=True,
+    from_preset=ssqpy.model.Preset.G1,
     solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 

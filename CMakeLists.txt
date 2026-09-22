@@ -48,6 +48,46 @@ list(APPEND LIB_SOURCES "external/tracy/public/TracyClient.cpp")
 
 add_library(ssqp STATIC ${LIB_SOURCES})
 
+# --- Embedded URDF presets ---
+# Bakes select URDFs into the binary so Model::Structure::from_preset can
+# build a model without the caller supplying a urdf_path. Each preset only
+# regenerates when its own URDF (or the generator script) changes, not on
+# every configure.
+set(SSQP_PRESET_NAMES go2 a1 panda g1 talos double_pendulum)
+set(SSQP_PRESET_URDFS  ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/go2/go2.urdf
+                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/a1/a1.urdf
+                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/panda/panda.urdf
+                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/g1/g1_23dof.urdf
+                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/talos/talos.urdf
+                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/double_pendulum/double_pendulum.urdf)
+set(SSQP_PRESET_SYMBOLS go2_urdf a1_urdf panda_urdf g1_urdf talos_urdf double_pendulum_urdf)
+
+list(LENGTH SSQP_PRESET_NAMES SSQP_PRESET_COUNT)
+math(EXPR SSQP_PRESET_LAST_INDEX "${SSQP_PRESET_COUNT} - 1")
+
+set(SSQP_PRESET_URDF_HEADERS "")
+foreach(_i RANGE ${SSQP_PRESET_LAST_INDEX})
+    list(GET SSQP_PRESET_NAMES ${_i} _name)
+    list(GET SSQP_PRESET_URDFS ${_i} _urdf)
+    list(GET SSQP_PRESET_SYMBOLS ${_i} _symbol)
+    set(_header "${CMAKE_CURRENT_BINARY_DIR}/generated/model/presets/${_name}_urdf.hpp")
+
+    add_custom_command(
+        OUTPUT ${_header}
+        COMMAND ${CMAKE_COMMAND}
+        -DIN_URDF=${_urdf}
+        -DOUT_HEADER=${_header}
+        -DSYMBOL=${_symbol}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedUrdf.cmake
+        DEPENDS ${_urdf} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedUrdf.cmake
+        COMMENT "Embedding ${_name} URDF preset"
+    )
+    list(APPEND SSQP_PRESET_URDF_HEADERS ${_header})
+endforeach()
+
+add_custom_target(ssqp_generate_presets DEPENDS ${SSQP_PRESET_URDF_HEADERS})
+add_dependencies(ssqp ssqp_generate_presets)
+
 target_include_directories(ssqp
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -57,6 +97,8 @@ target_include_directories(ssqp
     ${CMAKE_CURRENT_SOURCE_DIR}/external/json/single_include
     SYSTEM PUBLIC
     /usr/include/eigen3
+    PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 if(ENABLE_SANITIZERS)

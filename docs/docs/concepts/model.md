@@ -41,6 +41,19 @@ When a model is constructed from an XML file, it is not immediately usable for o
 assign costs/dynamics/constraints (explicitly, or letting the model build its own robot dynamics) before solving.
 `model.finalized` reports whether this has happened.
 
+### Built-in presets
+
+A handful of common robots are baked into the ssqp binary as URDF presets, so they can be used without pointing
+`urdf_path` at a file on disk. Pass `from_preset` instead:
+
+```python
+model = ssqpy.model.Model(horizon, dt, from_preset=ssqpy.model.Preset.Go2)
+```
+
+Available presets: `Go2`, `A1`, `Panda`, `G1`, `Talos`, `DoublePendulum` (`ssqpy.model.Preset.NONE` is the default,
+meaning no preset). Each preset fixes its own `urdf_path` and `free_flyer`, so `from_preset` is mutually exclusive
+with `urdf_path`, `mjcf_path` and `free_flyer`; passing both raises an error.
+
 ### Constructor arguments
 
 ```python
@@ -51,6 +64,7 @@ Model(horizon: int, dt: float, **kwargs)
 | --- | --- |
 | `urdf_path` / `mjcf_path` | Path to a URDF or MJCF file describing the robot |
 | `free_flyer` | Whether the model has a floating base (only relevant when loaded from XML) |
+| `from_preset` | A [built-in URDF preset](#built-in-presets) to build the model from, instead of `urdf_path` |
 | `solver_mode` | The [`SolverMode`](#solver-mode) formulation to optimize in |
 | `integration` | The [`Integration`](#integration-scheme) scheme used to propagate state |
 | `ignore_innate_constraints` | Whether to ignore joint/velocity/torque limits declared in the XML |

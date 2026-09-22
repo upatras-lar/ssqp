@@ -30,8 +30,7 @@ T_ARM_RAISE_WGT = 1.4
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../assets/urdf/talos/talos.urdf",
-    free_flyer=True,
+    from_preset=ssqpy.model.Preset.Talos,
     solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 

@@ -31,8 +31,7 @@ MAX_NORMAL_FORCE = 300
 model = ssqpy.model.Model(
     HORIZON,
     dt,
-    urdf_path="../../assets/urdf/go2/go2.urdf",
-    free_flyer=True,
+    from_preset=ssqpy.model.Preset.Go2,
     solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 

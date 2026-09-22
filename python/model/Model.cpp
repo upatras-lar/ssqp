@@ -124,6 +124,29 @@ void bind_Model(nb::module_ &m)
       .value("SemiImplicitEuler", IntegrationScheme::SemiImplicitEuler)
       .export_values();
 
+    nb::enum_<Preset>(m, "Preset", R"doc(
+        Preset
+        Use a preset urdf instead of supplying a path
+        Mutually exclusive with`urdf_path`, `mjcf_path` and `free_flyer`, since 
+        each preset fixes those
+        Options:
+         - NONE: No preset selected (default)
+         - Go2: Unitree Go2 quadruped
+         - A1: Unitree A1 quadruped
+         - Panda: Franka Emika Panda arm
+         - G1: Unitree G1 humanoid
+         - Talos: Talos humanoid
+         - DoublePendulum: Double pendulum
+        )doc")
+      .value("NONE", Preset::None)
+      .value("Go2", Preset::Go2)
+      .value("A1", Preset::A1)
+      .value("Panda", Preset::Panda)
+      .value("G1", Preset::G1)
+      .value("Talos", Preset::Talos)
+      .value("DoublePendulum", Preset::DoublePendulum)
+      .export_values();
+
     nb::class_<Model::CustomProperties>(
       m,
       "CustomProperties",
@@ -194,6 +217,10 @@ void bind_Model(nb::module_ &m)
             {
                 structure.free_flyer = nb::cast<bool>(kwargs["free_flyer"]);
             }
+            if (kwargs.contains("from_preset"))
+            {
+                structure.from_preset = nb::cast<Preset>(kwargs["from_preset"]);
+            }
             if (kwargs.contains("solver_mode"))
             {
                 structure.solver_mode =
@@ -231,6 +258,9 @@ void bind_Model(nb::module_ &m)
             `urdf_path` (str): Path to URDF file to use for the system dynamics
             `mjcf_path` (str): Path to MJCF file to use for the system dynamics
             `free_flyer` (bool): Whether the model has a floating base
+            `from_preset` (ssqpy.model.Preset): Use a preset urdf instead of 
+                supplying a path; mutually exclusive with`urdf_path`, 
+                `mjcf_path` and `free_flyer`
             `solver_mode` (ssqpy.model.SolverMode): The solver mode to solve in
             `integration` (ssqpy.model.Integration): The integration method to use
             `ignore_innate_constraints` (bool): Whether to ignore XML constraints

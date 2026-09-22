@@ -28,6 +28,12 @@ void buildModelFromUrdf(const std::string         &urdf,
                         std::shared_ptr<ModelImpl> impl,
                         bool                       free_flyer = false);
 
+// Same as buildModelFromUrdf, but `urdf` is the URDF's XML content rather
+// than a path to it (used to build models from presets)
+void buildModelFromUrdfXML(const std::string         &urdf,
+                           std::shared_ptr<ModelImpl> impl,
+                           bool                       free_flyer = false);
+
 void buildModelFromMjcf(const std::string         &mjcf,
                         std::shared_ptr<ModelImpl> impl,
                         bool                       free_flyer = false);
@@ -38,7 +44,8 @@ bool hasFrame(const std::shared_ptr<ModelImpl> &impl, const std::string &frame);
 // (twice-over, to check uniqueness) scan of every frame, so hot-path callers
 // should resolve once via this and use the ID-taking overloads below instead
 // of repeatedly passing the name
-uint getFrameId(const std::shared_ptr<ModelImpl> &impl, const std::string &frame);
+uint getFrameId(const std::shared_ptr<ModelImpl> &impl,
+                const std::string                &frame);
 
 void printFramesAndJoints(const std::shared_ptr<ModelImpl> &impl);
 
@@ -103,13 +110,13 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
                                      uint &joint_id);
 
 Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
-                                     const uint             frame_id,
-                                     const Eigen::Vector3d &force,
-                                     uint                  &joint_id);
+                                     const uint                        frame_id,
+                                     const Eigen::Vector3d            &force,
+                                     uint &joint_id);
 
 // Output-buffer version; resizes `M` as needed
 void crba(const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-         Eigen::MatrixXd &M, bool local = false);
+          Eigen::MatrixXd &M, bool local = false);
 
 Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
@@ -184,8 +191,8 @@ Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
                                      const std::string                &frame);
 
 Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
-                                     const Eigen::VectorXd &q,
-                                     const uint             frame_id);
+                                     const Eigen::VectorXd            &q,
+                                     const uint frame_id);
 
 std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
   const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
@@ -200,20 +207,21 @@ Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
                                        bool local = false);
 
 Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
-                                       const uint frame_id,
-                                       bool       local = false);
+                                       const uint frame_id, bool local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const Eigen::VectorXd            &q,
                               const Eigen::VectorXd &v, const std::string frame,
                               Eigen::Ref<Eigen::MatrixXd> dVdq,
                               Eigen::Ref<Eigen::MatrixXd> dVdv,
-                              bool local = false);
+                              bool                        local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                              const uint frame_id, Eigen::Ref<Eigen::MatrixXd> dVdq,
-                              Eigen::Ref<Eigen::MatrixXd> dVdv, bool local = false);
+                              const Eigen::VectorXd            &q,
+                              const Eigen::VectorXd &v, const uint frame_id,
+                              Eigen::Ref<Eigen::MatrixXd> dVdq,
+                              Eigen::Ref<Eigen::MatrixXd> dVdv,
+                              bool                        local = false);
 
 // Compute and get frame jacobian
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,

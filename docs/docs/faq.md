@@ -149,6 +149,9 @@ reason.
 
 See [Model](concepts/model.md) for the full set of constructor and `finalize` arguments.
 
+If your robot is one of the ones ssqp already bundles (Go2, A1, Panda, G1, Talos, or the double pendulum), you
+can skip the file entirely and pass `from_preset` instead; see [Built-in presets](concepts/model.md#built-in-presets).
+
 ## How do I choose a good initial guess?
 
 SSQP is a local solver: it improves on whatever guess it's given rather than searching globally, so the initial

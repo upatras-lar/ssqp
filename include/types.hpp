@@ -223,6 +223,51 @@ inline const std::unordered_map<std::string, SolverMode> str_to_DM = {
     { "ReducedInverseDynamics", SolverMode::ReducedInverseDynamics }
 };
 
+/** Model Preset
+ * Selects a URDF baked into the ssqp binary at build time, so a model can be
+ * built without the caller supplying a urdf_path (see model/presets/Presets.hpp)
+ * Mutually exclusive with `urdf_path`, `mjcf_path` and `free_flyer` on
+ * `Model::Structure`
+ * Options:
+ *  - None: No preset selected (default)
+ *  - Go2: Unitree Go2 quadruped
+ *  - A1: Unitree A1 quadruped
+ *  - Panda: Franka Emika Panda arm
+ *  - G1: Unitree G1 humanoid
+ *  - Talos: Talos humanoid
+ *  - DoublePendulum: Double pendulum
+ */
+enum Preset
+{
+    None           = 0,
+    Go2            = 1,
+    A1             = 2,
+    Panda          = 3,
+    G1             = 4,
+    Talos          = 5,
+    DoublePendulum = 6,
+};
+
+inline const std::unordered_map<Preset, std::string> Preset_to_str = {
+    {           Preset::None,           "None" },
+    {            Preset::Go2,            "Go2" },
+    {             Preset::A1,             "A1" },
+    {          Preset::Panda,          "Panda" },
+    {             Preset::G1,             "G1" },
+    {          Preset::Talos,          "Talos" },
+    { Preset::DoublePendulum, "DoublePendulum" }
+};
+
+inline const std::unordered_map<std::string, Preset> str_to_Preset = {
+    {           "None",           Preset::None },
+    {            "Go2",            Preset::Go2 },
+    {             "A1",             Preset::A1 },
+    {          "Panda",          Preset::Panda },
+    {             "G1",             Preset::G1 },
+    {          "Talos",          Preset::Talos },
+    { "DoublePendulum", Preset::DoublePendulum }
+};
+
 }
 
 std::string format_double(double val, uint precision);

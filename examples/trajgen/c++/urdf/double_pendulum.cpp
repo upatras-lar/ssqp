@@ -77,9 +77,7 @@ int main()
 {
     // Initialize model structure
     ssqp::model::Model::Structure structure;
-    // Set the URDF file path
-    structure.urdf_path =
-      "examples/assets/urdf/double_pendulum/double_pendulum.urdf";
+    structure.from_preset = ssqp::model::Preset::DoublePendulum;
     // Ignore constraints outlined in URDF
     structure.ignore_innate_constraints = true;
     // Allow only joint 1 (second joint) to be actuated
