@@ -1,11 +1,13 @@
 import argparse
 import mujoco
 import mujoco.viewer
+import glfw
 import ssqpy
 import numpy as np
 from time import time, sleep
 from utils_go2_mujoco import (
-    quat_wxyz_to_xyzw,
+    clip_joints_to_limits,
+    mujoco_to_ssqp_state,
     quat_xyzw_to_wxyz,
     ssqp_to_mujoco_control,
 )
@@ -32,12 +34,12 @@ MPC_EVERY = 1
 # Print and sync the viewer every few steps, a multiple of the MPC rate
 DISPLAY_EVERY = 8
 
-C_WGT = 1.0
-V_WGT = 1e-2
+C_WGT = 5.0
+V_WGT = 1e-4
 U_WGT = 1e-4
-F_WGT = 1e-4
+F_WGT = 1e-3
 T_BASE_WGT = 1.0
-R_BASE_WGT = 1.0
+R_BASE_WGT = 10.0
 
 CONTACT_MU = 0.6
 CONTACT_EQ_TOL = 0.01
@@ -74,11 +76,57 @@ init_state[7:19] = np.concatenate(
     [lifted_leg if foot == lifted_foot else stance_leg for foot in all_feet]
 )
 
+# The planner contacts the ground at the foot frames, while the simulator feet
+# are spheres whose contact point sits away from the frame, so use point feet
+mjspec = mujoco.MjSpec.from_file("../../assets/mjcf/go2/scene.xml")
+for foot in ["FL", "FR", "RL", "RR"]:
+    geom = mjspec.geom(foot)
+    geom.pos = [0.0, 0.0, -0.23648]
+    geom.size[0] = 0.001
+mjmodel = mjspec.compile()
+
+# With one foot lifted the CoM sits on the edge of the support triangle, so
+# move the base toward the triangle's centroid and solve each stance leg's
+# joints to keep its foot in place. The base is also lowered, since reaching
+# the far stance foot otherwise straightens its calf close to the joint limit
+ik_data = mujoco.MjData(mjmodel)
+ik_data.qpos = init_state[:nq].copy()
+ik_data.qpos[3:7] = quat_xyzw_to_wxyz(ik_data.qpos[3:7])
+mujoco.mj_kinematics(mjmodel, ik_data)
+
+foot_pos = {
+    foot: ik_data.xpos[mjmodel.body(foot).id].copy() for foot in stance_feet
+}
+ik_data.qpos[:2] = 0.75 * np.mean(
+    [pos[:2] for pos in foot_pos.values()], axis=0
+)
+ik_data.qpos[2] = 0.37
+
+for foot in stance_feet:
+    body = mjmodel.body(foot).id
+    leg = all_feet.index(foot)
+    jac = np.zeros((3, nv))
+
+    for _ in range(20):
+        mujoco.mj_kinematics(mjmodel, ik_data)
+        mujoco.mj_comPos(mjmodel, ik_data)
+        mujoco.mj_jacBody(mjmodel, ik_data, jac, None, body)
+        ik_data.qpos[7 + 3 * leg : 10 + 3 * leg] += np.linalg.lstsq(
+            jac[:, 6 + 3 * leg : 9 + 3 * leg],
+            foot_pos[foot] - ik_data.xpos[body],
+            rcond=None,
+        )[0]
+
+init_state[:3] = ik_data.qpos[:3]
+init_state[7:nq] = ik_data.qpos[7:]
+base_pos = init_state[:3].copy()
+
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     model, init_state[7:nq], C_WGT
 )
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
+# u_cost = ssqpy.model.costs.SquaredIDTorqueCost(model, U_WGT)
 f_cost = ssqpy.model.costs.SquaredForceCost(model, F_WGT)
 base_cost = ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost(
     model, base_pos, base_rot, T_BASE_WGT, R_BASE_WGT
@@ -94,7 +142,9 @@ for k in range(mpc_H):
     for foot in stance_feet:
         model.addContactConstraint(k, foot, CONTACT_MU, eq_tol=CONTACT_EQ_TOL)
 
+model.addCost(mpc_H, config_cost)
 model.addCost(mpc_H, v_cost)
+model.addCost(mpc_H, base_cost)
 
 model.finalize(init_states=[init_state])
 
@@ -113,14 +163,6 @@ ssqp_params.hpipmParams = hpipm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
-# The planner contacts the ground at the foot frames, while the simulator feet
-# are spheres whose contact point sits away from the frame, so use point feet
-mjspec = mujoco.MjSpec.from_file("../../assets/mjcf/go2/scene.xml")
-for foot in ["FL", "FR", "RL", "RR"]:
-    geom = mjspec.geom(foot)
-    geom.pos = [0.0, 0.0, -0.23648]
-    geom.size[0] = 0.001
-mjmodel = mjspec.compile()
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = init_state[:nq].copy()
@@ -130,6 +172,9 @@ np.set_printoptions(suppress=True)
 
 step = 0
 
+# Start the viewer maximized
+glfw.init()
+glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         display = step % DISPLAY_EVERY == 0
@@ -147,9 +192,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             display_time = time()
         frame_start = time()
 
-        pos = mjdata.qpos.copy()
-        pos[3:7] = quat_wxyz_to_xyzw(pos[3:7])
-        state = np.hstack((pos, mjdata.qvel))
+        state = mujoco_to_ssqp_state(np.hstack((mjdata.qpos, mjdata.qvel)))
+        state = clip_joints_to_limits(state, mjmodel)
 
         if step % MPC_EVERY == 0:
             u = mpc.step(state)[1].stage(0)

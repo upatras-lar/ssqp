@@ -1,11 +1,13 @@
 import mujoco
 import mujoco.viewer
+import glfw
 import ssqpy
 import numpy as np
 from time import time, sleep
 from go2_controllers.JointSpacePD import JointSpacePD
 from utils_go2_mujoco import (
-    quat_wxyz_to_xyzw,
+    clip_joints_to_limits,
+    mujoco_to_ssqp_state,
     quat_xyzw_to_wxyz,
     ssqp_to_mujoco_ctrl_kin,
 )
@@ -111,6 +113,9 @@ np.set_printoptions(suppress=True)
 
 step = 0
 
+# Start the viewer maximized
+glfw.init()
+glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         display = step % DISPLAY_EVERY == 0
@@ -125,9 +130,8 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             display_time = time()
         frame_start = time()
 
-        pos = mjdata.qpos.copy()
-        pos[3:7] = quat_wxyz_to_xyzw(pos[3:7])
-        state = np.hstack((pos, mjdata.qvel))
+        state = mujoco_to_ssqp_state(np.hstack((mjdata.qpos, mjdata.qvel)))
+        state = clip_joints_to_limits(state, mjmodel)
 
         mjdata.ctrl = ssqp_to_mujoco_ctrl_kin(
             joint_space_pd_controller.step(state)

@@ -7,6 +7,7 @@ from utils_go2_mujoco import (
     ssqp_to_mujoco_vel_kin,
     mujoco_to_ssqp_state_kin,
     ssqp_to_mujoco_ctrl_kin,
+    clip_joints_to_limits,
 )
 
 import models.quadruped_hlplanner.planner as go2_planner
@@ -88,6 +89,7 @@ mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=6, qp_iters=100)
 
 import mujoco
 import mujoco.viewer
+import glfw
 
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
@@ -120,9 +122,13 @@ joint_space_pd_controller = KinematicJointSpacePD(
     update_func=update_func,
 )
 
+# Start the viewer maximized
+glfw.init()
+glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         pos = mujoco_to_ssqp_state_kin(mjdata.qpos)
+        pos = clip_joints_to_limits(pos, mjmodel)
         vel = ssqp_to_mujoco_vel_kin(mjdata.qvel)
 
         pre = time.time()

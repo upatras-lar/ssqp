@@ -142,12 +142,16 @@ wbc = WholeBodyQP()
 
 import mujoco
 import mujoco.viewer
+import glfw
 
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = ssqp_to_mujoco_state_kin(go2_planner.config.INIT_CONFIG)
 
+# Start the viewer maximized
+glfw.init()
+glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         pos = mujoco_to_ssqp_state_kin(mjdata.qpos)

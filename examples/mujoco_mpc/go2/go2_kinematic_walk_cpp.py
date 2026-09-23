@@ -9,6 +9,7 @@ from utils_go2_mujoco import (
     ssqp_to_mujoco_vel_kin,
     ssqp_to_mujoco_ctrl_kin,
     mujoco_to_ssqp_state_kin,
+    clip_joints_to_limits,
 )
 
 import models.quadruped_hlplanner.planner as go2_planner
@@ -229,6 +230,7 @@ joint_space_pd_controller.start_mpc()
 
 import mujoco
 import mujoco.viewer
+import glfw
 
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
@@ -239,12 +241,16 @@ mjdata.qpos = ssqp_to_mujoco_state_kin(go2_planner.config.INIT_CONFIG)
 # mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]
 # step = 0
 
+# Start the viewer maximized
+glfw.init()
+glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         # print(f"\rSimulation time: {mjdata.time:.2f}s")
         # frame_start = time.time()
 
         pos = mujoco_to_ssqp_state_kin(mjdata.qpos)
+        pos = clip_joints_to_limits(pos, mjmodel)
         vel = ssqp_to_mujoco_vel_kin(mjdata.qvel)
 
         # pre = time.time()

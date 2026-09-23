@@ -1,4 +1,21 @@
+import mujoco
 import numpy as np
+
+
+def quat_wxyz_to_rotation(wxyz):
+    rotation = np.zeros(9)
+    mujoco.mju_quat2Mat(rotation, wxyz)
+    return rotation.reshape(3, 3)
+
+
+def clip_joints_to_limits(ssqp_state, mjmodel):
+    # MuJoCo's joint limits are soft, so the measured joints can sit slightly
+    # past the limits that the planner enforces
+    clipped = ssqp_state.copy()
+    clipped[7:19] = np.clip(
+        clipped[7:19], mjmodel.jnt_range[1:, 0], mjmodel.jnt_range[1:, 1]
+    )
+    return clipped
 
 
 def quat_wxyz_to_xyzw(wxyz):
@@ -18,6 +35,11 @@ def quat_xyzw_to_wxyz(xyzw):
 def ssqp_to_mujoco_state(ssqp_state):
     mujoco_state = ssqp_state.copy()
     mujoco_state[3:7] = quat_xyzw_to_wxyz(ssqp_state[3:7])
+    # ssqp expresses the base's linear velocity in the base frame, while
+    # MuJoCo expects it in the world frame
+    mujoco_state[19:22] = (
+        quat_wxyz_to_rotation(mujoco_state[3:7]) @ ssqp_state[19:22]
+    )
     # mujoco_state[7:10] = ssqp_state[10:13]
     # mujoco_state[10:13] = ssqp_state[7:10]
     # mujoco_state[13:16] = ssqp_state[16:19]
@@ -41,6 +63,11 @@ def ssqp_to_mujoco_control(ssqp_control):
 def mujoco_to_ssqp_state(mujoco_state):
     ssqp_state = mujoco_state.copy()
     ssqp_state[3:7] = quat_wxyz_to_xyzw(mujoco_state[3:7])
+    # MuJoCo gives the base's linear velocity in the world frame, while ssqp
+    # expects it in the base frame
+    ssqp_state[19:22] = (
+        quat_wxyz_to_rotation(mujoco_state[3:7]).T @ mujoco_state[19:22]
+    )
     # ssqp_state[7:10] = mujoco_state[10:13]
     # ssqp_state[10:13] = mujoco_state[7:10]
     # ssqp_state[13:16] = mujoco_state[16:19]

@@ -1,5 +1,6 @@
 import mujoco
 import mujoco.viewer
+import glfw
 import ssqpy
 import numpy as np
 from time import time, sleep
@@ -132,6 +133,9 @@ controls = np.zeros((MPC_H, nv))
 
 current_target = target_pos
 
+# Start the viewer maximized
+glfw.init()
+glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         frame_start = time()

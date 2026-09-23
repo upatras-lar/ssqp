@@ -1,5 +1,6 @@
 import mujoco
 import mujoco.viewer
+import glfw
 import ssqpy
 import numpy as np
 from math import pi, sin, cos, sqrt
@@ -155,6 +156,9 @@ state_data = None
 if PLOT:
     state_data = []
 
+# Start the viewer maximized
+glfw.init()
+glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         frame_start = time()

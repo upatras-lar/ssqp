@@ -581,22 +581,34 @@ def generate_go2_multi_jump_problems(dynamics_mode):
 
             if land in ("B", "L", "RL"):
                 model.addContactConstraint(
-                    k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
+                    k,
+                    "RL_foot",
+                    max_normal_force=MAX_FORCE_NORMAL,
+                    eq_tol=0.01,
                 )
                 model.addConstraints(k, rl_foot_vel_bound)
             if land in ("B", "R", "RR"):
                 model.addContactConstraint(
-                    k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
+                    k,
+                    "RR_foot",
+                    max_normal_force=MAX_FORCE_NORMAL,
+                    eq_tol=0.01,
                 )
                 model.addConstraints(k, rr_foot_vel_bound)
             if land in ("F", "L", "FL"):
                 model.addContactConstraint(
-                    k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
+                    k,
+                    "FL_foot",
+                    max_normal_force=MAX_FORCE_NORMAL,
+                    eq_tol=0.01,
                 )
                 model.addConstraints(k, fl_foot_vel_bound)
             if land in ("F", "R", "FR"):
                 model.addContactConstraint(
-                    k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
+                    k,
+                    "FR_foot",
+                    max_normal_force=MAX_FORCE_NORMAL,
+                    eq_tol=0.01,
                 )
                 model.addConstraints(k, fr_foot_vel_bound)
 
@@ -684,7 +696,12 @@ def generate_g1_jump_problems(dynamics_mode):
         model.addCost(
             k,
             costs.FrameSquaredPoseErrorCost(
-                model, "torso_link", base_pos, np.eye(3), T_BASE_WGT, R_BASE_WGT
+                model,
+                "torso_link",
+                base_pos,
+                np.eye(3),
+                T_BASE_WGT,
+                R_BASE_WGT,
             ),
         )
 

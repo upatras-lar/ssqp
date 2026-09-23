@@ -1,5 +1,6 @@
 import mujoco
 import mujoco.viewer
+import glfw
 import ssqpy
 import numpy as np
 from time import time, sleep
@@ -9,6 +10,7 @@ from utils_go2_mujoco import (
     ssqp_to_mujoco_control,
     ssqp_to_mujoco_ctrl_kin,
     mujoco_to_ssqp_state,
+    clip_joints_to_limits,
 )
 
 ssqpy.setSilentMode()
@@ -262,12 +264,16 @@ stage = 0
 STAGE_EVERY = round(mpc_dt / dt)
 step = 0
 
+# Start the viewer maximized
+glfw.init()
+glfw.window_hint(glfw.MAXIMIZED, glfw.TRUE)
 with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         print(f"\rSimulation time: {mjdata.time:.2f}s")
         frame_start = time()
 
         state = mujoco_to_ssqp_state(np.hstack((mjdata.qpos, mjdata.qvel)))
+        state = clip_joints_to_limits(state, mjmodel)
 
         # try:
         #     mjdata.ctrl = joint_space_pd_controller.step(state)
