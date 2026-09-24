@@ -7,6 +7,10 @@ class Controller:
         self.x = 128
         self.y = 128
         self.z = 128
+        # -1 while the D-pad is held up, 1 while held down
+        self.dpad_y = 0
+        # -1 while the D-pad is held left, 1 while held right
+        self.dpad_x = 0
 
         self._monitor_thread = threading.Thread(
             target=self._monitor_controller, args=()
@@ -42,6 +46,10 @@ class Controller:
                     self.y = event.state
                 elif event.code == "ABS_X":
                     self.x = event.state
+                elif event.code == "ABS_HAT0Y":
+                    self.dpad_y = event.state
+                elif event.code == "ABS_HAT0X":
+                    self.dpad_x = event.state
 
 
 if __name__ == "__main__":

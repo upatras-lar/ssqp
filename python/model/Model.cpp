@@ -1005,6 +1005,40 @@ void bind_Model(nb::module_ &m)
         Note: XML-based function
         )doc")
       .def(
+        "getActuatedTorqueVector",
+        [](Model &self, const VecX &x, const VecX &u, const uint k)
+        {
+            if (!self.xml())
+            {
+                throw std::runtime_error("Model was not loaded from XML");
+            }
+            if (self.solverMode() == SolverMode::ForwardDynamics)
+            {
+                throw std::runtime_error(
+                  "Model is in ForwardDynamics mode, where the controls are "
+                  "already the actuated torques");
+            }
+            return self.getActuatedTorqueVector(x, u, k);
+        },
+        nb::arg("x"),
+        nb::arg("u"),
+        nb::arg("k") = 0,
+        R"doc(
+        Returns the actuated joint torques that realize the given controls
+        Input:
+         - `x`: The model state
+         - `u`: The model controls
+         - `k`: The model stage (only required if there are forces present at
+            that stage)
+
+        The torques come from the inverse dynamics, accounting for the forces
+        present at stage `k`. In Reduced Inverse mode, the full acceleration
+        vector is reconstructed first (see `getFullAccelerationVector`)
+
+        Note: Only defined in Inverse and Reduced Inverse dynamics modes
+        Note: XML-based function
+        )doc")
+      .def(
         "neutralPose",
         [](Model &self)
         {
