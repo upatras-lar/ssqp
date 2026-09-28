@@ -11,26 +11,30 @@ admm_qp::Params::Params(const nlohmann::ordered_json &j)
 {
     using namespace nlohmann;
 
-    max_iter               = j["max_iter"];
-    abs_tolerance          = j["abs_tolerance"];
-    abs_tolerance_final    = j["abs_tolerance_final"];
-    rel_tolerance          = j["rel_tolerance"];
-    rel_tolerance_final    = j["rel_tolerance_final"];
-    tolerance_update_steps = j["tolerance_update_steps"];
+    // Missing parameters keep their defaults
+    max_iter            = j.value("max_iter", max_iter);
+    abs_tolerance       = j.value("abs_tolerance", abs_tolerance);
+    abs_tolerance_final = j.value("abs_tolerance_final", abs_tolerance_final);
+    rel_tolerance       = j.value("rel_tolerance", rel_tolerance);
+    rel_tolerance_final = j.value("rel_tolerance_final", rel_tolerance_final);
+    tolerance_update_steps =
+      j.value("tolerance_update_steps", tolerance_update_steps);
 
-    init_rho = j["init_rho"];
-    alpha    = j["alpha"];
-    sigma    = j["sigma"];
+    init_rho = j.value("init_rho", init_rho);
+    alpha    = j.value("alpha", alpha);
+    sigma    = j.value("sigma", sigma);
 
-    rho_update             = j["rho_update"];
-    rho_min                = j["rho_min"];
-    rho_max                = j["rho_max"];
-    adaptive_rho_tolerance = j["adaptive_rho_tolerance"];
-    rho_update_iter_freq   = j["rho_update_iter_freq"];
+    rho_update = j.value("rho_update", rho_update);
+    rho_min    = j.value("rho_min", rho_min);
+    rho_max    = j.value("rho_max", rho_max);
+    adaptive_rho_tolerance =
+      j.value("adaptive_rho_tolerance", adaptive_rho_tolerance);
+    rho_update_iter_freq =
+      j.value("rho_update_iter_freq", rho_update_iter_freq);
 
-    warm_start = j["warm_start"];
-    reset_rho  = j["reset_rho"];
-    reset_y    = j["reset_y"];
+    warm_start = j.value("warm_start", warm_start);
+    reset_rho  = j.value("reset_rho", reset_rho);
+    reset_y    = j.value("reset_y", reset_y);
 }
 
 void admm_qp::Params::print() const

@@ -27,13 +27,15 @@ hpipm_qp::Params::Params(const nlohmann::ordered_json &hpipmj)
 {
     using namespace nlohmann;
 
-    max_iter = hpipmj["max_iter"];
+    // Missing parameters keep their defaults
+    max_iter = hpipmj.value("max_iter", max_iter);
 
-    if (hpipmj["mode"] == "Speed")
+    const std::string mode_name = hpipmj.value("mode", "");
+    if (mode_name == "Speed")
     {
         mode = HPIPMMode::SPEED;
     }
-    else if (hpipmj["mode"] == "Balance")
+    else if (mode_name == "Balance")
     {
         mode = HPIPMMode::BALANCE;
     }
@@ -42,19 +44,21 @@ hpipm_qp::Params::Params(const nlohmann::ordered_json &hpipmj)
         mode = HPIPMMode::ROBUST;
     }
 
-    tol_stat = hpipmj["tol_stat"];
-    tol_eq   = hpipmj["tol_eq"];
-    tol_ineq = hpipmj["tol_ineq"];
-    tol_comp = hpipmj["tol_comp"];
+    tol_stat = hpipmj.value("tol_stat", tol_stat);
+    tol_eq   = hpipmj.value("tol_eq", tol_eq);
+    tol_ineq = hpipmj.value("tol_ineq", tol_ineq);
+    tol_comp = hpipmj.value("tol_comp", tol_comp);
 
-    alpha_min = hpipmj["alpha_min"];
-    mu0       = hpipmj["mu0"];
-    reg_prim  = hpipmj["reg_prim"];
+    alpha_min = hpipmj.value("alpha_min", alpha_min);
+    mu0       = hpipmj.value("mu0", mu0);
+    reg_prim  = hpipmj.value("reg_prim", reg_prim);
 
-    warm_start            = hpipmj["warm_start"];
-    prediction_correction = hpipmj["prediction_correction"];
-    square_root_riccati   = hpipmj["square_root_riccati"];
-    split_step            = hpipmj["split_step"];
+    warm_start = hpipmj.value("warm_start", warm_start);
+    prediction_correction =
+      hpipmj.value("prediction_correction", prediction_correction);
+    square_root_riccati =
+      hpipmj.value("square_root_riccati", square_root_riccati);
+    split_step = hpipmj.value("split_step", split_step);
 }
 
 void hpipm_qp::Params::print() const
@@ -163,24 +167,24 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
         _S[k].resize(_qp.dims.stage_control[k], _qp.dims.stage_state[k]);
 
     hpipm_size_t dim_size = d_ocp_qp_dim_memsize(_qp.dims.horizon);
-    _hpipm_dim_mem = malloc(dim_size);
+    _hpipm_dim_mem        = malloc(dim_size);
     d_ocp_qp_dim_create(_qp.dims.horizon, &_hpipm_data->dim, _hpipm_dim_mem);
 
     set_stage_sizes();
 
     // Allocate QP problem structure
     hpipm_size_t qp_size = d_ocp_qp_memsize(&_hpipm_data->dim);
-    _hpipm_qp_mem = malloc(qp_size);
+    _hpipm_qp_mem        = malloc(qp_size);
     d_ocp_qp_create(&_hpipm_data->dim, &_hpipm_data->qp, _hpipm_qp_mem);
 
     // Allocate solution structure
     hpipm_size_t sol_size = d_ocp_qp_sol_memsize(&_hpipm_data->dim);
-    _hpipm_sol_mem = malloc(sol_size);
+    _hpipm_sol_mem        = malloc(sol_size);
     d_ocp_qp_sol_create(&_hpipm_data->dim, &_hpipm_data->sol, _hpipm_sol_mem);
 
     // Allocate IPM arguments
     hpipm_size_t arg_size = d_ocp_qp_ipm_arg_memsize(&_hpipm_data->dim);
-    _hpipm_arg_mem = malloc(arg_size);
+    _hpipm_arg_mem        = malloc(arg_size);
     d_ocp_qp_ipm_arg_create(&_hpipm_data->dim,
                             &_hpipm_data->arg,
                             _hpipm_arg_mem);

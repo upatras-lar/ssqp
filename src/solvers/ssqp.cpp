@@ -147,16 +147,21 @@ ssqp::Params::Params(const std::string &filepath)
 
     ordered_json j = json::parse(in);
 
-    max_iter               = j["max_iter"];
-    tolerance              = j["tolerance"];
-    tolerance_final        = j["tolerance_final"];
-    tolerance_update_steps = j["tolerance_update_steps"];
+    // Missing parameters keep their defaults
+    max_iter        = j.value("max_iter", max_iter);
+    max_time        = j.value("max_time", max_time);
+    tolerance       = j.value("tolerance", tolerance);
+    tolerance_final = j.value("tolerance_final", tolerance_final);
+    tolerance_update_steps =
+      j.value("tolerance_update_steps", tolerance_update_steps);
 
-    loose_success             = j["loose_success"];
-    loose_success_tolerance   = j["loose_success_tolerance"];
-    loose_success_stale_iters = j["loose_success_stale_iters"];
+    loose_success = j.value("loose_success", loose_success);
+    loose_success_tolerance =
+      j.value("loose_success_tolerance", loose_success_tolerance);
+    loose_success_stale_iters =
+      j.value("loose_success_stale_iters", loose_success_stale_iters);
 
-    if (j["line_search_method"] == "merit")
+    if (j.value("line_search_method", "") == "merit")
     {
         line_search_method = LineSearchMethod::Merit;
     }
@@ -165,23 +170,27 @@ ssqp::Params::Params(const std::string &filepath)
         line_search_method = LineSearchMethod::Filter;
     }
 
-    filter_size = j["filter_size"];
+    filter_size = j.value("filter_size", filter_size);
 
-    merit_mu_gamma    = j["merit_mu_gamma"];
-    merit_mu_c        = j["merit_mu_c"];
-    merit_armijo_beta = j["merit_armijo_beta"];
+    merit_mu_gamma    = j.value("merit_mu_gamma", merit_mu_gamma);
+    merit_mu_c        = j.value("merit_mu_c", merit_mu_c);
+    merit_armijo_beta = j.value("merit_armijo_beta", merit_armijo_beta);
 
-    inv_alpha_scale_factor = j["inv_alpha_scale_factor"];
-    min_alpha              = j["min_alpha"];
+    inv_alpha_scale_factor =
+      j.value("inv_alpha_scale_factor", inv_alpha_scale_factor);
+    min_alpha = j.value("min_alpha", min_alpha);
 
-    accept_worse_update = j["accept_worse_update"];
-    skip_regularization = j["skip_regularization"];
+    accept_worse_update = j.value("accept_worse_update", accept_worse_update);
+    skip_regularization = j.value("skip_regularization", skip_regularization);
 
-    if (j["qp_solver_type"] == "HPIPM")
+    if (j.value("qp_solver_type", "") == "HPIPM")
     {
 #ifdef WITH_HPIPM
         qp_solver_type = QPSolverType::HPIPM;
-        hpipm_params   = hpipm_qp::Params(j["hpipm"]);
+        if (j.contains("hpipm"))
+        {
+            hpipm_params = hpipm_qp::Params(j["hpipm"]);
+        }
 #else
         throw std::runtime_error("SSQP was not compiled with HPIPM support!");
 #endif
@@ -189,7 +198,10 @@ ssqp::Params::Params(const std::string &filepath)
     else
     {
         qp_solver_type = QPSolverType::ADMM;
-        admm_params    = admm_qp::Params(j["admm"]);
+        if (j.contains("admm"))
+        {
+            admm_params = admm_qp::Params(j["admm"]);
+        }
     }
 }
 
@@ -198,6 +210,10 @@ void ssqp::Params::print() const
     std::cout << "SSQP Parameters" << std::endl;
     std::cout << "===============" << std::endl;
     std::cout << "Maximum iterations: " << max_iter << std::endl;
+    if (max_time > 0.0)
+    {
+        std::cout << "Maximum time: " << max_time << "s" << std::endl;
+    }
     std::cout << "Tolerance: " << tolerance << std::endl;
     if (tolerance_final > 0.0)
     {
@@ -264,6 +280,7 @@ void ssqp::Params::print() const
 void ssqp::Params::write(nlohmann::ordered_json &j) const
 {
     j["max_iter"]               = max_iter;
+    j["max_time"]               = max_time;
     j["tolerance"]              = tolerance;
     j["tolerance_final"]        = tolerance_final;
     j["tolerance_update_steps"] = tolerance_update_steps;
@@ -373,6 +390,7 @@ void ssqp::ConvergenceData::print() const
     std::cout << "Terminated due to constraint success: " << constraint_success
               << std::endl;
     std::cout << "Max iterations reached: " << max_iter_reached << std::endl;
+    std::cout << "Time limit reached: " << time_limit_reached << std::endl;
     std::cout << "Final trajectory cost: " << std::fixed << std::setprecision(4)
               << trajectory_cost << std::endl;
     std::cout << "Final trajectory stage gap: " << std::fixed
@@ -522,11 +540,15 @@ SolverState ssqp::solve(Guess &guess)
 
     _convergence_data.iteration_data.clear();
     _convergence_data.iteration_data.reserve(_params.max_iter);
+    _convergence_data.time_limit_reached = false;
 
     SolverState ssqp_state;
 
     logln_at(LogLevel::Debug, "Starting SSQP solver loop");
     auto start_time = std::chrono::high_resolution_clock::now();
+
+    // Start of the current iteration, including its QP setup
+    auto start_setup_time = start_time;
 
     auto xml_model = to_compile_time(_model.xml());
 
@@ -703,6 +725,15 @@ SolverState ssqp::solve(Guess &guess)
                                          "failed");
             }
 
+            // Retries reuse the QP setup
+            if (_out_of_time(start_time, start_iter_time))
+            {
+                return _finish_unconverged(TIME_LIMIT_REACHED,
+                                           _iter,
+                                           guess,
+                                           start_time);
+            }
+
             logln_at(LogLevel::Debug,
                      "Line search failed, "
                      "increasing regularization");
@@ -796,6 +827,27 @@ SolverState ssqp::solve(Guess &guess)
         }
         _printIterationInfo();
 
+        if (_out_of_time(start_time, start_setup_time))
+        {
+            _convergence_data.iteration_data.back().iter_duration_us =
+              std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::high_resolution_clock::now() - start_iter_time)
+                .count();
+            _convergence_data.iteration_data.back().trajectory_cost =
+              std::get<0>(next_metrics);
+            _convergence_data.iteration_data.back().trajectory_stage_gap =
+              std::get<1>(next_metrics);
+            _convergence_data.iteration_data.back()
+              .trajectory_constraint_violation = std::get<2>(next_metrics);
+
+            return _finish_unconverged(TIME_LIMIT_REACHED,
+                                       _iter + 1,
+                                       guess,
+                                       start_time);
+        }
+
+        start_setup_time = std::chrono::high_resolution_clock::now();
+
         // Skip gradient calculation in _setup_qp, since they have been
         // calculated in _check_termination
         std::visit([this](auto xml) { _setup_qp<false, xml.value>(); },
@@ -816,13 +868,36 @@ SolverState ssqp::solve(Guess &guess)
         FrameMarkNamed("SQP Iteration");
     }
 
+    return _finish_unconverged(MAX_ITER_REACHED, _iter, guess, start_time);
+}
+
+bool ssqp::_out_of_time(
+  const std::chrono::high_resolution_clock::time_point &start,
+  const std::chrono::high_resolution_clock::time_point &iter_start) const
+{
+    if (_params.max_time <= 0.0)
+    {
+        return false;
+    }
+
+    const auto now = std::chrono::high_resolution_clock::now();
+
+    return std::chrono::duration<double>((now - start) + (now - iter_start))
+             .count() >= _params.max_time;
+}
+
+SolverState ssqp::_finish_unconverged(
+  SolverState state, uint iterations, Guess &guess,
+  const std::chrono::high_resolution_clock::time_point &start)
+{
     _convergence_data.total_duration_us =
       std::chrono::duration_cast<std::chrono::microseconds>(
-        std::chrono::high_resolution_clock::now() - start_time)
+        std::chrono::high_resolution_clock::now() - start)
         .count();
-    _convergence_data.iterations = _iter;
+    _convergence_data.iterations = iterations;
 
-    _convergence_data.max_iter_reached     = true;
+    _convergence_data.max_iter_reached     = state == MAX_ITER_REACHED;
+    _convergence_data.time_limit_reached   = state == TIME_LIMIT_REACHED;
     _convergence_data.trajectory_cost      = _lf(_guess.x, _guess.u);
     _convergence_data.trajectory_stage_gap = _gammaf(_guess.x, _guess.u);
     _convergence_data.trajectory_constraint_violation = _cf(_guess.x, _guess.u);
@@ -832,7 +907,7 @@ SolverState ssqp::solve(Guess &guess)
                << _convergence_data.total_duration_us / 1000 << "ms");
 
     guess = _guess;
-    return MAX_ITER_REACHED;
+    return state;
 }
 
 bool ssqp::write(const std::string &filepath)

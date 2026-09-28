@@ -33,12 +33,14 @@ void bind_MPC(nb::module_ &m)
            const ssqp::Params &ssqp_params,
            const uint          sqp_iters,
            const uint          qp_iters,
+           const double        max_time,
            const bool          keep_convergence_data)
         {
             MPC::Params params;
 
             params.sqp_iters             = sqp_iters;
             params.qp_iters              = qp_iters;
+            params.max_time              = max_time;
             params.keep_convergence_data = keep_convergence_data;
 
             new (self) MPC(model, params, ssqp_params);
@@ -49,12 +51,14 @@ void bind_MPC(nb::module_ &m)
         nb::kw_only(),
         nb::arg("sqp_iters")             = 5,
         nb::arg("qp_iters")              = 50,
+        nb::arg("max_time")              = -1.0,
         nb::arg("keep_convergence_data") = false,
         R"doc(
         Initialize an MPC helper for the given model, the given MPC, SSQP and
         QP parameters.
-        Note that the max iterations used for SSQP and the QP solver will be 
-        determined by the MPC parameters only.
+        Note that the max iterations used for SSQP and the QP solver, and the
+        SSQP time limit (max_time, in seconds), will be determined by the MPC
+        parameters only.
         )doc")
       .def("reinitialize",
            static_cast<void (MPC::*)(const VecX &)>(&MPC::reinitialize),

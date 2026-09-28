@@ -25,6 +25,7 @@ MPC::MPC(model::Model &model, const Params &params,
   , _keep_convergence_data(params.keep_convergence_data)
 {
     _ssqp_params.max_iter = params.sqp_iters;
+    _ssqp_params.max_time = params.max_time;
 
     switch (_ssqp_params.qp_solver_type)
     {

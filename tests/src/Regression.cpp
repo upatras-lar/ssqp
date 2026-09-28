@@ -3,6 +3,8 @@
 #include "solvers/mpc.hpp"
 #include "model/stagewise/predefined/Costs.hpp"
 #include "model/stagewise/predefined/Constraints.hpp"
+#include <filesystem>
+#include <fstream>
 #include <limits>
 
 namespace ssqp
@@ -578,6 +580,115 @@ void wrenchRotatesFloatingBody()
             "forces); got " +
               std::to_string(angle_error) + " rad error");
 }
+
+// Swinging pendubot, whose nonlinear dynamics need several SQP iterations
+std::shared_ptr<model::Model> pendubotSwingProblem()
+{
+    constexpr uint H = 10;
+
+    model::Model::Structure structure;
+    structure.urdf_path = "examples/assets/urdf/double_pendulum/pendubot.urdf";
+    structure.solver_mode     = model::SolverMode::ForwardDynamics;
+    structure.actuated_joints = { 0 };
+    auto model = std::make_shared<model::Model>(H, 0.05, structure);
+
+    using namespace model::stagewise::predefined::costs;
+    for (uint k = 0; k <= H; ++k)
+    {
+        model->addCost<SquaredJointAngleCost>(k, *model, 1.0);
+        model->addCost<SquaredJointVelocityCost>(k, *model, 0.1);
+        if (k < H) model->addCost<SquaredControlCost>(k, *model, 1e-2);
+    }
+    model->finalize();
+
+    const VecX state = (VecX(4) << 1.0, -0.5, 0.0, 0.0).finished();
+    for (uint k = 0; k <= H; ++k)
+        model->setInitState(k, state);
+    for (uint k = 0; k < H; ++k)
+        model->setInitControl(k, VecX::Zero(model->nu()));
+
+    return model;
+}
+
+void solverTimeLimit(solvers::ssqp::QPSolverType backend)
+{
+    auto model      = pendubotSwingProblem();
+    auto params     = accurateParams(backend);
+    params.max_iter = 50;
+
+    const auto solve = [&](double max_time)
+    {
+        params.max_time = max_time;
+        solvers::ssqp        solver(*model, params);
+        solvers::ssqp::Guess guess(model->dims(), model->linear_dims());
+        const auto           state = solver.solve(guess);
+        return std::make_tuple(state, solver.convergenceData(), guess);
+    };
+
+    const auto [free_state, free_cd, free_guess] = solve(-1.0);
+    require(free_cd.iterations > 1,
+            "The test problem must need several iterations");
+    require(!free_cd.time_limit_reached, "No time limit without max_time");
+
+    // Only the first iteration runs, since any other would end past the limit
+    const auto [capped_state, capped_cd, capped_guess] = solve(1e-9);
+    require(capped_state == solvers::TIME_LIMIT_REACHED,
+            "A tiny time limit must stop the solve (" +
+              solvers::to_string(capped_state) + ")");
+    require(capped_cd.time_limit_reached && !capped_cd.max_iter_reached,
+            "Convergence data must report the time limit");
+    require(capped_cd.iterations == 1 && capped_cd.iteration_data.size() == 1,
+            "Exactly the first iteration must run, got " +
+              std::to_string(capped_cd.iterations));
+    require(capped_guess.x.vec.allFinite() && capped_guess.u.vec.allFinite(),
+            "The returned guess must be finite");
+
+    const auto [loose_state, loose_cd, loose_guess] = solve(100.0);
+    require(loose_state == free_state && loose_cd.iterations == free_cd.iterations,
+            "A generous time limit must not change the solve");
+    requireClose(loose_guess.x.vec, free_guess.x.vec, "State trajectory");
+    requireClose(loose_guess.u.vec, free_guess.u.vec, "Control trajectory");
+}
+
+// Parameter files may leave out any parameter, which keeps its default
+void paramsJsonOptionalKeys()
+{
+    const auto path =
+      (std::filesystem::temp_directory_path() / "ssqp_params_test.json")
+        .string();
+
+    const auto written = [](const solvers::ssqp::Params &params)
+    {
+        nlohmann::ordered_json j;
+        params.write(j);
+        return j;
+    };
+
+    solvers::ssqp::Params expected;
+    expected.max_iter = 3;
+    {
+        std::ofstream out(path);
+#ifdef WITH_HPIPM
+        out << R"({"max_iter": 3, "qp_solver_type": "HPIPM",)"
+            << R"( "hpipm": {"max_iter": 7}})";
+        expected.qp_solver_type        = solvers::ssqp::HPIPM;
+        expected.hpipm_params.max_iter = 7;
+#else
+        out << R"({"max_iter": 3})";
+#endif
+    }
+    require(written(solvers::ssqp::Params(path)) == written(expected),
+            "Missing parameters must keep their defaults");
+
+    // Full files written by the parameters read back unchanged
+    expected.max_time  = 0.012;
+    expected.tolerance = 1e-4;
+    require(expected.write(path), "Parameter file must be writable");
+    require(written(solvers::ssqp::Params(path)) == written(expected),
+            "Written parameters must read back unchanged");
+
+    std::filesystem::remove(path);
+}
 }
 void addQPRegressionTests(TestContainer &tests);
 void addRegressionTests(TestContainer &tests)
@@ -630,7 +741,12 @@ void addRegressionTests(TestContainer &tests)
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_MPC_DimensionChanges_" + suffix,
           [=] { mpcDimensionChanges(backend); }));
+        tests.addTest(std::make_shared<FunctionTest>(
+          "Regression_SSQP_TimeLimit_" + suffix,
+          [=] { solverTimeLimit(backend); }));
     }
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_SSQP_ParamsJsonOptionalKeys", paramsJsonOptionalKeys));
 #ifdef WITH_HPIPM
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_MPC_FeedbackGains_ActiveBounds_HPIPM",

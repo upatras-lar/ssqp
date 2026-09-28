@@ -33,6 +33,8 @@ class MPC
         uint sqp_iters = 10;
         // Upper limit on QP solver iterations
         uint qp_iters = 50;
+        // Upper limit on SSQP solve time (in seconds, see ssqp::Params)
+        double max_time = -1.0;
 
         // Whether to save iteration data
         bool keep_convergence_data = false;
@@ -45,8 +47,8 @@ class MPC
 
     // Initialize an MPC helper for the given model, the given MPC and SSQP
     // parameters
-    // Note that the max iterations used for SSQP and the QP solver will be
-    // determined by the MPC parameters only.
+    // Note that the max iterations used for SSQP and the QP solver, and the
+    // SSQP time limit, will be determined by the MPC parameters only.
     MPC(model::Model &model, const Params &params = Params::Default(),
         const ssqp::Params &ssqp_params = ssqp::Params::Default());
 

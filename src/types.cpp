@@ -247,6 +247,8 @@ const std::string to_string(const SolverState &state)
         return "Dual infeasibility detected";
     case MAX_ITER_REACHED:
         return "Max iterations reached";
+    case TIME_LIMIT_REACHED:
+        return "Time limit reached";
     case ONGOING:
         return "Ongoing";
     }

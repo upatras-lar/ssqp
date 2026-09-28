@@ -349,6 +349,7 @@ enum SolverState
     PRIMAL_INFEASIBLE  = 10,
     DUAL_INFEASIBLE    = 11,
     MAX_ITER_REACHED   = 13,
+    TIME_LIMIT_REACHED = 14,
     ONGOING            = 100,
 };
 

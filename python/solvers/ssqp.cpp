@@ -37,6 +37,7 @@ void bind_ssqp(nb::module_ &m)
          - Primal Infeasible: The problem is primal infeasible (currently not used).
          - Dual Infeasible: The problem is dual infeasible (currently not used).
          - Max Iter Reached: Maximum number of iterations reached before convergence was achieved.
+         - Time Limit Reached: Maximum solve time reached before convergence was achieved.
          - Ongoing: The solver is ongoing.
         )doc")
       .value("Success", SolverState::SUCCESS)
@@ -45,6 +46,7 @@ void bind_ssqp(nb::module_ &m)
       .value("PrimalInfeasible", SolverState::PRIMAL_INFEASIBLE)
       .value("DualInfeasible", SolverState::DUAL_INFEASIBLE)
       .value("MaxIterReached", SolverState::MAX_ITER_REACHED)
+      .value("TimeLimitReached", SolverState::TIME_LIMIT_REACHED)
       .value("Ongoing", SolverState::ONGOING)
       .export_values();
 
@@ -154,6 +156,10 @@ void bind_ssqp(nb::module_ &m)
               &ssqp::ConvergenceData::max_iter_reached,
               "Whether termination occurred due to the maximum iterations "
               "being reached.")
+      .def_ro("time_limit_reached",
+              &ssqp::ConvergenceData::time_limit_reached,
+              "Whether termination occurred due to the time limit being "
+              "reached.")
       .def_ro("trajectory_cost",
               &ssqp::ConvergenceData::trajectory_cost,
               "Total final trajectory cost")
@@ -174,6 +180,13 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("max_iter",
               &ssqp::Params::max_iter,
               "Maximum number of SSQP iterations.")
+      .def_rw("max_time",
+              &ssqp::Params::max_time,
+              R"doc(
+        Maximum solve time (in seconds)
+        Iterations expected to end past it are skipped
+        Use -1.0 to ignore
+        )doc")
       .def_rw("tolerance",
               &ssqp::Params::tolerance,
               "(Initial) Tolerance for lagrangian jacobian norms.")
@@ -397,6 +410,10 @@ void bind_ssqp(nb::module_ &m)
             if (kwargs.contains("max_iter"))
             {
                 params.max_iter = nb::cast<uint>(kwargs["max_iter"]);
+            }
+            if (kwargs.contains("max_time"))
+            {
+                params.max_time = nb::cast<double>(kwargs["max_time"]);
             }
             if (kwargs.contains("tolerance"))
             {

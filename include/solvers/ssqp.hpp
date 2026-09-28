@@ -84,6 +84,10 @@ class ssqp
 
         // Maximum number of SSQP iterations
         uint max_iter = 10'000;
+        // Maximum solve time (in seconds)
+        // Iterations expected to end past it are skipped
+        // Use -1.0 to ignore
+        double max_time = -1.0;
         // (Initial) Tolerance for lagrangian jacobian norms
         double tolerance = 1e-3;
         // Constraint satisfaction tolerance
@@ -238,6 +242,8 @@ class ssqp
         bool constraint_success = false;
         // Whether termination occurred due to max iterations being reached
         bool max_iter_reached = false;
+        // Whether termination occurred due to the time limit being reached
+        bool time_limit_reached = false;
         // Total trajectory cost
         double trajectory_cost;
         // Total trajectory stage gap
@@ -325,6 +331,17 @@ class ssqp
 
     template<bool fullStagewiseConvergence>
     SolverState _check_termination();
+
+    // Whether another iteration as long as the current one would exceed
+    // max_time
+    bool _out_of_time(
+      const std::chrono::high_resolution_clock::time_point &start,
+      const std::chrono::high_resolution_clock::time_point &iter_start) const;
+
+    // Returns the current guess of an unconverged solve
+    SolverState _finish_unconverged(
+      SolverState state, uint iterations, Guess &guess,
+      const std::chrono::high_resolution_clock::time_point &start);
 
     void _printIterationHeader() const;
     void _printIterationInfo() const;
