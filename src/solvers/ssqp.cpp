@@ -1048,6 +1048,11 @@ const ssqp::ConvergenceData ssqp::convergenceData() const
     return _convergence_data;
 }
 
+MatX ssqp::feedbackGain(const uint k) const
+{
+    return _qp_solver->feedbackGain(k);
+}
+
 void ssqp::setReducedOutput(bool reduced)
 {
     _reduced_output = reduced;

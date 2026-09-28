@@ -92,12 +92,19 @@ class admm_qp : public QPSolver
 
     uint iterations() const override;
 
+    // Gain of the last solve's final LQR, where every constraint enters as a
+    // penalty weighted by rho
+    MatX feedbackGain(const uint k) const override;
+
   protected:
     const QPData      &_qp;
     Params             _params;
     QPSolver::Solution _solution;
 
     FlatVec _z, _y;
+
+    // Feedback gains of the last solve, empty before the first one
+    std::vector<MatX> _K;
 
     FlatVec      _rho, _rho_inv;
     double       _rho_common;

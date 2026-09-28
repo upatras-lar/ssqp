@@ -28,6 +28,8 @@ C_WGT = 1.0
 V_WGT = 1e-2
 U_WGT = 1e-4
 F_WGT = 1e-4
+T_BASE_WGT = 1.0
+R_BASE_WGT = 10.0
 
 CONTACT_MU = 0.6
 CONTACT_EQ_TOL = 0.01
@@ -47,6 +49,7 @@ nv = model.getnv()
 nu = model.getnu()
 
 base_pos = np.array([0.0, 0.0, 0.389])
+base_rot = np.diag([-1.0, -1.0, 1.0])
 base_config = np.array([0.0, np.pi / 6, -np.pi / 3] * 4)
 
 # Initial configuration
@@ -61,12 +64,16 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 f_cost = ssqpy.model.costs.SquaredForceCost(model, F_WGT)
+base_cost = ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost(
+    model, base_pos, base_rot, T_BASE_WGT, R_BASE_WGT
+)
 
 for k in range(mpc_H):
     model.addCost(k, config_cost)
     model.addCost(k, v_cost)
     model.addCost(k, u_cost)
     model.addCost(k, f_cost)
+    model.addCost(k, base_cost)
 
     model.addContactConstraint(k, "FL_foot", CONTACT_MU, eq_tol=CONTACT_EQ_TOL)
     model.addContactConstraint(k, "FR_foot", CONTACT_MU, eq_tol=CONTACT_EQ_TOL)
@@ -74,6 +81,7 @@ for k in range(mpc_H):
     model.addContactConstraint(k, "RR_foot", CONTACT_MU, eq_tol=CONTACT_EQ_TOL)
 
 model.addCost(mpc_H, v_cost)
+model.addCost(mpc_H, base_cost)
 
 model.finalize(init_states=[init_state])
 

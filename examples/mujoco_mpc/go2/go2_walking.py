@@ -4,7 +4,6 @@ import glfw
 import ssqpy
 import numpy as np
 from time import time
-from go2_controllers.JointSpacePD import JointSpacePD
 from go2_controllers.joystick import Controller
 from utils_go2_mujoco import (
     ssqp_to_mujoco_state,
@@ -314,12 +313,8 @@ ssqp_params.hpipmParams = hpipm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=2, qp_iters=100)
 
-# joint_space_pd_controller = JointSpacePD(mpc, init_state, Kp=2.0, Kd=0.05)
-
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
-
-# mjmodel.opt.gravity[:] = [0.0, 0.0, 0.0]
 
 mjdata.qpos = ssqp_to_mujoco_state(init_state)[:nq]
 
@@ -355,12 +350,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         state = mujoco_to_ssqp_state(np.hstack((mjdata.qpos, mjdata.qvel)))
         state = clip_joints_to_limits(state, mjmodel)
 
-        # try:
-        #     mjdata.ctrl = joint_space_pd_controller.step(state)
-        # except RuntimeError:
-        #     print("Exiting after regularization failure")
-        #     break
-
         # Solve once per plan stage and hold the stage's torques in between,
         # as the planner assumes
         if step % STAGE_EVERY == 0:
@@ -388,8 +377,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             except RuntimeError:
                 print("Exiting after regularization failure")
                 break
-
-        # mjdata.qpos = xk[:nq]
 
         mjdata.ctrl = (
             ssqp_to_mujoco_ctrl_kin(Kp * (xk[7:19] - state[7:19]))

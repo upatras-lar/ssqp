@@ -273,6 +273,11 @@ class ssqp
     // Set the reduced SSQP output flag
     void setReducedOutput(const bool reduced);
 
+    // Feedback gain K (nu-by-nx) of the last QP at stage k, giving the change
+    // du = K dx of the stage's controls for a change dx of its state, in the
+    // tangent space of the dynamics (see state_right_minus)
+    MatX feedbackGain(const uint k) const;
+
   protected:
     Params                    _params;
     const model::Model       &_model;

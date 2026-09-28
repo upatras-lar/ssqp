@@ -174,6 +174,11 @@ std::pair<FlatVec, FlatVec> MPC::step()
     return { solution.x, solution.u };
 }
 
+MatX MPC::feedbackGain(const uint k) const
+{
+    return _solver->feedbackGain(k);
+}
+
 const std::vector<ssqp::ConvergenceData> MPC::getConvergenceData() const
 {
     if (!_keep_convergence_data)

@@ -123,6 +123,67 @@ void mpcKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon)
             "History for every overload");
 }
 
+void mpcFeedbackGains(solvers::ssqp::QPSolverType backend, uint horizon)
+{
+    auto                 model  = integratorProblem(horizon, 0.0);
+    auto                 params = accurateParams(backend);
+    solvers::MPC::Params mp;
+    mp.sqp_iters = 20;
+    mp.qp_iters  = 10000;
+    solvers::MPC mpc(*model, mp, params);
+    bool         unsolved_throws = false;
+    try
+    {
+        mpc.feedbackGain(0);
+    }
+    catch (const std::runtime_error &)
+    {
+        unsolved_throws = true;
+    }
+    require(unsolved_throws, "No feedback gain before the first step");
+    const VecX expected = integratorGains(horizon);
+    for (double initial : { 1.0, -0.8 })
+    {
+        mpc.step(VecX::Constant(1, initial));
+        for (uint k = 0; k < horizon; ++k)
+        {
+            const MatX K = mpc.feedbackGain(k);
+            require(K.rows() == 1 && K.cols() == 1, "Feedback gain shape");
+            requireClose(K,
+                         expected.segment(k, 1),
+                         "Feedback gain at stage " + std::to_string(k));
+        }
+    }
+    bool out_of_range = false;
+    try
+    {
+        mpc.feedbackGain(horizon);
+    }
+    catch (const std::out_of_range &)
+    {
+        out_of_range = true;
+    }
+    require(out_of_range, "No feedback gain past the last control stage");
+}
+
+#ifdef WITH_HPIPM
+void hpipmActiveBoundGains()
+{
+    // Both controls saturate, so they no longer respond to the state
+    auto                 model = integratorProblem(2, 1.0, true);
+    solvers::MPC::Params mp;
+    mp.sqp_iters = 20;
+    mp.qp_iters  = 10000;
+    solvers::MPC mpc(*model, mp, accurateParams(solvers::ssqp::HPIPM));
+    mpc.step(VecX::Ones(1));
+    for (uint k = 0; k < 2; ++k)
+        requireClose(mpc.feedbackGain(k),
+                     MatX::Zero(1, 1),
+                     "Saturated feedback gain at stage " + std::to_string(k),
+                     1e-4);
+}
+#endif
+
 void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
 {
     auto model  = integratorProblem(2, 1.0, true);
@@ -558,6 +619,10 @@ void addRegressionTests(TestContainer &tests)
             tests.addTest(std::make_shared<FunctionTest>(
               "Regression_MPC_Known_H" + std::to_string(horizon) + "_" + suffix,
               [=] { mpcKnownSolution(backend, horizon); }));
+            tests.addTest(std::make_shared<FunctionTest>(
+              "Regression_MPC_FeedbackGains_H" + std::to_string(horizon) +
+                "_" + suffix,
+              [=] { mpcFeedbackGains(backend, horizon); }));
         }
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_SSQP_ActiveBounds_" + suffix,
@@ -566,6 +631,11 @@ void addRegressionTests(TestContainer &tests)
           "Regression_MPC_DimensionChanges_" + suffix,
           [=] { mpcDimensionChanges(backend); }));
     }
+#ifdef WITH_HPIPM
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_MPC_FeedbackGains_ActiveBounds_HPIPM",
+      hpipmActiveBoundGains));
+#endif
     addQPRegressionTests(tests);
 }
 }

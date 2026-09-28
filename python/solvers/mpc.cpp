@@ -79,6 +79,7 @@ void bind_MPC(nb::module_ &m)
              &MPC::step),
            nb::arg("states"),
            nb::arg("controls"),
+           nb::call_guard<nb::gil_scoped_release>(),
            "Uses the provided states and controls for warm-starting.")
       .def("step",
            static_cast<std::pair<FlatVec, FlatVec> (MPC::*)(const VecX &)>(
@@ -87,11 +88,29 @@ void bind_MPC(nb::module_ &m)
         Receding horizon initialization step
         Uses the provided state as feedback and the previous solution for
         warm-starting
+
+        Other Python threads keep running while it solves
            )doc",
-           nb::arg("state"))
+           nb::arg("state"),
+           nb::call_guard<nb::gil_scoped_release>())
       .def("getConvergenceData",
            &MPC::getConvergenceData,
-           "Returns stored convergence data");
+           "Returns stored convergence data")
+      .def("feedbackGain",
+           &MPC::feedbackGain,
+           nb::arg("stage"),
+           R"doc(
+        Feedback gain K (nu-by-nx) of the last step at the given stage, giving
+        the change du = K dx of the stage's controls for a change dx of its
+        state. dx is in the tangent space of the dynamics, as returned by
+        state_right_minus. Between steps, it corrects the first stage's
+        controls for the measured state:
+        u = u.stage(0) + K @ dynamics.state_right_minus(state, x.stage(0))
+
+        HPIPM returns the Riccati gain of its last interior point iteration.
+        ADMM returns the gain of its final LQR, which also penalizes inactive
+        constraints, so it is stiffer.
+           )doc");
 }
 
 }

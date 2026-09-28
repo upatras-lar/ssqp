@@ -2,6 +2,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/pair.h>
+#include <nanobind/eigen/dense.h>
 
 #include "solvers/ssqp.hpp"
 #include "solvers/admm_qp.hpp"
@@ -678,7 +679,20 @@ void bind_ssqp(nb::module_ &m)
            "Get the SSQP solver's convergence data (after solving).")
       .def("setReducedOutput",
            &ssqp::setReducedOutput,
-           "Set the reduced SSQP output flag.");
+           "Set the reduced SSQP output flag.")
+      .def("feedbackGain",
+           &ssqp::feedbackGain,
+           nb::arg("stage"),
+           R"doc(
+        Feedback gain K (nu-by-nx) of the last QP at the given stage, giving
+        the change du = K dx of the stage's controls for a change dx of its
+        state. dx is in the tangent space of the dynamics, as returned by
+        state_right_minus.
+
+        HPIPM returns the Riccati gain of its last interior point iteration.
+        ADMM returns the gain of its final LQR, which also penalizes inactive
+        constraints, so it is stiffer.
+           )doc");
 }
 }
 }

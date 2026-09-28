@@ -77,6 +77,9 @@ class MPC
     // Returns stored convergence data
     const std::vector<ssqp::ConvergenceData> getConvergenceData() const;
 
+    // Feedback gain of the last step at stage k (see ssqp::feedbackGain)
+    MatX feedbackGain(const uint k) const;
+
   protected:
     ssqp::Params          _ssqp_params;
     model::Model         &_model;

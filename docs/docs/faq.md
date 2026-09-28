@@ -306,6 +306,45 @@ per-step solve simply running too *slowly* to keep up with real time, which
 [Panda Circle (MPC)](examples/panda-circle-mpc.md#the-simulation-loop) flags via a separate printed
 control-frequency counter rather than convergence data.
 
+## How do I correct the controls between MPC steps?
+
+When the control loop runs faster than MPC can solve, the first stage's controls go stale as the state moves away
+from the one they were solved for. `mpc.feedbackGain(k)` returns the feedback gain $K_k$ of the last step at stage
+$k$, which gives the change of the stage's controls for a change of its state. Apply it with the difference between
+the measured state and the planned one, taken in the tangent space of the dynamics:
+
+=== "Python"
+
+    ```python
+    x, u = mpc.step(read_state())
+    K = mpc.feedbackGain(0)
+    dynamics = model.getDynamics(0)
+
+    while not solved_again():
+        dx = dynamics.state_right_minus(read_state(), x.stage(0))
+        apply_controls(u.stage(0) + K @ dx)
+    ```
+
+=== "C++"
+
+    ```cpp
+    auto [x, u] = mpc.step(read_state());
+    const MatX K  = mpc.feedbackGain(0);
+    const auto &dynamics = model.dynamics()[0];
+
+    while (!solved_again())
+    {
+        const VecX dx = dynamics->state_right_minus(read_state(), x.stage(0));
+        apply_controls(u.stage(0) + K * dx);
+    }
+    ```
+
+The gain describes the last QP, so it only holds near the plan and for the plan's active constraints. With HPIPM
+it is the Riccati gain of the last interior point iteration, where the barrier stiffens the active constraints (a
+looser tolerance gives a smoother gain). With ADMM it is the gain of the final LQR, which penalizes inactive
+constraints as well, so it is stiffer. The gains can be too aggressive to apply as they are when the loop adds
+delay, so scaling them down may be needed.
+
 ## How do I switch between the ADMM and HPIPM QP solvers?
 
 HPIPM requires building SSQP with `-DWITH_HPIPM=ON` (see

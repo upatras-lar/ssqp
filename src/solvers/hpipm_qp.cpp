@@ -441,6 +441,7 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
                        &_hpipm_data->sol,
                        &_hpipm_data->arg,
                        &_hpipm_data->ws);
+    _solved = true;
 
     d_ocp_qp_ipm_get_status(&_hpipm_data->ws, &_status);
     d_ocp_qp_ipm_get_iter(&_hpipm_data->ws, &_iter);
@@ -500,6 +501,30 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
 uint hpipm_qp::iterations() const
 {
     return _iter;
+}
+
+MatX hpipm_qp::feedbackGain(const uint k) const
+{
+    if (k >= _qp.dims.horizon)
+    {
+        throw std::out_of_range("HPIPM: No feedback gain for stage " +
+                                std::to_string(k));
+    }
+
+    if (!_solved)
+    {
+        throw std::runtime_error("HPIPM: No feedback gain before solving");
+    }
+
+    // HPIPM writes the gain column-major, as Eigen stores it
+    MatX K(_qp.dims.stage_control[k], _qp.dims.stage_state[k]);
+    d_ocp_qp_ipm_get_ric_K(&_hpipm_data->qp,
+                           &_hpipm_data->arg,
+                           &_hpipm_data->ws,
+                           k,
+                           K.data());
+
+    return K;
 }
 
 }

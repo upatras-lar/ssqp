@@ -77,6 +77,10 @@ class hpipm_qp : public QPSolver
     SolverState solve(QPSolver::Solution &sol) override;
     uint        iterations() const override;
 
+    // Riccati gain of the last interior point iteration, where the barrier
+    // stiffens the active constraints
+    MatX feedbackGain(const uint k) const override;
+
   protected:
     const QPData &_qp;
     Params        _params;
@@ -101,6 +105,7 @@ class hpipm_qp : public QPSolver
     int  _iter;
     int  _status;
     bool _qp_uploaded = false;
+    bool _solved      = false;
 
     // HPIPM structures
     std::shared_ptr<hpipm_data> _hpipm_data;

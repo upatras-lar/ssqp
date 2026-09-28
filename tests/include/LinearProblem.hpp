@@ -176,6 +176,16 @@ inline std::pair<VecX, VecX> integratorSolution(uint horizon, double initial)
     }
     return { x, u };
 }
+// Feedback gains u[k] = K[k] x[k] of the same closed-form Riccati recursion
+inline VecX integratorGains(uint horizon)
+{
+    VecX p = VecX::Ones(horizon + 1);
+    for (int k = static_cast<int>(horizon) - 1; k >= 0; --k)
+        p[k] = 1 + p[k + 1] / (1 + p[k + 1]);
+    VecX K(horizon);
+    for (uint k = 0; k < horizon; ++k) K[k] = -p[k + 1] / (1 + p[k + 1]);
+    return K;
+}
 inline void checkTrajectory(const solvers::FlatVec &x,
                             const solvers::FlatVec &u, const VecX &expected_x,
                             const VecX &expected_u)

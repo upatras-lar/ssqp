@@ -219,6 +219,7 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
               lqr_out.P[k + 1] * _solution.dx.stage(k + 1);
             _solution.lambda.stage(k) += lqr_out.p[k + 1];
         }
+        _K    = lqr_out.K;
         _iter = 1;
         sol   = _solution;
         return SUCCESS;
@@ -312,12 +313,33 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
     // Lagrangian
     sol.mu = -_y;
 
+    // TODO: The LQR penalizes inactive constraints as well, which stiffens
+    // the gain. Keeping rho only on the active ones (z clamped to a bound, or
+    // equalities) in one more backward pass would match HPIPM's gain
+    _K = lqr_out.K;
+
     return admm_state;
 }
 
 uint admm_qp::iterations() const
 {
     return _iter;
+}
+
+MatX admm_qp::feedbackGain(const uint k) const
+{
+    if (k >= _qp.dims.horizon)
+    {
+        throw std::out_of_range("ADMM: No feedback gain for stage " +
+                                std::to_string(k));
+    }
+
+    if (_K.empty())
+    {
+        throw std::runtime_error("ADMM: No feedback gain before solving");
+    }
+
+    return _K[k];
 }
 
 void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
