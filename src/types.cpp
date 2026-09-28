@@ -241,6 +241,8 @@ const std::string to_string(const SolverState &state)
         return "Success";
     case LOOSE_SUCCESS:
         return "Loose success";
+    case CONSTRAINT_SUCCESS:
+        return "Constraint success";
     case PRIMAL_INFEASIBLE:
         return "Primal infeasibility detected";
     case DUAL_INFEASIBLE:

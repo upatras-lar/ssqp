@@ -681,8 +681,9 @@ void paramsJsonOptionalKeys()
             "Missing parameters must keep their defaults");
 
     // Full files written by the parameters read back unchanged
-    expected.max_time  = 0.012;
-    expected.tolerance = 1e-4;
+    expected.max_time             = 0.012;
+    expected.tolerance            = 1e-4;
+    expected.constraint_tolerance = 1e-5;
     require(expected.write(path), "Parameter file must be writable");
     require(written(solvers::ssqp::Params(path)) == written(expected),
             "Written parameters must read back unchanged");

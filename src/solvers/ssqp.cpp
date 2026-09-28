@@ -151,6 +151,8 @@ ssqp::Params::Params(const std::string &filepath)
     max_iter        = j.value("max_iter", max_iter);
     max_time        = j.value("max_time", max_time);
     tolerance       = j.value("tolerance", tolerance);
+    constraint_tolerance =
+      j.value("constraint_tolerance", constraint_tolerance);
     tolerance_final = j.value("tolerance_final", tolerance_final);
     tolerance_update_steps =
       j.value("tolerance_update_steps", tolerance_update_steps);
@@ -215,6 +217,11 @@ void ssqp::Params::print() const
         std::cout << "Maximum time: " << max_time << "s" << std::endl;
     }
     std::cout << "Tolerance: " << tolerance << std::endl;
+    if (constraint_tolerance > 0.0)
+    {
+        std::cout << "Constraint tolerance: " << constraint_tolerance
+                  << std::endl;
+    }
     if (tolerance_final > 0.0)
     {
         std::cout << "Final tolerance: " << tolerance_final << std::endl;
@@ -282,6 +289,7 @@ void ssqp::Params::write(nlohmann::ordered_json &j) const
     j["max_iter"]               = max_iter;
     j["max_time"]               = max_time;
     j["tolerance"]              = tolerance;
+    j["constraint_tolerance"]   = constraint_tolerance;
     j["tolerance_final"]        = tolerance_final;
     j["tolerance_update_steps"] = tolerance_update_steps;
 
@@ -540,6 +548,9 @@ SolverState ssqp::solve(Guess &guess)
 
     _convergence_data.iteration_data.clear();
     _convergence_data.iteration_data.reserve(_params.max_iter);
+    _convergence_data.loose_success      = false;
+    _convergence_data.constraint_success = false;
+    _convergence_data.max_iter_reached   = false;
     _convergence_data.time_limit_reached = false;
 
     SolverState ssqp_state;
