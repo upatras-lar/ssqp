@@ -643,7 +643,9 @@ class CustomGo2Controller:
         q, dq = dynamic_walk_model.playback(plan[1], elapsed)
         tau = self.command_torques(plan[1], elapsed, pos, vel)
 
-        if np.max(np.abs(q - pos[7:])) > self.MAX_TRACKING_ERROR:
+        error = q - pos[7:]
+        worst = np.argmax(np.abs(error))
+        if abs(error[worst]) > self.MAX_TRACKING_ERROR:
             self.tracking_error_commands += 1
         else:
             self.tracking_error_commands = 0
@@ -664,7 +666,12 @@ class CustomGo2Controller:
         elif not np.all(np.isfinite(np.hstack((q, dq, tau)))):
             reason = "the commands are not finite"
         elif self.tracking_error_commands >= self.TRACKING_ERROR_COMMANDS:
-            reason = "the joints stopped following the plan"
+            leg = ["FL", "FR", "RL", "RR"][worst // 3]
+            joint = ["hip", "thigh", "calf"][worst % 3]
+            reason = (
+                f"the joints stopped following the plan ({leg} {joint} at "
+                f"{pos[7 + worst]:.2f} rad, planned {q[worst]:.2f} rad)"
+            )
         elif cos_tilt < np.cos(self.MAX_TILT):
             reason = "the base tilted too far from the plan"
 
@@ -753,7 +760,7 @@ class CustomGo2Controller:
 
 
 if __name__ == "__main__":
-    ChannelFactoryInitialize(0, "lo")
+    ChannelFactoryInitialize(0, "enp5s0")
 
     custom = CustomGo2Controller()
     custom.start()

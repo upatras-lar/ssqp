@@ -14,6 +14,9 @@ C_WGT = 1e-2
 V_WGT = 1e-3
 U_WGT = 1e-5
 F_WGT = 2e-4
+# Weight on the base's roll and pitch rates, which keeps each plan from
+# correcting the whole base tilt error within one stage
+W_WGT = 0.1
 
 CONTACT_MU = 0.6
 
@@ -101,7 +104,7 @@ YAW_RATE = 0.5
 
 # Joint gains around the planned joint positions and velocities, on top of the
 # planned torques
-JOINT_KP = 0.1
+JOINT_KP = 6.0
 JOINT_KD = 2 * np.sqrt(JOINT_KP)
 
 # Whether the joint torques are recomputed every command from the measured
@@ -111,6 +114,10 @@ TICK_TORQUES = True
 # positions and velocities, when recomputing the torques
 TICK_KP = 25.0
 TICK_KD = 10.0
+
+# Rotor inertia each joint adds through its gearing, which the model leaves
+# out. The torques add it for the planned joint accelerations
+JOINT_ARMATURE = 0.03
 
 # Motor torque limits (hip, thigh and calf of each leg)
 TORQUE_LIMITS = np.tile([23.7, 23.7, 45.43], 4)
@@ -531,6 +538,9 @@ def get_controller(init_config):
     v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
     u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
     f_cost = ssqpy.model.costs.SquaredForceCost(model, F_WGT)
+    w_cost = ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost(
+        model, np.zeros(6), np.array([0.0, 0.0, 0.0, W_WGT, W_WGT, 0.0])
+    )
 
     base_costs = []
     foot_funcs = {name: [] for name in FOOT_NAMES}
@@ -540,6 +550,7 @@ def get_controller(init_config):
         model.addCost(k, v_cost)
         model.addCost(k, u_cost)
         model.addCost(k, f_cost)
+        model.addCost(k, w_cost)
 
         base_costs.append(
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
@@ -685,7 +696,9 @@ def get_controller(init_config):
             and est["gait_stop"] is None
         ):
             periods = -(-(current_stage - est["gait_start"]) // GAIT_PERIOD)
-            est["gait_stop"] = est["gait_start"] + max(periods, 0) * GAIT_PERIOD
+            est["gait_stop"] = (
+                est["gait_start"] + max(periods, 0) * GAIT_PERIOD
+            )
 
         # Stay in place while not trotting
         trotting = (
@@ -736,10 +749,7 @@ def get_controller(init_config):
                 est["landed"][name][2] = 0.0
 
         # Once every foot has landed after the trot stops, the robot stands
-        if (
-            est["gait_stop"] is not None
-            and current_stage >= est["gait_stop"]
-        ):
+        if est["gait_stop"] is not None and current_stage >= est["gait_stop"]:
             est["gait_start"] = None
             est["gait_stop"] = None
 
@@ -775,6 +785,7 @@ def get_controller(init_config):
         states = [np.array(x.stage(k)) for k in range(PLAN_STAGES + 1)]
         controls = [np.array(u.stage(k)) for k in range(PLAN_STAGES)]
         torques = model.getActuatedTorqueVector(states[0], controls[0], 0)
+        torques += JOINT_ARMATURE * controls[0][: nv - 6]
         return (
             states,
             controls,
@@ -810,6 +821,7 @@ def get_controller(init_config):
                 u[nv - 6 + 3 * i : nv - 3 + 3 * i] = 0.0
 
         torques = torque_model.getActuatedTorqueVector(state, u, 0)
+        torques += JOINT_ARMATURE * u[: nv - 6]
         return np.clip(torques, -TORQUE_LIMITS, TORQUE_LIMITS)
 
     return (
