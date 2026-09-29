@@ -81,6 +81,21 @@ PITCH_RATE = 0.3
 PITCH_UP_BUTTON = "BTN_Z"
 PITCH_DOWN_BUTTON = "BTN_TR"
 
+# Base roll while holding the buttons that tilt the base to the left or right,
+# and the rate at which it changes, including back to level on release
+MAX_BASE_ROLL = 0.5
+ROLL_RATE = 0.5
+ROLL_LEFT_BUTTON = "BTN_NORTH"
+ROLL_RIGHT_BUTTON = "BTN_EAST"
+
+# Base yaw relative to the walking direction while holding the buttons that
+# turn the front to the left or right, with the feet staying in place, and the
+# rate at which it changes, including back to straight on release
+MAX_BASE_YAW = 0.3
+YAW_RATE = 0.5
+YAW_LEFT_BUTTON = "BTN_WEST"
+YAW_RIGHT_BUTTON = "BTN_TL"
+
 THIGH_LENGTH = 0.213
 # Distance from the knee to the foot frame
 CALF_LENGTH = 0.23648
@@ -137,12 +152,29 @@ foot_offsets = {
 for offset in foot_offsets.values():
     offset[2] = 0.0
 
+# Hip joint positions relative to the base, and the sideways offset from each
+# hip joint to its thigh joint
+hip_offsets = {
+    name: model.forwardKinematics(
+        init_state[:nq], name.replace("foot", "hip")
+    )[0]
+    - base_pos
+    for name in foot_names
+}
+HIP_LENGTH = abs(
+    model.forwardKinematics(init_state[:nq], "FL_thigh")[0][1]
+    - model.forwardKinematics(init_state[:nq], "FL_hip")[0][1]
+)
+
 # Commanded velocity (forward, sideways and yaw) in the base frame
 v_cmd = np.zeros(3)
 base_height = BASE_HEIGHT
 step_height = STEP_HEIGHT
-# Positive pitch tilts the front of the base up
+# Positive pitch tilts the front of the base up, positive roll tilts the base
+# to the right, and positive yaw turns the front to the left
 base_pitch = 0.0
+base_roll = 0.0
+base_yaw = 0.0
 
 # Reference base poses (x, y and yaw) for the stages from pose_stage onwards,
 # extrapolated from the current command
@@ -163,13 +195,50 @@ def rotation_y(angle):
     return np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
 
 
-def pitched_config(height, pitch):
-    # Joint angles placing each foot straight below its hip with the base
-    # pitched, which raises the front hips and lowers the rear ones
+def rotation_x(angle):
+    c, s = np.cos(angle), np.sin(angle)
+    return np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
+
+
+def leg_ik(foot, side):
+    # Hip, thigh and calf angles placing the foot at the given position
+    # relative to the hip joint, in the base frame. side is 1 for the left
+    # legs and -1 for the right ones. Feet out of reach get a straight leg
+    # pointing at them
+    x, y, z = foot
+    length = np.sqrt(y**2 + z**2 - HIP_LENGTH**2)
+    hip = np.arctan2(z, y) - np.arctan2(-length, side * HIP_LENGTH)
+    hip = (hip + np.pi) % (2 * np.pi) - np.pi
+    calf = -np.arccos(
+        np.clip(
+            (x**2 + length**2 - THIGH_LENGTH**2 - CALF_LENGTH**2)
+            / (2 * THIGH_LENGTH * CALF_LENGTH),
+            -1.0,
+            1.0,
+        )
+    )
+    thigh = np.arctan2(-x, length) - np.arctan2(
+        CALF_LENGTH * np.sin(calf), THIGH_LENGTH + CALF_LENGTH * np.cos(calf)
+    )
+    return np.array([hip, thigh, calf])
+
+
+def base_rotation(pitch, roll, yaw):
+    # Base orientation relative to the walking direction
+    return rotation_z(yaw) @ rotation_y(-pitch) @ rotation_x(roll)
+
+
+def posture_config(height, pitch, roll, yaw):
+    # Joint angles keeping each foot on its nominal spot on the ground, with
+    # the base at the given height and orientation
+    R = base_rotation(pitch, roll, yaw)
+    base = np.array([0.0, 0.0, height])
     return np.hstack(
         [
-            leg_config(height + foot_offsets[name][0] * np.sin(pitch))
-            + np.array([0.0, pitch, 0.0])
+            leg_ik(
+                R.T @ (foot_offsets[name] - base) - hip_offsets[name],
+                1 if foot_offsets[name][1] > 0 else -1,
+            )
             for name in foot_names
         ]
     )
@@ -256,7 +325,7 @@ for k in range(mpc_H):
 
 
 def update_command(joystick):
-    global base_height, step_height, base_pitch
+    global base_height, step_height, base_pitch, base_roll, base_yaw
 
     target = np.array(
         joystick.read(MAX_VEL_FRONT, MAX_VEL_BACK, MAX_VEL_SIDE, MAX_VEL_YAW)
@@ -284,6 +353,20 @@ def update_command(joystick):
         tilt * MAX_BASE_PITCH - base_pitch, -max_change, max_change
     )
 
+    tilt = (ROLL_RIGHT_BUTTON in joystick.buttons) - (
+        ROLL_LEFT_BUTTON in joystick.buttons
+    )
+    max_change = ROLL_RATE * mpc_dt
+    base_roll += np.clip(
+        tilt * MAX_BASE_ROLL - base_roll, -max_change, max_change
+    )
+
+    turn = (YAW_LEFT_BUTTON in joystick.buttons) - (
+        YAW_RIGHT_BUTTON in joystick.buttons
+    )
+    max_change = YAW_RATE * mpc_dt
+    base_yaw += np.clip(turn * MAX_BASE_YAW - base_yaw, -max_change, max_change)
+
 
 def update_model(current_stage):
     global pose_stage, poses
@@ -301,7 +384,7 @@ def update_model(current_stage):
     pose_stage = current_stage
 
     config_cost.set_desired_configuration(
-        pitched_config(base_height, base_pitch)
+        posture_config(base_height, base_pitch, base_roll, base_yaw)
     )
 
     for idx in range(mpc_H):
@@ -310,7 +393,7 @@ def update_model(current_stage):
 
         base_costs[idx].set_desired_translation(np.array([x, y, base_height]))
         base_costs[idx].set_desired_rotation(
-            rotation_z(yaw) @ rotation_y(-base_pitch)
+            rotation_z(yaw) @ base_rotation(base_pitch, base_roll, base_yaw)
         )
 
         for name in foot_names:

@@ -96,10 +96,15 @@ class CustomGo2Controller:
     # the robot up again
     FALLBACK_BUTTON = "BTN_SOUTH"
 
-    # Gamepad buttons held to tilt the front of the base up or down during the
-    # dynamic walk
+    # Gamepad buttons held during the dynamic walk to tilt the front of the
+    # base up or down, tilt the base to the left or right, and turn the front
+    # to the left or right
     PITCH_UP_BUTTON = "BTN_Z"
     PITCH_DOWN_BUTTON = "BTN_TR"
+    ROLL_LEFT_BUTTON = "BTN_NORTH"
+    ROLL_RIGHT_BUTTON = "BTN_EAST"
+    YAW_LEFT_BUTTON = "BTN_WEST"
+    YAW_RIGHT_BUTTON = "BTN_TL"
 
     # Dynamic walk limits that trigger the fallback. The joint tracking error
     # has to stay above its limit for a few commands in a row, and the tilt is
@@ -365,7 +370,8 @@ class CustomGo2Controller:
             held = self.FALLBACK_BUTTON in self.joystick.buttons
             if held and not self.fallback_button_held:
                 if self.fallback_start is None:
-                    self._startFallback("the fallback button was pressed")
+                    if self.stand_start is None:
+                        self._startFallback("the fallback button was pressed")
                 elif (
                     time.time() - self.fallback_start
                     > self.FALLBACK_STAND_TIME + self.FALLBACK_DROP_TIME
@@ -377,7 +383,7 @@ class CustomGo2Controller:
             self.fallback_button_held = held
 
             # Execute task method, unless the fallback has taken over
-            if self.fallback_start is not None:
+            if self.fallback_start is not None and self.stand_start is None:
                 self._execFallbackTask()
             elif (
                 self.stand_start is not None
@@ -573,10 +579,16 @@ class CustomGo2Controller:
                 dynamic_walk_model.MAX_VEL_YAW,
             )
 
+            # Pitch, roll and yaw commands from pairs of opposite buttons
             buttons = self.joystick.buttons
-            tilt = (self.PITCH_UP_BUTTON in buttons) - (
-                self.PITCH_DOWN_BUTTON in buttons
-            )
+            orientation = [
+                (positive in buttons) - (negative in buttons)
+                for positive, negative in [
+                    (self.PITCH_UP_BUTTON, self.PITCH_DOWN_BUTTON),
+                    (self.ROLL_RIGHT_BUTTON, self.ROLL_LEFT_BUTTON),
+                    (self.YAW_LEFT_BUTTON, self.YAW_RIGHT_BUTTON),
+                ]
+            ]
 
             # Solve from the state predicted for when the plan starts
             start = now + dynamic_walk_model.PREDICT_TIME
@@ -587,7 +599,7 @@ class CustomGo2Controller:
                     v_cmd,
                     self.joystick.dpad_x,
                     self.joystick.dpad_y,
-                    tilt,
+                    orientation,
                     pos,
                     vel,
                 )

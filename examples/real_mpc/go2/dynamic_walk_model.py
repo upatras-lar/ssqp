@@ -88,6 +88,17 @@ STEP_HEIGHT_RATE = 0.05
 MAX_BASE_PITCH = 0.2
 PITCH_RATE = 0.3
 
+# Base roll while tilting the base to the left or right, and the rate at which
+# it changes, including back to level once the tilt stops
+MAX_BASE_ROLL = 0.5
+ROLL_RATE = 0.5
+
+# Base yaw relative to the walking direction while turning the front to the
+# left or right, with the feet staying in place, and the rate at which it
+# changes, including back to straight once the turn stops
+MAX_BASE_YAW = 0.3
+YAW_RATE = 0.5
+
 # Joint gains around the planned joint positions and velocities, on top of the
 # planned torques
 JOINT_KP = 0.1
@@ -135,6 +146,16 @@ def rotation_z(yaw):
 def rotation_y(angle):
     c, s = np.cos(angle), np.sin(angle)
     return np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+
+
+def rotation_x(angle):
+    c, s = np.cos(angle), np.sin(angle)
+    return np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
+
+
+def base_rotation(pitch, roll, yaw):
+    # Base orientation relative to the walking direction
+    return rotation_z(yaw) @ rotation_y(-pitch) @ rotation_x(roll)
 
 
 def quat_to_rotation(xyzw):
@@ -189,8 +210,10 @@ def get_controller(init_config):
     Returns the model, the MPC, and four functions:
      - update_func, to call once per plan stage, before solving. It takes the
        commanded velocity (forward, sideways and yaw), the D-pad state (x and
-       y), the tilt (1 while tilting the front up, -1 while tilting it down,
-       0 otherwise), and the measured configuration and velocity. The base linear
+       y), the base orientation commands (pitch, roll and yaw, each 1 or -1
+       while tilting the front up, tilting to the right or turning the front
+       to the left, or the other way, and 0 otherwise), and the measured
+       configuration and velocity. The base linear
        velocity is estimated from the stance feet as well, so the one in the
        given velocity is ignored. It returns the estimated state. Predict it to
        when the plan will be applied before solving (see predict_state)
@@ -225,13 +248,53 @@ def get_controller(init_config):
     for offset in foot_offsets.values():
         offset[2] = 0.0
 
-    def pitched_config(height, pitch):
-        # Joint angles placing each foot straight below its hip with the base
-        # pitched, which raises the front hips and lowers the rear ones
+    # Hip joint positions relative to the base, and the sideways offset from
+    # each hip joint to its thigh joint
+    hip_offsets = {
+        name: model.forwardKinematics(
+            nominal_config, name.replace("foot", "hip")
+        )[0]
+        for name in FOOT_NAMES
+    }
+    hip_length = abs(
+        model.forwardKinematics(nominal_config, "FL_thigh")[0][1]
+        - hip_offsets["FL_foot"][1]
+    )
+
+    def leg_ik(foot, side):
+        # Hip, thigh and calf angles placing the foot at the given position
+        # relative to the hip joint, in the base frame. side is 1 for the left
+        # legs and -1 for the right ones. Feet out of reach get a straight leg
+        # pointing at them
+        x, y, z = foot
+        length = np.sqrt(y**2 + z**2 - hip_length**2)
+        hip = np.arctan2(z, y) - np.arctan2(-length, side * hip_length)
+        hip = (hip + np.pi) % (2 * np.pi) - np.pi
+        calf = -np.arccos(
+            np.clip(
+                (x**2 + length**2 - THIGH_LENGTH**2 - CALF_LENGTH**2)
+                / (2 * THIGH_LENGTH * CALF_LENGTH),
+                -1.0,
+                1.0,
+            )
+        )
+        thigh = np.arctan2(-x, length) - np.arctan2(
+            CALF_LENGTH * np.sin(calf),
+            THIGH_LENGTH + CALF_LENGTH * np.cos(calf),
+        )
+        return np.array([hip, thigh, calf])
+
+    def posture_config(height, pitch, roll, yaw):
+        # Joint angles keeping each foot on its nominal spot on the ground,
+        # with the base at the given height and orientation
+        R = base_rotation(pitch, roll, yaw)
+        base = np.array([0.0, 0.0, height])
         return np.hstack(
             [
-                leg_config(height + foot_offsets[name][0] * np.sin(pitch))
-                + np.array([0.0, pitch, 0.0])
+                leg_ik(
+                    R.T @ (foot_offsets[name] - base) - hip_offsets[name],
+                    1 if foot_offsets[name][1] > 0 else -1,
+                )
                 for name in FOOT_NAMES
             ]
         )
@@ -245,8 +308,11 @@ def get_controller(init_config):
         "v_cmd": np.zeros(3),
         "base_height": BASE_HEIGHT,
         "step_height": STEP_HEIGHT,
-        # Positive pitch tilts the front of the base up
+        # Positive pitch tilts the front of the base up, positive roll tilts
+        # the base to the right, and positive yaw turns the front to the left
         "base_pitch": 0.0,
+        "base_roll": 0.0,
+        "base_yaw": 0.0,
         # Reference base poses (x, y and yaw) for the stages from pose_stage
         # onwards, extrapolated from the current command
         "pose_stage": 0,
@@ -519,7 +585,12 @@ def get_controller(init_config):
         est["pose_stage"] = current_stage
 
         config_cost.set_desired_configuration(
-            pitched_config(est["base_height"], est["base_pitch"])
+            posture_config(
+                est["base_height"],
+                est["base_pitch"],
+                est["base_roll"],
+                est["base_yaw"],
+            )
         )
 
         for idx in range(MPC_H):
@@ -530,7 +601,10 @@ def get_controller(init_config):
                 np.array([x, y, est["base_height"]])
             )
             base_costs[idx].set_desired_rotation(
-                rotation_z(yaw) @ rotation_y(-est["base_pitch"])
+                rotation_z(yaw)
+                @ base_rotation(
+                    est["base_pitch"], est["base_roll"], est["base_yaw"]
+                )
             )
 
             for name in FOOT_NAMES:
@@ -594,7 +668,7 @@ def get_controller(init_config):
         max_time=MAX_SOLVE_TIME,
     )
 
-    def update_func(v_cmd, dpad_x, dpad_y, tilt, config, vel):
+    def update_func(v_cmd, dpad_x, dpad_y, orientation, config, vel):
         current_stage = est["stage"]
 
         # Start trotting on a move command, and stop at the end of the
@@ -639,10 +713,15 @@ def get_controller(init_config):
             MAX_STEP_HEIGHT,
         )
 
-        max_change = PITCH_RATE * MPC_DT
-        est["base_pitch"] += np.clip(
-            tilt * MAX_BASE_PITCH - est["base_pitch"], -max_change, max_change
-        )
+        for key, command, limit, rate in zip(
+            ["base_pitch", "base_roll", "base_yaw"],
+            orientation,
+            [MAX_BASE_PITCH, MAX_BASE_ROLL, MAX_BASE_YAW],
+            [PITCH_RATE, ROLL_RATE, YAW_RATE],
+        ):
+            est[key] += np.clip(
+                command * limit - est[key], -rate * MPC_DT, rate * MPC_DT
+            )
 
         # Estimate the base from the feet that were in stance during the last
         # stage, which are all still on the ground
