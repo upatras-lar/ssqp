@@ -59,6 +59,7 @@ else()
         GIT_REPOSITORY https://github.com/giaf/hpipm.git
         GIT_TAG 87ef7a6ab773427a8c416030a2b9d075a744c223
         UPDATE_COMMAND ""
+        PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch-hpipm.cmake
         DEPENDS blasfeo_ext
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/hpipm
         CMAKE_ARGS

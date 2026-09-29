@@ -11,6 +11,8 @@ class Controller:
         self.dpad_y = 0
         # -1 while the D-pad is held left, 1 while held right
         self.dpad_x = 0
+        # Codes of the buttons currently held
+        self.buttons = set()
 
         self._monitor_thread = threading.Thread(
             target=self._monitor_controller, args=()
@@ -50,6 +52,11 @@ class Controller:
                     self.dpad_y = event.state
                 elif event.code == "ABS_HAT0X":
                     self.dpad_x = event.state
+                elif event.code.startswith("BTN_"):
+                    if event.state:
+                        self.buttons.add(event.code)
+                    else:
+                        self.buttons.discard(event.code)
 
 
 if __name__ == "__main__":
@@ -58,5 +65,8 @@ if __name__ == "__main__":
     controller = Controller()
 
     while True:
+        print("==============")
         print(controller.read())
+        print(controller.buttons)
+        print("==============")
         sleep(0.1)

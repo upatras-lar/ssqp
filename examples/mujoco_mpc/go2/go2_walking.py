@@ -74,6 +74,13 @@ MIN_BASE_HEIGHT = 0.28
 MAX_BASE_HEIGHT = 0.38
 HEIGHT_RATE = 0.05
 
+# Base pitch while holding the buttons that tilt the front up or down, and the
+# rate at which it changes, including back to level on release
+MAX_BASE_PITCH = 0.25
+PITCH_RATE = 0.3
+PITCH_UP_BUTTON = "BTN_Z"
+PITCH_DOWN_BUTTON = "BTN_TR"
+
 THIGH_LENGTH = 0.213
 # Distance from the knee to the foot frame
 CALF_LENGTH = 0.23648
@@ -134,6 +141,8 @@ for offset in foot_offsets.values():
 v_cmd = np.zeros(3)
 base_height = BASE_HEIGHT
 step_height = STEP_HEIGHT
+# Positive pitch tilts the front of the base up
+base_pitch = 0.0
 
 # Reference base poses (x, y and yaw) for the stages from pose_stage onwards,
 # extrapolated from the current command
@@ -147,6 +156,23 @@ landed = {name: foot_offsets[name].copy() for name in foot_names}
 def rotation_z(yaw):
     c, s = np.cos(yaw), np.sin(yaw)
     return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
+
+def rotation_y(angle):
+    c, s = np.cos(angle), np.sin(angle)
+    return np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+
+
+def pitched_config(height, pitch):
+    # Joint angles placing each foot straight below its hip with the base
+    # pitched, which raises the front hips and lowers the rear ones
+    return np.hstack(
+        [
+            leg_config(height + foot_offsets[name][0] * np.sin(pitch))
+            + np.array([0.0, pitch, 0.0])
+            for name in foot_names
+        ]
+    )
 
 
 def predict_poses(pose, count):
@@ -230,7 +256,7 @@ for k in range(mpc_H):
 
 
 def update_command(joystick):
-    global base_height, step_height
+    global base_height, step_height, base_pitch
 
     target = np.array(
         joystick.read(MAX_VEL_FRONT, MAX_VEL_BACK, MAX_VEL_SIDE, MAX_VEL_YAW)
@@ -250,6 +276,14 @@ def update_command(joystick):
         MAX_STEP_HEIGHT,
     )
 
+    tilt = (PITCH_UP_BUTTON in joystick.buttons) - (
+        PITCH_DOWN_BUTTON in joystick.buttons
+    )
+    max_change = PITCH_RATE * mpc_dt
+    base_pitch += np.clip(
+        tilt * MAX_BASE_PITCH - base_pitch, -max_change, max_change
+    )
+
 
 def update_model(current_stage):
     global pose_stage, poses
@@ -266,14 +300,18 @@ def update_model(current_stage):
     )
     pose_stage = current_stage
 
-    config_cost.set_desired_configuration(np.tile(leg_config(base_height), 4))
+    config_cost.set_desired_configuration(
+        pitched_config(base_height, base_pitch)
+    )
 
     for idx in range(mpc_H):
         k = current_stage + idx
         x, y, yaw = poses[idx]
 
         base_costs[idx].set_desired_translation(np.array([x, y, base_height]))
-        base_costs[idx].set_desired_rotation(rotation_z(yaw))
+        base_costs[idx].set_desired_rotation(
+            rotation_z(yaw) @ rotation_y(-base_pitch)
+        )
 
         for name in foot_names:
             foot_pos, swinging = foot_reference(name, k)
@@ -335,6 +373,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
     while viewer.is_running():
         display = step % DISPLAY_EVERY == 0
 
+        """
         if display:
             print(f"\rSimulation time: {mjdata.time:.2f}s")
 
@@ -346,6 +385,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
                 )
 
             display_time = time()
+        """
 
         state = mujoco_to_ssqp_state(np.hstack((mjdata.qpos, mjdata.qvel)))
         state = clip_joints_to_limits(state, mjmodel)
