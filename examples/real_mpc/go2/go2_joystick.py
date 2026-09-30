@@ -26,6 +26,11 @@ import dynamic_walk_model
 
 from mujoco_mpc.go2.go2_controllers.joystick import Controller
 
+# Whether to control the unitree_mujoco simulator over the loopback interface
+# rather than the robot, which also picks the dynamic walk's joint gains
+SIMULATION = False
+INTERFACE = "lo" if SIMULATION else "enp5s0"
+
 LegID = {
     "FR_0": 0,
     "FR_1": 1,
@@ -106,6 +111,9 @@ class CustomGo2Controller:
     YAW_LEFT_BUTTON = "BTN_WEST"
     YAW_RIGHT_BUTTON = "BTN_TL"
 
+    # Gamepad button that makes the dynamic walk jump in place while standing
+    JUMP_BUTTON = "BTN_C"
+
     # Dynamic walk limits that trigger the fallback. The joint tracking error
     # has to stay above its limit for a few commands in a row, and the tilt is
     # measured from the planned one
@@ -114,6 +122,13 @@ class CustomGo2Controller:
     MAX_TRACKING_ERROR = 0.3
     TRACKING_ERROR_COMMANDS = 3
     MAX_TILT = 0.35
+
+    # Foot sensor reading above which a foot counts as on the ground. The
+    # sensors read about 12 in the air and 30 or more when loaded. The
+    # simulator leaves them at zero, so it goes without foot contacts
+    FOOT_CONTACT_FORCE = 20
+    # Unitree foot sensor order (FR, FL, RR, RL) in the model's foot order
+    FOOT_REORDER_MAP = [1, 0, 3, 2]
 
     def __init__(self):
         self.Kp = 40.0
@@ -224,7 +239,8 @@ class CustomGo2Controller:
                 self.command_torques,
                 self.filter_state,
             ) = dynamic_walk_model.get_controller(
-                self._getGeneralizedConfiguration(self.current_base_pos)
+                self._getGeneralizedConfiguration(self.current_base_pos),
+                SIMULATION,
             )
 
             # Latest plan with the time it started
@@ -570,7 +586,14 @@ class CustomGo2Controller:
             self.state_lock.acquire()
             pos = self._getGeneralizedConfiguration(self.current_base_pos)
             vel = self._getGeneralizedVelocity(self.current_base_vel)
+            forces = np.array(self.low_state.foot_force)
             self.state_lock.release()
+
+            contacts = None
+            if not SIMULATION:
+                contacts = list(
+                    forces[self.FOOT_REORDER_MAP] > self.FOOT_CONTACT_FORCE
+                )
 
             v_cmd = self.joystick.read(
                 dynamic_walk_model.MAX_VEL_FRONT,
@@ -600,8 +623,10 @@ class CustomGo2Controller:
                     self.joystick.dpad_x,
                     self.joystick.dpad_y,
                     orientation,
+                    self.JUMP_BUTTON in buttons,
                     pos,
                     vel,
+                    contacts,
                 )
                 if plan is not None:
                     state = dynamic_walk_model.predict_state(
@@ -680,12 +705,19 @@ class CustomGo2Controller:
             self._execFallbackTask()
             return
 
+        if SIMULATION:
+            kp = dynamic_walk_model.SIM_JOINT_KP
+            kd = dynamic_walk_model.SIM_JOINT_KD
+        else:
+            kp = dynamic_walk_model.JOINT_KP
+            kd = dynamic_walk_model.JOINT_KD
+
         for i in range(12):
             j = self.JOINT_REORDER_MAP[i]
             self.low_cmd.motor_cmd[i].q = q[j]
             self.low_cmd.motor_cmd[i].dq = dq[j]
-            self.low_cmd.motor_cmd[i].kp = dynamic_walk_model.JOINT_KP
-            self.low_cmd.motor_cmd[i].kd = dynamic_walk_model.JOINT_KD
+            self.low_cmd.motor_cmd[i].kp = kp
+            self.low_cmd.motor_cmd[i].kd = kd
             self.low_cmd.motor_cmd[i].tau = tau[j]
 
     def _startFallback(self, reason):
@@ -760,7 +792,7 @@ class CustomGo2Controller:
 
 
 if __name__ == "__main__":
-    ChannelFactoryInitialize(0, "enp5s0")
+    ChannelFactoryInitialize(0, INTERFACE)
 
     custom = CustomGo2Controller()
     custom.start()

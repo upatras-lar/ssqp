@@ -96,6 +96,34 @@ YAW_RATE = 0.5
 YAW_LEFT_BUTTON = "BTN_WEST"
 YAW_RIGHT_BUTTON = "BTN_TL"
 
+# Small jump in place, started by pressing the jump button while the command is
+# near rest. It starts at the next gait period and spans JUMP_PERIODS of them,
+# holding the command at rest. The base crouches, pushes off, flies with all
+# feet in the air, absorbs the landing and rises back to its height. The
+# phases are in plan stages, and the push and landing depths follow from the
+# flight time
+JUMP_BUTTON = "BTN_C"
+JUMP_MAX_VEL = 0.05
+JUMP_PERIODS = 10
+JUMP_CROUCH_STAGES = 10
+JUMP_PUSH_STAGES = 12
+JUMP_FLIGHT_STAGES = 12
+JUMP_LAND_STAGES = 12
+# Base height at takeoff and touchdown
+JUMP_TAKEOFF_HEIGHT = 0.36
+# Weight holding the legs in their takeoff posture while in the air, where
+# the feet and the base's path can no longer be steered
+JUMP_POSTURE_WGT = 1.0
+GRAVITY = 9.81
+
+JUMP_SPEED = GRAVITY * JUMP_FLIGHT_STAGES * mpc_dt / 2
+JUMP_CROUCH_HEIGHT = (
+    JUMP_TAKEOFF_HEIGHT - JUMP_SPEED * JUMP_PUSH_STAGES * mpc_dt / 2
+)
+JUMP_LAND_HEIGHT = (
+    JUMP_TAKEOFF_HEIGHT - JUMP_SPEED * JUMP_LAND_STAGES * mpc_dt / 2
+)
+
 THIGH_LENGTH = 0.213
 # Distance from the knee to the foot frame
 CALF_LENGTH = 0.23648
@@ -184,6 +212,10 @@ poses = [np.zeros(3)]
 # Where each foot last landed
 landed = {name: foot_offsets[name].copy() for name in foot_names}
 
+# First stage of the scheduled jump, if there is one
+jump_start = None
+jump_button_held = False
+
 
 def rotation_z(yaw):
     c, s = np.cos(yaw), np.sin(yaw)
@@ -270,8 +302,61 @@ def foothold(name, period):
     return np.array([x, y, 0.0]) + rotation_z(yaw) @ foot_offsets[name]
 
 
+def jump_stage(k):
+    # Stage k's index within the jump, or None outside of it
+    if jump_start is None:
+        return None
+    j = k - jump_start
+    return j if 0 <= j < JUMP_PERIODS * GAIT_PERIOD else None
+
+
+def jump_base_height(j):
+    # Base reference height at stage j of the jump
+    push = JUMP_CROUCH_STAGES
+    flight = push + JUMP_PUSH_STAGES
+    land = flight + JUMP_FLIGHT_STAGES
+    recover = land + JUMP_LAND_STAGES
+
+    if j < push:
+        blend = 0.5 * (1 - np.cos(np.pi * j / JUMP_CROUCH_STAGES))
+        return (1 - blend) * base_height + blend * JUMP_CROUCH_HEIGHT
+    if j < flight:
+        t = (j - push) * mpc_dt
+        acc = JUMP_SPEED / (JUMP_PUSH_STAGES * mpc_dt)
+        return JUMP_CROUCH_HEIGHT + 0.5 * acc * t**2
+    if j < land:
+        t = (j - flight) * mpc_dt
+        return JUMP_TAKEOFF_HEIGHT + JUMP_SPEED * t - 0.5 * GRAVITY * t**2
+    if j < recover:
+        t = (j - land) * mpc_dt
+        acc = JUMP_SPEED / (JUMP_LAND_STAGES * mpc_dt)
+        return JUMP_TAKEOFF_HEIGHT - JUMP_SPEED * t + 0.5 * acc * t**2
+    phase = (j - recover) / (JUMP_PERIODS * GAIT_PERIOD - recover)
+    blend = 0.5 * (1 - np.cos(np.pi * phase))
+    return (1 - blend) * JUMP_LAND_HEIGHT + blend * base_height
+
+
+def jump_foothold(name):
+    # Where the foot stands through the jump, which is where its last swing
+    # before the jump lands
+    period = jump_start // GAIT_PERIOD - 1
+    if name not in SWING_PAIRS[period % 2]:
+        period -= 1
+    return foothold(name, period)
+
+
+def in_flight(k):
+    # Whether all feet are in the air at stage k
+    j = jump_stage(k)
+    flight = JUMP_CROUCH_STAGES + JUMP_PUSH_STAGES
+    return j is not None and flight <= j < flight + JUMP_FLIGHT_STAGES
+
+
 def foot_reference(name, k):
     # Returns the foot's reference position at stage k and whether it swings
+    if jump_stage(k) is not None:
+        return jump_foothold(name), in_flight(k)
+
     period, phase = divmod(k, GAIT_PERIOD)
     phase /= GAIT_PERIOD
 
@@ -296,6 +381,7 @@ u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 f_cost = ssqpy.model.costs.SquaredForceCost(model, F_WGT)
 
 base_costs = []
+flight_costs = []
 foot_funcs = {name: [] for name in foot_names}
 
 for k in range(mpc_H):
@@ -311,6 +397,15 @@ for k in range(mpc_H):
     )
     model.addCost(k, base_costs[-1])
 
+    flight_costs.append(
+        ssqpy.model.costs.SquaredConfigurationErrorCost(
+            model,
+            posture_config(JUMP_TAKEOFF_HEIGHT, 0.0, 0.0, 0.0),
+            JUMP_POSTURE_WGT,
+        )
+    )
+    model.addCost(k, flight_costs[-1])
+
     for name in foot_names:
         foot_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
             model, name, landed[name], T_WGT
@@ -324,12 +419,33 @@ for k in range(mpc_H):
         foot_funcs[name].append((foot_cost, foot_constraint))
 
 
-def update_command(joystick):
+def update_command(joystick, current_stage):
     global base_height, step_height, base_pitch, base_roll, base_yaw
+    global jump_start, jump_button_held
+
+    # Forget the jump once it is over
+    if (
+        jump_start is not None
+        and current_stage >= jump_start + JUMP_PERIODS * GAIT_PERIOD
+    ):
+        jump_start = None
+
+    # Schedule a jump on each new press of the jump button
+    held = JUMP_BUTTON in joystick.buttons
+    if (
+        held
+        and not jump_button_held
+        and jump_start is None
+        and np.max(np.abs(v_cmd)) < JUMP_MAX_VEL
+    ):
+        jump_start = (current_stage // GAIT_PERIOD + 1) * GAIT_PERIOD
+    jump_button_held = held
 
     target = np.array(
         joystick.read(MAX_VEL_FRONT, MAX_VEL_BACK, MAX_VEL_SIDE, MAX_VEL_YAW)
     )
+    if jump_start is not None:
+        target[:] = 0.0
     max_change = np.array([MAX_ACC, MAX_ACC, MAX_YAW_ACC]) * mpc_dt
     v_cmd[:] += np.clip(target - v_cmd, -max_change, max_change)
 
@@ -365,7 +481,9 @@ def update_command(joystick):
         YAW_RIGHT_BUTTON in joystick.buttons
     )
     max_change = YAW_RATE * mpc_dt
-    base_yaw += np.clip(turn * MAX_BASE_YAW - base_yaw, -max_change, max_change)
+    base_yaw += np.clip(
+        turn * MAX_BASE_YAW - base_yaw, -max_change, max_change
+    )
 
 
 def update_model(current_stage):
@@ -391,10 +509,18 @@ def update_model(current_stage):
         k = current_stage + idx
         x, y, yaw = poses[idx]
 
-        base_costs[idx].set_desired_translation(np.array([x, y, base_height]))
+        j = jump_stage(k)
+        height = base_height if j is None else jump_base_height(j)
+        base_costs[idx].set_desired_translation(np.array([x, y, height]))
         base_costs[idx].set_desired_rotation(
             rotation_z(yaw) @ base_rotation(base_pitch, base_roll, base_yaw)
         )
+
+        # In the air, the legs hold their posture rather than following the
+        # base's and feet's references
+        flight = in_flight(k)
+        base_costs[idx].set_translation_weight(0.0 if flight else T_WGT)
+        flight_costs[idx].set_enabled(flight)
 
         for name in foot_names:
             foot_pos, swinging = foot_reference(name, k)
@@ -404,6 +530,7 @@ def update_model(current_stage):
             # stay in contact. The contact constraint only bounds the foot's
             # height, so the tracking cost also keeps stance feet from sliding
             foot_constraint.set_enabled(not swinging)
+            foot_cost.set_enabled(not flight)
             foot_cost.set_desired_translation(foot_pos)
 
 
@@ -510,7 +637,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         step += 1
         if step % STAGE_EVERY == 0:
             stage += 1
-            update_command(joystick)
+            update_command(joystick, stage)
             update_model(stage)
 
         mujoco.mj_step(mjmodel, mjdata)
