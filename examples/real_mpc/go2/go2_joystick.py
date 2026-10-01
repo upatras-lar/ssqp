@@ -28,7 +28,7 @@ from mujoco_mpc.go2.go2_controllers.joystick import Controller
 
 # Whether to control the unitree_mujoco simulator over the loopback interface
 # rather than the robot, which also picks the dynamic walk's joint gains
-SIMULATION = False
+SIMULATION = True
 INTERFACE = "lo" if SIMULATION else "enp5s0"
 
 LegID = {
@@ -113,6 +113,10 @@ class CustomGo2Controller:
 
     # Gamepad button that makes the dynamic walk jump in place while standing
     JUMP_BUTTON = "BTN_C"
+
+    # Gamepad button that switches the dynamic walk to its next gait while
+    # standing
+    GAIT_BUTTON = "BTN_TL2"
 
     # Dynamic walk limits that trigger the fallback. The joint tracking error
     # has to stay above its limit for a few commands in a row, and the tilt is
@@ -624,6 +628,7 @@ class CustomGo2Controller:
                     self.joystick.dpad_y,
                     orientation,
                     self.JUMP_BUTTON in buttons,
+                    self.GAIT_BUTTON in buttons,
                     pos,
                     vel,
                     contacts,

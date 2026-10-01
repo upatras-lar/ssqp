@@ -111,9 +111,9 @@ JUMP_FLIGHT_STAGES = 12
 JUMP_LAND_STAGES = 12
 # Base height at takeoff and touchdown
 JUMP_TAKEOFF_HEIGHT = 0.36
-# Weight holding the legs in their takeoff posture while in the air, where
-# the feet and the base's path can no longer be steered
-JUMP_POSTURE_WGT = 1.0
+# Weight holding the legs in their takeoff configuration while in the air,
+# where the feet and the base's path can no longer be steered
+JUMP_CONFIG_WGT = 1.0
 GRAVITY = 9.81
 
 JUMP_SPEED = GRAVITY * JUMP_FLIGHT_STAGES * mpc_dt / 2
@@ -260,7 +260,7 @@ def base_rotation(pitch, roll, yaw):
     return rotation_z(yaw) @ rotation_y(-pitch) @ rotation_x(roll)
 
 
-def posture_config(height, pitch, roll, yaw):
+def stance_config(height, pitch, roll, yaw):
     # Joint angles keeping each foot on its nominal spot on the ground, with
     # the base at the given height and orientation
     R = base_rotation(pitch, roll, yaw)
@@ -400,8 +400,8 @@ for k in range(mpc_H):
     flight_costs.append(
         ssqpy.model.costs.SquaredConfigurationErrorCost(
             model,
-            posture_config(JUMP_TAKEOFF_HEIGHT, 0.0, 0.0, 0.0),
-            JUMP_POSTURE_WGT,
+            stance_config(JUMP_TAKEOFF_HEIGHT, 0.0, 0.0, 0.0),
+            JUMP_CONFIG_WGT,
         )
     )
     model.addCost(k, flight_costs[-1])
@@ -502,7 +502,7 @@ def update_model(current_stage):
     pose_stage = current_stage
 
     config_cost.set_desired_configuration(
-        posture_config(base_height, base_pitch, base_roll, base_yaw)
+        stance_config(base_height, base_pitch, base_roll, base_yaw)
     )
 
     for idx in range(mpc_H):
@@ -516,8 +516,8 @@ def update_model(current_stage):
             rotation_z(yaw) @ base_rotation(base_pitch, base_roll, base_yaw)
         )
 
-        # In the air, the legs hold their posture rather than following the
-        # base's and feet's references
+        # In the air, the legs hold their configuration rather than following
+        # the base's and feet's references
         flight = in_flight(k)
         base_costs[idx].set_translation_weight(0.0 if flight else T_WGT)
         flight_costs[idx].set_enabled(flight)
@@ -548,7 +548,8 @@ ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
 admm_params.rel_tolerance = 1e-3
-admm_params.warm_start = False
+admm_params.warm_start = True
+admm_params.init_rho = 0.01
 
 ssqp_params.admmParams = admm_params
 
