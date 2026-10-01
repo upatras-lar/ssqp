@@ -185,8 +185,8 @@ int main(int argc, char **argv)
     tests.addTest(
       ssqp::tests::generators::get_squared_ID_torque_cost_grad_test());
 
-    tests.addTest(ssqp::tests::generators::
-                    get_squared_ID_torque_cost_reduced_grad_test());
+    tests.addTest(
+      ssqp::tests::generators::get_squared_ID_torque_cost_reduced_grad_test());
 
     tests.addTest(ssqp::tests::generators::
                     get_squared_ID_torque_cost_floating_base_grad_test());

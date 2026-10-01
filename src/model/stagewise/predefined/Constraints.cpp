@@ -738,7 +738,8 @@ const VecX &FrameTranslationBound::upper_bound() const
 VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
 {
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(pos, std::ignore) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
     return pos;
 }
 
@@ -822,7 +823,8 @@ const VecX &FrameRotationBound::upper_bound() const
 VecX FrameRotationBound::evaluate(const VecX &x, const VecX &u) const
 {
     Mat3 Rf;
-    std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(std::ignore, Rf) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
 
     return pinocchio_wrapper::logSO3(_Rref.transpose() * Rf);
 }
@@ -831,7 +833,8 @@ void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                   MatX &dU) const
 {
     Mat3 Rf;
-    std::tie(std::ignore, Rf) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(std::ignore, Rf) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
 
     _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
     MatX Jw   = _jac_scratch.bottomRows(3);
@@ -1032,8 +1035,12 @@ VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
 void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                         MatX &dU) const
 {
-    _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true,
-                                     _dVdq_scratch, _dVdv_scratch);
+    _model->frameVelocityDerivatives(x.head(_nq),
+                                     x.tail(_nv),
+                                     _frame_id,
+                                     true,
+                                     _dVdq_scratch,
+                                     _dVdv_scratch);
 
     dX.setZero(3, _ndx);
     dX.leftCols(_nv)  = _dVdq_scratch.topRows<3>();
@@ -1115,8 +1122,12 @@ VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
 void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                          MatX &dU) const
 {
-    _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true,
-                                     _dVdq_scratch, _dVdv_scratch);
+    _model->frameVelocityDerivatives(x.head(_nq),
+                                     x.tail(_nv),
+                                     _frame_id,
+                                     true,
+                                     _dVdq_scratch,
+                                     _dVdv_scratch);
 
     dX.setZero(3, _ndx);
     dX.leftCols(_nv)  = _dVdq_scratch.bottomRows<3>();
@@ -1247,6 +1258,19 @@ ContactConstraint::ContactConstraint(const Model       &model,
 void ContactConstraint::set_mu(const double mu)
 {
     _mu = mu;
+}
+
+void ContactConstraint::set_max_normal_force(const double max_normal_force)
+{
+    _max_normal_force = max_normal_force;
+    _ub[0]            = max_normal_force;
+}
+
+void ContactConstraint::set_eq_tol(const double eq_tol)
+{
+    _eq_tol = eq_tol;
+    _lb[5]  = -eq_tol;
+    _ub[5]  = eq_tol;
 }
 
 void ContactConstraint::set_enabled(const bool enabled)

@@ -19,6 +19,8 @@ F_WGT = 2e-4
 W_WGT = 0.1
 
 CONTACT_MU = 0.6
+# Limit on each foot's normal force
+MAX_FOOT_FORCE = 150.0
 
 # Speed limit on stance feet, keeping the plan from swinging planted legs
 STANCE_VEL_TOL = 0.2
@@ -108,17 +110,26 @@ YAW_RATE = 0.5
 # JUMP_STAGES, while move and tilt commands are ignored. The phases are in plan
 # stages. The push depth follows from the flight time, and the landing depth
 # from how fast the base falls at touchdown. JUMP_ENABLED turns it on
-JUMP_ENABLED = False
+JUMP_ENABLED = True
 JUMP_STAGES = 120
 JUMP_CROUCH_STAGES = 12
-JUMP_PUSH_STAGES = 14
-JUMP_FLIGHT_STAGES = 14
+JUMP_PUSH_STAGES = 18
+JUMP_FLIGHT_STAGES = 12
 JUMP_LAND_STAGES = 10
 # Base height at takeoff and touchdown
 JUMP_TAKEOFF_HEIGHT = 0.38
 # Weight holding the legs in their takeoff posture while in the air, where
-# the feet and the base's path can no longer be steered
+# the feet and the base's path can no longer be steered. The base's rotation
+# is left free in the air as well, since the plan could only steer it by
+# swinging the legs
 JUMP_POSTURE_WGT = 1.0
+# Weight on the joint accelerations while in the air. The legs carry little
+# inertia there, so without it each plan cancels the measured joint velocity
+# error within a stage, and the legs ring
+JUMP_FLIGHT_ACC_WGT = 3e-3
+# Limit on each foot's normal force over the landing, which has to stop the
+# fall on whichever feet touch down first
+JUMP_LAND_FORCE = 250.0
 # Weight on the base's roll and pitch rates over the last JUMP_LEVEL_STAGES of
 # the push and at takeoff, so that the base leaves the ground level rather
 # than spinning through the flight
@@ -137,6 +148,9 @@ JUMP_SPEED = -GRAVITY[2] * JUMP_FLIGHT_STAGES * MPC_DT / 2
 JUMP_CROUCH_HEIGHT = (
     JUMP_TAKEOFF_HEIGHT - JUMP_SPEED * JUMP_PUSH_STAGES * MPC_DT / 2
 )
+# Stages of the jump where the flight and the landing start
+JUMP_TAKEOFF_STAGE = JUMP_CROUCH_STAGES + JUMP_PUSH_STAGES
+JUMP_LAND_STAGE = JUMP_TAKEOFF_STAGE + JUMP_FLIGHT_STAGES
 
 # Joint gains around the planned joint positions and velocities, on top of the
 # planned torques
@@ -556,8 +570,8 @@ def get_controller(init_config, simulation=False):
         # Base reference height at stage j of the jump
         height = est["base_height"]
         push = JUMP_CROUCH_STAGES
-        flight = push + JUMP_PUSH_STAGES
-        land = flight + JUMP_FLIGHT_STAGES
+        flight = JUMP_TAKEOFF_STAGE
+        land = JUMP_LAND_STAGE
         recover = land + JUMP_LAND_STAGES
 
         if j < push:
@@ -586,8 +600,7 @@ def get_controller(init_config, simulation=False):
     def in_flight(k):
         # Whether all feet are in the air at stage k
         j = jump_stage(k)
-        flight = JUMP_CROUCH_STAGES + JUMP_PUSH_STAGES
-        return j is not None and flight <= j < flight + JUMP_FLIGHT_STAGES
+        return j is not None and JUMP_TAKEOFF_STAGE <= j < JUMP_LAND_STAGE
 
     def falling(name, k):
         # Whether the foot is still coming down at stage k of the landing
@@ -662,6 +675,7 @@ def get_controller(init_config, simulation=False):
 
     base_costs = []
     flight_costs = []
+    flight_acc_costs = []
     level_costs = []
     foot_funcs = {name: [] for name in FOOT_NAMES}
 
@@ -688,6 +702,11 @@ def get_controller(init_config, simulation=False):
         )
         model.addCost(k, flight_costs[-1])
 
+        flight_acc_costs.append(
+            ssqpy.model.costs.SquaredControlCost(model, JUMP_FLIGHT_ACC_WGT)
+        )
+        model.addCost(k, flight_acc_costs[-1])
+
         level_costs.append(
             ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost(
                 model,
@@ -702,7 +721,11 @@ def get_controller(init_config, simulation=False):
                 model, name, est["landed"][name], T_WGT
             )
             foot_constraint = model.addContactConstraint(
-                k, name, CONTACT_MU, eq_tol=0.02, max_normal_force=150
+                k,
+                name,
+                CONTACT_MU,
+                eq_tol=0.02,
+                max_normal_force=MAX_FOOT_FORCE,
             )
 
             model.addCost(k, foot_cost)
@@ -763,16 +786,23 @@ def get_controller(init_config, simulation=False):
             flight = in_flight(k)
             airborne = flight and in_flight(current_stage)
             base_costs[idx].set_translation_weight(0.0 if airborne else T_WGT)
+            base_costs[idx].set_rotation_weight(0.0 if airborne else R_WGT)
             flight_costs[idx].set_enabled(flight)
+            flight_acc_costs[idx].set_enabled(flight)
 
-            takeoff = JUMP_CROUCH_STAGES + JUMP_PUSH_STAGES
+            takeoff = JUMP_TAKEOFF_STAGE
             level_costs[idx].set_enabled(
                 j is not None and takeoff - JUMP_LEVEL_STAGES <= j <= takeoff
             )
 
+            land = JUMP_LAND_STAGE
+            landing = j is not None and land <= j < land + JUMP_LAND_STAGES
+            max_force = JUMP_LAND_FORCE if landing else MAX_FOOT_FORCE
+
             for name in FOOT_NAMES:
                 foot_pos, swinging = foot_reference(name, k)
                 foot_cost, foot_constraint, vel_bound = foot_funcs[name][idx]
+                foot_constraint.set_max_normal_force(max_force)
 
                 # Swinging feet track their swing trajectory, while stance
                 # feet stay in contact. The contact constraint only bounds the
@@ -874,7 +904,7 @@ def get_controller(init_config, simulation=False):
         # feet's forces and pulls the legs up, which tips the base over if
         # they are still loaded. Once a foot has left, the robot is already
         # in the air, and a stance plan would drive the feet back down
-        takeoff = JUMP_CROUCH_STAGES + JUMP_PUSH_STAGES
+        takeoff = JUMP_TAKEOFF_STAGE
         if (
             contacts is not None
             and jump_stage(current_stage) == takeoff
@@ -890,7 +920,7 @@ def get_controller(init_config, simulation=False):
         # feet that touched down. Their joints have yet to move on impact,
         # so they are no good for the velocity
         j = jump_stage(current_stage)
-        touchdown = takeoff + JUMP_FLIGHT_STAGES
+        touchdown = JUMP_LAND_STAGE
         if contacts is not None and j is not None:
             touching = [n for n, c in zip(FOOT_NAMES, contacts) if c]
             if takeoff + 1 < j < touchdown and touching:
@@ -971,6 +1001,19 @@ def get_controller(init_config, simulation=False):
         last_swing = swing_feet(current_stage - 1)
         stance_feet = [name for name in FOOT_NAMES if name not in last_swing]
         state, R, feet = estimate_state(config, vel, stance_feet)
+
+        # In the air, the landing moves to when the lowest foot is predicted
+        # to reach the ground, so that the plan never reaches for the ground
+        # before the feet can get there
+        j = jump_stage(current_stage)
+        if j is not None and takeoff + 1 < j < touchdown:
+            g = -GRAVITY[2]
+            rise = (R @ state[19:22])[2]
+            drop = max(min(state[2] + (R @ p)[2] for p in feet.values()), 0.0)
+            fall_time = (rise + np.sqrt(rise**2 + 2 * g * drop)) / g
+            stages = round(fall_time / MPC_DT)
+            stages = min(max(stages, 1), touchdown - takeoff - 2)
+            est["jump_start"] = current_stage + stages - touchdown
 
         # Feet finishing their swing keep the spot they actually landed on
         for name in last_swing:

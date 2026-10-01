@@ -859,6 +859,37 @@ void bind_Constraints(nb::module_ &m)
       .def("set_upper_bound",
            &CenterOfMassBound::set_upper_bound,
            nb::arg("upper_bound"));
+
+    nb::class_<ContactConstraint, StageConstraints>(m,
+                                                    "ContactConstraint",
+                                                    R"doc(
+        Predefined contact constraint for a given frame
+        Creates a set of constraints that amount to a contact force constraint for
+        a frame
+        This consists of the following 4-point linearized friction cone constraints:
+         - $f_n \gt 0$
+         - $|f_1| \leq \mu f_n$
+         - $|f_2| \leq \mu f_n$
+        As well as the following constraint on the 3D position of the frame the
+        contact is on:
+         - $p_z = h_z$
+        where:
+         - $f_n$ is the normal of the contact force ($f_z$)
+         - $f_1$ is the first component of the tangential contact force ($f_x$)
+         - $f_2$ is the second component of the tangential contact force ($f_y$)
+         - $\mu$ is the static friction coefficient at the contact
+         - $p_z$ is the $z-$component of the translation of the frame the contact is on
+         - $h_z$ is the height of the terrain at point $(p_x, p_y)$
+        Note that this constraint cannot be manually added in the Python library,
+        use the `Model`'s `addContactConstraint` method instead.
+        Also note that this constraint should be coupled with a `FrameLinearVelocityBound`
+        on the frame to avoid slipping.
+        )doc")
+      .def("set_mu", &ContactConstraint::set_mu, nb::arg("mu"))
+      .def("set_max_normal_force",
+           &ContactConstraint::set_max_normal_force,
+           nb::arg("max_normal_force"))
+      .def("set_eq_tol", &ContactConstraint::set_eq_tol, nb::arg("eq_tol"));
 }
 }
 }

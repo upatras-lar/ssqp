@@ -1311,7 +1311,8 @@ std::shared_ptr<Test> get_squared_wrench_cost_grad_test()
 std::shared_ptr<Test> get_wrench_dynamics_grad_test()
 {
     model::Model::Structure model_structure;
-    model_structure.urdf_path   = "examples/assets/urdf/floating_body/floating_body.urdf";
+    model_structure.urdf_path =
+      "examples/assets/urdf/floating_body/floating_body.urdf";
     model_structure.free_flyer  = true;
     model_structure.solver_mode = model::SolverMode::ForwardDynamics;
     std::shared_ptr<model::Model> model =

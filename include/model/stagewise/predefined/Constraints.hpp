@@ -455,7 +455,7 @@ class FrameTranslationBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
-    const uint                    _frame_id;
+    const uint                   _frame_id;
     VecX                         _lb, _ub;
     mutable MatX                 _jac_scratch;
 };
@@ -508,7 +508,7 @@ class FrameRotationBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
-    const uint                    _frame_id;
+    const uint                   _frame_id;
     Mat3                         _Rref;
     VecX                         _lb, _ub;
     mutable MatX                 _jac_scratch;
@@ -568,7 +568,7 @@ class FramePoseBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
-    const uint                    _frame_id;
+    const uint                   _frame_id;
     Mat4                         _Tref, _Tref_inv;
     VecX                         _lb, _ub;
     mutable MatX                 _jac_scratch;
@@ -621,7 +621,7 @@ class FrameLinearVelocityBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
-    const uint                    _frame_id;
+    const uint                   _frame_id;
     VecX                         _lb, _ub;
     mutable MatX                 _dVdq_scratch, _dVdv_scratch;
 };
@@ -674,7 +674,7 @@ class FrameAngularVelocityBound : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
-    const uint                    _frame_id;
+    const uint                   _frame_id;
     VecX                         _lb, _ub;
     mutable MatX                 _dVdq_scratch, _dVdv_scratch;
 };
@@ -759,6 +759,8 @@ class ContactConstraint : public StageConstraints
       const double eq_tol = 0.0, const std::string &name = "");
 
     void set_mu(const double mu);
+    void set_max_normal_force(const double max_normal_force);
+    void set_eq_tol(const double eq_tol);
 
     void set_enabled(const bool enabled) override;
 
@@ -794,12 +796,12 @@ class ContactConstraint : public StageConstraints
     const std::shared_ptr<Model> _model;
     const uint                   _nq, _nv, _nu;
     const std::string            _frame;
-    const uint                    _frame_id;
+    const uint                   _frame_id;
     std::shared_ptr<Force>       _force;
     double                       _mu;
-    const double                 _max_normal_force;
-    const double                 _eq_tol;
-    const VecX                   _lb, _ub;
+    double                       _max_normal_force;
+    double                       _eq_tol;
+    VecX                         _lb, _ub;
     mutable MatX                 _jac_world_scratch, _jac_local_scratch;
 };
 

@@ -447,13 +447,14 @@ void bind_Model(nb::module_ &m)
            const double       eq_tol,
            const std::string &name)
         {
-            return self.addConstraints<ContactConstraint>(k,
-                                                          self,
-                                                          frame,
-                                                          mu,
-                                                          max_normal_force,
-                                                          eq_tol,
-                                                          name);
+            return std::static_pointer_cast<ContactConstraint>(
+              self.addConstraints<ContactConstraint>(k,
+                                                     self,
+                                                     frame,
+                                                     mu,
+                                                     max_normal_force,
+                                                     eq_tol,
+                                                     name));
         },
         nb::arg("k"),
         nb::arg("frame"),
