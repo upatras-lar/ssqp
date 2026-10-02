@@ -719,6 +719,41 @@ void bind_Costs(nb::module_ &m)
           &FrameSquaredTranslationErrorCost::set_weight),
         nb::arg("weight"));
 
+    nb::class_<FrameSquaredTerrainHeightErrorCost, StageCost>(
+      m,
+      "FrameSquaredTerrainHeightErrorCost",
+      R"doc(
+        Predefined squared frame terrain height error cost
+
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} w^2 (p_z - h(p_x, p_y) - d_d)^2$
+
+        where:
+         - $\boldsymbol{p}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
+         - $h$ is the height of the model's terrain at the frame's horizontal position
+         - $d_d$ is the desired height of the frame above the terrain
+         - $w$ is the weight on the height error
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+      )doc")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const double,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("desired_height"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def("set_desired_height",
+           &FrameSquaredTerrainHeightErrorCost::set_desired_height,
+           nb::arg("desired_height"))
+      .def("set_weight",
+           &FrameSquaredTerrainHeightErrorCost::set_weight,
+           nb::arg("weight"));
+
     nb::class_<FrameSquaredRotationErrorCost, StageCost>(
       m,
       "FrameSquaredRotationErrorCost",

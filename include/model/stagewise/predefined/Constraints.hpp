@@ -460,6 +460,56 @@ class FrameTranslationBound : public StageConstraints
     mutable MatX                 _jac_scratch;
 };
 
+/** Predefined terrain height bound for a given frame
+ *
+ * Creates a bound constraint on the height of a frame above the model's
+ * terrain: $b_l \leq p_z - h(p_x, p_y) \leq b_u$
+ *
+ * where:
+ *  - $b_l$, $b_u$: Lower and upper bounds on the height above the terrain
+ *  - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
+ *  - $h$: Terrain height at the frame's horizontal position
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ */
+class FrameTerrainHeightBound : public StageConstraints
+{
+  public:
+    FrameTerrainHeightBound(const Model &model, const std::string &frame,
+                            const double lb, const double ub,
+                            const std::string &name = "");
+
+    void set_lower_bound(const double lb);
+    void set_upper_bound(const double ub);
+
+    uint output_size() const override;
+
+    const VecX &lower_bound() const override;
+    const VecX &upper_bound() const override;
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+
+    void gradient(const VecX &x, const VecX &u, MatX &dX,
+                  MatX &dU) const override;
+
+    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                     MatX &Puu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    const std::string            _frame;
+    const uint                   _frame_id;
+    VecX                         _lb, _ub;
+    mutable MatX                 _jac_scratch;
+};
+
 /** Predefined 3D orientation bound for a given frame
  *
  * Creates a nonlinear bound constraint on the orientation of a frame:

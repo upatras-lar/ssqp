@@ -915,9 +915,12 @@ std::shared_ptr<Test> get_center_of_mass_bound_grad_test()
     return constraints_test;
 }
 
-std::shared_ptr<Test> get_contact_constraint_grad_test()
+std::shared_ptr<Test>
+get_contact_constraint_grad_test(const std::string                              &name,
+                                 const std::shared_ptr<model::terrain::Terrain> &terrain)
 {
     model::Model::Structure model_structure;
+    model_structure.terrain                   = terrain;
     model_structure.ignore_innate_constraints = true;
     model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
     model_structure.free_flyer = true;
@@ -935,11 +938,83 @@ std::shared_ptr<Test> get_contact_constraint_grad_test()
     model->finalize();
 
     std::shared_ptr<FDGradConstraints> constraints_test =
-      std::make_shared<FDGradConstraints>("ContactConstraintGradTest",
+      std::make_shared<FDGradConstraints>(name, model, 0);
+
+    return constraints_test;
+}
+
+std::shared_ptr<model::terrain::Terrain> get_test_heightmap_terrain()
+{
+    MatX heights(25, 25);
+    for (int i = 0; i < heights.rows(); ++i)
+    {
+        for (int j = 0; j < heights.cols(); ++j)
+        {
+            heights(i, j) =
+              0.1 * std::sin(0.7 * i) * std::cos(0.5 * j) + 0.02 * i;
+        }
+    }
+
+    return model::terrain::make_terrain<
+      model::terrain::predefined::HeightmapTerrain>(heights, 0.25, -3.0, -3.0);
+}
+
+std::shared_ptr<Test> get_frame_terrain_height_bound_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.terrain                   = get_test_heightmap_terrain();
+    model_structure.ignore_innate_constraints = true;
+    model_structure.urdf_path                 = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer                = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+    setup_model(model);
+
+    model->addConstraints<
+      model::stagewise::predefined::constraints::FrameTerrainHeightBound>(
+      0,
+      *model.get(),
+      "FL_foot",
+      0.0,
+      std::numeric_limits<double>::infinity());
+
+    model->finalize();
+
+    std::shared_ptr<FDGradConstraints> constraints_test =
+      std::make_shared<FDGradConstraints>("FrameTerrainHeightBoundGradTest",
                                           model,
                                           0);
 
     return constraints_test;
+}
+
+std::shared_ptr<Test> get_frame_squared_terrain_height_error_cost_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.terrain    = get_test_heightmap_terrain();
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        model->addCost<model::stagewise::predefined::costs::
+                         FrameSquaredTerrainHeightErrorCost>(k,
+                                                             *model.get(),
+                                                             "FL_foot",
+                                                             0.1,
+                                                             3.58);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
+      "FrameSquaredTerrainHeightErrorCostGradTest",
+      model,
+      0);
+
+    return cost_test;
 }
 
 std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test()

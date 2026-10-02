@@ -242,6 +242,11 @@ void bind_Model(nb::module_ &m)
             {
                 structure.from_preset = nb::cast<Preset>(kwargs["from_preset"]);
             }
+            if (kwargs.contains("terrain"))
+            {
+                structure.terrain =
+                  nb::cast<std::shared_ptr<Terrain>>(kwargs["terrain"]);
+            }
             if (kwargs.contains("solver_mode"))
             {
                 structure.solver_mode =

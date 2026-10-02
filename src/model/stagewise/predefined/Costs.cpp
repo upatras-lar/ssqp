@@ -1344,6 +1344,101 @@ void FrameSquaredTranslationErrorCost::hessian_uu(const VecX &x, const VecX &u,
     Huu.setZero(u.size(), u.size());
 }
 
+// FrameSquaredTerrainHeightErrorCost
+FrameSquaredTerrainHeightErrorCost::FrameSquaredTerrainHeightErrorCost(
+  const Model &model, const std::string &frame, const double desired_height,
+  const double weight, const std::string &name)
+  : StageCost(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _frame(frame)
+  , _frame_id(model.frameId(frame))
+  , _desired_height(desired_height)
+  , _weight(weight)
+  , _jac_scratch(MatX::Zero(6, _nv))
+{
+    assert(model.xml() && "Cannot use FrameSquaredTerrainHeightErrorCost with "
+                          "a custom Model");
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
+}
+
+void FrameSquaredTerrainHeightErrorCost::set_desired_height(
+  const double desired_height)
+{
+    _desired_height = desired_height;
+}
+
+void FrameSquaredTerrainHeightErrorCost::set_weight(const double weight)
+{
+    _weight = weight;
+}
+
+VecX FrameSquaredTerrainHeightErrorCost::evaluate(const VecX &x,
+                                                  const VecX &u) const
+{
+    assert(x.size() >= _nq && "Invalid state passed (size < nq)");
+
+    Vec3 pos;
+    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+
+    const double height = pos[2] - _model->terrain()->at(pos[0], pos[1]).height;
+
+    return Scalar::Constant(0.5 * _weight * _weight *
+                            (height - _desired_height) *
+                            (height - _desired_height));
+}
+
+void FrameSquaredTerrainHeightErrorCost::gradient(const VecX &x, const VecX &u,
+                                                  VecX &dx, VecX &du) const
+{
+    assert(x.size() >= _nq && "Invalid state passed (size < nq)");
+
+    Vec3 pos;
+    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
+
+    terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
+
+    dx.setZero(_ndx);
+    dx.head(_nv) = _weight * _weight * (pos[2] - tp.height - _desired_height) *
+                   _jac_scratch.topRows(3).transpose() *
+                   Vec3(-tp.dhdx, -tp.dhdy, 1);
+
+    du.setZero(u.size());
+}
+
+void FrameSquaredTerrainHeightErrorCost::hessian_xx(const VecX &x, const VecX &u,
+                                                    MatX &Hxx) const
+{
+    assert(x.size() >= _nq && "Invalid state passed (size < nq)");
+
+    Vec3 pos;
+    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
+
+    terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
+
+    VecX dh = _jac_scratch.topRows(3).transpose() *
+              Vec3(-tp.dhdx, -tp.dhdy, 1);
+
+    Hxx.setZero(_ndx, _ndx);
+    Hxx.topLeftCorner(_nv, _nv) = _weight * _weight * dh * dh.transpose();
+}
+
+void FrameSquaredTerrainHeightErrorCost::hessian_xu(const VecX &x, const VecX &u,
+                                                    MatX &Hxu) const
+{
+    Hxu.setZero(_ndx, u.size());
+}
+
+void FrameSquaredTerrainHeightErrorCost::hessian_uu(const VecX &x, const VecX &u,
+                                                    MatX &Huu) const
+{
+    Huu.setZero(u.size(), u.size());
+}
+
 // FrameSquaredRotationErrorCost
 FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   const Model &model, const std::string &frame, const Mat3 &desired_rotation,

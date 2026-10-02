@@ -667,6 +667,41 @@ void bind_Constraints(nb::module_ &m)
            &FrameTranslationBound::set_upper_bound,
            nb::arg("upper_bound"));
 
+    nb::class_<FrameTerrainHeightBound, StageConstraints>(
+      m,
+      "FrameTerrainHeightBound",
+      R"doc(
+        Predefined terrain height bound for a given frame
+
+        Creates a bound constraint on the height of a frame above the model's
+        terrain: $b_l \leq p_z - h(p_x, p_y) \leq b_u$
+
+        where:
+         - $b_l$, $b_u$: Lower and upper bounds on the height above the terrain
+         - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
+         - $h$: Terrain height at the frame's horizontal position
+
+        Assumes:
+         - The model joint configuration is the first part of the state vector (size
+           `model.nq()`)
+           )doc")
+      .def(nb::init<const Model &,
+                    const std::string &,
+                    const double,
+                    const double,
+                    const std::string &>(),
+           nb::arg("model"),
+           nb::arg("frame"),
+           nb::arg("lb"),
+           nb::arg("ub"),
+           nb::arg("name") = "")
+      .def("set_lower_bound",
+           &FrameTerrainHeightBound::set_lower_bound,
+           nb::arg("lower_bound"))
+      .def("set_upper_bound",
+           &FrameTerrainHeightBound::set_upper_bound,
+           nb::arg("upper_bound"));
+
     nb::class_<FrameRotationBound, StageConstraints>(m,
                                                      "FrameRotationBound",
                                                      R"doc(

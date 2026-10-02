@@ -18,6 +18,8 @@ class FlatTerrain : public Terrain
 
     TerrainPoint at(const double x, const double y) const override;
 
+    nlohmann::ordered_json to_json() const override;
+
   protected:
     const double _base_height;
 };

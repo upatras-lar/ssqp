@@ -770,6 +770,95 @@ void FrameTranslationBound::hessprod_uu(const VecX &x, const VecX &u,
     Puu.setZero(u.size(), u.size());
 }
 
+// FrameTerrainHeightBound
+FrameTerrainHeightBound::FrameTerrainHeightBound(const Model       &model,
+                                                 const std::string &frame,
+                                                 const double lb,
+                                                 const double ub,
+                                                 const std::string &name)
+  : StageConstraints(name)
+  , _model(std::make_shared<Model>(model))
+  , _nq(model.nq())
+  , _nv(model.nv())
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
+  , _frame(frame)
+  , _frame_id(model.frameId(frame))
+  , _lb(Scalar::Constant(lb))
+  , _ub(Scalar::Constant(ub))
+  , _jac_scratch(MatX::Zero(6, _nv))
+{
+    assert(model.xml() &&
+           "Cannot use FrameTerrainHeightBound with a custom Model");
+    assert(model.hasFrame(frame) && "Invalid frame for given model");
+}
+
+void FrameTerrainHeightBound::set_lower_bound(const double lb)
+{
+    _lb[0] = lb;
+}
+
+void FrameTerrainHeightBound::set_upper_bound(const double ub)
+{
+    _ub[0] = ub;
+}
+
+uint FrameTerrainHeightBound::output_size() const
+{
+    return 1;
+}
+
+const VecX &FrameTerrainHeightBound::lower_bound() const
+{
+    return _lb;
+}
+const VecX &FrameTerrainHeightBound::upper_bound() const
+{
+    return _ub;
+}
+
+VecX FrameTerrainHeightBound::evaluate(const VecX &x, const VecX &u) const
+{
+    Vec3 pos;
+    std::tie(pos, std::ignore) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
+
+    return Scalar::Constant(pos[2] -
+                            _model->terrain()->at(pos[0], pos[1]).height);
+}
+
+void FrameTerrainHeightBound::gradient(const VecX &x, const VecX &u, MatX &dX,
+                                       MatX &dU) const
+{
+    Vec3 pos;
+    std::tie(pos, std::ignore) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
+
+    terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
+
+    dX.setZero(1, _ndx);
+    dX.leftCols(_nv) = Vec3(-tp.dhdx, -tp.dhdy, 1).transpose() *
+                       _jac_scratch.topRows(3);
+
+    dU.setZero(1, u.size());
+}
+
+void FrameTerrainHeightBound::hessprod_xx(const VecX &x, const VecX &u,
+                                          const VecX &mu, MatX &Pxx) const
+{
+    Pxx.setZero(_ndx, _ndx);
+}
+void FrameTerrainHeightBound::hessprod_xu(const VecX &x, const VecX &u,
+                                          const VecX &mu, MatX &Pxu) const
+{
+    Pxu.setZero(_ndx, u.size());
+}
+void FrameTerrainHeightBound::hessprod_uu(const VecX &x, const VecX &u,
+                                          const VecX &mu, MatX &Puu) const
+{
+    Puu.setZero(u.size(), u.size());
+}
+
 // FrameRotationBound
 FrameRotationBound::FrameRotationBound(const Model       &model,
                                        const std::string &frame,
@@ -1372,6 +1461,36 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
     VecX dft1_dq = dfglobal_dq.transpose() * tp.t1;
     VecX dft2_dq = dfglobal_dq.transpose() * tp.t2;
 
+    // Terrain frame derivatives with respect to the frame's x and y position
+    // The frame is built from the height gradient (see `TerrainPoint`)
+    const double a = tp.dhdx, b = tp.dhdy;
+    const double s = std::sqrt(1 + a * a + b * b), r = std::sqrt(1 + a * a);
+
+    Vec3 dn_da  = -Vec3::UnitX() / s - tp.normal * a / (s * s);
+    Vec3 dn_db  = -Vec3::UnitY() / s - tp.normal * b / (s * s);
+    Vec3 dt1_da = Vec3::UnitZ() / r - tp.t1 * a / (r * r);
+    Vec3 dt2_da = dn_da.cross(tp.t1) + tp.normal.cross(dt1_da);
+    Vec3 dt2_db = dn_db.cross(tp.t1);
+
+    Vec3 dn_dx  = dn_da * tp.d2hdx2 + dn_db * tp.d2hdxdy;
+    Vec3 dn_dy  = dn_da * tp.d2hdxdy + dn_db * tp.d2hdy2;
+    Vec3 dt1_dx = dt1_da * tp.d2hdx2;
+    Vec3 dt1_dy = dt1_da * tp.d2hdxdy;
+    Vec3 dt2_dx = dt2_da * tp.d2hdx2 + dt2_db * tp.d2hdxdy;
+    Vec3 dt2_dy = dt2_da * tp.d2hdxdy + dt2_db * tp.d2hdy2;
+
+    Vec3 f_global = R * f_local;
+
+    dfn_dq += (f_global.dot(dn_dx) * Jfw.row(0) +
+               f_global.dot(dn_dy) * Jfw.row(1))
+                .transpose();
+    dft1_dq += (f_global.dot(dt1_dx) * Jfw.row(0) +
+                f_global.dot(dt1_dy) * Jfw.row(1))
+                 .transpose();
+    dft2_dq += (f_global.dot(dt2_dx) * Jfw.row(0) +
+                f_global.dot(dt2_dy) * Jfw.row(1))
+                 .transpose();
+
     dX.row(0).head(_nv) = dfn_dq.transpose();
     dX.row(1).head(_nv) = (dft1_dq - _mu * dfn_dq).transpose();
     dX.row(2).head(_nv) = (dft1_dq + _mu * dfn_dq).transpose();
@@ -1379,8 +1498,6 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
     dX.row(4).head(_nv) = (dft2_dq + _mu * dfn_dq).transpose();
 
     dX.row(5).head(_nv) = dhdp.transpose() * Jfw;
-
-    Vec3 f_global = R * f_local;
 
     double fn  = (f_global.transpose() * tp.normal)[0];
     double ft1 = (f_global.transpose() * tp.t1)[0];

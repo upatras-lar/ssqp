@@ -170,6 +170,27 @@ int main(int argc, char **argv)
 
     tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test());
 
+    {
+        using namespace ssqp::model::terrain;
+        using namespace ssqp::model::terrain::predefined;
+
+        tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test(
+          "ContactConstraintSlopeGradTest",
+          make_terrain<SlopeTerrain>(0.3, -0.2, 0.1)));
+        tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test(
+          "ContactConstraintStepGradTest",
+          make_terrain<StepTerrain>(5.0, 0.1)));
+        tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test(
+          "ContactConstraintStairsGradTest",
+          make_terrain<StepTerrain>(-0.5, 0.05, 0.3, 4)));
+        tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test(
+          "ContactConstraintHeightmapGradTest",
+          ssqp::tests::generators::get_test_heightmap_terrain()));
+    }
+
+    tests.addTest(
+      ssqp::tests::generators::get_frame_terrain_height_bound_grad_test());
+
     tests.addTest(
       ssqp::tests::generators::get_squared_joint_angle_cost_grad_test());
 
@@ -227,6 +248,9 @@ int main(int argc, char **argv)
 
     tests.addTest(ssqp::tests::generators::
                     get_frame_squared_rotation_error_cost_grad_test());
+
+    tests.addTest(ssqp::tests::generators::
+                    get_frame_squared_terrain_height_error_cost_grad_test());
 
     tests.addTest(
       ssqp::tests::generators::get_frame_squared_pose_error_cost_grad_test());

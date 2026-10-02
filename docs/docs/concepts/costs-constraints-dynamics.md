@@ -29,7 +29,8 @@ objectives, all built on Pinocchio kinematics for XML-based models:
 `SquaredJointAngleCost`, `SquaredJointVelocityCost`, `SquaredControlCost`, `SquaredIDTorqueCost`,
 `SquaredForceCost`, `SquaredConfigurationErrorCost`, `FloatingBaseSquaredTranslationErrorCost`,
 `FloatingBaseSquaredRotationErrorCost`, `FloatingBaseSquaredPoseErrorCost`,
-`FloatingBaseSquaredVelocityErrorCost`, `FrameSquaredTranslationErrorCost`, `FrameSquaredRotationErrorCost`,
+`FloatingBaseSquaredVelocityErrorCost`, `FrameSquaredTranslationErrorCost`, `FrameSquaredTerrainHeightErrorCost`,
+`FrameSquaredRotationErrorCost`,
 `FrameSquaredPoseErrorCost`, `FrameSquaredVelocityErrorCost`, `CenterOfMassTrackingCost`,
 `FramesInverseSquaredDistanceCost`.
 
@@ -95,7 +96,7 @@ same treatment for their own manifold-valued states.
 `ssqpy.model.constraints` provides: `JointAngleConstraint`, `JointVelocityConstraint`, `JointControlConstraint`,
 `FloatingBaseTranslationBound`, `FloatingBaseRotationBound`, `FloatingBasePoseBound`,
 `FloatingBaseLinearVelocityBound`, `FloatingBaseAngularVelocityBound`, `FrameTranslationBound`,
-`FrameRotationBound`, `FramePoseBound`, `FrameLinearVelocityBound`, `FrameAngularVelocityBound`,
+`FrameTerrainHeightBound`, `FrameRotationBound`, `FramePoseBound`, `FrameLinearVelocityBound`, `FrameAngularVelocityBound`,
 `CenterOfMassBound`. The C++ library additionally defines `ContactConstraint` directly, which
 `Model.addContactConstraint` constructs and wires up for you (friction cone + non-penetration against the model's
 [terrain](terrain.md)).

@@ -527,6 +527,49 @@ class FrameSquaredTranslationErrorCost : public StageCost
     mutable MatX                 _jac_scratch;
 };
 
+/** Predefined squared frame terrain height error cost
+ *
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} w^2 (p_z - h(p_x, p_y) - d_d)^2$
+ *
+ * where:
+ *  - $\boldsymbol{p}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
+ *  - $h$ is the height of the model's terrain at the frame's horizontal position
+ *  - $d_d$ is the desired height of the frame above the terrain
+ *  - $w$ is the weight on the height error
+ *
+ * Assumes:
+ *  - The model joint configuration is the first part of the state vector (size
+ *    `model.nq()`)
+ */
+class FrameSquaredTerrainHeightErrorCost : public StageCost
+{
+  public:
+    FrameSquaredTerrainHeightErrorCost(const Model       &model,
+                                       const std::string &frame,
+                                       const double       desired_height,
+                                       const double       weight,
+                                       const std::string &name = "");
+
+    void set_desired_height(const double desired_height);
+    void set_weight(const double weight);
+
+    VecX evaluate(const VecX &x, const VecX &u) const override;
+    void gradient(const VecX &x, const VecX &u, VecX &dx,
+                  VecX &du) const override;
+    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
+    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
+    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+
+  protected:
+    const std::shared_ptr<Model> _model;
+    const uint                   _nq, _nv, _ndx;
+    const std::string            _frame;
+    const uint                   _frame_id;
+    double                       _desired_height;
+    double                       _weight;
+    mutable MatX                 _jac_scratch;
+};
+
 /** Predefined squared frame rotation error cost
  *
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \log_{SO(3)}R^\top R_d\rVert_2^2$

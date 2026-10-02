@@ -10,6 +10,9 @@
 #include "model/Model.hpp"
 #include "model/stagewise/predefined/Costs.hpp"
 #include "model/stagewise/predefined/Constraints.hpp"
+#include "model/terrain/predefined/SlopeTerrain.hpp"
+#include "model/terrain/predefined/StepTerrain.hpp"
+#include "model/terrain/predefined/HeightmapTerrain.hpp"
 
 #include "models/double_pendulum/DoublePendulumAmbient.hpp"
 
@@ -73,7 +76,14 @@ std::shared_ptr<Test> get_frame_pose_bound_grad_test();
 std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test();
 std::shared_ptr<Test> get_frame_angular_velocity_bound_grad_test();
 std::shared_ptr<Test> get_center_of_mass_bound_grad_test();
-std::shared_ptr<Test> get_contact_constraint_grad_test();
+std::shared_ptr<Test> get_contact_constraint_grad_test(
+  const std::string                              &name = "ContactConstraintGradTest",
+  const std::shared_ptr<model::terrain::Terrain> &terrain = nullptr);
+
+std::shared_ptr<Test> get_frame_terrain_height_bound_grad_test();
+
+// Smooth, uneven terrain used by terrain-dependent tests
+std::shared_ptr<model::terrain::Terrain> get_test_heightmap_terrain();
 
 // Cost gradients
 std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test();
@@ -101,6 +111,7 @@ std::shared_ptr<Test> get_floating_base_squared_rotation_error_cost_grad_test();
 std::shared_ptr<Test> get_floating_base_squared_pose_error_cost_grad_test();
 std::shared_ptr<Test> get_floating_base_squared_velocity_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_translation_error_cost_grad_test();
+std::shared_ptr<Test> get_frame_squared_terrain_height_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test();

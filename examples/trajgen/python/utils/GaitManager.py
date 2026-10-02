@@ -55,60 +55,36 @@ class GaitManager:
             model, self.rr_foot, np.zeros(3), np.zeros(3)
         )
 
-        self.fl_foot_ag_bound = constraints.FrameTranslationBound(
-            model,
-            self.fl_foot,
-            np.array((-np.inf, -np.inf, 0.0)),
-            np.array((np.inf, np.inf, np.inf)),
+        self.fl_foot_ag_bound = constraints.FrameTerrainHeightBound(
+            model, self.fl_foot, 0.0, np.inf
         )
 
-        self.fl_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
-            model,
-            self.fl_foot,
-            np.array((0.0, 0.0, swing_cost_height)),
-            np.array((0.0, 0.0, 1.0)),
+        self.fl_foot_ag_cost = costs.FrameSquaredTerrainHeightErrorCost(
+            model, self.fl_foot, swing_cost_height, 1.0
         )
 
-        self.fr_foot_ag_bound = constraints.FrameTranslationBound(
-            model,
-            self.fr_foot,
-            np.array((-np.inf, -np.inf, 0.0)),
-            np.array((np.inf, np.inf, np.inf)),
+        self.fr_foot_ag_bound = constraints.FrameTerrainHeightBound(
+            model, self.fr_foot, 0.0, np.inf
         )
 
-        self.fr_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
-            model,
-            self.fr_foot,
-            np.array((0.0, 0.0, swing_cost_height)),
-            np.array((0.0, 0.0, 1.0)),
+        self.fr_foot_ag_cost = costs.FrameSquaredTerrainHeightErrorCost(
+            model, self.fr_foot, swing_cost_height, 1.0
         )
 
-        self.rl_foot_ag_bound = constraints.FrameTranslationBound(
-            model,
-            self.rl_foot,
-            np.array((-np.inf, -np.inf, 0.0)),
-            np.array((np.inf, np.inf, np.inf)),
+        self.rl_foot_ag_bound = constraints.FrameTerrainHeightBound(
+            model, self.rl_foot, 0.0, np.inf
         )
 
-        self.rl_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
-            model,
-            self.rl_foot,
-            np.array((0.0, 0.0, swing_cost_height)),
-            np.array((0.0, 0.0, 1.0)),
+        self.rl_foot_ag_cost = costs.FrameSquaredTerrainHeightErrorCost(
+            model, self.rl_foot, swing_cost_height, 1.0
         )
 
-        self.rr_foot_ag_bound = constraints.FrameTranslationBound(
-            model,
-            self.rr_foot,
-            np.array((-np.inf, -np.inf, 0.0)),
-            np.array((np.inf, np.inf, np.inf)),
+        self.rr_foot_ag_bound = constraints.FrameTerrainHeightBound(
+            model, self.rr_foot, 0.0, np.inf
         )
 
-        self.rr_foot_ag_cost = costs.FrameSquaredTranslationErrorCost(
-            model,
-            self.rr_foot,
-            np.array((0.0, 0.0, swing_cost_height)),
-            np.array((0.0, 0.0, 1.0)),
+        self.rr_foot_ag_cost = costs.FrameSquaredTerrainHeightErrorCost(
+            model, self.rr_foot, swing_cost_height, 1.0
         )
 
     def addStandingStage(self, k):

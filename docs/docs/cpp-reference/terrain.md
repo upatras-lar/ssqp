@@ -12,11 +12,33 @@ headers' own doc comments.
 
 ## `FlatTerrain`
 
-The only predefined terrain currently shipped:
-
 <!-- doxy:start level=2 -->
 ::: doxy.ssqp.class
     name: ssqp::model::terrain::predefined::FlatTerrain
+
+<!-- doxy:end -->
+
+## `SlopeTerrain`
+
+<!-- doxy:start level=2 -->
+::: doxy.ssqp.class
+    name: ssqp::model::terrain::predefined::SlopeTerrain
+
+<!-- doxy:end -->
+
+## `StepTerrain`
+
+<!-- doxy:start level=2 -->
+::: doxy.ssqp.class
+    name: ssqp::model::terrain::predefined::StepTerrain
+
+<!-- doxy:end -->
+
+## `HeightmapTerrain`
+
+<!-- doxy:start level=2 -->
+::: doxy.ssqp.class
+    name: ssqp::model::terrain::predefined::HeightmapTerrain
 
 <!-- doxy:end -->
 

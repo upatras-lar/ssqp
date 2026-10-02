@@ -2,12 +2,13 @@ import ssqpy
 import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
 import numpy as np
-from math import pi
+from math import pi, atan, sin, cos
 from utils.GaitManager import GaitManager
 
 """
 Go2 Gaits example
-Performs different types of gaits (walking/running styles) with the Go2 robot
+Performs different types of gaits (walking/running styles) with the Go2 robot,
+optionally on a slope that rises along the x axis
 The `GaitManager` class is used to handle gait creation
 """
 
@@ -44,11 +45,34 @@ CYCLE_STEPS = None
 # The number of steps to stand on all 4 feet for at the end of the trajectory
 FINAL_STANDING_STEPS = 30
 
+# @script-parameter
+# Terrain slope along the x axis (rise over run); 0 is flat ground
+SLOPE = 0.2
+
+# Standing height of the base above the terrain
+STAND_HEIGHT = 0.3879793820122
+
+# The base stands parallel to the terrain, offset from it along its normal
+slope_angle = atan(SLOPE)
+terrain_normal = np.array([-sin(slope_angle), 0.0, cos(slope_angle)])
+terrain_pitch = np.array(
+    (
+        (cos(slope_angle), 0.0, -sin(slope_angle)),
+        (0.0, 1.0, 0.0),
+        (sin(slope_angle), 0.0, cos(slope_angle)),
+    )
+)
+
+
+def standing_position(x):
+    return np.array([x, 0.0, SLOPE * x]) + STAND_HEIGHT * terrain_normal
+
+
 # Initial and final positions
-base_pos = np.array([-1.0, 0.0, 0.3879793820122])
-final_pos = np.array([1.0, 0.0, 0.3879793820122])
+base_pos = standing_position(-1.0)
+final_pos = standing_position(1.0)
 final_yaw = 0.0
-final_R = np.array(
+final_R = terrain_pitch @ np.array(
     (
         (np.cos(final_yaw), -np.sin(final_yaw), 0.0),
         (np.sin(final_yaw), np.cos(final_yaw), 0.0),
@@ -59,7 +83,7 @@ final_R = np.array(
 # Initial configuration
 init = np.zeros(37)
 init[:3] = base_pos
-init[6] = 1.0
+init[3:7] = [0.0, -sin(slope_angle / 2), 0.0, cos(slope_angle / 2)]
 init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
 
 # Create an SSQP model for the Go2
@@ -67,6 +91,7 @@ model = ssqpy.model.Model(
     HORIZON,
     dt,
     from_preset=ssqpy.model.Preset.Go2,
+    terrain=ssqpy.model.terrain.SlopeTerrain(SLOPE),
     # solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
@@ -86,11 +111,13 @@ for k in range(HORIZON):
     model.addCost(k, control_cost)
     model.addCost(k, force_cost)
 
-    # Add a cost to keep the orientation of the robot roughly at the base
-    # orientation
+    # Add a cost to keep the orientation of the robot roughly parallel to the
+    # terrain
     model.addCost(
         k,
-        costs.FrameSquaredRotationErrorCost(model, "base", np.eye(3), ROT_WGT),
+        costs.FrameSquaredRotationErrorCost(
+            model, "base", terrain_pitch, ROT_WGT
+        ),
     )
 
 

@@ -49,14 +49,15 @@ provide ready-made subclasses built on Pinocchio kinematics, matching the classe
 **Costs**: `SquaredJointAngleCost`, `SquaredJointVelocityCost`, `SquaredControlCost`, `SquaredIDTorqueCost`,
 `SquaredForceCost`, `SquaredConfigurationErrorCost`, `FloatingBaseSquaredTranslationErrorCost`,
 `FloatingBaseSquaredRotationErrorCost`, `FloatingBaseSquaredPoseErrorCost`,
-`FloatingBaseSquaredVelocityErrorCost`, `FrameSquaredTranslationErrorCost`, `FrameSquaredRotationErrorCost`,
+`FloatingBaseSquaredVelocityErrorCost`, `FrameSquaredTranslationErrorCost`, `FrameSquaredTerrainHeightErrorCost`,
+`FrameSquaredRotationErrorCost`,
 `FrameSquaredPoseErrorCost`, `FrameSquaredVelocityErrorCost`, `CenterOfMassTrackingCost`,
 `FramesInverseSquaredDistanceCost`.
 
 **Constraints**: `JointAngleConstraint`, `JointVelocityConstraint`, `JointControlConstraint`,
 `FloatingBaseTranslationBound`, `FloatingBaseRotationBound`, `FloatingBasePoseBound`,
 `FloatingBaseLinearVelocityBound`, `FloatingBaseAngularVelocityBound`, `FrameTranslationBound`,
-`FrameRotationBound`, `FramePoseBound`, `FrameLinearVelocityBound`, `FrameAngularVelocityBound`,
+`FrameTerrainHeightBound`, `FrameRotationBound`, `FramePoseBound`, `FrameLinearVelocityBound`, `FrameAngularVelocityBound`,
 `CenterOfMassBound`, and `ContactConstraint` (friction cone + non-penetration; C++-only, not directly exposed to
 Python, since `Model.addContactConstraint` constructs one for you).
 

@@ -129,13 +129,158 @@ with open(args.input, "r") as f:
 # Create the server object
 server = viser.ViserServer(port=8080)
 
-# Add box to represent the ground
+TERRAIN_MARGIN = 1.0
+
+
+def heightmap_heights(terrain, x, y):
+    # Evaluates the bicubic Catmull-Rom surface of a heightmap terrain
+    # Coordinates outside the grid are clamped to its edge
+    heights = np.array(terrain["heights"])
+    res = terrain["resolution"]
+    nx, ny = heights.shape
+
+    gx = np.clip((x - terrain["x0"]) / res, 0, nx - 1)
+    gy = np.clip((y - terrain["y0"]) / res, 0, ny - 1)
+    ci = np.minimum(np.floor(gx).astype(int), nx - 2)
+    cj = np.minimum(np.floor(gy).astype(int), ny - 2)
+    tx = gx - ci
+    ty = gy - cj
+
+    def weights(t):
+        return 0.5 * np.stack(
+            [
+                -(t**3) + 2 * t**2 - t,
+                3 * t**3 - 5 * t**2 + 2,
+                -3 * t**3 + 4 * t**2 + t,
+                t**3 - t**2,
+            ]
+        )
+
+    wx = weights(tx)
+    wy = weights(ty)
+
+    z = np.zeros_like(x)
+    for a in range(4):
+        for b in range(4):
+            z += (
+                wx[a]
+                * wy[b]
+                * heights[
+                    np.clip(ci - 1 + a, 0, nx - 1),
+                    np.clip(cj - 1 + b, 0, ny - 1),
+                ]
+            )
+    return z
+
+
+def grid_mesh(x, y, z):
+    # Triangulates a grid of vertices, with z of shape (len(x), len(y))
+    gx, gy = np.meshgrid(x, y, indexing="ij")
+    vertices = np.stack([gx, gy, z], axis=-1).reshape(-1, 3)
+
+    idx = np.arange(len(x) * len(y)).reshape(len(x), len(y))
+    a, b = idx[:-1, :-1].ravel(), idx[1:, :-1].ravel()
+    c, d = idx[1:, 1:].ravel(), idx[:-1, 1:].ravel()
+    faces = np.concatenate([np.stack([a, b, c], 1), np.stack([a, c, d], 1)])
+
+    return vertices, faces
+
+
+def terrain_mesh(terrain, x_range, y_range):
+    # Builds a mesh of the terrain over the given range
+    kind = terrain["type"]
+    x0, x1 = x_range
+    y0, y1 = y_range
+
+    if kind == "heightmap":
+        step = terrain["resolution"] / 4
+        x = np.linspace(x0, x1, max(2, int(np.ceil((x1 - x0) / step)) + 1))
+        y = np.linspace(y0, y1, max(2, int(np.ceil((y1 - y0) / step)) + 1))
+        gx, gy = np.meshgrid(x, y, indexing="ij")
+        return grid_mesh(x, y, heightmap_heights(terrain, gx, gy))
+
+    base = terrain.get("base_height", 0.0)
+    if kind == "flat":
+        return grid_mesh([x0, x1], [y0, y1], np.full((2, 2), base))
+    if kind == "slope":
+        gx, gy = np.meshgrid([x0, x1], [y0, y1], indexing="ij")
+        return grid_mesh(
+            [x0, x1],
+            [y0, y1],
+            base + terrain["slope_x"] * gx + terrain["slope_y"] * gy,
+        )
+    if kind == "step":
+        # A flat tread per level, with a vertical wall at every step edge
+        num_steps = terrain["num_steps"]
+        edges = terrain["x_start"] + terrain["step_length"] * np.arange(
+            num_steps
+        )
+        levels = base + terrain["step_height"] * np.arange(num_steps + 1)
+        bounds = np.clip(np.concatenate([[x0], edges, [x1]]), x0, x1)
+
+        parts = []
+        for i, level in enumerate(levels):
+            if bounds[i + 1] > bounds[i]:
+                parts.append(
+                    grid_mesh(
+                        [bounds[i], bounds[i + 1]],
+                        [y0, y1],
+                        np.full((2, 2), level),
+                    )
+                )
+        for i, edge in enumerate(edges):
+            if x0 < edge < x1:
+                parts.append(
+                    grid_mesh(
+                        [edge, edge],
+                        [y0, y1],
+                        np.array(
+                            [[levels[i]] * 2, [levels[i + 1]] * 2]
+                        ),
+                    )
+                )
+
+        vertices, faces, offset = [], [], 0
+        for v, f in parts:
+            vertices.append(v)
+            faces.append(f + offset)
+            offset += len(v)
+        return np.concatenate(vertices), np.concatenate(faces)
+
+    return None
+
+
+# Draw the terrain around the robot's trajectory
+# Files without a terrain are drawn as flat ground
+terrain = data["properties"].get("terrain", {"type": "flat", "base_height": 0.0})
+
 if not args.no_ground:
-    server.scene.add_box(
-        "/ground",
-        color=(225, 225, 205),
-        dimensions=(20, 20, 0.0001),
-    )
+    if data["properties"]["floating_base"]:
+        base_positions = np.array(
+            [stage["position"] for stage in data["stage_data"]]
+        )
+        x_range = (
+            base_positions[:, 0].min() - TERRAIN_MARGIN,
+            base_positions[:, 0].max() + TERRAIN_MARGIN,
+        )
+        y_range = (
+            base_positions[:, 1].min() - TERRAIN_MARGIN,
+            base_positions[:, 1].max() + TERRAIN_MARGIN,
+        )
+    else:
+        x_range = y_range = (-TERRAIN_MARGIN, TERRAIN_MARGIN)
+
+    mesh = terrain_mesh(terrain, x_range, y_range)
+    if mesh is None:
+        print(f"Cannot draw terrain of type '{terrain['type']}'")
+    else:
+        server.scene.add_mesh_simple(
+            "/ground",
+            vertices=mesh[0],
+            faces=mesh[1],
+            color=(225, 225, 205),
+            side="double",
+        )
 
 # Create a parent frame for the robot
 robot_base = server.scene.add_frame("/robot", show_axes=False)
