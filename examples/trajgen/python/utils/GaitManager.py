@@ -18,6 +18,7 @@ class GaitManager:
         swing_cost_height=-1.0,
         max_normal_force=np.inf,
         contact_equality_tolerance=0.0,
+        swing_cost_weight=1.0,
     ):
         """
         Initialize GaitManager
@@ -27,6 +28,9 @@ class GaitManager:
         :param nv: The velocity size
         :param foot_frames: Ordered foot frames: [front_left, front_right,
         rear_left, rear_right]
+        :param swing_cost_height: Desired height above the terrain for swing
+        feet (the swing cost is only added if this is positive)
+        :param swing_cost_weight: Weight of the swing foot height cost
         """
         self.model = model
         self.fl_foot = foot_frames[0]
@@ -60,7 +64,7 @@ class GaitManager:
         )
 
         self.fl_foot_ag_cost = costs.FrameSquaredTerrainHeightErrorCost(
-            model, self.fl_foot, swing_cost_height, 1.0
+            model, self.fl_foot, swing_cost_height, swing_cost_weight
         )
 
         self.fr_foot_ag_bound = constraints.FrameTerrainHeightBound(
@@ -68,7 +72,7 @@ class GaitManager:
         )
 
         self.fr_foot_ag_cost = costs.FrameSquaredTerrainHeightErrorCost(
-            model, self.fr_foot, swing_cost_height, 1.0
+            model, self.fr_foot, swing_cost_height, swing_cost_weight
         )
 
         self.rl_foot_ag_bound = constraints.FrameTerrainHeightBound(
@@ -76,7 +80,7 @@ class GaitManager:
         )
 
         self.rl_foot_ag_cost = costs.FrameSquaredTerrainHeightErrorCost(
-            model, self.rl_foot, swing_cost_height, 1.0
+            model, self.rl_foot, swing_cost_height, swing_cost_weight
         )
 
         self.rr_foot_ag_bound = constraints.FrameTerrainHeightBound(
@@ -84,7 +88,7 @@ class GaitManager:
         )
 
         self.rr_foot_ag_cost = costs.FrameSquaredTerrainHeightErrorCost(
-            model, self.rr_foot, swing_cost_height, 1.0
+            model, self.rr_foot, swing_cost_height, swing_cost_weight
         )
 
     def addStandingStage(self, k):

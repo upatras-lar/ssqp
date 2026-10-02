@@ -2,7 +2,6 @@ import ssqpy
 import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
 import numpy as np
-from math import pi
 from utils.GaitManager import GaitManager
 
 """
@@ -42,12 +41,52 @@ STEP_HEIGHT = 0.05
 STEP_LENGTH = 0.2
 STEP_X = 0.2
 
+# @script-parameter
 # Standing height of the base above the terrain
-STAND_HEIGHT = 0.3879793820122
+# A lower base leaves the legs more bent, giving the feet more room to lift
+# (the Go2 stands at about 0.388 with its default leg configuration)
+STAND_HEIGHT = 0.3
 
 terrain = ssqpy.model.terrain.StepTerrain(
     STEP_X, STEP_HEIGHT, STEP_LENGTH, NUM_STEPS
 )
+
+# Create an SSQP model for the Go2 on the stairs
+model = ssqpy.model.Model(
+    HORIZON,
+    dt,
+    from_preset=ssqpy.model.Preset.Go2,
+    terrain=terrain,
+)
+
+nq = model.getnq()
+nv = model.getnv()
+nu = model.getnu()
+
+
+def leg_configuration(thigh_angle):
+    # Joint angles for the 4 legs, with each foot kept below its hip
+    return np.array([0.0, thigh_angle, -2 * thigh_angle] * 4)
+
+
+def height_above_feet(thigh_angle):
+    # Height of the base above the feet for a given thigh angle
+    q = np.zeros(nq)
+    q[6] = 1.0
+    q[7:19] = leg_configuration(thigh_angle)
+    return -model.forwardKinematics(q, "FL_foot")[0][2]
+
+
+# Find the thigh angle that puts the base at the standing height (the height
+# decreases as the thigh angle increases)
+lo, hi = 0.0, 1.2
+for _ in range(50):
+    mid = (lo + hi) / 2
+    if height_above_feet(mid) > STAND_HEIGHT:
+        lo = mid
+    else:
+        hi = mid
+base_config = leg_configuration((lo + hi) / 2)
 
 # Initial and final positions
 # The base ends on top of the stairs
@@ -64,19 +103,7 @@ final_pos = np.array(
 init = np.zeros(37)
 init[:3] = base_pos
 init[6] = 1.0
-init[7:19] = np.array([0.0, pi / 6, -pi / 3] * 4)
-
-# Create an SSQP model for the Go2 on the stairs
-model = ssqpy.model.Model(
-    HORIZON,
-    dt,
-    from_preset=ssqpy.model.Preset.Go2,
-    terrain=terrain,
-)
-
-nq = model.getnq()
-nv = model.getnv()
-nu = model.getnu()
+init[7:19] = base_config
 
 # Create regularization costs
 config_cost = costs.SquaredConfigurationErrorCost(model, init[7:19], C_WGT)
@@ -127,7 +154,7 @@ gait_manager = GaitManager(
     ["FL_foot", "FR_foot", "RL_foot", "RR_foot"],
     max_normal_force=80,
     contact_equality_tolerance=0.01,
-    swing_cost_height=0.1,
+    swing_cost_height=0.15,
 )
 
 # Add the gait, followed by standing stages at the end
