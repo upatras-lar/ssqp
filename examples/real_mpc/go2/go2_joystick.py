@@ -28,7 +28,7 @@ from mujoco_mpc.go2.go2_controllers.joystick import Controller
 
 # Whether to control the unitree_mujoco simulator over the loopback interface
 # rather than the robot, which also picks the dynamic walk's joint gains
-SIMULATION = True
+SIMULATION = False
 INTERFACE = "lo" if SIMULATION else "enp5s0"
 
 LegID = {
