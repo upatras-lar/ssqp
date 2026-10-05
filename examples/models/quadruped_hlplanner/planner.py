@@ -10,26 +10,6 @@ import numpy as np
 import models.utils as utils
 from . import config
 
-if config.WITH_PINOCCHIO:
-    import pinocchio as pin
-
-    examples_env = os.environ.get("PYTHONPATH", "")
-    sep = os.pathsep
-    examples_dir_str = Path(
-        [p for p in examples_env.split(sep) if "examples" in p][0]
-    )
-
-    if len(argv) > 1:
-        pin_model, _, _ = pin.buildModelsFromMJCF(
-            str(examples_dir_str / Path(argv[1]))
-        )
-    else:
-        pin_model, _, _ = pin.buildModelsFromMJCF(
-            str(examples_dir_str / Path("assets/mjcf/go2/go2.xml"))
-        )
-
-    pin_data = pin_model.createData()
-
 
 class ReferenceState:
     initialized = False
@@ -38,24 +18,13 @@ class ReferenceState:
     touchdown = {}
 
 
-def generate_references_MPC(
-    v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None
-):
+def generate_references_MPC(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model):
     translations = {}
 
-    if ssqp_model is None:
-        pin.forwardKinematics(pin_model, pin_data, config_0)
-        pin.updateFramePlacements(pin_model, pin_data)
-
-        for foot in config.ContactScheduling.foot_phases:
-            translations[foot] = pin_data.oMf[
-                pin_model.getFrameId(config.FRAME_NAMES[foot])
-            ].translation
-    else:
-        for foot in config.ContactScheduling.foot_phases:
-            translations[foot], _ = ssqp_model.forwardKinematics(
-                config_0, config.FRAME_NAMES[foot]
-            )
+    for foot in config.ContactScheduling.foot_phases:
+        translations[foot], _ = ssqp_model.forwardKinematics(
+            config_0, config.FRAME_NAMES[foot]
+        )
 
     if not ReferenceState.initialized:
         ReferenceState.liftoff = translations.copy()
@@ -81,10 +50,7 @@ def generate_references_MPC(
 
     # CoM reference
     # -------------
-    if ssqp_model is None:
-        com_0 = pin.centerOfMass(pin_model, pin_data, config_0)
-    else:
-        com_0 = ssqp_model.centerOfMass(config_0)
+    com_0 = ssqp_model.centerOfMass(config_0)
 
     com_ref = [com_0]
     for _ in range(H):
@@ -184,23 +150,14 @@ def generate_references_MPC(
     return com_ref, xb_ref, p_ref
 
 
-def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
+def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model):
     # Last liftoff location for each foot, along with its liftoff time
     translations = {}
 
-    if ssqp_model is None:
-        pin.forwardKinematics(pin_model, pin_data, config_0)
-        pin.updateFramePlacements(pin_model, pin_data)
-
-        for foot in config.ContactScheduling.foot_phases:
-            translations[foot] = pin_data.oMf[
-                pin_model.getFrameId(config.FRAME_NAMES[foot])
-            ].translation
-    else:
-        for foot in config.ContactScheduling.foot_phases:
-            translations[foot], _ = ssqp_model.forwardKinematics(
-                config_0, config.FRAME_NAMES[foot]
-            )
+    for foot in config.ContactScheduling.foot_phases:
+        translations[foot], _ = ssqp_model.forwardKinematics(
+            config_0, config.FRAME_NAMES[foot]
+        )
 
     liftoff = translations.copy()
 
@@ -219,10 +176,7 @@ def generate_references(v_cmd, config_0, vel_0, k0, H, dt, ssqp_model=None):
     wz_cmd = v_cmd[2]
 
     # Generate CoM reference from velocity command
-    if ssqp_model is None:
-        com_0 = pin.centerOfMass(pin_model, pin_data, config_0)
-    else:
-        com_0 = ssqp_model.centerOfMass(config_0)
+    com_0 = ssqp_model.centerOfMass(config_0)
 
     com_ref = [com_0]
     for _ in range(H):

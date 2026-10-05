@@ -23,7 +23,7 @@ def parse_args():
         dest="model", help="The model to execute"
     )
 
-    parser_reset = subparsers.add_parser(
+    subparsers.add_parser(
         "reset", help="Resets the Panda's configuration to the initial"
     )
 
@@ -44,7 +44,7 @@ def parse_args():
     )
     parser_circle.add_argument(
         "--constrain",
-        type=bool,
+        action=argparse.BooleanOptionalAction,
         default=False,
         help="Whether to add the inscribed square constraints",
     )

@@ -21,7 +21,7 @@ back.
 </video>
 
 The Go2 quadruped walking 2 meters forward. Produced by
-[`go2_gaits.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2_gaits.py), which builds
+[`go2_gaits.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2/go2_gaits.py), which builds
 its footstep and contact schedule with the `GaitManager` helper rather than hand-writing per-stage contact logic
 (compare to [Go2 Jump](examples/go2-jump.md), which schedules contacts directly). `GaitManager` ships several gait
 patterns (`setWalk`, `setAmble`, `setTrot`, `setPace`, `setCanter`, `setGallop`, `setRotatoryGallop`); this script is
@@ -41,7 +41,7 @@ sequence with no other changes to the problem.
 
 The Go2 bounding forward 2 meters with a frog-like, feet-together gait, rather than the alternating-diagonal
 footfall pattern of a walk or trot. Produced by
-[`go2_frog.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2_frog.py), which (unlike
+[`go2_frog.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2/go2_frog.py), which (unlike
 `go2_gaits.py`) schedules every single- and multi-foot contact phase by hand as explicit stage ranges. It's a good
 example of just how expressive per-stage contact scheduling is: nothing about the constraint API assumes a
 "gait" in the periodic-footfall sense at all, an arbitrary, asymmetric, non-repeating sequence of which feet touch
@@ -59,7 +59,7 @@ the ground when is just as representable as a standard one.
 
 The Go2 performing five jumps in place (the same start and end position), also seen on the [Home](index.md) page.
 Produced by
-[`go2_multi_jump.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2_multi_jump.py),
+[`go2_multi_jump.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2/go2_multi_jump.py),
 which extends the single-jump pattern from [Go2 Jump](examples/go2-jump.md) to a predefined sequence of flight
 windows (`JUMP_STEPS`), landing on a different combination of feet in each of the four gaps between them
 (`LAND_SEQ`: back feet, then right feet, then left feet, then front feet), rather than returning to a full
@@ -76,7 +76,7 @@ four-foot stance every time.
 </video>
 
 The Unitree G1 humanoid jumping vertically in place, torso held level and upright throughout. Produced by
-[`g1_jump.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/g1_jump.py), structurally
+[`g1_jump.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/g1/g1_jump.py), structurally
 similar to [Go2 Jump](examples/go2-jump.md) (a flight window with contacts dropped, symmetric before and after) but
 on a humanoid: each of G1's feet is modeled as four independent corner contact points rather than a single point
 contact per foot, as a flat foot actually needs to resist tipping, not just slipping or lifting off, giving the
@@ -93,7 +93,7 @@ solver 8 simultaneous contact constraints to schedule per stance stage instead o
 </video>
 
 The Unitree G1 humanoid walking 3 meters forward. Produced by
-[`g1_walk.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/g1_walk.py), which, unlike
+[`g1_walk.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/g1/g1_walk.py), which, unlike
 [G1 Jump](#g1-jump)'s simultaneous stance on all 8 corner contact points, alternates strictly between single-leg
 support: one foot swings for a fixed number of stages while the other stays planted, then they switch, with short
 standing phases (all contacts active) only at the very start and end. Each foot's four corner contacts are also
@@ -115,7 +115,7 @@ A Franka Panda end effector tracing a circle in task space via frame-pose tracki
 True`) to stay within a square window inscribed in that circle: watch the path flatten against the square's edges
 near the circle's corners rather than following it exactly, the constraint visibly winning out over the tracking
 cost there. This is the trajectory produced by
-[`panda_circle.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/panda_circle.py), covered
+[`panda_circle.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/panda/panda_circle.py), covered
 in detail (including the unconstrained comparison) in
 [Panda Circle (Trajectory Generation)](examples/panda-circle-trajgen.md); the same motion also appears as a live,
 closed-loop MPC example in [Panda Circle (MPC)](examples/panda-circle-mpc.md).

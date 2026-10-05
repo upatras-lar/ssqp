@@ -3,7 +3,7 @@ import os
 import numpy as np
 import ssqpy
 import argparse
-from time import time, sleep
+from time import time
 
 from real_mpc.socket_utils import send, recv
 
@@ -84,7 +84,6 @@ model = ssqpy.model.Model(
 
 nq = model.getnq()
 nv = model.getnv()
-nu = model.getnu()
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
@@ -175,8 +174,6 @@ while True if not args.plot else i < args.steps_to_plot:
     previous_filtered_pos = np.copy(pos)
     previous_filtered_vel = np.copy(vel)
 
-    filtered_state = np.concatenate([pos, vel])
-
     start = time()
     try:
         u = mpc.step(state[: nq + nv])[1].stage(0)
@@ -207,8 +204,6 @@ while True if not args.plot else i < args.steps_to_plot:
         i += 1
 
     send(conn, tau)
-
-    # sleep(max(0.025 - elapsed, 0.0))
 
 conn.close()
 

@@ -2,6 +2,7 @@ import ssqpy
 import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
 import numpy as np
+import argparse
 from math import pi
 
 """
@@ -26,8 +27,41 @@ TF_WGT = 10
 RF_WGT = 10
 
 # Number of steps with contacts at the start & end of time horizon
-STEPS_BEFORE = 60
-STEPS_AFTER = 50
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="A1 jump trajectory generation"
+    )
+
+    parser.add_argument(
+        "--steps-before",
+        type=int,
+        default=60,
+        help="Number of steps with contacts at the start of the time horizon",
+    )
+
+    parser.add_argument(
+        "--steps-after",
+        type=int,
+        default=50,
+        help="Number of steps with contacts at the end of the time horizon",
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="../data/a1_jump.json",
+        help="Path of the output JSON file",
+    )
+
+    return parser.parse_args()
+
+
+args = parse_args()
+
+STEPS_BEFORE = args.steps_before
+STEPS_AFTER = args.steps_after
 
 # Initial position
 base_pos = np.array([0, 0, 0.3464])
@@ -139,7 +173,7 @@ solver = ssqpy.solvers.ssqp(
 state, x, u = solver.solve()
 
 # Write output trajectory to a file
-solver.write("../data/a1_jump.json")
+solver.write(args.output)
 
 print("x:")
 x.print()

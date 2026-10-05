@@ -251,275 +251,6 @@ std::shared_ptr<Test> generate_reconfigured_actuated_joints_dynamics_grad_test(
     return std::make_shared<FDGradDynamics>(test_name_ss.str(), model, 0);
 }
 
-std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
-  const uint seed)
-{
-    std::mt19937 rng(seed);
-
-    std::uniform_real_distribution<double> dist(0.1, 100.0);
-
-    model::Model::Structure       model_structure;
-    std::shared_ptr<model::Model> model =
-      std::make_shared<model::Model>(2, 0.01);
-
-    model::Model::CustomProperties custom_properties;
-    custom_properties.nq            = 4;
-    custom_properties.nv            = 2;
-    custom_properties.nu            = 2;
-    custom_properties.njoints       = 2;
-    custom_properties.floating_base = false;
-
-    model->setCustomProperties(custom_properties);
-
-    setup_model(model);
-
-    Eigen::Vector<double, 9> theta;
-
-    for (uint i = 0; i < 9; ++i)
-    {
-        theta[i] = dist(rng);
-    }
-
-    std::shared_ptr<
-      model::custom::double_pendulum::DoublePendulumAmbientDynamics>
-      dynamics = std::make_shared<
-        model::custom::double_pendulum::DoublePendulumAmbientDynamics>(theta);
-
-    model::Model::Config config;
-    Vec6                 init_state = Vec6::Zero();
-    init_state[1]                   = 1.0;
-    init_state[3]                   = 1.0;
-    config.init_states              = { init_state };
-    config.dynamics                 = { dynamics, dynamics, dynamics };
-
-    model->finalize(config);
-
-    std::shared_ptr<FDGradDynamics> dynamics_test =
-      std::make_shared<FDGradDynamics>("DoublePendulumAmbientDynamicsGradTest",
-                                       model,
-                                       0);
-
-    return dynamics_test;
-}
-
-std::shared_ptr<Test> get_pendubot_ambient_dynamics_grad_test(const uint seed)
-{
-    std::mt19937 rng(seed);
-
-    std::uniform_real_distribution<double> dist(0.1, 100.0);
-
-    model::Model::Structure       model_structure;
-    std::shared_ptr<model::Model> model =
-      std::make_shared<model::Model>(2, 0.01);
-
-    model::Model::CustomProperties custom_properties;
-    custom_properties.nq            = 4;
-    custom_properties.nv            = 2;
-    custom_properties.nu            = 1;
-    custom_properties.njoints       = 2;
-    custom_properties.floating_base = false;
-
-    model->setCustomProperties(custom_properties);
-
-    setup_model(model);
-
-    Eigen::Vector<double, 9> theta;
-
-    for (uint i = 0; i < 9; ++i)
-    {
-        theta[i] = dist(rng);
-    }
-
-    std::shared_ptr<
-      model::custom::double_pendulum::DoublePendulumAmbientDynamics>
-      dynamics = std::make_shared<
-        model::custom::double_pendulum::DoublePendulumAmbientDynamics>(
-        theta,
-        model::custom::double_pendulum::ActuationMode::Pendubot);
-
-    model::Model::Config config;
-    Vec6                 init_state = Vec6::Zero();
-    init_state[1]                   = 1.0;
-    init_state[3]                   = 1.0;
-    config.init_states              = { init_state };
-    config.dynamics                 = { dynamics, dynamics, dynamics };
-
-    model->finalize(config);
-
-    std::shared_ptr<FDGradDynamics> dynamics_test =
-      std::make_shared<FDGradDynamics>("PendubotAmbientDynamicsGradTest",
-                                       model,
-                                       0);
-
-    return dynamics_test;
-}
-
-std::shared_ptr<Test> get_acrobot_ambient_dynamics_grad_test(const uint seed)
-{
-    std::mt19937 rng(seed);
-
-    std::uniform_real_distribution<double> dist(0.1, 100.0);
-
-    model::Model::Structure       model_structure;
-    std::shared_ptr<model::Model> model =
-      std::make_shared<model::Model>(2, 0.01);
-
-    model::Model::CustomProperties custom_properties;
-    custom_properties.nq            = 4;
-    custom_properties.nv            = 2;
-    custom_properties.nu            = 1;
-    custom_properties.njoints       = 2;
-    custom_properties.floating_base = false;
-
-    model->setCustomProperties(custom_properties);
-
-    setup_model(model);
-
-    Eigen::Vector<double, 9> theta;
-
-    for (uint i = 0; i < 9; ++i)
-    {
-        theta[i] = dist(rng);
-    }
-
-    std::shared_ptr<
-      model::custom::double_pendulum::DoublePendulumAmbientDynamics>
-      dynamics = std::make_shared<
-        model::custom::double_pendulum::DoublePendulumAmbientDynamics>(
-        theta,
-        model::custom::double_pendulum::ActuationMode::Acrobot);
-
-    model::Model::Config config;
-    Vec6                 init_state = Vec6::Zero();
-    init_state[1]                   = 1.0;
-    init_state[3]                   = 1.0;
-    config.init_states              = { init_state };
-    config.dynamics                 = { dynamics, dynamics, dynamics };
-
-    model->finalize(config);
-
-    std::shared_ptr<FDGradDynamics> dynamics_test =
-      std::make_shared<FDGradDynamics>("AcrobotAmbientDynamicsGradTest",
-                                       model,
-                                       0);
-
-    return dynamics_test;
-}
-
-std::shared_ptr<Test> get_double_pendulum_ambient_tracking_cost_grad_test(
-  const uint seed)
-{
-    std::mt19937 rng(seed);
-
-    std::uniform_real_distribution<double> dist(0.1, 100.0);
-
-    model::Model::Structure       model_structure;
-    std::shared_ptr<model::Model> model =
-      std::make_shared<model::Model>(2, 0.01);
-
-    model::Model::CustomProperties custom_properties;
-    custom_properties.nq            = 4;
-    custom_properties.nv            = 2;
-    custom_properties.nu            = 2;
-    custom_properties.njoints       = 2;
-    custom_properties.floating_base = false;
-
-    model->setCustomProperties(custom_properties);
-
-    Vec4 q;
-
-    for (uint i = 0; i < 4; ++i)
-    {
-        q[i] = dist(rng);
-    }
-
-    Vec6 q_actual;
-
-    q_actual[0] = std::sin(q[0]);
-    q_actual[1] = std::cos(q[0]);
-    q_actual[2] = std::sin(q[1]);
-    q_actual[3] = std::cos(q[1]);
-    q_actual[4] = q[2];
-    q_actual[5] = q[3];
-
-    model->addCost<
-      model::custom::double_pendulum::DoublePendulumAmbientTrackingCost>(
-      0,
-      q_actual,
-      Vec4::Ones());
-
-    setup_model(model);
-
-    Eigen::Vector<double, 9> theta;
-
-    for (uint i = 0; i < 9; ++i)
-    {
-        theta[i] = dist(rng);
-    }
-
-    std::shared_ptr<
-      model::custom::double_pendulum::DoublePendulumAmbientDynamics>
-      dynamics = std::make_shared<
-        model::custom::double_pendulum::DoublePendulumAmbientDynamics>(theta);
-
-    model::Model::Config config;
-    Vec6                 init_state = Vec6::Zero();
-    init_state[1]                   = 1.0;
-    init_state[3]                   = 1.0;
-    config.init_states              = { init_state };
-    config.dynamics                 = { dynamics, dynamics, dynamics };
-
-    model->finalize(config);
-
-    std::shared_ptr<FDGradCost> cost_test =
-      std::make_shared<FDGradCost>("DoublePendulumAmbientTrackingCostGradTest",
-                                   model,
-                                   0);
-
-    return cost_test;
-}
-
-std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_parameter_grad_test(
-  const uint seed)
-{
-    model::Model::Structure       model_structure;
-    std::shared_ptr<model::Model> model =
-      std::make_shared<model::Model>(2, 0.01);
-
-    model::Model::CustomProperties custom_properties;
-    custom_properties.nq            = 4;
-    custom_properties.nv            = 2;
-    custom_properties.nu            = 2;
-    custom_properties.njoints       = 2;
-    custom_properties.floating_base = false;
-
-    model->setCustomProperties(custom_properties);
-
-    setup_model(model);
-
-    std::shared_ptr<
-      model::custom::double_pendulum::DoublePendulumAmbientDynamics>
-      dynamics = std::make_shared<
-        model::custom::double_pendulum::DoublePendulumAmbientDynamics>(
-        Eigen::Vector<double, 9>::Zero());
-
-    model::Model::Config config;
-    config.dynamics = { dynamics, dynamics, dynamics };
-
-    model->finalize(config);
-
-    std::shared_ptr<FDGradDynamicsParameters> dynamics_test =
-      std::make_shared<FDGradDynamicsParameters>(
-        "DoublePendulumAmbientDynamicsParameterGradTest",
-        model,
-        0,
-        100,
-        1e-6,
-        seed);
-
-    return dynamics_test;
-}
-
 std::shared_ptr<Test> get_joint_angle_constraint_grad_test()
 {
     model::Model::Structure model_structure;
@@ -915,9 +646,9 @@ std::shared_ptr<Test> get_center_of_mass_bound_grad_test()
     return constraints_test;
 }
 
-std::shared_ptr<Test>
-get_contact_constraint_grad_test(const std::string                              &name,
-                                 const std::shared_ptr<model::terrain::Terrain> &terrain)
+std::shared_ptr<Test> get_contact_constraint_grad_test(
+  const std::string                              &name,
+  const std::shared_ptr<model::terrain::Terrain> &terrain)
 {
     model::Model::Structure model_structure;
     model_structure.terrain                   = terrain;
@@ -964,8 +695,8 @@ std::shared_ptr<Test> get_frame_terrain_height_bound_grad_test()
     model::Model::Structure model_structure;
     model_structure.terrain                   = get_test_heightmap_terrain();
     model_structure.ignore_innate_constraints = true;
-    model_structure.urdf_path                 = "examples/assets/urdf/a1/a1.urdf";
-    model_structure.free_flyer                = true;
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
     std::shared_ptr<model::Model> model =
       std::make_shared<model::Model>(2, 0.01, model_structure);
     setup_model(model);
@@ -1009,10 +740,10 @@ std::shared_ptr<Test> get_frame_squared_terrain_height_error_cost_grad_test()
 
     model->finalize();
 
-    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
-      "FrameSquaredTerrainHeightErrorCostGradTest",
-      model,
-      0);
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("FrameSquaredTerrainHeightErrorCostGradTest",
+                                   model,
+                                   0);
 
     return cost_test;
 }

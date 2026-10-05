@@ -180,8 +180,6 @@ def get_controller(init_config):
 
     np.set_printoptions(suppress=True)
 
-    # ssqpy.setLogLevel(ssqpy.LogLevel.Debug)
-
     def update_func(v_cmd, config, vel, step):
         vel_3 = np.hstack((vel[:2], vel[5]))
         com_ref, xb_ref, p_ref = go2_planner.generate_references_MPC(

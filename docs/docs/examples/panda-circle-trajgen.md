@@ -1,6 +1,6 @@
 # Panda Circle (Trajectory Generation)
 
-[`examples/trajgen/python/panda_circle.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/panda_circle.py)
+[`examples/trajgen/python/panda/panda_circle.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/panda/panda_circle.py)
 generates a trajectory that drives a Franka Panda arm's end effector around a circle on the yz-plane, optionally
 constrained to stay within a square window inscribed in that circle. Where [Pendubot](pendubot.md) tracked a fixed
 target *configuration*, this example tracks a moving target *pose in task space*: at every stage, the cost doesn't
@@ -10,26 +10,27 @@ real (non-XML-derived) box constraint, and `InverseDynamics` mode.
 
 ## Setup and the target trajectory
 
-```python title="examples/trajgen/python/panda_circle.py"
---8<-- "examples/trajgen/python/panda_circle.py:1:55"
+```python title="examples/trajgen/python/panda/panda_circle.py"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:1:87"
 ```
 
 The circular path is precomputed as a plain Python list of 3D points, one per stage, parameterized by angular
 velocity $\omega$ so the end effector completes exactly one full circle over the horizon ($H = 400$ stages at
 $dt = 0.01\text{s}$, i.e. four seconds). This is the target the cost will track, not a constraint: nothing stops the
-solver from cutting corners if doing so is cheaper, which matters once `CONSTRAIN` clips the circle into a square
+solver from cutting corners if doing so is cheaper, which matters once `--constrain` clips the circle into a square
 later on. `Rd` is the desired end-effector orientation (constant throughout, on the yz-plane the arm reaches
 "forward" with a fixed wrist rotation), expressed as a rotation matrix rather than e.g. Euler angles, since that's
 what the frame-pose costs expect and it avoids the singularities/ambiguities of angle-based representations.
 
-The two module-level flags at the top, `PLOT` and `CONSTRAIN`, are the two things worth toggling first if you want
-to see this example do something different before reading further: `PLOT` shows the tracking error and the
-resulting trajectory after solving; `CONSTRAIN` decides whether the box constraint (below) is actually applied.
+The two command line flags, `--plot` and `--constrain` (both on by default, and turned off with `--no-plot` and
+`--no-constrain`), are the two things worth toggling first if you want to see this example do something different
+before reading further: `--plot` shows the tracking error and the resulting trajectory after solving; `--constrain`
+decides whether the box constraint (below) is actually applied.
 
 ## Building the model
 
-```python title="examples/trajgen/python/panda_circle.py"
---8<-- "examples/trajgen/python/panda_circle.py:57:88"
+```python title="examples/trajgen/python/panda/panda_circle.py"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:89:120"
 ```
 
 This model uses `InverseDynamics` [solver mode](../concepts/model.md#solver-mode), so controls are joint
@@ -47,8 +48,8 @@ See [`finalize` arguments](../concepts/model.md#finalize-arguments) in Model.
 
 ## A real constraint: keeping the end effector inside a box
 
-```python title="examples/trajgen/python/panda_circle.py"
---8<-- "examples/trajgen/python/panda_circle.py:90:99"
+```python title="examples/trajgen/python/panda/panda_circle.py"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:122:131"
 ```
 
 `FrameTranslationBound` is a [predefined constraint](../concepts/costs-constraints-dynamics.md#predefined-constraints)
@@ -58,7 +59,7 @@ boxed in around the circle. Since the box is inscribed *inside* the circle, this
 whenever the tracked point on the circle falls outside the box (near the four "corners" of the circle relative to
 the square), the solver has to trade off cost against constraint satisfaction, and the resulting path visibly
 flattens against the box edges instead of following the circle exactly. This is a good example to compare
-`CONSTRAIN = True` against `CONSTRAIN = False` and look at the `PLOT` output for; with it off, the trajectory
+`--constrain` against `--no-constrain` and look at the `--plot` output for; with it off, the trajectory
 follows the circle everywhere, since nothing stops it from doing so.
 
 The constraint object is created once and reused across every stage it's added to, since constraints don't need to
@@ -66,8 +67,8 @@ be re-instantiated per stage unless their bounds actually differ.
 
 ## Per-stage costs and constraints
 
-```python title="examples/trajgen/python/panda_circle.py"
---8<-- "examples/trajgen/python/panda_circle.py:101:135"
+```python title="examples/trajgen/python/panda/panda_circle.py"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:133:167"
 ```
 
 `FrameSquaredPoseErrorCost` is added at every stage with that stage's own target point from `traj` and the fixed
@@ -75,7 +76,7 @@ orientation `Rd`, weighted separately for translation (`T_WGT`) and rotation (`R
 three times as heavily here, so the solver prioritizes tracing the circle's shape over holding the wrist exactly
 level, though both matter. Velocity and control regularization are added too, at every stage, for the same reason
 as in Pendubot: without them, the solver has no reason to prefer a smooth, low-effort trajectory among the many
-that satisfy the pose cost equally well. The box constraint is added too, if `CONSTRAIN` is set.
+that satisfy the pose cost equally well. The box constraint is added too, if `--constrain` is set.
 
 Note the terminal stage (`H`) only gets the velocity regularization, not the control one, since there are no
 controls at the terminal stage (see
@@ -85,8 +86,8 @@ too.
 
 ## Solving
 
-```python title="examples/trajgen/python/panda_circle.py"
---8<-- "examples/trajgen/python/panda_circle.py:137:167"
+```python title="examples/trajgen/python/panda/panda_circle.py"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:169:199"
 ```
 
 The solver parameters here are mostly tightened tolerances (`admm_abs_tolerance`/`admm_rel_tolerance`) rather than
@@ -98,21 +99,21 @@ using the same [Pinocchio-backed algorithm](../cpp-reference/model.md#function-f
 by the frame-based costs and constraints; this is exactly how you'd check tracking accuracy for any frame-based
 task, not just in plotting code.
 
-Run it (from `examples/trajgen/python/`, with the environment set up per [Installation](../getting-started/installation.md#using-the-python-bindings)):
+Run it (from `examples/trajgen/python/panda/`, with the environment set up per [Installation](../getting-started/installation.md#using-the-python-bindings)):
 
 ```bash
 python panda_circle.py
 ```
 
-With `PLOT = True` (the default), two figures appear after solving: end-effector tracking error over the horizon
-on the left (small and roughly constant with `CONSTRAIN = False`, spiking near the box edges with it `True`), and
+With `--plot` (the default), two figures appear after solving: end-effector tracking error over the horizon
+on the left (small and roughly constant with `--no-constrain`, spiking near the box edges with `--constrain`), and
 the traced-out trajectory against the target circle on the right, with the box drawn in when constrained. The
 solver also prints its final `SolverState` to the terminal; `Success` (or `LooseSuccess`) is what you should see
 for the default configuration.
 
 ## Things to try
 
-* Toggle `CONSTRAIN` and compare both plots: the tracking-error spikes and the flattened corners in the trajectory
+* Toggle `--constrain` and compare both plots: the tracking-error spikes and the flattened corners in the trajectory
   plot are a direct, visual consequence of the constraint being active.
 * Loosen or tighten the box (`constraint_hlines`/`constraint_vlines`) and watch how much of the circle gets clipped.
 * Try `solver_mode=ForwardDynamics` instead of `InverseDynamics` (you'll need to drop the `hpipm_max_iter` override

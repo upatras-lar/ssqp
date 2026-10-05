@@ -3,12 +3,53 @@ import mujoco.viewer
 import glfw
 import ssqpy
 import numpy as np
+import argparse
 from math import pi, sin, cos, sqrt
 from time import time, sleep
 
-ssqpy.setSilentMode()
 
-PLOT = False
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Panda circle tracking MPC in MuJoCo using SSQP"
+    )
+
+    parser.add_argument(
+        "-p",
+        "--plot",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to run a single circle and plot the tracking error \
+            and trajectory afterwards",
+    )
+
+    parser.add_argument(
+        "-i",
+        "--inverse-mode",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to use the inverse dynamics formulation instead of \
+            the forward dynamics one",
+    )
+
+    parser.add_argument(
+        "-c",
+        "--constrain",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to constrain the end effector to a square inscribed \
+            in the circle",
+    )
+
+    return parser.parse_args()
+
+
+args = parse_args()
+
+PLOT = args.plot
+INVERSE_MODE = args.inverse_mode
+CONSTRAIN = args.constrain
+
+ssqpy.setSilentMode()
 
 if PLOT:
     import matplotlib.pyplot as plt
@@ -24,8 +65,6 @@ V_WGT = 1e-1
 U_WGT = 5e-3
 C_WGT = 0.18
 
-INVERSE_MODE = False
-
 cx = 0.3
 cy = 0
 cz = 0.26
@@ -35,7 +74,7 @@ DISTANCE = 2 * pi
 ω = DISTANCE / (H * dt)
 φ0 = 0
 
-CONSTRAIN = True
+# Square inscribed in the circle, used as the end effector bounds
 square_side_hlf = cr / sqrt(2)
 constraint_hlines = [cz - square_side_hlf, cz + square_side_hlf]
 constraint_vlines = [cy - square_side_hlf, cy + square_side_hlf]
@@ -47,6 +86,7 @@ for k in range(H + 1):
     φk = φ0 + ω * k * dt
     traj.append(np.array([cx, cy + cr * sin(φk), cz + cr * cos(φk)]))
 
+# Desired end effector orientation, pointing down
 Rd = np.eye(3)
 Rd[1, 1] = -1
 Rd[2, 2] = -1
@@ -121,6 +161,7 @@ if CONSTRAIN:
     model.addConstraints(mpc_H, box_constraint)
 
 
+# Shift the desired poses forward along the (looping) trajectory
 def update_pose_costs(current_stage):
     for k in range(current_stage, current_stage + mpc_H):
         pose_costs[k - current_stage].set_desired_translation(traj[k % H])
@@ -128,16 +169,7 @@ def update_pose_costs(current_stage):
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
-
-admm_params = ssqpy.solvers.admmParams()
-# admm_params.init_rho = 0.5
-admm_params.adaptive_rho_tolerance = 1.0
-admm_params.rho_update_iter_freq = 15
-admm_params.abs_tolerance = 1e-3
-admm_params.rel_tolerance = 1e-3
-admm_params.warm_start = False
-
-ssqp_params.admmParams = admm_params
+ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 
@@ -166,10 +198,6 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
         state = np.hstack((mjdata.qpos, mjdata.qvel))
 
         if PLOT:
-            # print(
-            #     f"Stage: {stage}, Mujoco: {mjdata.xpos[9]}, Ours: {model.forwardKinematics(mjdata.qpos, "panda_ee")[0]}"
-            # )
-            # state_data.append(mjdata.xpos[9].copy())
             state_data.append(
                 model.forwardKinematics(mjdata.qpos, "panda_ee")[0]
             )
@@ -178,6 +206,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
                 break
 
         pre = time()
+        # MuJoCo has 8 actuators (7 arm joints and one finger), the model has 9 DoF
         if INVERSE_MODE:
             mjdata.ctrl = model.inverseDynamics(
                 mjdata.qpos, mjdata.qvel, mpc.step(state)[1].stage(0)

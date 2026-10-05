@@ -1,5 +1,6 @@
 import os
 import time
+import argparse
 import numpy as np
 from threading import Lock, RLock, Thread
 
@@ -9,7 +10,6 @@ from unitree_sdk2py.core.channel import (
     ChannelFactoryInitialize,
 )
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_
-from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowState_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowState_, SportModeState_
 from unitree_sdk2py.utils.crc import CRC
@@ -26,25 +26,12 @@ import dynamic_walk_model
 
 from mujoco_mpc.go2.go2_controllers.joystick import Controller
 
-# Whether to control the unitree_mujoco simulator over the loopback interface
-# rather than the robot, which also picks the dynamic walk's joint gains
+# Whether to control the unitree_mujoco simulator rather than the robot, which
+# also picks the dynamic walk's joint gains, and the network interface of each
+# (the defaults of the command line arguments)
 SIMULATION = False
-INTERFACE = "lo" if SIMULATION else "enp5s0"
-
-LegID = {
-    "FR_0": 0,
-    "FR_1": 1,
-    "FR_2": 2,
-    "FL_0": 3,
-    "FL_1": 4,
-    "FL_2": 5,
-    "RR_0": 6,
-    "RR_1": 7,
-    "RR_2": 8,
-    "RL_0": 9,
-    "RL_1": 10,
-    "RL_2": 11,
-}
+ROBOT_INTERFACE = "enp5s0"
+SIMULATION_INTERFACE = "lo"
 
 # Performance cores of hybrid CPUs, as reported by the kernel. The solver
 # thread runs on these, since solves on efficiency cores are several times
@@ -65,9 +52,6 @@ def performance_cores():
     return cores
 
 
-HIGHLEVEL = 0xEE
-LOWLEVEL = 0xFF
-TRIGERLEVEL = 0xF0
 PosStopF = 2.146e9
 VelStopF = 16000.0
 
@@ -134,7 +118,10 @@ class CustomGo2Controller:
     # Unitree foot sensor order (FR, FL, RR, RL) in the model's foot order
     FOOT_REORDER_MAP = [1, 0, 3, 2]
 
-    def __init__(self):
+    def __init__(self, walk_task="dynamic-walk"):
+        # Task to switch to once the robot is standing
+        self.walk_task = walk_task
+
         self.Kp = 40.0
         self.Kd = 1.6
         self.dt = 0.01
@@ -410,7 +397,7 @@ class CustomGo2Controller:
                 and time.time() - self.stand_start > 3.0
             ):
                 self.stand_start = None
-                self.set_task("dynamic-walk")
+                self.set_task(self.walk_task)
             else:
                 self.task_map[self.task][1]()
 
@@ -443,7 +430,7 @@ class CustomGo2Controller:
                 self.low_cmd.motor_cmd[i].tau = 0
 
         # On sub-move 2, interpolate between stand-ground and stance positions
-        if self.percent_2 < 1:
+        elif self.percent_2 < 1:
             self.percent_2 += self.dt / 2.0
             self.percent_2 = min(self.percent_2, 1)
             for i in range(12):
@@ -480,19 +467,6 @@ class CustomGo2Controller:
             for i in range(12):
                 self.start_pos[i] = self.low_state.motor_state[i].q
             self.first_run = False
-
-        # On sub-move 1, interpolate between initial and stance positions
-        # self.percent_1 += self.dt / 2.5
-        # self.percent_1 = min(self.percent_1, 1)
-        # if self.percent_1 < 1:
-        #     for i in range(12):
-        #         self.low_cmd.motor_cmd[i].q = (
-        #             1 - self.percent_1
-        #         ) * self.start_pos[i] + self.percent_1 * self._stance_pos[i]
-        #         self.low_cmd.motor_cmd[i].dq = 0
-        #         self.low_cmd.motor_cmd[i].kp = self.Kp
-        #         self.low_cmd.motor_cmd[i].kd = self.Kd
-        #         self.low_cmd.motor_cmd[i].tau = 0
 
         # On sub-move 2, interpolate between stance and ground positions
         if self.percent_2 < 1:
@@ -570,8 +544,6 @@ class CustomGo2Controller:
             self.low_cmd.motor_cmd[i].kp = self.JOINT_Kps[i]
             self.low_cmd.motor_cmd[i].kd = self.JOINT_Kds[i]
             self.low_cmd.motor_cmd[i].tau = 0.0
-
-        # time.sleep(0.01)
 
     def _runDynamicWalkSolver(self):
         cores = performance_cores()
@@ -796,14 +768,57 @@ class CustomGo2Controller:
         return np.hstack((base_vel, ang_vel, joint_vel))
 
 
-if __name__ == "__main__":
-    ChannelFactoryInitialize(0, INTERFACE)
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Go2 walking MPC controller driven with a gamepad"
+    )
 
-    custom = CustomGo2Controller()
+    parser.add_argument(
+        "-k",
+        "--kinematic",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to run the kinematic walk instead of the dynamic walk",
+    )
+
+    parser.add_argument(
+        "-s",
+        "--simulation",
+        action=argparse.BooleanOptionalAction,
+        default=SIMULATION,
+        help="Whether to control the unitree_mujoco simulator instead of the \
+            robot",
+    )
+
+    parser.add_argument(
+        "-i",
+        "--interface",
+        type=str,
+        default=None,
+        help=f"The network interface to use (default: {SIMULATION_INTERFACE} \
+            when simulating, {ROBOT_INTERFACE} otherwise)",
+    )
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+
+    SIMULATION = args.simulation
+    interface = args.interface or (
+        SIMULATION_INTERFACE if SIMULATION else ROBOT_INTERFACE
+    )
+
+    ChannelFactoryInitialize(0, interface)
+
+    custom = CustomGo2Controller(
+        "kinematic-walk" if args.kinematic else "dynamic-walk"
+    )
     custom.start()
 
     custom.set_task("stand")
     time.sleep(3.0)
 
-    custom.set_task("dynamic-walk")
+    custom.set_task(custom.walk_task)
     custom.join()

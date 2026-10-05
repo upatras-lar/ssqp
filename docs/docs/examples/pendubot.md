@@ -6,15 +6,15 @@ nonlinear dynamics and let the coupling between the two links do the work; no si
 which is why it's a natural OCP: pick a cost that rewards being upright, hand SSQP the horizon, and let it
 discover a trajectory that gets there.
 
-[`examples/trajgen/python/pendubot.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/pendubot.py)
+[`examples/trajgen/python/double_pendulum/pendubot.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/double_pendulum/pendubot.py)
 generates a trajectory that swings the pendubot up from hanging and holds it stationary pointing against gravity.
 It's a good first "real" example after the [Quickstart](../getting-started/quickstart.md): an XML-based model,
 predefined costs, and a scheduling trick that's worth understanding before moving to constrained examples.
 
 ## Setup
 
-```python title="examples/trajgen/python/pendubot.py"
---8<-- "examples/trajgen/python/pendubot.py:1:18"
+```python title="examples/trajgen/python/double_pendulum/pendubot.py"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:1:37"
 ```
 
 The model is loaded straight from a URDF, so no custom dynamics are needed; see
@@ -36,8 +36,8 @@ guess for every stage is the pendubot at rest, and the whole trajectory has to b
 
 ## Building the model
 
-```python title="examples/trajgen/python/pendubot.py"
---8<-- "examples/trajgen/python/pendubot.py:20:30"
+```python title="examples/trajgen/python/double_pendulum/pendubot.py"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:39:49"
 ```
 
 `ForwardDynamics` is the default [solver mode](../concepts/model.md#solver-mode), where controls are joint torques:
@@ -47,8 +47,8 @@ Jump](go2-jump.md)).
 
 ## Costs, and why the tracking cost turns on late
 
-```python title="examples/trajgen/python/pendubot.py"
---8<-- "examples/trajgen/python/pendubot.py:32:45"
+```python title="examples/trajgen/python/double_pendulum/pendubot.py"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:51:64"
 ```
 
 Three [predefined costs](../concepts/costs-constraints-dynamics.md#predefined-costs) are used:
@@ -73,8 +73,8 @@ applied too early or too uniformly across the horizon.
 
 ## Solving
 
-```python title="examples/trajgen/python/pendubot.py"
---8<-- "examples/trajgen/python/pendubot.py:47:67"
+```python title="examples/trajgen/python/double_pendulum/pendubot.py"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:66:86"
 ```
 
 Solver and QP parameters are passed as keyword arguments: `hpipm_`/`admm_`-prefixed ones configure the
@@ -86,13 +86,13 @@ or `MaxIterReached` shows up, these are exactly the parameters worth revisiting 
 `filter_size` (see [The SSQP Solver](../concepts/solver.md)). `solver.write` saves the trajectory for later use,
 e.g. with the [visualizer](../examples.md).
 
-Run it (from `examples/trajgen/python/`, with the environment set up per [Installation](../getting-started/installation.md#using-the-python-bindings)):
+Run it (from `examples/trajgen/python/double_pendulum/`, with the environment set up per [Installation](../getting-started/installation.md#using-the-python-bindings)):
 
 ```bash
 python pendubot.py
 ```
 
-The script itself prints nothing on success; it writes `../data/pendubot.json`. Visualize the result with the
+The script itself prints nothing on success; it writes `../../data/pendubot.json`. Visualize the result with the
 [`visualizer` example](../examples.md) to see the actual swing-up motion, or load the JSON yourself and plot the
 shoulder/elbow angles over time to see the "wait, then commit" pattern described above: little motion in the first
 150 stages beyond light damping, then a swing into the upright configuration over the last quarter of the horizon.

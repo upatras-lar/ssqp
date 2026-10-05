@@ -1,9 +1,28 @@
 import ssqpy
 import numpy as np
+import argparse
 
 """
 Ball joint example
 """
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Ball joint trajectory generation"
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="../data/ball_joint.json",
+        help="Path of the output JSON file",
+    )
+
+    return parser.parse_args()
+
+
+args = parse_args()
 
 H = 200
 dt = 0.01
@@ -42,4 +61,4 @@ solver = ssqpy.solvers.ssqp(model, tolerance=1e-2)
 
 state, x, u = solver.solve()
 
-solver.write("../data/ball_joint.json")
+solver.write(args.output)

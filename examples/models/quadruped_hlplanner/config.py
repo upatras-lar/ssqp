@@ -5,11 +5,6 @@ Determines various options about how the model is loaded and its properties
 
 import numpy as np
 
-# Whether to import pinocchio
-# Also determines whether the robot model is loaded via Python
-WITH_PINOCCHIO = False
-
-
 # Initial base position
 INIT_BASE_POS = np.array([0.0, 0.0, 0.389])
 # Initial joint configuration

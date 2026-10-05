@@ -14,8 +14,6 @@
 #include "model/terrain/predefined/StepTerrain.hpp"
 #include "model/terrain/predefined/HeightmapTerrain.hpp"
 
-#include "models/double_pendulum/DoublePendulumAmbient.hpp"
-
 namespace ssqp
 {
 namespace tests
@@ -45,22 +43,6 @@ std::shared_ptr<Test> generate_innate_constraint_gradient_test(
 std::shared_ptr<Test> generate_reconfigured_actuated_joints_dynamics_grad_test(
   const std::string &urdf_path, const bool floating_base, const uint seed = 42);
 
-// Predefined dynamics model gradients
-std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_grad_test(
-  const uint seed = 42);
-std::shared_ptr<Test> get_pendubot_ambient_dynamics_grad_test(
-  const uint seed = 42);
-std::shared_ptr<Test> get_acrobot_ambient_dynamics_grad_test(
-  const uint seed = 42);
-
-// Predefined cost gradients for predefined dynamics models
-std::shared_ptr<Test> get_double_pendulum_ambient_tracking_cost_grad_test(
-  const uint seed = 42);
-
-// Predefined Dynamics model parameter gradients
-std::shared_ptr<Test> get_double_pendulum_ambient_dynamics_parameter_grad_test(
-  const uint seed = 42);
-
 // Predefined Constraint gradients
 std::shared_ptr<Test> get_joint_angle_constraint_grad_test();
 std::shared_ptr<Test> get_joint_velocity_constraint_grad_test();
@@ -77,7 +59,7 @@ std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test();
 std::shared_ptr<Test> get_frame_angular_velocity_bound_grad_test();
 std::shared_ptr<Test> get_center_of_mass_bound_grad_test();
 std::shared_ptr<Test> get_contact_constraint_grad_test(
-  const std::string                              &name = "ContactConstraintGradTest",
+  const std::string &name = "ContactConstraintGradTest",
   const std::shared_ptr<model::terrain::Terrain> &terrain = nullptr);
 
 std::shared_ptr<Test> get_frame_terrain_height_bound_grad_test();

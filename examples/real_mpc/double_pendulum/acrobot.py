@@ -63,7 +63,7 @@ if args.hpipm:
     MPC_H = 10
 
     V_WGT = np.array((4e-1, 1e-1))
-    U_WGT = np.array((0.0, 2e-2))
+    U_WGT = np.array((0.0, 2e-2)) if args.friction_compensation else 2e-2
     ELBOW_WGT = 180.0
     TIP_WGT = 80.0
 
@@ -120,7 +120,6 @@ model = ssqpy.model.Model(
 
 nq = model.getnq()
 nv = model.getnv()
-nu = model.getnu()
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)

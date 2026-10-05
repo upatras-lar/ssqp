@@ -1,6 +1,6 @@
 # Go2 Jump
 
-[`examples/trajgen/python/go2_jump.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2_jump.py)
+[`examples/trajgen/python/go2/go2_jump.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2/go2_jump.py)
 generates a jumping trajectory for the Go2 quadruped: a stance phase, a flight phase with all four feet off the
 ground, and a landing back into a specified footprint. Where the previous examples used a single, unchanging set of
 costs and constraints across the whole horizon, a jump needs the problem itself to change over time: which
@@ -11,8 +11,8 @@ configuring solver parameters. It builds directly on [Panda Circle](panda-circle
 
 ## Setup
 
-```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:1:40"
+```python title="examples/trajgen/python/go2/go2_jump.py"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:1:74"
 ```
 
 `ReducedInverseDynamics` [solver mode](../concepts/model.md#solver-mode) is used, with the `Go2`
@@ -30,8 +30,8 @@ forces become part of the optimization below.
 
 ## Initial state and a static-equilibrium initial guess
 
-```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:42:56"
+```python title="examples/trajgen/python/go2/go2_jump.py"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:76:90"
 ```
 
 `base_config` is a standing crouch pose, repeated for all four legs (each leg's three joints get the same
@@ -44,8 +44,8 @@ iterations just discovering that a standing robot needs to push against the grou
 
 ## Costs and reusable constraint objects
 
-```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:58:113"
+```python title="examples/trajgen/python/go2/go2_jump.py"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:92:147"
 ```
 
 Regularization costs (joint angle, velocity, control, force, and a configuration-tracking cost pulling toward the
@@ -63,8 +63,8 @@ below:
 
 ## The per-stage loop: stance, flight, stance
 
-```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:115:161"
+```python title="examples/trajgen/python/go2/go2_jump.py"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:149:195"
 ```
 
 Every stage gets the regularization costs and the position/head bounds unconditionally; those don't depend on
@@ -95,8 +95,8 @@ something more complex than a single stage-index check.
 
 ## Terminal stage: settle into a landing footprint
 
-```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:163:212"
+```python title="examples/trajgen/python/go2/go2_jump.py"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:197:246"
 ```
 
 At the terminal stage, a zero base-velocity constraint asks the robot to be at rest, and each foot gets a
@@ -109,8 +109,8 @@ inside the stance branch) something concrete to converge back onto.
 
 ## Solving, with object-based parameter configuration
 
-```python title="examples/trajgen/python/go2_jump.py"
---8<-- "examples/trajgen/python/go2_jump.py:214:248"
+```python title="examples/trajgen/python/go2/go2_jump.py"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:248:279"
 ```
 
 Rather than passing `admm_`/`hpipm_`-prefixed keyword arguments (as in [Pendubot](pendubot.md)), this example
@@ -122,13 +122,13 @@ met on every single term can take far longer than reaching a solution that's alr
 look and behave correctly; loose success lets SSQP stop once progress has stalled rather than keep grinding on
 diminishing returns.
 
-Run it (from `examples/trajgen/python/`, with the environment set up per [Installation](../getting-started/installation.md#using-the-python-bindings)):
+Run it (from `examples/trajgen/python/go2/`, with the environment set up per [Installation](../getting-started/installation.md#using-the-python-bindings)):
 
 ```bash
 python go2_jump.py
 ```
 
-The script writes `../data/go2_jump.json` and prints nothing else. This is the example most worth visualizing to
+The script writes `../../data/go2_jump.json` and prints nothing else. This is the example most worth visualizing to
 actually understand: load the result with the [`visualizer` example](../examples.md) and watch the base crouch,
 launch, tuck through flight, and land, with FL's foot behaving differently from the other three throughout stance
 if you left the `set_enabled(False)` call in place.
@@ -137,7 +137,7 @@ if you left the `set_enabled(False)` call in place.
 
 * Comment out `t1.set_enabled(False)` so all four feet share the same stance/flight schedule, and compare the
   landing symmetry against the default (asymmetric FL) version.
-* Shrink the flight window (bring `START_STEP`/`END_STEP` closer together) for a shorter hop, or widen it for a
+* Shrink the flight window (bring `--start-step` and `--end-step` closer together) for a shorter hop, or widen it for a
   higher one, and see how far `MAX_NORMAL_FORCE` and the joint/velocity regularization weights can be pushed before
   the solver stops converging.
 * Change the terminal foot-position targets to land in a different footprint (e.g. narrower or wider stance) than

@@ -3,7 +3,7 @@ import mujoco.viewer
 import glfw
 import ssqpy
 import numpy as np
-from time import time, sleep
+from time import time
 from utils_go2_mujoco import (
     clip_joints_to_limits,
     mujoco_to_ssqp_state,
@@ -41,8 +41,7 @@ dynamics_mode = ssqpy.model.SolverMode.ReducedInverseDynamics
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
-    mjcf_path="../../assets/mjcf/go2/go2.xml",
-    free_flyer=True,
+    from_preset=ssqpy.model.Preset.Go2,
     solver_mode=dynamics_mode,
 )
 

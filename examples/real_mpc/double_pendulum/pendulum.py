@@ -2,10 +2,31 @@ import socket
 import os
 import numpy as np
 import ssqpy
+import argparse
 
 from real_mpc.socket_utils import send, recv
 
-INVERSE_MODE = False
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Double pendulum controller server"
+    )
+
+    parser.add_argument(
+        "-i",
+        "--inverse-mode",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to use the inverse dynamics formulation instead of \
+            the forward dynamics one",
+    )
+
+    return parser.parse_args()
+
+
+args = parse_args()
+
+INVERSE_MODE = args.inverse_mode
 
 SOCK_PATH = "/tmp/mpc_socket"
 
@@ -35,7 +56,6 @@ model = ssqpy.model.Model(
 
 nq = model.getnq()
 nv = model.getnv()
-nu = model.getnu()
 
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
@@ -53,7 +73,6 @@ model.addCost(MPC_H, tip_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
-# ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.adaptive_rho_tolerance = 10
@@ -84,7 +103,7 @@ while True:
     vel = state[nq:]
 
     try:
-        u = mpc.step(state)[1].stage(0)
+        u = mpc.step(state[: nq + nv])[1].stage(0)
     except RuntimeError:
         u = np.zeros(nv)
 

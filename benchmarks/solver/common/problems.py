@@ -329,7 +329,7 @@ def make_go2_wheelie_problem(problem_wrapper_t, constructor_parameters):
 
 
 def make_panda_circle_problem(problem_wrapper_t, constructor_parameters):
-    """Ported from examples/trajgen/python/panda_circle.py's hand-written
+    """Ported from examples/trajgen/python/panda/panda_circle.py's hand-written
     ssqpy script: the Panda arm's end effector traces a circular path on
     the yz-plane (x held constant) while its orientation is held fixed,
     and its position is additionally kept inside a rectangular box nested
@@ -414,7 +414,7 @@ def make_panda_circle_problem(problem_wrapper_t, constructor_parameters):
 
 
 def make_go2_frog_problem(problem_wrapper_t, constructor_parameters):
-    """Ported from examples/trajgen/python/go2_frog.py's hand-written ssqpy
+    """Ported from examples/trajgen/python/go2/go2_frog.py's hand-written ssqpy
     script onto the generalized ProblemWrapper interface. Unlike
     make_go2_jump_problem's single synchronized flight phase, this is a
     longer (3s) motion made of four successive hops with staggered,

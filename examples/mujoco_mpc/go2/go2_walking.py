@@ -132,7 +132,6 @@ model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
     mjcf_path="../../assets/mjcf/go2/go2.xml",
-    # urdf_path="../../assets/urdf/go2/go2.urdf",
     free_flyer=True,
     solver_mode=dynamics_mode,
 )

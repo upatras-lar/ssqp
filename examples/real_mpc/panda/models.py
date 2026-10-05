@@ -35,7 +35,6 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
 
     nq = model.getnq()
     nv = model.getnv()
-    nu = model.getnu()
 
     init_state = np.zeros(nq + nv)
     init_state[:nq] = [0.0] * 9
@@ -103,7 +102,6 @@ def get_reset_model(dynamics_mode):
 
     nq = model.getnq()
     nv = model.getnv()
-    nu = model.getnu()
 
     target_init_state = np.zeros(nq + nv)
     target_init_state[:nq] = [
@@ -185,7 +183,6 @@ def get_circle_model(dynamics_mode, constrain=False):
 
     nq = model.getnq()
     nv = model.getnv()
-    nu = model.getnu()
 
     init_state = np.zeros(nq + nv)
     init_state[:nq] = [
@@ -283,7 +280,7 @@ def get_sequence_model(dynamics_mode, constrain=False):
     traj = []
 
     for k in range(H + 1):
-        k_between = k // point_steps
+        k_between = (k % point_steps) / point_steps
         prev_point = points[k_between % len(points)]
         next_point = points[(k_between + 1) % len(points)]
 
@@ -314,7 +311,6 @@ def get_sequence_model(dynamics_mode, constrain=False):
 
     nq = model.getnq()
     nv = model.getnv()
-    nu = model.getnu()
 
     init_state = np.zeros(nq + nv)
     init_state[:nq] = [

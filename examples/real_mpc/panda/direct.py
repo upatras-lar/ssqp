@@ -1,6 +1,5 @@
 import ssqpy
 from pylibfranka import (
-    RealtimeConfig,
     Robot,
     Torques,
 )
@@ -55,7 +54,7 @@ def parse_args():
     )
     parser_circle.add_argument(
         "--constrain",
-        type=bool,
+        action=argparse.BooleanOptionalAction,
         default=False,
         help="Whether to add the inscribed square constraints",
     )

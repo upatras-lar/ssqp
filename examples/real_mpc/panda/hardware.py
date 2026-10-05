@@ -3,16 +3,11 @@ import numpy as np
 import argparse
 from pylibfranka import (
     ControllerMode,
-    RealtimeConfig,
     Robot,
     JointPositions,
     Torques,
 )
 import time
-
-import fcntl, termios, array
-
-buf_queued = array.array("I", [0])
 
 from real_mpc.socket_utils import send, recv
 
@@ -97,7 +92,6 @@ robot.set_collision_behavior(
 # Create a model instance from robot
 model = robot.load_model()
 
-prev_controls = None
 alpha = args.interpolation_alpha
 
 if args.torque:
@@ -114,8 +108,6 @@ current_control = None
 joint_stiffness = [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0]
 joint_damping = [2.0 * np.sqrt(k) for k in joint_stiffness]
 
-frame_start = time.time()
-
 while True:
     t0 = time.time()
     robot_state, _ = active_control.readOnce()
@@ -126,8 +118,6 @@ while True:
     q = np.array(robot_state.q)
     dq = np.array(robot_state.dq)
 
-    # fcntl.ioctl(sock, termios.TIOCOUTQ, buf_queued)
-    # print(f"Bytes in send buffer: {buf_queued[0]}")
     try:
         send(sock, solver_state)
     except BlockingIOError:
@@ -164,7 +154,3 @@ while True:
     active_control.writeOnce(command)
     Dt = time.time() - t0
     time.sleep(max(0.0008 - Dt, 0.0))
-
-    # if time.time() - frame_start > 1.0:
-    #     print(f"\rFrequency: {1/Dt:.2f}Hz\t", end="")
-    #     frame_start = time.time()
