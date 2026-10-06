@@ -9,8 +9,7 @@ hyperparameters.
 
 Both searchers take (state, control, resulting next-state) data points and use Armijo line search to update a
 dynamics model's internal parameters so its predictions better match observed transitions. This is useful for
-adapting a model online (e.g. as in the `examples/cloud_pendulum` adaptive-model examples) or from offline rollout
-data.
+adapting a model online or from offline rollout data.
 
 ```python
 from ssqpy.solvers import search

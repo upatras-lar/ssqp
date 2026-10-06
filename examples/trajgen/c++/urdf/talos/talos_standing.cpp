@@ -39,7 +39,7 @@ int main()
     Eigen::VectorXd neutral = model.neutralPose();
 
     Eigen::Vector3d base_pos;
-    base_pos << 0, 0, 1.072;
+    base_pos << 0, 0, 1.083;
 
     Eigen::VectorXd init = Eigen::VectorXd::Zero(STATE_SIZE + VELOCITY_SIZE);
     init.segment(0, 3)   = base_pos;
@@ -196,14 +196,7 @@ int main()
     std::cout << "Solver state: " << ssqp::solvers::to_string(state)
               << std::endl;
 
-    if (state == ssqp::solvers::SolverState::SUCCESS ||
-        state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
-    {
-        std::cout << "x: " << std::endl << solution.x << std::endl;
-        std::cout << "u: " << std::endl << solution.u << std::endl;
-    }
-
-    solver.write("examples/trajgen/data/talos_standing");
+    solver.write("examples/trajgen/data/talos_standing.json");
 
     return 0;
 }

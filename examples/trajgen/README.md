@@ -45,6 +45,8 @@ A few of the C++ examples have a constant marked `@script-parameter` near the to
 
 ### Output
 
+Every example prints the final solver state to the terminal, such as `Success`, when it finishes. The analytical examples, which have no robot to visualize, also print the full state and control trajectories.
+
 Trajectories are written to `data/*.json`. This folder is not tracked by git. Visualize a result with the [`visualizer`](../visualizer), giving it the URDF of the model and the JSON file:
 
 ```
@@ -231,17 +233,6 @@ The base traces a circle while all four feet stay on the ground.
 | `-r`, `--radius` | Radius of the circle (default 0.15) |
 | `-o`, `--output` | Output JSON file |
 
-#### `python/go2/go2_heart.py`
-
-The front feet trace a heart, while the rear feet and the base stay in place.
-
-| Parameter | Description |
-|---|---|
-| `--standing-steps` | Steps to stand for at the start and end (default 20) |
-| `--transitional-steps` | Steps to transition to and from the trace (default 20) |
-| `--trace-x` | x-coordinate of the trace (default 0.2) |
-| `-o`, `--output` | Output JSON file |
-
 #### `python/go2/go2_srbd_walk.py` and `python/go2/go2_srbd_jump.py`
 
 A walk and a jump using a single rigid body model, defined in Python in [`models/quadruped_srbd`](../models/quadruped_srbd), with the foot positions and the contact forces as the state and controls. The walk takes its references from the planner in [`models/quadruped_hlplanner`](../models/quadruped_hlplanner).
@@ -287,7 +278,7 @@ The G1 walks forward, with alternating foot swings.
 
 #### `python/talos/talos_stand_1foot.py`
 
-The Talos humanoid balances on one foot. Since its feet are flat, forces are applied at four points around each foot.
+The Talos humanoid balances on one foot. Since its feet are flat, forces are applied at four points around each foot. This one is slow, taking a few minutes to converge.
 
 | Parameter | Description |
 |---|---|
@@ -305,7 +296,7 @@ An in-place jump with Talos.
 
 #### `python/talos/talos_walk.py`
 
-Talos walks forward, using a reduced model of the robot, and stands upright at the end.
+Talos walks forward, and stands upright at the end.
 
 | Parameter | Description |
 |---|---|
@@ -325,7 +316,7 @@ These define the dynamics by hand, as classes deriving from `StageDynamics`, tog
 | Example | Description |
 |---|---|
 | `analytical/di.cpp` | A double integrator |
-| `analytical/point_mass.cpp` | A 1D point mass driven to a target position, with control bounds and a terminal constraint |
+| `analytical/point_mass.cpp` | A 1D point mass driven to a target position, with control bounds and a terminal constraint, solved with the HPIPM QP solver |
 | `analytical/pendulum.cpp` | A damped pendulum, with its dynamics, costs and their derivatives written out |
 
 ### Models from URDF files
@@ -335,14 +326,13 @@ These load the model from an URDF file in `assets`, with SSQP computing the dyna
 | Example | Description |
 |---|---|
 | `urdf/pendulum.cpp` | The same damped pendulum as above, but loaded from an URDF |
-| `urdf/double_pendulum.cpp` | A double pendulum with only one joint actuated, and a custom cost defined with lambda functions |
-| `urdf/iiwa.cpp` | A KUKA iiwa arm performing one of four moves (a small move, a mid-range move, and elbow-up and elbow-down poses) |
+| `urdf/double_pendulum.cpp` | A double pendulum with only one joint actuated, swung up using a custom cost defined with lambda functions (with a Gauss-Newton Hessian, which stays positive semidefinite) |
+| `urdf/iiwa.cpp` | A KUKA iiwa arm performing one of four moves (a small move, a mid-range move, and elbow-up and elbow-down poses), solved with the HPIPM QP solver |
 | `urdf/panda/panda_poses.cpp` | The Panda reaching one of five poses or sequences (a simple reach, a side sweep, an overhead lift, and two grasp motions) |
 | `urdf/panda/panda_circle.cpp` | The Panda's end effector tracing a circle, with an optional box constraint inside it |
 | `urdf/a1/a1_standing.cpp` | The A1 standing on four feet, or on two |
 | `urdf/a1/a1_inplace.cpp` | The A1 raising its feet in place, in pairs |
-| `urdf/a1/a1_circle.cpp` | The A1's trunk moving along a circular path |
-| `urdf/a1/a1_walk.cpp` | The A1 walking |
+| `urdf/a1/a1_walk.cpp` | The A1 walking. This one is slow, taking a few minutes, and ends with the loose success state |
 | `urdf/a1/a1_jump.cpp` | The A1 jumping |
 | `urdf/talos/talos_standing.cpp` | The Talos humanoid standing |
 

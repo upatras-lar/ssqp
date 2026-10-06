@@ -8,9 +8,16 @@
 #include "model/stagewise/StageDynamics.hpp" // ssqp::model::stagewise::StageDynamics
 #include "model/stagewise/StageConstraints.hpp" // ssqp::model::stagewise::StageConstraints
 
+/*
+ * Double integrator example
+ * Moves a point mass to position 1 using custom dynamics, cost and constraints,
+ * defined directly in C++ instead of coming from a robot model
+ */
+
 #define HORIZON 100
 #define dt      0.01
 
+// Discrete double integrator, with the acceleration as the control
 class Dynamics : public ssqp::model::stagewise::StageDynamics
 {
     uint output_size() const override
@@ -46,6 +53,7 @@ class Dynamics : public ssqp::model::stagewise::StageDynamics
         dX(0, 1) = dt;
         dX(1, 1) = 1;
 
+        dU(0, 0) = dt * dt;
         dU(1, 0) = dt;
     }
 
@@ -68,6 +76,7 @@ class Dynamics : public ssqp::model::stagewise::StageDynamics
     }
 };
 
+// Drives the position towards 1
 class Cost : public ssqp::model::stagewise::StageCost
 {
     Eigen::VectorXd evaluate(const ssqp::VecX &x,
@@ -105,6 +114,7 @@ class Cost : public ssqp::model::stagewise::StageCost
     }
 };
 
+// Bounds the control
 class Constraint : public ssqp::model::stagewise::StageConstraints
 {
     uint output_size() const override
@@ -162,6 +172,7 @@ class Constraint : public ssqp::model::stagewise::StageConstraints
     const ssqp::VecX _ub = (Eigen::Vector<double, 1>() << 30.0).finished();
 };
 
+// Forces the control to zero
 class EqConstraint : public ssqp::model::stagewise::StageConstraints
 {
     uint output_size() const override
@@ -225,8 +236,15 @@ int main()
       std::make_shared<Cost>();
 
     std::vector<std::shared_ptr<ssqp::model::stagewise::StageDynamics>>
-      dynamics;
-    dynamics.push_back(std::make_shared<Dynamics>());
+      dynamics(HORIZON + 1);
+
+    std::shared_ptr<ssqp::model::stagewise::StageDynamics> dyn =
+      std::make_shared<Dynamics>();
+
+    for (uint i = 0; i <= HORIZON; ++i)
+    {
+        dynamics[i] = dyn;
+    }
 
     std::vector<std::shared_ptr<ssqp::model::stagewise::StageConstraints>>
       constraints;
@@ -235,7 +253,7 @@ int main()
     {
         constraints.push_back(std::make_shared<Constraint>());
     }
-    for (uint k = 1; k <= HORIZON; ++k)
+    for (uint k = 1; k < HORIZON; ++k)
     {
         if (k == 3)
         {
@@ -245,6 +263,9 @@ int main()
 
         constraints.push_back(std::make_shared<Constraint>());
     }
+
+    // No controls at the terminal stage, so no control constraint
+    constraints.push_back(nullptr);
 
     ssqp::model::Model::Config config;
     config.stage_cost    = cost;

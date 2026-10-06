@@ -193,13 +193,6 @@ int main()
     std::cout << "Solver state: " << ssqp::solvers::to_string(state)
               << std::endl;
 
-    if (state == ssqp::solvers::SolverState::SUCCESS ||
-        state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
-    {
-        std::cout << "x: " << std::endl << solution.x << std::endl;
-        std::cout << "u: " << std::endl << solution.u << std::endl;
-    }
-
     solver.write("examples/trajgen/data/a1_jump.json");
 
     return 0;

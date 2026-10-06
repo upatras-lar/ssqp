@@ -14,7 +14,7 @@ Custom dynamics subclass `ssqpy.model.dynamics.StageDynamics` and must provide, 
 and only needed if you want exact second-order information):
 
 ```python title="examples/trajgen/python/di.py"
---8<-- "examples/trajgen/python/di.py:8:43"
+--8<-- "examples/trajgen/python/di.py:13:54"
 ```
 
 The state is $[p, v]$ (position, velocity), the control is a scalar acceleration $u$, and `evaluate` implements
@@ -26,7 +26,7 @@ Custom costs subclass `ssqpy.model.costs.StageCost` and must provide `evaluate`,
 `hessian_xu` and `hessian_uu`:
 
 ```python title="examples/trajgen/python/di.py"
---8<-- "examples/trajgen/python/di.py:46:68"
+--8<-- "examples/trajgen/python/di.py:57:80"
 ```
 
 This penalizes deviation of the position $p$ from a target of $1.0$, applied both at every running stage and at
@@ -35,11 +35,11 @@ the terminal stage.
 ## 3. Build the model and solve
 
 ```python title="examples/trajgen/python/di.py"
---8<-- "examples/trajgen/python/di.py:71:92"
+--8<-- "examples/trajgen/python/di.py:83:103"
 ```
 
-`model.finalize` accepts a single `dynamics` shared across every stage (as above), or a per-stage list; the same
-applies to costs and constraints. See [Model](../concepts/model.md) for the full set of `finalize` arguments (XML
+`model.finalize` takes one dynamics object per stage, so `H + 1` entries; since these dynamics are the same at every
+stage, the same object is repeated (as above). See [Model](../concepts/model.md) for the full set of `finalize` arguments (XML
 loading, joint limits, initial guesses, etc.).
 
 `solver.solve()` returns the solver's [`SolverState`](../reference/solvers.md), and the resulting state and control

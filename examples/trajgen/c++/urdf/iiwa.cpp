@@ -131,6 +131,8 @@ int main()
 
     ssqp::solvers::ssqp::Params params;
     params.tolerance = 1e-2;
+    // HPIPM converges much faster than the default ADMM backend here
+    params.qp_solver_type = ssqp::solvers::ssqp::QPSolverType::HPIPM;
 
     ssqp::solvers::ssqp        solver(model, params);
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
@@ -138,13 +140,6 @@ int main()
 
     std::cout << "Solver state: " << ssqp::solvers::to_string(state)
               << std::endl;
-
-    if (state == ssqp::solvers::SolverState::SUCCESS ||
-        state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
-    {
-        std::cout << "x: " << std::endl << solution.x << std::endl;
-        std::cout << "u: " << std::endl << solution.u << std::endl;
-    }
 
     solver.write("examples/trajgen/data/iiwa.json");
 

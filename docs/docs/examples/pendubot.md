@@ -74,7 +74,7 @@ applied too early or too uniformly across the horizon.
 ## Solving
 
 ```python title="examples/trajgen/python/double_pendulum/pendubot.py"
---8<-- "examples/trajgen/python/double_pendulum/pendubot.py:66:86"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:66:88"
 ```
 
 Solver and QP parameters are passed as keyword arguments: `hpipm_`/`admm_`-prefixed ones configure the
@@ -92,7 +92,7 @@ Run it (from `examples/trajgen/python/double_pendulum/`, with the environment se
 python pendubot.py
 ```
 
-The script itself prints nothing on success; it writes `../../data/pendubot.json`. Visualize the result with the
+The script prints only the final solver state, and writes `../../data/pendubot.json`. Visualize the result with the
 [`visualizer` example](../examples.md) to see the actual swing-up motion, or load the JSON yourself and plot the
 shoulder/elbow angles over time to see the "wait, then commit" pattern described above: little motion in the first
 150 stages beyond light damping, then a swing into the upright configuration over the last quarter of the horizon.

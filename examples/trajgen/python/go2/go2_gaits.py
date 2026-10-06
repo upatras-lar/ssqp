@@ -254,9 +254,6 @@ solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
 
-solver.write(args.output)
+print("Solver state:", state)
 
-print("x:")
-x.print()
-print("u:")
-u.print()
+solver.write(args.output)

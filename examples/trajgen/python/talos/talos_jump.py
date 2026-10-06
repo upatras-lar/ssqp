@@ -298,9 +298,5 @@ ssqp_params.hpipmParams = hpipm_params
 solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
+print("Solver state:", state)
 solver.write(args.output)
-
-print("x:")
-x.print()
-print("u:")
-u.print()

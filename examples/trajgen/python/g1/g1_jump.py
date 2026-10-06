@@ -205,4 +205,5 @@ ssqp_params.admmParams = admm_params
 solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
+print("Solver state:", state)
 solver.write(args.output)

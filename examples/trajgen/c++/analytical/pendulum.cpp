@@ -303,8 +303,15 @@ int main()
     model_config.stage_cost = std::make_shared<Cost>();
     // config.terminal_cost: Use this as the terminal cost
     model_config.terminal_cost = std::make_shared<TerminalCost>();
-    // Size 1 vector for dynamics: Use these for all stages
-    model_config.dynamics    = { std::make_shared<Dynamics>() };
+
+    model_config.dynamics.resize(HORIZON + 1);
+    std::shared_ptr<Dynamics> dyn = std::make_shared<Dynamics>();
+
+    for (uint i = 0; i <= HORIZON; ++i)
+    {
+        model_config.dynamics[i] = dyn;
+    }
+
     model_config.constraints = constraints;
 
     ssqp::model::Model model(HORIZON, dt, model_config);

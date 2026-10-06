@@ -50,12 +50,11 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
                                  const Eigen::VectorXd &u,
                                  Eigen::MatrixXd &Hxx)
     {
-        double c1 = std::cos(x[0]);
-        double c2 = std::cos(x[1]);
-
+        // Gauss-Newton approximation (sin^2 + cos^2 = 1), which keeps the
+        // Hessian positive semidefinite for any angle
         Hxx       = Eigen::Matrix4d::Zero();
-        Hxx(0, 0) = weight * c1;
-        Hxx(1, 1) = weight * c2;
+        Hxx(0, 0) = weight;
+        Hxx(1, 1) = weight;
         Hxx(2, 2) = weight * 0.01;
         Hxx(3, 3) = weight * 0.01;
     };
@@ -114,7 +113,7 @@ int main()
     model.finalize(config);
 
     ssqp::solvers::ssqp::Params params;
-    params.max_iter  = 100;
+    params.max_iter  = 1000;
     params.tolerance = 1e-4;
 
     ssqp::solvers::ssqp        solver(model, params);
@@ -123,13 +122,6 @@ int main()
 
     std::cout << "Solver state: " << ssqp::solvers::to_string(state)
               << std::endl;
-
-    if (state == ssqp::solvers::SolverState::SUCCESS ||
-        state == ssqp::solvers::SolverState::LOOSE_SUCCESS)
-    {
-        std::cout << "x: " << std::endl << solution.x << std::endl;
-        std::cout << "u: " << std::endl << solution.u << std::endl;
-    }
 
     // Write the output to a JSON file
     solver.write("examples/trajgen/data/double_pendulum.json");

@@ -71,8 +71,7 @@ FOOT_SWING_STEPS = args.foot_swing_steps
 model = ssqpy.model.Model(
     H,
     dt,
-    urdf_path="../../../assets/urdf/talos/talos_reduced.urdf",
-    free_flyer=True,
+    from_preset=ssqpy.model.Preset.Talos,
     solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
 )
 
@@ -157,31 +156,6 @@ init_control_right = np.zeros(nu + 12)
 for f in range(1, 5):
     init_control_left[nu + 3 * f - 1] = 232
     init_control_right[nu + 3 * f - 1] = 232
-
-# forces_left = {}
-# forces_left["left_mm"] = [init_control_left[nv : nv + 3]]
-# forces_left["left_mp"] = [init_control_left[nv + 3 : nv + 6]]
-# forces_left["left_pp"] = [init_control_left[nv + 6 : nv + 9]]
-# forces_left["left_pm"] = [init_control_left[nv + 9 : nv + 12]]
-
-# forces_right = {}
-# forces_right["right_mm"] = [init_control_right[nv : nv + 3]]
-# forces_right["right_mp"] = [init_control_right[nv + 3 : nv + 6]]
-# forces_right["right_pp"] = [init_control_right[nv + 6 : nv + 9]]
-# forces_right["right_pm"] = [init_control_right[nv + 9 : nv + 12]]
-
-# # Use inverse dynamics to calculate initial joint torques
-# init_control_left[6:nv] = model.inverseDynamics(
-#     init[:nq], init[nq:], np.zeros(nv), forces_left
-# )[-nv + 6 :]
-
-# init_control_right[6:nv] = model.inverseDynamics(
-#     init[:nq], init[nq:], np.zeros(nv), forces_right
-# )[-nv + 6 :]
-
-# init_control[6:nv] = model.inverseDynamics(
-#     init[:nq], init[nq:], np.zeros(nv), forces_left | forces_right
-# )[-nv + 6 :]
 
 # Create cost to move robot to final position
 pose_cost = costs.FrameSquaredPoseErrorCost(
@@ -343,9 +317,5 @@ ssqp_params.hpipmParams = hpipm_params
 solver = ssqpy.solvers.ssqp(model, ssqp_params)
 
 state, x, u = solver.solve()
+print("Solver state:", state)
 solver.write(args.output)
-
-print("x:")
-x.print()
-print("u:")
-u.print()

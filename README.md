@@ -48,8 +48,7 @@ and [C++](http://150.140.184.35:8000/cpp-reference/) API references.
 | `examples/trajgen/` | Offline trajectory-generation examples |
 | `examples/mujoco_mpc/` | MPC examples using MuJoCo |
 | `examples/real_mpc/` | MPC examples for real systems |
-| `examples/cloud_pendulum/` | Adaptive-model pendulum examples |
-| `examples/benchmarks/` | Solver and formulation benchmarks |
+| `benchmarks/` | Solver and formulation benchmarks |
 | `examples/visualizer/` | Trajectory visualization utilities |
 | `examples/models/` | Custom model implementations and utilities |
 | `examples/assets/` | URDF and MJCF model assets |

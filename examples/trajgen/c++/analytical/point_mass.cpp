@@ -22,10 +22,10 @@
  *  1) p(k+1) = p(k) + dt*v(k) + 0.5*dt^2*a(k)
  *  2) v(k+1) = v(k) + dt*a(k)
  * Cost:
- *  sum_{k=0}{H-1} 1e-3*a(k)^2 + 2*v(k)^2 + (p(H) - 1)^2
+ *  sum_{k=0}{H-1} 1e-3*a(k)^2 + 2*v(k)^2 + (p(H) - 0.4)^2
  * Constraints:
  *  a) -27 <= a(k) <= 27 (control bounds)
- *  b) 12 <= p(H) <= 12
+ *  b) 0.4 <= p(H) <= 0.4
  */
 
 class TerminalCost : public ssqp::model::stagewise::StageCost
@@ -42,9 +42,8 @@ class TerminalCost : public ssqp::model::stagewise::StageCost
     Eigen::VectorXd evaluate(const ssqp::VecX &x,
                              const ssqp::VecX &u) const override
     {
-        return (Eigen::Vector<double, 1>() << 1e-3 * u(0) * u(0) +
-                                                2 * x(1) * x(1) +
-                                                (x(0) - 0.4) * (x(0) - 0.4))
+        return (Eigen::Vector<double, 1>()
+                << 2 * x(1) * x(1) + (x(0) - 0.4) * (x(0) - 0.4))
           .finished();
     }
 
@@ -52,7 +51,7 @@ class TerminalCost : public ssqp::model::stagewise::StageCost
                   ssqp::VecX &du) const override
     {
         dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
-        du = (Eigen::VectorXd(1) << 2 * 1e-3 * u(0)).finished();
+        du = Eigen::VectorXd::Zero(1);
     }
 
     void hessian_xx(const ssqp::VecX &x, const ssqp::VecX &u,
@@ -72,7 +71,7 @@ class TerminalCost : public ssqp::model::stagewise::StageCost
     void hessian_uu(const ssqp::VecX &x, const ssqp::VecX &u,
                     ssqp::MatX &Huu) const override
     {
-        Huu = (Eigen::Matrix<double, 2, 1>() << 0.002).finished();
+        Huu = Eigen::Matrix<double, 1, 1>::Zero();
     }
 };
 
@@ -93,8 +92,7 @@ class Cost : public ssqp::model::stagewise::StageCost
     void gradient(const ssqp::VecX &x, const ssqp::VecX &u, ssqp::VecX &dx,
                   ssqp::VecX &du) const override
     {
-
-        dx = (Eigen::Vector2d() << 2 * (x(0) - 0.4), 4 * x(1)).finished();
+        dx = (Eigen::Vector2d() << 0.0, 4 * x(1)).finished();
         du = (Eigen::VectorXd(1) << 2 * 1e-3 * u(0)).finished();
     }
 
@@ -130,7 +128,7 @@ class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
      *  - hessprod_xx
      *  - hessprod_xu
      *  - hessprod_uu
-     * Here, we provide the same value for the lower and upper bounds (12)
+     * Here, we provide the same value for the lower and upper bounds (0.4)
      * As such, we make this an equality constraint on the desired variable (p(H))
      */
 
@@ -185,8 +183,8 @@ class TerminalConstraints : public ssqp::model::stagewise::StageConstraints
         Puu = Eigen::Matrix<double, 1, 1>::Zero();
     }
 
-    const ssqp::VecX _lb = (Eigen::Vector<double, 1>() << 12).finished();
-    const ssqp::VecX _ub = (Eigen::Vector<double, 1>() << 12).finished();
+    const ssqp::VecX _lb = (Eigen::Vector<double, 1>() << 0.4).finished();
+    const ssqp::VecX _ub = (Eigen::Vector<double, 1>() << 0.4).finished();
 };
 
 class Constraints : public ssqp::model::stagewise::StageConstraints
@@ -353,7 +351,10 @@ int main()
     ssqp::model::Model model(HORIZON, dt, model_config);
 
     // Create an SSQP solver object based on the model
-    ssqp::solvers::ssqp solver(model);
+    // HPIPM solves this QP much faster than the default ADMM backend
+    ssqp::solvers::ssqp::Params params;
+    params.qp_solver_type = ssqp::solvers::ssqp::QPSolverType::HPIPM;
+    ssqp::solvers::ssqp solver(model, params);
     // Create a guess object using the model's dimensions and linear dimensions
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());
     // Solve

@@ -53,8 +53,13 @@ L_max = 0.8
 
 model = ssqpy.model.Model(H, dt)
 
+# Full Go2 model, used only to get the initial feet and CoM positions
+go2_model = ssqpy.model.Model(
+    H, dt, mjcf_path="../../../assets/mjcf/go2/go2.xml"
+)
+
 com_ref, xb_ref, p_ref = go2_planner.generate_references(
-    v_cmd, go2_planner.config.INIT_CONFIG, np.zeros(3), 0.0, H, dt
+    v_cmd, go2_planner.config.INIT_CONFIG, np.zeros(3), 0.0, H, dt, go2_model
 )
 
 for k in range(H):

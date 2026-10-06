@@ -58,7 +58,7 @@ nv = model.getnv()
 nu = model.getnu()
 
 # Initial position for the torso
-base_pos = np.array((0, 0, 1.072))
+base_pos = np.array((0, 0, 1.083))
 
 # Initial configuration
 init = np.zeros(nq + nv)
@@ -187,9 +187,5 @@ solver = ssqpy.solvers.ssqp(
 )
 
 state, x, u = solver.solve()
+print("Solver state:", state)
 solver.write(args.output)
-
-print("x:")
-x.print()
-print("u:")
-u.print()

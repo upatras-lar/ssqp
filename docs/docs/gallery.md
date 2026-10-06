@@ -111,8 +111,8 @@ weight also damps the hip-yaw joints specifically, keeping the walk heading stra
   <source src="../assets/panda_circle.mp4" type="video/mp4">
 </video>
 
-A Franka Panda end effector tracing a circle in task space via frame-pose tracking costs, constrained (`CONSTRAIN =
-True`) to stay within a square window inscribed in that circle: watch the path flatten against the square's edges
+A Franka Panda end effector tracing a circle in task space via frame-pose tracking costs, constrained (with `--constrain`, the
+default) to stay within a square window inscribed in that circle: watch the path flatten against the square's edges
 near the circle's corners rather than following it exactly, the constraint visibly winning out over the tracking
 cost there. This is the trajectory produced by
 [`panda_circle.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/panda/panda_circle.py), covered

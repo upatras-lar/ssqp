@@ -2,7 +2,7 @@
 
 [`benchmarks/solver/`](https://github.com/upatras-lar/ssqp/tree/main/benchmarks/solver) compares SSQP against a
 handful of other OCP solvers on the same set of problems. Every solver formulates the identical problem through
-[`ProblemWrapper`](https://github.com/upatras-lar/ssqp/blob/main/benchmarks/solver/ProblemWrapper.py), an abstract
+[`ProblemWrapper`](https://github.com/upatras-lar/ssqp/blob/main/benchmarks/solver/common/ProblemWrapper.py), an abstract
 interface (costs, constraints, `finalize`, `solve`, `save`) with one subclass per backend translating those calls
 into that backend's own API, so a given problem stays defined once while every solver attempts the same costs and
 constraints on it.

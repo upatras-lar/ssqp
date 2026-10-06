@@ -83,4 +83,6 @@ solver = ssqpy.solvers.ssqp(
 
 state, x, u = solver.solve()
 
+print("Solver state:", state)
+
 solver.write(args.output)

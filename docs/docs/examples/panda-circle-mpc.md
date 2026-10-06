@@ -13,7 +13,7 @@ long target trajectory, retargeted every step.
 ## Setup
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:1:41"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:1:80"
 ```
 
 Two different horizons are in play here, and the distinction matters: `H`/`dt` (400 steps at 0.01s) describe the
@@ -26,24 +26,27 @@ it only has to be fine enough to represent the dynamics reasonably over its own,
 fast enough to keep up with real time, so 10 stages at 5x the simulation timestep is a deliberate trade of horizon
 length for solve speed, not an oversight.
 
-`INVERSE_MODE` toggles between `ForwardDynamics` (the default here, unlike the trajectory-generation example's
-`InverseDynamics`) and `InverseDynamics` for the *internal* SSQP model; when `True`, the control applied to MuJoCo
-is computed by running the resulting acceleration back through `model.inverseDynamics` to recover torques (see the
-simulation loop, below). This example defaults to `ForwardDynamics` so `mpc.step(...)` output can be sent to
-MuJoCo directly, without that extra conversion step, at the cost of the smoother QP linearity `InverseDynamics`
-would otherwise buy you (see [Panda Circle](panda-circle-trajgen.md#building-the-model)); with a short, frequently
-re-solved MPC horizon, the two modes are worth comparing directly rather than assuming one is always better.
+The script takes three command line flags, which are turned into the `PLOT`, `INVERSE_MODE` and `CONSTRAIN`
+variables used below. `--inverse-mode` switches the *internal* SSQP model between `ForwardDynamics` (the default
+here, unlike the trajectory-generation example's `InverseDynamics`) and `InverseDynamics`; when it is given, the
+control applied to MuJoCo is computed by running the resulting acceleration back through `model.inverseDynamics` to
+recover torques (see the simulation loop, below). This example defaults to `ForwardDynamics` so `mpc.step(...)`
+output can be sent to MuJoCo directly, without that extra conversion step, at the cost of the smoother QP
+linearity `InverseDynamics` would otherwise buy you (see [Panda Circle](panda-circle-trajgen.md#building-the-model));
+with a short, frequently re-solved MPC horizon, the two modes are worth comparing directly rather than assuming
+one is always better. `--constrain` (on by default, turned off with `--no-constrain`) adds the box constraint,
+and `--plot` (off by default) is covered after the simulation loop.
 
-Note also that the internal model is built from a **URDF**
-(`../../assets/urdf/panda/panda.urdf`) while MuJoCo, further down, loads a separate **MJCF**
-(`../assets/mjcf/panda/panda.xml`). This mirrors a real deployment: the model SSQP optimizes against and the
-"real" system it's controlling are two different descriptions of the same robot, not necessarily even the same
-file format, and MuJoCo's simulated physics plays the role a real robot's sensors and actuators would.
+Note also that the internal model is built from SSQP's Panda preset (which embeds the Panda's **URDF**) while
+MuJoCo, further down, loads a separate **MJCF** (`../../assets/mjcf/panda/panda.xml`). This mirrors a real
+deployment: the model SSQP optimizes against and the "real" system it's controlling are two different descriptions
+of the same robot, not necessarily even the same file format, and MuJoCo's simulated physics plays the role a real
+robot's sensors and actuators would.
 
 ## The target trajectory
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:43:51"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:83:92"
 ```
 
 Identical in spirit to the trajectory-generation example: a full circle, precomputed as `H + 1` points, though this
@@ -53,7 +56,7 @@ trajectory MPC is chasing; the MPC model itself, built next, has no idea the ful
 ## Building the (short-horizon) model
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:53:120"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:94:161"
 ```
 
 The model itself has `mpc_H` stages, not `H`: as far as this `Model` object is concerned, the "problem" is only
@@ -76,7 +79,7 @@ position.
 ## Retargeting the horizon every step
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:123:126"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:164:167"
 ```
 
 Since the MPC model only has stages for the *next* `mpc_H` steps, but the target trajectory `traj` describes a
@@ -91,7 +94,7 @@ progressing around the circle.
 ## MPC and solver parameters
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:128:141"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:170:179"
 ```
 
 `ssqpy.solvers.MPC` wraps the model with its own iteration budget (`sqp_iters=4`, `qp_iters=100`), deliberately
@@ -105,13 +108,13 @@ trajectory that was already nearly right one timestep ago (see
 ## The simulation loop
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:143:199"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:181:234"
 ```
 
 Each iteration: read the current MuJoCo state (`qpos`/`qvel`), which is treated as ground truth and fed to SSQP as
 $\boldsymbol{x}_0$, call `mpc.step(state)` to get updated `(x, u)` trajectories, and apply `u.stage(0)`, the first
 stage's control only, to the simulator (either directly as torques, or through `model.inverseDynamics` if
-`INVERSE_MODE` is set). This is exactly the receding-horizon pattern described in [MPC](../concepts/mpc.md): only
+`--inverse-mode` is given). This is exactly the receding-horizon pattern described in [MPC](../concepts/mpc.md): only
 the very first control of a freshly (re-)solved trajectory is ever actually used, and everything the solve computed
 for the remaining 9 stages is discarded and recomputed from the new state next step, rather than played back open
 loop. `mujoco.mj_step` then advances the physics under that control, `stage` is incremented, `update_pose_costs`
@@ -126,21 +129,21 @@ python panda_circle.py
 ```
 
 A MuJoCo viewer window opens and the Panda arm should trace the circle live, correcting continuously as the
-simulation runs; the terminal prints the achieved control frequency. With `PLOT = True` (the default), the loop
-exits after one full lap (`stage == H`) and the same tracking-error/trajectory plots as the offline example appear
-for comparison; with `PLOT = False`, that check is skipped entirely (it's nested inside the `if PLOT` block), so
-the simulation instead keeps looping the circle indefinitely, since `update_pose_costs` wraps the stage index with
-`% H`, until you close the viewer window yourself. A control frequency well below $1/dt = 100\text{Hz}$ is a sign
+simulation runs; the terminal prints the achieved control frequency. With `--plot`, the loop exits after one full
+lap (`stage == H`) and the same tracking-error/trajectory plots as the offline example appear for comparison; by
+default, that check is skipped entirely (it's nested inside the `if PLOT` block), so the simulation instead keeps
+looping the circle indefinitely, since `update_pose_costs` wraps the stage index with `% H`, until you close the
+viewer window yourself. A control frequency well below $1/dt = 100\text{Hz}$ is a sign
 that each MPC solve is taking too long relative to the simulation timestep; that's exactly the failure mode the low
 `sqp_iters`/`qp_iters` budget above is there to avoid.
 
 ## Things to try
 
-* Toggle `INVERSE_MODE` and compare tracking quality and the printed control frequency; inverse dynamics adds a
+* Run with and without `--inverse-mode` and compare tracking quality and the printed control frequency; inverse dynamics adds a
   conversion step per control application but may converge in fewer SSQP iterations per solve.
 * Increase `mpc_H` (and/or decrease `mpc_dt`) to see the tracking improve as the MPC model looks further ahead, at
   the cost of a slower per-step solve and a lower achieved control frequency.
-* Lower `sqp_iters`/`qp_iters` while keeping `CONSTRAIN = True` to see constraint satisfaction degrade gracefully while
+* Lower `sqp_iters`/`qp_iters` while keeping the box constraint on (the default) to see constraint satisfaction degrade gracefully while
   tracking defaults to following just the cost, or raise them to see how much headroom there is before the control frequency 
   starts dropping.
 * Set `C_WGT` to `0` to remove the redundancy-resolving configuration cost, run a few laps, and watch the arm's

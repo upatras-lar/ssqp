@@ -172,10 +172,7 @@ solver = ssqpy.solvers.ssqp(
 # Solve
 state, x, u = solver.solve()
 
+print("Solver state:", state)
+
 # Write output trajectory to a file
 solver.write(args.output)
-
-print("x:")
-x.print()
-print("u:")
-u.print()
