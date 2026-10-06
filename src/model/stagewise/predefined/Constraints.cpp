@@ -177,7 +177,6 @@ JointControlConstraint::JointControlConstraint(const Model &model,
   : StageConstraints(name)
   , _lb(lb)
   , _ub(ub)
-  , _free_flyer(model.floatingBase())
   , _nv(model.nv())
   , _nu(model.nu())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -218,7 +217,7 @@ const VecX &JointControlConstraint::upper_bound() const
 
 VecX JointControlConstraint::evaluate(const VecX &x, const VecX &u) const
 {
-    return _free_flyer ? u.segment(6, _nu) : u.head(_nu);
+    return u.head(_nu);
 }
 
 void JointControlConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -226,14 +225,7 @@ void JointControlConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 {
     dX.setZero(_nu, _ndx);
     dU.setZero(_nu, u.size());
-    if (_free_flyer)
-    {
-        dU.block(0, 6, _nu, _nu).setIdentity();
-    }
-    else
-    {
-        dU.topLeftCorner(_nu, _nu).setIdentity();
-    }
+    dU.topLeftCorner(_nu, _nu).setIdentity();
 }
 
 void JointControlConstraint::hessprod_xx(const VecX &x, const VecX &u,

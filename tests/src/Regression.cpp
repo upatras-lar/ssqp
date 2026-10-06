@@ -540,6 +540,42 @@ void innateTorqueBoundsAreEnforced()
       "A control below -tau_bound must violate the torque constraint");
 }
 
+// On a floating-base model the joint control constraint must bound the first
+// nu controls, and not the contact forces that follow them
+void jointControlConstraintBoundsFirstControls()
+{
+    using namespace model::stagewise::predefined::constraints;
+
+    for (auto mode : { model::SolverMode::ReducedInverseDynamics,
+                       model::SolverMode::ForwardDynamics })
+    {
+        model::Model::Structure structure;
+        structure.from_preset = model::Preset::Go2;
+        structure.solver_mode = mode;
+        model::Model model(1, 0.01, structure);
+
+        const uint nu = model.nu();
+        JointControlConstraint constraint(
+          model, VecX::Constant(nu, -1.0), VecX::Constant(nu, 1.0));
+
+        // Joint controls followed by one contact force
+        VecX u(nu + 3);
+        u.head(nu) = VecX::LinSpaced(nu, 1.0, nu);
+        u.tail(3).setConstant(100.0);
+        const VecX x = VecX::Zero(model.nq() + model.nv());
+
+        require(constraint.evaluate(x, u).isApprox(u.head(nu)),
+                "The constraint must evaluate to the first nu controls");
+
+        MatX dX, dU;
+        constraint.gradient(x, u, dX, dU);
+        MatX expected = MatX::Zero(nu, u.size());
+        expected.leftCols(nu).setIdentity();
+        require(dU.isApprox(expected),
+                "The control gradient must select the first nu controls");
+    }
+}
+
 // A preset must build the same model as loading its URDF by path directly
 void modelFromPresetMatchesUrdfPath()
 {
@@ -777,6 +813,9 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_InnateTorqueBounds_AreEnforced",
       innateTorqueBoundsAreEnforced));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_JointControlConstraint_BoundsFirstControls",
+      jointControlConstraintBoundsFirstControls));
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_ModelFromPreset_MatchesUrdfPath",
       modelFromPresetMatchesUrdfPath));

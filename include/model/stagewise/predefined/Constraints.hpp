@@ -151,7 +151,6 @@ class JointControlConstraint : public StageConstraints
 
   protected:
     VecX       _lb, _ub;
-    const bool _free_flyer;
     const uint _nv, _nu, _ndx;
 };
 
