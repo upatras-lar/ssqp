@@ -45,17 +45,14 @@ iterations just discovering that a standing robot needs to push against the grou
 ## Costs and reusable constraint objects
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:90:147"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:90:131"
 ```
 
 Regularization costs (joint angle, velocity, control, force, and a configuration-tracking cost pulling toward the
 crouch pose) are created once, to be reused across stages, exactly as in the earlier examples. What's new here is
-that per-foot velocity and position bounds are also created upfront, *before* the per-stage loop, because the same
-constraint objects will be conditionally attached to different stages depending on the contact schedule computed
-below:
+that per-foot position bounds are also created upfront, *before* the per-stage loop, because the same constraint
+objects will be attached to every stage:
 
-* The velocity bounds (zero lower and upper, an equality) are used during stance to keep planted feet from
-  sliding: a foot that's actually in contact with the ground shouldn't be moving relative to it.
 * The position bounds keep each foot within its own quadrant of the body frame (preventing legs from crossing,
   e.g. `FL_foot`'s y-coordinate is bounded to $y \geq 0.1$, keeping it on the robot's left side throughout).
 * `head_constraint` keeps the head above a minimum ground clearance throughout, stance and flight alike, so the
@@ -64,18 +61,18 @@ below:
 ## The per-stage loop: stance, flight, stance
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:149:193"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:133:172"
 ```
 
 Every stage gets the regularization costs and the position/head bounds unconditionally; those don't depend on
 whether the robot is airborne. The contact scheduling itself happens in the `if k < START_STEP or k >= END_STEP`
 branch, i.e. **outside** the flight window: for each foot, `Model.addContactConstraint` adds both a
 `ContactConstraint` (friction cone, so the foot can only push, not pull, and only within a friction-limited cone of
-directions, plus non-penetration, so the foot can't go through the ground) *and* the matching ground-reaction
-force in one call, and the corresponding zero-velocity bound is added alongside it. These are exactly the
+directions, plus non-penetration, so the foot can't go through the ground, plus a no-slip zero-velocity bound, so
+a planted foot can't slide along it) *and* the matching ground-reaction force in one call. These are exactly the
 constraints that make "standing" or "walking" possible: without a friction cone, a solved trajectory could have
 feet pushing sideways with unlimited force; without non-penetration, a foot could dip below the terrain to reduce
-cost elsewhere.
+cost elsewhere; without the no-slip bound, a stance foot could skate across the ground.
 
 Inside the flight window (the branch that `continue`s past this block), **no contact constraints are added at
 all**: no friction cone, no non-penetration, no zero-velocity bound, for any foot. With nothing tying the feet to
@@ -83,8 +80,8 @@ the ground, the dynamics reduce to free-falling under gravity for those stages, 
 solver isn't told "be airborne", it simply has no way to keep the feet in contact during that window, so the
 physics does the rest.
 
-Note that this particular script explicitly disables FL's contact and velocity constraints even during the
-"stance" branch (`t1.set_enabled(False)`) while leaving FR/RL/RR enabled, a reminder that contacts are toggled
+Note that this particular script explicitly disables FL's contact constraint (including its no-slip bound) even
+during the "stance" branch (`t1.set_enabled(False)`) while leaving FR/RL/RR enabled, a reminder that contacts are toggled
 independently per foot per stage, not just per phase: nothing in the API requires all four feet to share the same
 schedule, which is what makes asymmetric gaits (a limp, a three-legged stance, a diagonal trot) representable with
 the same building blocks. `set_enabled(False)` also demonstrates the *other* way to keep a constraint out of the
@@ -96,7 +93,7 @@ something more complex than a single stage-index check.
 ## Terminal stage: settle into a landing footprint
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:195:247"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:174:226"
 ```
 
 At the terminal stage, a zero base-velocity constraint asks the robot to be at rest, and each foot gets a
@@ -110,7 +107,7 @@ inside the stance branch) something concrete to converge back onto.
 ## Solving, with object-based parameter configuration
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:249:281"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:228:260"
 ```
 
 Rather than passing `admm_`/`hpipm_`-prefixed keyword arguments (as in [Pendubot](pendubot.md)), this example

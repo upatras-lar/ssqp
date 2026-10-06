@@ -84,12 +84,14 @@ matching:
 
     ```python
     # Joint-space: match a specific set of joint angles
-    ssqpy.model.costs.SquaredConfigurationErrorCost(model, desired_configuration, weight)
+    configuration_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(model, desired_configuration, weight)
+    model.addCost(k, configuration_cost)
 
     # Task-space: match a frame's position and orientation, regardless of joint angles
-    ssqpy.model.costs.FrameSquaredPoseErrorCost(
-        model, "frame_name", desired_position, desired_rotation, translation_weight, rotation_weight
+    pose_cost = ssqpy.model.costs.FrameSquaredPoseErrorCost(
+        model, "frame_name", desired_pose, translation_weight, rotation_weight
     )
+    model.addCost(k, pose_cost)
     ```
 
 === "C++"
@@ -162,13 +164,14 @@ guess for every other stage before the solver improves on it.
 === "Python"
 
     ```python
-    model.finalize(init_states=my_init_state)
+    model.finalize(init_states=[my_init_state], init_controls=[my_init_control])
     ```
 
 === "C++"
 
     ```cpp
-    config.init_states = {my_init_state};
+    config.init_states   = {my_init_state};
+    config.init_controls = {my_init_control};
     model.finalize(config);
     ```
 
@@ -302,9 +305,10 @@ offline non-converging solve (see
 [How do I inspect solver convergence?](#how-do-i-inspect-solver-convergence-or-debug-why-it-isnt-converging)), and
 is often a sign that `sqp_iters`/`qp_iters` is too tight for how far the state has drifted from the warm start, or
 that the tracked target has left the problem's feasible region. Note this is a different failure mode from the
-per-step solve simply running too *slowly* to keep up with real time, which
-[Panda Circle (MPC)](examples/panda-circle-mpc.md#the-simulation-loop) flags via a separate printed
-control-frequency counter rather than convergence data.
+per-step solve simply running too *slowly* to keep up with real time. In those cases, trying different solver parameters
+or attempting to simplify the model might instead be helpful. If that does not help or is not possible, the next solution
+would be to use SSQPy's MPC as a high level plan, generated at a lower frequency and followed using a low-level controller
+running at a higher frequency.
 
 ## How do I correct the controls between MPC steps?
 
@@ -348,7 +352,7 @@ delay, so scaling them down may be needed.
 ## How do I switch between the ADMM and HPIPM QP solvers?
 
 HPIPM requires building SSQP with `-DWITH_HPIPM=ON` (see
-[Installation](getting-started/installation.md#cmake-options)).
+[Installation](getting-started/installation.md#cmake-options)), which is enabled by default.
 
 === "Python"
 
@@ -385,9 +389,15 @@ See [QP Solvers](concepts/qp-solvers.md) for the tunable parameters of each back
     ```cpp
     #include "model/stagewise/predefined/Constraints.hpp"
 
-    model.addConstraints<ssqp::model::stagewise::predefined::constraints::ContactConstraint>(
-        k, model, "foot_frame", 0.6, 200.0);
+    namespace constraints = ssqp::model::stagewise::predefined::constraints;
+
+    model.addConstraints<constraints::ContactConstraint>(k, model, "foot_frame", 0.6, 200.0);
     ```
+
+The contact constraint restricts the contact force (friction cone), keeps the foot from penetrating the ground and,
+by default, bounds the foot's linear velocity to zero so that a planted foot does not slide along the ground. Pass
+`no_slip=False` to drop that velocity bound, e.g. when you want to bound or penalize the foot's motion yourself
+instead.
 
 In C++, the templated `addConstraints<C>` automatically creates and wires up the force the contact needs (it reads
 `required_forces()`/`force_frame()` off the constraint); this is exactly the convenience the Python
@@ -405,33 +415,40 @@ turn a contact on/off for a given stage:
 
     ```python
     for k in range(H):
-        if in_stance(k, "foot_frame"):
-            # Only add it for the stages where it should apply
-            model.addContactConstraint(k, "foot_frame", mu=0.6, max_normal_force=200.0)
+        # Way 1: only add the constraints for the stages where the foot is grounded
+        if in_stance(k, "foot_1"):
+            model.addContactConstraint(k, "foot_1", mu=0.6, max_normal_force=200.0)
 
-    # ...or add it unconditionally everywhere, and toggle it afterward
-    velocity_bound = ssqpy.model.constraints.FrameLinearVelocityBound(model, "foot_frame", lb, ub)
-    velocity_bound.set_enabled(False)
+        # Way 2: add them at every stage, and disable them where the foot is airborne
+        contact = model.addContactConstraint(k, "foot_2", mu=0.6, max_normal_force=200.0)
+        if not in_stance(k, "foot_2"):
+            contact.set_enabled(False)
     ```
 
 === "C++"
 
     ```cpp
+    namespace constraints = ssqp::model::stagewise::predefined::constraints;
+
     for (uint k = 0; k < H; ++k)
     {
-        if (in_stance(k, "foot_frame"))
-            model.addConstraints<ssqp::model::stagewise::predefined::constraints::ContactConstraint>(
-                k, model, "foot_frame", 0.6, 200.0);
-    }
+        // Way 1: only add the constraints for the stages where the foot is grounded
+        if (in_stance(k, "foot_1"))
+        {
+            model.addConstraints<constraints::ContactConstraint>(k, model, "foot_1", 0.6, 200.0);
+        }
 
-    // ...or add it unconditionally everywhere, and toggle it afterward
-    auto velocity_bound = model.addConstraints<FrameLinearVelocityBound>(k, model, "foot_frame", lb, ub);
-    velocity_bound->set_enabled(false);
+        // Way 2: add them at every stage, and disable them where the foot is airborne
+        auto contact = model.addConstraints<constraints::ContactConstraint>(k, model, "foot_2", 0.6, 200.0);
+        if (!in_stance(k, "foot_2"))
+        {
+            contact->set_enabled(false);
+        }
+    }
     ```
 
-The two approaches suit different situations: conditionally calling `addContactConstraint` only inside the stages
-where a foot is grounded is simplest when the schedule is just a stage-index check. `set_enabled` is more
-convenient when a constraint's applicability depends on something more complex than that, or when you want to
+The two approaches suit different situations: conditionally adding the contact constraint only inside the stages where a foot is grounded is simplest when the schedule is just a stage-index
+check. `set_enabled` is more convenient when a constraint's applicability depends on something more complex than that, or when you want to
 create the constraint object once upfront and reuse it. Neither approach requires all feet (or any other set of
 contacts) to share the same schedule; per-foot, per-stage toggling is exactly what makes asymmetric gaits
 representable with the same building blocks. Inside a fully airborne window, adding no contact constraints at all
@@ -451,7 +468,8 @@ changes); which one converges best depends on the problem:
   enter the dynamics linearly, so the QP built at each iteration is a better local approximation than it would be
   with torques, where that mapping is nonlinear in the configuration; see
   [Panda Circle](examples/panda-circle-trajgen.md#building-the-model).
-* **`ReducedInverseDynamics`** (acceleration controls, unactuated DOFs propagated implicitly) is for free-flyer
+* **`ReducedInverseDynamics`** (acceleration controls, unactuated DOFs propagated implicitly) is strictly an improvement
+  over `InverseDynamics` for systems with manifold-valued states, and is used mainly for free-flyer
   systems, e.g. legged robots, where the base isn't directly actuated; the base's 6 degrees of freedom are
   enforced through the dynamics instead of being treated as free control inputs, which `InverseDynamics` alone
   wouldn't handle; see [Go2 Jump](examples/go2-jump.md).
@@ -547,25 +565,77 @@ breakdowns. See [Termination](concepts/solver.md#termination) in The SSQP Solver
     model.updateDimensions();
     ```
 
+Toggle the object you added to the model (the one `addCost`/`addConstraints` was given or returned). The entries
+in `model.costs()`/`model.constraints()` are merged combinations of everything on a stage, and calling
+`set_enabled` on one throws.
+
+* **Costs:** nothing more is needed, since disabling a cost doesn't change any dimension. A stage always keeps at
+  least one cost, so disabling every cost on a stage has no effect.
+* **Constraints:** disabling one removes its rows from the stage's constraint vector, which changes the sizes in
+  `model.dims()`/`model.linear_dims()`. Call `updateDimensions` after toggling a constraint on a finalized model, and
+  construct a new solver afterwards, since a solver sizes its buffers when it is created. `solvers.MPC` does both for
+  you: `step()` calls `updateDimensions` and rebuilds the solver only if the sizes changed. Toggling before
+  `finalize` needs neither.
+
 ## How do I control SSQP's logging output?
+
+SSQP's output is controlled by a single global mask of independent log levels, set with the functions below.
 
 === "Python"
 
     ```python
+    # No output at all
     ssqpy.setSilentMode()
 
-    # or, more selectively:
+    # Only warnings and errors: silence everything, then add those levels back
+    ssqpy.setSilentMode()
     ssqpy.setLogLevel(ssqpy.Warning | ssqpy.Error)
+
+    # Or remove a single level from the current mask
+    ssqpy.unsetLogLevel(ssqpy.Info)
+
+    # Turn on the (very verbose) debug output
+    ssqpy.setLogLevel(ssqpy.Debug)
+
+    # Keep the iteration table, but with fewer columns
+    solver.setReducedOutput(True)
     ```
 
 === "C++"
 
     ```cpp
+    // No output at all
     ssqp::set_silent_mode();
 
-    // or, more selectively:
+    // Only warnings and errors: silence everything, then add those levels back
+    ssqp::set_silent_mode();
     ssqp::set_log_level(ssqp::Warning | ssqp::Error);
+
+    // Or remove a single level from the current mask
+    ssqp::unset_log_level(ssqp::Info);
+
+    // Turn on the (very verbose) debug output
+    ssqp::set_log_level(ssqp::Debug);
+
+    // Keep the iteration table, but with fewer columns
+    solver.setReducedOutput(true);
     ```
+
+`setLogLevel` *adds* levels to the mask; it doesn't replace it. `Info`, `Warning` and `Error` are on by default, so
+`setLogLevel(Warning | Error)` on its own changes nothing, which is why the "only warnings and errors" example
+silences everything first. Each level covers a different kind of output:
+
+| Level | On by default | What it prints |
+| --- | --- | --- |
+| `Info` | yes | The SSQP iteration table (iteration, step norms, constraint violation, and, unless the output is reduced, the first violated stage, QP iterations, QP runtime and step size) and the total solve time |
+| `Warning` | yes | Non-fatal problems: HPIPM returning a non-zero status, NaNs in the QP solution, one dynamics object shared by several stages, or asking an MPC for its convergence data when `keep_convergence_data` is off |
+| `Error` | yes | Line search failure with regularization disabled |
+| `Debug` | no | The initial guess, every iterate's states and controls, the QP matrices built for each stage, and HPIPM's status; this is a lot of output for anything beyond a tiny problem |
+
+`setReducedOutput` only trims the iteration table; it doesn't change which levels are on. The mask is global to the
+process, so it applies to every model and solver at once, and it only affects printing: the solve's
+[convergence data](#how-do-i-inspect-solver-convergence-or-debug-why-it-isnt-converging) is recorded either way. To remove the logging from the
+build altogether, configure with `-DDISABLE_LOGGING=ON` (see [Installation](getting-started/installation.md)).
 
 ## How do I visualize a solved trajectory?
 

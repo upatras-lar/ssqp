@@ -100,8 +100,9 @@ list.
 ## Contacts and forces
 
 For XML-based models, `Model.addForce(k, frame)` declares an external force at a frame for a stage, and
-`Model.addContactConstraint(k, frame, mu=0.6, max_normal_force=inf, eq_tol=0.0)` is a convenience that both adds a
-contact constraint (friction cone, non-penetration) *and* the associated force in one call; this is the mechanism
+`Model.addContactConstraint(k, frame, mu=0.6, max_normal_force=inf, eq_tol=0.0, no_slip=True)` is a convenience
+that both adds a contact constraint (friction cone, non-penetration and, unless `no_slip=False`, a zero linear
+velocity bound on the frame) *and* the associated force in one call; this is the mechanism
 used by legged-robot examples (e.g. Go2, G1) to model foot contacts against the [terrain](terrain.md).
 
 See the [Python API reference](../reference/model.md) for the full `Model` method list.

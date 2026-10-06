@@ -24,6 +24,7 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
   features:
+    - navigation.instant
     - navigation.tabs
     - navigation.sections
     - navigation.top
@@ -104,6 +105,7 @@ extra_javascript:
   - javascripts/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
   - javascripts/benchmark-tolerance.js
+  - javascripts/lar-button.js
 
 plugins:
   - search

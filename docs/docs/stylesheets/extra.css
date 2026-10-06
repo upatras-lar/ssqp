@@ -43,3 +43,31 @@
   border-radius: 0.2em;
   padding: 0.2em 0.4em;
 }
+
+.lar-button {
+  position: absolute;
+  top: 50%;
+  left: 0.8rem;
+  transform: translateY(-50%);
+  z-index: 1;
+  padding: 0.2rem 0.7rem;
+  border: 0.05rem solid currentcolor;
+  border-radius: 0.2rem;
+  color: var(--md-primary-bg-color);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+  transition: opacity 0.25s, background-color 0.25s;
+}
+
+.lar-button:hover {
+  background-color: var(--md-primary-bg-color--lightest);
+  opacity: 1;
+}
+
+@media screen and (max-width: 76.1875em) {
+  .lar-button {
+    display: none;
+  }
+}

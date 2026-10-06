@@ -17,7 +17,15 @@ non-penetration and to build the local contact frame for the friction cone.
 
 The contact constraint differentiates the contact frame with respect to position using the height derivatives, so
 the frame must follow the convention of `TerrainPoint.from_height(height, dhdx, dhdy, d2hdx2, d2hdxdy, d2hdy2)`:
-`normal = (-dhdx, -dhdy, 1) / norm`, `t1 = (1, 0, dhdx) / norm` and `t2 = normal x t1`. Always build points with it.
+
+
+$$
+\boldsymbol{n} = \frac{(-h_x,\, -h_y,\, 1)}{\lVert (-h_x,\, -h_y,\, 1) \rVert}, \qquad
+\boldsymbol{t}_1 = \frac{(1,\, 0,\, h_x)}{\lVert (1,\, 0,\, h_x) \rVert}, \qquad
+\boldsymbol{t}_2 = \boldsymbol{n} \times \boldsymbol{t}_1
+$$
+
+where $h_x$ and $h_y$ are `dhdx` and `dhdy`. Always build points with it.
 
 ## Predefined terrains
 
@@ -34,7 +42,7 @@ terrain = ssqpy.model.terrain.HeightmapTerrain(heights, resolution, x0=0.0, y0=0
 x, for `num_steps` steps, and stays at the top afterwards. With the default single step, `step_length` has no effect.
 
 `HeightmapTerrain` interpolates a uniform grid, where `heights[i, j]` is the height at
-`(x0 + i * resolution, y0 + j * resolution)`, with a bicubic Catmull-Rom spline. The surface passes through every grid
+$(x_0 + i \cdot \text{resolution},\, y_0 + j \cdot \text{resolution})$, with a bicubic Catmull-Rom spline. The surface passes through every grid
 height and has continuous slope. Outside the grid it extends flat from the closest edge value.
 
 Pass a terrain to a model with `Model(..., terrain=terrain)`.

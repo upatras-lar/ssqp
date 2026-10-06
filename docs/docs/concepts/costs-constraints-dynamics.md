@@ -17,9 +17,9 @@ C++, or use one of the predefined implementations that ship with SSQP, listed be
 * `gradient(x, u)`: $\nabla_x \ell_k$ and $\nabla_u \ell_k$
 * `hessian_xx(x, u)`, `hessian_xu(x, u)`, `hessian_uu(x, u)`: the cost Hessian blocks
 
-Costs can be named, enabled/disabled at runtime (`set_enabled`/`enabled`, though a cost that is part of a merged cost
-is only actually disabled if the other component is also disabled), and multiple costs can be added to the same stage
-via `Model.addCost` / `Model.addRunningCost`.
+Costs can be named, enabled/disabled at runtime (`set_enabled`/`enabled`, though a stage always keeps at least one
+cost, so disabling every cost on a stage has no effect), and multiple costs can be added to the same stage via
+`Model.addCost` / `Model.addRunningCost`.
 
 ### Predefined costs
 
@@ -84,7 +84,9 @@ same treatment for their own manifold-valued states.
 ## Constraints
 
 `StageConstraints` ($\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u}) \geq \boldsymbol{0}$, or bounded via
-`lower_bound()`/`upper_bound()`) mirrors `StageCost`'s interface for an arbitrary output size, and adds:
+`lower_bound()`/`upper_bound()`) mirrors `StageDynamics`' derivative interface (`gradient` and
+`hessprod_xx`, `hessprod_xu`, `hessprod_uu` against a multiplier $\boldsymbol{\mu}_k$) for an arbitrary output
+size, and adds:
 
 * `lower_bound()` / `upper_bound()`: per-element bounds (defaults to $[0, \infty)$, i.e. an inequality
   $\geq 0$; pass equal bounds for an equality constraint)
@@ -99,7 +101,7 @@ same treatment for their own manifold-valued states.
 `FrameTerrainHeightBound`, `FrameRotationBound`, `FramePoseBound`, `FrameLinearVelocityBound`, `FrameAngularVelocityBound`,
 `CenterOfMassBound`. The C++ library additionally defines `ContactConstraint` directly, which
 `Model.addContactConstraint` constructs and wires up for you (friction cone + non-penetration against the model's
-[terrain](terrain.md)).
+[terrain](terrain.md) + no-slip zero velocity, which `no_slip=False` turns off).
 
 See [`ssqpy.model.constraints`](../reference/model-constraints.md) for constructor arguments and details for each.
 

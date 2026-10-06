@@ -58,8 +58,8 @@ provide ready-made subclasses built on Pinocchio kinematics, matching the classe
 `FloatingBaseTranslationBound`, `FloatingBaseRotationBound`, `FloatingBasePoseBound`,
 `FloatingBaseLinearVelocityBound`, `FloatingBaseAngularVelocityBound`, `FrameTranslationBound`,
 `FrameTerrainHeightBound`, `FrameRotationBound`, `FramePoseBound`, `FrameLinearVelocityBound`, `FrameAngularVelocityBound`,
-`CenterOfMassBound`, and `ContactConstraint` (friction cone + non-penetration; C++-only, not directly exposed to
-Python, since `Model.addContactConstraint` constructs one for you).
+`CenterOfMassBound`, and `ContactConstraint` (friction cone + non-penetration + optional no-slip; C++-only, not
+directly exposed to Python, since `Model.addContactConstraint` constructs one for you).
 
 Their constructor arguments mirror the Python bindings; see the corresponding entry in the
 [Python API reference](../reference/model-costs.md) for the parameter list of each.
