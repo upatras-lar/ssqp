@@ -77,20 +77,6 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-# Create velocity bounds for each frame that will have a force applied
-left_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mm", np.zeros(3), np.zeros(3)
-)
-left_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mp", np.zeros(3), np.zeros(3)
-)
-left_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pp", np.zeros(3), np.zeros(3)
-)
-left_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pm", np.zeros(3), np.zeros(3)
-)
-
 init_controls = []
 
 for k in range(H):
@@ -150,15 +136,11 @@ for k in range(H):
             ),
         )
 
-    # Add contact constraints and velocity bounds for points on left foot
+    # Add contact constraints for points on left foot
     model.addContactConstraint(k, "left_mm")
     model.addContactConstraint(k, "left_mp")
     model.addContactConstraint(k, "left_pp")
     model.addContactConstraint(k, "left_pm")
-    model.addConstraints(k, left_mm_vel_bound)
-    model.addConstraints(k, left_mp_vel_bound)
-    model.addConstraints(k, left_pp_vel_bound)
-    model.addConstraints(k, left_pm_vel_bound)
 
     init_controls.append(init_control)
 

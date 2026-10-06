@@ -66,33 +66,6 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-# Create velocity bounds for each frame that will have a force applied
-left_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mm", np.zeros(3), np.zeros(3)
-)
-left_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mp", np.zeros(3), np.zeros(3)
-)
-left_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pp", np.zeros(3), np.zeros(3)
-)
-left_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pm", np.zeros(3), np.zeros(3)
-)
-
-right_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_mm", np.zeros(3), np.zeros(3)
-)
-right_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_mp", np.zeros(3), np.zeros(3)
-)
-right_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_pp", np.zeros(3), np.zeros(3)
-)
-right_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_pm", np.zeros(3), np.zeros(3)
-)
-
 right_hand_translation_cost = costs.FrameSquaredTranslationErrorCost(
     model, "right_wrist_roll_rubber_hand", np.array((0.1, -0.3, 1.0)), 0.5
 )
@@ -122,7 +95,7 @@ for k in range(H):
     model.addCost(k, right_hand_translation_cost)
     model.addCost(k, left_hand_translation_cost)
 
-    # Add contact constraints and velocity bounds for points on left foot
+    # Add contact constraints for points on left foot
     model.addContactConstraint(
         k, "left_mm", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
     )
@@ -135,10 +108,6 @@ for k in range(H):
     model.addContactConstraint(
         k, "left_pm", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
     )
-    model.addConstraints(k, left_mm_vel_bound)
-    model.addConstraints(k, left_mp_vel_bound)
-    model.addConstraints(k, left_pp_vel_bound)
-    model.addConstraints(k, left_pm_vel_bound)
 
     model.addContactConstraint(
         k, "right_mm", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
@@ -152,10 +121,6 @@ for k in range(H):
     model.addContactConstraint(
         k, "right_pm", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
     )
-    model.addConstraints(k, right_mm_vel_bound)
-    model.addConstraints(k, right_mp_vel_bound)
-    model.addConstraints(k, right_pp_vel_bound)
-    model.addConstraints(k, right_pm_vel_bound)
 
 # Add regularization costs at the terminal stage
 model.addCost(H, joint_angle_cost)

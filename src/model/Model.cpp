@@ -846,12 +846,44 @@ void Model::addRunningCost(const std::shared_ptr<stagewise::StageCost> &cost)
     }
 }
 
+// Stateless placeholder shared by every stage that is merged with it
+static const std::shared_ptr<stagewise::StageConstraints> &
+neverEnabledConstraints()
+{
+    static const auto empty = []()
+    {
+        auto never_enabled = []() { return false; };
+        auto no_rows       = []() { return 0u; };
+        auto no_bound      = []() { return VecX(); };
+        auto no_value      = [](const VecX &, const VecX &) { return VecX(); };
+        auto no_gradient   = [](const VecX &, const VecX &, MatX &, MatX &) {};
+
+        return stagewise::factory::make_constraints({},
+                                                    no_rows,
+                                                    no_rows,
+                                                    no_bound,
+                                                    no_bound,
+                                                    no_value,
+                                                    no_gradient,
+                                                    DefaultRightMinus,
+                                                    ZeroHessprod_xx,
+                                                    ZeroHessprod_xu,
+                                                    ZeroHessprod_uu,
+                                                    never_enabled);
+    }();
+
+    return empty;
+}
+
 void Model::addConstraints(
   const uint k, const std::shared_ptr<stagewise::StageConstraints> &constraints)
 {
     if (_constraints[k] == nullptr)
     {
-        _constraints[k] = constraints;
+        // Always merged, since only merged constraints honor enabled()
+        _constraints[k] =
+          stagewise::factory::merge_constraints(neverEnabledConstraints(),
+                                                constraints);
         return;
     }
 

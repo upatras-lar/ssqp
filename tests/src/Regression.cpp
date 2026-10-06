@@ -188,10 +188,14 @@ void hpipmActiveBoundGains()
 
 void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
 {
-    auto model  = integratorProblem(2, 1.0, true);
-    auto bounds = model->constraints();
+    auto model = integratorProblem(2, 1.0);
+    std::vector<std::shared_ptr<model::stagewise::StageConstraints>> bounds;
     // Toggle components of merged constraints, as in robot MPC applications.
-    for (uint k = 0; k < 2; ++k) model->addConstraints<ControlBound>(k, 2.0);
+    for (uint k = 0; k < 2; ++k)
+    {
+        bounds.push_back(model->addConstraints<ControlBound>(k));
+        model->addConstraints<ControlBound>(k, 2.0);
+    }
     model->updateDimensions();
     auto                 params = accurateParams(backend);
     solvers::MPC::Params mp;
@@ -224,6 +228,72 @@ void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
         }
         require(mpc.getConvergenceData().empty(), "History disabled");
     }
+}
+
+void costToggling()
+{
+    auto a = std::make_shared<Quadratic>();
+    auto b = std::make_shared<Quadratic>();
+    auto c = std::make_shared<Quadratic>();
+    auto merged = model::stagewise::factory::merge_costs(
+      model::stagewise::factory::merge_costs(a, b),
+      c);
+    const VecX x = VecX::Constant(1, 2.0), u = VecX::Constant(1, 0.0);
+    // Each enabled cost contributes 0.5 * |x|^2 = 2
+    auto value = [&]() { return merged->evaluate(x, u)[0]; };
+    auto grad  = [&]()
+    {
+        VecX dx, du;
+        merged->gradient(x, u, dx, du);
+        return dx[0];
+    };
+
+    require(std::abs(value() - 6.0) < 1e-12, "Three enabled costs");
+    b->set_enabled(false);
+    require(std::abs(value() - 4.0) < 1e-12, "Middle cost disabled");
+    a->set_enabled(false);
+    require(std::abs(value() - 2.0) < 1e-12, "Two nested costs disabled");
+    require(std::abs(grad() - 2.0) < 1e-12, "Gradient of the only enabled cost");
+    c->set_enabled(false);
+    require(value() > 0.0, "One cost is kept when all are disabled");
+    b->set_enabled(true);
+    require(std::abs(value() - 2.0) < 1e-12, "Re-enabled cost");
+
+    bool threw = false;
+    try
+    {
+        merged->set_enabled(false);
+    }
+    catch (const std::runtime_error &)
+    {
+        threw = true;
+    }
+    require(threw, "Merged costs cannot be toggled directly");
+}
+
+void constraintToggling()
+{
+    auto model = integratorProblem(2, 1.0);
+    auto lone  = model->addConstraints<ControlBound>(0);
+    lone->set_enabled(false);
+    model->updateDimensions();
+    require(model->linear_dims().constraint == 0u,
+            "Disabling a lone constraint removes it");
+    lone->set_enabled(true);
+    model->updateDimensions();
+    require(model->linear_dims().constraint == 1u,
+            "Enabling a lone constraint restores it");
+
+    bool threw = false;
+    try
+    {
+        model->constraints()[0]->set_enabled(false);
+    }
+    catch (const std::runtime_error &)
+    {
+        threw = true;
+    }
+    require(threw, "Combined constraints cannot be toggled directly");
 }
 
 void flatVecOwnership()
@@ -746,6 +816,10 @@ void addRegressionTests(TestContainer &tests)
           "Regression_SSQP_TimeLimit_" + suffix,
           [=] { solverTimeLimit(backend); }));
     }
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_Model_CostToggling", costToggling));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_Model_ConstraintToggling", constraintToggling));
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_SSQP_ParamsJsonOptionalKeys", paramsJsonOptionalKeys));
 #ifdef WITH_HPIPM

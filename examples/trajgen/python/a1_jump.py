@@ -1,6 +1,5 @@
 import ssqpy
 import ssqpy.model.costs as costs
-import ssqpy.model.constraints as constraints
 import numpy as np
 import argparse
 from math import pi
@@ -88,24 +87,6 @@ joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
 joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 
-# Velocity bounds for feet frames
-# These add constraints, such that the feet have no velocity
-fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3)
-)
-
-fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3)
-)
-
-rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3)
-)
-
-rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3)
-)
-
 for k in range(HORIZON):
     # Add regularization costs at each time step
     model.addCost(k, joint_angle_cost)
@@ -127,18 +108,11 @@ for k in range(HORIZON):
 
     # If not on the air
     if k < STEPS_BEFORE or k > HORIZON - STEPS_AFTER:
-        # Add a contact constraint & velocity bound for each foot
+        # Add a contact constraint for each foot
         model.addContactConstraint(k, "FL_foot")
-        model.addConstraints(k, fl_foot_vel_bound)
-
         model.addContactConstraint(k, "FR_foot")
-        model.addConstraints(k, fr_foot_vel_bound)
-
         model.addContactConstraint(k, "RL_foot")
-        model.addConstraints(k, rl_foot_vel_bound)
-
         model.addContactConstraint(k, "RR_foot")
-        model.addConstraints(k, rr_foot_vel_bound)
 
 # Add joint velocity regularization cost to terminal stage
 model.addCost(k, joint_angle_cost)

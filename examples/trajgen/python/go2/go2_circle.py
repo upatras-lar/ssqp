@@ -1,6 +1,5 @@
 import ssqpy
 import ssqpy.model.costs as costs
-import ssqpy.model.constraints as constraints
 import numpy as np
 import argparse
 from math import pi, sin, cos
@@ -160,12 +159,6 @@ for k in range(HORIZON):
     for foot in ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]:
 
         model.addContactConstraint(k, foot, eq_tol=0.01)
-
-        vel_bound = constraints.FrameLinearVelocityBound(
-            model, foot, np.zeros(3), np.zeros(3)
-        )
-
-        model.addConstraints(k, vel_bound)
 
 
 # Terminal trunk tracking cost

@@ -99,7 +99,9 @@ for k in range(mpc_H):
     model.addCost(k, foot_cost)
     model.addCost(k, base_rot_cost)
 
-    model.addContactConstraint(k, "FL_foot", CONTACT_MU, eq_tol=CONTACT_EQ_TOL)
+    model.addContactConstraint(
+        k, "FL_foot", CONTACT_MU, eq_tol=CONTACT_EQ_TOL, no_slip=False
+    )
 
 model.addCost(mpc_H, v_cost)
 model.addCost(mpc_H, com_cost)

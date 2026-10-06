@@ -96,61 +96,31 @@ int main()
         model.addCost<costs::SquaredForceCost>(k, model, F_WGT);
 
         // Add contact constraints for front left and rear right feet
-        // We also add velocity bounds to each contact constraint frame to
-        // constrain its velocity to 0, since we do not want it slipping
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "FL_foot",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "FL_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "RR_foot",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "RR_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         if (!TWO_FEET)
         {
-            // If standing on four feet, add contact constraints and velocity
-            // bounds for the other two feet as well
+            // If standing on four feet, add contact constraints for the other
+            // two feet as well
 
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "FR_foot",
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              "FR_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
-
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RL_foot",
                                                                  0.6);
-
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              "RL_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
         }
         else
         {

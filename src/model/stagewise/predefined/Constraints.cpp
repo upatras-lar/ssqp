@@ -1317,6 +1317,7 @@ ContactConstraint::ContactConstraint(const Model       &model,
                                      const std::string &frame, const double mu,
                                      const double       max_normal_force,
                                      const double       eq_tol,
+                                     const bool         no_slip,
                                      const std::string &name)
   : StageConstraints(name)
   , _model(std::make_shared<Model>(model))
@@ -1328,6 +1329,7 @@ ContactConstraint::ContactConstraint(const Model       &model,
   , _mu(mu)
   , _max_normal_force(max_normal_force)
   , _eq_tol(eq_tol)
+  , _no_slip(no_slip)
   , _lb((Vec6() << 0.0, -std::numeric_limits<double>::infinity(), 0.0,
          -std::numeric_limits<double>::infinity(), 0.0, -eq_tol)
           .finished())
@@ -1337,11 +1339,22 @@ ContactConstraint::ContactConstraint(const Model       &model,
           .finished())
   , _jac_world_scratch(MatX::Zero(6, _nv))
   , _jac_local_scratch(MatX::Zero(6, _nv))
+  , _dVdq_scratch(MatX::Zero(6, _nv))
+  , _dVdv_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() && "Cannot use ContactConstraint with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     assert(max_normal_force >= 0.0 &&
            "Max normal force value must be positive");
+
+    // No-slip rows bound the frame's linear velocity to zero
+    if (_no_slip)
+    {
+        _lb.conservativeResize(9);
+        _ub.conservativeResize(9);
+        _lb.tail<3>().setZero();
+        _ub.tail<3>().setZero();
+    }
 }
 
 void ContactConstraint::set_mu(const double mu)
@@ -1370,7 +1383,7 @@ void ContactConstraint::set_enabled(const bool enabled)
 
 uint ContactConstraint::output_size() const
 {
-    return 6;
+    return _no_slip ? 9 : 6;
 }
 
 uint ContactConstraint::required_forces() const
@@ -1417,13 +1430,20 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
     double ft1 = (f_global.transpose() * tp.t1)[0];
     double ft2 = (f_global.transpose() * tp.t2)[0];
 
-    Vec6 res;
+    VecX res(output_size());
     res[0] = fn;
     res[1] = ft1 - _mu * fn;
     res[2] = ft1 + _mu * fn;
     res[3] = ft2 - _mu * fn;
     res[4] = ft2 + _mu * fn;
     res[5] = pos[2] - tp.height;
+
+    if (_no_slip)
+    {
+        res.tail<3>() =
+          _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true)
+            .head<3>();
+    }
 
     return res;
 }
@@ -1439,7 +1459,7 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
-    dX.setZero(6, 2 * _nv);
+    dX.setZero(output_size(), 2 * _nv);
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_world_scratch);
     _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_local_scratch);
     MatX Jfw = _jac_world_scratch.topRows<3>();
@@ -1499,11 +1519,24 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     dX.row(5).head(_nv) = dhdp.transpose() * Jfw;
 
+    if (_no_slip)
+    {
+        _model->frameVelocityDerivatives(x.head(_nq),
+                                         x.tail(_nv),
+                                         _frame_id,
+                                         true,
+                                         _dVdq_scratch,
+                                         _dVdv_scratch);
+
+        dX.bottomLeftCorner(3, _nv)  = _dVdq_scratch.topRows<3>();
+        dX.bottomRightCorner(3, _nv) = _dVdv_scratch.topRows<3>();
+    }
+
     double fn  = (f_global.transpose() * tp.normal)[0];
     double ft1 = (f_global.transpose() * tp.t1)[0];
     double ft2 = (f_global.transpose() * tp.t2)[0];
 
-    dU.setZero(6, u.size());
+    dU.setZero(output_size(), u.size());
 
     Vec3 dfn_dflocal  = R.transpose() * tp.normal;
     Vec3 dft1_dflocal = R.transpose() * tp.t1;

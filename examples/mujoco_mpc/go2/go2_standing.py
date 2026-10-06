@@ -178,7 +178,9 @@ for k in range(mpc_H):
     model.addCost(k, base_cost)
 
     for foot in stance_feet:
-        model.addContactConstraint(k, foot, CONTACT_MU, eq_tol=CONTACT_EQ_TOL)
+        model.addContactConstraint(
+            k, foot, CONTACT_MU, eq_tol=CONTACT_EQ_TOL, no_slip=False
+        )
 
 if LEGS == 3:
     model.addCost(mpc_H, config_cost)

@@ -180,33 +180,6 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-# Create velocity bounds for feet frames that are in contact
-left_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mm", np.zeros(3), np.zeros(3)
-)
-left_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mp", np.zeros(3), np.zeros(3)
-)
-left_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pp", np.zeros(3), np.zeros(3)
-)
-left_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pm", np.zeros(3), np.zeros(3)
-)
-
-right_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_mm", np.zeros(3), np.zeros(3)
-)
-right_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_mp", np.zeros(3), np.zeros(3)
-)
-right_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_pp", np.zeros(3), np.zeros(3)
-)
-right_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_pm", np.zeros(3), np.zeros(3)
-)
-
 init_controls = []
 
 for k in range(H):
@@ -218,7 +191,7 @@ for k in range(H):
 
     # If on the ground
     if k < STEPS_BEFORE or k > H - STEPS_AFTER:
-        # Add contact and velocity constraints for feet frames
+        # Add contact constraints for feet frames
         model.addContactConstraint(
             k, "left_mm", max_normal_force=900, eq_tol=0.01
         )
@@ -231,10 +204,6 @@ for k in range(H):
         model.addContactConstraint(
             k, "left_pm", max_normal_force=900, eq_tol=0.01
         )
-        model.addConstraints(k, left_mm_vel_bound)
-        model.addConstraints(k, left_mp_vel_bound)
-        model.addConstraints(k, left_pp_vel_bound)
-        model.addConstraints(k, left_pm_vel_bound)
 
         model.addContactConstraint(
             k, "right_mm", max_normal_force=900, eq_tol=0.01
@@ -248,10 +217,6 @@ for k in range(H):
         model.addContactConstraint(
             k, "right_pm", max_normal_force=900, eq_tol=0.01
         )
-        model.addConstraints(k, right_mm_vel_bound)
-        model.addConstraints(k, right_mp_vel_bound)
-        model.addConstraints(k, right_pp_vel_bound)
-        model.addConstraints(k, right_pm_vel_bound)
 
         init_controls.append(init_control)
     else:

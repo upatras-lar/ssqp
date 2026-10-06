@@ -93,24 +93,10 @@ int main()
                                                                      "FL_foot",
                                                                      0.6);
 
-                model.addConstraints<constraints::FrameLinearVelocityBound>(
-                  k,
-                  model,
-                  "FL_foot",
-                  Eigen::Vector3d::Zero(),
-                  Eigen::Vector3d::Zero());
-
                 model.addConstraints<constraints::ContactConstraint>(k,
                                                                      model,
                                                                      "FR_foot",
                                                                      0.6);
-
-                model.addConstraints<constraints::FrameLinearVelocityBound>(
-                  k,
-                  model,
-                  "FR_foot",
-                  Eigen::Vector3d::Zero(),
-                  Eigen::Vector3d::Zero());
             }
             // If we are not at the start or end, only back feet should touch
             // the ground
@@ -125,24 +111,10 @@ int main()
                                                                  "RL_foot",
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              "RL_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
-
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RR_foot",
                                                                  0.6);
-
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              "RR_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
         }
         // If we are on air, do not add constraints
         else

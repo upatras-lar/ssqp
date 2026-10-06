@@ -741,6 +741,7 @@ def get_controller(init_config, simulation=False):
                 CONTACT_MU,
                 eq_tol=0.02,
                 max_normal_force=MAX_FOOT_FORCE,
+                no_slip=False,
             )
 
             model.addCost(k, foot_cost)
@@ -845,7 +846,12 @@ def get_controller(init_config, simulation=False):
     )
     for name in FOOT_NAMES:
         torque_model.addContactConstraint(
-            0, name, CONTACT_MU, eq_tol=0.02, max_normal_force=150
+            0,
+            name,
+            CONTACT_MU,
+            eq_tol=0.02,
+            max_normal_force=150,
+            no_slip=False,
         )
     torque_model.addCost(
         0, ssqpy.model.costs.SquaredControlCost(torque_model, U_WGT)

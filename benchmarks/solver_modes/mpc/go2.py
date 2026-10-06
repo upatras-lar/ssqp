@@ -85,38 +85,15 @@ def run(dynamics_mode):
     v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
     u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
-    fl_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-        model, "FL_foot", np.zeros(3), np.zeros(3)
-    )
-
-    fr_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-        model, "FR_foot", np.zeros(3), np.zeros(3)
-    )
-
-    rl_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-        model, "RL_foot", np.zeros(3), np.zeros(3)
-    )
-
-    rr_foot_vel_bound = ssqpy.model.constraints.FrameLinearVelocityBound(
-        model, "RR_foot", np.zeros(3), np.zeros(3)
-    )
-
     for k in range(mpc_H):
         model.addCost(k, config_cost)
         model.addCost(k, v_cost)
         model.addCost(k, u_cost)
 
         model.addContactConstraint(k, "FL_foot", CONTACT_MU)
-        model.addConstraints(k, fl_foot_vel_bound)
-
         model.addContactConstraint(k, "FR_foot", CONTACT_MU)
-        model.addConstraints(k, fr_foot_vel_bound)
-
         model.addContactConstraint(k, "RL_foot", CONTACT_MU)
-        model.addConstraints(k, rl_foot_vel_bound)
-
         model.addContactConstraint(k, "RR_foot", CONTACT_MU)
-        model.addConstraints(k, rr_foot_vel_bound)
 
     model.addCost(mpc_H, v_cost)
 

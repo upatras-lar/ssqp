@@ -482,19 +482,6 @@ def generate_go2_multi_jump_problems(dynamics_mode):
     joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
     force_cost = costs.SquaredForceCost(model, F_WGT)
 
-    fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-        model, "FL_foot", np.zeros(3), np.zeros(3)
-    )
-    fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-        model, "FR_foot", np.zeros(3), np.zeros(3)
-    )
-    rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-        model, "RL_foot", np.zeros(3), np.zeros(3)
-    )
-    rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-        model, "RR_foot", np.zeros(3), np.zeros(3)
-    )
-
     # Position bounds keeping on-air feet above the ground, and front/back
     # feet from getting too close to each other
     fl_foot_pos_bound = constraints.FrameTranslationBound(
@@ -552,19 +539,15 @@ def generate_go2_multi_jump_problems(dynamics_mode):
             model.addContactConstraint(
                 k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, fl_foot_vel_bound)
             model.addContactConstraint(
                 k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, fr_foot_vel_bound)
             model.addContactConstraint(
                 k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, rl_foot_vel_bound)
             model.addContactConstraint(
                 k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, rr_foot_vel_bound)
             continue
 
         # Determine whether this step is on-air, or landing after jump `i`
@@ -586,7 +569,6 @@ def generate_go2_multi_jump_problems(dynamics_mode):
                     max_normal_force=MAX_FORCE_NORMAL,
                     eq_tol=0.01,
                 )
-                model.addConstraints(k, rl_foot_vel_bound)
             if land in ("B", "R", "RR"):
                 model.addContactConstraint(
                     k,
@@ -594,7 +576,6 @@ def generate_go2_multi_jump_problems(dynamics_mode):
                     max_normal_force=MAX_FORCE_NORMAL,
                     eq_tol=0.01,
                 )
-                model.addConstraints(k, rr_foot_vel_bound)
             if land in ("F", "L", "FL"):
                 model.addContactConstraint(
                     k,
@@ -602,7 +583,6 @@ def generate_go2_multi_jump_problems(dynamics_mode):
                     max_normal_force=MAX_FORCE_NORMAL,
                     eq_tol=0.01,
                 )
-                model.addConstraints(k, fl_foot_vel_bound)
             if land in ("F", "R", "FR"):
                 model.addContactConstraint(
                     k,
@@ -610,7 +590,6 @@ def generate_go2_multi_jump_problems(dynamics_mode):
                     max_normal_force=MAX_FORCE_NORMAL,
                     eq_tol=0.01,
                 )
-                model.addConstraints(k, fr_foot_vel_bound)
 
     model.addCost(HORIZON, joint_vel_cost)
     model.addCost(
@@ -681,12 +660,6 @@ def generate_g1_jump_problems(dynamics_mode):
         "right_pp",
         "right_pm",
     ]
-    foot_vel_bounds = {
-        frame: constraints.FrameLinearVelocityBound(
-            model, frame, np.zeros(3), np.zeros(3)
-        )
-        for frame in foot_frames
-    }
 
     for k in range(H):
         model.addCost(k, joint_angle_cost)
@@ -711,7 +684,6 @@ def generate_g1_jump_problems(dynamics_mode):
                 model.addContactConstraint(
                     k, frame, eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
                 )
-                model.addConstraints(k, foot_vel_bounds[frame])
 
     model.addCost(H, joint_angle_cost)
     model.addCost(H, joint_vel_cost)

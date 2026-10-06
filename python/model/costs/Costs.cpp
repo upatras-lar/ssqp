@@ -125,8 +125,8 @@ void bind_Costs(nb::module_ &m)
       .def("names", &StageCost::names, "Get all cost names for StageCost.")
       .def("set_enabled", &StageCost::set_enabled, nb::arg("enabled"), R"doc(
         Set enabled status for StageCost
-        Note that this will only be considered if disabling is valid,
-        meaning this cost is part of a merged cost and the other cost is enabled
+        A stage always keeps at least one cost, so this has no effect if every
+        cost on the stage is disabled
       )doc")
       .def("enabled", &StageCost::enabled, "Whether this cost is enabled")
       .def("evaluate", &StageCost::evaluate, nb::arg("x"), nb::arg("u"), R"doc(

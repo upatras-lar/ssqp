@@ -89,12 +89,6 @@ base_pose_cost = costs.FrameSquaredPoseErrorCost(
     model, "base", base_pos, base_rot, T_BASE_WGT, R_BASE_WGT
 )
 
-# Velocity bound for the front left foot
-# Used in conjunction with the contact constraint
-fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3)
-)
-
 for k in range(HORIZON):
     # Add regularization costs
     model.addCost(k, joint_vel_cost)
@@ -105,7 +99,6 @@ for k in range(HORIZON):
 
     # Stand on the front left foot only
     model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
-    model.addConstraints(k, fl_foot_vel_bound)
 
 # Add costs at the terminal stage
 model.addCost(HORIZON, joint_vel_cost)

@@ -908,6 +908,9 @@ void bind_Constraints(nb::module_ &m)
         As well as the following constraint on the 3D position of the frame the
         contact is on:
          - $p_z = h_z$
+        And, unless `no_slip` is false, the following no-slip constraint on the
+        linear velocity of the frame:
+         - $\boldsymbol{v}_f = \boldsymbol{0}$
         where:
          - $f_n$ is the normal of the contact force ($f_z$)
          - $f_1$ is the first component of the tangential contact force ($f_x$)
@@ -915,10 +918,9 @@ void bind_Constraints(nb::module_ &m)
          - $\mu$ is the static friction coefficient at the contact
          - $p_z$ is the $z-$component of the translation of the frame the contact is on
          - $h_z$ is the height of the terrain at point $(p_x, p_y)$
+         - $\boldsymbol{v}_f$ is the linear velocity of the frame the contact is on
         Note that this constraint cannot be manually added in the Python library,
         use the `Model`'s `addContactConstraint` method instead.
-        Also note that this constraint should be coupled with a `FrameLinearVelocityBound`
-        on the frame to avoid slipping.
         )doc")
       .def("set_mu", &ContactConstraint::set_mu, nb::arg("mu"))
       .def("set_max_normal_force",

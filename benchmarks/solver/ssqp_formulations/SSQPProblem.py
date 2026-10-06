@@ -77,6 +77,7 @@ class SSQPProblem(ProblemWrapper):
             frame,
             max_normal_force=max_normal_force,
             eq_tol=eq_tol,
+            no_slip=False,
         )
 
     def finalize(self, parameter_dict):

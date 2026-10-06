@@ -19,12 +19,14 @@ namespace factory
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1 = decltype(ZeroHessian_xx),
          typename HessianFunction2 = decltype(ZeroHessian_xu),
-         typename HessianFunction3 = decltype(ZeroHessian_uu)>
+         typename HessianFunction3 = decltype(ZeroHessian_uu),
+         typename EnabledFunction  = decltype(DefaultEnabledFunc)>
 inline std::shared_ptr<StageCost> make_cost(
   const std::vector<std::string> names, EvaluationFunction eval,
   GradientFunction grad, HessianFunction1 hess_xx = ZeroHessian_xx,
   HessianFunction2 hess_xu = ZeroHessian_xu,
-  HessianFunction3 hess_uu = ZeroHessian_uu);
+  HessianFunction3 hess_uu = ZeroHessian_uu,
+  EnabledFunction enabled_func = DefaultEnabledFunc);
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
          typename EvaluationFunction, typename multiGradientFunction,
@@ -67,14 +69,20 @@ inline std::shared_ptr<StageConstraints> merge_constraints(
 
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
-         typename HessianFunction3>
+         typename HessianFunction3, typename EnabledFunction>
 class FunctionStageCost : public StageCost
 {
   public:
     inline FunctionStageCost(const std::vector<std::string> names,
                              EvaluationFunction eval, GradientFunction grad,
                              HessianFunction1 hess_xx, HessianFunction2 hess_xu,
-                             HessianFunction3 hess_uu);
+                             HessianFunction3 hess_uu,
+                             EnabledFunction  enabled_func);
+
+    // Not supported for a custom enabled function (merged costs), which is
+    // enabled if any of the costs it is made of is; set it on those instead
+    inline void set_enabled(const bool enabled) override;
+    inline bool enabled() const override;
 
     inline VecX evaluate(const VecX &x, const VecX &u) const override;
     inline void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -92,6 +100,7 @@ class FunctionStageCost : public StageCost
     const HessianFunction1   _hess_xx;
     const HessianFunction2   _hess_xu;
     const HessianFunction3   _hess_uu;
+    const EnabledFunction    _enabled_func;
 };
 
 class FunctionStageDynamicsBase : public StageDynamics
@@ -170,6 +179,10 @@ class FunctionStageConstraints : public StageConstraints
       const ManifoldOperator op, const HessprodFunction1 hess_xx,
       const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu,
       const EnabledFunction enabled_func);
+
+    // Not supported: this is always a combination of other constraints, whose
+    // enabled state is set on those directly
+    inline void set_enabled(const bool enabled) override;
 
     inline bool enabled() const override;
 

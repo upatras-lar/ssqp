@@ -53,48 +53,20 @@ void addStandingPhase(const uint steps, const Eigen::VectorXd &init_control_4,
                                                              "FL_foot",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "FL_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "FR_foot",
                                                              0.6);
-
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "FR_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "RL_foot",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "RL_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "RR_foot",
                                                              0.6);
-
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "RR_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
 
         init_controls.push_back(init_control_4);
     }
@@ -154,24 +126,10 @@ int main()
                                                                  "FL_foot",
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              "FL_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
-
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RR_foot",
                                                                  0.6);
-
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              "RR_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
 
             // If at the right part of cycle (first or last fourth), place
             // remaining feet on the ground
@@ -216,24 +174,10 @@ int main()
                                                                  "FR_foot",
                                                                  0.6);
 
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              "FR_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
-
             model.addConstraints<constraints::ContactConstraint>(k,
                                                                  model,
                                                                  "RL_foot",
                                                                  0.6);
-
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              "RL_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
 
             // If at the right part of cycle (first or last fourth), place
             // remaining feet on the ground

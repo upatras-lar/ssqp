@@ -410,7 +410,12 @@ for k in range(mpc_H):
             model, name, landed[name], T_WGT
         )
         foot_constraint = model.addContactConstraint(
-            k, name, CONTACT_MU, eq_tol=0.02, max_normal_force=150
+            k,
+            name,
+            CONTACT_MU,
+            eq_tol=0.02,
+            max_normal_force=150,
+            no_slip=False,
         )
 
         model.addCost(k, foot_cost)

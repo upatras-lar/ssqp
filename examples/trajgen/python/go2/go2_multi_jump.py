@@ -130,24 +130,6 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-# Define velocity bounds for feet
-# Used in conjunction with contact constraints
-fl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FL_foot", np.zeros(3), np.zeros(3)
-)
-
-fr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "FR_foot", np.zeros(3), np.zeros(3)
-)
-
-rl_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RL_foot", np.zeros(3), np.zeros(3)
-)
-
-rr_foot_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "RR_foot", np.zeros(3), np.zeros(3)
-)
-
 # Define position bounds for feet, such that their z-coordinate is positive and
 # the y-coordinate of the front two and back two feet does not get too close,
 # respectively
@@ -223,22 +205,18 @@ for k in range(HORIZON):
         model.addContactConstraint(
             k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
         )
-        model.addConstraints(k, fl_foot_vel_bound)
 
         model.addContactConstraint(
             k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
         )
-        model.addConstraints(k, fr_foot_vel_bound)
 
         model.addContactConstraint(
             k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
         )
-        model.addConstraints(k, rl_foot_vel_bound)
 
         model.addContactConstraint(
             k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
         )
-        model.addConstraints(k, rr_foot_vel_bound)
 
         init_controls.append(init_control)
         continue
@@ -263,76 +241,64 @@ for k in range(HORIZON):
             model.addContactConstraint(
                 k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, rl_foot_vel_bound)
 
             model.addContactConstraint(
                 k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, rr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "F":
             model.addContactConstraint(
                 k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, fl_foot_vel_bound)
 
             model.addContactConstraint(
                 k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, fr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "L":
             model.addContactConstraint(
                 k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, fl_foot_vel_bound)
 
             model.addContactConstraint(
                 k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, rl_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "R":
             model.addContactConstraint(
                 k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, fr_foot_vel_bound)
 
             model.addContactConstraint(
                 k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, rr_foot_vel_bound)
 
             init_controls.append(init_control_2)
         elif LAND_SEQ[i - 1] == "FL":
             model.addContactConstraint(
                 k, "FL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, fl_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "FR":
             model.addContactConstraint(
                 k, "FR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, fr_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "RL":
             model.addContactConstraint(
                 k, "RL_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, rl_foot_vel_bound)
 
             init_controls.append(init_control_1)
         elif LAND_SEQ[i - 1] == "RR":
             model.addContactConstraint(
                 k, "RR_foot", max_normal_force=MAX_FORCE_NORMAL, eq_tol=0.01
             )
-            model.addConstraints(k, rr_foot_vel_bound)
 
             init_controls.append(init_control_1)
 

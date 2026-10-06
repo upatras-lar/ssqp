@@ -111,33 +111,6 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-# Create velocity bounds for each frame that will have a force applied
-left_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mm", np.zeros(3), np.zeros(3)
-)
-left_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_mp", np.zeros(3), np.zeros(3)
-)
-left_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pp", np.zeros(3), np.zeros(3)
-)
-left_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "left_pm", np.zeros(3), np.zeros(3)
-)
-
-right_mm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_mm", np.zeros(3), np.zeros(3)
-)
-right_mp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_mp", np.zeros(3), np.zeros(3)
-)
-right_pp_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_pp", np.zeros(3), np.zeros(3)
-)
-right_pm_vel_bound = constraints.FrameLinearVelocityBound(
-    model, "right_pm", np.zeros(3), np.zeros(3)
-)
-
 left_foot_ag_bound_1 = constraints.FrameTranslationBound(
     model,
     "left_pp",
@@ -200,9 +173,6 @@ def add_left_cc(stance_start_steps):
             k, "left_mp", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
         )
 
-        model.addConstraints(k, left_mm_vel_bound)
-        model.addConstraints(k, left_mp_vel_bound)
-
     if stance_start_steps >= GRADUAL_STEP:
         model.addContactConstraint(
             k, "left_pp", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
@@ -210,9 +180,6 @@ def add_left_cc(stance_start_steps):
         model.addContactConstraint(
             k, "left_pm", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
         )
-
-        model.addConstraints(k, left_pp_vel_bound)
-        model.addConstraints(k, left_pm_vel_bound)
 
 
 def add_right_cc(stance_start_steps):
@@ -224,9 +191,6 @@ def add_right_cc(stance_start_steps):
             k, "right_mp", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
         )
 
-        model.addConstraints(k, right_mm_vel_bound)
-        model.addConstraints(k, right_mp_vel_bound)
-
     if stance_start_steps >= GRADUAL_STEP:
         model.addContactConstraint(
             k, "right_pp", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
@@ -234,9 +198,6 @@ def add_right_cc(stance_start_steps):
         model.addContactConstraint(
             k, "right_pm", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
         )
-
-        model.addConstraints(k, right_pp_vel_bound)
-        model.addConstraints(k, right_pm_vel_bound)
 
 
 stance_start_steps = 0
@@ -263,7 +224,7 @@ for k in range(H):
         add_right_cc(10)
         continue
 
-    # Add contact constraints and velocity bounds for points on left foot
+    # Add contact constraints for points on left foot
     if (k // FOOT_SWING_STEPS) % 2 == 0:
         if k % FOOT_SWING_STEPS == 0:
             stance_start_steps = 0

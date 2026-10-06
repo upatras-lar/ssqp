@@ -351,9 +351,9 @@ int main()
     ssqp::model::Model model(HORIZON, dt, model_config);
 
     // Create an SSQP solver object based on the model
-    // HPIPM solves this QP much faster than the default ADMM backend
     ssqp::solvers::ssqp::Params params;
-    params.qp_solver_type = ssqp::solvers::ssqp::QPSolverType::HPIPM;
+    params.admm_params.abs_tolerance = 1e-4;
+    params.admm_params.rel_tolerance = 1e-6;
     ssqp::solvers::ssqp solver(model, params);
     // Create a guess object using the model's dimensions and linear dimensions
     ssqp::solvers::ssqp::Guess solution(model.dims(), model.linear_dims());

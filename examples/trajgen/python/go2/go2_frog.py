@@ -201,12 +201,6 @@ def add_cc_to_foot(k, foot_frame):
     model.addContactConstraint(
         k, foot_frame, max_normal_force=MAX_NORMAL_FORCE, eq_tol=FOOT_EQ_TOL
     )
-    model.addConstraints(
-        k,
-        constraints.FrameLinearVelocityBound(
-            model, foot_frame, np.zeros(3), np.zeros(3)
-        ),
-    )
 
 
 for k in range(0, round(0.08 * HORIZON)):

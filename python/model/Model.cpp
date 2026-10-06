@@ -450,6 +450,7 @@ void bind_Model(nb::module_ &m)
            const double       mu,
            const double       max_normal_force,
            const double       eq_tol,
+           const bool         no_slip,
            const std::string &name)
         {
             return std::static_pointer_cast<ContactConstraint>(
@@ -459,6 +460,7 @@ void bind_Model(nb::module_ &m)
                                                      mu,
                                                      max_normal_force,
                                                      eq_tol,
+                                                     no_slip,
                                                      name));
         },
         nb::arg("k"),
@@ -466,10 +468,13 @@ void bind_Model(nb::module_ &m)
         nb::arg("mu")               = 0.6,
         nb::arg("max_normal_force") = std::numeric_limits<double>::infinity(),
         nb::arg("eq_tol")           = 0.0,
+        nb::arg("no_slip")          = true,
         nb::arg("name")             = "",
         R"doc(
         Add a contact constraint for a frame to a stage.
         This includes adding a force for the contact constraint at that stage.
+        Unless `no_slip` is false, the constraint also bounds the linear velocity
+        of the frame to zero so that it does not slip.
         )doc")
       .def_prop_ro(
         "finalized",

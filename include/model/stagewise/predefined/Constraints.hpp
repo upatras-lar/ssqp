@@ -784,6 +784,9 @@ class CenterOfMassBound : public StageConstraints
  * As well as the following constraint on the 3D position of the frame the
  * contact is on:
  *  - $p_z = h_z$
+ * And, unless `no_slip` is false, the following no-slip constraint on the
+ * linear velocity of the frame:
+ *  - $\boldsymbol{v}_f = \boldsymbol{0}$
  * where:
  *  - $f_n$ is the normal of the contact force ($f_z$)
  *  - $f_1$ is the first component of the tangential contact force ($f_x$)
@@ -791,14 +794,13 @@ class CenterOfMassBound : public StageConstraints
  *  - $\mu$ is the static friction coefficient at the contact
  *  - $p_z$ is the $z-$component of the translation of the frame the contact is on
  *  - $h_z$ is the height of the terrain at point $(p_x, p_y)$
+ *  - $\boldsymbol{v}_f$ is the linear velocity of the frame the contact is on
  * Note that when manually adding this contact constraint to a model, an 
  * external force must be added to the model and the appropriate methods must 
  * be called to correctly assign that force to this constraint. To avoid this,
  * simply use the `Model`'s `addConstraints` function, instantiated with the
  * template type `ContactConstraint`. In that case, adding and assigning of the
  * force will be handled automatically.
- * Also note that this constraint should be coupled with a `FrameLinearVelocityBound`
- * on the frame to avoid slipping.
  */
 class ContactConstraint : public StageConstraints
 {
@@ -806,7 +808,8 @@ class ContactConstraint : public StageConstraints
     ContactConstraint(
       const Model &model, const std::string &frame, const double mu = 0.6,
       const double max_normal_force = std::numeric_limits<double>::infinity(),
-      const double eq_tol = 0.0, const std::string &name = "");
+      const double eq_tol = 0.0, const bool no_slip = true,
+      const std::string &name = "");
 
     void set_mu(const double mu);
     void set_max_normal_force(const double max_normal_force);
@@ -851,8 +854,10 @@ class ContactConstraint : public StageConstraints
     double                       _mu;
     double                       _max_normal_force;
     double                       _eq_tol;
+    const bool                   _no_slip;
     VecX                         _lb, _ub;
     mutable MatX                 _jac_world_scratch, _jac_local_scratch;
+    mutable MatX                 _dVdq_scratch, _dVdv_scratch;
 };
 
 }

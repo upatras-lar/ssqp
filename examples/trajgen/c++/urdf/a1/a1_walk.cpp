@@ -133,25 +133,11 @@ int main()
               ls1 ? "RR_foot" : "RL_foot",
               0.6);
 
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              ls1 ? "RR_foot" : "RL_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
-
             model.addConstraints<constraints::ContactConstraint>(
               k,
               model,
               ls1 ? "FR_foot" : "FL_foot",
               0.6);
-
-            model.addConstraints<constraints::FrameLinearVelocityBound>(
-              k,
-              model,
-              ls1 ? "FR_foot" : "FL_foot",
-              Eigen::Vector3d::Zero(),
-              Eigen::Vector3d::Zero());
         }
         else
         {
@@ -172,25 +158,11 @@ int main()
                                                                  : "FL_foot",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          ls1 ? "FR_foot" : "FL_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              ls1 ? "RL_foot"
                                                                  : "RR_foot",
                                                              0.6);
-
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          ls1 ? "RL_foot" : "RR_foot",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
     }
 
     // Add terminal costs

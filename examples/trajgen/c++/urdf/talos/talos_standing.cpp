@@ -70,96 +70,40 @@ int main()
                                                              "left_mm",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "left_mm",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_mp",
                                                              0.6);
-
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "left_mp",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_pp",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "left_pp",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_pm",
                                                              0.6);
-
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "left_pm",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_mm",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "right_mm",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_mp",
                                                              0.6);
-
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "right_mp",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
 
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_pp",
                                                              0.6);
 
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "right_pp",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "right_pm",
                                                              0.6);
-
-        model.addConstraints<constraints::FrameLinearVelocityBound>(
-          k,
-          model,
-          "right_pm",
-          Eigen::Vector3d::Zero(),
-          Eigen::Vector3d::Zero());
     }
 
     model.addCost<costs::SquaredJointVelocityCost>(HORIZON, model, V_WGT);
