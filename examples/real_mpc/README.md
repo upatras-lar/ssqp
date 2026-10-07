@@ -186,7 +186,7 @@ cd go2
 python go2_joystick.py
 ```
 
-The network interface connected to the robot is `enp5s0` in our setup, so pass yours with `--interface`. With `--simulation`, the script instead controls the [unitree_mujoco](https://github.com/unitreerobotics/unitree_mujoco) simulator over the loopback interface. This also selects joint gains suited to the simulator, and goes without the foot contact sensors, which the simulator doesn't provide.
+The network interface connected to the robot is `enp5s0` in our setup, so pass yours with `--interface`. With `--simulation`, the script instead controls the [unitree_mujoco](https://github.com/unitreerobotics/unitree_mujoco) simulator over the loopback interface. This also selects joint gains suited to the simulator. The simulator leaves the foot force sensors at zero, in which case the script goes without foot contacts, unless its bridge (`simulate_python/unitree_sdk2py_bridge.py`) is changed to fill `foot_force` with each foot's normal force in newtons.
 
 The script releases the robot's own motion service when it starts, stands the robot up, then switches to the walk after a few seconds.
 
@@ -202,8 +202,8 @@ The defaults of these parameters are the `SIMULATION`, `ROBOT_INTERFACE` and `SI
 
 `dynamic_walk_model.py` builds the MPC. It is similar to `go2_walking.py` in the MuJoCo examples, with additions needed on a real robot:
 
-- **Gaits.** A trot, and a slower walk lifting one foot at a time, with the gamepad switching between them. The robot stands on all four feet until it is commanded to move, and goes back to standing once the command has been at rest.
-- **State estimation.** The robot only measures the base orientation, so the base position and velocity are estimated from the stance feet using leg odometry, optionally fused with the accelerometer in a Kalman filter (`USE_FILTER`). The foot force sensors tell when a foot is on the ground.
+- **Gaits.** A trot, a run (a trot with all feet in the air between stances, faster forward, and turning slower at its top speeds), and a slower walk lifting one foot at a time, with the gamepad switching between them. The robot stands on all four feet until it is commanded to move, and goes back to standing once the command has been at rest.
+- **State estimation.** The robot only measures the base orientation, so the base position and velocity are estimated from the stance feet using leg odometry, fused with the accelerometer in a Kalman filter. The foot force sensors tell when a foot is on the ground.
 - **Latency handling.** The solver runs in its own thread, pinned to the performance cores of hybrid CPUs, at a fixed rate. It solves from the state predicted for when the plan will start, and the plan is then played back at the command rate, with the joint torques recomputed from the measured state at every command.
 - **A small jump in place**, and adjustable base height, step height, pitch, roll and yaw.
 

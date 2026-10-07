@@ -17,6 +17,8 @@ F_WGT = 2e-4
 # Weight on the base's roll and pitch rates, which keeps each plan from
 # correcting the whole base tilt error within one stage
 W_WGT = 0.1
+# Weight on the base's height, which keeps its bounce in check while running
+Z_WGT = 3.0
 
 CONTACT_MU = 0.6
 # Limit on each foot's normal force
@@ -25,8 +27,16 @@ MAX_FOOT_FORCE = 150.0
 # Speed limit on stance feet, keeping the plan from swinging planted legs
 STANCE_VEL_TOL = 0.2
 
-# Plan stages per swing phase
-GAIT_PERIOD = 12
+# While stepping, the base's reference starts from its measured position, and
+# each foothold moves by FOOTHOLD_VEL_GAIN (in seconds) times the difference
+# between the measured and commanded base velocity, up to FOOTHOLD_MAX_SHIFT.
+# A foot landing ahead of where the base would pass over it slows the base
+# down, and one landing behind speeds it up. Footholds stop moving
+# FOOTHOLD_FREEZE_STAGES before touchdown, since the swing can no longer
+# follow them
+FOOTHOLD_VEL_GAIN = 0.19
+FOOTHOLD_MAX_SHIFT = 0.2
+FOOTHOLD_FREEZE_STAGES = 2
 
 # Time from measuring the state until the plan solved from it is applied. The
 # state is predicted this far ahead before solving, which makes up for the
@@ -39,9 +49,10 @@ PREDICT_TIME = 0.015
 MAX_SOLVE_TIME = 0.012
 
 # The robot stands on all four feet until it is commanded to move, and goes
-# back to standing once the command has been at rest for IDLE_TIME. Commands
-# below MOVE_THRESHOLD count as at rest. Stepping starts GAIT_START_STAGES
-# after the move command, which gives the plan time to shift its weight
+# back to standing once the command, and the base's reference velocity as it
+# slows down, have been at rest for IDLE_TIME. Commands below MOVE_THRESHOLD
+# count as at rest. Stepping starts GAIT_START_STAGES after the move command,
+# which gives the plan time to shift its weight
 IDLE_TIME = 1.0
 IDLE_STAGES = round(IDLE_TIME / MPC_DT)
 MOVE_THRESHOLD = 0.02
@@ -54,18 +65,14 @@ MAX_VEL_SIDE = 0.2
 MAX_VEL_YAW = 1.0
 MAX_ACC = 0.6
 MAX_YAW_ACC = 1.0
+# Limit on the base's sideways acceleration while turning, as its speed times
+# its turning rate, which slows turning while running fast
+MAX_TURN_ACC = 0.8
 
-# Limit on the leg odometry base linear velocity, when used without the
-# filter. It spikes when a stance foot slips or loses contact, and the plan
-# follows such spikes
-MAX_BASE_VEL = 0.6
-
-# Whether the base position and linear velocity come from a Kalman filter,
-# which integrates the accelerometer and corrects it with the leg odometry of
-# every state message, rather than from the leg odometry alone
-USE_FILTER = True
-# Noise of the accelerometer (m/s^2), and of the leg odometry base velocity
-# (m/s) and position (m) from each stance foot
+# The base position and linear velocity come from a Kalman filter, which
+# integrates the accelerometer and corrects it with the leg odometry of every
+# state message. Noise of the accelerometer (m/s^2), and of the leg odometry
+# base velocity (m/s) and position (m) from each stance foot
 FILTER_ACC_STD = 0.1
 FILTER_VEL_STD = 0.1
 FILTER_POS_STD = 0.02
@@ -183,12 +190,23 @@ CALF_LENGTH = 0.23648
 
 FOOT_NAMES = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 
-# Gaits, as the groups of feet that take turns to swing for a gait period each
-# and the share of the velocity limits they walk at. The walk lifts one foot at
-# a time, so it steps slower
+# Gaits, as the groups of feet that take turns to start their swing a gait
+# period apart, the factor on the velocity limits they move at, the duty
+# factor, which is the share of the gait cycle each foot spends on the ground,
+# and the gait period in plan stages. Above 1, the factor scales only the
+# forward limit, so no gait moves backward, sideways or turns faster than the
+# trot. Below 1 - 1 / groups the swings overlap. The run is a trot with all
+# feet in the air between stances, at a higher speed and with quicker steps.
+# The walk lifts one foot at a time, so it steps slower
 GAITS = {
-    "trot": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 1.0),
-    "walk": ([["RL_foot"], ["FL_foot"], ["RR_foot"], ["FR_foot"]], 0.5),
+    "trot": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 1.0, 0.5, 12),
+    "run": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 3.0, 0.4, 10),
+    "walk": (
+        [["RL_foot"], ["FL_foot"], ["RR_foot"], ["FR_foot"]],
+        0.5,
+        0.75,
+        12,
+    ),
 }
 # Gait at the start. The gait button cycles through them while standing
 GAIT = "trot"
@@ -266,10 +284,10 @@ def get_controller(init_config, simulation=False):
 
     The robot only measures the base orientation, not its position, so the
     base position is estimated from the stance feet (leg odometry), assuming
-    they stay where they landed on flat ground at zero height. With
-    USE_FILTER, a Kalman filter fuses this with the accelerometer. The yaw is
-    taken relative to the initial one. The base position in the given
-    configurations is ignored
+    they stay where they landed on flat ground at zero height, which a Kalman
+    filter fuses with the accelerometer
+    The yaw is taken relative to the initial one
+    The base position in the given configurations is ignored
 
     The robot stands on all four feet until the command moves it, and stands
     again once the command has been at rest for IDLE_TIME
@@ -291,9 +309,9 @@ def get_controller(init_config, simulation=False):
      - command_torques, taking the commands, the time since the plan started
        and the measured configuration and velocity, and returning the joint
        torques to apply
-     - filter_state, to call with every state message when USE_FILTER is
-       set. It takes the measured configuration and velocity, the
-       accelerometer reading (in the base frame) and the time in seconds
+     - filter_state, to call with every state message. It takes the measured
+       configuration and velocity, the accelerometer reading (in the base
+       frame) and the time in seconds
     """
     model = ssqpy.model.Model(
         MPC_H,
@@ -389,6 +407,14 @@ def get_controller(init_config, simulation=False):
         "poses": [np.zeros(3)],
         # Where each foot last landed
         "landed": {},
+        # Shift of the footholds for the base velocity error, and each foot's
+        # frozen foothold with the stage it lands at
+        "foothold_shift": np.zeros(3),
+        "frozen": {},
+        # Footholds by foot and gait period, and foot references by foot and
+        # stage, computed since the references were last updated
+        "footholds": {},
+        "foot_references": {},
         # Current gait
         "gait": GAIT,
         "gait_held": False,
@@ -442,19 +468,13 @@ def get_controller(init_config, simulation=False):
         }
         return R, feet, positions, velocities
 
-    def estimate_state(config, vel, stance_feet):
+    def estimate_state(config, vel):
         # Replaces the base pose and linear velocity with the filter's
-        # estimate, or the leg odometry one
-        R, feet, positions, velocities = leg_odometry(config, vel, stance_feet)
-        if USE_FILTER:
-            base_pos = est["filter"][1][:3]
-            base_vel = R.T @ est["filter"][1][3:]
-        else:
-            base_pos = np.mean(list(positions.values()), axis=0)
-            base_vel = np.mean(list(velocities.values()), axis=0)
-            speed = np.linalg.norm(base_vel)
-            if speed > MAX_BASE_VEL:
-                base_vel *= MAX_BASE_VEL / speed
+        # estimate
+        R = rotation_z(-initial_yaw) @ quat_to_rotation(config[3:7])
+        feet = feet_in_base(config)
+        base_pos = est["filter"][1][:3]
+        base_vel = R.T @ est["filter"][1][3:]
 
         state = np.hstack(
             (base_pos, rotation_to_quat(R), config[7:nq], base_vel, vel[3:])
@@ -547,20 +567,13 @@ def get_controller(init_config, simulation=False):
 
     def predict_poses(pose, count):
         v_cmd = est["v_cmd"]
-        predicted = [pose]
-        for _ in range(count):
-            x, y, yaw = predicted[-1]
-            c, s = np.cos(yaw), np.sin(yaw)
-            predicted.append(
-                np.array(
-                    [
-                        x + (c * v_cmd[0] - s * v_cmd[1]) * MPC_DT,
-                        y + (s * v_cmd[0] + c * v_cmd[1]) * MPC_DT,
-                        yaw + v_cmd[2] * MPC_DT,
-                    ]
-                )
-            )
-        return predicted
+        yaw = np.cumsum(np.append(pose[2], np.full(count, v_cmd[2] * MPC_DT)))
+        c, s = np.cos(yaw[:-1]), np.sin(yaw[:-1])
+        dx = (c * v_cmd[0] - s * v_cmd[1]) * MPC_DT
+        dy = (s * v_cmd[0] + c * v_cmd[1]) * MPC_DT
+        x = np.cumsum(np.append(pose[0], dx))
+        y = np.cumsum(np.append(pose[1], dy))
+        return np.column_stack((x, y, yaw))
 
     def jump_stage(k):
         # Stage k's index within the jump, or None outside of it
@@ -609,6 +622,86 @@ def get_controller(init_config, simulation=False):
         # Whether the foot is still coming down at stage k of the landing
         return name in est["falling_feet"] and k < est["touch_stage"]
 
+    def gait_period():
+        # Stages between the swing starts of consecutive groups of feet
+        return GAITS[est["gait"]][3]
+
+    def cycle_stages():
+        # Stages in one cycle of the gait
+        return len(GAITS[est["gait"]][0]) * gait_period()
+
+    def swing_stages():
+        # Stages each foot swings for in the gait
+        return round((1 - GAITS[est["gait"]][2]) * cycle_stages())
+
+    def gait_end():
+        # The stage where the last swing of the stopping gait lands
+        return est["gait_stop"] + max(swing_stages() - gait_period(), 0)
+
+    def gait_base_height(k):
+        # The base's reference height at stage k. When the swings overlap,
+        # each gait period starts with all feet in the air, and the base flies
+        # on a ballistic arc, then falls and rises back on the ground with
+        # constant acceleration in time for the next flight. The arc is
+        # offset to keep the base at its height on average. Before the first
+        # flight and after the last one, the base stays at its height
+        height = est["base_height"]
+        start, stop = est["gait_start"], est["gait_stop"]
+        groups = len(GAITS[est["gait"]][0])
+        flight = swing_stages() - (groups - 1) * gait_period()
+        if start is None or k < start or flight <= 0:
+            return height
+
+        # Flights start every period from the one where every group has
+        # started swinging until the last one to start a swing
+        period, stage = divmod(k - start, gait_period())
+        last = np.inf if stop is None else (stop - start) // gait_period() - 1
+        if stage < flight:
+            if not groups - 1 <= period <= last:
+                return height
+        elif not groups - 1 <= period < last:
+            return height
+
+        g = -GRAVITY[2]
+        t_flight = flight * MPC_DT
+        t_stance = (gait_period() - flight) * MPC_DT
+        liftoff = height - g * t_flight * (t_flight - t_stance) / 12
+        speed = g * t_flight / 2
+        if stage < flight:
+            t = stage * MPC_DT
+            return liftoff + speed * t - 0.5 * g * t**2
+        t = (stage - flight) * MPC_DT
+        acc = g * t_flight / t_stance
+        return liftoff - speed * t + 0.5 * acc * t**2
+
+    def last_swing(name, period):
+        # The latest gait period up to the given one where the foot starts a
+        # swing
+        groups = GAITS[est["gait"]][0]
+        group = next(i for i, g in enumerate(groups) if name in g)
+        return period - (period - group) % len(groups)
+
+    def latest_swing(name, k):
+        # The gait period of the foot's latest swing to start by stage k. No
+        # swings start once the gait stops
+        start, stop = est["gait_start"], est["gait_stop"]
+        period = (k - start) // gait_period()
+        if stop is not None:
+            period = min(period, (stop - start) // gait_period() - 1)
+        return last_swing(name, period)
+
+    def swing_phase(name, k):
+        # The foot's swing period and how far it is through it at stage k, or
+        # None while it stands
+        start = est["gait_start"]
+        if start is None or k < start:
+            return None
+        period = latest_swing(name, k)
+        stage = k - start - period * gait_period()
+        if period < 0 or stage >= swing_stages():
+            return None
+        return period, stage / swing_stages()
+
     def swing_feet(k):
         # The feet swinging at stage k
         if in_flight(k):
@@ -616,56 +709,53 @@ def get_controller(init_config, simulation=False):
         landing = [name for name in FOOT_NAMES if falling(name, k)]
         if landing:
             return landing
-        start, stop = est["gait_start"], est["gait_stop"]
-        if start is None or k < start or (stop is not None and k >= stop):
-            return []
-        groups = GAITS[est["gait"]][0]
-        return groups[((k - start) // GAIT_PERIOD) % len(groups)]
-
-    def last_swing(name, period):
-        # The latest gait period up to the given one where the foot swings
-        groups = GAITS[est["gait"]][0]
-        group = next(i for i, g in enumerate(groups) if name in g)
-        return period - (period - group) % len(groups)
+        return [name for name in FOOT_NAMES if swing_phase(name, k)]
 
     def foothold(name, period):
         # Where the foot lands at the end of its swing in the given period of
         # the gait, placed so that the base passes over the foot's nominal
-        # position mid-stance. Feet that are yet to swing stay where they are
+        # position mid-stance, then shifted for the base velocity error. Feet
+        # that are yet to swing, or have landed already, stay where they are
         stage = est["gait_start"] - est["pose_stage"]
-        if period < 0 or stage + (period + 1) * GAIT_PERIOD <= 0:
+        land = period * gait_period() + swing_stages()
+        if period < 0 or stage + land <= 0:
             return est["landed"][name]
-        stance = len(GAITS[est["gait"]][0]) - 1
-        middle = int((period + 1 + stance / 2) * GAIT_PERIOD)
+        if (name, period) in est["footholds"]:
+            return est["footholds"][name, period]
+        frozen = est["frozen"].get(name)
+        if frozen is not None and frozen[0] == est["gait_start"] + land:
+            return frozen[1]
+        middle = int(land + (cycle_stages() - swing_stages()) / 2)
         x, y, yaw = est["poses"][stage + middle]
-        return np.array([x, y, 0.0]) + rotation_z(yaw) @ foot_offsets[name]
-
-    def final_foothold(name):
-        # Where the foot stands once the gait stops, which is where its last
-        # swing lands
-        periods = (est["gait_stop"] - est["gait_start"]) // GAIT_PERIOD
-        return foothold(name, last_swing(name, periods - 1))
+        p = np.array([x, y, 0.0]) + rotation_z(yaw) @ foot_offsets[name]
+        p += est["foothold_shift"]
+        if stage + land <= FOOTHOLD_FREEZE_STAGES:
+            est["frozen"][name] = (est["gait_start"] + land, p)
+        est["footholds"][name, period] = p
+        return p
 
     def foot_reference(name, k):
         # Returns the foot's reference position at stage k and whether it
-        # swings
+        # swings, computing each once per update of the references
+        if (name, k) not in est["foot_references"]:
+            est["foot_references"][name, k] = new_foot_reference(name, k)
+        return est["foot_references"][name, k]
+
+    def new_foot_reference(name, k):
         if in_flight(k) or falling(name, k):
             return est["landed"][name], True
-        start, stop = est["gait_start"], est["gait_stop"]
+        start = est["gait_start"]
         if start is None or k < start:
             return est["landed"][name], False
-        if stop is not None and k >= stop:
-            return final_foothold(name), False
 
-        period, phase = divmod(k - start, GAIT_PERIOD)
-        phase /= GAIT_PERIOD
-
-        groups = GAITS[est["gait"]][0]
-        if name not in groups[period % len(groups)]:
-            return foothold(name, last_swing(name, period)), False
+        swing = swing_phase(name, k)
+        if swing is None:
+            return foothold(name, latest_swing(name, k)), False
 
         # Ease in and out of the swing, so that the foot lifts off and touches
         # down without sliding
+        period, phase = swing
+        groups = GAITS[est["gait"]][0]
         blend = 0.5 * (1 - np.cos(np.pi * phase))
         p = (1 - blend) * foothold(
             name, period - len(groups)
@@ -765,12 +855,32 @@ def get_controller(init_config, simulation=False):
         current_stage = est["stage"]
 
         # Look far enough ahead for the footholds of every swing in the
-        # horizon
+        # horizon. While stepping, start from the measured base position
+        pose = est["poses"][current_stage - est["pose_stage"]].copy()
+        start = est["gait_start"]
+        stepping = start is not None and current_stage >= start
+        if stepping:
+            pose[:2] = est["filter"][1][:2]
         est["poses"] = predict_poses(
-            est["poses"][current_stage - est["pose_stage"]],
-            MPC_H + (len(GAITS[est["gait"]][0]) + 1) * GAIT_PERIOD,
+            pose, MPC_H + (len(GAITS[est["gait"]][0]) + 1) * gait_period()
         )
         est["pose_stage"] = current_stage
+
+        shift = np.zeros(3)
+        if stepping:
+            v_ref = rotation_z(pose[2]) @ np.append(est["v_cmd"][:2], 0.0)
+            shift[:2] = FOOTHOLD_VEL_GAIN * (est["filter"][1][3:5] - v_ref[:2])
+
+            # While turning, the feet land outside the turn, so that the base
+            # leans into it
+            turn = np.cross(v_ref, [0.0, 0.0, est["v_cmd"][2]])
+            shift[:2] += 0.5 * est["base_height"] / -GRAVITY[2] * turn[:2]
+            size = np.linalg.norm(shift)
+            if size > FOOTHOLD_MAX_SHIFT:
+                shift *= FOOTHOLD_MAX_SHIFT / size
+        est["foothold_shift"] = shift
+        est["footholds"] = {}
+        est["foot_references"] = {}
 
         config_cost.set_desired_configuration(
             stance_config(
@@ -781,19 +891,17 @@ def get_controller(init_config, simulation=False):
             )
         )
 
+        tilt = base_rotation(
+            est["base_pitch"], est["base_roll"], est["base_yaw"]
+        )
         for idx in range(MPC_H):
             k = current_stage + idx
             x, y, yaw = est["poses"][idx]
 
             j = jump_stage(k)
-            height = est["base_height"] if j is None else jump_base_height(j)
+            height = gait_base_height(k) if j is None else jump_base_height(j)
             base_costs[idx].set_desired_translation(np.array([x, y, height]))
-            base_costs[idx].set_desired_rotation(
-                rotation_z(yaw)
-                @ base_rotation(
-                    est["base_pitch"], est["base_roll"], est["base_yaw"]
-                )
-            )
+            base_costs[idx].set_desired_rotation(rotation_z(yaw) @ tilt)
 
             # In the air, the legs hold their configuration rather than
             # following the feet's references. Before takeoff, the base's
@@ -801,8 +909,11 @@ def get_controller(init_config, simulation=False):
             # the air its path can no longer be steered
             flight = in_flight(k)
             airborne = flight and in_flight(current_stage)
-            base_costs[idx].set_translation_weight(0.0 if airborne else T_WGT)
-            base_costs[idx].set_rotation_weight(0.0 if airborne else R_WGT)
+            base_costs[idx].set_weight(
+                np.zeros(6)
+                if airborne
+                else np.array([T_WGT, T_WGT, Z_WGT, R_WGT, R_WGT, R_WGT])
+            )
             flight_costs[idx].set_enabled(flight)
             if flight:
                 flight_costs[idx].set_desired_configuration(
@@ -961,7 +1072,7 @@ def get_controller(init_config, simulation=False):
         ):
             est["gait_start"] = current_stage + 1 + JUMP_TROT_DELAY
             est["gait_stop"] = (
-                est["gait_start"] + len(GAITS[est["gait"]][0]) * GAIT_PERIOD
+                est["gait_start"] + len(GAITS[est["gait"]][0]) * gait_period()
             )
         if est["jump_start"] is not None:
             moving = False
@@ -982,8 +1093,10 @@ def get_controller(init_config, simulation=False):
         est["gait_held"] = switch_gait
 
         # Start stepping on a move command, and stop at the end of the
-        # current period once the command has been at rest for a while
-        est["idle_stages"] = 0 if moving else est["idle_stages"] + 1
+        # current period once the command has been at rest for a while,
+        # counting from when the base's reference has slowed to rest
+        slowing = np.max(np.abs(est["v_cmd"])) > MOVE_THRESHOLD
+        est["idle_stages"] = 0 if moving or slowing else est["idle_stages"] + 1
         if moving:
             if est["gait_start"] is None:
                 est["gait_start"] = current_stage + GAIT_START_STAGES
@@ -993,9 +1106,9 @@ def get_controller(init_config, simulation=False):
             and est["gait_start"] is not None
             and est["gait_stop"] is None
         ):
-            periods = -(-(current_stage - est["gait_start"]) // GAIT_PERIOD)
+            periods = -(-(current_stage - est["gait_start"]) // gait_period())
             est["gait_stop"] = (
-                est["gait_start"] + max(periods, 0) * GAIT_PERIOD
+                est["gait_start"] + max(periods, 0) * gait_period()
             )
 
         # Stay in place while not stepping
@@ -1006,7 +1119,14 @@ def get_controller(init_config, simulation=False):
         )
         if not stepping:
             v_cmd = np.zeros(3)
-        v_cmd = np.array(v_cmd) * GAITS[est["gait"]][1]
+        factor = GAITS[est["gait"]][1]
+        capped = min(factor, 1.0)
+        forward = factor if v_cmd[0] > 0 else capped
+        v_cmd = np.array(v_cmd) * [forward, capped, capped]
+        speed = np.linalg.norm(est["v_cmd"][:2])
+        if speed > 0.0:
+            max_yaw = MAX_TURN_ACC / speed
+            v_cmd[2] = np.clip(v_cmd[2], -max_yaw, max_yaw)
 
         max_change = np.array([MAX_ACC, MAX_ACC, MAX_YAW_ACC]) * MPC_DT
         est["v_cmd"] += np.clip(
@@ -1035,11 +1155,11 @@ def get_controller(init_config, simulation=False):
                 command * limit - est[key], -rate * MPC_DT, rate * MPC_DT
             )
 
-        # Estimate the base from the feet that were in stance during the last
-        # stage, which are all still on the ground
+        # The feet that were in stance during the last stage, which are all
+        # still on the ground
         last_swing = swing_feet(current_stage - 1)
         stance_feet = [name for name in FOOT_NAMES if name not in last_swing]
-        state, R, feet = estimate_state(config, vel, stance_feet)
+        state, R, feet = estimate_state(config, vel)
 
         # In the air, the landing moves to when the lowest foot is predicted
         # to reach the ground, so that the plan never reaches for the ground
@@ -1083,18 +1203,21 @@ def get_controller(init_config, simulation=False):
             est["touchdown"] = (state[2], fall)
 
         # Once every foot has landed after the gait stops, the robot stands
-        if est["gait_stop"] is not None and current_stage >= est["gait_stop"]:
+        if est["gait_stop"] is not None and current_stage >= gait_end():
             est["gait_start"] = None
             est["gait_stop"] = None
 
         # The filter runs until the next stage's update, while the robot may
         # still be in either stage, so it takes the feet in stance in both.
         # Right after a gait switch there are none, and it follows the
-        # accelerometer alone
+        # accelerometer alone. With foot contacts measured, feet that have
+        # yet to touch down are left out as well
         est["stance_feet"] = [
             name
-            for name in stance_feet
-            if name not in swing_feet(current_stage)
+            for i, name in enumerate(FOOT_NAMES)
+            if name in stance_feet
+            and name not in swing_feet(current_stage)
+            and (contacts is None or contacts[i])
         ]
 
         update_references()

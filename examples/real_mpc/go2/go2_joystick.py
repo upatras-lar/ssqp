@@ -1,3 +1,4 @@
+import gc
 import os
 import time
 import argparse
@@ -113,7 +114,8 @@ class CustomGo2Controller:
 
     # Foot sensor reading above which a foot counts as on the ground. The
     # sensors read about 12 in the air and 30 or more when loaded. The
-    # simulator leaves them at zero, so it goes without foot contacts
+    # simulator reports the force in newtons if its bridge fills it in, and
+    # leaves it at zero otherwise, in which case it goes without foot contacts
     FOOT_CONTACT_FORCE = 20
     # Unitree foot sensor order (FR, FL, RR, RL) in the model's foot order
     FOOT_REORDER_MAP = [1, 0, 3, 2]
@@ -129,6 +131,7 @@ class CustomGo2Controller:
         self.low_cmd = unitree_go_msg_dds__LowCmd_()
         self.low_state = None
         self.low_state_time = None
+        self.sim_foot_forces = False
         self.current_base_pos = (
             kinematic_walk_model.go2_planner.config.INIT_BASE_POS
         )
@@ -233,6 +236,11 @@ class CustomGo2Controller:
                 self._getGeneralizedConfiguration(self.current_base_pos),
                 SIMULATION,
             )
+
+            # Leave everything made so far out of garbage collections, which
+            # would otherwise pause every thread for several milliseconds
+            # each time they go through all objects
+            gc.freeze()
 
             # Latest plan with the time it started
             self.plan = None
@@ -345,9 +353,7 @@ class CustomGo2Controller:
 
     # Private methods
     def _lowStateMessageHandler(self, msg: LowState_):
-        filtering = (
-            self.task == "dynamic-walk" and dynamic_walk_model.USE_FILTER
-        )
+        filtering = self.task == "dynamic-walk"
         self.state_lock.acquire()
         self.low_state = msg
         self.low_state_time = time.time()
@@ -413,7 +419,7 @@ class CustomGo2Controller:
             self.first_run = False
 
         # On sub-move 1, interpolate between initial and stand-ground positions
-        self.percent_1 += self.dt / 2.0
+        self.percent_1 += self.dt / 0.5
         self.percent_1 = min(self.percent_1, 1)
         if self.percent_1 < 1:
             for i in range(12):
@@ -565,8 +571,13 @@ class CustomGo2Controller:
             forces = np.array(self.low_state.foot_force)
             self.state_lock.release()
 
+            # The simulator counts as reporting foot forces once any foot has
+            # reported one
+            if SIMULATION and forces.any():
+                self.sim_foot_forces = True
+
             contacts = None
-            if not SIMULATION:
+            if not SIMULATION or self.sim_foot_forces:
                 contacts = list(
                     forces[self.FOOT_REORDER_MAP] > self.FOOT_CONTACT_FORCE
                 )
