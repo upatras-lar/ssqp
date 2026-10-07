@@ -50,13 +50,15 @@ nv = model.getnv()
 nu = model.getnu()
 
 # Handstand on the front left foot, with the center of mass directly above it
-# The base is roughly vertical and leans to the side, the front left thigh
-# points out towards the belly with the knee bent back under the body, the
-# front right leg is tucked in and the rear legs stick out with calves hanging
-base_pos = np.array([0.0, 0.0, 0.47486])
-base_quat = np.array([-0.09928, 0.75931, -0.11929, 0.63195])
+# The base is pitched steeply nose down and rolled to the side, the front left
+# leg reaches forward under the body and the other three legs stay folded
+base_pos = np.array([0.02724554, 0.01246858, 0.58248232])
+base_quat = np.array([-0.20712838, 0.53766406, 0.13639596, 0.80586062])
 base_config = np.array(
-    [-0.00395, -0.78812, -1.89351] + [0.0, 0.7, -2.3] + [0.0, 0.1, -2.0] * 2
+    [-0.17163151, -0.49722650, -1.00921683]
+    + [0.06798100, 0.89222896, -1.78238015]
+    + [-0.03464934, 0.89292408, -1.78283870]
+    + [0.06798198, 0.89222698, -1.78238015]
 )
 
 # Initial configuration

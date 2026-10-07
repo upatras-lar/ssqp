@@ -684,9 +684,9 @@ class Model
      */
     struct _ReducedInverseDynamicsScratch
     {
-        MatX              M;
-        MatX              Muu, Muj;
-        Eigen::LDLT<MatX> Muu_ldlt;
+        MatX                             M;
+        MatX                             Muu, Muj;
+        std::optional<Eigen::LDLT<MatX>> Muu_ldlt;
 
         MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
         MatX da_dq, da_dv, da_daj, da_df;
@@ -879,10 +879,9 @@ class Model
     {
         std::vector<std::shared_ptr<Force>> force_data;
         std::vector<std::shared_ptr<Force>> wrench_data;
-        uint                                nq, nv, nu, nf, nw, force_width,
-          njoints;
-        std::vector<uint>                   actuated_joints, unactuated_joints;
-        std::string                         stage_constraints_name;
+        uint              nq, nv, nu, nf, nw, force_width, njoints;
+        std::vector<uint> actuated_joints, unactuated_joints;
+        std::string       stage_constraints_name;
         VecX lower_pos_bound, upper_pos_bound, vel_bound, tau_bound;
 
         // See the comment on _StageDynamicsContext's equivalent fields; only

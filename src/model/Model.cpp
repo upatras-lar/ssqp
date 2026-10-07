@@ -91,17 +91,17 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
     _lin_dims.stage_control.resize(_lin_dims.horizon);
     _lin_dims.stage_constraint.resize(_lin_dims.horizon + 1);
 
-    if (structure.from_preset != Preset::None
-        && (!structure.urdf_path.empty() || !structure.mjcf_path.empty()
-            || structure.free_flyer))
+    if (structure.from_preset != Preset::None &&
+        (!structure.urdf_path.empty() || !structure.mjcf_path.empty() ||
+         structure.free_flyer))
     {
         throw std::invalid_argument(
           "Structure::from_preset is mutually exclusive with urdf_path, "
           "mjcf_path and free_flyer");
     }
 
-    _xml = !structure.urdf_path.empty() || !structure.mjcf_path.empty()
-           || structure.from_preset != Preset::None;
+    _xml = !structure.urdf_path.empty() || !structure.mjcf_path.empty() ||
+           structure.from_preset != Preset::None;
 
     if (_xml)
     {
@@ -1159,8 +1159,8 @@ const std::pair<Vec3, Mat3> Model::forwardKinematics(
     return forwardKinematics(q, pinocchio_wrapper::getFrameId(_impl, frame));
 }
 
-const std::pair<Vec3, Mat3> Model::forwardKinematics(
-  const VecX &q, const uint frame_id) const
+const std::pair<Vec3, Mat3> Model::forwardKinematics(const VecX &q,
+                                                     const uint  frame_id) const
 {
     return pinocchio_wrapper::forwardKinematics(_impl, q, frame_id);
 }
@@ -1171,8 +1171,7 @@ const Mat4 Model::forwardKinematicsSE3(const VecX        &q,
     return forwardKinematicsSE3(q, pinocchio_wrapper::getFrameId(_impl, frame));
 }
 
-const Mat4 Model::forwardKinematicsSE3(const VecX &q,
-                                       const uint  frame_id) const
+const Mat4 Model::forwardKinematicsSE3(const VecX &q, const uint frame_id) const
 {
     return pinocchio_wrapper::forwardKinematicsSE3(_impl, q, frame_id);
 }
@@ -1180,7 +1179,9 @@ const Mat4 Model::forwardKinematicsSE3(const VecX &q,
 const Vec6 Model::frameVelocity(const VecX &q, const VecX &v,
                                 const std::string &frame, bool local) const
 {
-    return frameVelocity(q, v, pinocchio_wrapper::getFrameId(_impl, frame),
+    return frameVelocity(q,
+                         v,
+                         pinocchio_wrapper::getFrameId(_impl, frame),
                          local);
 }
 
@@ -1197,14 +1198,16 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
                                                       const std::string &frame,
                                                       bool local) const
 {
-    return frameVelocityDerivatives(
-      q, v, pinocchio_wrapper::getFrameId(_impl, frame), local);
+    return frameVelocityDerivatives(q,
+                                    v,
+                                    pinocchio_wrapper::getFrameId(_impl, frame),
+                                    local);
 }
 
 std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX &q,
                                                       const VecX &v,
                                                       const uint  frame_id,
-                                                      bool local) const
+                                                      bool        local) const
 {
     MatX dVdq(6, v.size()), dVdv(6, v.size());
 
@@ -1224,8 +1227,12 @@ void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
                                      Eigen::Ref<MatX> dVdq,
                                      Eigen::Ref<MatX> dVdv) const
 {
-    frameVelocityDerivatives(q, v, pinocchio_wrapper::getFrameId(_impl, frame),
-                             local, dVdq, dVdv);
+    frameVelocityDerivatives(q,
+                             v,
+                             pinocchio_wrapper::getFrameId(_impl, frame),
+                             local,
+                             dVdq,
+                             dVdv);
 }
 
 void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
@@ -1233,7 +1240,12 @@ void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
                                      Eigen::Ref<MatX> dVdq,
                                      Eigen::Ref<MatX> dVdv) const
 {
-    pinocchio_wrapper::frameVelocityDerivatives(_impl, q, v, frame_id, dVdq, dVdv,
+    pinocchio_wrapper::frameVelocityDerivatives(_impl,
+                                                q,
+                                                v,
+                                                frame_id,
+                                                dVdq,
+                                                dVdv,
                                                 local);
 }
 
@@ -1338,8 +1350,7 @@ const void Model::inverseDynamicsDerivatives(
 const MatX Model::frameJacobian(const VecX &q, const std::string &frame,
                                 bool local) const
 {
-    return frameJacobian(q, pinocchio_wrapper::getFrameId(_impl, frame),
-                         local);
+    return frameJacobian(q, pinocchio_wrapper::getFrameId(_impl, frame), local);
 }
 
 const MatX Model::frameJacobian(const VecX &q, const uint frame_id,
@@ -1495,8 +1506,8 @@ VecX Model::getFullAccelerationVector(const VecX &x, const VecX &u,
           [this, x, u, k](auto fb, auto wf)
           {
               _ReducedInverseDynamicsScratch scratch;
-              std::vector<Vec6> joint_forces(_dims.total_joints);
-              MatX               Jf_full(_forceControlWidth(k), _dims.nv);
+              std::vector<Vec6>              joint_forces(_dims.total_joints);
+              MatX Jf_full(_forceControlWidth(k), _dims.nv);
 
               return _calculateReducedInverseFullAcceleration<fb.value,
                                                               wf.value>(
@@ -1565,8 +1576,11 @@ VecX Model::getActuatedTorqueVector(const VecX &x, const VecX &u,
     }
 
     std::vector<Vec6> joint_forces(_dims.total_joints);
-    _calculateJointForces(q, u.tail(_forceControlWidth(k)), _forces[k],
-                          _wrenches[k], joint_forces);
+    _calculateJointForces(q,
+                          u.tail(_forceControlWidth(k)),
+                          _forces[k],
+                          _wrenches[k],
+                          joint_forces);
 
     return inverseDynamics(q, v, a, joint_forces);
 }
@@ -1615,7 +1629,7 @@ void Model::getActuatedTorqueVectorDerivatives(const VecX &x, const VecX &u,
     else
     {
         std::vector<Vec6> joint_forces(_dims.total_joints);
-        MatX               Jf_full(_forceControlWidth(k), _dims.nv);
+        MatX              Jf_full(_forceControlWidth(k), _dims.nv);
 
         _calculateJointForcesAndJacobian(q,
                                          u.tail(_forceControlWidth(k)),
@@ -1732,8 +1746,11 @@ void Model::_calculateJointForces(
         Vec6 wi = f.segment(offset + 6 * i, 6);
 
         uint joint_id;
-        Vec6 f_res = pinocchio_wrapper::framejMfActWrench(
-          _impl, wrench_data[i]->frame_id, wi, joint_id);
+        Vec6 f_res =
+          pinocchio_wrapper::framejMfActWrench(_impl,
+                                               wrench_data[i]->frame_id,
+                                               wi,
+                                               joint_id);
 
         joint_forces[joint_id] += f_res;
     }
@@ -1792,8 +1809,11 @@ void Model::_calculateJointForcesAndJacobian(
         Vec6 wi = f.segment(offset + 6 * i, 6);
 
         uint joint_id;
-        Vec6 f_res = pinocchio_wrapper::framejMfActWrench(
-          _impl, wrench_data[i]->frame_id, wi, joint_id);
+        Vec6 f_res =
+          pinocchio_wrapper::framejMfActWrench(_impl,
+                                               wrench_data[i]->frame_id,
+                                               wi,
+                                               joint_id);
 
         joint_forces[joint_id] += f_res;
     }

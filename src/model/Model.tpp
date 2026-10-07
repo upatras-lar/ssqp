@@ -73,8 +73,9 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             out.resize(ctx->nq + ctx->nv);
         }
 
-        out.head(ctx->nq) =
-          pinocchio_wrapper::integrate(_impl, x.head(ctx->nq), dx.head(ctx->nv));
+        out.head(ctx->nq) = pinocchio_wrapper::integrate(_impl,
+                                                         x.head(ctx->nq),
+                                                         dx.head(ctx->nv));
 
         if constexpr (SM == SolverMode::ForwardDynamics ||
                       SM == SolverMode::InverseDynamics ||
@@ -100,8 +101,9 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             out.resize(2 * ctx->nv);
         }
 
-        out.head(ctx->nv) =
-          pinocchio_wrapper::difference(_impl, y.head(ctx->nq), x.head(ctx->nq));
+        out.head(ctx->nv) = pinocchio_wrapper::difference(_impl,
+                                                          y.head(ctx->nq),
+                                                          x.head(ctx->nq));
 
         if constexpr (SM == SolverMode::ForwardDynamics ||
                       SM == SolverMode::InverseDynamics ||
@@ -306,14 +308,15 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                         vn  = v + ddq * _dt;
                     }
 
-                    pinocchio_wrapper::computeABADerivatives(_impl,
-                                                             q,
-                                                             v,
-                                                             ctrl,
-                                                             ctx->joint_forces_scratch,
-                                                             ddq_dq,
-                                                             ddq_dv,
-                                                             Minv);
+                    pinocchio_wrapper::computeABADerivatives(
+                      _impl,
+                      q,
+                      v,
+                      ctrl,
+                      ctx->joint_forces_scratch,
+                      ddq_dq,
+                      ddq_dv,
+                      Minv);
                 }
                 else
                 {
@@ -394,7 +397,7 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                     dX.bottomRightCorner(ctx->nv, ctx->nv) =
                       MatX::Identity(ctx->nv, ctx->nv) + ddq_dv * _dt;
 
-                    auto dU_ctrl = dU.bottomLeftCorner(ctx->nv, ctx->nu);
+                    auto dU_ctrl      = dU.bottomLeftCorner(ctx->nv, ctx->nu);
                     dU_ctrl.noalias() = Minv * _dt;
 
                     uint offset = 0;
@@ -478,7 +481,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                       MatX::Identity(ctx->nv, ctx->nv) + ddq_dv * _dt;
 
                     dX.topLeftCorner(ctx->nv, ctx->nv) =
-                      Jint_q + Jint_v * dX.bottomLeftCorner(ctx->nv, ctx->nv) * _dt;
+                      Jint_q +
+                      Jint_v * dX.bottomLeftCorner(ctx->nv, ctx->nv) * _dt;
                     dX.topRightCorner(ctx->nv, ctx->nv) =
                       Jint_v * dX.bottomRightCorner(ctx->nv, ctx->nv) * _dt;
 
@@ -507,8 +511,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                         dU.bottomRightCorner(ctx->nv, ctx->force_width) =
                           Gforce * _dt;
                         dU.topRightCorner(ctx->nv, ctx->force_width) =
-                          Jint_v * dU.bottomRightCorner(ctx->nv, ctx->force_width) *
-                          _dt;
+                          Jint_v *
+                          dU.bottomRightCorner(ctx->nv, ctx->force_width) * _dt;
                     }
                 }
                 else if constexpr (SM == SolverMode::InverseDynamics)
@@ -562,8 +566,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                         dU.bottomRightCorner(ctx->nv, ctx->force_width) =
                           ctx->reduced_id_scratch.da_df * _dt;
                         dU.topRightCorner(ctx->nv, ctx->force_width) =
-                          Jint_v * dU.bottomRightCorner(ctx->nv, ctx->force_width) *
-                          _dt;
+                          Jint_v *
+                          dU.bottomRightCorner(ctx->nv, ctx->force_width) * _dt;
                     }
                 }
             }
@@ -777,7 +781,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
             }
             else
             {
-                dU.setZero(_bounded_joint_indices.size(), ctx->nu + ctx->force_width);
+                dU.setZero(_bounded_joint_indices.size(),
+                           ctx->nu + ctx->force_width);
             }
         }
         else if constexpr (IsTerminal)
@@ -1045,7 +1050,10 @@ Model::_makeStageIDTorqueConstraints(
 
         if constexpr (WithForces)
         {
-            _calculateJointForces(q, f, ctx->force_data, ctx->wrench_data,
+            _calculateJointForces(q,
+                                  f,
+                                  ctx->force_data,
+                                  ctx->wrench_data,
                                   ctx->joint_forces_scratch);
 
             tau = inverseDynamics(q, v, ddq, ctx->joint_forces_scratch);
@@ -1165,14 +1173,15 @@ Model::_makeStageIDTorqueConstraints(
                                                  ctx->joint_forces_scratch,
                                                  ctx->jf_full_scratch);
 
-                pinocchio_wrapper::computeRNEADerivatives(_impl,
-                                                          q,
-                                                          v,
-                                                          ctrl,
-                                                          ctx->joint_forces_scratch,
-                                                          dtau_dq,
-                                                          dtau_dv,
-                                                          M);
+                pinocchio_wrapper::computeRNEADerivatives(
+                  _impl,
+                  q,
+                  v,
+                  ctrl,
+                  ctx->joint_forces_scratch,
+                  dtau_dq,
+                  dtau_dv,
+                  M);
             }
             else
             {
@@ -1191,7 +1200,8 @@ Model::_makeStageIDTorqueConstraints(
 
             if constexpr (WithForces)
             {
-                dU.rightCols(ctx->force_width) = -ctx->jf_full_scratch.transpose();
+                dU.rightCols(ctx->force_width) =
+                  -ctx->jf_full_scratch.transpose();
             }
         }
     };
@@ -1228,7 +1238,7 @@ VecX Model::_calculateReducedInverseFullAcceleration(
   const std::vector<std::shared_ptr<Force>> &force_data,
   const std::vector<std::shared_ptr<Force>> &wrench_data,
   const std::vector<uint>                   &actuated_joints,
-  const std::vector<uint>          &unactuated_joints,
+  const std::vector<uint>                   &unactuated_joints,
   _ReducedInverseDynamicsScratch &scratch, std::vector<Vec6> &joint_forces,
   MatX &Jf_full) const
 {
@@ -1240,7 +1250,7 @@ VecX Model::_calculateReducedInverseFullAcceleration(
     MatX              &M        = scratch.M;
     MatX              &Muu      = scratch.Muu;
     MatX              &Muj      = scratch.Muj;
-    Eigen::LDLT<MatX> &Muu_ldlt = scratch.Muu_ldlt;
+    Eigen::LDLT<MatX> &Muu_ldlt = scratch.Muu_ldlt.emplace();
 
     pinocchio_wrapper::crba(_impl, q, M, true);
 
@@ -1355,7 +1365,7 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
 
     const MatX              &Muu      = scratch.Muu;
     const MatX              &Muj      = scratch.Muj;
-    const Eigen::LDLT<MatX> &Muu_ldlt = scratch.Muu_ldlt;
+    const Eigen::LDLT<MatX> &Muu_ldlt = *scratch.Muu_ldlt;
 
     MatX &dtau_dq  = scratch.dtau_dq;
     MatX &dtau_dv  = scratch.dtau_dv;
@@ -1366,7 +1376,7 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
     MatX &da_daj   = scratch.da_daj;
     MatX &da_df    = scratch.da_df;
 
-    MatX &Ju              = scratch.Ju;
+    MatX &Ju               = scratch.Ju;
     MatX &dtau_dq_unact    = scratch.dtau_dq_unact;
     MatX &dtau_dv_unact    = scratch.dtau_dv_unact;
     MatX &da_dq_reordered  = scratch.da_dq_reordered;
@@ -1506,10 +1516,10 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
 
 template<bool FloatingBase, bool WithForces>
 void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
-                                                        const VecX &u,
-                                                        const uint  k,
-                                                        MatX &dtau_dx,
-                                                        MatX &dtau_du) const
+                                                       const VecX &u,
+                                                       const uint  k,
+                                                       MatX       &dtau_dx,
+                                                       MatX &dtau_du) const
 {
     VecX q    = x.head(_dims.nq);
     VecX v    = x.tail(_dims.nv);
@@ -1517,22 +1527,22 @@ void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
     VecX f    = u.tail(_forceControlWidth(k));
 
     _ReducedInverseDynamicsScratch scratch;
-    std::vector<Vec6> joint_forces(_dims.total_joints);
-    MatX               Jf_full(_forceControlWidth(k), _dims.nv);
+    std::vector<Vec6>              joint_forces(_dims.total_joints);
+    MatX                           Jf_full(_forceControlWidth(k), _dims.nv);
 
-    VecX ddq = _calculateReducedInverseFullAcceleration<FloatingBase,
-                                                        WithForces>(
-      q,
-      v,
-      ctrl,
-      f,
-      _forces[k],
-      _wrenches[k],
-      _actuated_joints,
-      _unactuated_joints,
-      scratch,
-      joint_forces,
-      Jf_full);
+    VecX ddq =
+      _calculateReducedInverseFullAcceleration<FloatingBase, WithForces>(
+        q,
+        v,
+        ctrl,
+        f,
+        _forces[k],
+        _wrenches[k],
+        _actuated_joints,
+        _unactuated_joints,
+        scratch,
+        joint_forces,
+        Jf_full);
 
     _calculateReducedInverseFullAccelerationDerivatives<FloatingBase,
                                                         WithForces>(
@@ -1578,7 +1588,7 @@ void Model::_getActuatedTorqueVectorReducedDerivatives(const VecX &x,
 
     for (uint i = 0; i < _dims.nu; ++i)
     {
-        uint true_i = offset + _actuated_joints[i];
+        uint true_i    = offset + _actuated_joints[i];
         dtau_dx.row(i) = dX_full.row(true_i);
         dtau_du.row(i) = dU_full.row(true_i);
     }

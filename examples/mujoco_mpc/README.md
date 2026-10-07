@@ -116,7 +116,7 @@ You can push the robot with the MuJoCo viewer's perturbation tools (double click
 
 ### `go2/go2_handstand.py`
 
-The robot holds a handstand on its front left foot. The initial pose has the base roughly vertical, and the center of mass is kept right above the foot with a tracking cost, with another cost to keep the foot from sliding, since the contact constraint only fixes the foot's height. The reference follows the foot's measured position at every MPC step.
+The robot holds a handstand on its front left foot. The initial pose has the base pitched steeply nose down and rolled to the side, with the other three legs folded, and the center of mass is kept right above the foot with a tracking cost, with another cost to keep the foot from sliding, since the contact constraint only fixes the foot's height. The reference follows the foot's measured position at every MPC step.
 
 ### `go2/go2_walking_kinematic.py`
 

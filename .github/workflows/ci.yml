@@ -1,0 +1,168 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        with_hpipm: [ON, OFF]
+    name: build-and-test (WITH_HPIPM=${{ matrix.with_hpipm }})
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake git python3-dev python3-numpy \
+            libeigen3-dev libboost-filesystem-dev libboost-serialization-dev
+
+      # Pinocchio and HPIPM are built from source, which dominates build time
+      - name: Cache build directory
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-${{ matrix.with_hpipm }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DWITH_HPIPM=${{ matrix.with_hpipm }} \
+            -DBUILD_PYTHON=OFF \
+            -DBUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build build --target run_tests -j"$(nproc)"
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -j"$(nproc)"
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-hpipm-${{ matrix.with_hpipm }}
+          path: tests/logs/
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake git \
+            libeigen3-dev libboost-filesystem-dev libboost-serialization-dev
+
+      - name: Cache build directory
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-sanitized-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DENABLE_SANITIZERS=ON \
+            -DWITH_HPIPM=ON \
+            -DBUILD_PYTHON=OFF \
+            -DBUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build build --target run_tests -j"$(nproc)"
+
+      # The finite-difference gradient checks are too slow when instrumented
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -j"$(nproc)" -E '(cf|lf|gammaf)GradTest'
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-sanitizers
+          path: tests/logs/
+
+  python-bindings:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake git python3-dev python3-numpy \
+            libeigen3-dev libboost-filesystem-dev libboost-serialization-dev
+
+      - name: Cache build directory
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-python-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DBUILD_TESTS=OFF \
+            -DBUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build build --target ssqpy -j"$(nproc)"
+
+      - name: Run the double integrator example
+        run: PYTHONPATH="$PWD/build/bindings" python3 examples/trajgen/python/di.py
+
+  docs:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake git python3-dev python3-numpy python3-venv \
+            libeigen3-dev libboost-filesystem-dev libboost-serialization-dev \
+            doxygen graphviz
+
+      - name: Cache build directory
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-docs-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+
+      # The Python API reference is generated from the stubs of the built module
+      - name: Build the Python bindings
+        run: |
+          cmake -S . -B build -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+          cmake --build build --target ssqpy -j"$(nproc)"
+
+      - name: Install documentation requirements
+        run: |
+          python3 -m venv docvenv
+          docvenv/bin/pip install -r docs/requirements.txt
+
+      - name: Build documentation
+        working-directory: docs
+        run: ../docvenv/bin/mkdocs build --strict

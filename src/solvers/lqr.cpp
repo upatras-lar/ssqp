@@ -59,7 +59,7 @@ lqr::lqr(const QPData &qp, const admm_qp::Solution &current_sol,
         _output.p[k].resize(nx);
 
         _output.K[k].resize(nu, nx);
-        _output.k[k].resize(nx, nx);
+        _output.k[k].resize(nu);
 
         _cache_A_BK[k].resize(nx, nx);
     }
