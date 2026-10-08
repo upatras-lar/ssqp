@@ -245,8 +245,6 @@ const std::string to_string(const SolverState &state)
         return "Constraint success";
     case PRIMAL_INFEASIBLE:
         return "Primal infeasibility detected";
-    case DUAL_INFEASIBLE:
-        return "Dual infeasibility detected";
     case MAX_ITER_REACHED:
         return "Max iterations reached";
     case TIME_LIMIT_REACHED:

@@ -347,7 +347,6 @@ enum SolverState
     LOOSE_SUCCESS      = 2,
     CONSTRAINT_SUCCESS = 3,
     PRIMAL_INFEASIBLE  = 10,
-    DUAL_INFEASIBLE    = 11,
     MAX_ITER_REACHED   = 13,
     TIME_LIMIT_REACHED = 14,
     ONGOING            = 100,

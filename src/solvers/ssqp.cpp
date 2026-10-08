@@ -184,6 +184,8 @@ ssqp::Params::Params(const std::string &filepath)
 
     accept_worse_update = j.value("accept_worse_update", accept_worse_update);
     skip_regularization = j.value("skip_regularization", skip_regularization);
+    stop_on_qp_infeasibility =
+      j.value("stop_on_qp_infeasibility", stop_on_qp_infeasibility);
 
     if (j.value("qp_solver_type", "") == "HPIPM")
     {
@@ -263,6 +265,8 @@ void ssqp::Params::print() const
     std::cout << "Accept worse update enabled: " << accept_worse_update
               << std::endl;
     std::cout << "Skip regularization: " << skip_regularization << std::endl;
+    std::cout << "Stop on QP infeasibility: " << stop_on_qp_infeasibility
+              << std::endl;
 
     std::cout << "---------------" << std::endl;
     std::cout << "QP Solver: "
@@ -309,8 +313,9 @@ void ssqp::Params::write(nlohmann::ordered_json &j) const
     j["inv_alpha_scale_factor"] = inv_alpha_scale_factor;
     j["min_alpha"]              = min_alpha;
 
-    j["accept_worse_update"] = accept_worse_update;
-    j["skip_regularization"] = skip_regularization;
+    j["accept_worse_update"]      = accept_worse_update;
+    j["skip_regularization"]      = skip_regularization;
+    j["stop_on_qp_infeasibility"] = stop_on_qp_infeasibility;
 
     if (qp_solver_type == QPSolverType::ADMM)
     {
@@ -446,8 +451,17 @@ ssqp::ssqp(const model::Model &model, const Params &params)
     switch (_params.qp_solver_type)
     {
     case ADMM:
-        _qp_solver = std::make_unique<admm_qp>(_qp, _params.admm_params);
+    {
+        // Infeasibility is only detected when SSQP stops on it, so that ADMM
+        // otherwise runs to the end as usual
+        admm_qp::Params admm_params = _params.admm_params;
+        if (!_params.stop_on_qp_infeasibility)
+        {
+            admm_params.primal_infs_tolerance = -1.0;
+        }
+        _qp_solver = std::make_unique<admm_qp>(_qp, admm_params);
         break;
+    }
     case HPIPM:
 #ifdef WITH_HPIPM
         _qp_solver = std::make_unique<hpipm_qp>(_qp, _params.hpipm_params);
@@ -544,6 +558,8 @@ SolverState ssqp::solve(Guess &guess)
 {
     ZoneScopedN("SSQP: solve");
 
+    _check_bounds();
+
     _stale_iters = 0;
 
     _convergence_data.iteration_data.clear();
@@ -596,8 +612,11 @@ SolverState ssqp::solve(Guess &guess)
         switch (state)
         {
         case PRIMAL_INFEASIBLE:
-        case DUAL_INFEASIBLE:
-            return state;
+            if (_params.stop_on_qp_infeasibility)
+            {
+                return _finish_unconverged(state, _iter, guess, start_time);
+            }
+            break;
         default:
             break;
         }
@@ -895,6 +914,34 @@ bool ssqp::_out_of_time(
 
     return std::chrono::duration<double>((now - start) + (now - iter_start))
              .count() >= _params.max_time;
+}
+
+void ssqp::_check_bounds() const
+{
+    const model::ConstraintsContainer &constraints = _model.constraints();
+
+    for (uint k = 0; k <= _model.horizon(); ++k)
+    {
+        if (constraints[k] == nullptr)
+        {
+            continue;
+        }
+
+        const VecX &lb = constraints[k]->lower_bound();
+        const VecX &ub = constraints[k]->upper_bound();
+
+        for (uint i = 0; i < lb.size(); ++i)
+        {
+            if (lb[i] > ub[i])
+            {
+                throw std::runtime_error(
+                  "SSQP: Stage " + std::to_string(k) + " constraint row " +
+                  std::to_string(i) + " has lower bound " +
+                  std::to_string(lb[i]) + " above upper bound " +
+                  std::to_string(ub[i]));
+            }
+        }
+    }
 }
 
 SolverState ssqp::_finish_unconverged(

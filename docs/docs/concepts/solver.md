@@ -80,8 +80,12 @@ $$
 * `loose_success` (with `loose_success_tolerance`, `loose_success_stale_iters`): an early-exit heuristic that stops if
   the cost Jacobian norm hasn't improved by more than `loose_success_tolerance` for `loose_success_stale_iters`
   consecutive iterations.
+* `stop_on_qp_infeasibility` (default on): stop with `PrimalInfeasible` as soon as the QP solver reports an infeasible
+  QP, returning the current guess. When off, ADMM skips the infeasibility check and runs as it would without it. Only
+  ADMM detects infeasibility.
 
-The result reports a `SolverState` (`Success`, `LooseSuccess`, `ConstraintSuccess`, `MaxIterReached`, `Ongoing`, …)
+The result reports a `SolverState` (`Success`, `LooseSuccess`, `ConstraintSuccess`, `PrimalInfeasible`,
+`MaxIterReached`, `Ongoing`, …)
 and detailed [`ssqpConvergenceData`](../reference/solvers.md#ssqpy.solvers.ssqpConvergenceData), covering per-iteration
 timing, step size, norms, cost and violation, retrievable via `solver.getConvergenceData()`.
 

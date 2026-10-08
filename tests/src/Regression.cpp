@@ -756,6 +756,148 @@ void solverTimeLimit(solvers::ssqp::QPSolverType backend)
     requireClose(loose_guess.u.vec, free_guess.u.vec, "Control trajectory");
 }
 
+// Bounds the state of the scalar integrator
+class StateBound : public model::stagewise::StageConstraints
+{
+  public:
+    StateBound(double lb, double ub)
+      : _lb(VecX::Constant(1, lb))
+      , _ub(VecX::Constant(1, ub))
+    {
+    }
+    void set_lower_bound(double lb)
+    {
+        _lb[0] = lb;
+    }
+    void set_upper_bound(double ub)
+    {
+        _ub[0] = ub;
+    }
+    uint output_size() const override
+    {
+        return 1;
+    }
+    const VecX &lower_bound() const override
+    {
+        return _lb;
+    }
+    const VecX &upper_bound() const override
+    {
+        return _ub;
+    }
+    VecX evaluate(const VecX &x, const VecX &) const override
+    {
+        return x;
+    }
+    void gradient(const VecX &, const VecX &, MatX &dx, MatX &du) const override
+    {
+        dx = MatX::Ones(1, 1);
+        du = MatX::Zero(1, 1);
+    }
+    void hessprod_xx(const VecX &, const VecX &, const VecX &,
+                     MatX &h) const override
+    {
+        h = MatX::Zero(1, 1);
+    }
+    void hessprod_xu(const VecX &, const VecX &, const VecX &,
+                     MatX &h) const override
+    {
+        h = MatX::Zero(1, 1);
+    }
+    void hessprod_uu(const VecX &, const VecX &, const VecX &,
+                     MatX &h) const override
+    {
+        h = MatX::Zero(1, 1);
+    }
+
+  private:
+    VecX _lb, _ub;
+};
+
+// From x_0 = 1 with |u| <= 0.2 the terminal state stays above 0.6, so it can
+// never reach [-0.1, 0.1]
+void solverPrimalInfeasible()
+{
+    model::Model::Config config;
+    for (uint k = 0; k <= 2; ++k)
+        config.dynamics.push_back(std::make_shared<Integrator>());
+    config.stage_cost    = std::make_shared<Quadratic>();
+    config.terminal_cost = std::make_shared<Quadratic>();
+    config.init_states   = { VecX::Constant(1, 1.0) };
+    model::Model model(2, 1.0);
+    for (uint k = 0; k < 2; ++k) model.addConstraints<ControlBound>(k);
+    model.addConstraints<StateBound>(2, -0.1, 0.1);
+    model.finalize(config);
+
+    auto params = accurateParams(solvers::ssqp::ADMM);
+
+    const auto solve = [&]
+    {
+        solvers::ssqp        solver(model, params);
+        solvers::ssqp::Guess guess(model.dims(), model.linear_dims());
+        const auto           state = solver.solve(guess);
+        return std::make_tuple(state, solver.convergenceData(), guess);
+    };
+
+    const auto [state, cd, guess] = solve();
+    require(state == solvers::PRIMAL_INFEASIBLE,
+            "SSQP must stop on an infeasible QP (" + solvers::to_string(state) +
+              ")");
+    require(cd.iterations == 0, "SSQP must stop at the first QP");
+    require(guess.x.vec.allFinite() && guess.u.vec.allFinite() &&
+              guess.x.stage(0)[0] == 1.0,
+            "The returned guess must hold the current iterate");
+
+    params.stop_on_qp_infeasibility = false;
+    params.admm_params.max_iter     = 2000;
+
+    const auto [cont_state, cont_cd, cont_guess] = solve();
+    require(cont_state != solvers::PRIMAL_INFEASIBLE && cont_cd.iterations > 0,
+            "SSQP must keep stepping when told not to stop (" +
+              solvers::to_string(cont_state) + ")");
+    require(cont_cd.iteration_data[0].qp_iters == 2000,
+            "ADMM must skip detection and run to its iteration limit, got " +
+              std::to_string(cont_cd.iteration_data[0].qp_iters));
+}
+
+// Moving a bound pair upwards one bound at a time passes through lb > ub,
+// which only a solve in between may not see
+void solverCrossedBounds(solvers::ssqp::QPSolverType backend)
+{
+    model::Model::Config config;
+    for (uint k = 0; k <= 2; ++k)
+        config.dynamics.push_back(std::make_shared<Integrator>());
+    config.stage_cost    = std::make_shared<Quadratic>();
+    config.terminal_cost = std::make_shared<Quadratic>();
+    config.init_states   = { VecX::Constant(1, 1.0) };
+    model::Model model(2, 1.0);
+    auto         bound = std::make_shared<StateBound>(-1.0, 1.0);
+    model.addConstraints(2, bound);
+    model.finalize(config);
+
+    solvers::ssqp        solver(model, accurateParams(backend));
+    solvers::ssqp::Guess guess(model.dims(), model.linear_dims());
+
+    require(solver.solve(guess) == solvers::SUCCESS,
+            "Valid bounds must solve");
+
+    bound->set_lower_bound(2.0);
+    bool threw = false;
+    try
+    {
+        solver.solve(guess);
+    }
+    catch (const std::runtime_error &e)
+    {
+        threw = std::string(e.what()).find("Stage 2") != std::string::npos;
+    }
+    require(threw, "Crossed bounds must throw, naming their stage");
+
+    bound->set_upper_bound(3.0);
+    require(solver.solve(guess) == solvers::SUCCESS,
+            "Bounds fixed after the throw must solve again");
+}
+
 // Parameter files may leave out any parameter, which keeps its default
 void paramsJsonOptionalKeys()
 {
@@ -787,9 +929,10 @@ void paramsJsonOptionalKeys()
             "Missing parameters must keep their defaults");
 
     // Full files written by the parameters read back unchanged
-    expected.max_time             = 0.012;
-    expected.tolerance            = 1e-4;
-    expected.constraint_tolerance = 1e-5;
+    expected.max_time                 = 0.012;
+    expected.tolerance                = 1e-4;
+    expected.constraint_tolerance     = 1e-5;
+    expected.stop_on_qp_infeasibility = false;
     require(expected.write(path), "Parameter file must be writable");
     require(written(solvers::ssqp::Params(path)) == written(expected),
             "Written parameters must read back unchanged");
@@ -854,6 +997,9 @@ void addRegressionTests(TestContainer &tests)
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_SSQP_TimeLimit_" + suffix,
           [=] { solverTimeLimit(backend); }));
+        tests.addTest(std::make_shared<FunctionTest>(
+          "Regression_SSQP_CrossedBounds_" + suffix,
+          [=] { solverCrossedBounds(backend); }));
     }
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_Model_CostToggling", costToggling));
@@ -861,6 +1007,9 @@ void addRegressionTests(TestContainer &tests)
       "Regression_Model_ConstraintToggling", constraintToggling));
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_SSQP_ParamsJsonOptionalKeys", paramsJsonOptionalKeys));
+    tests.addTest(
+      std::make_shared<FunctionTest>("Regression_SSQP_PrimalInfeasible_ADMM",
+                                     solverPrimalInfeasible));
 #ifdef WITH_HPIPM
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_MPC_FeedbackGains_ActiveBounds_HPIPM",

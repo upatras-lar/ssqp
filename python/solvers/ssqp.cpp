@@ -34,8 +34,7 @@ void bind_ssqp(nb::module_ &m)
          - Success: Convergence was achieved.
          - Loose Success: Solver stopped after loose success tolerance was reached.
          - Constraint Success: Solver stopped after constraints were satisfied (with relevant option enabled).
-         - Primal Infeasible: The problem is primal infeasible (currently not used).
-         - Dual Infeasible: The problem is dual infeasible (currently not used).
+         - Primal Infeasible: A QP subproblem was detected as primal infeasible (ADMM only).
          - Max Iter Reached: Maximum number of iterations reached before convergence was achieved.
          - Time Limit Reached: Maximum solve time reached before convergence was achieved.
          - Ongoing: The solver is ongoing.
@@ -44,7 +43,6 @@ void bind_ssqp(nb::module_ &m)
       .value("LooseSuccess", SolverState::LOOSE_SUCCESS)
       .value("ConstraintSuccess", SolverState::CONSTRAINT_SUCCESS)
       .value("PrimalInfeasible", SolverState::PRIMAL_INFEASIBLE)
-      .value("DualInfeasible", SolverState::DUAL_INFEASIBLE)
       .value("MaxIterReached", SolverState::MAX_ITER_REACHED)
       .value("TimeLimitReached", SolverState::TIME_LIMIT_REACHED)
       .value("Ongoing", SolverState::ONGOING)
@@ -263,6 +261,12 @@ void bind_ssqp(nb::module_ &m)
         Whether to skip regularization step if line search fails
         Will throw an exception instead
         )doc")
+      .def_rw("stop_on_qp_infeasibility",
+              &ssqp::Params::stop_on_qp_infeasibility,
+              R"doc(
+        Whether to stop when the QP solver reports an infeasible QP
+        Otherwise ADMM skips infeasibility detection and runs as usual
+        )doc")
       .def_rw("qp_solver_type",
               &ssqp::Params::qp_solver_type,
               "The type of QP solver to use.")
@@ -329,6 +333,13 @@ void bind_ssqp(nb::module_ &m)
         Updates are done linearly per step
         Ignored (per tolerance) if tolerance is -1.0
               )doc")
+      .def_rw("primal_infs_tolerance",
+              &admm_qp::Params::primal_infs_tolerance,
+              R"doc(
+        Primal infeasibility tolerance, relative to the change in y
+        Checked every `rho_update_iter_freq` iterations
+        Use -1.0 to ignore
+        )doc")
       .def_rw("warm_start", &admm_qp::Params::warm_start, R"doc(
         Whether to warm start ADMM with the unconstrained solution
         Note: set to false if using Inverse Dynamics
@@ -488,7 +499,7 @@ void bind_ssqp(nb::module_ &m)
             if (kwargs.contains("skip_regularization"))
             {
                 params.skip_regularization =
-                  nb::cast<bool>(kwargs["regularization"]);
+                  nb::cast<bool>(kwargs["skip_regularization"]);
             }
             if (kwargs.contains("accept_worse_update"))
             {
@@ -499,6 +510,11 @@ void bind_ssqp(nb::module_ &m)
             {
                 params.skip_regularization =
                   nb::cast<bool>(kwargs["skip_regularization"]);
+            }
+            if (kwargs.contains("stop_on_qp_infeasibility"))
+            {
+                params.stop_on_qp_infeasibility =
+                  nb::cast<bool>(kwargs["stop_on_qp_infeasibility"]);
             }
             if (kwargs.contains("qp_solver_type"))
             {
@@ -573,10 +589,10 @@ void bind_ssqp(nb::module_ &m)
                 admm_params.tolerance_update_steps =
                   nb::cast<uint>(kwargs["admm_tolerance_update_steps"]);
             }
-            if (kwargs.contains("admm_prim_infs_tolerance"))
+            if (kwargs.contains("admm_primal_infs_tolerance"))
             {
                 admm_params.primal_infs_tolerance =
-                  nb::cast<double>(kwargs["admm_prim_infs_tolerance"]);
+                  nb::cast<double>(kwargs["admm_primal_infs_tolerance"]);
             }
             if (kwargs.contains("admm_warm_start"))
             {

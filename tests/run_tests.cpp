@@ -267,8 +267,6 @@ int main(int argc, char **argv)
     //     tests.addTest(test);
     // }
 
-    // tests.addTest(ssqp::tests::generators::get_admm_infeasibility());
-
     tests.addTest(std::make_shared<ssqp::tests::MPCStepTest>(
       "MPCStepADMMTest",
       ssqp::solvers::ssqp::QPSolverType::ADMM));

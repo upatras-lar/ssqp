@@ -59,8 +59,11 @@ class admm_qp : public QPSolver
         // Number of steps to go from initial to final tolerances
         // Updates are done linearly per step
         // Ignored (per tolerance) if tolerance is -1.0
-        uint   tolerance_update_steps = 0;
-        double primal_infs_tolerance  = 1e-6; // Primal infeasibility tolerance
+        uint tolerance_update_steps = 0;
+        // Primal infeasibility tolerance, relative to the change in y
+        // Checked every `rho_update_iter_freq` iterations
+        // Use -1.0 to ignore
+        double primal_infs_tolerance = 1e-6;
 
         // Whether to warm start ADMM with the unconstrained solution
         // Note: set to false if using Inverse Dynamics
@@ -115,10 +118,6 @@ class admm_qp : public QPSolver
     double _norm_primal, _norm_dual;
     double _norm_primal_rel, _norm_dual_rel;
 
-    // Primal infeasibility criteria
-    double _primal_infs_norm, _primal_infs_support;
-    double _primal_infs_tol_scaled;
-
     uint _iter;
 
     uint _reg_incr;
@@ -134,6 +133,10 @@ class admm_qp : public QPSolver
 
     SolverState _check_termination() const;
 
+    // Whether dy = y - y_prev certifies that no trajectory satisfying the
+    // dynamics meets the constraint bounds
+    bool _primal_infeasible(const FlatVec &y_prev);
+
     void _update_rho();
 
     void _step(const FlatVec &dx_hat, const FlatVec &du_hat);
@@ -141,7 +144,7 @@ class admm_qp : public QPSolver
     // Temporaries to prevent aliasing for Eigen operations
     struct
     {
-        VecX x1;
+        VecX x1, x2;
         VecX u1;
         VecX c1, c2;
     } _tmp;

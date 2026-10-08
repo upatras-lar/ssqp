@@ -19,6 +19,8 @@ admm_qp::Params::Params(const nlohmann::ordered_json &j)
     rel_tolerance_final = j.value("rel_tolerance_final", rel_tolerance_final);
     tolerance_update_steps =
       j.value("tolerance_update_steps", tolerance_update_steps);
+    primal_infs_tolerance =
+      j.value("primal_infs_tolerance", primal_infs_tolerance);
 
     init_rho = j.value("init_rho", init_rho);
     alpha    = j.value("alpha", alpha);
@@ -63,6 +65,9 @@ void admm_qp::Params::print() const
         std::cout << "Update steps: " << tolerance_update_steps << std::endl;
     }
 
+    std::cout << "Primal infeasibility tolerance: " << primal_infs_tolerance
+              << std::endl;
+
     std::cout << "---------------" << std::endl;
     std::cout << "Init rho: " << init_rho << std::endl;
     std::cout << "Alpha: " << alpha << std::endl;
@@ -96,6 +101,7 @@ void admm_qp::Params::write(nlohmann::ordered_json &j) const
     admmj["rel_tolerance"]          = rel_tolerance;
     admmj["rel_tolerance_final"]    = rel_tolerance_final;
     admmj["tolerance_update_steps"] = tolerance_update_steps;
+    admmj["primal_infs_tolerance"]  = primal_infs_tolerance;
 
     admmj["init_rho"] = init_rho;
     admmj["alpha"]    = alpha;
@@ -138,6 +144,7 @@ admm_qp::admm_qp(const QPData &qp, const Params &params)
                                    qp.dims.stage_constraint.end());
 
     _tmp.x1.resize(max_x);
+    _tmp.x2.resize(max_x);
     _tmp.u1.resize(max_u);
     _tmp.c1.resize(max_c);
     _tmp.c2.resize(max_c);
@@ -277,6 +284,14 @@ SolverState admm_qp::solve(admm_qp::Solution &sol)
             break;
         }
 
+        if (_params.primal_infs_tolerance > 0.0 && _iter > 0 &&
+            !(_iter % _params.rho_update_iter_freq) &&
+            _primal_infeasible(y_prev))
+        {
+            admm_state = PRIMAL_INFEASIBLE;
+            break;
+        }
+
         if (_params.rho_update && !((_iter) % _params.rho_update_iter_freq))
         {
             _update_rho();
@@ -357,10 +372,6 @@ void admm_qp::_calculate_residuals(const FlatVec &x_prev, const FlatVec &u_prev,
     _norm_dual       = -std::numeric_limits<double>::infinity();
     _norm_primal_rel = -std::numeric_limits<double>::infinity();
     _norm_dual_rel   = -std::numeric_limits<double>::infinity();
-
-    _primal_infs_norm       = -std::numeric_limits<double>::infinity();
-    _primal_infs_support    = 0;
-    _primal_infs_tol_scaled = _params.primal_infs_tolerance;
 
     for (int k = 0; k < H; ++k)
     {
@@ -475,18 +486,6 @@ SolverState admm_qp::_check_termination() const
         return MAX_ITER_REACHED;
     }
 
-    // logln_at(LogLevel::Info, "Primal infeasibility norm vs tolerance: "
-    //       << _primal_infs_norm << " vs " << _primal_infs_tol_scaled);
-    // logln_at(LogLevel::Info, "Primal infeasibility support vs tolerance: "
-    //       << _primal_infs_support << " vs " << _primal_infs_tol_scaled);
-
-    // TODO: Primal infeasibility detection doesn't work yet
-    // if (_primal_infs_norm < _primal_infs_tol_scaled &&
-    //     _primal_infs_support < _primal_infs_tol_scaled)
-    // {
-    //     return PRIMAL_INFEASIBLE;
-    // }
-
     logln_at(LogLevel::Debug, "rho:" << std::endl << _rho);
 
     double tolerance_prim =
@@ -510,6 +509,96 @@ SolverState admm_qp::_check_termination() const
     }
 
     return SUCCESS;
+}
+
+bool admm_qp::_primal_infeasible(const FlatVec &y_prev)
+{
+    ZoneScopedN("ADMM: _primal_infeasible");
+
+    const uint   H   = _qp.dims.horizon;
+    const double inf = std::numeric_limits<double>::infinity();
+
+    // Largest component of dy, support of dy over the bounds and largest
+    // gradient of dy^T (D dx + E du) along the dynamics, over the controls
+    double norm = 0.0, support = 0.0, grad = 0.0;
+    // Value of dy^T (D dx + E du) on trajectories satisfying the dynamics,
+    // once its gradient vanishes
+    double value = 0.0;
+
+    // Backward pass for the costate of dy^T (D dx + E du), kept in x2
+    for (int k = H; k >= 0; --k)
+    {
+        const bool terminal = k == H;
+
+        const MatX &D  = terminal ? _qp.Dt : _qp.stages[k].D;
+        const VecX &cl = terminal ? _qp.cl_t : _qp.stages[k].cl;
+        const VecX &cu = terminal ? _qp.cu_t : _qp.stages[k].cu;
+
+        const uint nx = _qp.dims.stage_state[k];
+        const uint nc = D.rows();
+
+        // dy of the stage, dropping components that push towards an infinite
+        // bound since those can never certify infeasibility
+        auto dy  = _tmp.c1.head(nc);
+        dy       = _y.stage(k);
+        dy      -= y_prev.stage(k);
+
+        for (uint i = 0; i < nc; ++i)
+        {
+            if (dy(i) > 0.0)
+            {
+                if (cu(i) == inf) dy(i) = 0.0;
+                else support += cu(i) * dy(i);
+            }
+            else if (dy(i) < 0.0)
+            {
+                if (cl(i) == -inf) dy(i) = 0.0;
+                else support += cl(i) * dy(i);
+            }
+        }
+
+        if (nc != 0)
+        {
+            norm = std::max(norm, dy.lpNorm<Eigen::Infinity>());
+        }
+
+        auto x1 = _tmp.x1.head(nx);
+
+        x1.noalias() = D.transpose() * dy;
+
+        if (!terminal)
+        {
+            const auto &stage = _qp.stages[k];
+
+            const auto p  = _tmp.x2.head(_qp.dims.stage_state[k + 1]);
+            auto       u1 = _tmp.u1.head(_qp.dims.stage_control[k]);
+
+            // dx_0 is fixed, so gamma is all that is left of the dynamics once
+            // the control gradient vanishes
+            value += p.dot(stage.gamma);
+
+            x1.noalias() += stage.A.transpose() * p;
+            u1.noalias()  = stage.B.transpose() * p;
+            u1.noalias() += stage.E.transpose() * dy;
+
+            grad = std::max(grad, u1.lpNorm<Eigen::Infinity>());
+        }
+
+        _tmp.x2.head(nx) = x1;
+    }
+
+    logln_at(LogLevel::Debug,
+             "Primal infeasibility (|dy|, gradient, support - value): "
+               << norm << ", " << grad << ", " << support - value);
+
+    if (norm <= _params.primal_infs_tolerance)
+    {
+        return false;
+    }
+
+    const double tolerance = _params.primal_infs_tolerance * norm;
+
+    return grad < tolerance && support - value < -tolerance;
 }
 
 void admm_qp::_update_rho()

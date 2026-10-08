@@ -66,7 +66,11 @@ keyword arguments):
 * `init_rho`, `alpha` (over-relaxation), `sigma` (proximal regularization)
 * Adaptive $\rho$ update: `rho_update`, `rho_min`/`rho_max`, `adaptive_rho_tolerance`, `rho_update_iter_freq`
 * Termination: `max_iter`, `abs_tolerance`/`abs_tolerance_final`, `rel_tolerance`/`rel_tolerance_final`
-  (`tolerance_update_steps` anneals both linearly, as with the outer SSQP tolerances), `primal_infs_tolerance`
+  (`tolerance_update_steps` anneals both linearly, as with the outer SSQP tolerances)
+* `primal_infs_tolerance`: every `rho_update_iter_freq` iterations, ADMM checks whether the change in its dual variable
+  $y$ certifies that no trajectory satisfying the linearized dynamics can meet the constraint bounds. If so, it returns
+  `PrimalInfeasible` (see `stop_on_qp_infeasibility` in [Termination](solver.md#termination)). Use -1.0 to disable the
+  check
 * `warm_start`: warm-start with the unconstrained solution (disable when using
   [`InverseDynamics`](model.md#solver-mode) mode)
 * `reset_rho` / `reset_y`: whether to reset ADMM's $\rho$ and $y$ between successive SSQP formulations

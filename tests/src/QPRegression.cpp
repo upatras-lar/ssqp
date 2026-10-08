@@ -243,6 +243,72 @@ void checkQP(const QPData &qp, const QPSolver::Solution &sol)
                      0);
     }
 }
+// Sets the rows of stage k (the terminal stage when k == horizon)
+void setRows(QPData &qp, uint k, const MatX &D, const MatX &E, const VecX &cl,
+             const VecX &cu)
+{
+    qp.dims.constraint          += D.rows() - qp.dims.stage_constraint[k];
+    qp.dims.stage_constraint[k]  = D.rows();
+    if (k == qp.dims.horizon)
+    {
+        qp.Dt   = D;
+        qp.cl_t = cl;
+        qp.cu_t = cu;
+        return;
+    }
+    qp.stages[k].D  = D;
+    qp.stages[k].E  = E;
+    qp.stages[k].cl = cl;
+    qp.stages[k].cu = cu;
+}
+
+// Stage 0 bounds both controls, so x_1[0] = 0.8 u_0 + 0.1 v_0 + 0.2 stays
+// within [0.11, 0.29] and can only reach a stage 1 lower bound up to 0.29
+QPData unreachableQP(double lower)
+{
+    auto qp = makeQP(2, false);
+    setRows(qp,
+            0,
+            MatX::Zero(2, 2),
+            MatX::Identity(2, 2),
+            VecX::Constant(2, -0.1),
+            VecX::Constant(2, 0.1));
+    setRows(qp,
+            1,
+            (MatX(1, 2) << 1, 0).finished(),
+            MatX::Zero(1, 2),
+            VecX::Constant(1, lower),
+            VecX::Constant(1, 2.0));
+    return qp;
+}
+
+// Two one-sided rows on the same state ask for x_1[0] >= 1 and x_1[0] <= 0
+QPData conflictingQP()
+{
+    const double inf = std::numeric_limits<double>::infinity();
+    auto         qp  = makeQP(2, false);
+    setRows(qp,
+            1,
+            (MatX(2, 2) << 1, 0, 1, 0).finished(),
+            MatX::Zero(2, 2),
+            (VecX(2) << 1, -inf).finished(),
+            (VecX(2) << inf, 0).finished());
+    return qp;
+}
+
+QPSolver::Solution qpInfeasibility(const QPData        &qp,
+                                   solvers::SolverState expected)
+{
+    auto               solver = makeSolver(qp, solvers::ssqp::ADMM);
+    QPSolver::Solution sol(qp.dims);
+    solver->reset();
+    const auto state = solver->solve(sol);
+    require(state == expected,
+            "QP must report " + solvers::to_string(expected) + " (" +
+              solvers::to_string(state) + ")");
+    return sol;
+}
+
 void qpRegression(solvers::ssqp::QPSolverType backend, uint horizon,
                   bool bounded)
 {
@@ -325,6 +391,21 @@ void addQPRegressionTests(TestContainer &tests)
               }
           }));
     }
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_QP_Infeasible_Unreachable_ADMM",
+      [] { qpInfeasibility(unreachableQP(1.0), solvers::PRIMAL_INFEASIBLE); }));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_QP_Infeasible_ConflictingRows_ADMM",
+      [] { qpInfeasibility(conflictingQP(), solvers::PRIMAL_INFEASIBLE); }));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_QP_Feasible_NearBoundary_ADMM",
+      []
+      {
+          const auto sol =
+            qpInfeasibility(unreachableQP(0.28), solvers::SUCCESS);
+          require(sol.dx.stage(1)[0] > 0.28 - 1e-5,
+                  "Near-boundary row must be satisfied");
+      }));
 }
 }
 }

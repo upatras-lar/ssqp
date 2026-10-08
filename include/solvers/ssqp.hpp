@@ -151,6 +151,9 @@ class ssqp
         // Whether to skip regularization step if line search fails
         // Will throw an exception instead
         bool skip_regularization = false;
+        // Whether to stop when the QP solver reports an infeasible QP
+        // Otherwise ADMM skips infeasibility detection and runs as usual
+        bool stop_on_qp_infeasibility = true;
 
         // Whether to calculate full stage costs and violations at each step
         // This is usually skipped once a violation is detected to speed up
@@ -337,6 +340,10 @@ class ssqp
     bool _out_of_time(
       const std::chrono::high_resolution_clock::time_point &start,
       const std::chrono::high_resolution_clock::time_point &iter_start) const;
+
+    // Throws if any constraint has a lower bound above its upper bound
+    // Bounds may change between solves, so this runs at the start of each one
+    void _check_bounds() const;
 
     // Returns the current guess of an unconverged solve
     SolverState _finish_unconverged(

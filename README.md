@@ -1,5 +1,10 @@
 # SSQP
 
+[![CI](https://github.com/upatras-lar/ssqp/actions/workflows/ci.yml/badge.svg)](https://github.com/upatras-lar/ssqp/actions/workflows/ci.yml)
+[![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+![C++17](https://img.shields.io/badge/C%2B%2B-17-blue)
+![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)
+
 SSQP is a structure-exploiting Sequential Quadratic Programming (SQP) solver
 for nonlinear optimal control problems. It is designed for trajectory
 generation and real-time Model Predictive Control (MPC), with native support
@@ -250,6 +255,21 @@ build/tests/run_tests --filter gammafGradTest --seed 42
 Failed test diagnostics are written to `tests/logs/<test-name>.txt`. See
 [`tests/README.md`](tests/README.md) for the correctness coverage, deterministic
 seeding, finite-difference checks, sanitizer builds, and leak-detection notes.
+
+## Citing
+
+If you use SSQP in your work, please cite it as
+
+```bibtex
+@misc{ssqpsoftware,
+  author       = {Nick Karydakis and  Konstantinos Chatzilygeroudis},
+  title        = {{SSQP}: A Structure-Exploiting Sequential Quadratic Programming Solver},
+  howpublished = {Online resource / Software},
+  year         = {2026},
+  url          = {https://github.com/upatras-lar/ssqp},
+  urldate      = {2026-10-08}
+}
+```
 
 ## Development status
 

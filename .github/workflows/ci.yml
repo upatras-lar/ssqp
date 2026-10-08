@@ -26,12 +26,19 @@ jobs:
             build-essential cmake git python3-dev python3-numpy \
             libeigen3-dev libboost-filesystem-dev libboost-serialization-dev
 
+      # -march=native bakes the runner CPU into the cached build
+      - name: Identify CPU
+        id: cpu
+        run: |
+          grep -m1 '^model name' /proc/cpuinfo
+          echo "key=$(grep -e '^model name' -e '^flags' /proc/cpuinfo | sort -u | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
       # Pinocchio and HPIPM are built from source, which dominates build time
       - name: Cache build directory
         uses: actions/cache@v4
         with:
           path: build
-          key: build-${{ matrix.with_hpipm }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+          key: build-${{ matrix.with_hpipm }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
 
       - name: Configure
         run: |
@@ -68,11 +75,18 @@ jobs:
             build-essential cmake git \
             libeigen3-dev libboost-filesystem-dev libboost-serialization-dev
 
+      # -march=native bakes the runner CPU into the cached build
+      - name: Identify CPU
+        id: cpu
+        run: |
+          grep -m1 '^model name' /proc/cpuinfo
+          echo "key=$(grep -e '^model name' -e '^flags' /proc/cpuinfo | sort -u | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
       - name: Cache build directory
         uses: actions/cache@v4
         with:
           path: build
-          key: build-sanitized-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+          key: build-sanitized-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
 
       - name: Configure
         run: |
@@ -112,11 +126,18 @@ jobs:
             build-essential cmake git python3-dev python3-numpy \
             libeigen3-dev libboost-filesystem-dev libboost-serialization-dev
 
+      # -march=native bakes the runner CPU into the cached build
+      - name: Identify CPU
+        id: cpu
+        run: |
+          grep -m1 '^model name' /proc/cpuinfo
+          echo "key=$(grep -e '^model name' -e '^flags' /proc/cpuinfo | sort -u | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
       - name: Cache build directory
         uses: actions/cache@v4
         with:
           path: build
-          key: build-python-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+          key: build-python-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
 
       - name: Configure
         run: |
@@ -146,11 +167,18 @@ jobs:
             libeigen3-dev libboost-filesystem-dev libboost-serialization-dev \
             doxygen graphviz
 
+      # -march=native bakes the runner CPU into the cached build
+      - name: Identify CPU
+        id: cpu
+        run: |
+          grep -m1 '^model name' /proc/cpuinfo
+          echo "key=$(grep -e '^model name' -e '^flags' /proc/cpuinfo | sort -u | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
       - name: Cache build directory
         uses: actions/cache@v4
         with:
           path: build
-          key: build-docs-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+          key: build-docs-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
 
       # The Python API reference is generated from the stubs of the built module
       - name: Build the Python bindings
