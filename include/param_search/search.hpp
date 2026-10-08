@@ -114,18 +114,21 @@ class HyperParamSearch
 {
   public:
     HyperParamSearch() = default;
-    HyperParamSearch(const std::vector<solvers::ssqp::Params> &hyperparams,
-                     const std::vector<model::Model>          &problems);
+    HyperParamSearch(
+      const std::vector<solvers::ssqp::Params>         &hyperparams,
+      const std::vector<std::shared_ptr<model::Model>> &problems);
 
     void addHyperparams(const solvers::ssqp::Params &sqp_params);
 
-    void addProblem(const model::Model &model);
+    void addProblem(const std::shared_ptr<model::Model> &model);
+
+    const std::vector<std::shared_ptr<model::Model>> &problems() const;
 
     const solvers::ssqp::Params search() const;
 
   protected:
     std::vector<solvers::ssqp::Params> _hyperparams;
-    std::vector<model::Model>          _problems;
+    std::vector<std::shared_ptr<model::Model>> _problems;
 };
 }
 }

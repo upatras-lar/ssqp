@@ -248,7 +248,7 @@ void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
 FloatingBaseTranslationBound::FloatingBaseTranslationBound(
   const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -329,7 +329,7 @@ FloatingBaseRotationBound::FloatingBaseRotationBound(const Model       &model,
                                                      const Vec3        &ub,
                                                      const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -415,7 +415,7 @@ FloatingBasePoseBound::FloatingBasePoseBound(const Model &model,
                                              const Vec6        &ub,
                                              const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -539,7 +539,7 @@ void FloatingBasePoseBound::hessprod_uu(const VecX &x, const VecX &u,
 FloatingBaseLinearVelocityBound::FloatingBaseLinearVelocityBound(
   const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -613,7 +613,7 @@ void FloatingBaseLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 FloatingBaseAngularVelocityBound::FloatingBaseAngularVelocityBound(
   const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -688,7 +688,7 @@ FrameTranslationBound::FrameTranslationBound(const Model       &model,
                                              const Vec3 &lb, const Vec3 &ub,
                                              const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -769,7 +769,7 @@ FrameTerrainHeightBound::FrameTerrainHeightBound(const Model       &model,
                                                  const double ub,
                                                  const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -857,7 +857,7 @@ FrameRotationBound::FrameRotationBound(const Model       &model,
                                        const Mat3 &Rref, const Vec3 &lb,
                                        const Vec3 &ub, const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -948,7 +948,7 @@ FramePoseBound::FramePoseBound(const Model &model, const std::string &frame,
                                const Mat4 &Tref, const Vec6 &lb, const Vec6 &ub,
                                const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1067,7 +1067,7 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(const Model       &model,
                                                    const Vec3        &ub,
                                                    const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1153,7 +1153,7 @@ FrameAngularVelocityBound::FrameAngularVelocityBound(const Model       &model,
                                                      const Vec3        &ub,
                                                      const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1237,7 +1237,7 @@ void FrameAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 CenterOfMassBound::CenterOfMassBound(const Model &model, const Vec3 &lb,
                                      const Vec3 &ub, const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1312,7 +1312,7 @@ ContactConstraint::ContactConstraint(const Model       &model,
                                      const bool         no_slip,
                                      const std::string &name)
   : StageConstraints(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _nu(model.nu())

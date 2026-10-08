@@ -151,7 +151,8 @@ ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 
 hpipm_params = ssqpy.solvers.hpipmParams()
 hpipm_params.max_iter = 20
-hpipm_params.square_root_riccati = True
+hpipm_params.square_root_riccati = False
+hpipm_params.mu0 = 1.0
 hpipm_params.tol_stat = 1e-3
 hpipm_params.tol_comp = 1e-3
 hpipm_params.tol_eq = 1e-3

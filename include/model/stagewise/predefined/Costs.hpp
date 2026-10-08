@@ -172,7 +172,7 @@ class SquaredIDTorqueCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _nu, _k;
     VecX                         _weight;
 };
@@ -252,7 +252,7 @@ class SquaredConfigurationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     VecX                         _desired_configuration;
     VecX                         _full_desired_configuration;
@@ -300,7 +300,7 @@ class FloatingBaseSquaredTranslationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     Vec3                         _desired_translation;
     Vec3                         _weight;
@@ -348,7 +348,7 @@ class FloatingBaseSquaredRotationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     Mat3                         _desired_rotation;
     Vec3                         _weight;
@@ -425,7 +425,7 @@ class FloatingBaseSquaredPoseErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     Mat4                         _desired_pose, _desired_pose_inv;
     Mat6                         _weight;
@@ -473,7 +473,7 @@ class FloatingBaseSquaredVelocityErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     Vec6                         _desired_velocity;
     Vec6                         _weight;
@@ -518,7 +518,7 @@ class FrameSquaredTranslationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                  *_model;
     const uint                   _nq, _nv, _ndx;
     Vec3                         _desired_translation;
     const std::string            _frame;
@@ -561,7 +561,7 @@ class FrameSquaredTerrainHeightErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     const uint                   _frame_id;
@@ -609,7 +609,7 @@ class FrameSquaredRotationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                  *_model;
     const uint                   _nq, _nv, _ndx;
     Mat3                         _desired_rotation;
     const std::string            _frame;
@@ -684,7 +684,7 @@ class FrameSquaredPoseErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                  *_model;
     const uint                   _nq, _nv, _ndx;
     Mat4                         _desired_pose, _desired_pose_inv;
     const std::string            _frame;
@@ -732,7 +732,7 @@ class FrameSquaredVelocityErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                  *_model;
     const uint                   _nq, _nv, _ndx;
     Vec6                         _desired_velocity;
     const std::string            _frame;
@@ -775,7 +775,7 @@ class CenterOfMassTrackingCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model *_model;
 
     Vec3       _cref;
     const uint _nq, _nv, _ndx;
@@ -829,7 +829,7 @@ class FramesInverseSquaredDistanceCost : public StageCost
     static std::vector<uint> _resolveFrameIds(
       const Model &model, const std::vector<std::string> &frames);
 
-    const std::shared_ptr<Model>   _model;
+    const Model                   *_model;
     const uint                     _nq, _nv, _ndx;
     const std::vector<std::string> _frames;
     const std::vector<uint>        _frame_ids;

@@ -194,7 +194,7 @@ class FloatingBaseTranslationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     VecX                         _lb, _ub;
 };
@@ -246,7 +246,7 @@ class FloatingBaseRotationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     Mat3                         _Rref;
     VecX                         _lb, _ub;
@@ -307,7 +307,7 @@ class FloatingBasePoseBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     Mat4                         _Tref, _Tref_inv;
     VecX                         _lb, _ub;
@@ -356,7 +356,7 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     VecX                         _lb, _ub;
 };
@@ -404,7 +404,7 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     VecX                         _lb, _ub;
 };
@@ -451,7 +451,7 @@ class FrameTranslationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     const uint                   _frame_id;
@@ -501,7 +501,7 @@ class FrameTerrainHeightBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     const uint                   _frame_id;
@@ -554,7 +554,7 @@ class FrameRotationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     const uint                   _frame_id;
@@ -614,7 +614,7 @@ class FramePoseBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     const uint                   _frame_id;
@@ -667,7 +667,7 @@ class FrameLinearVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     const uint                   _frame_id;
@@ -720,7 +720,7 @@ class FrameAngularVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     const std::string            _frame;
     const uint                   _frame_id;
@@ -768,7 +768,7 @@ class CenterOfMassBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _ndx;
     VecX                         _lb, _ub;
 };
@@ -845,7 +845,7 @@ class ContactConstraint : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const std::shared_ptr<Model> _model;
+    const Model                 *_model;
     const uint                   _nq, _nv, _nu;
     const std::string            _frame;
     const uint                   _frame_id;

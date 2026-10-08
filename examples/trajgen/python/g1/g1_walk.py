@@ -260,6 +260,8 @@ hpipm_params.tol_comp = 1e-3
 hpipm_params.tol_eq = 1e-3
 hpipm_params.tol_ineq = 1e-3
 hpipm_params.max_iter = 25
+hpipm_params.square_root_riccati = False
+hpipm_params.mu0 = 1.0
 ssqp_params.hpipmParams = hpipm_params
 
 admm_params = ssqpy.solvers.admmParams()

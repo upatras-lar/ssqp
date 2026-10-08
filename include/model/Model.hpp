@@ -4,6 +4,7 @@
 #include <unordered_set>
 #include <variant>
 #include <type_traits>
+#include <utility>
 #include <stdexcept>
 
 #include "types.hpp"
@@ -227,6 +228,11 @@ class Model
     Model(uint horizon, double dt, const Structure &structure,
           const Config &config);
 
+    // Costs and constraints refer to the model they were built with, so it
+    // cannot be copied
+    Model(const Model &)            = delete;
+    Model &operator=(const Model &) = delete;
+
     /** finalize method
      * ---
      * Finalizes the model with the given configuration
@@ -263,6 +269,10 @@ class Model
     const DynamicsContainer    &dynamics() const;
     const ConstraintsContainer &constraints() const;
 
+    // Every cost, constraint and dynamics function given to the model, as
+    // given, since each stage merges its functions into one
+    const std::vector<std::shared_ptr<stagewise::Function>> &functions() const;
+
     const std::shared_ptr<terrain::Terrain> terrain() const;
 
     // Set initial state for stage k (must be finalized)
@@ -274,13 +284,13 @@ class Model
     // Add a new cost for stage k of StageCost type L
     // Returns: the created cost
     template<typename L, typename... Args>
-    std::shared_ptr<stagewise::StageCost> addCost(const uint k, Args... args);
+    std::shared_ptr<stagewise::StageCost> addCost(const uint k, Args &&...args);
 
     // Add new constraints for stage k of StageConstraint type L
     // Returns: the created constraints
     template<typename C, typename... Args>
     std::shared_ptr<stagewise::StageConstraints> addConstraints(const uint k,
-                                                                Args... args);
+                                                                Args &&...args);
 
     // Add a new cost for stage k from existing object
     void addCost(const uint                                   k,
@@ -289,7 +299,7 @@ class Model
     // Add a new running cost of StageCost type L
     // A running cost is a cost added to every non-terminal stage
     template<typename L, typename... Args>
-    std::shared_ptr<stagewise::StageCost> addRunningCost(Args... args);
+    std::shared_ptr<stagewise::StageCost> addRunningCost(Args &&...args);
 
     // Add a new running cost from existing object
     // A running cost is a cost added to every non-terminal stage
@@ -609,6 +619,7 @@ class Model
     CostsContainer                                   _costs;
     DynamicsContainer                                _dynamics;
     ConstraintsContainer                             _constraints;
+    std::vector<std::shared_ptr<stagewise::Function>> _functions;
     std::vector<std::vector<std::shared_ptr<Force>>> _forces;
     std::vector<std::vector<std::shared_ptr<Force>>> _wrenches;
 

@@ -6,6 +6,7 @@
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
+#include "../model_reference.hpp"
 #include "model/stagewise/StageCost.hpp"
 #include "model/stagewise/predefined/Costs.hpp"
 
@@ -119,7 +120,8 @@ void bind_Costs(nb::module_ &m)
         General abstract constraint function for an optimization stage $k$: $\ell_k(\boldsymbol{x}, \boldsymbol{u})$
         Defines the required functions for a stage cost, while providing 
         default implementations for some
-        )doc")
+        )doc",
+                                       nb::dynamic_attr())
       .def(nb::init())
       .def(nb::init<const std::string &>(), nb::arg("name") = "")
       .def("names", &StageCost::names, "Get all cost names for StageCost.")
@@ -220,10 +222,12 @@ void bind_Costs(nb::module_ &m)
            `model.nq()`), appearing after the floating base (if present)
             )doc")
       .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "")
@@ -252,10 +256,12 @@ void bind_Costs(nb::module_ &m)
            `model.nv()`)    
                                                     )doc")
       .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "")
@@ -282,10 +288,12 @@ void bind_Costs(nb::module_ &m)
            `model.nu()`)
         )doc")
       .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "")
@@ -324,12 +332,14 @@ void bind_Costs(nb::module_ &m)
         )doc")
       .def(nb::init<const Model &, const double, const std::string &,
                     const uint>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "",
            nb::arg("k")    = 0)
       .def(nb::init<const Model &, const VecX &, const std::string &,
                     const uint>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "",
@@ -358,10 +368,12 @@ void bind_Costs(nb::module_ &m)
            elements
         )doc")
       .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "")
       .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("weight"),
            nb::arg("name") = "")
@@ -395,6 +407,7 @@ void bind_Costs(nb::module_ &m)
                     const VecX &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_configuration"),
            nb::arg("weight"),
@@ -403,6 +416,7 @@ void bind_Costs(nb::module_ &m)
                     const VecX &,
                     const VecX &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_configuration"),
            nb::arg("weight"),
@@ -442,6 +456,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec3 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_translation"),
            nb::arg("weight"),
@@ -450,6 +465,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_translation"),
            nb::arg("weight"),
@@ -492,6 +508,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_rotation"),
            nb::arg("weight"),
@@ -500,6 +517,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_rotation"),
            nb::arg("weight"),
@@ -540,6 +558,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat4 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_pose"),
            nb::arg("weight"),
@@ -549,6 +568,7 @@ void bind_Costs(nb::module_ &m)
                     const double,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_pose"),
            nb::arg("translation_weight"),
@@ -558,6 +578,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat4 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_pose"),
            nb::arg("weight"),
@@ -567,6 +588,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_translation"),
            nb::arg("desired_rotation"),
@@ -578,6 +600,7 @@ void bind_Costs(nb::module_ &m)
                     const double,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_translation"),
            nb::arg("desired_rotation"),
@@ -589,6 +612,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_translation"),
            nb::arg("desired_rotation"),
@@ -644,6 +668,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec6 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_velocity"),
            nb::arg("weight"),
@@ -652,6 +677,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec6 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_velocity"),
            nb::arg("weight"),
@@ -690,6 +716,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec3 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
@@ -700,6 +727,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
@@ -742,6 +770,7 @@ void bind_Costs(nb::module_ &m)
                     const double,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_height"),
@@ -776,6 +805,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_rotation"),
@@ -786,6 +816,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_rotation"),
@@ -827,6 +858,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat4 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_pose"),
@@ -838,6 +870,7 @@ void bind_Costs(nb::module_ &m)
                     const double,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_pose"),
@@ -849,6 +882,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat4 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_pose"),
@@ -860,6 +894,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
@@ -873,6 +908,7 @@ void bind_Costs(nb::module_ &m)
                     const double,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
@@ -886,6 +922,7 @@ void bind_Costs(nb::module_ &m)
                     const Mat3 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
@@ -940,6 +977,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec6 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_velocity"),
@@ -950,6 +988,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec6 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_velocity"),
@@ -986,6 +1025,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec3 &,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("cref"),
            nb::arg("weight"),
@@ -994,6 +1034,7 @@ void bind_Costs(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("cref"),
            nb::arg("weight"),
@@ -1033,6 +1074,7 @@ void bind_Costs(nb::module_ &m)
                     const double,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frames"),
            nb::arg("weight"),
@@ -1043,6 +1085,7 @@ void bind_Costs(nb::module_ &m)
                     const double,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frames"),
            nb::arg("weight"),

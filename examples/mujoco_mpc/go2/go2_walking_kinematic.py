@@ -24,7 +24,7 @@ go2_planner.config.ContactScheduling.calculate()
 go2_planner.config.ReferenceGeneration.h_sw = 0.1
 
 import multiprocessing
-from time import time, sleep
+from time import sleep
 
 from go2_controllers.joystick import Controller
 
@@ -217,7 +217,9 @@ for k in range(MPC_H + 1):
         )
 
         feet_constraints[foot].append(foot_translation_bound)
-        model.addConstraints(k, foot_translation_bound)
+        # Stage 0 is the measured state, which the solver cannot move
+        if k > 0:
+            model.addConstraints(k, foot_translation_bound)
 
         if p_ref[foot][k][1]:  # swing
             foot_translation_bound.set_enabled(False)
@@ -240,7 +242,8 @@ for k in range(MPC_H + 1):
     if k != MPC_H:
         model.addCost(k, vel_cost)
 
-    model.addConstraints(k, base_height_constraint)
+    if k > 0:
+        model.addConstraints(k, base_height_constraint)
 
 model.finalize(
     init_states=[go2_planner.config.INIT_CONFIG],

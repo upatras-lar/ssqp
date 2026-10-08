@@ -91,6 +91,11 @@ void bind_Terrain(nb::module_ &m)
            nb::arg("heights"),
            nb::arg("resolution"),
            nb::arg("x0") = 0.0,
+           nb::arg("y0") = 0.0)
+      .def("set_heights",
+           &HeightmapTerrain::set_heights,
+           nb::arg("heights"),
+           nb::arg("x0") = 0.0,
            nb::arg("y0") = 0.0);
 }
 }

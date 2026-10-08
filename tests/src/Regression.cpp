@@ -3,6 +3,7 @@
 #include "solvers/mpc.hpp"
 #include "model/stagewise/predefined/Costs.hpp"
 #include "model/stagewise/predefined/Constraints.hpp"
+#include "model/terrain/predefined/HeightmapTerrain.hpp"
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -576,6 +577,109 @@ void jointControlConstraintBoundsFirstControls()
     }
 }
 
+// A cost built before the model's forces are added must still see them, since
+// it refers to the model rather than keeping its own copy
+void costSeesForcesAddedLater()
+{
+    using model::stagewise::predefined::constraints::ContactConstraint;
+    using model::stagewise::predefined::costs::SquaredIDTorqueCost;
+
+    model::Model::Structure structure;
+    structure.from_preset = model::Preset::Go2;
+    structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
+    model::Model model(1, 0.01, structure);
+
+    SquaredIDTorqueCost cost(model, 1.0, "", 0);
+    model.addConstraints<ContactConstraint>(0, model, "FL_foot");
+
+    VecX x = VecX::Zero(model.nq() + model.nv());
+    x[6]   = 1.0;
+    for (uint leg = 0; leg < 4; ++leg)
+    {
+        x[8 + 3 * leg] = 0.8;
+        x[9 + 3 * leg] = -1.5;
+    }
+    VecX u          = VecX::Zero(model.nu() + 3);
+    u[u.size() - 1] = 60.0;
+
+    const VecX tau = model.getActuatedTorqueVector(x, u, 0);
+    require(std::abs(cost.evaluate(x, u)[0] - 0.5 * tau.squaredNorm()) <
+              1e-9 * tau.squaredNorm(),
+            "The torque cost must include forces added after it was built");
+}
+
+// Replacing a heightmap's grid must act as if the terrain had been built from
+// the new grid, including for constraints built before the change
+void heightmapSetHeightsMatchesNewTerrain()
+{
+    using namespace model::terrain::predefined;
+    using model::stagewise::predefined::constraints::ContactConstraint;
+
+    const auto grid = [](int rows, int cols, double scale)
+    {
+        MatX heights(rows, cols);
+        for (int i = 0; i < rows; ++i)
+            for (int j = 0; j < cols; ++j)
+                heights(i, j) = scale * std::sin(0.7 * i) * std::cos(0.5 * j);
+        return heights;
+    };
+
+    const MatX old_heights = grid(6, 8, 0.1);
+    auto       terrain =
+      std::make_shared<HeightmapTerrain>(old_heights, 0.1, -0.3, -0.4);
+
+    model::Model::Structure structure;
+    structure.from_preset = model::Preset::Go2;
+    structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
+    structure.terrain     = terrain;
+    model::Model model(1, 0.01, structure);
+    auto contact = model.addConstraints<ContactConstraint>(0, model, "FL_foot");
+
+    // A grid of a different size and origin
+    const MatX new_heights = grid(9, 5, 0.2);
+    terrain->set_heights(new_heights, -0.1, 0.05);
+    const HeightmapTerrain expected(new_heights, 0.1, -0.1, 0.05);
+
+    // Queries inside and outside of the grid
+    for (double x = -0.5; x <= 1.0; x += 0.07)
+    {
+        for (double y = -0.3; y <= 0.7; y += 0.06)
+        {
+            const auto actual = model.terrain()->at(x, y);
+            const auto wanted = expected.at(x, y);
+            const Vec6 a(actual.height,
+                         actual.dhdx,
+                         actual.dhdy,
+                         actual.d2hdx2,
+                         actual.d2hdxdy,
+                         actual.d2hdy2);
+            const Vec6 w(wanted.height,
+                         wanted.dhdx,
+                         wanted.dhdy,
+                         wanted.d2hdx2,
+                         wanted.d2hdxdy,
+                         wanted.d2hdy2);
+            require((a - w).cwiseAbs().maxCoeff() < 1e-12,
+                    "Terrain points must match a terrain built from the new "
+                    "grid");
+        }
+    }
+
+    // The contact's height residual must follow the new grid at the foot
+    VecX x       = VecX::Zero(model.nq() + model.nv());
+    x[6]         = 1.0;
+    const VecX u = VecX::Zero(model.nu() + 3);
+    const Vec3 pos =
+      model.forwardKinematics(x.head(model.nq()), "FL_foot").first;
+    const HeightmapTerrain old_terrain(old_heights, 0.1, -0.3, -0.4);
+    require(std::abs(old_terrain.at(pos[0], pos[1]).height -
+                     expected.at(pos[0], pos[1]).height) > 1e-3,
+            "The test grids must differ at the foot");
+    require(std::abs(contact->evaluate(x, u)[5] -
+                     (pos[2] - expected.at(pos[0], pos[1]).height)) < 1e-12,
+            "The contact constraint must use the new heights");
+}
+
 // A preset must build the same model as loading its URDF by path directly
 void modelFromPresetMatchesUrdfPath()
 {
@@ -959,6 +1063,12 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_JointControlConstraint_BoundsFirstControls",
       jointControlConstraintBoundsFirstControls));
+    tests.addTest(
+      std::make_shared<FunctionTest>("Regression_Cost_SeesForcesAddedLater",
+                                     costSeesForcesAddedLater));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_HeightmapTerrain_SetHeightsMatchesNewTerrain",
+      heightmapSetHeightsMatchesNewTerrain));
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_ModelFromPreset_MatchesUrdfPath",
       modelFromPresetMatchesUrdfPath));

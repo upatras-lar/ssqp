@@ -26,7 +26,6 @@ RF_WGT = 1e-1
 MAX_FORCE_NORMAL = 147
 
 
-
 def step_range(text):
     start, end = text.split(":")
     return int(start), int(end)
@@ -343,6 +342,8 @@ hpipm_params.tol_stat = 1e-3
 hpipm_params.tol_comp = 1e-3
 hpipm_params.tol_eq = 1e-3
 hpipm_params.tol_ineq = 1e-3
+hpipm_params.square_root_riccati = False
+hpipm_params.mu0 = 10
 ssqp_params.hpipmParams = hpipm_params
 
 # Create a solver with the model

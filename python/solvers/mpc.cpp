@@ -5,6 +5,7 @@
 
 #include "solvers/mpc.hpp"
 #include "model/Model.hpp"
+#include "../model/model_reference.hpp"
 
 namespace ssqp
 {
@@ -17,7 +18,7 @@ using namespace model;
 
 void bind_MPC(nb::module_ &m)
 {
-    nb::class_<MPC>(m, "MPC", R"doc(
+    nb::class_<MPC>(m, "MPC", nb::dynamic_attr(), R"doc(
         Helper class which utilizes SSQP to perform MPC for real-time SSQP-based 
         control.
 
@@ -45,7 +46,7 @@ void bind_MPC(nb::module_ &m)
 
             new (self) MPC(model, params, ssqp_params);
         },
-        nb::keep_alive<1, 2>(),
+        nb::call_policy<keep_model>(),
         nb::arg("model"),
         nb::arg("ssqp_params") = ssqp::Params::Default(),
         nb::kw_only(),

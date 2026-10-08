@@ -36,6 +36,10 @@ objectives, all built on Pinocchio kinematics for XML-based models:
 
 See [`ssqpy.model.costs`](../reference/model-costs.md) for constructor arguments and details for each.
 
+Predefined costs and constraints refer to the model they are built with rather than copying it, so they always see
+its current forces and terrain. In C++, the model must outlive them, and a `Model` cannot be copied. In Python, each
+one keeps its model alive.
+
 ## Dynamics
 
 `StageDynamics` ($\boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^{n_x}$) requires:

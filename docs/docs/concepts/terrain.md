@@ -44,6 +44,9 @@ x, for `num_steps` steps, and stays at the top afterwards. With the default sing
 `HeightmapTerrain` interpolates a uniform grid, where `heights[i, j]` is the height at
 $(x_0 + i \cdot \text{resolution},\, y_0 + j \cdot \text{resolution})$, with a bicubic Catmull-Rom spline. The surface passes through every grid
 height and has continuous slope. Outside the grid it extends flat from the closest edge value.
+`terrain.set_heights(heights, x0=0.0, y0=0.0)` replaces the grid and its origin, keeping the resolution, so a model can
+follow a map that moves with the robot. Models using the terrain see the new heights from their next evaluation. Call it
+between solves, never while a solver is running (`MPC.step` releases the GIL, so another thread could).
 
 Pass a terrain to a model with `Model(..., terrain=terrain)`.
 

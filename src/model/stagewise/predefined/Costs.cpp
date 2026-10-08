@@ -290,7 +290,7 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model       &model,
                                          const std::string &name,
                                          const uint          k)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _nu(model.nu())
@@ -310,7 +310,7 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const VecX &weight,
                                          const std::string &name,
                                          const uint          k)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _nu(model.nu())
@@ -510,7 +510,7 @@ SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   const Model &model, const VecX &desired_configuration, const double weight,
   const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -544,7 +544,7 @@ SquaredConfigurationErrorCost::SquaredConfigurationErrorCost(
   const Model &model, const VecX &desired_configuration, const VecX &weight,
   const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -690,7 +690,7 @@ FloatingBaseSquaredTranslationErrorCost::
                                           const double weight,
                                           const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -708,7 +708,7 @@ FloatingBaseSquaredTranslationErrorCost::
                                           const Vec3  &weight,
                                           const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -795,7 +795,7 @@ FloatingBaseSquaredRotationErrorCost::FloatingBaseSquaredRotationErrorCost(
   const Model &model, const Mat3 &desired_rotation, const double weight,
   const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -812,7 +812,7 @@ FloatingBaseSquaredRotationErrorCost::FloatingBaseSquaredRotationErrorCost(
   const Model &model, const Mat3 &desired_rotation, const Vec3 &weight,
   const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -918,7 +918,7 @@ FloatingBaseSquaredPoseErrorCost::FloatingBaseSquaredPoseErrorCost(
   const Model &model, const Mat4 &desired_pose, const double translation_weight,
   const double rotation_weight, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -937,7 +937,7 @@ FloatingBaseSquaredPoseErrorCost::FloatingBaseSquaredPoseErrorCost(
   const Model &model, const Mat4 &desired_pose, const Vec6 &weight,
   const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1137,7 +1137,7 @@ FloatingBaseSquaredVelocityErrorCost::FloatingBaseSquaredVelocityErrorCost(
   const Model &model, const Vec6 &desired_velocity, const double weight,
   const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1154,7 +1154,7 @@ FloatingBaseSquaredVelocityErrorCost::FloatingBaseSquaredVelocityErrorCost(
   const Model &model, const Vec6 &desired_velocity, const Vec6 &weight,
   const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1235,7 +1235,7 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
   const double weight, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1254,7 +1254,7 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
   const Vec3 &weight, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1349,7 +1349,7 @@ FrameSquaredTerrainHeightErrorCost::FrameSquaredTerrainHeightErrorCost(
   const Model &model, const std::string &frame, const double desired_height,
   const double weight, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1444,7 +1444,7 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   const Model &model, const std::string &frame, const Mat3 &desired_rotation,
   const double weight, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1464,7 +1464,7 @@ FrameSquaredRotationErrorCost::FrameSquaredRotationErrorCost(
   const Model &model, const std::string &frame, const Mat3 &desired_rotation,
   const Vec3 &weight, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1582,7 +1582,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(
   const double translation_weight, const double rotation_weight,
   const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1606,7 +1606,7 @@ FrameSquaredPoseErrorCost::FrameSquaredPoseErrorCost(const Model       &model,
                                                      const Vec6 &weight,
                                                      const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1798,7 +1798,7 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   const Model &model, const std::string &frame, const Vec6 &desired_velocity,
   const double weight, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1820,7 +1820,7 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   const Model &model, const std::string &frame, const Vec6 &desired_velocity,
   const Vec6 &weight, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1917,7 +1917,7 @@ CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model       &model,
                                                    const double       weight,
                                                    const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -1933,7 +1933,7 @@ CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model       &model,
                                                    const Vec3        &weight,
                                                    const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -2026,7 +2026,7 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
   const Model &model, const std::vector<std::string> &frames,
   const double weight, const double distance_scale, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
@@ -2053,7 +2053,7 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
   const Model &model, const std::vector<std::string> &frames,
   const double weight, const Vec3 &distance_scale, const std::string &name)
   : StageCost(name)
-  , _model(std::make_shared<Model>(model))
+  , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)

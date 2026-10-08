@@ -307,6 +307,9 @@ void Model::finalize(const Config &config)
         }
 
         _dynamics = config.dynamics;
+        _functions.insert(_functions.end(),
+                          config.dynamics.begin(),
+                          config.dynamics.end());
     }
 
     // Setup costs
@@ -787,6 +790,12 @@ const ConstraintsContainer &Model::constraints() const
     return _constraints;
 }
 
+const std::vector<std::shared_ptr<stagewise::Function>> &Model::functions()
+  const
+{
+    return _functions;
+}
+
 const std::shared_ptr<terrain::Terrain> Model::terrain() const
 {
     return _terrain;
@@ -829,6 +838,8 @@ void Model::setInitControl(const uint k, const VecX &init_control)
 void Model::addCost(const uint                                   k,
                     const std::shared_ptr<stagewise::StageCost> &cost)
 {
+    _functions.push_back(cost);
+
     if (_costs[k] == nullptr)
     {
         _costs[k] = cost;
@@ -878,6 +889,8 @@ neverEnabledConstraints()
 void Model::addConstraints(
   const uint k, const std::shared_ptr<stagewise::StageConstraints> &constraints)
 {
+    _functions.push_back(constraints);
+
     if (_constraints[k] == nullptr)
     {
         // Always merged, since only merged constraints honor enabled()

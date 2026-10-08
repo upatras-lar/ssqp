@@ -308,8 +308,8 @@ double GaussNewton::_jacobianSimilarity(const MatX &J1, const MatX &J2)
 }
 
 HyperParamSearch::HyperParamSearch(
-  const std::vector<solvers::ssqp::Params> &hyperparams,
-  const std::vector<model::Model>          &problems)
+  const std::vector<solvers::ssqp::Params>         &hyperparams,
+  const std::vector<std::shared_ptr<model::Model>> &problems)
   : _hyperparams(hyperparams)
   , _problems(problems)
 {
@@ -320,9 +320,15 @@ void HyperParamSearch::addHyperparams(const solvers::ssqp::Params &sqp_params)
     _hyperparams.push_back(sqp_params);
 }
 
-void HyperParamSearch::addProblem(const model::Model &model)
+void HyperParamSearch::addProblem(const std::shared_ptr<model::Model> &model)
 {
     _problems.push_back(model);
+}
+
+const std::vector<std::shared_ptr<model::Model>> &HyperParamSearch::problems()
+  const
+{
+    return _problems;
 }
 
 const solvers::ssqp::Params HyperParamSearch::search() const
@@ -340,11 +346,11 @@ const solvers::ssqp::Params HyperParamSearch::search() const
     {
         double metric = 0.0;
 
-        for (const model::Model &problem : _problems)
+        for (const std::shared_ptr<model::Model> &problem : _problems)
         {
-            solvers::ssqp        solver(problem, sqp_params);
-            solvers::ssqp::Guess solution(problem.dims(),
-                                          problem.linear_dims());
+            solvers::ssqp        solver(*problem, sqp_params);
+            solvers::ssqp::Guess solution(problem->dims(),
+                                          problem->linear_dims());
 
             try
             {

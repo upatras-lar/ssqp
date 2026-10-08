@@ -49,6 +49,16 @@ HeightmapTerrain::HeightmapTerrain(const MatX &heights, const double resolution,
     assert(resolution > 0.0 && "Heightmap resolution must be positive");
 }
 
+void HeightmapTerrain::set_heights(const MatX &heights, const double x0,
+                                   const double y0)
+{
+    assert(heights.rows() >= 2 && heights.cols() >= 2 &&
+           "Heightmap must have at least 2 samples along each axis");
+    _heights = heights;
+    _x0      = x0;
+    _y0      = y0;
+}
+
 Terrain::TerrainPoint HeightmapTerrain::at(const double x, const double y) const
 {
     const int nx = _heights.rows(), ny = _heights.cols();

@@ -8,6 +8,7 @@
 #include "solvers/admm_qp.hpp"
 #include "solvers/hpipm_qp.hpp"
 #include "model/Model.hpp"
+#include "../model/model_reference.hpp"
 
 namespace ssqp
 {
@@ -386,7 +387,7 @@ void bind_ssqp(nb::module_ &m)
               "Whether to use different step for primal and dual variables.");
 #endif
 
-    nb::class_<ssqp>(m, "ssqp", R"doc(
+    nb::class_<ssqp>(m, "ssqp", nb::dynamic_attr(), R"doc(
         Defines an SSQP problem solver based on a given SSQP model and the desired
         parameters.
 
@@ -407,7 +408,7 @@ void bind_ssqp(nb::module_ &m)
         repeated until convergence is reached.   
            )doc")
       .def(nb::init<model::Model &, const ssqp::Params &>(),
-           nb::keep_alive<1, 2>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("params") = ssqp::Params::Default(),
            "Initialize an SSQP solver based on the given model and SSQP "
@@ -681,7 +682,7 @@ void bind_ssqp(nb::module_ &m)
 
             new (self) ssqp(model, params);
         },
-        nb::keep_alive<1, 2>(),
+        nb::call_policy<keep_model>(),
         R"doc(
         Initialize an SSQP solver based on the given model and SSQP parameters. 
         Parameters, as defined in ssqpParams, can be passed as keyword arguments

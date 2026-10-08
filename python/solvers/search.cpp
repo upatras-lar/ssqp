@@ -6,6 +6,7 @@
 
 #include "param_search/search.hpp"
 #include "model/stagewise/StageDynamics.hpp"
+#include "../model/model_reference.hpp"
 
 namespace ssqp
 {
@@ -14,6 +15,37 @@ namespace python
 namespace nb = nanobind;
 
 using namespace model::stagewise;
+
+// Visits the models passed to the search from Python, so that the garbage
+// collector can free a search together with them
+int search_tp_traverse(PyObject *self, visitproc visit, void *arg)
+{
+    Py_VISIT(Py_TYPE(self));
+
+    if (!nb::inst_ready(self))
+    {
+        return 0;
+    }
+
+    param_search::HyperParamSearch *search =
+      nb::inst_ptr<param_search::HyperParamSearch>(self);
+
+    std::unordered_set<const void *> visited;
+    for (const std::shared_ptr<model::Model> &problem : search->problems())
+    {
+        if (int result = visit_python_reference(problem, visited, visit, arg))
+        {
+            return result;
+        }
+    }
+
+    return 0;
+}
+
+PyType_Slot search_slots[] = {
+    { Py_tp_traverse, (void *)search_tp_traverse },
+    {              0,                          0 }
+};
 
 void bind_search(nb::module_ &m)
 {
@@ -83,10 +115,12 @@ void bind_search(nb::module_ &m)
            held
            )doc");
 
-    nb::class_<param_search::HyperParamSearch>(m, "HyperParamSearch")
+    nb::class_<param_search::HyperParamSearch>(m,
+                                               "HyperParamSearch",
+                                               nb::type_slots(search_slots))
       .def(nb::init())
       .def(nb::init<const std::vector<solvers::ssqp::Params> &,
-                    const std::vector<model::Model> &>())
+                    const std::vector<std::shared_ptr<model::Model>> &>())
       .def("addHyperparams", &param_search::HyperParamSearch::addHyperparams)
       .def("addProblem", &param_search::HyperParamSearch::addProblem)
       .def("search", &param_search::HyperParamSearch::search);

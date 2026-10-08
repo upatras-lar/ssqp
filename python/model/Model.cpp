@@ -1,3 +1,5 @@
+#include <unordered_set>
+
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/pair.h>
@@ -9,6 +11,7 @@
 #include "model/Model.hpp"
 #include "model/terrain/Terrain.hpp"
 #include "model/stagewise/predefined/Constraints.hpp"
+#include "model_reference.hpp"
 
 namespace ssqp
 {
@@ -21,7 +24,10 @@ using namespace model::stagewise;
 using namespace model::stagewise::predefined::constraints;
 using namespace model::terrain;
 
-/*
+// Visits the Python objects the model holds a reference to, which are the
+// costs, constraints, dynamics and terrain passed to it from Python. Costs and
+// constraints keep their model in their instance dictionary, so the garbage
+// collector can free a model together with them
 int model_tp_traverse(PyObject *self, visitproc visit, void *arg)
 {
     Py_VISIT(Py_TYPE(self));
@@ -33,49 +39,22 @@ int model_tp_traverse(PyObject *self, visitproc visit, void *arg)
 
     Model *model = nb::inst_ptr<Model>(self);
 
-    CostsContainer       costs       = model->costs();
-    ConstraintsContainer constraints = model->constraints();
-    DynamicsContainer    dynamics    = model->dynamics();
-
-    for (uint k = 0; k <= model->horizon(); ++k)
+    std::unordered_set<const void *> visited;
+    for (const std::shared_ptr<Function> &function : model->functions())
     {
-        nb::handle value = nb::find(costs[k]);
-        Py_VISIT(value.ptr());
-        value = nb::find(constraints[k]);
-        Py_VISIT(value.ptr());
-        value = nb::find(dynamics[k]);
-        Py_VISIT(value.ptr());
+        if (int result = visit_python_reference(function, visited, visit, arg))
+        {
+            return result;
+        }
     }
 
-    return 0;
-}
-
-// TODO: merged still leak
-int model_tp_clear(PyObject *self)
-{
-    std::cout << "Running clear" << std::endl;
-    Model *model = nb::inst_ptr<Model>(self);
-
-    CostsContainer       costs       = model->costs();
-    ConstraintsContainer constraints = model->constraints();
-    DynamicsContainer    dynamics    = model->dynamics();
-
-    for (uint k = 0; k <= model->horizon(); ++k)
-    {
-        costs[k]       = nullptr;
-        constraints[k] = nullptr;
-        dynamics[k]    = nullptr;
-    }
-
-    return 0;
+    return visit_python_reference(model->terrain(), visited, visit, arg);
 }
 
 PyType_Slot model_slots[] = {
     { Py_tp_traverse, (void *)model_tp_traverse },
-    {    Py_tp_clear,    (void *)model_tp_clear },
     {              0,                         0 }
 };
-*/
 
 void bind_Model(nb::module_ &m)
 {
@@ -190,7 +169,7 @@ void bind_Model(nb::module_ &m)
         &Model::CustomProperties::joint_types,
         "The types of joints corresponding to each of the ordered joints.");
 
-    nb::class_<Model>(m, "Model", R"doc(
+    nb::class_<Model>(m, "Model", nb::type_slots(model_slots), R"doc(
         Defines an SSQP model
         An SSQP model object is a prerequisite to performing optimization using SSQP
         The model contains the following:
@@ -410,29 +389,15 @@ void bind_Model(nb::module_ &m)
         )doc")
       .def(
         "addCost",
-        [](Model &self, const uint k, nb::object py_cost)
-        {
-            auto *raw  = nb::cast<StageCost *>(py_cost);
-            auto  cost = std::shared_ptr<StageCost>(
-              raw,
-              [ref = nb::object(py_cost)](StageCost *) {});
-
-            self.addCost(k, cost);
-        },
+        [](Model &self, const uint k, const std::shared_ptr<StageCost> &cost)
+        { self.addCost(k, cost); },
         nb::arg("k"),
         nb::arg("cost"),
         "Add a cost to a stage.")
       .def(
         "addRunningCost",
-        [](Model &self, nb::object py_cost)
-        {
-            auto *raw  = nb::cast<StageCost *>(py_cost);
-            auto  cost = std::shared_ptr<StageCost>(
-              raw,
-              [ref = nb::object(py_cost)](StageCost *) {});
-
-            self.addRunningCost(cost);
-        },
+        [](Model &self, const std::shared_ptr<StageCost> &cost)
+        { self.addRunningCost(cost); },
         nb::arg("cost"),
         "Add a cost to every non-terminal stage.")
       .def("addConstraints",
@@ -463,6 +428,7 @@ void bind_Model(nb::module_ &m)
                                                      no_slip,
                                                      name));
         },
+        nb::keep_alive<0, 1>(),
         nb::arg("k"),
         nb::arg("frame"),
         nb::arg("mu")               = 0.6,

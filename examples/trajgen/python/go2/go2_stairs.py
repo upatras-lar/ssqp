@@ -248,6 +248,8 @@ hpipm_params.tol_stat = 1e-4
 hpipm_params.tol_comp = 1e-4
 hpipm_params.tol_eq = 1e-4
 hpipm_params.tol_ineq = 1e-4
+hpipm_params.square_root_riccati = False
+hpipm_params.mu0 = 1.0
 ssqp_params.hpipmParams = hpipm_params
 
 # Create an SSQP solver for the model

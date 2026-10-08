@@ -17,6 +17,8 @@ namespace predefined
  * which passes through every grid height and has continuous height and slope.
  * The height second derivatives are piecewise continuous.
  * Outside the grid, the terrain extends flat from its closest edge value
+ * The grid can be replaced after construction with `set_heights`, e.g. to
+ * follow a map that moves with the robot
  */
 class HeightmapTerrain : public Terrain
 {
@@ -24,13 +26,22 @@ class HeightmapTerrain : public Terrain
     HeightmapTerrain(const MatX &heights, const double resolution,
                      const double x0 = 0.0, const double y0 = 0.0);
 
+    /** Replaces the grid of heights and its origin, keeping the resolution
+     * The grid may change size. Models using this terrain see the new heights
+     * from their next evaluation, so this must not be called while a solver
+     * is using such a model
+     */
+    void set_heights(const MatX &heights, const double x0 = 0.0,
+                     const double y0 = 0.0);
+
     TerrainPoint at(const double x, const double y) const override;
 
     nlohmann::ordered_json to_json() const override;
 
   protected:
-    const MatX   _heights;
-    const double _res, _x0, _y0;
+    MatX         _heights;
+    const double _res;
+    double       _x0, _y0;
 };
 
 }

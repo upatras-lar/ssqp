@@ -6,6 +6,7 @@
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
+#include "../model_reference.hpp"
 #include "model/stagewise/StageConstraints.hpp"
 #include "model/stagewise/predefined/Constraints.hpp"
 
@@ -221,7 +222,8 @@ void bind_Constraints(nb::module_ &m)
         General abstract constraint function for an optimization stage $k$: $\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
         Defines the required functions for stage constraints, while providing 
         default implementations for some
-        )doc")
+        )doc",
+                                                     nb::dynamic_attr())
       .def(nb::init())
       .def(nb::init<const std::string &>(), nb::arg("name") = "")
       .def("names",
@@ -362,6 +364,7 @@ void bind_Constraints(nb::module_ &m)
                     const VecX &,
                     const VecX &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
@@ -396,6 +399,7 @@ void bind_Constraints(nb::module_ &m)
                     const VecX &,
                     const VecX &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
@@ -433,6 +437,7 @@ void bind_Constraints(nb::module_ &m)
                     const VecX &,
                     const VecX &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
@@ -465,6 +470,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
@@ -501,6 +507,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("Rref"),
            nb::arg("lb")   = Vec3::Zero(),
@@ -539,6 +546,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec6 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("Tref"),
            nb::arg("lb")   = Vec6::Zero(),
@@ -550,6 +558,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec6 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("tref"),
            nb::arg("Rref"),
@@ -589,6 +598,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
@@ -623,6 +633,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
@@ -655,6 +666,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
@@ -690,6 +702,7 @@ void bind_Constraints(nb::module_ &m)
                     const double,
                     const double,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
@@ -725,6 +738,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("Rref"),
@@ -760,6 +774,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec6 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("Tref"),
@@ -773,6 +788,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec6 &,
                     const Vec6 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("tref"),
@@ -814,6 +830,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
@@ -852,6 +869,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
@@ -884,6 +902,7 @@ void bind_Constraints(nb::module_ &m)
                     const Vec3 &,
                     const Vec3 &,
                     const std::string &>(),
+           nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
