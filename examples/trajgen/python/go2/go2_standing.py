@@ -123,6 +123,7 @@ ssqp_params.stop_after_constraint_satisfaction = True
 
 hpipm_params = ssqpy.solvers.hpipmParams()
 hpipm_params.max_iter = 200
+hpipm_params.mu0 = 10
 hpipm_params.tol_stat = 1e-4
 hpipm_params.tol_comp = 1e-4
 hpipm_params.tol_eq = 1e-4

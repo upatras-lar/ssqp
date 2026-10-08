@@ -336,6 +336,7 @@ ssqp_params.admmParams = admm_params
 
 hpipm_params = ssqpy.solvers.hpipmParams()
 hpipm_params.max_iter = 25
+hpipm_params.mu0 = 1.0
 hpipm_params.split_step = True
 hpipm_params.prediction_correction = True
 hpipm_params.tol_stat = 1e-3

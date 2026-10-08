@@ -51,7 +51,7 @@ class hpipm_qp : public QPSolver
         // Prediction correction flag
         bool prediction_correction = true;
         // Square root riccati algorithm flag
-        bool square_root_riccati = true;
+        bool square_root_riccati = false;
         // Whether to use different step for primal and dual variables
         bool split_step = false;
 
