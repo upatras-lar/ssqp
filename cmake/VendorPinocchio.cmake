@@ -272,6 +272,8 @@ else()
         -DCMAKE_INSTALL_PREFIX=${SSQP_VENDOR_PREFIX}
         -DCMAKE_INSTALL_LIBDIR=lib
         -DCMAKE_PREFIX_PATH=${SSQP_VENDOR_PREFIX}
+        # Same Eigen as ssqp, since CMAKE_PREFIX_PATH above hides the caller's
+        -DEigen3_DIR=${Eigen3_DIR}
         -DBUILD_TESTING=OFF
         -DBoost_USE_STATIC_LIBS=ON
         -DBoost_USE_STATIC_RUNTIME=OFF

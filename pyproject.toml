@@ -1,0 +1,53 @@
+[build-system]
+requires = ["scikit-build-core>=0.11", "numpy"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "ssqp"
+dynamic = ["version"]
+description = "Structure-exploiting SQP solver for nonlinear optimal control, trajectory generation and MPC"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "BSD-3-Clause"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+dependencies = ["numpy"]
+
+[project.urls]
+Repository = "https://github.com/upatras-lar/ssqp"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+# Keeps the vendored Pinocchio/HPIPM builds between installs
+build-dir = "build/{wheel_tag}"
+# Only what the Python module build needs
+sdist.exclude = ["/*"]
+sdist.include = [
+    "/pyproject.toml",
+    "/CMakeLists.txt",
+    "/LICENSE",
+    "/THIRD_PARTY_NOTICES.md",
+    "/README.md",
+    "/cmake",
+    "/include",
+    "/src",
+    "/python",
+    "/external/tracy/LICENSE",
+    "/external/tracy/public",
+    "/external/json/LICENSE.MIT",
+    "/external/json/single_include",
+    "/examples/assets/urdf/go2/go2.urdf",
+    "/examples/assets/urdf/a1/a1.urdf",
+    "/examples/assets/urdf/panda/panda.urdf",
+    "/examples/assets/urdf/g1/g1_23dof.urdf",
+    "/examples/assets/urdf/talos/talos.urdf",
+    "/examples/assets/urdf/double_pendulum/double_pendulum.urdf",
+]
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "CMakeLists.txt"
+regex = 'project\(ssqp VERSION (?P<value>[0-9.]+)'
+
+[tool.scikit-build.cmake.define]
+BUILD_PYTHON = "ON"
+BUILD_TESTS = "OFF"

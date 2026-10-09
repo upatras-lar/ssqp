@@ -44,8 +44,7 @@ jobs:
         run: |
           cmake -S . -B build \
             -DWITH_HPIPM=${{ matrix.with_hpipm }} \
-            -DBUILD_PYTHON=OFF \
-            -DBUILD_BENCHMARKS=OFF
+            -DBUILD_PYTHON=OFF
 
       - name: Build
         run: cmake --build build --target run_tests -j"$(nproc)"
@@ -94,8 +93,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DENABLE_SANITIZERS=ON \
             -DWITH_HPIPM=ON \
-            -DBUILD_PYTHON=OFF \
-            -DBUILD_BENCHMARKS=OFF
+            -DBUILD_PYTHON=OFF
 
       - name: Build
         run: cmake --build build --target run_tests -j"$(nproc)"
@@ -142,8 +140,7 @@ jobs:
       - name: Configure
         run: |
           cmake -S . -B build \
-            -DBUILD_TESTS=OFF \
-            -DBUILD_BENCHMARKS=OFF
+            -DBUILD_TESTS=OFF
 
       - name: Build
         run: cmake --build build --target ssqpy -j"$(nproc)"
@@ -183,7 +180,7 @@ jobs:
       # The Python API reference is generated from the stubs of the built module
       - name: Build the Python bindings
         run: |
-          cmake -S . -B build -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+          cmake -S . -B build -DBUILD_TESTS=OFF
           cmake --build build --target ssqpy -j"$(nproc)"
 
       - name: Install documentation requirements

@@ -2,7 +2,6 @@
 #include "MPC.hpp"
 #include "Regression.hpp"
 #include "generators/gradients.hpp"
-#include "generators/qp_solvers.hpp"
 
 int main(int argc, char **argv)
 {
@@ -254,18 +253,6 @@ int main(int argc, char **argv)
     tests.addTest(ssqp::tests::generators::get_gammaf_grad_test());
 
     tests.addTest(ssqp::tests::generators::get_cf_grad_test());
-
-    // for (std::shared_ptr<ssqp::tests::Test> test :
-    //      ssqp::tests::generators::get_hpipm_problems())
-    // {
-    //     tests.addTest(test);
-    // }
-
-    // for (std::shared_ptr<ssqp::tests::Test> test :
-    //      ssqp::tests::generators::get_admm_problems())
-    // {
-    //     tests.addTest(test);
-    // }
 
     tests.addTest(std::make_shared<ssqp::tests::MPCStepTest>(
       "MPCStepADMMTest",

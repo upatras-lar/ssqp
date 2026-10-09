@@ -332,6 +332,21 @@ class CustomGo2Controller:
     def join(self):
         Event().wait()
 
+    def stop(self):
+        # Stop every thread calling into the controller, then let garbage
+        # collection free it, since it is left out of collections while it runs
+        self._stopDynamicWalkSolver()
+        self.low_cmd_write_thread.Wait()
+        self.lowstate_subscriber.Close()
+        gc.unfreeze()
+
+    def _stopDynamicWalkSolver(self):
+        # Stop the dynamic walk solver, if it is running
+        self.solver_running = False
+        if getattr(self, "solver_thread", None) is not None:
+            self.solver_thread.join()
+            self.solver_thread = None
+
     def set_task(self, task):
         if task not in self.task_map.keys():
             raise ValueError("Invalid task")
@@ -340,11 +355,7 @@ class CustomGo2Controller:
             print(f"Ignoring the {task} task during the fallback")
             return
 
-        # Stop the dynamic walk solver, if it is running
-        self.solver_running = False
-        if getattr(self, "solver_thread", None) is not None:
-            self.solver_thread.join()
-            self.solver_thread = None
+        self._stopDynamicWalkSolver()
 
         # Initialize task via task initializer function
         self.task_map[task][0](self)
@@ -828,8 +839,13 @@ if __name__ == "__main__":
     )
     custom.start()
 
-    custom.set_task("stand")
-    time.sleep(3.0)
+    try:
+        custom.set_task("stand")
+        time.sleep(3.0)
 
-    custom.set_task(custom.walk_task)
-    custom.join()
+        custom.set_task(custom.walk_task)
+        custom.join()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        custom.stop()

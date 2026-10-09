@@ -80,7 +80,6 @@ cmake --build . --target verify-static-dependencies
 | `DISABLE_LOGGING` | `OFF` | Compile out SSQP's logging (see `ssqp::set_log_level`) |
 | `BUILD_EXAMPLES` | `OFF` | Build the C++ example executables under `examples/trajgen/c++` |
 | `BUILD_TESTS` | `ON` | Build the unit test suite under `tests/` |
-| `BUILD_BENCHMARKS` | `ON` | Build solver benchmarks |
 | `BUILD_PYTHON` | `ON` | Build the `ssqpy` Python extension via nanobind |
 
 Pass options as `-D<OPTION>=<VALUE>` to `cmake`, e.g.:

@@ -118,7 +118,7 @@ Pass options during configuration with `-DNAME=VALUE`:
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `WITH_HPIPM` | `OFF` | Build and enable the HPIPM/BLASFEO QP backend |
+| `WITH_HPIPM` | `ON` | Build and enable the HPIPM/BLASFEO QP backend |
 | `BUILD_PYTHON` | `ON` | Build the `ssqpy` Python module |
 | `BUILD_TESTS` | `ON` | Build the unit and regression tests |
 | `BUILD_EXAMPLES` | `OFF` | Build the C++ trajectory-generation examples |
@@ -126,16 +126,22 @@ Pass options during configuration with `-DNAME=VALUE`:
 | `DISABLE_LOGGING` | `OFF` | Compile out SSQP logging |
 | `ENABLE_SANITIZERS` | `OFF` | Enable AddressSanitizer and UndefinedBehaviorSanitizer |
 | `SSQP_BOOST_VERSION` | `1.86.0` | Boost release fetched when no system Boost headers are available |
+| `SSQP_MARCH_NATIVE` | `ON` | Compile SSQP and Pinocchio with `-march=native` |
+| `SSQP_BLASFEO_AUTO_TARGET` | `ON` | Let BLASFEO pick its kernels for the build machine |
+| `SSQP_BLASFEO_TARGET` | `GENERIC` | BLASFEO target used when `SSQP_BLASFEO_AUTO_TARGET` is `OFF`, e.g. `X64_INTEL_HASWELL` |
 
-For example, to enable HPIPM and the C++ examples:
+For example, to build with the C++ examples:
 
 ```sh
-cmake -S . -B build -DWITH_HPIPM=ON -DBUILD_EXAMPLES=ON
+cmake -S . -B build -DBUILD_EXAMPLES=ON
 cmake --build build -j"$(nproc)"
 ```
 
-The build uses `-march=native`, so generated binaries and prebuilt dependency
-packages are tied to the architecture on which they were built.
+By default the build uses `-march=native` and lets BLASFEO pick its kernels for
+the build machine, so generated binaries and prebuilt dependency packages are
+tied to the architecture on which they were built. To build binaries that run
+on other machines, turn off `SSQP_MARCH_NATIVE` and `SSQP_BLASFEO_AUTO_TARGET`
+and set `SSQP_BLASFEO_TARGET` to the oldest CPU family you want to support.
 
 ### Prebuilt dependencies
 
@@ -144,7 +150,6 @@ prebuilt packages instead of being compiled from source:
 
 ```sh
 cmake -S . -B build \
-  -DWITH_HPIPM=ON \
   -DSSQP_PREBUILT_PINOCCHIO_DIR=/path/to/prebuilt/pinocchio \
   -DSSQP_PREBUILT_HPIPM_DIR=/path/to/prebuilt/hpipm
 cmake --build build -j"$(nproc)"
@@ -194,8 +199,7 @@ tracking cost, constructs an `ssqpy.model.Model`, and solves it with
 
 ## Solvers and MPC
 
-The default QP backend is SSQP's ADMM implementation. HPIPM can be selected
-after configuring with `-DWITH_HPIPM=ON`:
+The default QP backend is SSQP's ADMM implementation. HPIPM can be selected as such, provided the build includes it:
 
 ```python
 params = ssqpy.solvers.ssqpParams()
@@ -238,7 +242,7 @@ The documentation includes walkthroughs for:
 Build and run the standard test suite:
 
 ```sh
-cmake -S . -B build -DWITH_HPIPM=ON
+cmake -S . -B build
 cmake --build build --target run_tests -j"$(nproc)"
 ctest --test-dir build --output-on-failure -j"$(nproc)"
 ```
