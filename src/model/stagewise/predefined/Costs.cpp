@@ -287,8 +287,7 @@ void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
 // SquaredIDTorqueCost
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model       &model,
                                          const double       weight,
-                                         const std::string &name,
-                                         const uint          k)
+                                         const std::string &name, const uint k)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -307,8 +306,7 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model       &model,
     _weight.setConstant(weight);
 }
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const VecX &weight,
-                                         const std::string &name,
-                                         const uint          k)
+                                         const std::string &name, const uint k)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -340,21 +338,19 @@ void SquaredIDTorqueCost::set_weight(const VecX &weight)
 
 VecX SquaredIDTorqueCost::evaluate(const VecX &x, const VecX &u) const
 {
-    return (Scalar()
-            << 0.5 *
-                 (_weight.array() *
-                  _model->getActuatedTorqueVector(x, u, _k).array())
-                   .matrix()
-                   .squaredNorm())
+    return (Scalar() << 0.5 *
+                          (_weight.array() *
+                           _model->getActuatedTorqueVector(x, u, _k).array())
+                            .matrix()
+                            .squaredNorm())
       .finished();
 }
 
 void SquaredIDTorqueCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                    VecX &du) const
 {
-    VecX w_tau =
-      _weight.array().square() *
-      _model->getActuatedTorqueVector(x, u, _k).array();
+    VecX w_tau = _weight.array().square() *
+                 _model->getActuatedTorqueVector(x, u, _k).array();
 
     MatX dtau_dx, dtau_du;
     _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
@@ -1291,7 +1287,8 @@ VecX FrameSquaredTranslationErrorCost::evaluate(const VecX &x,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(pos, std::ignore) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
 
     return (Scalar() << 0.5 * (_weight.array() *
                                (pos - _desired_translation).array())
@@ -1306,7 +1303,8 @@ void FrameSquaredTranslationErrorCost::gradient(const VecX &x, const VecX &u,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(pos, std::ignore) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     dx.setZero(_ndx);
@@ -1381,7 +1379,8 @@ VecX FrameSquaredTerrainHeightErrorCost::evaluate(const VecX &x,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(pos, std::ignore) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
 
     const double height = pos[2] - _model->terrain()->at(pos[0], pos[1]).height;
 
@@ -1396,7 +1395,8 @@ void FrameSquaredTerrainHeightErrorCost::gradient(const VecX &x, const VecX &u,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(pos, std::ignore) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
@@ -1409,32 +1409,35 @@ void FrameSquaredTerrainHeightErrorCost::gradient(const VecX &x, const VecX &u,
     du.setZero(u.size());
 }
 
-void FrameSquaredTerrainHeightErrorCost::hessian_xx(const VecX &x, const VecX &u,
-                                                    MatX &Hxx) const
+void FrameSquaredTerrainHeightErrorCost::hessian_xx(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Hxx) const
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Vec3 pos;
-    std::tie(pos, std::ignore) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(pos, std::ignore) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
 
-    VecX dh = _jac_scratch.topRows(3).transpose() *
-              Vec3(-tp.dhdx, -tp.dhdy, 1);
+    VecX dh = _jac_scratch.topRows(3).transpose() * Vec3(-tp.dhdx, -tp.dhdy, 1);
 
     Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) = _weight * _weight * dh * dh.transpose();
 }
 
-void FrameSquaredTerrainHeightErrorCost::hessian_xu(const VecX &x, const VecX &u,
-                                                    MatX &Hxu) const
+void FrameSquaredTerrainHeightErrorCost::hessian_xu(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Hxu) const
 {
     Hxu.setZero(_ndx, u.size());
 }
 
-void FrameSquaredTerrainHeightErrorCost::hessian_uu(const VecX &x, const VecX &u,
-                                                    MatX &Huu) const
+void FrameSquaredTerrainHeightErrorCost::hessian_uu(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Huu) const
 {
     Huu.setZero(u.size(), u.size());
 }
@@ -1501,7 +1504,8 @@ VecX FrameSquaredRotationErrorCost::evaluate(const VecX &x, const VecX &u) const
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Mat3 R;
-    std::tie(std::ignore, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(std::ignore, R) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
 
     return (Scalar() << 0.5 * (_weight.array() *
                                pinocchio_wrapper::logSO3(R.transpose() *
@@ -1518,7 +1522,8 @@ void FrameSquaredRotationErrorCost::gradient(const VecX &x, const VecX &u,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Mat3 R;
-    std::tie(std::ignore, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(std::ignore, R) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
     _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
 
     dx.setZero(_ndx);
@@ -1541,7 +1546,8 @@ void FrameSquaredRotationErrorCost::hessian_xx(const VecX &x, const VecX &u,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     Mat3 rot;
-    std::tie(std::ignore, rot) = _model->forwardKinematics(x.head(_nq), _frame_id);
+    std::tie(std::ignore, rot) =
+      _model->forwardKinematics(x.head(_nq), _frame_id);
     _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
     Mat3 d       = rot.transpose() * _desired_rotation;
     Vec3 phi     = pinocchio_wrapper::logSO3(d);
@@ -1874,13 +1880,18 @@ void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq + _nv && "Invalid state passed (size < nq + nv)");
 
-    Vec6 diff = _weight.array().square() *
-                (_model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true) -
-                 _desired_velocity)
-                  .array();
+    Vec6 diff =
+      _weight.array().square() *
+      (_model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true) -
+       _desired_velocity)
+        .array();
 
-    _model->frameVelocityDerivatives(x.head(_nq), x.tail(_nv), _frame_id, true,
-                                     _dVdq_scratch, _dVdv_scratch);
+    _model->frameVelocityDerivatives(x.head(_nq),
+                                     x.tail(_nv),
+                                     _frame_id,
+                                     true,
+                                     _dVdq_scratch,
+                                     _dVdv_scratch);
 
     dx.setZero(_ndx);
 
@@ -1897,8 +1908,8 @@ void FrameSquaredVelocityErrorCost::hessian_xx(const VecX &x, const VecX &u,
 
     Hxx.setZero(_ndx, _ndx);
     Hxx.bottomRightCorner(_nv, _nv) =
-      _jac_scratch.transpose() * _weight.array().square().matrix().asDiagonal() *
-      _jac_scratch;
+      _jac_scratch.transpose() *
+      _weight.array().square().matrix().asDiagonal() * _jac_scratch;
 }
 void FrameSquaredVelocityErrorCost::hessian_xu(const VecX &x, const VecX &u,
                                                MatX &Hxu) const

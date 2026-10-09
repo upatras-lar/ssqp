@@ -330,20 +330,22 @@ void bind_Costs(nb::module_ &m)
         single instance across stages via Model.addCost) whenever forces
         vary between the stages a cost is added to
         )doc")
-      .def(nb::init<const Model &, const double, const std::string &,
-                    const uint>(),
-           nb::call_policy<keep_model>(),
-           nb::arg("model"),
-           nb::arg("weight"),
-           nb::arg("name") = "",
-           nb::arg("k")    = 0)
-      .def(nb::init<const Model &, const VecX &, const std::string &,
-                    const uint>(),
-           nb::call_policy<keep_model>(),
-           nb::arg("model"),
-           nb::arg("weight"),
-           nb::arg("name") = "",
-           nb::arg("k")    = 0)
+      .def(
+        nb::
+          init<const Model &, const double, const std::string &, const uint>(),
+        nb::call_policy<keep_model>(),
+        nb::arg("model"),
+        nb::arg("weight"),
+        nb::arg("name") = "",
+        nb::arg("k")    = 0)
+      .def(
+        nb::
+          init<const Model &, const VecX &, const std::string &, const uint>(),
+        nb::call_policy<keep_model>(),
+        nb::arg("model"),
+        nb::arg("weight"),
+        nb::arg("name") = "",
+        nb::arg("k")    = 0)
       .def("set_weight",
            static_cast<void (SquaredIDTorqueCost::*)(const double)>(
              &SquaredIDTorqueCost::set_weight),

@@ -347,6 +347,10 @@ else()
         DEPENDS urdfdom_ext
         PREFIX ${CMAKE_BINARY_DIR}/_vendor/pinocchio
         PATCH_COMMAND sed -i "s/set(LIBRARY_TYPE SHARED)/set(LIBRARY_TYPE STATIC)/" src/CMakeLists.txt
+        # Pinocchio forces CMake's FindBoost module off on CMake 3.30+, which
+        # leaves only BoostConfig.cmake. The fetched Boost has none, and the
+        # Boost_* hints in _ssqp_vendor_cmake_args are for FindBoost
+        COMMAND sed -i "s/CMP0167 NEW/CMP0167 OLD/" CMakeLists.txt
         CMAKE_ARGS ${_ssqp_vendor_cmake_args}
             -DBUILD_WITH_COLLISION_SUPPORT=OFF
             -DBUILD_WITH_SDF_SUPPORT=OFF

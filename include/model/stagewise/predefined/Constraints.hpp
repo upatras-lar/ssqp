@@ -194,9 +194,9 @@ class FloatingBaseTranslationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    VecX                         _lb, _ub;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    VecX         _lb, _ub;
 };
 
 /** Predefined floating base orientation bound
@@ -246,10 +246,10 @@ class FloatingBaseRotationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    Mat3                         _Rref;
-    VecX                         _lb, _ub;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    Mat3         _Rref;
+    VecX         _lb, _ub;
 };
 
 /** Predefined floating base SE(3) pose bound
@@ -307,10 +307,10 @@ class FloatingBasePoseBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    Mat4                         _Tref, _Tref_inv;
-    VecX                         _lb, _ub;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    Mat4         _Tref, _Tref_inv;
+    VecX         _lb, _ub;
 };
 
 /** Predefined floating base linear velocity bound
@@ -356,9 +356,9 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    VecX                         _lb, _ub;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    VecX         _lb, _ub;
 };
 
 /** Predefined floating base angular velocity bound
@@ -404,9 +404,9 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    VecX                         _lb, _ub;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    VecX         _lb, _ub;
 };
 
 /** Predefined 3D position bound for a given frame
@@ -451,12 +451,12 @@ class FrameTranslationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    const std::string            _frame;
-    const uint                   _frame_id;
-    VecX                         _lb, _ub;
-    mutable MatX                 _jac_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    const std::string _frame;
+    const uint        _frame_id;
+    VecX              _lb, _ub;
+    mutable MatX      _jac_scratch;
 };
 
 /** Predefined terrain height bound for a given frame
@@ -501,12 +501,12 @@ class FrameTerrainHeightBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    const std::string            _frame;
-    const uint                   _frame_id;
-    VecX                         _lb, _ub;
-    mutable MatX                 _jac_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    const std::string _frame;
+    const uint        _frame_id;
+    VecX              _lb, _ub;
+    mutable MatX      _jac_scratch;
 };
 
 /** Predefined 3D orientation bound for a given frame
@@ -554,13 +554,13 @@ class FrameRotationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    const std::string            _frame;
-    const uint                   _frame_id;
-    Mat3                         _Rref;
-    VecX                         _lb, _ub;
-    mutable MatX                 _jac_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    const std::string _frame;
+    const uint        _frame_id;
+    Mat3              _Rref;
+    VecX              _lb, _ub;
+    mutable MatX      _jac_scratch;
 };
 
 /** Predefined SE(3) pose bound for a given frame
@@ -614,13 +614,13 @@ class FramePoseBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    const std::string            _frame;
-    const uint                   _frame_id;
-    Mat4                         _Tref, _Tref_inv;
-    VecX                         _lb, _ub;
-    mutable MatX                 _jac_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    const std::string _frame;
+    const uint        _frame_id;
+    Mat4              _Tref, _Tref_inv;
+    VecX              _lb, _ub;
+    mutable MatX      _jac_scratch;
 };
 
 /** Predefined 3D velocity bound for a given frame
@@ -667,12 +667,12 @@ class FrameLinearVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    const std::string            _frame;
-    const uint                   _frame_id;
-    VecX                         _lb, _ub;
-    mutable MatX                 _dVdq_scratch, _dVdv_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    const std::string _frame;
+    const uint        _frame_id;
+    VecX              _lb, _ub;
+    mutable MatX      _dVdq_scratch, _dVdv_scratch;
 };
 
 /** Predefined angular velocity bound for a given frame
@@ -720,12 +720,12 @@ class FrameAngularVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    const std::string            _frame;
-    const uint                   _frame_id;
-    VecX                         _lb, _ub;
-    mutable MatX                 _dVdq_scratch, _dVdv_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    const std::string _frame;
+    const uint        _frame_id;
+    VecX              _lb, _ub;
+    mutable MatX      _dVdq_scratch, _dVdv_scratch;
 };
 
 /** Predefined center of mass bound
@@ -768,9 +768,9 @@ class CenterOfMassBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    VecX                         _lb, _ub;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    VecX         _lb, _ub;
 };
 
 /** Predefined contact constraint for a given frame
@@ -845,18 +845,18 @@ class ContactConstraint : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _nu;
-    const std::string            _frame;
-    const uint                   _frame_id;
-    std::shared_ptr<Force>       _force;
-    double                       _mu;
-    double                       _max_normal_force;
-    double                       _eq_tol;
-    const bool                   _no_slip;
-    VecX                         _lb, _ub;
-    mutable MatX                 _jac_world_scratch, _jac_local_scratch;
-    mutable MatX                 _dVdq_scratch, _dVdv_scratch;
+    const Model           *_model;
+    const uint             _nq, _nv, _nu;
+    const std::string      _frame;
+    const uint             _frame_id;
+    std::shared_ptr<Force> _force;
+    double                 _mu;
+    double                 _max_normal_force;
+    double                 _eq_tol;
+    const bool             _no_slip;
+    VecX                   _lb, _ub;
+    mutable MatX           _jac_world_scratch, _jac_local_scratch;
+    mutable MatX           _dVdq_scratch, _dVdv_scratch;
 };
 
 }

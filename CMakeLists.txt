@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(ssqp VERSION 0.0 LANGUAGES CXX)
+project(ssqp VERSION 0.1 LANGUAGES CXX)
 
 # Only affects single-config generators (Makefiles, Ninja); ssqp's own
 # optimization level is set explicitly below regardless (see
@@ -14,11 +14,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Turn off for binaries that must run on CPUs other than the build machine's
 option(SSQP_MARCH_NATIVE "Compile with -march=native" ON)
+set(SSQP_ARCH_FLAG "" CACHE STRING "Architecture flag used when SSQP_MARCH_NATIVE is OFF, e.g. -march=x86-64-v3")
 
 if(SSQP_MARCH_NATIVE)
     set(SSQP_ARCH_FLAG "-march=native")
-else()
-    set(SSQP_ARCH_FLAG "")
 endif()
 add_compile_options(-fPIC ${SSQP_ARCH_FLAG})
 
@@ -67,12 +66,12 @@ add_library(ssqp STATIC ${LIB_SOURCES})
 # regenerates when its own URDF (or the generator script) changes, not on
 # every configure.
 set(SSQP_PRESET_NAMES go2 a1 panda g1 talos double_pendulum)
-set(SSQP_PRESET_URDFS  ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/go2/go2.urdf
-                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/a1/a1.urdf
-                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/panda/panda.urdf
-                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/g1/g1_23dof.urdf
-                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/talos/talos.urdf
-                       ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/double_pendulum/double_pendulum.urdf)
+set(SSQP_PRESET_URDFS ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/go2/go2.urdf
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/a1/a1.urdf
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/panda/panda.urdf
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/g1/g1_23dof.urdf
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/talos/talos.urdf
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/urdf/double_pendulum/double_pendulum.urdf)
 set(SSQP_PRESET_SYMBOLS go2_urdf a1_urdf panda_urdf g1_urdf talos_urdf double_pendulum_urdf)
 
 list(LENGTH SSQP_PRESET_NAMES SSQP_PRESET_COUNT)
@@ -195,12 +194,15 @@ endif()
 
 # --- Python bindings ---
 if(BUILD_PYTHON)
-    find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module)
+    # SKBUILD_SABI_COMPONENT is set by scikit-build-core for stable ABI wheels
+    find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT})
 
     include(VendorNanobind)
 
     file(GLOB_RECURSE BINDINGS_SOURCES "python/*.cpp")
-    nanobind_add_module(ssqpy ${BINDINGS_SOURCES})
+    # Uses the stable ABI on Python 3.12+ when Development.SABIModule was found
+    # above, so one wheel covers later versions
+    nanobind_add_module(ssqpy STABLE_ABI ${BINDINGS_SOURCES})
     target_link_libraries(ssqpy PRIVATE ssqp)
 
     set_target_properties(ssqpy PROPERTIES

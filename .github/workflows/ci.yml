@@ -15,7 +15,7 @@ jobs:
     name: build-and-test (WITH_HPIPM=${{ matrix.with_hpipm }})
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
 
@@ -35,7 +35,7 @@ jobs:
 
       # Pinocchio and HPIPM are built from source, which dominates build time
       - name: Cache build directory
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: build
           key: build-${{ matrix.with_hpipm }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
@@ -54,7 +54,7 @@ jobs:
 
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: test-logs-hpipm-${{ matrix.with_hpipm }}
           path: tests/logs/
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
 
@@ -82,7 +82,7 @@ jobs:
           echo "key=$(grep -e '^model name' -e '^flags' /proc/cpuinfo | sort -u | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build directory
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: build
           key: build-sanitized-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
@@ -104,7 +104,7 @@ jobs:
 
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: test-logs-sanitizers
           path: tests/logs/
@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
 
@@ -132,7 +132,7 @@ jobs:
           echo "key=$(grep -e '^model name' -e '^flags' /proc/cpuinfo | sort -u | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build directory
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: build
           key: build-python-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
 
@@ -172,7 +172,7 @@ jobs:
           echo "key=$(grep -e '^model name' -e '^flags' /proc/cpuinfo | sort -u | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build directory
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: build
           key: build-docs-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}

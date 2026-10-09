@@ -261,12 +261,12 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
 }
 
 Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
-                                     const uint             frame_id,
-                                     const Eigen::Vector3d &force,
-                                     uint                  &joint_id)
+                                     const uint                        frame_id,
+                                     const Eigen::Vector3d            &force,
+                                     uint                             &joint_id)
 {
     pinocchio::Force f = pinocchio::Force::Zero();
-    f.linear()          = force;
+    f.linear()         = force;
 
     pinocchio::Force res = impl->model.frames[frame_id].placement.act(f);
     joint_id             = impl->model.frames[frame_id].parentJoint;
@@ -279,8 +279,8 @@ Eigen::Vector<double, 6> framejMfActWrench(
   const Eigen::Vector<double, 6> &wrench, uint &joint_id)
 {
     pinocchio::Force f = pinocchio::Force::Zero();
-    f.linear()          = wrench.head<3>();
-    f.angular()         = wrench.tail<3>();
+    f.linear()         = wrench.head<3>();
+    f.angular()        = wrench.tail<3>();
 
     pinocchio::Force res = impl->model.frames[frame_id].placement.act(f);
     joint_id             = impl->model.frames[frame_id].parentJoint;
@@ -289,7 +289,7 @@ Eigen::Vector<double, 6> framejMfActWrench(
 }
 
 void crba(const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-         Eigen::MatrixXd &M, bool local)
+          Eigen::MatrixXd &M, bool local)
 {
     pinocchio::crba(impl->model,
                     *impl->data,
@@ -453,7 +453,8 @@ bool hasFrame(const std::shared_ptr<ModelImpl> &impl, const std::string &frame)
     return false;
 }
 
-uint getFrameId(const std::shared_ptr<ModelImpl> &impl, const std::string &frame)
+uint getFrameId(const std::shared_ptr<ModelImpl> &impl,
+                const std::string                &frame)
 {
     return impl->model.getFrameId(frame);
 }
@@ -696,8 +697,8 @@ Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
 }
 
 Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
-                                     const Eigen::VectorXd &q,
-                                     const uint             frame_id)
+                                     const Eigen::VectorXd            &q,
+                                     const uint                        frame_id)
 {
     pinocchio::forwardKinematics(impl->model, *impl->data, q);
     pinocchio::updateFramePlacement(impl->model, *impl->data, frame_id);
@@ -739,8 +740,9 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                              const uint frame_id, Eigen::Ref<Eigen::MatrixXd> dVdq,
+                              const Eigen::VectorXd            &q,
+                              const Eigen::VectorXd &v, const uint frame_id,
+                              Eigen::Ref<Eigen::MatrixXd> dVdq,
                               Eigen::Ref<Eigen::MatrixXd> dVdv, bool local)
 {
     pinocchio::computeForwardKinematicsDerivatives(

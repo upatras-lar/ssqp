@@ -172,9 +172,9 @@ class SquaredIDTorqueCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _nu, _k;
-    VecX                         _weight;
+    const Model *_model;
+    const uint   _nq, _nv, _nu, _k;
+    VecX         _weight;
 };
 
 /** Predefined squared force cost
@@ -252,12 +252,12 @@ class SquaredConfigurationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    VecX                         _desired_configuration;
-    VecX                         _full_desired_configuration;
-    const bool                   _free_flyer;
-    VecX                         _weight;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    VecX         _desired_configuration;
+    VecX         _full_desired_configuration;
+    const bool   _free_flyer;
+    VecX         _weight;
 };
 
 /** Predefined squared floating base translation error cost
@@ -300,10 +300,10 @@ class FloatingBaseSquaredTranslationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    Vec3                         _desired_translation;
-    Vec3                         _weight;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    Vec3         _desired_translation;
+    Vec3         _weight;
 };
 
 /** Predefined squared floating base rotation error cost
@@ -348,10 +348,10 @@ class FloatingBaseSquaredRotationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    Mat3                         _desired_rotation;
-    Vec3                         _weight;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    Mat3         _desired_rotation;
+    Vec3         _weight;
 };
 
 /** Predefined squared floating base pose error cost
@@ -425,10 +425,10 @@ class FloatingBaseSquaredPoseErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    Mat4                         _desired_pose, _desired_pose_inv;
-    Mat6                         _weight;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    Mat4         _desired_pose, _desired_pose_inv;
+    Mat6         _weight;
 };
 
 /** Predefined squared floating base velocity error cost
@@ -473,10 +473,10 @@ class FloatingBaseSquaredVelocityErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    Vec6                         _desired_velocity;
-    Vec6                         _weight;
+    const Model *_model;
+    const uint   _nq, _nv, _ndx;
+    Vec6         _desired_velocity;
+    Vec6         _weight;
 };
 
 /** Predefined squared frame translation error cost
@@ -518,13 +518,13 @@ class FrameSquaredTranslationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                  *_model;
-    const uint                   _nq, _nv, _ndx;
-    Vec3                         _desired_translation;
-    const std::string            _frame;
-    const uint                    _frame_id;
-    Vec3                         _weight;
-    mutable MatX                 _jac_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    Vec3              _desired_translation;
+    const std::string _frame;
+    const uint        _frame_id;
+    Vec3              _weight;
+    mutable MatX      _jac_scratch;
 };
 
 /** Predefined squared frame terrain height error cost
@@ -561,13 +561,13 @@ class FrameSquaredTerrainHeightErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                 *_model;
-    const uint                   _nq, _nv, _ndx;
-    const std::string            _frame;
-    const uint                   _frame_id;
-    double                       _desired_height;
-    double                       _weight;
-    mutable MatX                 _jac_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    const std::string _frame;
+    const uint        _frame_id;
+    double            _desired_height;
+    double            _weight;
+    mutable MatX      _jac_scratch;
 };
 
 /** Predefined squared frame rotation error cost
@@ -609,13 +609,13 @@ class FrameSquaredRotationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                  *_model;
-    const uint                   _nq, _nv, _ndx;
-    Mat3                         _desired_rotation;
-    const std::string            _frame;
-    const uint                    _frame_id;
-    Vec3                         _weight;
-    mutable MatX                 _jac_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    Mat3              _desired_rotation;
+    const std::string _frame;
+    const uint        _frame_id;
+    Vec3              _weight;
+    mutable MatX      _jac_scratch;
 };
 
 /** Predefined squared frame pose error cost
@@ -684,13 +684,13 @@ class FrameSquaredPoseErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                  *_model;
-    const uint                   _nq, _nv, _ndx;
-    Mat4                         _desired_pose, _desired_pose_inv;
-    const std::string            _frame;
-    const uint                    _frame_id;
-    Mat6                         _weight;
-    mutable MatX                 _jac_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    Mat4              _desired_pose, _desired_pose_inv;
+    const std::string _frame;
+    const uint        _frame_id;
+    Mat6              _weight;
+    mutable MatX      _jac_scratch;
 };
 
 /** Predefined squared frame velocity error cost
@@ -732,14 +732,14 @@ class FrameSquaredVelocityErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model                  *_model;
-    const uint                   _nq, _nv, _ndx;
-    Vec6                         _desired_velocity;
-    const std::string            _frame;
-    const uint                    _frame_id;
-    Vec6                         _weight;
-    mutable MatX                 _jac_scratch;
-    mutable MatX                 _dVdq_scratch, _dVdv_scratch;
+    const Model      *_model;
+    const uint        _nq, _nv, _ndx;
+    Vec6              _desired_velocity;
+    const std::string _frame;
+    const uint        _frame_id;
+    Vec6              _weight;
+    mutable MatX      _jac_scratch;
+    mutable MatX      _dVdq_scratch, _dVdv_scratch;
 };
 
 /** Predefined center of mass (CoM) tracking cost

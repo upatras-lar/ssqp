@@ -24,8 +24,8 @@ template<typename EvaluationFunction, typename GradientFunction,
 inline std::shared_ptr<StageCost> make_cost(
   const std::vector<std::string> names, EvaluationFunction eval,
   GradientFunction grad, HessianFunction1 hess_xx = ZeroHessian_xx,
-  HessianFunction2 hess_xu = ZeroHessian_xu,
-  HessianFunction3 hess_uu = ZeroHessian_uu,
+  HessianFunction2 hess_xu     = ZeroHessian_xu,
+  HessianFunction3 hess_uu     = ZeroHessian_uu,
   EnabledFunction enabled_func = DefaultEnabledFunc);
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,

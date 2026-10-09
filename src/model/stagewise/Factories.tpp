@@ -11,13 +11,10 @@ namespace factory
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3, typename EnabledFunction>
-std::shared_ptr<StageCost> make_cost(const std::vector<std::string> names,
-                                     EvaluationFunction             eval,
-                                     GradientFunction               grad,
-                                     HessianFunction1               hess_xx,
-                                     HessianFunction2               hess_xu,
-                                     HessianFunction3               hess_uu,
-                                     EnabledFunction enabled_func)
+std::shared_ptr<StageCost> make_cost(
+  const std::vector<std::string> names, EvaluationFunction eval,
+  GradientFunction grad, HessianFunction1 hess_xx, HessianFunction2 hess_xu,
+  HessianFunction3 hess_uu, EnabledFunction enabled_func)
 {
     return std::make_shared<FunctionStageCost<EvaluationFunction,
                                               GradientFunction,
@@ -553,15 +550,12 @@ std::shared_ptr<StageConstraints> merge_constraints(
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3, typename EnabledFunction>
-FunctionStageCost<
-  EvaluationFunction, GradientFunction, HessianFunction1, HessianFunction2,
-  HessianFunction3, EnabledFunction>::FunctionStageCost(const std::vector<std::string> names,
-                                       EvaluationFunction             eval,
-                                       GradientFunction               grad,
-                                       HessianFunction1               hess_xx,
-                                       HessianFunction2               hess_xu,
-                                       HessianFunction3               hess_uu,
-                                       EnabledFunction enabled_func)
+FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
+                  HessianFunction2, HessianFunction3, EnabledFunction>::
+  FunctionStageCost(const std::vector<std::string> names,
+                    EvaluationFunction eval, GradientFunction grad,
+                    HessianFunction1 hess_xx, HessianFunction2 hess_xu,
+                    HessianFunction3 hess_uu, EnabledFunction enabled_func)
   : _eval(std::move(eval))
   , _grad(std::move(grad))
   , _hess_xx(std::move(hess_xx))
@@ -612,9 +606,9 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3, typename EnabledFunction>
 VecX FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
-                       HessianFunction2,
-                       HessianFunction3, EnabledFunction>::evaluate(const VecX &x,
-                                                   const VecX &u) const
+                       HessianFunction2, HessianFunction3,
+                       EnabledFunction>::evaluate(const VecX &x,
+                                                  const VecX &u) const
 {
     return _eval(x, u);
 }
@@ -623,9 +617,9 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3, typename EnabledFunction>
 void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
-                       HessianFunction2,
-                       HessianFunction3, EnabledFunction>::gradient(const VecX &x, const VecX &u,
-                                                   VecX &dx, VecX &du) const
+                       HessianFunction2, HessianFunction3,
+                       EnabledFunction>::gradient(const VecX &x, const VecX &u,
+                                                  VecX &dx, VecX &du) const
 {
     _grad(x, u, dx, du);
 }
@@ -634,10 +628,10 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3, typename EnabledFunction>
 void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
-                       HessianFunction2,
-                       HessianFunction3, EnabledFunction>::hessian_xx(const VecX &x,
-                                                     const VecX &u,
-                                                     MatX       &Hxx) const
+                       HessianFunction2, HessianFunction3,
+                       EnabledFunction>::hessian_xx(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Hxx) const
 {
     _hess_xx(x, u, Hxx);
 }
@@ -646,10 +640,10 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3, typename EnabledFunction>
 void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
-                       HessianFunction2,
-                       HessianFunction3, EnabledFunction>::hessian_xu(const VecX &x,
-                                                     const VecX &u,
-                                                     MatX       &Hxu) const
+                       HessianFunction2, HessianFunction3,
+                       EnabledFunction>::hessian_xu(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Hxu) const
 {
     _hess_xu(x, u, Hxu);
 }
@@ -658,10 +652,10 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3, typename EnabledFunction>
 void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
-                       HessianFunction2,
-                       HessianFunction3, EnabledFunction>::hessian_uu(const VecX &x,
-                                                     const VecX &u,
-                                                     MatX       &Huu) const
+                       HessianFunction2, HessianFunction3,
+                       EnabledFunction>::hessian_uu(const VecX &x,
+                                                    const VecX &u,
+                                                    MatX       &Huu) const
 {
     _hess_uu(x, u, Huu);
 }

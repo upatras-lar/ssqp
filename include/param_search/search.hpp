@@ -127,7 +127,7 @@ class HyperParamSearch
     const solvers::ssqp::Params search() const;
 
   protected:
-    std::vector<solvers::ssqp::Params> _hyperparams;
+    std::vector<solvers::ssqp::Params>         _hyperparams;
     std::vector<std::shared_ptr<model::Model>> _problems;
 };
 }

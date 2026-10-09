@@ -12,8 +12,8 @@ Terrain::TerrainPoint Terrain::TerrainPoint::from_height(
 {
     Vec3 normal = Vec3(-dhdx, -dhdy, 1).normalized();
     Vec3 t1     = Vec3(1, 0, dhdx).normalized();
-    return { height,  normal,  t1,      normal.cross(t1), dhdx,
-             dhdy,    d2hdx2,  d2hdxdy, d2hdy2 };
+    return { height, normal,  t1,    normal.cross(t1), dhdx, dhdy,
+             d2hdx2, d2hdxdy, d2hdy2 };
 }
 
 Terrain::TerrainPoint Terrain::at(const Vec2 &p) const
@@ -29,7 +29,9 @@ double Terrain::distance(const double x, const double y, const double z) const
 
 nlohmann::ordered_json Terrain::to_json() const
 {
-    return { { "type", "custom" } };
+    return {
+        { "type", "custom" }
+    };
 }
 
 double Terrain::distance(const Vec3 &p) const

@@ -1,7 +1,7 @@
 # SSQP
 
 [![CI](https://github.com/upatras-lar/ssqp/actions/workflows/ci.yml/badge.svg)](https://github.com/upatras-lar/ssqp/actions/workflows/ci.yml)
-[![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+[![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/upatras-lar/ssqp/blob/main/LICENSE)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue)
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)
 
@@ -12,25 +12,25 @@ for manifold-valued states such as floating-base orientations.
 
 SSQP solves problems of the form
 
-$$
+```math
 \begin{aligned}
 \min_{x,u}\quad &\sum_{k=0}^{H-1} \ell_k(x_k,u_k) + \ell_H(x_H) \\
 \text{subject to}\quad &x_{k+1}=f_k(x_k,u_k), &&0\leq k < H,\\
 &c_k(x_k,u_k)\geq 0, &&0\leq k < H,\\
 &c_H(x_H)\geq 0.
 \end{aligned}
-$$
+```
 
 At every SQP iteration, SSQP linearizes the dynamics and constraints and
 quadratizes the costs to form a stagewise, banded Quadratic Program (QP). A
 line search uses the QP solution to update the nonlinear trajectory.
 
-The full documentation is available at
-[150.140.184.35:8000](http://150.140.184.35:8000), including the
-[installation guide](http://150.140.184.35:8000/getting-started/installation/),
-[Python quickstart](http://150.140.184.35:8000/getting-started/quickstart/),
-concepts, examples, and generated [Python](http://150.140.184.35:8000/reference/)
-and [C++](http://150.140.184.35:8000/cpp-reference/) API references.
+The full documentation is available on the
+[documentation site](DOCS_URL), including the
+[installation guide](DOCS_URL/getting-started/installation/),
+[Python quickstart](DOCS_URL/getting-started/quickstart/),
+concepts, examples, and generated [Python](DOCS_URL/reference/)
+and [C++](DOCS_URL/cpp-reference/) API references.
 
 ## Features
 
@@ -60,6 +60,19 @@ and [C++](http://150.140.184.35:8000/cpp-reference/) API references.
 | `tests/` | Unit, regression, gradient, and sanitizer test infrastructure |
 | `external/` | Repository-vendored dependencies such as JSON and Tracy |
 | `cmake/` | Dependency and packaging build logic |
+
+## Installation
+
+Prebuilt wheels are available for Linux x86_64 and Python 3.10 or newer:
+
+```sh
+pip install ssqp
+```
+
+The package provides the `ssqpy` module. The wheels require a CPU with AVX2
+and FMA (Intel Haswell, AMD Excavator or newer). On older CPUs, importing
+`ssqpy` fails with an illegal instruction error, so build from source instead,
+as described below.
 
 ## Dependencies
 
@@ -127,6 +140,7 @@ Pass options during configuration with `-DNAME=VALUE`:
 | `ENABLE_SANITIZERS` | `OFF` | Enable AddressSanitizer and UndefinedBehaviorSanitizer |
 | `SSQP_BOOST_VERSION` | `1.86.0` | Boost release fetched when no system Boost headers are available |
 | `SSQP_MARCH_NATIVE` | `ON` | Compile SSQP and Pinocchio with `-march=native` |
+| `SSQP_ARCH_FLAG` | empty | Architecture flag used instead when `SSQP_MARCH_NATIVE` is `OFF`, e.g. `-march=x86-64-v3` |
 | `SSQP_BLASFEO_AUTO_TARGET` | `ON` | Let BLASFEO pick its kernels for the build machine |
 | `SSQP_BLASFEO_TARGET` | `GENERIC` | BLASFEO target used when `SSQP_BLASFEO_AUTO_TARGET` is `OFF`, e.g. `X64_INTEL_HASWELL` |
 
@@ -140,8 +154,10 @@ cmake --build build -j"$(nproc)"
 By default the build uses `-march=native` and lets BLASFEO pick its kernels for
 the build machine, so generated binaries and prebuilt dependency packages are
 tied to the architecture on which they were built. To build binaries that run
-on other machines, turn off `SSQP_MARCH_NATIVE` and `SSQP_BLASFEO_AUTO_TARGET`
-and set `SSQP_BLASFEO_TARGET` to the oldest CPU family you want to support.
+on other machines, turn off `SSQP_MARCH_NATIVE` and `SSQP_BLASFEO_AUTO_TARGET`,
+and set `SSQP_ARCH_FLAG` and `SSQP_BLASFEO_TARGET` to the oldest CPU family you
+want to support. The PyPI wheels use the settings in
+`cmake/WheelConfig.cmake`.
 
 ### Prebuilt dependencies
 
@@ -221,12 +237,12 @@ while running:
     apply_control(u.stage(0))
 ```
 
-See the [MPC concept guide](http://150.140.184.35:8000/concepts/mpc/) and
+See the [MPC concept guide](DOCS_URL/concepts/mpc/) and
 `examples/mujoco_mpc/` for complete control loops.
 
 ## Examples
 
-The [examples README](examples/README.md) describes the available examples.
+The [examples README](https://github.com/upatras-lar/ssqp/blob/main/examples/README.md) describes the available examples.
 They cover offline trajectory generation, simulated MPC, real-system MPC,
 adaptive pendulum models, benchmarks, and trajectory visualization.
 
@@ -257,7 +273,7 @@ build/tests/run_tests --filter gammafGradTest --seed 42
 ```
 
 Failed test diagnostics are written to `tests/logs/<test-name>.txt`. See
-[`tests/README.md`](tests/README.md) for the correctness coverage, deterministic
+[`tests/README.md`](https://github.com/upatras-lar/ssqp/blob/main/tests/README.md) for the correctness coverage, deterministic
 seeding, finite-difference checks, sanitizer builds, and leak-detection notes.
 
 ## Citing

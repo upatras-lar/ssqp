@@ -148,9 +148,9 @@ ssqp::Params::Params(const std::string &filepath)
     ordered_json j = json::parse(in);
 
     // Missing parameters keep their defaults
-    max_iter        = j.value("max_iter", max_iter);
-    max_time        = j.value("max_time", max_time);
-    tolerance       = j.value("tolerance", tolerance);
+    max_iter  = j.value("max_iter", max_iter);
+    max_time  = j.value("max_time", max_time);
+    tolerance = j.value("tolerance", tolerance);
     constraint_tolerance =
       j.value("constraint_tolerance", constraint_tolerance);
     tolerance_final = j.value("tolerance_final", tolerance_final);
@@ -1066,7 +1066,7 @@ bool ssqp::write(const std::string &filepath)
     {
         j["properties"]["solver_mode"] = "Custom";
     }
-    j["properties"]["xml"] = loaded_from_xml;
+    j["properties"]["xml"]     = loaded_from_xml;
     j["properties"]["terrain"] = _model.terrain()->to_json();
     bool floating_base;
     uint nq, nv, nu, njoints;

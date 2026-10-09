@@ -19,8 +19,10 @@ Terrain::TerrainPoint FlatTerrain::at(const double x, const double y) const
 
 nlohmann::ordered_json FlatTerrain::to_json() const
 {
-    return { { "type", "flat" },
-             { "base_height", _base_height } };
+    return {
+        {        "type",       "flat" },
+        { "base_height", _base_height }
+    };
 }
 
 }

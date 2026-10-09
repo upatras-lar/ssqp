@@ -27,9 +27,8 @@ class Terrain
         //  - t1 = (1, 0, dhdx) / norm
         //  - t2 = normal x t1
         static TerrainPoint from_height(double height, double dhdx, double dhdy,
-                                        double d2hdx2  = 0,
-                                        double d2hdxdy = 0,
-                                        double d2hdy2  = 0);
+                                        double d2hdx2 = 0, double d2hdxdy = 0,
+                                        double d2hdy2 = 0);
     };
 
     virtual TerrainPoint at(const double x, const double y) const = 0;

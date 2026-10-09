@@ -5,11 +5,13 @@ namespace ssqp
 namespace model
 {
 template<typename L, typename... Args>
-std::shared_ptr<stagewise::StageCost> Model::addCost(const uint k, Args &&...args)
+std::shared_ptr<stagewise::StageCost> Model::addCost(const uint k,
+                                                     Args &&...args)
 {
     static_assert(std::is_base_of_v<stagewise::StageCost, L>, "Invalid cost");
 
-    std::shared_ptr<stagewise::StageCost> cost = std::make_shared<L>(std::forward<Args>(args)...);
+    std::shared_ptr<stagewise::StageCost> cost =
+      std::make_shared<L>(std::forward<Args>(args)...);
 
     addCost(k, cost);
 
@@ -21,7 +23,8 @@ std::shared_ptr<stagewise::StageCost> Model::addRunningCost(Args &&...args)
 {
     static_assert(std::is_base_of_v<stagewise::StageCost, L>, "Invalid cost");
 
-    std::shared_ptr<stagewise::StageCost> cost = std::make_shared<L>(std::forward<Args>(args)...);
+    std::shared_ptr<stagewise::StageCost> cost =
+      std::make_shared<L>(std::forward<Args>(args)...);
 
     addRunningCost(cost);
 
@@ -29,8 +32,8 @@ std::shared_ptr<stagewise::StageCost> Model::addRunningCost(Args &&...args)
 }
 
 template<typename C, typename... Args>
-std::shared_ptr<stagewise::StageConstraints> Model::addConstraints(const uint k,
-                                                                   Args &&...args)
+std::shared_ptr<stagewise::StageConstraints> Model::addConstraints(
+  const uint k, Args &&...args)
 {
     static_assert(std::is_base_of_v<stagewise::StageConstraints, C>,
                   "Invalid constraint");

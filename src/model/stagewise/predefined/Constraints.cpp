@@ -765,8 +765,8 @@ void FrameTranslationBound::hessprod_uu(const VecX &x, const VecX &u,
 // FrameTerrainHeightBound
 FrameTerrainHeightBound::FrameTerrainHeightBound(const Model       &model,
                                                  const std::string &frame,
-                                                 const double lb,
-                                                 const double ub,
+                                                 const double       lb,
+                                                 const double       ub,
                                                  const std::string &name)
   : StageConstraints(name)
   , _model(&model)
@@ -829,8 +829,8 @@ void FrameTerrainHeightBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
 
     dX.setZero(1, _ndx);
-    dX.leftCols(_nv) = Vec3(-tp.dhdx, -tp.dhdy, 1).transpose() *
-                       _jac_scratch.topRows(3);
+    dX.leftCols(_nv) =
+      Vec3(-tp.dhdx, -tp.dhdy, 1).transpose() * _jac_scratch.topRows(3);
 
     dU.setZero(1, u.size());
 }
@@ -1307,9 +1307,8 @@ void CenterOfMassBound::hessprod_uu(const VecX &x, const VecX &u,
 // ContactConstraint
 ContactConstraint::ContactConstraint(const Model       &model,
                                      const std::string &frame, const double mu,
-                                     const double       max_normal_force,
-                                     const double       eq_tol,
-                                     const bool         no_slip,
+                                     const double max_normal_force,
+                                     const double eq_tol, const bool no_slip,
                                      const std::string &name)
   : StageConstraints(name)
   , _model(&model)
@@ -1493,15 +1492,15 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     Vec3 f_global = R * f_local;
 
-    dfn_dq += (f_global.dot(dn_dx) * Jfw.row(0) +
-               f_global.dot(dn_dy) * Jfw.row(1))
-                .transpose();
-    dft1_dq += (f_global.dot(dt1_dx) * Jfw.row(0) +
-                f_global.dot(dt1_dy) * Jfw.row(1))
-                 .transpose();
-    dft2_dq += (f_global.dot(dt2_dx) * Jfw.row(0) +
-                f_global.dot(dt2_dy) * Jfw.row(1))
-                 .transpose();
+    dfn_dq +=
+      (f_global.dot(dn_dx) * Jfw.row(0) + f_global.dot(dn_dy) * Jfw.row(1))
+        .transpose();
+    dft1_dq +=
+      (f_global.dot(dt1_dx) * Jfw.row(0) + f_global.dot(dt1_dy) * Jfw.row(1))
+        .transpose();
+    dft2_dq +=
+      (f_global.dot(dt2_dx) * Jfw.row(0) + f_global.dot(dt2_dy) * Jfw.row(1))
+        .transpose();
 
     dX.row(0).head(_nv) = dfn_dq.transpose();
     dX.row(1).head(_nv) = (dft1_dq - _mu * dfn_dq).transpose();

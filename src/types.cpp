@@ -5,7 +5,7 @@ namespace ssqp
 namespace model
 {
 Force::Force(const std::string &frame, const uint force_index,
-            const ForceDim dim)
+             const ForceDim dim)
   : frame(frame)
   , force_index(force_index)
   , dim(dim)

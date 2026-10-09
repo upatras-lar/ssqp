@@ -614,14 +614,14 @@ class Model
     std::unordered_map<uint, uint> _bounded_joint_indices_to_tangent;
 
     // Configuration properties
-    bool                                             _finalized = false;
-    bool                                             _xml;
-    CostsContainer                                   _costs;
-    DynamicsContainer                                _dynamics;
-    ConstraintsContainer                             _constraints;
+    bool                                              _finalized = false;
+    bool                                              _xml;
+    CostsContainer                                    _costs;
+    DynamicsContainer                                 _dynamics;
+    ConstraintsContainer                              _constraints;
     std::vector<std::shared_ptr<stagewise::Function>> _functions;
-    std::vector<std::vector<std::shared_ptr<Force>>> _forces;
-    std::vector<std::vector<std::shared_ptr<Force>>> _wrenches;
+    std::vector<std::vector<std::shared_ptr<Force>>>  _forces;
+    std::vector<std::vector<std::shared_ptr<Force>>>  _wrenches;
 
     // Optional custom properties for non-XML models
     bool             _has_custom_properties = false;

@@ -57,11 +57,12 @@ void bind_Terrain(nb::module_ &m)
 
     nb::class_<Terrain, PyTerrain>(m, "Terrain")
       .def(nb::init())
-      .def("at",
-           static_cast<Terrain::TerrainPoint (Terrain::*)(double, double)
-                         const>(&Terrain::at),
-           nb::arg("x"),
-           nb::arg("y"))
+      .def(
+        "at",
+        static_cast<Terrain::TerrainPoint (Terrain::*)(double, double) const>(
+          &Terrain::at),
+        nb::arg("x"),
+        nb::arg("y"))
       .def("distance",
            static_cast<double (Terrain::*)(double, double, double) const>(
              &Terrain::distance),

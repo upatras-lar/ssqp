@@ -39,12 +39,14 @@ Terrain::TerrainPoint StepTerrain::at(const double x, const double y) const
 
 nlohmann::ordered_json StepTerrain::to_json() const
 {
-    return { { "type", "step" },
-             { "x_start", _x_start },
-             { "step_height", _step_height },
-             { "step_length", _step_length },
-             { "num_steps", _num_steps },
-             { "base_height", _base_height } };
+    return {
+        {        "type",       "step" },
+        {     "x_start",     _x_start },
+        { "step_height", _step_height },
+        { "step_length", _step_length },
+        {   "num_steps",   _num_steps },
+        { "base_height", _base_height }
+    };
 }
 
 }

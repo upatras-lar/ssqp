@@ -19,6 +19,8 @@ Repository = "https://github.com/upatras-lar/ssqp"
 minimum-version = "build-system.requires"
 # Keeps the vendored Pinocchio/HPIPM builds between installs
 build-dir = "build/{wheel_tag}"
+# Stable ABI wheel on Python 3.12+ (see nanobind_add_module in CMakeLists.txt)
+wheel.py-api = "cp312"
 # Only what the Python module build needs
 sdist.exclude = ["/*"]
 sdist.include = [
@@ -51,3 +53,20 @@ regex = 'project\(ssqp VERSION (?P<value>[0-9.]+)'
 [tool.scikit-build.cmake.define]
 BUILD_PYTHON = "ON"
 BUILD_TESTS = "OFF"
+
+[tool.cibuildwheel]
+# The cp312 wheel uses the stable ABI and covers later versions
+build = ["cp310-*", "cp311-*", "cp312-*"]
+skip = ["*-musllinux_*"]
+archs = ["x86_64"]
+manylinux-x86_64-image = "manylinux_2_28"
+build-verbosity = 1
+before-all = "bash {package}/.github/scripts/build-wheel-deps.sh {package}"
+test-sources = ["tests/wheel_smoke_test.py"]
+test-command = "python tests/wheel_smoke_test.py"
+
+# Same settings as the dependencies prebuilt by before-all
+[tool.cibuildwheel.config-settings]
+"cmake.args" = "-C{package}/cmake/WheelConfig.cmake"
+"cmake.define.SSQP_PREBUILT_PINOCCHIO_DIR" = "/opt/ssqp-deps/pinocchio"
+"cmake.define.SSQP_PREBUILT_HPIPM_DIR" = "/opt/ssqp-deps/hpipm"

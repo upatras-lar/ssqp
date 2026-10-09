@@ -233,9 +233,9 @@ void mpcDimensionChanges(solvers::ssqp::QPSolverType backend)
 
 void costToggling()
 {
-    auto a = std::make_shared<Quadratic>();
-    auto b = std::make_shared<Quadratic>();
-    auto c = std::make_shared<Quadratic>();
+    auto a      = std::make_shared<Quadratic>();
+    auto b      = std::make_shared<Quadratic>();
+    auto c      = std::make_shared<Quadratic>();
     auto merged = model::stagewise::factory::merge_costs(
       model::stagewise::factory::merge_costs(a, b),
       c);
@@ -254,7 +254,8 @@ void costToggling()
     require(std::abs(value() - 4.0) < 1e-12, "Middle cost disabled");
     a->set_enabled(false);
     require(std::abs(value() - 2.0) < 1e-12, "Two nested costs disabled");
-    require(std::abs(grad() - 2.0) < 1e-12, "Gradient of the only enabled cost");
+    require(std::abs(grad() - 2.0) < 1e-12,
+            "Gradient of the only enabled cost");
     c->set_enabled(false);
     require(value() > 0.0, "One cost is kept when all are disabled");
     b->set_enabled(true);
@@ -555,9 +556,10 @@ void jointControlConstraintBoundsFirstControls()
         structure.solver_mode = mode;
         model::Model model(1, 0.01, structure);
 
-        const uint nu = model.nu();
-        JointControlConstraint constraint(
-          model, VecX::Constant(nu, -1.0), VecX::Constant(nu, 1.0));
+        const uint             nu = model.nu();
+        JointControlConstraint constraint(model,
+                                          VecX::Constant(nu, -1.0),
+                                          VecX::Constant(nu, 1.0));
 
         // Joint controls followed by one contact force
         VecX u(nu + 3);
@@ -730,7 +732,8 @@ void wrenchRotatesFloatingBody()
     const double dt = 0.05;
 
     model::Model::Structure structure;
-    structure.urdf_path   = "examples/assets/urdf/floating_body/floating_body.urdf";
+    structure.urdf_path =
+      "examples/assets/urdf/floating_body/floating_body.urdf";
     structure.free_flyer  = true;
     structure.solver_mode = model::SolverMode::ForwardDynamics;
 
@@ -772,12 +775,12 @@ void wrenchRotatesFloatingBody()
             "SQP must converge for the wrench-only rotation problem (" +
               solvers::to_string(state) + ")");
 
-    const VecX final_state = guess.x.stage(H);
+    const VecX         final_state = guess.x.stage(H);
     Eigen::Quaterniond q_final(final_state[6],
                                final_state[3],
                                final_state[4],
                                final_state[5]);
-    Mat3 R_final = q_final.toRotationMatrix();
+    Mat3               R_final = q_final.toRotationMatrix();
 
     double cos_angle =
       ((R_final.transpose() * desired_rotation).trace() - 1.0) / 2.0;
@@ -812,8 +815,7 @@ std::shared_ptr<model::Model> pendubotSwingProblem()
     model->finalize();
 
     const VecX state = (VecX(4) << 1.0, -0.5, 0.0, 0.0).finished();
-    for (uint k = 0; k <= H; ++k)
-        model->setInitState(k, state);
+    for (uint k = 0; k <= H; ++k) model->setInitState(k, state);
     for (uint k = 0; k < H; ++k)
         model->setInitControl(k, VecX::Zero(model->nu()));
 
@@ -854,7 +856,8 @@ void solverTimeLimit(solvers::ssqp::QPSolverType backend)
             "The returned guess must be finite");
 
     const auto [loose_state, loose_cd, loose_guess] = solve(100.0);
-    require(loose_state == free_state && loose_cd.iterations == free_cd.iterations,
+    require(loose_state == free_state &&
+              loose_cd.iterations == free_cd.iterations,
             "A generous time limit must not change the solve");
     requireClose(loose_guess.x.vec, free_guess.x.vec, "State trajectory");
     requireClose(loose_guess.u.vec, free_guess.u.vec, "Control trajectory");
@@ -982,8 +985,7 @@ void solverCrossedBounds(solvers::ssqp::QPSolverType backend)
     solvers::ssqp        solver(model, accurateParams(backend));
     solvers::ssqp::Guess guess(model.dims(), model.linear_dims());
 
-    require(solver.solve(guess) == solvers::SUCCESS,
-            "Valid bounds must solve");
+    require(solver.solve(guess) == solvers::SUCCESS, "Valid bounds must solve");
 
     bound->set_lower_bound(2.0);
     bool threw = false;
@@ -1075,8 +1077,9 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_ModelFromPreset_RejectsConflictingFields",
       modelFromPresetRejectsConflictingFields));
-    tests.addTest(std::make_shared<FunctionTest>(
-      "Regression_WrenchRotatesFloatingBody", wrenchRotatesFloatingBody));
+    tests.addTest(
+      std::make_shared<FunctionTest>("Regression_WrenchRotatesFloatingBody",
+                                     wrenchRotatesFloatingBody));
     std::vector<solvers::ssqp::QPSolverType> backends { solvers::ssqp::ADMM };
 #ifdef WITH_HPIPM
     backends.push_back(solvers::ssqp::HPIPM);
@@ -1094,8 +1097,8 @@ void addRegressionTests(TestContainer &tests)
               "Regression_MPC_Known_H" + std::to_string(horizon) + "_" + suffix,
               [=] { mpcKnownSolution(backend, horizon); }));
             tests.addTest(std::make_shared<FunctionTest>(
-              "Regression_MPC_FeedbackGains_H" + std::to_string(horizon) +
-                "_" + suffix,
+              "Regression_MPC_FeedbackGains_H" + std::to_string(horizon) + "_" +
+                suffix,
               [=] { mpcFeedbackGains(backend, horizon); }));
         }
         tests.addTest(std::make_shared<FunctionTest>(
@@ -1104,19 +1107,22 @@ void addRegressionTests(TestContainer &tests)
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_MPC_DimensionChanges_" + suffix,
           [=] { mpcDimensionChanges(backend); }));
-        tests.addTest(std::make_shared<FunctionTest>(
-          "Regression_SSQP_TimeLimit_" + suffix,
-          [=] { solverTimeLimit(backend); }));
+        tests.addTest(
+          std::make_shared<FunctionTest>("Regression_SSQP_TimeLimit_" + suffix,
+                                         [=] { solverTimeLimit(backend); }));
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_SSQP_CrossedBounds_" + suffix,
           [=] { solverCrossedBounds(backend); }));
     }
-    tests.addTest(std::make_shared<FunctionTest>(
-      "Regression_Model_CostToggling", costToggling));
-    tests.addTest(std::make_shared<FunctionTest>(
-      "Regression_Model_ConstraintToggling", constraintToggling));
-    tests.addTest(std::make_shared<FunctionTest>(
-      "Regression_SSQP_ParamsJsonOptionalKeys", paramsJsonOptionalKeys));
+    tests.addTest(
+      std::make_shared<FunctionTest>("Regression_Model_CostToggling",
+                                     costToggling));
+    tests.addTest(
+      std::make_shared<FunctionTest>("Regression_Model_ConstraintToggling",
+                                     constraintToggling));
+    tests.addTest(
+      std::make_shared<FunctionTest>("Regression_SSQP_ParamsJsonOptionalKeys",
+                                     paramsJsonOptionalKeys));
     tests.addTest(
       std::make_shared<FunctionTest>("Regression_SSQP_PrimalInfeasible_ADMM",
                                      solverPrimalInfeasible));

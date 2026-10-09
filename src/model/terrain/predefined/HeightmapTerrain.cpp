@@ -19,13 +19,12 @@ namespace
 void weights(const double t, Vec4 &w, Vec4 &dw, Vec4 &ddw)
 {
     const double t2 = t * t, t3 = t2 * t;
-    w << -t3 + 2 * t2 - t, 3 * t3 - 5 * t2 + 2, -3 * t3 + 4 * t2 + t,
-      t3 - t2;
+    w << -t3 + 2 * t2 - t, 3 * t3 - 5 * t2 + 2, -3 * t3 + 4 * t2 + t, t3 - t2;
     dw << -3 * t2 + 4 * t - 1, 9 * t2 - 10 * t, -9 * t2 + 8 * t + 1,
       3 * t2 - 2 * t;
     ddw << -6 * t + 4, 18 * t - 10, -18 * t + 8, 6 * t - 2;
-    w *= 0.5;
-    dw *= 0.5;
+    w   *= 0.5;
+    dw  *= 0.5;
     ddw *= 0.5;
 }
 
@@ -42,7 +41,10 @@ void locate(const double g, const int n, int &cell, double &t, bool &inside)
 
 HeightmapTerrain::HeightmapTerrain(const MatX &heights, const double resolution,
                                    const double x0, const double y0)
-  : _heights(heights), _res(resolution), _x0(x0), _y0(y0)
+  : _heights(heights)
+  , _res(resolution)
+  , _x0(x0)
+  , _y0(y0)
 {
     assert(heights.rows() >= 2 && heights.cols() >= 2 &&
            "Heightmap must have at least 2 samples along each axis");
@@ -105,11 +107,13 @@ nlohmann::ordered_json HeightmapTerrain::to_json() const
         rows[i].assign(_heights.row(i).begin(), _heights.row(i).end());
     }
 
-    return { { "type", "heightmap" },
-             { "heights", rows },
-             { "resolution", _res },
-             { "x0", _x0 },
-             { "y0", _y0 } };
+    return {
+        {       "type", "heightmap" },
+        {    "heights",        rows },
+        { "resolution",        _res },
+        {         "x0",         _x0 },
+        {         "y0",         _y0 }
+    };
 }
 
 }
