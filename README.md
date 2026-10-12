@@ -293,6 +293,7 @@ If you use SSQP in your work, please cite it as
 
 ## Development status
 
-SSQP is under active development. The source API, Python bindings, build
-system, and documentation may change as the library is restructured for
-performance, cache locality, and maintainability.
+SSQP is under active development. While most of the source API, Python bindings,
+build system and documentation are not expected to change drastically, this
+might still be the case before the release of version 1.0, as we potentially
+restructure to improve performance.
