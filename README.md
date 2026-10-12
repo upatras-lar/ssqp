@@ -282,7 +282,7 @@ SSQP is being developed at the [Laboratory of Automation and Robotics (LAR)](htt
 of the University of Patras by:
 
 - Nick Karydakis ([@notTypecast](https://github.com/notTypecast), <nickkarydakis@gmail.com>)
-- Konstantinos Chatzilygeroudis ([@costashatz](https://github.com/costashatz), <costashatz@gmail.com>)
+- Konstantinos Chatzilygeroudis ([@costashatz](https://github.com/costashatz), <costashatz@upatras.gr>)
 
 ## Citing
 
