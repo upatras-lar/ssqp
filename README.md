@@ -12,14 +12,14 @@ for manifold-valued states such as floating-base orientations.
 
 SSQP solves problems of the form
 
-```math
+$$
 \begin{aligned}
-\min_{x,u}\quad &\sum_{k=0}^{H-1} \ell_k(x_k,u_k) + \ell_H(x_H) \\
-\text{subject to}\quad &x_{k+1}=f_k(x_k,u_k), &&0\leq k < H,\\
-&c_k(x_k,u_k)\geq 0, &&0\leq k < H,\\
+\min_{x,u}\quad &\sum_{k=0}^{H-1} \ell_k(x_k,u_k) + \ell_H(x_H) \cr
+\text{subject to}\quad &x_{k+1}=f_k(x_k,u_k), &&0\leq k < H, \cr
+&c_k(x_k,u_k)\geq 0, &&0\leq k < H, \cr
 &c_H(x_H)\geq 0.
 \end{aligned}
-```
+$$
 
 At every SQP iteration, SSQP linearizes the dynamics and constraints and
 quadratizes the costs to form a stagewise, banded Quadratic Program (QP). A
@@ -281,8 +281,8 @@ seeding, finite-difference checks, sanitizer builds, and leak-detection notes.
 SSQP is being developed at the [Laboratory of Automation and Robotics (LAR)](https://lar.upatras.gr/)
 of the University of Patras by:
 
-- Nick Karydakis
-- Konstantinos Chatzilygeroudis
+- Nick Karydakis ([@notTypecast](https://github.com/notTypecast), <nickkarydakis@gmail.com>)
+- Konstantinos Chatzilygeroudis ([@costashatz](https://github.com/costashatz), <costashatz@gmail.com>)
 
 ## Citing
 
