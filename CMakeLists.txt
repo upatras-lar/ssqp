@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(ssqp VERSION 0.1 LANGUAGES CXX)
+project(ssqp VERSION 0.1.1 LANGUAGES CXX)
 
 # Only affects single-config generators (Makefiles, Ninja); ssqp's own
 # optimization level is set explicitly below regardless (see
