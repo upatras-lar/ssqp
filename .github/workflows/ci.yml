@@ -197,7 +197,7 @@ jobs:
         with:
           RSYNC_OPTIONS: --compress --recursive --checksum --itemize-changes --delete -e "ssh -vvv -o StrictHostKeyChecking=no"
           RSYNC_TARGET: /var/www/lareceupatras/ssqp
-          RSYNC_SOURCE: docs/site/
+          RSYNC_SOURCE: /docs/site/
         env:
           SSH_PRIVATE_KEY: ${{secrets.SSH_PRIVATE_KEY}}
           SSH_USERNAME: ${{secrets.SSH_USERNAME}}
