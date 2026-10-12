@@ -1,0 +1,76 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths: &docs-paths
+      - "docs/**"
+      # The reference pages are generated from the headers and the bindings
+      - "include/**"
+      - "src/**"
+      - "python/**"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      # The guides embed snippets from the examples
+      - "examples/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths: *docs-paths
+
+jobs:
+  docs:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake git python3-dev python3-numpy python3-venv \
+            libeigen3-dev libboost-filesystem-dev libboost-serialization-dev \
+            doxygen graphviz
+
+      # -march=native bakes the runner CPU into the cached build
+      - name: Identify CPU
+        id: cpu
+        run: |
+          grep -m1 '^model name' /proc/cpuinfo
+          echo "key=$(grep -e '^model name' -e '^flags' /proc/cpuinfo | sort -u | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache build directory
+        uses: actions/cache@v6.1.0
+        with:
+          path: build
+          key: build-docs-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+
+      # The Python API reference is generated from the stubs of the built module
+      - name: Build the Python bindings
+        run: |
+          cmake -S . -B build -DBUILD_TESTS=OFF
+          cmake --build build --target ssqpy -j"$(nproc)"
+
+      - name: Install documentation requirements
+        run: |
+          python3 -m venv docvenv
+          docvenv/bin/pip install -r docs/requirements.txt
+
+      - name: Build documentation
+        working-directory: docs
+        run: ../docvenv/bin/mkdocs build --strict
+
+      # Pull requests only build the docs
+      - name: Deploy website
+        if: github.event_name == 'push'
+        uses: frankfoerster/github-actions-rsync@master
+        with:
+          RSYNC_OPTIONS: --compress --recursive --checksum --itemize-changes --delete -e "ssh -vvv -o StrictHostKeyChecking=no"
+          RSYNC_TARGET: /var/www/lareceupatras/ssqp
+          RSYNC_SOURCE: /docs/site/
+        env:
+          SSH_PRIVATE_KEY: ${{secrets.SSH_PRIVATE_KEY}}
+          SSH_USERNAME: ${{secrets.SSH_USERNAME}}
+          SSH_HOSTNAME: ${{secrets.SSH_HOSTNAME}}

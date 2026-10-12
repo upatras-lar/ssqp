@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use SSQP in your work, please cite it as below."
+title: "SSQP: A Structure-Exploiting Sequential Quadratic Programming Solver"
+type: software
+authors:
+  - family-names: Karydakis
+    given-names: Nick
+    affiliation: "Laboratory of Automation and Robotics, University of Patras"
+  - family-names: Chatzilygeroudis
+    given-names: Konstantinos
+    affiliation: "Laboratory of Automation and Robotics, University of Patras"
+repository-code: "https://github.com/upatras-lar/ssqp"
+url: "https://lar.upatras.gr/ssqp"
+license: BSD-3-Clause
+keywords:
+  - optimal control
+  - model predictive control
+  - trajectory optimization
+  - sequential quadratic programming
+  - robotics
+preferred-citation:
+  type: software
+  title: "SSQP: A Structure-Exploiting Sequential Quadratic Programming Solver"
+  authors:
+    - family-names: Karydakis
+      given-names: Nick
+    - family-names: Chatzilygeroudis
+      given-names: Konstantinos
+  year: 2026
+  url: "https://github.com/upatras-lar/ssqp"

@@ -70,6 +70,3 @@ details.
   `ssqpy` module), built using [nanobind](https://github.com/wjakob/nanobind).
 * [`tests/`](https://github.com/upatras-lar/ssqp/tree/main/tests): unit tests for library functionality.
 * [`external/`](https://github.com/upatras-lar/ssqp/tree/main/external): external dependencies of the library.
-
-!!! note
-    SSQP's building process and documentation are a work in progress.

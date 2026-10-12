@@ -26,11 +26,11 @@ quadratizes the costs to form a stagewise, banded Quadratic Program (QP). A
 line search uses the QP solution to update the nonlinear trajectory.
 
 The full documentation is available on the
-[documentation site](DOCS_URL), including the
-[installation guide](DOCS_URL/getting-started/installation/),
-[Python quickstart](DOCS_URL/getting-started/quickstart/),
-concepts, examples, and generated [Python](DOCS_URL/reference/)
-and [C++](DOCS_URL/cpp-reference/) API references.
+[documentation site](https://lar.upatras.gr/ssqp), including the
+[installation guide](https://lar.upatras.gr/ssqp/getting-started/installation/),
+[Python quickstart](https://lar.upatras.gr/ssqp/getting-started/quickstart/),
+concepts, examples, and generated [Python](https://lar.upatras.gr/ssqp/reference/)
+and [C++](https://lar.upatras.gr/ssqp/cpp-reference/) API references.
 
 ## Features
 
@@ -237,7 +237,7 @@ while running:
     apply_control(u.stage(0))
 ```
 
-See the [MPC concept guide](DOCS_URL/concepts/mpc/) and
+See the [MPC concept guide](https://lar.upatras.gr/ssqp/concepts/mpc/) and
 `examples/mujoco_mpc/` for complete control loops.
 
 ## Examples
@@ -276,18 +276,25 @@ Failed test diagnostics are written to `tests/logs/<test-name>.txt`. See
 [`tests/README.md`](https://github.com/upatras-lar/ssqp/blob/main/tests/README.md) for the correctness coverage, deterministic
 seeding, finite-difference checks, sanitizer builds, and leak-detection notes.
 
+## Authors
+
+SSQP is being developed at the [Laboratory of Automation and Robotics (LAR)](https://lar.upatras.gr/)
+of the University of Patras by:
+
+- Nick Karydakis
+- Konstantinos Chatzilygeroudis
+
 ## Citing
 
 If you use SSQP in your work, please cite it as
 
 ```bibtex
-@misc{ssqpsoftware,
-  author       = {Nick Karydakis and  Konstantinos Chatzilygeroudis},
-  title        = {{SSQP}: A Structure-Exploiting Sequential Quadratic Programming Solver},
-  howpublished = {Online resource / Software},
+@misc{karydakis2026ssqp,
+  author       = {Karydakis, Nick and Chatzilygeroudis, Konstantinos},
+  title        = {{SSQP: A Structure-Exploiting Sequential Quadratic Programming Solver}},
   year         = {2026},
-  url          = {https://github.com/upatras-lar/ssqp},
-  urldate      = {2026-10-08}
+  howpublished = {\url{https://github.com/upatras-lar/ssqp}},
+  note         = {Software}
 }
 ```
 
