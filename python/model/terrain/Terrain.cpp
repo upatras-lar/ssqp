@@ -73,13 +73,25 @@ void bind_Terrain(nb::module_ &m)
     nb::class_<FlatTerrain, Terrain>(m, "FlatTerrain")
       .def(nb::init<double>(), nb::arg("base_height") = 0.0);
 
-    nb::class_<SlopeTerrain, Terrain>(m, "SlopeTerrain")
+    nb::class_<SlopeTerrain, Terrain>(m, "SlopeTerrain", R"doc(
+        Slope terrain
+        Height is $h = h_0 + s_x x + s_y y$, where $s_x$ and $s_y$ are the slopes
+        along the x and y axes (rise over run)    
+        )doc")
       .def(nb::init<double, double, double>(),
            nb::arg("slope_x"),
            nb::arg("slope_y")     = 0.0,
            nb::arg("base_height") = 0.0);
 
-    nb::class_<StepTerrain, Terrain>(m, "StepTerrain")
+    nb::class_<StepTerrain, Terrain>(m, "StepTerrain", R"doc(
+        Piecewise flat terrain with a flight of steps along the x axis
+
+        Height is `base_height` for $x < x_{start}$, then rises by `step_height` at
+        `x_start` and every `step_length` after that, for `num_steps` steps in total
+
+        The terrain stays at the top step height afterwards; with the default of a
+        single step, `step_length` has no effect
+        )doc")
       .def(nb::init<double, double, double, uint, double>(),
            nb::arg("x_start"),
            nb::arg("step_height"),
@@ -87,7 +99,18 @@ void bind_Terrain(nb::module_ &m)
            nb::arg("num_steps")   = 1,
            nb::arg("base_height") = 0.0);
 
-    nb::class_<HeightmapTerrain, Terrain>(m, "HeightmapTerrain")
+    nb::class_<HeightmapTerrain, Terrain>(m, "HeightmapTerrain", R"doc(
+        Smooth terrain interpolated from a uniform grid of heights
+        `heights(i, j)` is the height at $(x_0 + i r, y_0 + j r)$, where $r$ is the
+        grid resolution
+
+        Heights are interpolated with a bicubic Catmull-Rom spline, which passes 
+        through every grid height and has continuous height and slope
+
+        The height second derivatives are piecewise continuous
+
+        Outside the grid, the terrain extends flat from its closest edge value
+        )doc")
       .def(nb::init<const MatX &, double, double, double>(),
            nb::arg("heights"),
            nb::arg("resolution"),

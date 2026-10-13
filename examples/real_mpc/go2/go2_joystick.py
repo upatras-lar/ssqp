@@ -1,5 +1,7 @@
 import gc
 import os
+import subprocess
+import sys
 import time
 import argparse
 import numpy as np
@@ -24,13 +26,10 @@ from threading import Event
 
 import kinematic_walk_model
 import dynamic_walk_model
+import elevation_map
 
 from mujoco_mpc.go2.go2_controllers.joystick import Controller
 
-# Whether to control the unitree_mujoco simulator rather than the robot, which
-# also picks the dynamic walk's joint gains, and the network interface of each
-# (the defaults of the command line arguments)
-SIMULATION = False
 ROBOT_INTERFACE = "enp5s0"
 SIMULATION_INTERFACE = "lo"
 
@@ -120,9 +119,36 @@ class CustomGo2Controller:
     # Unitree foot sensor order (FR, FL, RR, RL) in the model's foot order
     FOOT_REORDER_MAP = [1, 0, 3, 2]
 
-    def __init__(self, walk_task="dynamic-walk"):
+    def __init__(
+        self,
+        interface,
+        walk_task="dynamic-walk",
+        map_view=False,
+        map_save=None,
+        step_stop=True,
+    ):
         # Task to switch to once the robot is standing
         self.walk_task = walk_task
+        # Whether the dynamic walk stops short of steps it cannot clear
+        self.step_stop = step_stop
+
+        # Shared memory the dynamic walk's state estimate goes to the LIDAR
+        # map process (lidar_map.py) through, and the command that runs it,
+        # showing the map in a Rerun viewer or saving it to a .rrd file if set
+        self.shared_poses = elevation_map.SharedPoses(
+            elevation_map.POSES_NAME, create=True
+        )
+        mapper_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "lidar_map.py"
+        )
+        self.mapper_command = [sys.executable, mapper_path, interface]
+        if map_view:
+            self.mapper_command.append("--view")
+        if map_save:
+            self.mapper_command += ["--save", map_save]
+        self.mapper = None
+        # The map process's latest map, once it has made one
+        self.shared_map = None
 
         self.Kp = 40.0
         self.Kd = 1.6
@@ -225,6 +251,24 @@ class CustomGo2Controller:
             )
 
         def dynamic_walk_task(self):
+            # Ground the walk steps on, the distances to its edges and its
+            # step heights, flat until the first LIDAR map. The walk's frame
+            # starts over here, so the map process starts a new map, and maps
+            # made before now are left out
+            terrain = dynamic_walk_model.ssqpy.model.terrain
+            self.terrain = terrain.HeightmapTerrain(
+                np.zeros((2, 2)), elevation_map.MAP_RESOLUTION
+            )
+            # Heights and corner of the latest map, which the terrain goes
+            # back to once the walk uses the map again, and whether the walk
+            # leaves the map out and takes the terrain to be flat
+            self.terrain_heights = (np.zeros((2, 2)), 0.0, 0.0)
+            self.flat_terrain = False
+            self.edges = None
+            self.steps = None
+            self.terrain_time = time.time()
+            self.shared_poses.restart()
+
             (
                 self.model,
                 self.mpc_controller,
@@ -232,9 +276,14 @@ class CustomGo2Controller:
                 self.plan_commands,
                 self.command_torques,
                 self.filter_state,
+                self.flat_ground,
+                self.jumping,
             ) = dynamic_walk_model.get_controller(
                 self._getGeneralizedConfiguration(self.current_base_pos),
                 SIMULATION,
+                self.terrain,
+                self._edgeDistance,
+                self._steps if self.step_stop else None,
             )
 
             # Leave everything made so far out of garbage collections, which
@@ -322,6 +371,8 @@ class CustomGo2Controller:
             time.sleep(1)
 
     def start(self):
+        self.mapper = subprocess.Popen(self.mapper_command)
+
         self.low_cmd_write_thread = RecurrentThread(
             interval=self.dt,
             target=self._lowCmdWrite,
@@ -338,6 +389,12 @@ class CustomGo2Controller:
         self._stopDynamicWalkSolver()
         self.low_cmd_write_thread.Wait()
         self.lowstate_subscriber.Close()
+        if self.mapper is not None:
+            self.mapper.terminate()
+            self.mapper.wait()
+        self.shared_poses.close(unlink=True)
+        if self.shared_map is not None:
+            self.shared_map.close()
         gc.unfreeze()
 
     def _stopDynamicWalkSolver(self):
@@ -374,9 +431,18 @@ class CustomGo2Controller:
             acc = np.array(msg.imu_state.accelerometer)
         self.state_lock.release()
 
-        # Update the state filter with every message
+        # Update the state filter with every message, and share its estimate
+        # and whether the robot is jumping with the map process
         if filtering:
-            self.filter_state(pos, vel, acc, time.time())
+            now = time.time()
+            x, R = self.filter_state(pos, vel, acc, now)
+            self.shared_poses.write(
+                now,
+                x[:3],
+                np.roll(dynamic_walk_model.rotation_to_quat(R), 1),
+                pos[7:],
+                self.jumping(),
+            )
 
     def _sportStateMessageHandler(self, msg: SportModeState_):
         self.state_lock.acquire()
@@ -616,6 +682,7 @@ class CustomGo2Controller:
             plan = self.plan
 
             try:
+                self._updateTerrain()
                 state = self.update_func(
                     v_cmd,
                     self.joystick.dpad_x,
@@ -649,6 +716,75 @@ class CustomGo2Controller:
             next_solve = max(
                 next_solve + dynamic_walk_model.MPC_DT, time.time()
             )
+
+    def _updateTerrain(self):
+        # Takes the latest LIDAR map into the walk's terrain if it is new.
+        # Only the solver thread uses the terrain, so it is replaced here
+        # between solves. While the walk leaves the map out, the terrain is
+        # flat at the height it gives instead, with no edges or steps, and it
+        # goes back to the latest map once the walk uses the map again
+        ground = self.flat_ground()
+        if ground is not None and not self.flat_terrain:
+            self.terrain.set_heights(np.full((2, 2), ground))
+            self.flat_terrain = True
+        elif ground is None and self.flat_terrain:
+            self.terrain.set_heights(*self.terrain_heights)
+            self.flat_terrain = False
+
+        if self.shared_map is None:
+            try:
+                self.shared_map = elevation_map.SharedMap(
+                    elevation_map.MAP_NAME
+                )
+            except FileNotFoundError:
+                return
+
+        if self.shared_map.time() <= self.terrain_time:
+            return
+        latest = self.shared_map.read()
+        if latest is None:
+            return
+
+        heights, edges, steps, x0, y0, self.terrain_time = latest
+        self.terrain_heights = (
+            heights + dynamic_walk_model.FOOT_POINT_HEIGHT,
+            x0,
+            y0,
+        )
+        if not self.flat_terrain:
+            self.terrain.set_heights(*self.terrain_heights)
+        self.edges = (edges, x0, y0)
+        self.steps = (heights, steps, x0, y0)
+
+    def _edgeDistance(self, x, y):
+        # Distance from (x, y) to the nearest edge in the latest map, taking
+        # there to be none outside of it or while the terrain is flat
+        if self.edges is None or self.flat_terrain:
+            return np.inf
+
+        edges, x0, y0 = self.edges
+        i = round((x - x0) / elevation_map.MAP_RESOLUTION)
+        j = round((y - y0) / elevation_map.MAP_RESOLUTION)
+        if not (0 <= i < edges.shape[0] and 0 <= j < edges.shape[1]):
+            return np.inf
+        return edges[i, j]
+
+    def _steps(self, x, y, radius):
+        # Positions, heights and step heights of the cells in the latest map
+        # within radius of (x, y) along each axis, with none while the
+        # terrain is flat
+        if self.steps is None or self.flat_terrain:
+            return np.zeros((0, 2)), np.zeros(0), np.zeros(0)
+
+        heights, steps, x0, y0 = self.steps
+        r = elevation_map.MAP_RESOLUTION
+        i0 = max(round((x - radius - x0) / r), 0)
+        j0 = max(round((y - radius - y0) / r), 0)
+        i1 = min(round((x + radius - x0) / r) + 1, steps.shape[0])
+        j1 = min(round((y + radius - y0) / r) + 1, steps.shape[1])
+        i, j = np.mgrid[i0:i1, j0:j1]
+        cells = np.column_stack((x0 + r * i.ravel(), y0 + r * j.ravel()))
+        return cells, heights[i, j].ravel(), steps[i, j].ravel()
 
     def _execDynamicWalkTask(self):
         # Keep the previous commands until the first plan is ready
@@ -807,7 +943,7 @@ def parse_args():
         "-s",
         "--simulation",
         action=argparse.BooleanOptionalAction,
-        default=SIMULATION,
+        default=False,
         help="Whether to control the unitree_mujoco simulator instead of the \
             robot",
     )
@@ -819,6 +955,29 @@ def parse_args():
         default=None,
         help=f"The network interface to use (default: {SIMULATION_INTERFACE} \
             when simulating, {ROBOT_INTERFACE} otherwise)",
+    )
+
+    parser.add_argument(
+        "-v",
+        "--view",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to show the LIDAR map in a Rerun viewer",
+    )
+
+    parser.add_argument(
+        "--save",
+        type=str,
+        default=None,
+        help="Rerun .rrd file to save the LIDAR map to",
+    )
+
+    parser.add_argument(
+        "--step-stop",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether the dynamic walk stops short of steps in the LIDAR map \
+            that are too high to climb or too deep to step down",
     )
 
     return parser.parse_args()
@@ -835,7 +994,11 @@ if __name__ == "__main__":
     ChannelFactoryInitialize(0, interface)
 
     custom = CustomGo2Controller(
-        "kinematic-walk" if args.kinematic else "dynamic-walk"
+        interface,
+        "kinematic-walk" if args.kinematic else "dynamic-walk",
+        args.view,
+        args.save,
+        args.step_stop,
     )
     custom.start()
 

@@ -20,9 +20,16 @@ W_WGT = 0.1
 # Weight on the base's height, which keeps its bounce in check while running
 Z_WGT = 3.0
 
-CONTACT_MU = 0.6
+CONTACT_MU = 0.4
 # Limit on each foot's normal force
 MAX_FOOT_FORCE = 150.0
+
+# Height of the model's foot points above the ground under stance feet. The
+# feet are spheres of radius 0.022 and the points lie 0.0235 past their
+# centres along the calves, so they rise as the calves tilt, to about 4 mm
+# while walking. The terrain the walk takes is the surface they rest on, the
+# ground raised by this
+FOOT_POINT_HEIGHT = 0.004
 
 # Speed limit on stance feet, keeping the plan from swinging planted legs
 STANCE_VEL_TOL = 0.2
@@ -37,6 +44,24 @@ STANCE_VEL_TOL = 0.2
 FOOTHOLD_VEL_GAIN = 0.19
 FOOTHOLD_MAX_SHIFT = 0.2
 FOOTHOLD_FREEZE_STAGES = 2
+
+# Footholds stay FOOTHOLD_EDGE_MARGIN away from edges in the terrain, which
+# covers the foot's radius and errors in the terrain and the base estimate.
+# One that does not moves to the nearest spot that does, up to FOOTHOLD_SEARCH
+# forward or back and FOOTHOLD_SIDE_SEARCH to the side, trying spots
+# FOOTHOLD_SEARCH_STEP apart
+FOOTHOLD_EDGE_MARGIN = 0.06
+FOOTHOLD_SEARCH = 0.16
+FOOTHOLD_SIDE_SEARCH = 0.06
+FOOTHOLD_SEARCH_STEP = 0.02
+# Footholds keep the height they were first placed at, within
+# FOOTHOLD_LEVEL_CHANGE, while there is a spot at that height. Otherwise they
+# could jump between the levels of a step as their nominal position moves,
+# late in a swing
+FOOTHOLD_LEVEL_CHANGE = 0.02
+# Spots ahead of a foothold count as FOOTHOLD_AHEAD_COST times further than
+# they are, so that steps near edges get shorter rather than longer
+FOOTHOLD_AHEAD_COST = 2.0
 
 # Time from measuring the state until the plan solved from it is applied. The
 # state is predicted this far ahead before solving, which makes up for the
@@ -68,6 +93,22 @@ MAX_YAW_ACC = 1.0
 # Limit on the base's sideways acceleration while turning, as its speed times
 # its turning rate, which slows turning while running fast
 MAX_TURN_ACC = 0.8
+# Commands toward steps in the terrain higher than MAX_CLIMB or deeper than
+# MAX_DROP are cut short early enough for the robot to come to rest STOP_MARGIN
+# short of them. The robot's footprint reaches FOOTPRINT ahead of and beside
+# the base. Commands that would bring it within STOP_MARGIN of a step slide
+# along the nearest one, and stop if they still bring it closer. Within
+# STOP_MARGIN of a step, they also move the footprint away from it at STOP_GAIN
+# times how far inside the margin it is, which keeps the walk from drifting
+# onto it. Moving STOP_CHECK along a command brings the footprint closer if its
+# distance drops by more than STOP_TOLERANCE
+MAX_CLIMB = 0.1
+MAX_DROP = 0.08
+FOOTPRINT = np.array([0.3, 0.2])
+STOP_MARGIN = 0.05
+STOP_CHECK = 0.05
+STOP_TOLERANCE = 0.005
+STOP_GAIN = 2.0
 
 # The base position and linear velocity come from a Kalman filter, which
 # integrates the accelerometer and corrects it with the leg odometry of every
@@ -94,6 +135,15 @@ STEP_HEIGHT = 0.08
 MIN_STEP_HEIGHT = 0.03
 MAX_STEP_HEIGHT = 0.1
 STEP_HEIGHT_RATE = 0.05
+
+# Where the terrain along a swing, sampled at SWING_PATH_SAMPLES points, rises
+# more than SWING_ROUGH_HEIGHT above its lower foothold, the foot lifts in
+# place for SWING_LIFT_PHASE of the swing, clears the highest of them by
+# SWING_CLEARANCE, and comes down onto its foothold for as long at the end
+SWING_ROUGH_HEIGHT = 0.02
+SWING_LIFT_PHASE = 0.15
+SWING_PATH_SAMPLES = 8
+SWING_CLEARANCE = 0.05
 
 # Base pitch while tilting the front up or down, and the rate at which it
 # changes, including back to level once the tilt stops
@@ -210,6 +260,10 @@ GAITS = {
 }
 # Gait at the start. The gait button cycles through them while standing
 GAIT = "trot"
+# Gaits that leave the LIDAR map out and take the terrain to be flat at its
+# height when they start. The run steps further ahead than the map covers
+# densely and is upset by its small errors
+MAP_FREE_GAITS = ["run"]
 
 
 def leg_config(height):
@@ -277,22 +331,34 @@ def rotation_to_quat(R):
     return q
 
 
-def get_controller(init_config, simulation=False):
+def get_controller(
+    init_config, simulation=False, terrain=None, edges=None, steps=None
+):
     """
     Builds the dynamics walking MPC for the robot starting at init_config,
     or for the unitree_mujoco simulator with simulation set
 
     The robot only measures the base orientation, not its position, so the
     base position is estimated from the stance feet (leg odometry), assuming
-    they stay where they landed on flat ground at zero height, which a Kalman
-    filter fuses with the accelerometer
+    they stay where they landed on the terrain, which a Kalman filter fuses
+    with the accelerometer
     The yaw is taken relative to the initial one
     The base position in the given configurations is ignored
+
+    terrain is the ground under the robot raised by FOOT_POINT_HEIGHT, in the
+    frame the base position is estimated in, which starts with the base above
+    the origin and x along its initial heading. It defaults to flat ground at
+    zero height. edges gives the distance from a point (x and y) to the
+    nearest edge in the terrain, and defaults to there being none. steps
+    takes a point (x and y) and a radius, and gives the positions (x and y),
+    heights and step heights (how far each is above the lowest terrain right
+    next to it) of the terrain's cells within the radius of the point along
+    each axis. It defaults to there being no cells
 
     The robot stands on all four feet until the command moves it, and stands
     again once the command has been at rest for IDLE_TIME
 
-    Returns the model, the MPC, and four functions:
+    Returns the model, the MPC, and six functions:
      - update_func, to call once per plan stage, before solving. It takes the
        commanded velocity (forward, sideways and yaw), the D-pad state (x and
        y), the base orientation commands (pitch, roll and yaw, each 1 or -1
@@ -311,14 +377,24 @@ def get_controller(init_config, simulation=False):
        torques to apply
      - filter_state, to call with every state message. It takes the measured
        configuration and velocity, the accelerometer reading (in the base
-       frame) and the time in seconds
+       frame) and the time in seconds. It returns the base position and
+       velocity estimate and the base rotation in the same frame
+     - flat_ground, returning the height to take the terrain to be flat at,
+       with no edges or steps, while the walk leaves the map out (see
+       MAP_FREE_GAITS), and None while it uses the map
+     - jumping, returning whether the robot is jumping, when the base
+       estimate is too poor to map the ground
     """
+    if terrain is None:
+        terrain = ssqpy.model.terrain.HeightmapTerrain(np.zeros((2, 2)), 1.0)
+
     model = ssqpy.model.Model(
         MPC_H,
         MPC_DT,
         mjcf_path="../../assets/mjcf/go2/go2.xml",
         free_flyer=True,
         solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
+        terrain=terrain,
     )
 
     nq = model.getnq()
@@ -335,6 +411,142 @@ def get_controller(init_config, simulation=False):
     }
     for offset in foot_offsets.values():
         offset[2] = 0.0
+
+    def ground(p):
+        # The point on the terrain below p
+        return np.array([p[0], p[1], terrain.at(p[0], p[1]).height])
+
+    if edges is None:
+
+        def edges(x, y):
+            return np.inf
+
+    if steps is None:
+
+        def steps(x, y, radius):
+            return np.zeros((0, 2)), np.zeros(0), np.zeros(0)
+
+    # Spots to try for a foothold near an edge, relative to the heading,
+    # nearest first
+    def search_steps(size):
+        return np.arange(-size, size + 1e-9, FOOTHOLD_SEARCH_STEP)
+
+    foothold_offsets = sorted(
+        (
+            np.array([dx, dy, 0.0])
+            for dx in search_steps(FOOTHOLD_SEARCH)
+            for dy in search_steps(FOOTHOLD_SIDE_SEARCH)
+        ),
+        key=lambda offset: np.hypot(
+            offset[0] * (FOOTHOLD_AHEAD_COST if offset[0] > 0 else 1.0),
+            offset[1],
+        ),
+    )
+
+    def away_from_edges(p, yaw, level=None):
+        # The nearest spot to p that is FOOTHOLD_EDGE_MARGIN from any edge, and
+        # at the given level if there is one there, or p if there is none
+        # within the search
+        R = rotation_z(yaw)
+        nearest = None
+        for offset in foothold_offsets:
+            q = p + R @ offset
+            if edges(q[0], q[1]) < FOOTHOLD_EDGE_MARGIN:
+                continue
+            change = 0.0 if level is None else abs(ground(q)[2] - level)
+            if change <= FOOTHOLD_LEVEL_CHANGE:
+                return q
+            if nearest is None:
+                nearest = q
+        return p if nearest is None else nearest
+
+    def path_top(start, end):
+        # The highest terrain on the way from start to end
+        return max(
+            ground((1 - s) * start + s * end)[2]
+            for s in np.linspace(0.0, 1.0, SWING_PATH_SAMPLES)
+        )
+
+    def ground_height(x, y, yaw):
+        # Terrain height under the base with the given pose, averaged over
+        # the feet's nominal positions so that it changes smoothly over edges
+        base = np.array([x, y, 0.0])
+        return np.mean(
+            [
+                ground(base + rotation_z(yaw) @ foot_offsets[name])[2]
+                for name in FOOT_NAMES
+            ]
+        )
+
+    def avoid_steps(v_cmd):
+        # The commanded velocity without its translation toward steps that
+        # are too high to climb or too deep to step down. Within STOP_MARGIN
+        # of them by the time the base could stop, the part of the command
+        # toward the nearest one is removed and the footprint is pushed away
+        # from it while inside the margin. If the rest still brings the
+        # footprint closer to a step the translation stops. Steps rising above
+        # the ground under the base are climbs, and the others are drops
+        if not np.any(v_cmd[:2]):
+            return v_cmd
+        _, _, yaw = est["poses"][est["stage"] - est["pose_stage"]]
+        x, y = est["filter"][1][:2]
+        speed = np.linalg.norm(est["v_cmd"][:2]) + MAX_ACC * MPC_DT
+        travel = speed**2 / (2 * MAX_ACC) + speed * MPC_DT
+        reach = np.linalg.norm(FOOTPRINT) + travel + STOP_MARGIN
+        cells, heights, rises = steps(x, y, reach)
+        climb = heights - ground_height(x, y, yaw) > rises / 2
+        high = rises > np.where(climb, MAX_CLIMB, MAX_DROP)
+        if not high.any():
+            return v_cmd
+
+        # Steps relative to the base in the heading frame, and how far past
+        # the footprint each one is along each axis when the base has moved
+        # along a direction, negative inside it
+        rel = (cells[high] - [x, y]) @ rotation_z(yaw)[:2, :2]
+        shifts = np.append(np.arange(0.0, travel, STOP_CHECK), travel)
+        shifts = np.append(shifts, STOP_CHECK)
+
+        def past(direction):
+            return np.abs(rel[None] - shifts[:, None, None] * direction) - FOOTPRINT
+
+        def approaches(command):
+            # Whether the command brings the footprint within STOP_MARGIN of a
+            # step on the way to where the base could stop, closer to the
+            # nearest step than it is now after moving STOP_CHECK
+            if np.linalg.norm(command) < 1e-6:
+                return False
+            outside = past(command / np.linalg.norm(command))
+            gaps = np.linalg.norm(np.maximum(outside, 0.0), axis=2) + np.minimum(
+                outside.max(axis=2), 0.0
+            )
+            gaps = gaps.min(axis=1)
+            return (
+                gaps[:-1].min() < STOP_MARGIN
+                and gaps[-1] < gaps[0] - STOP_TOLERANCE
+            )
+
+        # Distance from the footprint to the nearest step now, and the
+        # direction toward it, out through the footprint's closest side for
+        # steps under it
+        outside = past(np.zeros(2))[0]
+        gaps = np.linalg.norm(np.maximum(outside, 0.0), axis=1) + np.minimum(
+            outside.max(axis=1), 0.0
+        )
+        nearest = np.argmin(gaps)
+        normal = np.maximum(outside[nearest], 0.0)
+        if not normal.any():
+            normal = (outside[nearest] == outside[nearest].max()).astype(float)
+        normal *= np.where(rel[nearest] < 0.0, -1.0, 1.0)
+        normal /= np.linalg.norm(normal)
+
+        command = v_cmd[:2]
+        if gaps[nearest] >= STOP_MARGIN and not approaches(command):
+            return v_cmd
+        command = command - max(command @ normal, 0.0) * normal
+        command -= STOP_GAIN * max(STOP_MARGIN - gaps[nearest], 0.0) * normal
+        if approaches(command):
+            command = np.zeros(2)
+        return np.array([command[0], command[1], v_cmd[2]])
 
     # Hip joint positions relative to the base, and the sideways offset from
     # each hip joint to its thigh joint
@@ -411,9 +623,13 @@ def get_controller(init_config, simulation=False):
         # frozen foothold with the stage it lands at
         "foothold_shift": np.zeros(3),
         "frozen": {},
-        # Footholds by foot and gait period, and foot references by foot and
-        # stage, computed since the references were last updated
+        # Footholds and the highest terrain between them by foot and gait
+        # period, and foot references by foot and stage, computed since the
+        # references were last updated
         "footholds": {},
+        "swing_tops": {},
+        # Height each foothold was placed at, by foot and landing stage
+        "foothold_levels": {},
         "foot_references": {},
         # Current gait
         "gait": GAIT,
@@ -427,6 +643,9 @@ def get_controller(init_config, simulation=False):
         # First stage of the jump, None when not jumping
         "jump_start": None,
         "jump_held": False,
+        # Height of the terrain under the feet when the walk stopped using
+        # the map, None while it uses it
+        "flat_ground": None,
         # Base height and vertical velocity at touchdown, which the landing
         # starts from. Until the feet touch down, the planned ones
         "touchdown": None,
@@ -486,8 +705,8 @@ def get_controller(init_config, simulation=False):
     feet0 = feet_in_base(init_config)
     height0 = -np.mean([(R0 @ p)[2] for p in feet0.values()])
     for name in FOOT_NAMES:
-        est["landed"][name] = np.array([0.0, 0.0, height0]) + R0 @ feet0[name]
-        est["landed"][name][2] = 0.0
+        est["landed"][name] = ground(R0 @ feet0[name])
+    height0 += np.mean([est["landed"][name][2] for name in FOOT_NAMES])
 
     init_state = np.zeros(nq + model.getnv())
     init_state[:nq] = init_config[:nq]
@@ -564,6 +783,7 @@ def get_controller(init_config, simulation=False):
             P = (np.eye(6) - K @ H) @ P
 
         est["filter"] = (t, x, P)
+        return x, R
 
     def predict_poses(pose, count):
         v_cmd = est["v_cmd"]
@@ -728,7 +948,12 @@ def get_controller(init_config, simulation=False):
         middle = int(land + (cycle_stages() - swing_stages()) / 2)
         x, y, yaw = est["poses"][stage + middle]
         p = np.array([x, y, 0.0]) + rotation_z(yaw) @ foot_offsets[name]
-        p += est["foothold_shift"]
+        key = (name, est["gait_start"] + land)
+        level = est["foothold_levels"].get(key)
+        p = ground(away_from_edges(p + est["foothold_shift"], yaw, level))
+        est["foothold_levels"][key] = p[2]
+        for old in [k for k in est["foothold_levels"] if k[1] < est["stage"]]:
+            del est["foothold_levels"][old]
         if stage + land <= FOOTHOLD_FREEZE_STAGES:
             est["frozen"][name] = (est["gait_start"] + land, p)
         est["footholds"][name, period] = p
@@ -752,15 +977,32 @@ def get_controller(init_config, simulation=False):
         if swing is None:
             return foothold(name, latest_swing(name, k)), False
 
-        # Ease in and out of the swing, so that the foot lifts off and touches
-        # down without sliding
         period, phase = swing
         groups = GAITS[est["gait"]][0]
-        blend = 0.5 * (1 - np.cos(np.pi * phase))
-        p = (1 - blend) * foothold(
-            name, period - len(groups)
-        ) + blend * foothold(name, period)
-        p[2] += est["step_height"] * np.sin(np.pi * phase) ** 2
+        liftoff = foothold(name, period - len(groups))
+        landing = foothold(name, period)
+        if (name, period) not in est["swing_tops"]:
+            est["swing_tops"][name, period] = path_top(liftoff, landing)
+        top = est["swing_tops"][name, period]
+
+        # Ease in and out of the swing, so that the foot lifts off and touches
+        # down without sliding. Midway, the foot is step_height above the
+        # higher of its footholds
+        if top - min(liftoff[2], landing[2]) <= SWING_ROUGH_HEIGHT:
+            blend = 0.5 * (1 - np.cos(np.pi * phase))
+            p = (1 - blend) * liftoff + blend * landing
+            lift = est["step_height"] + abs(landing[2] - liftoff[2]) / 2
+            p[2] += lift * np.sin(np.pi * phase) ** 2
+            return p, True
+
+        # Over rough terrain, the foot rises above the highest terrain on the
+        # way before it moves, and moves over its foothold before it comes down
+        move = (phase - SWING_LIFT_PHASE) / (1 - 2 * SWING_LIFT_PHASE)
+        blend = 0.5 * (1 - np.cos(np.pi * np.clip(move, 0.0, 1.0)))
+        p = (1 - blend) * liftoff + blend * landing
+        end = liftoff[2] if phase < 0.5 else landing[2]
+        apex = top + SWING_CLEARANCE
+        p[2] = end + (apex - end) * 0.5 * (1 - np.cos(2 * np.pi * phase))
         return p, True
 
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
@@ -881,6 +1123,7 @@ def get_controller(init_config, simulation=False):
         est["foothold_shift"] = shift
         est["footholds"] = {}
         est["foot_references"] = {}
+        est["swing_tops"] = {}
 
         config_cost.set_desired_configuration(
             stance_config(
@@ -900,6 +1143,7 @@ def get_controller(init_config, simulation=False):
 
             j = jump_stage(k)
             height = gait_base_height(k) if j is None else jump_base_height(j)
+            height += ground_height(x, y, yaw)
             base_costs[idx].set_desired_translation(np.array([x, y, height]))
             base_costs[idx].set_desired_rotation(rotation_z(yaw) @ tilt)
 
@@ -1005,6 +1249,7 @@ def get_controller(init_config, simulation=False):
         contacts=None,
     ):
         current_stage = est["stage"]
+        v_cmd = avoid_steps(v_cmd)
         moving = np.max(np.abs(v_cmd)) > MOVE_THRESHOLD
 
         # Jump on each new press of the jump button while standing still with
@@ -1092,6 +1337,15 @@ def get_controller(init_config, simulation=False):
             print(f"Switched to the {est['gait']} gait")
         est["gait_held"] = switch_gait
 
+        # The map is left out while jumping and in MAP_FREE_GAITS, taking the
+        # terrain to be flat at its height under the feet from then on
+        if est["jump_start"] is None and est["gait"] not in MAP_FREE_GAITS:
+            est["flat_ground"] = None
+        elif est["flat_ground"] is None:
+            est["flat_ground"] = np.mean(
+                [est["landed"][name][2] for name in FOOT_NAMES]
+            )
+
         # Start stepping on a move command, and stop at the end of the
         # current period once the command has been at rest for a while,
         # counting from when the base's reference has slowed to rest
@@ -1170,13 +1424,11 @@ def get_controller(init_config, simulation=False):
             g = -GRAVITY[2]
             rise = (R @ state[19:22])[2]
             reach = np.array([0.0, 0.0, JUMP_TAKEOFF_HEIGHT])
-            drop = max(
-                min(
-                    state[2] + (R @ (foot_offsets[name] - reach))[2]
-                    for name in FOOT_NAMES
-                ),
-                0.0,
-            )
+            feet_down = [
+                state[:3] + R @ (foot_offsets[name] - reach)
+                for name in FOOT_NAMES
+            ]
+            drop = max(min(p[2] - ground(p)[2] for p in feet_down), 0.0)
             fall_time = (rise + np.sqrt(rise**2 + 2 * g * drop)) / g
             stages = round(fall_time / MPC_DT)
             stages = min(max(stages, 1), touchdown - takeoff - 2)
@@ -1185,8 +1437,7 @@ def get_controller(init_config, simulation=False):
         # Feet finishing their swing keep the spot they actually landed on
         for name in last_swing:
             if name not in swing_feet(current_stage):
-                est["landed"][name] = state[:3] + R @ feet[name]
-                est["landed"][name][2] = 0.0
+                est["landed"][name] = ground(state[:3] + R @ feet[name])
 
         # The feet land from the jump away from where they took off, so the
         # base's reference moves to stand centered over them again
@@ -1198,9 +1449,10 @@ def get_controller(init_config, simulation=False):
             est["poses"] = [np.array([x, y, yaw])]
             est["pose_stage"] = current_stage
 
-            # The landing starts from the base's measured height and fall
+            # The landing starts from the base's measured height above the
+            # terrain and its fall
             fall = min((R @ state[19:22])[2], 0.0)
-            est["touchdown"] = (state[2], fall)
+            est["touchdown"] = (state[2] - ground_height(x, y, yaw), fall)
 
         # Once every foot has landed after the gait stops, the robot stands
         if est["gait_stop"] is not None and current_stage >= gait_end():
@@ -1281,6 +1533,12 @@ def get_controller(init_config, simulation=False):
         torques += armature * u[: nv - 6]
         return np.clip(torques, -TORQUE_LIMITS, TORQUE_LIMITS)
 
+    def flat_ground():
+        return est["flat_ground"]
+
+    def jumping():
+        return est["jump_start"] is not None
+
     return (
         model,
         mpc,
@@ -1288,6 +1546,8 @@ def get_controller(init_config, simulation=False):
         plan_commands,
         command_torques,
         filter_state,
+        flat_ground,
+        jumping,
     )
 
 

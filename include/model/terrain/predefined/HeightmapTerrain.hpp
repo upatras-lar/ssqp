@@ -13,12 +13,14 @@ namespace predefined
 {
 /** Smooth terrain interpolated from a uniform grid of heights
  * `heights(i, j)` is the height at $(x_0 + i r, y_0 + j r)$, where $r$ is the
- * grid resolution. Heights are interpolated with a bicubic Catmull-Rom spline,
- * which passes through every grid height and has continuous height and slope.
- * The height second derivatives are piecewise continuous.
+ * grid resolution
+ * 
+ * Heights are interpolated with a bicubic Catmull-Rom spline, which passes 
+ * through every grid height and has continuous height and slope
+ * 
+ * The height second derivatives are piecewise continuous
+ * 
  * Outside the grid, the terrain extends flat from its closest edge value
- * The grid can be replaced after construction with `set_heights`, e.g. to
- * follow a map that moves with the robot
  */
 class HeightmapTerrain : public Terrain
 {

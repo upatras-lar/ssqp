@@ -11,7 +11,7 @@ namespace terrain
 {
 namespace predefined
 {
-/** Plane terrain
+/** Slope terrain
  * Height is $h = h_0 + s_x x + s_y y$, where $s_x$ and $s_y$ are the slopes
  * along the x and y axes (rise over run)
  */

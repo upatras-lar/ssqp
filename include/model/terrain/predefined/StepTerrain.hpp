@@ -12,9 +12,11 @@ namespace terrain
 namespace predefined
 {
 /** Piecewise flat terrain with a flight of steps along the x axis
+ * 
  * Height is `base_height` for $x < x_{start}$, then rises by `step_height` at
- * `x_start` and every `step_length` after that, for `num_steps` steps in total.
- * The terrain stays at the top step height afterwards. With the default of a
+ * `x_start` and every `step_length` after that, for `num_steps` steps in total
+ * 
+ * The terrain stays at the top step height afterwards; with the default of a
  * single step, `step_length` has no effect
  */
 class StepTerrain : public Terrain
