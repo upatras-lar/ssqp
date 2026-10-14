@@ -7,6 +7,7 @@ dev_addr: '150.140.184.35:8000'
 
 hooks:
   - hooks/fix_mkdoxy.py
+  - hooks/version.py
 
 theme:
   name: material

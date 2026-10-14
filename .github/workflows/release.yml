@@ -1,7 +1,7 @@
 name: Release
 
-# Pushing a v* tag builds the wheels, the sdist and the binary archive,
-# creates a GitHub release with all of them and uploads the wheels and sdist
+# Pushing a v* tag builds the wheels, the sdist, the binary archive and the
+# Debian packages, creates a GitHub release with all of them and uploads the wheels and sdist
 # to PyPI. Manual runs only build
 on:
   workflow_dispatch:
@@ -85,8 +85,37 @@ jobs:
           path: archive/*.tar.gz
           if-no-files-found: error
 
+  # One package per Ubuntu release, built against that release's Eigen
+  build-deb:
+    needs: check-version
+    strategy:
+      matrix:
+        ubuntu: ["22.04", "24.04"]
+    runs-on: ubuntu-${{ matrix.ubuntu }}
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake git \
+            libeigen3-dev libboost-filesystem-dev libboost-serialization-dev
+
+      - name: Build package
+        run: bash .github/scripts/build-release-deb.sh . deb
+
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: deb-${{ matrix.ubuntu }}
+          path: deb/*.deb
+          if-no-files-found: error
+
   release:
-    needs: [build-wheels, build-sdist, build-archive]
+    needs: [build-wheels, build-sdist, build-archive, build-deb]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
@@ -114,7 +143,8 @@ jobs:
       id-token: write
 
     steps:
-      # The binary archive is only attached to the GitHub release
+      # The binary archive and the Debian packages are only attached to the
+      # GitHub release
       - uses: actions/download-artifact@v8.0.2
         with:
           name: wheels

@@ -1,5 +1,6 @@
 # Initial cache for the PyPI wheels (see [tool.cibuildwheel] in
-# pyproject.toml). Pinocchio and HPIPM are prebuilt with these settings by
+# pyproject.toml), also used for the release archive and Debian packages
+# under .github/scripts. Pinocchio and HPIPM are prebuilt with these settings by
 # .github/scripts/build-wheel-deps.sh, and ssqp must be built with the same
 # ones, so both load this file
 set(SSQP_MARCH_NATIVE OFF CACHE BOOL "")

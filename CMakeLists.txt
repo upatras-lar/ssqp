@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(ssqp VERSION 0.1.1 LANGUAGES CXX)
+project(ssqp VERSION 0.1.2 LANGUAGES CXX)
 
 # Only affects single-config generators (Makefiles, Ninja); ssqp's own
 # optimization level is set explicitly below regardless (see
@@ -340,4 +340,23 @@ if(NOT SKBUILD)
         ${CMAKE_CURRENT_BINARY_DIR}/ssqpConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/ssqpConfigVersion.cmake
         DESTINATION ${SSQP_INSTALL_CMAKEDIR} COMPONENT cpp)
+endif()
+
+# --- Debian package ---
+# `cpack -G DEB` packages the cpp component as libssqp-dev. Configure with
+# -DCMAKE_INSTALL_PREFIX=/usr so the libraries go in the multiarch directory
+if(PROJECT_IS_TOP_LEVEL AND NOT SKBUILD)
+    set(CPACK_PACKAGE_NAME ssqp)
+    set(CPACK_PACKAGE_VENDOR "Laboratory of Automation and Robotics, University of Patras")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+        "Structure-exploiting SQP solver for nonlinear optimal control, trajectory generation and MPC")
+    set(CPACK_PACKAGE_HOMEPAGE_URL "https://lar.upatras.gr/ssqp")
+    set(CPACK_DEB_COMPONENT_INSTALL ON)
+    set(CPACK_COMPONENTS_ALL cpp)
+    set(CPACK_DEBIAN_CPP_PACKAGE_NAME libssqp-dev)
+    set(CPACK_DEBIAN_CPP_PACKAGE_DEPENDS libeigen3-dev)
+    set(CPACK_DEBIAN_CPP_FILE_NAME DEB-DEFAULT)
+    set(CPACK_DEBIAN_PACKAGE_SECTION libdevel)
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_VENDOR}")
+    include(CPack)
 endif()

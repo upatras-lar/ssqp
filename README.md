@@ -186,7 +186,17 @@ CPU features.
 
 ## C++ library
 
-Install the static library, its headers, and a CMake package into a prefix:
+Each [GitHub release](https://github.com/upatras-lar/ssqp/releases) provides
+prebuilt C++ packages for Linux x86_64 with the same CPU requirements as the
+wheels: a `.deb` for Ubuntu 22.04 and 24.04, and a `.tar.gz` archive for other
+distributions. On Ubuntu:
+
+```sh
+sudo apt install ./libssqp-dev_*-ubuntu24.04_amd64.deb
+```
+
+To install your own build instead, install the static library, its headers,
+and a CMake package into a prefix:
 
 ```sh
 cmake --install build --component cpp --prefix ~/.local
@@ -195,7 +205,7 @@ cmake --install build --component cpp --prefix ~/.local
 Other CMake projects can then find it and link the `ssqp::ssqp` target:
 
 ```cmake
-find_package(ssqp 0.1 REQUIRED)
+find_package(ssqp REQUIRED)
 target_link_libraries(my_app PRIVATE ssqp::ssqp)
 ```
 

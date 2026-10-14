@@ -156,11 +156,44 @@ matching setups.
 
 ## Using the C++ library
 
-SSQP is a static library, `libssqp.a`, exposed to CMake as the `ssqp::ssqp` target. There are two ways to use it
-from your own CMake project. Either way, your code is compiled with SSQP's architecture flag (`-march=native` by
-default, see `SSQP_MARCH_NATIVE`), since Eigen's memory alignment must match between SSQP and the code calling it.
+SSQP is a static library, `libssqp.a`, exposed to CMake as the `ssqp::ssqp` target. You can install a prebuilt
+release, install your own build, or build SSQP as part of your project. In every case your code is compiled with
+SSQP's architecture flag (`-march=native` for your own builds, see `SSQP_MARCH_NATIVE`), since Eigen's memory
+alignment must match between SSQP and the code calling it.
 
-### Installing the C++ package
+### Installing a release
+
+Each [GitHub release](https://github.com/upatras-lar/ssqp/releases) provides prebuilt packages for Linux x86_64.
+Like the pip wheels, they are built with `-march=x86-64-v3` and need a CPU with AVX2 and FMA, and they include the
+HPIPM QP solver.
+
+On Ubuntu 22.04 or 24.04, download the `.deb` for your Ubuntu version and install it with apt, which also installs
+Eigen:
+
+```bash
+sudo apt install ./libssqp-dev_{{ ssqp_version }}-1-ubuntu24.04_amd64.deb
+```
+
+Your project then finds it with `find_package(ssqp)`, as shown [below](#installing-your-own-build).
+
+On other distributions, use the `ssqp-v{{ ssqp_version }}-linux-x86_64.tar.gz` archive, which also contains the
+Python module, the examples and the [prebuilt dependency packages](#building-against-prebuilt-dependencies). Extract
+it and pass its directory to your project with `-DCMAKE_PREFIX_PATH`, or let CMake download it:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(ssqp
+    URL https://github.com/upatras-lar/ssqp/releases/download/v{{ ssqp_version }}/ssqp-v{{ ssqp_version }}-linux-x86_64.tar.gz
+)
+FetchContent_MakeAvailable(ssqp)
+find_package(ssqp REQUIRED PATHS ${ssqp_SOURCE_DIR} NO_DEFAULT_PATH)
+
+target_link_libraries(my_app PRIVATE ssqp::ssqp)
+```
+
+The archive needs Eigen 3.4 on the system.
+
+### Installing your own build
 
 Install the library, its headers and a CMake package into a prefix of your choice:
 
@@ -173,7 +206,7 @@ This installs `libssqp.a` under `lib/`, the static libraries it links (Pinocchio
 under `lib/cmake/ssqp/`. Your project then finds it with:
 
 ```cmake
-find_package(ssqp 0.1 REQUIRED)
+find_package(ssqp REQUIRED)
 target_link_libraries(my_app PRIVATE ssqp::ssqp)
 ```
 
@@ -190,7 +223,7 @@ Alternatively, build SSQP as part of your project with
 include(FetchContent)
 FetchContent_Declare(ssqp
     GIT_REPOSITORY https://github.com/upatras-lar/ssqp.git
-    GIT_TAG v0.1.1
+    GIT_TAG v{{ ssqp_version }}
 )
 FetchContent_MakeAvailable(ssqp)
 
