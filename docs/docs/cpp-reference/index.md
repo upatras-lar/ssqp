@@ -56,8 +56,9 @@ All library code lives under `ssqp::`, mirroring the Python package layout:
 
 ## Building against the C++ library
 
-`ssqp` is built as a static library by CMake (target `ssqp`); linking against it from another CMake project means
-adding this repository (e.g. via `add_subdirectory` or `FetchContent`) and linking the `ssqp` target, which
-propagates its public include directories. See [Installation](../getting-started/installation.md) for the required
-dependencies and CMake options, particularly `WITH_HPIPM` if you need the HPIPM QP solver, and
-`BUILD_PYTHON=OFF` if you only need the C++ library.
+`ssqp` is built as a static library by CMake. Other CMake projects link the `ssqp::ssqp` target, either from an
+installed package found with `find_package(ssqp)` or by adding this repository with `FetchContent` or
+`add_subdirectory`; the target propagates its include directories, compile definitions and the static libraries it
+depends on. See [Using the C++ library](../getting-started/installation.md#using-the-c-library) for both, and
+[CMake options](../getting-started/installation.md#cmake-options), particularly `SSQP_WITH_HPIPM` if you need the
+HPIPM QP solver.

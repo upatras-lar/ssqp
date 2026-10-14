@@ -23,7 +23,7 @@ Boost is taken from the system when its static libraries are usable,
 otherwise version 1.86.0 is fetched (see `SSQP_BOOST_VERSION`). Eigen is a
 header-only library taken from the system; its source is available at
 https://gitlab.com/libeigen/eigen. Tracy's client code is only compiled when
-`ENABLE_PROFILING` is on; the libraries it bundles carry their own notices in
+`SSQP_ENABLE_PROFILING` is on; the libraries it bundles carry their own notices in
 `external/tracy/public`.
 
 ## Boost

@@ -23,8 +23,8 @@ cmake --install "$work/eigen-build"
 # Package locations must match SSQP_PREBUILT_*_DIR in pyproject.toml
 cmake -S "$project" -B "$work/build" \
     -C "$project/cmake/WheelConfig.cmake" \
-    -DBUILD_PYTHON=OFF \
-    -DBUILD_TESTS=OFF \
+    -DSSQP_BUILD_PYTHON=OFF \
+    -DSSQP_BUILD_TESTS=OFF \
     -DSSQP_PINOCCHIO_PACKAGE_DIR=/opt/ssqp-deps/pinocchio \
     -DSSQP_HPIPM_PACKAGE_DIR=/opt/ssqp-deps/hpipm
 cmake --build "$work/build" --target package-pinocchio package-hpipm -j"$(nproc)"

@@ -28,7 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         with_hpipm: [ON, OFF]
-    name: build-and-test (WITH_HPIPM=${{ matrix.with_hpipm }})
+    name: build-and-test (SSQP_WITH_HPIPM=${{ matrix.with_hpipm }})
 
     steps:
       - uses: actions/checkout@v7.0.1
@@ -59,8 +59,8 @@ jobs:
       - name: Configure
         run: |
           cmake -S . -B build \
-            -DWITH_HPIPM=${{ matrix.with_hpipm }} \
-            -DBUILD_PYTHON=OFF
+            -DSSQP_WITH_HPIPM=${{ matrix.with_hpipm }} \
+            -DSSQP_BUILD_PYTHON=OFF
 
       - name: Build
         run: cmake --build build --target run_tests -j"$(nproc)"
@@ -107,9 +107,9 @@ jobs:
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DENABLE_SANITIZERS=ON \
-            -DWITH_HPIPM=ON \
-            -DBUILD_PYTHON=OFF
+            -DSSQP_ENABLE_SANITIZERS=ON \
+            -DSSQP_WITH_HPIPM=ON \
+            -DSSQP_BUILD_PYTHON=OFF
 
       - name: Build
         run: cmake --build build --target run_tests -j"$(nproc)"
@@ -156,7 +156,7 @@ jobs:
       - name: Configure
         run: |
           cmake -S . -B build \
-            -DBUILD_TESTS=OFF
+            -DSSQP_BUILD_TESTS=OFF
 
       - name: Build
         run: cmake --build build --target ssqpy -j"$(nproc)"

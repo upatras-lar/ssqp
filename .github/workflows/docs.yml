@@ -50,7 +50,7 @@ jobs:
       # The Python API reference is generated from the stubs of the built module
       - name: Build the Python bindings
         run: |
-          cmake -S . -B build -DBUILD_TESTS=OFF
+          cmake -S . -B build -DSSQP_BUILD_TESTS=OFF
           cmake --build build --target ssqpy -j"$(nproc)"
 
       - name: Install documentation requirements

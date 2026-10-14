@@ -401,6 +401,14 @@ target_link_libraries(pinocchio_vendored INTERFACE
     -Wl,--start-group ${_pinocchio_lib_paths} ${_ssqp_boost_static_targets} -Wl,--end-group
 )
 
+# Every archive above as a file path, for installing them with ssqp
+set(SSQP_PINOCCHIO_LIBS ${_pinocchio_lib_paths})
+if(NOT SSQP_PREBUILT_PINOCCHIO_DIR)
+    list(APPEND SSQP_PINOCCHIO_LIBS
+        ${_ssqp_boost_library_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}
+        ${_ssqp_boost_library_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_serialization${CMAKE_STATIC_LIBRARY_SUFFIX})
+endif()
+
 if(NOT SSQP_PREBUILT_PINOCCHIO_DIR)
     # --- package-pinocchio: assemble a redistributable copy of the above ---
     #

@@ -650,6 +650,7 @@ python visualizer/visualize.py -u path/to/robot.urdf -i path/to/trajectory.json
 
 ## How do I use SSQP from C++ without the Python bindings at all?
 
-Link the `ssqp` CMake target from your own project (`add_subdirectory`/`FetchContent`, with `BUILD_PYTHON=OFF` if
-you don't need the bindings). See [Installation](getting-started/installation.md) for the CMake options and
+Link the `ssqp::ssqp` CMake target from your own project, either from an installed package (`find_package(ssqp)`) or
+by adding SSQP with `FetchContent`/`add_subdirectory`, which leaves the Python bindings off by default. See
+[Using the C++ library](getting-started/installation.md#using-the-c-library) for both and
 [C++ API Reference](cpp-reference/index.md) for the full class-by-class interface.

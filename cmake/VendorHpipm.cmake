@@ -107,6 +107,7 @@ set(_hpipm_lib_paths
     ${_ssqp_hpipm_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}blasfeo${CMAKE_STATIC_LIBRARY_SUFFIX}
 )
 target_link_libraries(hpipm_vendored INTERFACE ${_hpipm_lib_paths})
+set(SSQP_HPIPM_LIBS ${_hpipm_lib_paths})
 
 if(NOT SSQP_PREBUILT_HPIPM_DIR)
     # --- package-hpipm: assemble a redistributable copy of the above ---

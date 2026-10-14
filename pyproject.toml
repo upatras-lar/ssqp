@@ -52,8 +52,8 @@ input = "CMakeLists.txt"
 regex = 'project\(ssqp VERSION (?P<value>[0-9.]+)'
 
 [tool.scikit-build.cmake.define]
-BUILD_PYTHON = "ON"
-BUILD_TESTS = "OFF"
+SSQP_BUILD_PYTHON = "ON"
+SSQP_BUILD_TESTS = "OFF"
 
 [tool.cibuildwheel]
 # The cp312 wheel uses the stable ABI and covers later versions

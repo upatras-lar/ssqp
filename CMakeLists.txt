@@ -3,9 +3,10 @@ project(ssqp VERSION 0.1.1 LANGUAGES CXX)
 
 # Only affects single-config generators (Makefiles, Ninja); ssqp's own
 # optimization level is set explicitly below regardless (see
-# ENABLE_PROFILING), so this is mainly so `cmake --install` doesn't report
+# SSQP_ENABLE_PROFILING), so this is mainly so `cmake --install` doesn't report
 # an empty configuration name when the user didn't pass -DCMAKE_BUILD_TYPE.
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+# Left alone when ssqp is added to another project, which owns this setting
+if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
@@ -24,13 +25,15 @@ add_compile_options(-fPIC ${SSQP_ARCH_FLAG})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # --- Options ---
-option(WITH_HPIPM "Link against HPIPM and BLASFEO" ON)
-option(ENABLE_PROFILING "Enable Tracy profiling" OFF)
-option(DISABLE_LOGGING "Add -DDISABLE_LOGGING compile flag" OFF)
-option(BUILD_EXAMPLES "Build example executables" OFF)
-option(BUILD_TESTS "Build tests" ON)
-option(BUILD_PYTHON "Build the Python extension" ON)
-option(ENABLE_SANITIZERS "Enable address, undefined-behavior, and leak checks" OFF)
+# Tests and Python bindings default to off when ssqp is added to another
+# project with add_subdirectory or FetchContent
+option(SSQP_WITH_HPIPM "Link against HPIPM and BLASFEO" ON)
+option(SSQP_ENABLE_PROFILING "Enable Tracy profiling" OFF)
+option(SSQP_DISABLE_LOGGING "Add -DDISABLE_LOGGING compile flag" OFF)
+option(SSQP_BUILD_EXAMPLES "Build example executables" OFF)
+option(SSQP_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
+option(SSQP_BUILD_PYTHON "Build the Python extension" ${PROJECT_IS_TOP_LEVEL})
+option(SSQP_ENABLE_SANITIZERS "Enable address, undefined-behavior, and leak checks" OFF)
 
 # If set, link against a prebuilt Pinocchio package (as produced by the
 # `package-pinocchio` target) instead of fetching and building it from
@@ -38,7 +41,7 @@ option(ENABLE_SANITIZERS "Enable address, undefined-behavior, and leak checks" O
 # also removes ssqp's Boost dependency. Must match the target architecture.
 set(SSQP_PREBUILT_PINOCCHIO_DIR "" CACHE PATH "Path to a prebuilt Pinocchio package (see cmake/VendorPinocchio.cmake)")
 
-# Same idea for BLASFEO/HPIPM (only relevant if WITH_HPIPM is ON), as
+# Same idea for BLASFEO/HPIPM (only relevant if SSQP_WITH_HPIPM is ON), as
 # produced by the `package-hpipm` target.
 set(SSQP_PREBUILT_HPIPM_DIR "" CACHE PATH "Path to a prebuilt HPIPM/BLASFEO package (see cmake/VendorHpipm.cmake)")
 
@@ -59,6 +62,12 @@ file(GLOB_RECURSE LIB_SOURCES "src/*.cpp")
 list(APPEND LIB_SOURCES "external/tracy/public/TracyClient.cpp")
 
 add_library(ssqp STATIC ${LIB_SOURCES})
+# Same name as the installed package target (see C++ package below)
+add_library(ssqp::ssqp ALIAS ssqp)
+
+# Code using ssqp's headers must be compiled for the same architecture, or
+# Eigen's alignment can differ between the two
+target_compile_options(ssqp INTERFACE ${SSQP_ARCH_FLAG})
 
 # --- Embedded URDF presets ---
 # Bakes select URDFs into the binary so Model::Structure::from_preset can
@@ -100,48 +109,63 @@ endforeach()
 add_custom_target(ssqp_generate_presets DEPENDS ${SSQP_PRESET_URDF_HEADERS})
 add_dependencies(ssqp ssqp_generate_presets)
 
+# The installed headers keep the repository layout under include/ssqp, since
+# the headers include the template implementations as "src/..."
+include(GNUInstallDirs)
+set(SSQP_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ssqp)
+
 target_include_directories(ssqp
     PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/tracy/public
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/json/single_include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tracy/public>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/json/single_include>
+    $<INSTALL_INTERFACE:${SSQP_INSTALL_INCLUDEDIR}/include>
+    $<INSTALL_INTERFACE:${SSQP_INSTALL_INCLUDEDIR}>
+    $<INSTALL_INTERFACE:${SSQP_INSTALL_INCLUDEDIR}/external/tracy/public>
+    $<INSTALL_INTERFACE:${SSQP_INSTALL_INCLUDEDIR}/external/json/single_include>
     PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 target_link_libraries(ssqp PUBLIC Eigen3::Eigen)
 
-if(ENABLE_SANITIZERS)
+if(SSQP_ENABLE_SANITIZERS)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        message(FATAL_ERROR "ENABLE_SANITIZERS requires GCC or Clang")
+        message(FATAL_ERROR "SSQP_ENABLE_SANITIZERS requires GCC or Clang")
     endif()
     target_compile_options(ssqp PUBLIC -O1 -g -fno-omit-frame-pointer
         -fsanitize=address,undefined -fno-sanitize-recover=all)
     target_link_options(ssqp PUBLIC -fsanitize=address,undefined)
-elseif(ENABLE_PROFILING)
+elseif(SSQP_ENABLE_PROFILING)
     target_compile_options(ssqp PUBLIC -g -O2 -pthread -fno-omit-frame-pointer)
     target_compile_definitions(ssqp PUBLIC TRACY_ENABLE TRACY_MEMORY)
     target_link_libraries(ssqp PUBLIC pthread)
 else()
-    target_compile_options(ssqp PUBLIC -O3)
+    # Private, so code using ssqp follows its own build type
+    target_compile_options(ssqp PRIVATE -O3)
 endif()
 
-if(DISABLE_LOGGING)
+if(SSQP_DISABLE_LOGGING)
     target_compile_definitions(ssqp PUBLIC DISABLE_LOGGING)
 endif()
 
-if(WITH_HPIPM)
+# The vendored static libraries ssqp links, in link order, which are
+# installed next to libssqp.a for the installed package
+set(SSQP_VENDORED_LIBS "")
+
+if(SSQP_WITH_HPIPM)
     include(VendorHpipm)
-    target_link_libraries(ssqp PRIVATE hpipm_vendored)
+    target_link_libraries(ssqp PRIVATE $<BUILD_INTERFACE:hpipm_vendored>)
     target_compile_definitions(ssqp PUBLIC WITH_HPIPM=1)
+    list(APPEND SSQP_VENDORED_LIBS ${SSQP_HPIPM_LIBS})
 endif()
 
 include(VendorPinocchio)
-target_link_libraries(ssqp PRIVATE pinocchio_vendored)
+target_link_libraries(ssqp PRIVATE $<BUILD_INTERFACE:pinocchio_vendored>)
+list(APPEND SSQP_VENDORED_LIBS -Wl,--start-group ${SSQP_PINOCCHIO_LIBS} -Wl,--end-group)
 
 # --- Examples ---
-if(BUILD_EXAMPLES)
+if(SSQP_BUILD_EXAMPLES)
     file(GLOB_RECURSE EXAMPLE_SOURCES "examples/trajgen/c++/*.cpp")
 
     foreach(EXAMPLE_FILE ${EXAMPLE_SOURCES})
@@ -172,7 +196,7 @@ if(BUILD_EXAMPLES)
 endif()
 
 # --- Tests ---
-if(BUILD_TESTS)
+if(SSQP_BUILD_TESTS)
     enable_testing()
 
     file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "tests/src/*.cpp")
@@ -180,6 +204,11 @@ if(BUILD_TESTS)
 
     target_include_directories(run_tests PRIVATE tests/include)
     target_link_libraries(run_tests PRIVATE ssqp)
+    # The tests instantiate ssqp's templates themselves, so they are
+    # optimized like the library to keep them fast in any build type
+    if(NOT SSQP_ENABLE_SANITIZERS AND NOT SSQP_ENABLE_PROFILING)
+        target_compile_options(run_tests PRIVATE -O3)
+    endif()
     # Discover at CTest time so new cases require no manually maintained list.
     # Each case runs in its own process: a segfault does not hide later cases.
     file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/discover_ssqp_tests.cmake"
@@ -193,7 +222,7 @@ if(BUILD_TESTS)
 endif()
 
 # --- Python bindings ---
-if(BUILD_PYTHON)
+if(SSQP_BUILD_PYTHON)
     # SKBUILD_SABI_COMPONENT is set by scikit-build-core for stable ABI wheels
     find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT})
 
@@ -247,7 +276,7 @@ if(BUILD_PYTHON)
         COMMENT "Generating Python stubs for ssqpy..."
     )
 
-    # `cmake --install .` (after building) drops ssqpy straight into
+    # `cmake --install . --component python` (after building) drops ssqpy straight into
     # site-packages for whichever Python interpreter it was built against
     # (Python_SITEARCH is an absolute path, so this installs there directly
     # regardless of CMAKE_INSTALL_PREFIX), so it's importable from a normal
@@ -258,7 +287,57 @@ if(BUILD_PYTHON)
     else()
         set(SSQP_PYTHON_INSTALL_DIR ${Python_SITEARCH})
     endif()
-    install(TARGETS ssqpy LIBRARY DESTINATION ${SSQP_PYTHON_INSTALL_DIR})
-    install(FILES ${CMAKE_BINARY_DIR}/bindings/py.typed DESTINATION ${SSQP_PYTHON_INSTALL_DIR})
-    install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/ssqpy/ DESTINATION ${SSQP_PYTHON_INSTALL_DIR}/ssqpy)
+    install(TARGETS ssqpy LIBRARY DESTINATION ${SSQP_PYTHON_INSTALL_DIR} COMPONENT python)
+    install(FILES ${CMAKE_BINARY_DIR}/bindings/py.typed DESTINATION ${SSQP_PYTHON_INSTALL_DIR} COMPONENT python)
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/ssqpy/ DESTINATION ${SSQP_PYTHON_INSTALL_DIR}/ssqpy
+        COMPONENT python)
+endif()
+
+# --- C++ package ---
+# `cmake --install . --component cpp` installs libssqp.a, the vendored static
+# libraries it needs, the headers and a CMake package under
+# CMAKE_INSTALL_PREFIX, so other projects can use find_package(ssqp) and link
+# ssqp::ssqp. Skipped for wheels, which only ship the Python module
+if(NOT SKBUILD)
+    include(CMakePackageConfigHelpers)
+
+    set(SSQP_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/ssqp)
+    set(SSQP_INSTALL_VENDORDIR ${CMAKE_INSTALL_LIBDIR}/ssqp)
+
+    # The installed package links the installed copies of the vendored
+    # libraries instead of the ones in the build tree
+    foreach(_item ${SSQP_VENDORED_LIBS})
+        if(_item MATCHES "^-")
+            target_link_libraries(ssqp INTERFACE $<INSTALL_INTERFACE:${_item}>)
+        else()
+            install(FILES ${_item} DESTINATION ${SSQP_INSTALL_VENDORDIR} COMPONENT cpp)
+            get_filename_component(_name ${_item} NAME)
+            target_link_libraries(ssqp INTERFACE
+                $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${SSQP_INSTALL_VENDORDIR}/${_name}>)
+        endif()
+    endforeach()
+
+    install(TARGETS ssqp EXPORT ssqpTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT cpp)
+    install(DIRECTORY include/ DESTINATION ${SSQP_INSTALL_INCLUDEDIR}/include COMPONENT cpp)
+    install(DIRECTORY src/ DESTINATION ${SSQP_INSTALL_INCLUDEDIR}/src COMPONENT cpp
+        FILES_MATCHING PATTERN "*.tpp")
+    install(DIRECTORY external/tracy/public/ DESTINATION ${SSQP_INSTALL_INCLUDEDIR}/external/tracy/public
+        COMPONENT cpp FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+    install(DIRECTORY external/json/single_include/
+        DESTINATION ${SSQP_INSTALL_INCLUDEDIR}/external/json/single_include COMPONENT cpp)
+    install(FILES external/tracy/LICENSE DESTINATION ${SSQP_INSTALL_INCLUDEDIR}/external/tracy COMPONENT cpp)
+    install(FILES external/json/LICENSE.MIT DESTINATION ${SSQP_INSTALL_INCLUDEDIR}/external/json COMPONENT cpp)
+    install(FILES LICENSE THIRD_PARTY_NOTICES.md DESTINATION ${CMAKE_INSTALL_DOCDIR} COMPONENT cpp)
+
+    install(EXPORT ssqpTargets NAMESPACE ssqp:: DESTINATION ${SSQP_INSTALL_CMAKEDIR} COMPONENT cpp)
+    configure_package_config_file(cmake/ssqpConfig.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/ssqpConfig.cmake
+        INSTALL_DESTINATION ${SSQP_INSTALL_CMAKEDIR})
+    # The API is not stable yet, so only the same minor version is compatible
+    write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/ssqpConfigVersion.cmake
+        COMPATIBILITY SameMinorVersion)
+    install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/ssqpConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/ssqpConfigVersion.cmake
+        DESTINATION ${SSQP_INSTALL_CMAKEDIR} COMPONENT cpp)
 endif()

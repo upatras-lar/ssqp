@@ -49,7 +49,7 @@ details.
 
 <div class="grid cards" markdown>
 
-- **[Installation](getting-started/installation.md)**: build SSQP and its Python bindings from source
+- **[Installation](getting-started/installation.md)**: install SSQP with pip, or build it and its Python bindings from source
 - **[Quickstart](getting-started/quickstart.md)**: solve a minimal OCP with the Python API
 - **[FAQ](faq.md)**: frequently asked questions about basic usage and concepts
 - **[Concepts](concepts/model.md)**: the `Model`, costs, constraints, dynamics, solvers and MPC

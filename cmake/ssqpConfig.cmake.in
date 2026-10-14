@@ -1,0 +1,9 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+# Eigen types are part of ssqp's API, so the Eigen found here must be
+# compatible with the one ssqp was built against
+find_dependency(Eigen3 @Eigen3_VERSION@ NO_MODULE)
+
+include(${CMAKE_CURRENT_LIST_DIR}/ssqpTargets.cmake)
+check_required_components(ssqp)

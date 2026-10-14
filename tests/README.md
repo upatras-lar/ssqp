@@ -3,7 +3,7 @@
 Build and run from the repository root:
 
 ```sh
-cmake -S . -B build -DWITH_HPIPM=ON
+cmake -S . -B build -DSSQP_WITH_HPIPM=ON
 cmake --build build --target run_tests -j4
 ctest --test-dir build --output-on-failure -j4
 ```
@@ -26,7 +26,7 @@ The base seed defaults to 42. Each case derives a stable private seed from its
 name, so its samples are unchanged when run alone, reordered, or run alongside
 new tests. The runner prints both seeds. Pass the **base seed** to `--seed` to
 reproduce a run. An unmatched filter exits with failure. `--filter` matches a
-substring. Build with `WITH_HPIPM=OFF` to run only backend-independent and ADMM
+substring. Build with `SSQP_WITH_HPIPM=OFF` to run only backend-independent and ADMM
 cases.
 
 ## Correctness coverage
@@ -70,13 +70,13 @@ Use a separate build so optimized artifacts remain available:
 
 ```sh
 cmake -S . -B build/sanitized \
-  -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON \
-  -DBUILD_PYTHON=OFF -DWITH_HPIPM=ON
+  -DCMAKE_BUILD_TYPE=Debug -DSSQP_ENABLE_SANITIZERS=ON \
+  -DSSQP_BUILD_PYTHON=OFF -DSSQP_WITH_HPIPM=ON
 cmake --build build/sanitized --target run_tests -j2
 ctest --test-dir build/sanitized --output-on-failure -j2
 ```
 
-`ENABLE_SANITIZERS` instruments the library and test executable with AddressSanitizer
+`SSQP_ENABLE_SANITIZERS` instruments the library and test executable with AddressSanitizer
 and UndefinedBehaviorSanitizer, debug symbols and frame pointers. CTest enables
 leak detection and makes sanitizer findings fatal. LeakSanitizer is available
 with AddressSanitizer on supported platforms such as Linux. Use GCC or Clang.

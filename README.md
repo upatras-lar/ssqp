@@ -1,6 +1,7 @@
 # SSQP
 
 [![CI](https://github.com/upatras-lar/ssqp/actions/workflows/ci.yml/badge.svg)](https://github.com/upatras-lar/ssqp/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/ssqp)](https://pypi.org/project/ssqp/)
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/upatras-lar/ssqp/blob/main/LICENSE)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue)
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)
@@ -90,7 +91,7 @@ The default source build requires:
 
 Pinocchio and its URDF parser dependencies are fetched and built by CMake.
 Nanobind is fetched when the Python bindings are enabled. HPIPM and BLASFEO
-are fetched only when `WITH_HPIPM=ON`.
+are fetched only when `SSQP_WITH_HPIPM=ON`.
 
 Clone the repository with its submodules:
 
@@ -131,13 +132,13 @@ Pass options during configuration with `-DNAME=VALUE`:
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `WITH_HPIPM` | `ON` | Build and enable the HPIPM/BLASFEO QP backend |
-| `BUILD_PYTHON` | `ON` | Build the `ssqpy` Python module |
-| `BUILD_TESTS` | `ON` | Build the unit and regression tests |
-| `BUILD_EXAMPLES` | `OFF` | Build the C++ trajectory-generation examples |
-| `ENABLE_PROFILING` | `OFF` | Enable Tracy profiling support |
-| `DISABLE_LOGGING` | `OFF` | Compile out SSQP logging |
-| `ENABLE_SANITIZERS` | `OFF` | Enable AddressSanitizer and UndefinedBehaviorSanitizer |
+| `SSQP_WITH_HPIPM` | `ON` | Build and enable the HPIPM/BLASFEO QP backend |
+| `SSQP_BUILD_PYTHON` | `ON` | Build the `ssqpy` Python module |
+| `SSQP_BUILD_TESTS` | `ON` | Build the unit and regression tests |
+| `SSQP_BUILD_EXAMPLES` | `OFF` | Build the C++ trajectory-generation examples |
+| `SSQP_ENABLE_PROFILING` | `OFF` | Enable Tracy profiling support |
+| `SSQP_DISABLE_LOGGING` | `OFF` | Compile out SSQP logging |
+| `SSQP_ENABLE_SANITIZERS` | `OFF` | Enable AddressSanitizer and UndefinedBehaviorSanitizer |
 | `SSQP_BOOST_VERSION` | `1.86.0` | Boost release fetched when no system Boost headers are available |
 | `SSQP_MARCH_NATIVE` | `ON` | Compile SSQP and Pinocchio with `-march=native` |
 | `SSQP_ARCH_FLAG` | empty | Architecture flag used instead when `SSQP_MARCH_NATIVE` is `OFF`, e.g. `-march=x86-64-v3` |
@@ -147,7 +148,7 @@ Pass options during configuration with `-DNAME=VALUE`:
 For example, to build with the C++ examples:
 
 ```sh
-cmake -S . -B build -DBUILD_EXAMPLES=ON
+cmake -S . -B build -DSSQP_BUILD_EXAMPLES=ON
 cmake --build build -j"$(nproc)"
 ```
 
@@ -183,12 +184,33 @@ The resulting packages are written to `build/prebuilt/pinocchio` and
 `build/prebuilt/hpipm`. They must match the target compiler, architecture, and
 CPU features.
 
+## C++ library
+
+Install the static library, its headers, and a CMake package into a prefix:
+
+```sh
+cmake --install build --component cpp --prefix ~/.local
+```
+
+Other CMake projects can then find it and link the `ssqp::ssqp` target:
+
+```cmake
+find_package(ssqp 0.1 REQUIRED)
+target_link_libraries(my_app PRIVATE ssqp::ssqp)
+```
+
+SSQP can also be added to a project with `FetchContent` or
+`add_subdirectory`, which provide the same `ssqp::ssqp` target. Tests and
+Python bindings are then off by default. See the
+[installation guide](https://lar.upatras.gr/ssqp/getting-started/installation/#using-the-c-library)
+for details.
+
 ## Python bindings
 
 Install the built module into the Python environment selected by CMake:
 
 ```sh
-cmake --install build
+cmake --install build --component python
 python -c "import ssqpy; print('ssqpy imported successfully')"
 ```
 
