@@ -119,6 +119,11 @@ class CustomGo2Controller:
     # Unitree foot sensor order (FR, FL, RR, RL) in the model's foot order
     FOOT_REORDER_MAP = [1, 0, 3, 2]
 
+    # LIDAR maps the dynamic walk reads after it starts before it uses them.
+    # The map starts over with the walk, and its first maps come from only a
+    # few sweeps, with the ground around the feet not yet seen
+    MAP_SETTLE_MAPS = 10
+
     def __init__(
         self,
         interface,
@@ -126,11 +131,15 @@ class CustomGo2Controller:
         map_view=False,
         map_save=None,
         step_stop=True,
+        use_map=True,
     ):
         # Task to switch to once the robot is standing
         self.walk_task = walk_task
         # Whether the dynamic walk stops short of steps it cannot clear
         self.step_stop = step_stop
+        # Whether the dynamic walk reads the LIDAR map at all, rather than
+        # taking the ground to be flat
+        self.use_map = use_map
 
         # Shared memory the dynamic walk's state estimate goes to the LIDAR
         # map process (lidar_map.py) through, and the command that runs it,
@@ -146,6 +155,9 @@ class CustomGo2Controller:
             self.mapper_command.append("--view")
         if map_save:
             self.mapper_command += ["--save", map_save]
+        # The map process runs when the walk uses the map or the map is shown
+        # or saved
+        self.run_mapper = use_map or map_view or bool(map_save)
         self.mapper = None
         # The map process's latest map, once it has made one
         self.shared_map = None
@@ -252,9 +264,9 @@ class CustomGo2Controller:
 
         def dynamic_walk_task(self):
             # Ground the walk steps on, the distances to its edges and its
-            # step heights, flat until the first LIDAR map. The walk's frame
-            # starts over here, so the map process starts a new map, and maps
-            # made before now are left out
+            # step heights, flat until the walk has read MAP_SETTLE_MAPS LIDAR
+            # maps. The walk's frame starts over here, so the map process
+            # starts a new map, and maps made before now are left out
             terrain = dynamic_walk_model.ssqpy.model.terrain
             self.terrain = terrain.HeightmapTerrain(
                 np.zeros((2, 2)), elevation_map.MAP_RESOLUTION
@@ -267,6 +279,7 @@ class CustomGo2Controller:
             self.edges = None
             self.steps = None
             self.terrain_time = time.time()
+            self.maps_read = 0
             self.shared_poses.restart()
 
             (
@@ -278,6 +291,7 @@ class CustomGo2Controller:
                 self.filter_state,
                 self.flat_ground,
                 self.jumping,
+                self.stance,
             ) = dynamic_walk_model.get_controller(
                 self._getGeneralizedConfiguration(self.current_base_pos),
                 SIMULATION,
@@ -371,7 +385,8 @@ class CustomGo2Controller:
             time.sleep(1)
 
     def start(self):
-        self.mapper = subprocess.Popen(self.mapper_command)
+        if self.run_mapper:
+            self.mapper = subprocess.Popen(self.mapper_command)
 
         self.low_cmd_write_thread = RecurrentThread(
             interval=self.dt,
@@ -431,8 +446,9 @@ class CustomGo2Controller:
             acc = np.array(msg.imu_state.accelerometer)
         self.state_lock.release()
 
-        # Update the state filter with every message, and share its estimate
-        # and whether the robot is jumping with the map process
+        # Update the state filter with every message, and share its estimate,
+        # the feet it takes to be on the ground and whether the robot is
+        # jumping with the map process
         if filtering:
             now = time.time()
             x, R = self.filter_state(pos, vel, acc, now)
@@ -441,6 +457,7 @@ class CustomGo2Controller:
                 x[:3],
                 np.roll(dynamic_walk_model.rotation_to_quat(R), 1),
                 pos[7:],
+                self.stance(),
                 self.jumping(),
             )
 
@@ -731,6 +748,8 @@ class CustomGo2Controller:
             self.terrain.set_heights(*self.terrain_heights)
             self.flat_terrain = False
 
+        if not self.use_map:
+            return
         if self.shared_map is None:
             try:
                 self.shared_map = elevation_map.SharedMap(
@@ -746,6 +765,9 @@ class CustomGo2Controller:
             return
 
         heights, edges, steps, x0, y0, self.terrain_time = latest
+        self.maps_read += 1
+        if self.maps_read < self.MAP_SETTLE_MAPS:
+            return
         self.terrain_heights = (
             heights + dynamic_walk_model.FOOT_POINT_HEIGHT,
             x0,
@@ -980,6 +1002,14 @@ def parse_args():
             that are too high to climb or too deep to step down",
     )
 
+    parser.add_argument(
+        "--map",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether the dynamic walk uses the LIDAR map, rather than taking \
+            the ground to be flat. The map is still made when shown or saved",
+    )
+
     return parser.parse_args()
 
 
@@ -999,6 +1029,7 @@ if __name__ == "__main__":
         args.view,
         args.save,
         args.step_stop,
+        args.map,
     )
     custom.start()
 

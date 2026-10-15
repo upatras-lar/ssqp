@@ -122,10 +122,20 @@ def run_mapper(interface, view=False, save=None):
                 history = em.PoseHistory()
                 mapper = em.Mapper(history)
                 poses_since = max(poses_since, first)
-            rows, poses_since = poses.read(poses_since)
-            history.add_rows(rows)
             points, offsets = em.decode_cloud(msg)
             times = received - em.CLOUD_DELAY + offsets
+            # The controller writes a pose with each state it gets, so wait
+            # for the poses to cover the whole sweep
+            while True:
+                rows, poses_since = poses.read(poses_since)
+                history.add_rows(rows)
+                covered = (
+                    history.count > 0
+                    and history.rows(history.count - 1)[0][-1, 0] >= times.max()
+                )
+                if covered or time.time() > times.max() + em.POSE_WAIT:
+                    break
+                time.sleep(0.002)
             world = mapper.add_sweep(points, times)
             if world is None:
                 continue
@@ -133,6 +143,7 @@ def run_mapper(interface, view=False, save=None):
             known = height[~np.isnan(height)]
             filled = em.fill_holes(height, np.median(known) if known.size else 0.0)
             filled = em.smooth(em.despeckle(filled))
+            filled = em.pin_to_feet(filled, mapper.stance_bottoms, x0, y0)
             edges = em.edge_distance(filled, em.unseen(height))
             steps = em.step_heights(height, filled)
             shared.write(filled, edges, steps, x0, y0, received)

@@ -12,13 +12,14 @@ MAP_RESOLUTION = 0.02
 MAP_CELLS = 200
 
 # Mounting of the L1 (utlidar_lidar) in the base frame: the URDF radar joint
-# position and the rotation fitted to the robot's cloud
+# position and the rotation fitted to the robot's cloud, with its pitch
+# matched to the floor under the feet
 LIDAR_POS = np.array([0.28945, 0.0, -0.046825])
 LIDAR_ROT = np.array(
     [
-        [-0.9662, -0.0040, 0.2576],
+        [-0.9722, -0.0040, 0.2339],
         [-0.0034, 1.0000, 0.0028],
-        [-0.2576, 0.0018, -0.9662],
+        [-0.2339, 0.0019, -0.9722],
     ]
 )
 
@@ -26,6 +27,8 @@ LIDAR_ROT = np.array(
 # clock jumps, so points are timed from when their message arrives rather
 # than by its stamp
 CLOUD_DELAY = 0.067
+# Longest the mapper waits past a sweep's last point for the poses to cover it
+POSE_WAIT = 0.02
 
 # Measurement noise of a point along its ray, and of the ray's direction
 RANGE_STD = 0.01
@@ -46,16 +49,26 @@ LOWER_SWEEPS = 3
 # Each sweep is moved up or down to match the map where they overlap, the
 # median difference over at least ANCHOR_CELLS cells whose height is known to
 # ANCHOR_STD. This keeps the map in place while the pose's height drifts, so
-# that a drifting pose does not carry the map along with it
+# that a drifting pose does not carry the map along with it. The map sits a
+# few millimetres above single sweeps, since its cells keep their highest
+# returns, so differences within ANCHOR_SLACK are left as they are. Otherwise
+# every sweep would raise the map a little
 ANCHOR_STD = 0.02
 ANCHOR_CELLS = 20
+ANCHOR_SLACK = 0.005
 # The feet are spheres of FOOT_RADIUS, and the ground under a foot cannot be
 # higher than its bottom, give or take FOOT_TOLERANCE. Cells above a foot,
 # such as from hits on the robot's own legs, are cleared, and filled from
 # their neighbours until they are measured again. They are not lowered to the
-# foot, which only seems below the ground when the base estimate is off
+# foot in the map, which only seems below the ground when the base estimate is
+# off. The shared grid is still set to the bottoms of the feet on the ground,
+# up to FOOT_PIN_REACH around them, since filling the cleared cells from their
+# neighbours can raise them again, and the walk holds its stance feet on the
+# ground it takes. Its plan moves them a little, and false ground above or
+# below them right beside them makes it fail
 FOOT_RADIUS = 0.022
 FOOT_TOLERANCE = 0.02
+FOOT_PIN_REACH = 0.02
 # Sweeps taken while the robot jumps, or within JUMP_SETTLE after a jump, are
 # left out, since the base estimate is poor then
 JUMP_SETTLE = 0.5
@@ -89,7 +102,12 @@ STEP_FILL = 0.15
 # lateral offset of the thigh, and the thigh and calf lengths
 FOOT_NAMES = ["FL", "FR", "RL", "RR"]
 HIP_POS = np.array(
-    [[0.1934, 0.0465, 0.0], [0.1934, -0.0465, 0.0], [-0.1934, 0.0465, 0.0], [-0.1934, -0.0465, 0.0]]
+    [
+        [0.1934, 0.0465, 0.0],
+        [0.1934, -0.0465, 0.0],
+        [-0.1934, 0.0465, 0.0],
+        [-0.1934, -0.0465, 0.0],
+    ]
 )
 THIGH_OFFSET = np.array([0.0955, -0.0955, 0.0955, -0.0955])
 THIGH_LENGTH = 0.213
@@ -100,6 +118,12 @@ CALF_LENGTH = 0.213
 BODY_BOX = np.array([0.40, 0.17, 0.12])
 THIGH_RADIUS = 0.06
 CALF_RADIUS = 0.06
+# The L1 also returns false points a few centimetres above the ground around
+# the feet, where the body hides the ground and nothing measures it again.
+# Points within FEET_CLEAR_RADIUS of a foot (horizontally) and more than
+# FEET_CLEAR_HEIGHT above its bottom are left out
+FEET_CLEAR_RADIUS = 0.15
+FEET_CLEAR_HEIGHT = 0.03
 
 
 def quat_to_rotation(q):
@@ -136,15 +160,21 @@ def leg_points(joints):
 
     zero = np.zeros_like(t)
     thigh = HIP_POS + leg_frame((zero, zero + THIGH_OFFSET, zero))
-    knee = thigh + leg_frame((-THIGH_LENGTH * np.sin(t), zero, -THIGH_LENGTH * np.cos(t)))
-    foot = knee + leg_frame((-CALF_LENGTH * np.sin(t + c), zero, -CALF_LENGTH * np.cos(t + c)))
+    knee = thigh + leg_frame(
+        (-THIGH_LENGTH * np.sin(t), zero, -THIGH_LENGTH * np.cos(t))
+    )
+    foot = knee + leg_frame(
+        (-CALF_LENGTH * np.sin(t + c), zero, -CALF_LENGTH * np.cos(t + c))
+    )
     return np.stack((thigh, knee, foot), axis=2)
 
 
 def segment_distance(p, a, b):
     """Distance from points p to the segments from a to b, all of shape (n, 3)"""
     ab = b - a
-    s = np.clip(np.sum((p - a) * ab, axis=1) / np.sum(ab * ab, axis=1), 0.0, 1.0)
+    s = np.clip(
+        np.sum((p - a) * ab, axis=1) / np.sum(ab * ab, axis=1), 0.0, 1.0
+    )
     return np.linalg.norm(p - a - s[:, None] * ab, axis=1)
 
 
@@ -160,6 +190,19 @@ def own_points(points, joints):
         mask |= segment_distance(points, thigh, knee) < THIGH_RADIUS
         mask |= segment_distance(points, knee, foot) < CALF_RADIUS
     return mask
+
+
+def beside_feet(points, R, joints):
+    """Mask of the points (base frame) beside a foot and above its bottom
+
+    R holds the base rotation and joints the joint angles at each point's
+    time, one per point
+    """
+    feet = leg_points(joints)[:, :, 2]
+    offsets = np.einsum("nij,nlj->nli", R, points[:, None] - feet)
+    beside = np.linalg.norm(offsets[..., :2], axis=2) < FEET_CLEAR_RADIUS
+    above = offsets[..., 2] > FEET_CLEAR_HEIGHT - FOOT_RADIUS
+    return np.any(beside & above, axis=1)
 
 
 def open_shared(name, size, create):
@@ -196,18 +239,21 @@ class PoseHistory:
     """Recent base poses and joint angles by time
 
     Positions and quaternions (w, x, y, z) are in the frame the map is built
-    in, the joints are in ssqp order, and the last field is 1 while the robot
-    jumps and 0 otherwise
+    in, the joints are in ssqp order, the stance fields are 1 for each foot
+    (in ssqp order) on the ground and 0 otherwise, and the last field is 1
+    while the robot jumps and 0 otherwise
     """
 
-    FIELDS = 1 + 3 + 4 + 12 + 1
+    FIELDS = 1 + 3 + 4 + 12 + 4 + 1
 
     def __init__(self, capacity=2000):
         self.data = np.zeros((capacity, self.FIELDS))
         self.count = 0
 
-    def add(self, t, pos, quat, joints, jumping):
-        self.data[self.count % len(self.data)] = np.concatenate(([t], pos, quat, joints, [jumping]))
+    def add(self, t, pos, quat, joints, stance, jumping):
+        self.data[self.count % len(self.data)] = np.concatenate(
+            ([t], pos, quat, joints, stance, [jumping])
+        )
         self.count += 1
 
     def add_rows(self, rows):
@@ -228,11 +274,17 @@ class PoseHistory:
         Returns None when the history does not cover them
         """
         rows, _ = self.rows()
-        if len(rows) < 2 or times.min() < rows[0, 0] - 0.05 or times.max() > rows[-1, 0] + 0.05:
+        if (
+            len(rows) < 2
+            or times.min() < rows[0, 0]
+            or times.max() > rows[-1, 0]
+        ):
             return None
         t = rows[:, 0]
         i = np.clip(np.searchsorted(t, times) - 1, 0, len(t) - 2)
-        s = np.clip((times - t[i]) / np.maximum(t[i + 1] - t[i], 1e-9), 0.0, 1.0)[:, None]
+        s = np.clip(
+            (times - t[i]) / np.maximum(t[i + 1] - t[i], 1e-9), 0.0, 1.0
+        )[:, None]
         a, b = rows[i], rows[i + 1]
         # Quaternions on the same side, then normalized linear interpolation
         qa, qb = a[:, 4:8], b[:, 4:8]
@@ -266,12 +318,18 @@ class ElevationMap:
 
     def recenter(self, x, y):
         n = MAP_CELLS
-        self.origin = np.floor(np.array([x, y]) / MAP_RESOLUTION).astype(int) - n // 2
-        for axis, (slots, o) in enumerate(((self.slot_x, self.origin[0]), (self.slot_y, self.origin[1]))):
+        self.origin = (
+            np.floor(np.array([x, y]) / MAP_RESOLUTION).astype(int) - n // 2
+        )
+        for axis, (slots, o) in enumerate(
+            ((self.slot_x, self.origin[0]), (self.slot_y, self.origin[1]))
+        ):
             wanted = o + (np.arange(n) - o) % n
             moved = slots != wanted
             if moved.any():
-                index = (moved, slice(None)) if axis == 0 else (slice(None), moved)
+                index = (
+                    (moved, slice(None)) if axis == 0 else (slice(None), moved)
+                )
                 self.height[index] = np.nan
                 self.var[index] = np.inf
                 self.lower[index] = 0
@@ -284,7 +342,9 @@ class ElevationMap:
 
     def _slots(self, xy):
         cells = np.floor(xy / MAP_RESOLUTION).astype(int)
-        inside = np.all((cells >= self.origin) & (cells < self.origin + MAP_CELLS), axis=1)
+        inside = np.all(
+            (cells >= self.origin) & (cells < self.origin + MAP_CELLS), axis=1
+        )
         return cells % MAP_CELLS, inside
 
     def add_points(self, points, var):
@@ -313,7 +373,10 @@ class ElevationMap:
         anchors = self.var.reshape(-1)[cells] < ANCHOR_STD**2
         shift = 0.0
         if np.count_nonzero(anchors) >= ANCHOR_CELLS:
-            shift = np.median(self.height.reshape(-1)[cells[anchors]] - z[anchors])
+            shift = np.median(
+                self.height.reshape(-1)[cells[anchors]] - z[anchors]
+            )
+            shift = np.sign(shift) * max(abs(shift) - ANCHOR_SLACK, 0.0)
 
         self._update(cells, z + shift, 1.0 / sum_w[cells], count[cells])
         return shift
@@ -379,7 +442,11 @@ def fill_holes(height, default=0.0):
         highest = np.full(n, -np.inf)
         for di in (-1, 0, 1):
             for dj in (-1, 0, 1):
-                np.maximum(highest, padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]], out=highest)
+                np.maximum(
+                    highest,
+                    padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]],
+                    out=highest,
+                )
         reached = unknown & (highest > -np.inf)
         if not reached.any():
             height[unknown] = default
@@ -391,8 +458,25 @@ def fill_holes(height, default=0.0):
 
 # Pairs to sort, in order, for the median of 9 values to end up fifth
 MEDIAN9_NETWORK = [
-    (1, 2), (4, 5), (7, 8), (0, 1), (3, 4), (6, 7), (1, 2), (4, 5), (7, 8), (0, 3),
-    (5, 8), (4, 7), (3, 6), (1, 4), (2, 5), (4, 7), (4, 2), (6, 4), (4, 2),
+    (1, 2),
+    (4, 5),
+    (7, 8),
+    (0, 1),
+    (3, 4),
+    (6, 7),
+    (1, 2),
+    (4, 5),
+    (7, 8),
+    (0, 3),
+    (5, 8),
+    (4, 7),
+    (3, 6),
+    (1, 4),
+    (2, 5),
+    (4, 7),
+    (4, 2),
+    (6, 4),
+    (4, 2),
 ]
 
 
@@ -400,9 +484,15 @@ def median9(grid):
     """Median of each cell and its 8 neighbours, of a grid without holes"""
     n = grid.shape
     padded = np.pad(grid, 1, mode="edge")
-    near = [padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]] for di in (-1, 0, 1) for dj in (-1, 0, 1)]
+    near = [
+        padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]]
+        for di in (-1, 0, 1)
+        for dj in (-1, 0, 1)
+    ]
     for a, b in MEDIAN9_NETWORK:
-        near[a], near[b] = np.minimum(near[a], near[b]), np.maximum(near[a], near[b])
+        near[a], near[b] = np.minimum(near[a], near[b]), np.maximum(
+            near[a], near[b]
+        )
     return near[4]
 
 
@@ -420,16 +510,47 @@ def smooth(height):
     """
     k = SMOOTH_CELLS
     for axis in (0, 1):
-        padded = np.pad(height, [(k, k) if a == axis else (0, 0) for a in (0, 1)], mode="edge")
+        padded = np.pad(
+            height,
+            [(k, k) if a == axis else (0, 0) for a in (0, 1)],
+            mode="edge",
+        )
         total = np.zeros(height.shape)
         weights = np.zeros(height.shape)
         for d in range(-k, k + 1):
-            near = np.take(padded, np.arange(k + d, k + d + height.shape[axis]), axis=axis)
-            w = np.exp(-d * d / (2 * SMOOTH_STD**2) - (near - height) ** 2 / (2 * SMOOTH_HEIGHT_STD**2))
+            near = np.take(
+                padded, np.arange(k + d, k + d + height.shape[axis]), axis=axis
+            )
+            w = np.exp(
+                -d * d / (2 * SMOOTH_STD**2)
+                - (near - height) ** 2 / (2 * SMOOTH_HEIGHT_STD**2)
+            )
             total += w * near
             weights += w
         height = total / weights
     return height
+
+
+def pin_to_feet(height, bottoms, x0, y0):
+    """Sets the cells within FOOT_PIN_REACH of each foot (along each axis) to
+    its bottom (world points), the lowest where feet overlap, with the grid's
+    first cell centred at (x0, y0)
+    """
+    pinned = np.full(height.shape, np.inf)
+    i = np.round((bottoms[:, 0] - x0) / MAP_RESOLUTION).astype(int)
+    j = np.round((bottoms[:, 1] - y0) / MAP_RESOLUTION).astype(int)
+    reach = round(FOOT_PIN_REACH / MAP_RESOLUTION)
+    for di in range(-reach, reach + 1):
+        for dj in range(-reach, reach + 1):
+            ii, jj = i + di, j + dj
+            inside = (
+                (ii >= 0)
+                & (ii < height.shape[0])
+                & (jj >= 0)
+                & (jj < height.shape[1])
+            )
+            np.minimum.at(pinned, (ii[inside], jj[inside]), bottoms[inside, 2])
+    return np.where(np.isfinite(pinned), pinned, height)
 
 
 def unseen(height):
@@ -487,7 +608,11 @@ def lowest_near(grid, distance):
         pad[axis] = (k, k)
         padded = np.pad(lowest, pad, mode="edge")
         for d in range(2 * k + 1):
-            near = padded[d : d + n[0], :] if axis == 0 else padded[:, d : d + n[1]]
+            near = (
+                padded[d : d + n[0], :]
+                if axis == 0
+                else padded[:, d : d + n[1]]
+            )
             np.minimum(lowest, near, out=lowest)
     return lowest
 
@@ -500,7 +625,11 @@ def step_heights(height, filled):
     single cells that are off
     """
     unknown = np.isnan(height)
-    low = np.where(unknown, lowest_near(np.where(unknown, np.inf, filled), STEP_FILL), filled)
+    low = np.where(
+        unknown,
+        lowest_near(np.where(unknown, np.inf, filled), STEP_FILL),
+        filled,
+    )
     steps = np.zeros(height.shape)
     np.subtract(low, lowest_near(low, STEP_RANGE), out=steps, where=~unknown)
     return median9(steps)
@@ -513,6 +642,9 @@ class Mapper:
         self.history = history
         self.map = ElevationMap()
         self.feet_since = 0
+        # Bottoms of the feet on the ground since the last sweep, as world
+        # points, where the shared grid puts the ground around them
+        self.stance_bottoms = np.zeros((0, 3))
 
     def add_sweep(self, points, times):
         """Fuses one sweep of sensor frame points with their absolute times
@@ -525,11 +657,15 @@ class Mapper:
             return None
         pos, R, joints = sample
         rows, _ = self.history.rows()
-        recent = (rows[:, 0] >= times.min() - JUMP_SETTLE) & (rows[:, 0] <= times.max())
+        recent = (rows[:, 0] >= times.min() - JUMP_SETTLE) & (
+            rows[:, 0] <= times.max()
+        )
         if rows[recent, -1].any():
             return None
         base_points = points @ LIDAR_ROT.T + LIDAR_POS
-        keep = ~own_points(base_points, joints)
+        keep = ~own_points(base_points, joints) & ~beside_feet(
+            base_points, R, joints
+        )
         base_points, pos, R = base_points[keep], pos[keep], R[keep]
         world = np.einsum("nij,nj->ni", R, base_points) + pos
 
@@ -538,19 +674,25 @@ class Mapper:
         rays = np.einsum("nij,nj->ni", R, base_points - LIDAR_POS)
         ranges = np.linalg.norm(rays, axis=1)
         vertical = (rays[:, 2] / np.maximum(ranges, 1e-6)) ** 2
-        var = RANGE_STD**2 * vertical + (ANGLE_STD * ranges) ** 2 * (1 - vertical)
+        var = RANGE_STD**2 * vertical + (ANGLE_STD * ranges) ** 2 * (
+            1 - vertical
+        )
 
         self.map.recenter(*pos[-1, :2])
         self.map.age(times[-1])
-        world[:, 2] += self.map.add_points(world, var)
+        shift = self.map.add_points(world, var)
+        world[:, 2] += shift
 
-        # The feet since the last sweep bound the ground below them
+        # The feet since the last sweep bound the ground below them. They
+        # move up or down with the sweep, so that they stay in the map's frame
+        # rather than the drifting pose's
         rows, self.feet_since = self.history.rows(self.feet_since)
         R = quat_to_rotation(rows[:, 4:8])
         feet = np.einsum("nij,nlj->nli", R, leg_points(rows[:, 8:20])[:, :, 2])
         feet += rows[:, None, 1:4]
-        feet[..., 2] += FOOT_TOLERANCE - FOOT_RADIUS
-        self.map.clear_above(feet.reshape(-1, 3))
+        feet[..., 2] += shift - FOOT_RADIUS
+        self.map.clear_above(feet.reshape(-1, 3) + [0.0, 0.0, FOOT_TOLERANCE])
+        self.stance_bottoms = feet[rows[:, 20:24] > 0.5]
         return world
 
 
@@ -568,17 +710,26 @@ class SharedPoses:
     def __init__(self, name, create=False, capacity=4000):
         size = self.HEADER + capacity * PoseHistory.FIELDS * 8
         self.shm = open_shared(name, size, create)
-        self.capacity = (self.shm.size - self.HEADER) // (PoseHistory.FIELDS * 8)
-        self.records = np.ndarray((self.capacity, PoseHistory.FIELDS), np.float64, self.shm.buf, self.HEADER)
+        self.capacity = (self.shm.size - self.HEADER) // (
+            PoseHistory.FIELDS * 8
+        )
+        self.records = np.ndarray(
+            (self.capacity, PoseHistory.FIELDS),
+            np.float64,
+            self.shm.buf,
+            self.HEADER,
+        )
         if create:
             struct.pack_into("qqq", self.shm.buf, 0, 0, 0, 0)
 
     def count(self):
         return struct.unpack_from("q", self.shm.buf, 0)[0]
 
-    def write(self, t, pos, quat, joints, jumping):
+    def write(self, t, pos, quat, joints, stance, jumping):
         n = self.count()
-        self.records[n % self.capacity] = np.concatenate(([t], pos, quat, joints, [jumping]))
+        self.records[n % self.capacity] = np.concatenate(
+            ([t], pos, quat, joints, stance, [jumping])
+        )
         struct.pack_into("q", self.shm.buf, 0, n + 1)
 
     def restart(self):
@@ -623,9 +774,21 @@ class SharedMap:
     def __init__(self, name, create=False):
         grid = MAP_CELLS * MAP_CELLS * 8
         self.shm = open_shared(name, self.HEADER + 3 * grid, create)
-        self.heights = np.ndarray((MAP_CELLS, MAP_CELLS), np.float64, self.shm.buf, self.HEADER)
-        self.edges = np.ndarray((MAP_CELLS, MAP_CELLS), np.float64, self.shm.buf, self.HEADER + grid)
-        self.steps = np.ndarray((MAP_CELLS, MAP_CELLS), np.float64, self.shm.buf, self.HEADER + 2 * grid)
+        self.heights = np.ndarray(
+            (MAP_CELLS, MAP_CELLS), np.float64, self.shm.buf, self.HEADER
+        )
+        self.edges = np.ndarray(
+            (MAP_CELLS, MAP_CELLS),
+            np.float64,
+            self.shm.buf,
+            self.HEADER + grid,
+        )
+        self.steps = np.ndarray(
+            (MAP_CELLS, MAP_CELLS),
+            np.float64,
+            self.shm.buf,
+            self.HEADER + 2 * grid,
+        )
         if create:
             struct.pack_into("qddd", self.shm.buf, 0, 0, 0.0, 0.0, 0.0)
 

@@ -57,7 +57,8 @@ FOOTHOLD_SEARCH_STEP = 0.02
 # Footholds keep the height they were first placed at, within
 # FOOTHOLD_LEVEL_CHANGE, while there is a spot at that height. Otherwise they
 # could jump between the levels of a step as their nominal position moves,
-# late in a swing
+# late in a swing. Once the foot has lifted, one with no spot left at its
+# height keeps the spot it had while that is still clear of edges
 FOOTHOLD_LEVEL_CHANGE = 0.02
 # Spots ahead of a foothold count as FOOTHOLD_AHEAD_COST times further than
 # they are, so that steps near edges get shorter rather than longer
@@ -85,8 +86,8 @@ GAIT_START_STAGES = 3
 
 # Limits on the commanded velocity, and on how quickly the command may change
 MAX_VEL_FRONT = 0.5
-MAX_VEL_BACK = 0.3
-MAX_VEL_SIDE = 0.2
+MAX_VEL_BACK = 0.5
+MAX_VEL_SIDE = 0.3
 MAX_VEL_YAW = 1.0
 MAX_ACC = 0.6
 MAX_YAW_ACC = 1.0
@@ -102,7 +103,7 @@ MAX_TURN_ACC = 0.8
 # times how far inside the margin it is, which keeps the walk from drifting
 # onto it. Moving STOP_CHECK along a command brings the footprint closer if its
 # distance drops by more than STOP_TOLERANCE
-MAX_CLIMB = 0.1
+MAX_CLIMB = 0.15
 MAX_DROP = 0.08
 FOOTPRINT = np.array([0.3, 0.2])
 STOP_MARGIN = 0.05
@@ -249,7 +250,7 @@ FOOT_NAMES = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 # feet in the air between stances, at a higher speed and with quicker steps.
 # The walk lifts one foot at a time, so it steps slower
 GAITS = {
-    "trot": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 1.0, 0.5, 12),
+    "trot": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 1.5, 0.5, 12),
     "run": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 3.0, 0.4, 10),
     "walk": (
         [["RL_foot"], ["FL_foot"], ["RR_foot"], ["FR_foot"]],
@@ -358,7 +359,7 @@ def get_controller(
     The robot stands on all four feet until the command moves it, and stands
     again once the command has been at rest for IDLE_TIME
 
-    Returns the model, the MPC, and six functions:
+    Returns the model, the MPC, and seven functions:
      - update_func, to call once per plan stage, before solving. It takes the
        commanded velocity (forward, sideways and yaw), the D-pad state (x and
        y), the base orientation commands (pitch, roll and yaw, each 1 or -1
@@ -384,6 +385,8 @@ def get_controller(
        MAP_FREE_GAITS), and None while it uses the map
      - jumping, returning whether the robot is jumping, when the base
        estimate is too poor to map the ground
+     - stance_feet, returning whether each foot (in FOOT_NAMES order) is one
+       the state filter takes to be on the ground
     """
     if terrain is None:
         terrain = ssqpy.model.terrain.HeightmapTerrain(np.zeros((2, 2)), 1.0)
@@ -485,7 +488,9 @@ def get_controller(
         # toward the nearest one is removed and the footprint is pushed away
         # from it while inside the margin. If the rest still brings the
         # footprint closer to a step the translation stops. Steps rising above
-        # the ground under the base are climbs, and the others are drops
+        # the ground under the base are climbs, and the others are drops.
+        # Steps already under the footprint are being crossed, so they are
+        # left out
         if not np.any(v_cmd[:2]):
             return v_cmd
         _, _, yaw = est["poses"][est["stage"] - est["pose_stage"]]
@@ -503,11 +508,17 @@ def get_controller(
         # the footprint each one is along each axis when the base has moved
         # along a direction, negative inside it
         rel = (cells[high] - [x, y]) @ rotation_z(yaw)[:2, :2]
+        rel = rel[np.any(np.abs(rel) >= FOOTPRINT, axis=1)]
+        if len(rel) == 0:
+            return v_cmd
         shifts = np.append(np.arange(0.0, travel, STOP_CHECK), travel)
         shifts = np.append(shifts, STOP_CHECK)
 
         def past(direction):
-            return np.abs(rel[None] - shifts[:, None, None] * direction) - FOOTPRINT
+            return (
+                np.abs(rel[None] - shifts[:, None, None] * direction)
+                - FOOTPRINT
+            )
 
         def approaches(command):
             # Whether the command brings the footprint within STOP_MARGIN of a
@@ -516,9 +527,9 @@ def get_controller(
             if np.linalg.norm(command) < 1e-6:
                 return False
             outside = past(command / np.linalg.norm(command))
-            gaps = np.linalg.norm(np.maximum(outside, 0.0), axis=2) + np.minimum(
-                outside.max(axis=2), 0.0
-            )
+            gaps = np.linalg.norm(
+                np.maximum(outside, 0.0), axis=2
+            ) + np.minimum(outside.max(axis=2), 0.0)
             gaps = gaps.min(axis=1)
             return (
                 gaps[:-1].min() < STOP_MARGIN
@@ -628,8 +639,8 @@ def get_controller(
         # references were last updated
         "footholds": {},
         "swing_tops": {},
-        # Height each foothold was placed at, by foot and landing stage
-        "foothold_levels": {},
+        # Where each foothold was placed, by foot and landing stage
+        "placed_footholds": {},
         "foot_references": {},
         # Current gait
         "gait": GAIT,
@@ -949,11 +960,19 @@ def get_controller(
         x, y, yaw = est["poses"][stage + middle]
         p = np.array([x, y, 0.0]) + rotation_z(yaw) @ foot_offsets[name]
         key = (name, est["gait_start"] + land)
-        level = est["foothold_levels"].get(key)
+        placed = est["placed_footholds"].get(key)
+        level = None if placed is None else placed[2]
         p = ground(away_from_edges(p + est["foothold_shift"], yaw, level))
-        est["foothold_levels"][key] = p[2]
-        for old in [k for k in est["foothold_levels"] if k[1] < est["stage"]]:
-            del est["foothold_levels"][old]
+        if (
+            placed is not None
+            and stage + land <= swing_stages()
+            and abs(p[2] - level) > FOOTHOLD_LEVEL_CHANGE
+            and edges(placed[0], placed[1]) >= FOOTHOLD_EDGE_MARGIN
+        ):
+            p = ground(placed)
+        est["placed_footholds"][key] = p
+        for old in [k for k in est["placed_footholds"] if k[1] < est["stage"]]:
+            del est["placed_footholds"][old]
         if stage + land <= FOOTHOLD_FREEZE_STAGES:
             est["frozen"][name] = (est["gait_start"] + land, p)
         est["footholds"][name, period] = p
@@ -1539,6 +1558,9 @@ def get_controller(
     def jumping():
         return est["jump_start"] is not None
 
+    def stance_feet():
+        return [name in est["stance_feet"] for name in FOOT_NAMES]
+
     return (
         model,
         mpc,
@@ -1548,6 +1570,7 @@ def get_controller(
         filter_state,
         flat_ground,
         jumping,
+        stance_feet,
     )
 
 
