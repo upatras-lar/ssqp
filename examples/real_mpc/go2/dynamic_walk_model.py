@@ -50,19 +50,26 @@ FOOTHOLD_FREEZE_STAGES = 2
 # One that does not moves to the nearest spot that does, up to FOOTHOLD_SEARCH
 # forward or back and FOOTHOLD_SIDE_SEARCH to the side, trying spots
 # FOOTHOLD_SEARCH_STEP apart
-FOOTHOLD_EDGE_MARGIN = 0.06
-FOOTHOLD_SEARCH = 0.16
-FOOTHOLD_SIDE_SEARCH = 0.06
-FOOTHOLD_SEARCH_STEP = 0.02
+FOOTHOLD_EDGE_MARGIN = 0.05
+FOOTHOLD_SEARCH = 0.14
+FOOTHOLD_SIDE_SEARCH = 0.08
+FOOTHOLD_SEARCH_STEP = 0.01
 # Footholds keep the height they were first placed at, within
 # FOOTHOLD_LEVEL_CHANGE, while there is a spot at that height. Otherwise they
 # could jump between the levels of a step as their nominal position moves,
 # late in a swing. Once the foot has lifted, one with no spot left at its
 # height keeps the spot it had while that is still clear of edges
 FOOTHOLD_LEVEL_CHANGE = 0.02
-# Spots ahead of a foothold count as FOOTHOLD_AHEAD_COST times further than
-# they are, so that steps near edges get shorter rather than longer
-FOOTHOLD_AHEAD_COST = 2.0
+# A foothold moved away from an edge keeps that correction while the spot it
+# gives stays clear of edges at the same level, and drops it once its nominal
+# spot is FOOTHOLD_EDGE_MARGIN + FOOTHOLD_KEEP_SLACK from them. Otherwise small
+# moves of the nominal spot and flicker in the edges make it jump back and
+# forth between spots
+FOOTHOLD_KEEP_SLACK = 0.04
+# For the rear feet, spots ahead of a foothold count as FOOTHOLD_AHEAD_COST
+# times further than they are, so that their steps near edges get shorter
+# rather than longer
+FOOTHOLD_AHEAD_COST = 1.5
 
 # Time from measuring the state until the plan solved from it is applied. The
 # state is predicted this far ahead before solving, which makes up for the
@@ -83,6 +90,12 @@ IDLE_TIME = 1.0
 IDLE_STAGES = round(IDLE_TIME / MPC_DT)
 MOVE_THRESHOLD = 0.02
 GAIT_START_STAGES = 3
+# Standing, a push that moves the base faster than PUSH_SPEED starts stepping
+# as a move command would, so that the feet can catch it. The velocity is
+# left alone for PUSH_SETTLE_STAGES after the gait stops, while the last
+# feet land
+PUSH_SPEED = 0.15
+PUSH_SETTLE_STAGES = 5
 
 # Limits on the commanded velocity, and on how quickly the command may change
 MAX_VEL_FRONT = 0.5
@@ -94,22 +107,6 @@ MAX_YAW_ACC = 1.0
 # Limit on the base's sideways acceleration while turning, as its speed times
 # its turning rate, which slows turning while running fast
 MAX_TURN_ACC = 0.8
-# Commands toward steps in the terrain higher than MAX_CLIMB or deeper than
-# MAX_DROP are cut short early enough for the robot to come to rest STOP_MARGIN
-# short of them. The robot's footprint reaches FOOTPRINT ahead of and beside
-# the base. Commands that would bring it within STOP_MARGIN of a step slide
-# along the nearest one, and stop if they still bring it closer. Within
-# STOP_MARGIN of a step, they also move the footprint away from it at STOP_GAIN
-# times how far inside the margin it is, which keeps the walk from drifting
-# onto it. Moving STOP_CHECK along a command brings the footprint closer if its
-# distance drops by more than STOP_TOLERANCE
-MAX_CLIMB = 0.15
-MAX_DROP = 0.08
-FOOTPRINT = np.array([0.3, 0.2])
-STOP_MARGIN = 0.05
-STOP_CHECK = 0.05
-STOP_TOLERANCE = 0.005
-STOP_GAIN = 2.0
 
 # The base position and linear velocity come from a Kalman filter, which
 # integrates the accelerometer and corrects it with the leg odometry of every
@@ -250,7 +247,7 @@ FOOT_NAMES = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 # feet in the air between stances, at a higher speed and with quicker steps.
 # The walk lifts one foot at a time, so it steps slower
 GAITS = {
-    "trot": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 1.5, 0.5, 12),
+    "trot": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 1.0, 0.5, 12),
     "run": ([["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 3.0, 0.4, 10),
     "walk": (
         [["RL_foot"], ["FL_foot"], ["RR_foot"], ["FR_foot"]],
@@ -332,9 +329,7 @@ def rotation_to_quat(R):
     return q
 
 
-def get_controller(
-    init_config, simulation=False, terrain=None, edges=None, steps=None
-):
+def get_controller(init_config, simulation=False, terrain=None, edges=None):
     """
     Builds the dynamics walking MPC for the robot starting at init_config,
     or for the unitree_mujoco simulator with simulation set
@@ -350,11 +345,7 @@ def get_controller(
     frame the base position is estimated in, which starts with the base above
     the origin and x along its initial heading. It defaults to flat ground at
     zero height. edges gives the distance from a point (x and y) to the
-    nearest edge in the terrain, and defaults to there being none. steps
-    takes a point (x and y) and a radius, and gives the positions (x and y),
-    heights and step heights (how far each is above the lowest terrain right
-    next to it) of the terrain's cells within the radius of the point along
-    each axis. It defaults to there being no cells
+    nearest edge in the terrain, and defaults to there being none
 
     The robot stands on all four feet until the command moves it, and stands
     again once the command has been at rest for IDLE_TIME
@@ -381,7 +372,7 @@ def get_controller(
        frame) and the time in seconds. It returns the base position and
        velocity estimate and the base rotation in the same frame
      - flat_ground, returning the height to take the terrain to be flat at,
-       with no edges or steps, while the walk leaves the map out (see
+       with no edges, while the walk leaves the map out (see
        MAP_FREE_GAITS), and None while it uses the map
      - jumping, returning whether the robot is jumping, when the base
        estimate is too poor to map the ground
@@ -424,35 +415,36 @@ def get_controller(
         def edges(x, y):
             return np.inf
 
-    if steps is None:
-
-        def steps(x, y, radius):
-            return np.zeros((0, 2)), np.zeros(0), np.zeros(0)
-
-    # Spots to try for a foothold near an edge, relative to the heading,
-    # nearest first
+    # Spots to try for each foot's foothold near an edge, relative to the
+    # heading, nearest first
     def search_steps(size):
         return np.arange(-size, size + 1e-9, FOOTHOLD_SEARCH_STEP)
 
-    foothold_offsets = sorted(
-        (
-            np.array([dx, dy, 0.0])
-            for dx in search_steps(FOOTHOLD_SEARCH)
-            for dy in search_steps(FOOTHOLD_SIDE_SEARCH)
-        ),
-        key=lambda offset: np.hypot(
-            offset[0] * (FOOTHOLD_AHEAD_COST if offset[0] > 0 else 1.0),
-            offset[1],
-        ),
-    )
+    def search_order(ahead_cost):
+        return sorted(
+            (
+                np.array([dx, dy, 0.0])
+                for dx in search_steps(FOOTHOLD_SEARCH)
+                for dy in search_steps(FOOTHOLD_SIDE_SEARCH)
+            ),
+            key=lambda offset: np.hypot(
+                offset[0] * (ahead_cost if offset[0] > 0 else 1.0),
+                offset[1],
+            ),
+        )
 
-    def away_from_edges(p, yaw, level=None):
+    foothold_offsets = {
+        name: search_order(FOOTHOLD_AHEAD_COST if name[0] == "R" else 1.0)
+        for name in FOOT_NAMES
+    }
+
+    def away_from_edges(name, p, yaw, level=None):
         # The nearest spot to p that is FOOTHOLD_EDGE_MARGIN from any edge, and
         # at the given level if there is one there, or p if there is none
         # within the search
         R = rotation_z(yaw)
         nearest = None
-        for offset in foothold_offsets:
+        for offset in foothold_offsets[name]:
             q = p + R @ offset
             if edges(q[0], q[1]) < FOOTHOLD_EDGE_MARGIN:
                 continue
@@ -480,84 +472,6 @@ def get_controller(
                 for name in FOOT_NAMES
             ]
         )
-
-    def avoid_steps(v_cmd):
-        # The commanded velocity without its translation toward steps that
-        # are too high to climb or too deep to step down. Within STOP_MARGIN
-        # of them by the time the base could stop, the part of the command
-        # toward the nearest one is removed and the footprint is pushed away
-        # from it while inside the margin. If the rest still brings the
-        # footprint closer to a step the translation stops. Steps rising above
-        # the ground under the base are climbs, and the others are drops.
-        # Steps already under the footprint are being crossed, so they are
-        # left out
-        if not np.any(v_cmd[:2]):
-            return v_cmd
-        _, _, yaw = est["poses"][est["stage"] - est["pose_stage"]]
-        x, y = est["filter"][1][:2]
-        speed = np.linalg.norm(est["v_cmd"][:2]) + MAX_ACC * MPC_DT
-        travel = speed**2 / (2 * MAX_ACC) + speed * MPC_DT
-        reach = np.linalg.norm(FOOTPRINT) + travel + STOP_MARGIN
-        cells, heights, rises = steps(x, y, reach)
-        climb = heights - ground_height(x, y, yaw) > rises / 2
-        high = rises > np.where(climb, MAX_CLIMB, MAX_DROP)
-        if not high.any():
-            return v_cmd
-
-        # Steps relative to the base in the heading frame, and how far past
-        # the footprint each one is along each axis when the base has moved
-        # along a direction, negative inside it
-        rel = (cells[high] - [x, y]) @ rotation_z(yaw)[:2, :2]
-        rel = rel[np.any(np.abs(rel) >= FOOTPRINT, axis=1)]
-        if len(rel) == 0:
-            return v_cmd
-        shifts = np.append(np.arange(0.0, travel, STOP_CHECK), travel)
-        shifts = np.append(shifts, STOP_CHECK)
-
-        def past(direction):
-            return (
-                np.abs(rel[None] - shifts[:, None, None] * direction)
-                - FOOTPRINT
-            )
-
-        def approaches(command):
-            # Whether the command brings the footprint within STOP_MARGIN of a
-            # step on the way to where the base could stop, closer to the
-            # nearest step than it is now after moving STOP_CHECK
-            if np.linalg.norm(command) < 1e-6:
-                return False
-            outside = past(command / np.linalg.norm(command))
-            gaps = np.linalg.norm(
-                np.maximum(outside, 0.0), axis=2
-            ) + np.minimum(outside.max(axis=2), 0.0)
-            gaps = gaps.min(axis=1)
-            return (
-                gaps[:-1].min() < STOP_MARGIN
-                and gaps[-1] < gaps[0] - STOP_TOLERANCE
-            )
-
-        # Distance from the footprint to the nearest step now, and the
-        # direction toward it, out through the footprint's closest side for
-        # steps under it
-        outside = past(np.zeros(2))[0]
-        gaps = np.linalg.norm(np.maximum(outside, 0.0), axis=1) + np.minimum(
-            outside.max(axis=1), 0.0
-        )
-        nearest = np.argmin(gaps)
-        normal = np.maximum(outside[nearest], 0.0)
-        if not normal.any():
-            normal = (outside[nearest] == outside[nearest].max()).astype(float)
-        normal *= np.where(rel[nearest] < 0.0, -1.0, 1.0)
-        normal /= np.linalg.norm(normal)
-
-        command = v_cmd[:2]
-        if gaps[nearest] >= STOP_MARGIN and not approaches(command):
-            return v_cmd
-        command = command - max(command @ normal, 0.0) * normal
-        command -= STOP_GAIN * max(STOP_MARGIN - gaps[nearest], 0.0) * normal
-        if approaches(command):
-            command = np.zeros(2)
-        return np.array([command[0], command[1], v_cmd[2]])
 
     # Hip joint positions relative to the base, and the sideways offset from
     # each hip joint to its thigh joint
@@ -649,6 +563,8 @@ def get_controller(
         # while stepping without a planned stop
         "gait_start": None,
         "gait_stop": None,
+        # Stage the robot last started standing at
+        "stand_stage": 0,
         # Stages the command has been at rest for
         "idle_stages": 0,
         # First stage of the jump, None when not jumping
@@ -958,19 +874,36 @@ def get_controller(
             return frozen[1]
         middle = int(land + (cycle_stages() - swing_stages()) / 2)
         x, y, yaw = est["poses"][stage + middle]
-        p = np.array([x, y, 0.0]) + rotation_z(yaw) @ foot_offsets[name]
+        nominal = np.array([x, y, 0.0]) + rotation_z(yaw) @ foot_offsets[name]
+        nominal = ground(nominal + est["foothold_shift"])
         key = (name, est["gait_start"] + land)
         placed = est["placed_footholds"].get(key)
-        level = None if placed is None else placed[2]
-        p = ground(away_from_edges(p + est["foothold_shift"], yaw, level))
-        if (
-            placed is not None
-            and stage + land <= swing_stages()
-            and abs(p[2] - level) > FOOTHOLD_LEVEL_CHANGE
-            and edges(placed[0], placed[1]) >= FOOTHOLD_EDGE_MARGIN
-        ):
-            p = ground(placed)
-        est["placed_footholds"][key] = p
+        if placed is None:
+            p = ground(away_from_edges(name, nominal, yaw))
+        else:
+            spot, correction = placed
+            level = spot[2]
+            kept = ground(nominal + correction)
+            if (
+                edges(nominal[0], nominal[1])
+                >= FOOTHOLD_EDGE_MARGIN + FOOTHOLD_KEEP_SLACK
+                and abs(nominal[2] - level) <= FOOTHOLD_LEVEL_CHANGE
+            ):
+                p = nominal
+            elif (
+                edges(kept[0], kept[1]) >= FOOTHOLD_EDGE_MARGIN
+                and abs(kept[2] - level) <= FOOTHOLD_LEVEL_CHANGE
+            ):
+                p = kept
+            else:
+                p = ground(away_from_edges(name, nominal, yaw, level))
+                if (
+                    stage + land <= swing_stages()
+                    and abs(p[2] - level) > FOOTHOLD_LEVEL_CHANGE
+                    and edges(spot[0], spot[1]) >= FOOTHOLD_EDGE_MARGIN
+                ):
+                    p = ground(spot)
+        est["placed_footholds"][key] = (p, (p - nominal) * [1.0, 1.0, 0.0])
         for old in [k for k in est["placed_footholds"] if k[1] < est["stage"]]:
             del est["placed_footholds"][old]
         if stage + land <= FOOTHOLD_FREEZE_STAGES:
@@ -1268,7 +1201,6 @@ def get_controller(
         contacts=None,
     ):
         current_stage = est["stage"]
-        v_cmd = avoid_steps(v_cmd)
         moving = np.max(np.abs(v_cmd)) > MOVE_THRESHOLD
 
         # Jump on each new press of the jump button while standing still with
@@ -1365,12 +1297,21 @@ def get_controller(
                 [est["landed"][name][2] for name in FOOT_NAMES]
             )
 
-        # Start stepping on a move command, and stop at the end of the
-        # current period once the command has been at rest for a while,
-        # counting from when the base's reference has slowed to rest
+        # Start stepping on a move command or a push, and stop at the end of
+        # the current period once the command has been at rest for a while,
+        # counting from when the base's reference has slowed to rest or from
+        # the push
+        pushed = (
+            est["gait_start"] is None
+            and est["jump_start"] is None
+            and current_stage >= est["stand_stage"] + PUSH_SETTLE_STAGES
+            and np.linalg.norm(est["filter"][1][3:5]) > PUSH_SPEED
+        )
         slowing = np.max(np.abs(est["v_cmd"])) > MOVE_THRESHOLD
-        est["idle_stages"] = 0 if moving or slowing else est["idle_stages"] + 1
-        if moving:
+        est["idle_stages"] = (
+            0 if moving or slowing or pushed else est["idle_stages"] + 1
+        )
+        if moving or pushed:
             if est["gait_start"] is None:
                 est["gait_start"] = current_stage + GAIT_START_STAGES
             est["gait_stop"] = None
@@ -1477,6 +1418,7 @@ def get_controller(
         if est["gait_stop"] is not None and current_stage >= gait_end():
             est["gait_start"] = None
             est["gait_stop"] = None
+            est["stand_stage"] = current_stage
 
         # The filter runs until the next stage's update, while the robot may
         # still be in either stage, so it takes the feet in stance in both.

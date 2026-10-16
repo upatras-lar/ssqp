@@ -130,13 +130,10 @@ class CustomGo2Controller:
         walk_task="dynamic-walk",
         map_view=False,
         map_save=None,
-        step_stop=True,
         use_map=True,
     ):
         # Task to switch to once the robot is standing
         self.walk_task = walk_task
-        # Whether the dynamic walk stops short of steps it cannot clear
-        self.step_stop = step_stop
         # Whether the dynamic walk reads the LIDAR map at all, rather than
         # taking the ground to be flat
         self.use_map = use_map
@@ -263,9 +260,8 @@ class CustomGo2Controller:
             )
 
         def dynamic_walk_task(self):
-            # Ground the walk steps on, the distances to its edges and its
-            # step heights, flat until the walk has read MAP_SETTLE_MAPS LIDAR
-            # maps. The walk's frame starts over here, so the map process
+            # Ground the walk steps on and the distances to its edges, flat
+            # until the walk has read MAP_SETTLE_MAPS LIDAR maps. The walk's frame starts over here, so the map process
             # starts a new map, and maps made before now are left out
             terrain = dynamic_walk_model.ssqpy.model.terrain
             self.terrain = terrain.HeightmapTerrain(
@@ -277,7 +273,6 @@ class CustomGo2Controller:
             self.terrain_heights = (np.zeros((2, 2)), 0.0, 0.0)
             self.flat_terrain = False
             self.edges = None
-            self.steps = None
             self.terrain_time = time.time()
             self.maps_read = 0
             self.shared_poses.restart()
@@ -297,7 +292,6 @@ class CustomGo2Controller:
                 SIMULATION,
                 self.terrain,
                 self._edgeDistance,
-                self._steps if self.step_stop else None,
             )
 
             # Leave everything made so far out of garbage collections, which
@@ -738,7 +732,7 @@ class CustomGo2Controller:
         # Takes the latest LIDAR map into the walk's terrain if it is new.
         # Only the solver thread uses the terrain, so it is replaced here
         # between solves. While the walk leaves the map out, the terrain is
-        # flat at the height it gives instead, with no edges or steps, and it
+        # flat at the height it gives instead, with no edges, and it
         # goes back to the latest map once the walk uses the map again
         ground = self.flat_ground()
         if ground is not None and not self.flat_terrain:
@@ -764,7 +758,7 @@ class CustomGo2Controller:
         if latest is None:
             return
 
-        heights, edges, steps, x0, y0, self.terrain_time = latest
+        heights, edges, x0, y0, self.terrain_time = latest
         self.maps_read += 1
         if self.maps_read < self.MAP_SETTLE_MAPS:
             return
@@ -776,7 +770,6 @@ class CustomGo2Controller:
         if not self.flat_terrain:
             self.terrain.set_heights(*self.terrain_heights)
         self.edges = (edges, x0, y0)
-        self.steps = (heights, steps, x0, y0)
 
     def _edgeDistance(self, x, y):
         # Distance from (x, y) to the nearest edge in the latest map, taking
@@ -790,23 +783,6 @@ class CustomGo2Controller:
         if not (0 <= i < edges.shape[0] and 0 <= j < edges.shape[1]):
             return np.inf
         return edges[i, j]
-
-    def _steps(self, x, y, radius):
-        # Positions, heights and step heights of the cells in the latest map
-        # within radius of (x, y) along each axis, with none while the
-        # terrain is flat
-        if self.steps is None or self.flat_terrain:
-            return np.zeros((0, 2)), np.zeros(0), np.zeros(0)
-
-        heights, steps, x0, y0 = self.steps
-        r = elevation_map.MAP_RESOLUTION
-        i0 = max(round((x - radius - x0) / r), 0)
-        j0 = max(round((y - radius - y0) / r), 0)
-        i1 = min(round((x + radius - x0) / r) + 1, steps.shape[0])
-        j1 = min(round((y + radius - y0) / r) + 1, steps.shape[1])
-        i, j = np.mgrid[i0:i1, j0:j1]
-        cells = np.column_stack((x0 + r * i.ravel(), y0 + r * j.ravel()))
-        return cells, heights[i, j].ravel(), steps[i, j].ravel()
 
     def _execDynamicWalkTask(self):
         # Keep the previous commands until the first plan is ready
@@ -995,14 +971,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--step-stop",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Whether the dynamic walk stops short of steps in the LIDAR map \
-            that are too high to climb or too deep to step down",
-    )
-
-    parser.add_argument(
         "--map",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -1028,7 +996,6 @@ if __name__ == "__main__":
         "kinematic-walk" if args.kinematic else "dynamic-walk",
         args.view,
         args.save,
-        args.step_stop,
         args.map,
     )
     custom.start()

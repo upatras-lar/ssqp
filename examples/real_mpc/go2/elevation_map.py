@@ -46,16 +46,15 @@ TOP_LAYER = 0.03
 OUTLIER_SIGMAS = 3.0
 JUMP_POINTS = 2
 LOWER_SWEEPS = 3
-# Each sweep is moved up or down to match the map where they overlap, the
+# Each sweep is moved up or down to match the map where they overlap, by the
 # median difference over at least ANCHOR_CELLS cells whose height is known to
 # ANCHOR_STD. This keeps the map in place while the pose's height drifts, so
-# that a drifting pose does not carry the map along with it. The map sits a
-# few millimetres above single sweeps, since its cells keep their highest
-# returns, so differences within ANCHOR_SLACK are left as they are. Otherwise
-# every sweep would raise the map a little
+# that a drifting pose does not carry the map along with it. Sweeps are
+# matched to a plain average of each cell's sweeps rather than to the map,
+# whose cells keep their highest returns and so sit a little above single
+# sweeps. Otherwise every sweep would raise the map a little
 ANCHOR_STD = 0.02
 ANCHOR_CELLS = 20
-ANCHOR_SLACK = 0.005
 # The feet are spheres of FOOT_RADIUS, and the ground under a foot cannot be
 # higher than its bottom, give or take FOOT_TOLERANCE. Cells above a foot,
 # such as from hits on the robot's own legs, are cleared, and filled from
@@ -90,13 +89,6 @@ SMOOTH_HEIGHT_STD = 0.01
 # nearest edge is shared along with the heights, up to EDGE_RANGE
 EDGE_HEIGHT = 0.02
 EDGE_RANGE = 0.08
-
-# Each cell's step height is how far it is above the lowest cell within
-# STEP_RANGE, which is shared as well. Unknown cells have none. The ground
-# right past a drop is hidden from the sensor, so for these unknown cells are
-# taken to be as low as the lowest known cell within STEP_FILL
-STEP_RANGE = 0.08
-STEP_FILL = 0.15
 
 # Go2 legs in ssqp order (FL, FR, RL, RR): hip positions in the base frame,
 # lateral offset of the thigh, and the thigh and calf lengths
@@ -299,15 +291,18 @@ class PoseHistory:
 class ElevationMap:
     """Height grid that moves with the robot
 
-    Cells hold a height and its variance. A cell's slot in the arrays is its
-    world index modulo MAP_CELLS, so moving the window clears and reuses the
-    slots that leave it without moving the others
+    Cells hold a height and its variance, and the plain average of their
+    sweeps and its variance, which the sweeps are anchored to. A cell's slot
+    in the arrays is its world index modulo MAP_CELLS, so moving the window
+    clears and reuses the slots that leave it without moving the others
     """
 
     def __init__(self):
         n = MAP_CELLS
         self.height = np.full((n, n), np.nan)
         self.var = np.full((n, n), np.inf)
+        self.mean = np.full((n, n), np.nan)
+        self.mean_var = np.full((n, n), np.inf)
         # Sweeps in a row that measured each cell below its height
         self.lower = np.zeros((n, n), int)
         # World cell index each slot row and column holds
@@ -332,12 +327,15 @@ class ElevationMap:
                 )
                 self.height[index] = np.nan
                 self.var[index] = np.inf
+                self.mean[index] = np.nan
+                self.mean_var[index] = np.inf
                 self.lower[index] = 0
                 slots[:] = wanted
 
     def age(self, t):
         if self.last_t is not None:
             self.var += DRIFT_STD**2 * max(t - self.last_t, 0.0)
+            self.mean_var += DRIFT_STD**2 * max(t - self.last_t, 0.0)
         self.last_t = t
 
     def _slots(self, xy):
@@ -370,15 +368,15 @@ class ElevationMap:
         cells = np.flatnonzero(sum_w)
         z = sum_wz[cells] / sum_w[cells]
 
-        anchors = self.var.reshape(-1)[cells] < ANCHOR_STD**2
+        anchors = self.mean_var.reshape(-1)[cells] < ANCHOR_STD**2
         shift = 0.0
         if np.count_nonzero(anchors) >= ANCHOR_CELLS:
             shift = np.median(
-                self.height.reshape(-1)[cells[anchors]] - z[anchors]
+                self.mean.reshape(-1)[cells[anchors]] - z[anchors]
             )
-            shift = np.sign(shift) * max(abs(shift) - ANCHOR_SLACK, 0.0)
 
         self._update(cells, z + shift, 1.0 / sum_w[cells], count[cells])
+        self._average(cells, z + shift, 1.0 / sum_w[cells])
         return shift
 
     def clear_above(self, points):
@@ -390,6 +388,8 @@ class ElevationMap:
         above = flat[self.height.reshape(-1)[flat] > points[inside, 2]]
         self.height.reshape(-1)[above] = np.nan
         self.var.reshape(-1)[above] = np.inf
+        self.mean.reshape(-1)[above] = np.nan
+        self.mean_var.reshape(-1)[above] = np.inf
         self.lower.reshape(-1)[above] = 0
 
     def _update(self, cells, z, var_z, points):
@@ -413,6 +413,20 @@ class ElevationMap:
         v[cells[fuse]] = (1 - k) * old_var[fuse]
         h[cells[replace]] = z[replace]
         v[cells[replace]] = var_z[replace]
+
+    def _average(self, cells, z, var_z):
+        # Fuses one height per cell into the plain average, which takes every
+        # sweep alike whether it is above or below
+        h = self.mean.reshape(-1)
+        v = self.mean_var.reshape(-1)
+        old, old_var = h[cells], v[cells]
+        new = np.isnan(old)
+        fuse = ~new
+        k = old_var[fuse] / (old_var[fuse] + var_z[fuse])
+        h[cells[fuse]] = old[fuse] + k * (z[fuse] - old[fuse])
+        v[cells[fuse]] = (1 - k) * old_var[fuse]
+        h[cells[new]] = z[new]
+        v[cells[new]] = var_z[new]
 
     def grid(self):
         """Heights and variances in window order, and the first cell's centre
@@ -598,43 +612,6 @@ def edge_distance(height, unseen_cells):
     return distance
 
 
-def lowest_near(grid, distance):
-    """Lowest value within distance of each cell along both axes"""
-    k = int(distance / MAP_RESOLUTION)
-    n = grid.shape
-    lowest = grid.copy()
-    for axis in (0, 1):
-        pad = [(0, 0), (0, 0)]
-        pad[axis] = (k, k)
-        padded = np.pad(lowest, pad, mode="edge")
-        for d in range(2 * k + 1):
-            near = (
-                padded[d : d + n[0], :]
-                if axis == 0
-                else padded[:, d : d + n[1]]
-            )
-            np.minimum(lowest, near, out=lowest)
-    return lowest
-
-
-def step_heights(height, filled):
-    """Height of each known cell above the lowest cell within STEP_RANGE of it
-
-    height has holes and filled is height with its holes filled. Steps are
-    taken as the median over each cell and its neighbours, which leaves out
-    single cells that are off
-    """
-    unknown = np.isnan(height)
-    low = np.where(
-        unknown,
-        lowest_near(np.where(unknown, np.inf, filled), STEP_FILL),
-        filled,
-    )
-    steps = np.zeros(height.shape)
-    np.subtract(low, lowest_near(low, STEP_RANGE), out=steps, where=~unknown)
-    return median9(steps)
-
-
 class Mapper:
     """Builds the elevation map from LIDAR sweeps and the pose history"""
 
@@ -762,8 +739,7 @@ class SharedPoses:
 
 
 class SharedMap:
-    """Latest height grid, edge distances and step heights shared between
-    processes
+    """Latest height grid and edge distances shared between processes
 
     A sequence number is odd while the grid is being written, so readers
     retry rather than take a half written grid
@@ -773,7 +749,7 @@ class SharedMap:
 
     def __init__(self, name, create=False):
         grid = MAP_CELLS * MAP_CELLS * 8
-        self.shm = open_shared(name, self.HEADER + 3 * grid, create)
+        self.shm = open_shared(name, self.HEADER + 2 * grid, create)
         self.heights = np.ndarray(
             (MAP_CELLS, MAP_CELLS), np.float64, self.shm.buf, self.HEADER
         )
@@ -783,21 +759,14 @@ class SharedMap:
             self.shm.buf,
             self.HEADER + grid,
         )
-        self.steps = np.ndarray(
-            (MAP_CELLS, MAP_CELLS),
-            np.float64,
-            self.shm.buf,
-            self.HEADER + 2 * grid,
-        )
         if create:
             struct.pack_into("qddd", self.shm.buf, 0, 0, 0.0, 0.0, 0.0)
 
-    def write(self, heights, edges, steps, x0, y0, t):
+    def write(self, heights, edges, x0, y0, t):
         seq = struct.unpack_from("q", self.shm.buf, 0)[0]
         struct.pack_into("q", self.shm.buf, 0, seq + 1)
         self.heights[:] = heights
         self.edges[:] = edges
-        self.steps[:] = steps
         struct.pack_into("qddd", self.shm.buf, 0, seq + 2, x0, y0, t)
 
     def time(self):
@@ -805,8 +774,8 @@ class SharedMap:
         return struct.unpack_from("qddd", self.shm.buf, 0)[3]
 
     def read(self):
-        """Heights, edge distances, step heights, x0, y0 and time of the
-        latest grid, or None before one"""
+        """Heights, edge distances, x0, y0 and time of the latest grid, or
+        None before one"""
         for _ in range(10):
             seq, x0, y0, t = struct.unpack_from("qddd", self.shm.buf, 0)
             if seq == 0:
@@ -815,15 +784,13 @@ class SharedMap:
                 continue
             heights = self.heights.copy()
             edges = self.edges.copy()
-            steps = self.steps.copy()
             if struct.unpack_from("q", self.shm.buf, 0)[0] == seq:
-                return heights, edges, steps, x0, y0, t
+                return heights, edges, x0, y0, t
         return None
 
     def close(self, unlink=False):
         self.heights = None
         self.edges = None
-        self.steps = None
         self.shm.close()
         if unlink:
             self.shm.unlink()

@@ -24,12 +24,17 @@ import elevation_map as em
 
 
 class Viewer:
-    """Logs the cloud, the map and the robot to Rerun"""
+    """Logs the cloud, the map and the robot to Rerun
+
+    A saved recording also holds every raw sweep and the pose records that
+    came with it, so that the map can be built again from it offline
+    """
 
     def __init__(self, spawn, save):
         import rerun as rr
 
         self.rr = rr
+        self.raw = bool(save)
         rr.init("go2_elevation_map", spawn=spawn)
         if save:
             rr.save(save)
@@ -68,6 +73,26 @@ class Viewer:
             hips = em.HIP_POS
             strips = [np.vstack((hips[k], legs[k])) for k in range(4)]
             rr.log("world/base/legs", rr.LineStrips3D(strips, radii=0.012, colors=[200, 200, 200]))
+
+    def log_raw(self, t, points, offsets, rows, restarted):
+        # The sweep as received, with its points in the sensor frame and
+        # their times within it, and the pose records read since the last
+        # sweep (em.PoseHistory rows), flattened. restarted marks the first
+        # sweep of a new map
+        if not self.raw:
+            return
+        rr = self.rr
+        rr.set_time("time", timestamp=t)
+        rr.log(
+            "raw/sweep",
+            rr.AnyValues(
+                received=[t],
+                points=points.astype(np.float32).ravel(),
+                offsets=offsets.astype(np.float32),
+                restarted=[restarted],
+            ),
+        )
+        rr.log("raw/poses", rr.AnyValues(rows=rows.ravel()))
 
     @staticmethod
     def _colors(values, lo, hi):
@@ -117,7 +142,8 @@ def run_mapper(interface, view=False, save=None):
                 continue
             # The map starts over with the controller's frame
             latest, first = poses.last_restart()
-            if latest != restarts:
+            restarted = latest != restarts
+            if restarted:
                 restarts = latest
                 history = em.PoseHistory()
                 mapper = em.Mapper(history)
@@ -126,9 +152,11 @@ def run_mapper(interface, view=False, save=None):
             times = received - em.CLOUD_DELAY + offsets
             # The controller writes a pose with each state it gets, so wait
             # for the poses to cover the whole sweep
+            new_rows = []
             while True:
                 rows, poses_since = poses.read(poses_since)
                 history.add_rows(rows)
+                new_rows.append(rows)
                 covered = (
                     history.count > 0
                     and history.rows(history.count - 1)[0][-1, 0] >= times.max()
@@ -136,6 +164,10 @@ def run_mapper(interface, view=False, save=None):
                 if covered or time.time() > times.max() + em.POSE_WAIT:
                     break
                 time.sleep(0.002)
+            if viewer is not None:
+                viewer.log_raw(
+                    received, points, offsets, np.concatenate(new_rows), restarted
+                )
             world = mapper.add_sweep(points, times)
             if world is None:
                 continue
@@ -145,8 +177,7 @@ def run_mapper(interface, view=False, save=None):
             filled = em.smooth(em.despeckle(filled))
             filled = em.pin_to_feet(filled, mapper.stance_bottoms, x0, y0)
             edges = em.edge_distance(filled, em.unseen(height))
-            steps = em.step_heights(height, filled)
-            shared.write(filled, edges, steps, x0, y0, received)
+            shared.write(filled, edges, x0, y0, received)
             if viewer is not None:
                 viewer.log(received, world, height, filled, x0, y0, history)
     finally:
