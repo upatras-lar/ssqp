@@ -37,6 +37,20 @@ The acrobot, the same double pendulum with only its elbow joint actuated instead
 by [`acrobot.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/real_mpc/double_pendulum/acrobot.py), run with the same `hardware.py` client. Having the actuator at the
 elbow makes swing-up harder than for the pendubot, and the cost also tracks the elbow's height to help it.
 
+## The Double Pendulum in the AI Olympics
+
+Our solver was also used in the [4th AI Olympics](https://ai-olympics.dfki-bremen.de/), held in Bremen in August
+2026, where we took first place. The competition's double pendulum task was run on Chalmers University's cloud
+pendulum platform: a real double pendulum that participants control remotely, with their controllers running on the
+computing resources the platform provides, rather than on their own hardware.
+
+Taking part meant adapting the same pendulum MPC code shown above to that setting. The platform's computing
+resources are more limited than those of the machine we use with our own pendulums, so the problem had to be
+formulated in an easier form that could still be solved in real time, and then retuned for the platform's pendulum.
+The code also had to be adapted to the platform's API in place of our own hardware client. Beyond that, the solver
+itself was the same, which made the competition a test of how well SSQP holds up on a real system it was not
+originally tuned for, with tighter computing limits.
+
 ## Panda Reaching a Target
 
 <video controls loop muted playsinline style="display: block; margin: 0 auto; width: 720px; max-width: 100%; border-radius: 8px;">
@@ -172,3 +186,14 @@ video. On the real robot, the terrain comes from a LIDAR map that is noisier and
 base position estimate is not perfect, so the footholds and heights the robot plans for are less accurate than in
 simulation. Late or uneven touchdowns, which a simulation rarely produces, make this harder still. Because of these real world
 conditions, the platform is a much harder task for the robot than the same terrain in simulation.
+
+<figure markdown>
+  ![The terrain map built from the real Go2's LIDAR, with the robot in its middle](assets/go2_lidar_map.jpg){ style="width: 720px; max-width: 100%; border-radius: 8px;" }
+  <figcaption>A sample screenshot of what the real LIDAR's map looks like, after it is cleaned up to be used by the solver</figcaption>
+</figure>
+
+This is roughly what the map from the real robot's LIDAR looks like once it has been cleaned up for the solver to
+use. The robot stands in the middle, and the heights around it are shaded from low (blue) to high (yellow). Even
+after the cleanup, the map is far from the clean terrain of the simulation, with jagged edges, tall spikes and patchy
+ground. The footholds, swing heights and base heights the robot plans for come from this map, which is a large part
+of why the real platform is harder than the simulated terrain.
