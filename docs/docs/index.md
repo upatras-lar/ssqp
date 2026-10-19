@@ -45,6 +45,25 @@ details.
 
 <div style="clear: both;"></div>
 
+## Sample Results
+
+<div class="sample-results">
+  <figure>
+    <video autoplay loop muted playsinline>
+      <source src="assets/go2_terrain_trot1_real_mpc.mp4" type="video/mp4">
+    </video>
+    <figcaption>The real Go2 trotting onto a platform</figcaption>
+  </figure>
+  <figure>
+    <video autoplay loop muted playsinline>
+      <source src="assets/go2_push2_real_mpc.mp4" type="video/mp4">
+    </video>
+    <figcaption>The real Go2 recovering from pushes</figcaption>
+  </figure>
+</div>
+
+More videos, including trajectory generation and simulated and real MPC, are in the [Gallery](gallery.md).
+
 ## Where to start
 
 <div class="grid cards" markdown>

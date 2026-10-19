@@ -50,11 +50,16 @@ nav:
       - Parameter Search: concepts/parameter-search.md
   - Examples:
       - Overview: examples.md
-      - Gallery: gallery.md
-      - Pendubot Swing-Up: examples/pendubot.md
-      - Panda Circle (Trajectory Generation): examples/panda-circle-trajgen.md
-      - Go2 Jump: examples/go2-jump.md
-      - Panda Circle (MPC): examples/panda-circle-mpc.md
+      - Gallery:
+          - Trajectory Generation: gallery.md
+          - Simulated MPC: gallery-simulated-mpc.md
+          - Real MPC: gallery-real-mpc.md
+      - Walkthroughs:
+        - Pendubot Swing-Up: examples/pendubot.md
+        - Panda Circle (Trajectory Generation): examples/panda-circle-trajgen.md
+        - Go2 Jump: examples/go2-jump.md
+        - Panda Circle (MPC): examples/panda-circle-mpc.md
+        - Go2 Walking (MPC): examples/go2-walking-mpc.md
   - Benchmarks:
       - Overview: benchmarks.md
       - Solver: benchmarks-solver.md

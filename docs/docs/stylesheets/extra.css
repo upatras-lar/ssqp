@@ -71,3 +71,75 @@
     display: none;
   }
 }
+
+.gallery-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.2rem;
+}
+.gallery-switch p {
+  display: contents;
+}
+
+.md-typeset .md-button {
+  padding: 0.35em 1.1em;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-width: 1px;
+  border-radius: 2em;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.md-typeset .md-button strong {
+  font-weight: inherit;
+}
+
+.md-typeset .md-button--primary {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.video-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.video-pair video {
+  flex: 1 1 18rem;
+  min-width: 0;
+  width: 48%;
+  border-radius: 8px;
+}
+
+.sample-results {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.sample-results figure {
+  margin: 0;
+}
+
+.sample-results video {
+  width: 100%;
+  display: block;
+  border-radius: 8px;
+}
+
+.sample-results figcaption {
+  margin-top: 0.3rem;
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--md-default-fg-color--light);
+}
+
+@media (max-width: 30rem) {
+  .sample-results {
+    grid-template-columns: 1fr;
+  }
+}

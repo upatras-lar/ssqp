@@ -33,6 +33,9 @@ A few examples are covered in detail:
 * [Panda Circle (MPC)](examples/panda-circle-mpc.md): `mujoco_mpc`, the same circle tracked in closed-loop MPC
   against a live MuJoCo simulation, with per-step target retargeting, `ForwardDynamics` mode by default
   (`--inverse-mode` switches to `InverseDynamics`)
+* [Go2 Walking (MPC)](examples/go2-walking-mpc.md): `mujoco_mpc`, a gamepad-driven trot in closed-loop MPC against
+  MuJoCo, with a gait schedule that retargets every cost and contact constraint each plan stage, and a jump,
+  `ReducedInverseDynamics` mode
 
 ## Running the Python examples
 
