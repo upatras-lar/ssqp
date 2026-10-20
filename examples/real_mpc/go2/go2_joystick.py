@@ -103,12 +103,14 @@ class CustomGo2Controller:
     GAIT_BUTTON = "BTN_TL2"
 
     # Dynamic walk limits that trigger the fallback. The joint tracking error
-    # has to stay above its limit for a few commands in a row, and the tilt is
-    # measured from the planned one
+    # has to stay above its limit for a few commands in a row, more of them for
+    # swinging legs, which lag behind for a while whenever their foothold
+    # moves, and the tilt is measured from the planned one
     MAX_PLAN_AGE = 0.1
     MAX_STATE_AGE = 0.05
     MAX_TRACKING_ERROR = 0.3
     TRACKING_ERROR_COMMANDS = 3
+    SWING_TRACKING_ERROR_COMMANDS = 5
     MAX_TILT = 0.35
 
     # Foot sensor reading above which a foot counts as on the ground. The
@@ -118,6 +120,9 @@ class CustomGo2Controller:
     FOOT_CONTACT_FORCE = 20
     # Unitree foot sensor order (FR, FL, RR, RL) in the model's foot order
     FOOT_REORDER_MAP = [1, 0, 3, 2]
+
+    # Seconds between printouts of the dynamic walk's MPC rate, if shown
+    RATE_PERIOD = 2.0
 
     # LIDAR maps the dynamic walk reads after it starts before it uses them.
     # The map starts over with the walk, and its first maps come from only a
@@ -131,12 +136,15 @@ class CustomGo2Controller:
         map_view=False,
         map_save=None,
         use_map=True,
+        show_rate=False,
     ):
         # Task to switch to once the robot is standing
         self.walk_task = walk_task
         # Whether the dynamic walk reads the LIDAR map at all, rather than
         # taking the ground to be flat
         self.use_map = use_map
+        # Whether the dynamic walk prints its MPC rate and solve times
+        self.show_rate = show_rate
 
         # Shared memory the dynamic walk's state estimate goes to the LIDAR
         # map process (lidar_map.py) through, and the command that runs it,
@@ -301,7 +309,8 @@ class CustomGo2Controller:
 
             # Latest plan with the time it started
             self.plan = None
-            self.tracking_error_commands = 0
+            self.stance_error_commands = 0
+            self.swing_error_commands = 0
 
             # Solve in a separate thread, so that commands keep going out and
             # the state keeps updating while it solves
@@ -645,6 +654,8 @@ class CustomGo2Controller:
             os.sched_setaffinity(0, cores)
 
         next_solve = time.time()
+        rate_start = next_solve
+        solve_times = []
 
         while self.solver_running:
             delay = next_solve - time.time()
@@ -714,6 +725,18 @@ class CustomGo2Controller:
             except Exception as err:
                 self._startFallback(f"the solver failed: {err}")
                 return
+
+            if self.show_rate:
+                solve_times.append(time.time() - now)
+                elapsed = time.time() - rate_start
+                if elapsed >= self.RATE_PERIOD:
+                    print(
+                        f"MPC {len(solve_times) / elapsed:.1f} Hz, solve "
+                        f"{1000 * np.mean(solve_times):.2f} ms mean, "
+                        f"{1000 * np.max(solve_times):.2f} ms max"
+                    )
+                    rate_start = time.time()
+                    solve_times = []
 
             # Apply the plan as soon as it starts, rather than at the next
             # command
@@ -801,12 +824,24 @@ class CustomGo2Controller:
         q, dq = dynamic_walk_model.playback(plan[1], elapsed)
         tau = self.command_torques(plan[1], elapsed, pos, vel)
 
+        # Joints off the plan, counted separately for the legs the plan has in
+        # stance and the swinging ones
         error = q - pos[7:]
         worst = np.argmax(np.abs(error))
-        if abs(error[worst]) > self.MAX_TRACKING_ERROR:
-            self.tracking_error_commands += 1
-        else:
-            self.tracking_error_commands = 0
+        stages = plan[1][2]
+        k = min(
+            int(max(elapsed, 0.0) / dynamic_walk_model.MPC_DT), len(stages) - 1
+        )
+        stance = np.repeat(
+            [name in stages[k] for name in dynamic_walk_model.FOOT_NAMES], 3
+        )
+        off = np.abs(error) > self.MAX_TRACKING_ERROR
+        self.stance_error_commands = (
+            self.stance_error_commands + 1 if off[stance].any() else 0
+        )
+        self.swing_error_commands = (
+            self.swing_error_commands + 1 if off[~stance].any() else 0
+        )
 
         # Cosine of the angle between the measured and planned base tilts,
         # comparing the world z axis as seen from the base, which ignores yaw
@@ -823,7 +858,10 @@ class CustomGo2Controller:
             reason = "the state stopped updating"
         elif not np.all(np.isfinite(np.hstack((q, dq, tau)))):
             reason = "the commands are not finite"
-        elif self.tracking_error_commands >= self.TRACKING_ERROR_COMMANDS:
+        elif (
+            self.stance_error_commands >= self.TRACKING_ERROR_COMMANDS
+            or self.swing_error_commands >= self.SWING_TRACKING_ERROR_COMMANDS
+        ):
             leg = ["FL", "FR", "RL", "RR"][worst // 3]
             joint = ["hip", "thigh", "calf"][worst % 3]
             reason = (
@@ -978,6 +1016,15 @@ def parse_args():
             the ground to be flat. The map is still made when shown or saved",
     )
 
+    parser.add_argument(
+        "-r",
+        "--rate",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to print the dynamic walk's MPC rate and solve times \
+            every few seconds",
+    )
+
     return parser.parse_args()
 
 
@@ -997,6 +1044,7 @@ if __name__ == "__main__":
         args.view,
         args.save,
         args.map,
+        args.rate,
     )
     custom.start()
 

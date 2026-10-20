@@ -43,7 +43,7 @@ STANCE_VEL_TOL = 0.2
 # follow them
 FOOTHOLD_VEL_GAIN = 0.19
 FOOTHOLD_MAX_SHIFT = 0.2
-FOOTHOLD_FREEZE_STAGES = 2
+FOOTHOLD_FREEZE_STAGES = 4
 
 # Footholds stay FOOTHOLD_EDGE_MARGIN away from edges in the terrain, which
 # covers the foot's radius and errors in the terrain and the base estimate.
@@ -51,6 +51,9 @@ FOOTHOLD_FREEZE_STAGES = 2
 # forward or back and FOOTHOLD_SIDE_SEARCH to the side, trying spots
 # FOOTHOLD_SEARCH_STEP apart
 FOOTHOLD_EDGE_MARGIN = 0.05
+# The margin is measured from the foot's sphere centre, which sits this far
+# from the foot frame along the heading when the foot lands
+FOOT_SPHERE_OFFSET = np.array([-0.017, 0.0, 0.0])
 FOOTHOLD_SEARCH = 0.14
 FOOTHOLD_SIDE_SEARCH = 0.08
 FOOTHOLD_SEARCH_STEP = 0.01
@@ -64,8 +67,12 @@ FOOTHOLD_LEVEL_CHANGE = 0.02
 # gives stays clear of edges at the same level, and drops it once its nominal
 # spot is FOOTHOLD_EDGE_MARGIN + FOOTHOLD_KEEP_SLACK from them. Otherwise small
 # moves of the nominal spot and flicker in the edges make it jump back and
-# forth between spots
+# forth between spots. Once the correction no longer gives such a spot, the
+# foothold stays where it was while that spot is still clear of edges at the
+# same level and within FOOTHOLD_STICK_RANGE of its nominal spot. The nearest
+# spot to the nominal one could otherwise be on the other side of an obstacle
 FOOTHOLD_KEEP_SLACK = 0.04
+FOOTHOLD_STICK_RANGE = 0.14
 # For the rear feet, spots ahead of a foothold count as FOOTHOLD_AHEAD_COST
 # times further than they are, so that their steps near edges get shorter
 # rather than longer
@@ -104,6 +111,10 @@ MAX_VEL_SIDE = 0.3
 MAX_VEL_YAW = 1.0
 MAX_ACC = 0.6
 MAX_YAW_ACC = 1.0
+# A foot that lands within LAND_HOLD of the height it last landed at keeps
+# that height, so that small errors in the terrain do not build up in the
+# height estimate over many steps
+LAND_HOLD = 0.01
 # Limit on the base's sideways acceleration while turning, as its speed times
 # its turning rate, which slows turning while running fast
 MAX_TURN_ACC = 0.8
@@ -438,6 +449,11 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         for name in FOOT_NAMES
     }
 
+    def sphere(p, yaw):
+        # Where the foot's sphere centre is, horizontally, when its frame is
+        # at p
+        return (p + rotation_z(yaw) @ FOOT_SPHERE_OFFSET)[:2]
+
     def away_from_edges(name, p, yaw, level=None):
         # The nearest spot to p that is FOOTHOLD_EDGE_MARGIN from any edge, and
         # at the given level if there is one there, or p if there is none
@@ -446,7 +462,7 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         nearest = None
         for offset in foothold_offsets[name]:
             q = p + R @ offset
-            if edges(q[0], q[1]) < FOOTHOLD_EDGE_MARGIN:
+            if edges(*sphere(q, yaw)) < FOOTHOLD_EDGE_MARGIN:
                 continue
             change = 0.0 if level is None else abs(ground(q)[2] - level)
             if change <= FOOTHOLD_LEVEL_CHANGE:
@@ -885,22 +901,28 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
             level = spot[2]
             kept = ground(nominal + correction)
             if (
-                edges(nominal[0], nominal[1])
+                edges(*sphere(nominal, yaw))
                 >= FOOTHOLD_EDGE_MARGIN + FOOTHOLD_KEEP_SLACK
                 and abs(nominal[2] - level) <= FOOTHOLD_LEVEL_CHANGE
             ):
                 p = nominal
             elif (
-                edges(kept[0], kept[1]) >= FOOTHOLD_EDGE_MARGIN
+                edges(*sphere(kept, yaw)) >= FOOTHOLD_EDGE_MARGIN
                 and abs(kept[2] - level) <= FOOTHOLD_LEVEL_CHANGE
             ):
                 p = kept
+            elif (
+                np.linalg.norm((spot - nominal)[:2]) <= FOOTHOLD_STICK_RANGE
+                and edges(*sphere(spot, yaw)) >= FOOTHOLD_EDGE_MARGIN
+                and abs(ground(spot)[2] - level) <= FOOTHOLD_LEVEL_CHANGE
+            ):
+                p = ground(spot)
             else:
                 p = ground(away_from_edges(name, nominal, yaw, level))
                 if (
                     stage + land <= swing_stages()
                     and abs(p[2] - level) > FOOTHOLD_LEVEL_CHANGE
-                    and edges(spot[0], spot[1]) >= FOOTHOLD_EDGE_MARGIN
+                    and edges(*sphere(spot, yaw)) >= FOOTHOLD_EDGE_MARGIN
                 ):
                     p = ground(spot)
         est["placed_footholds"][key] = (p, (p - nominal) * [1.0, 1.0, 0.0])
@@ -1185,7 +1207,7 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         model,
         ssqp_params,
         sqp_iters=2,
-        qp_iters=100,
+        qp_iters=25,
         max_time=MAX_SOLVE_TIME,
     )
 
@@ -1397,7 +1419,10 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         # Feet finishing their swing keep the spot they actually landed on
         for name in last_swing:
             if name not in swing_feet(current_stage):
-                est["landed"][name] = ground(state[:3] + R @ feet[name])
+                p = ground(state[:3] + R @ feet[name])
+                if abs(p[2] - est["landed"][name][2]) < LAND_HOLD:
+                    p[2] = est["landed"][name][2]
+                est["landed"][name] = p
 
         # The feet land from the jump away from where they took off, so the
         # base's reference moves to stand centered over them again

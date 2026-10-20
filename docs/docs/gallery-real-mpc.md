@@ -40,8 +40,8 @@ elbow makes swing-up harder than for the pendubot, and the cost also tracks the 
 ## The Double Pendulum in the AI Olympics
 
 Our solver was also used in the [4th AI Olympics](https://ai-olympics.dfki-bremen.de/), held in Bremen in August
-2026, where we took first place. The competition's double pendulum task was run on Chalmers University's cloud
-pendulum platform: a real double pendulum that participants control remotely, with their controllers running on the
+2026, where we took first place. The competition's double pendulum task was run on Chalmers University's
+[cloud pendulum platform](https://cloudpendulum.m2.chalmers.se/onboarding/index.html): a real double pendulum that participants control remotely, with their controllers running on the
 computing resources the platform provides, rather than on their own hardware.
 
 Taking part meant adapting the same pendulum MPC code shown above to that setting. The platform's computing
@@ -49,7 +49,8 @@ resources are more limited than those of the machine we use with our own pendulu
 formulated in an easier form that could still be solved in real time, and then retuned for the platform's pendulum.
 The code also had to be adapted to the platform's API in place of our own hardware client. Beyond that, the solver
 itself was the same, which made the competition a test of how well SSQP holds up on a real system it was not
-originally tuned for, with tighter computing limits.
+originally tuned for, with tighter computing limits. The code for our submission is available at
+[upatras-lar/2026_ai_olympics_underactuated_dp](https://github.com/upatras-lar/2026_ai_olympics_underactuated_dp).
 
 ## Panda Reaching a Target
 

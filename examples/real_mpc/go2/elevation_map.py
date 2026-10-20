@@ -55,6 +55,16 @@ LOWER_SWEEPS = 3
 # sweeps. Otherwise every sweep would raise the map a little
 ANCHOR_STD = 0.02
 ANCHOR_CELLS = 20
+# When a front foot is planted the sweep is instead moved so that the cells
+# FEET_ANCHOR_MIN to FEET_ANCHOR_MAX around the planted front feet sit at
+# their bottoms. This ties the map to the feet, so its error cannot build up
+# over time. It needs at least FEET_ANCHOR_CELLS such cells whose differences
+# spread over less than FEET_ANCHOR_SPREAD between quartiles, so that the
+# ground around the feet is flat
+FEET_ANCHOR_MIN = 0.05
+FEET_ANCHOR_MAX = 0.12
+FEET_ANCHOR_CELLS = 30
+FEET_ANCHOR_SPREAD = 0.03
 # The feet are spheres of FOOT_RADIUS, and the ground under a foot cannot be
 # higher than its bottom, give or take FOOT_TOLERANCE. Cells above a foot,
 # such as from hits on the robot's own legs, are cleared, and filled from
@@ -83,6 +93,11 @@ DESPECKLE_HEIGHT = 0.015
 SMOOTH_CELLS = 4
 SMOOTH_STD = 3.0
 SMOOTH_HEIGHT_STD = 0.01
+# The heights shared with the walk are then averaged over BLUR_CELLS cells
+# on each side along each axis, since the slope between neighbouring cells
+# stays far noisier than the heights. Footholds stay further than this from
+# edges, so their heights do not change
+BLUR_CELLS = 2
 
 # Cells next to a step of more than EDGE_HEIGHT are edges, and so are unseen
 # cells, whose height is only guessed. The distance from each cell to the
@@ -116,6 +131,9 @@ CALF_RADIUS = 0.06
 # FEET_CLEAR_HEIGHT above its bottom are left out
 FEET_CLEAR_RADIUS = 0.15
 FEET_CLEAR_HEIGHT = 0.03
+# Points within SWING_CLEAR_RADIUS of a front foot in the air (horizontally)
+# are left out as well, since the L1 puts the ground below it too high
+SWING_CLEAR_RADIUS = 0.12
 
 
 def quat_to_rotation(q):
@@ -345,8 +363,9 @@ class ElevationMap:
         )
         return cells % MAP_CELLS, inside
 
-    def add_points(self, points, var):
-        """Fuses world points with the given height variances
+    def add_points(self, points, var, feet=np.zeros((0, 3))):
+        """Fuses world points with the given height variances, anchored to
+        the bottoms of the given planted feet when it can be
 
         Returns the height the points were moved by to match the map
         """
@@ -368,9 +387,24 @@ class ElevationMap:
         cells = np.flatnonzero(sum_w)
         z = sum_wz[cells] / sum_w[cells]
 
+        offsets = []
+        for foot_slot, bottom in zip(self._slots(feet[:, :2])[0], feet[:, 2]):
+            # Slot differences wrap around the ring
+            d = np.stack(np.divmod(cells, MAP_CELLS), axis=1) - foot_slot
+            d = (d + MAP_CELLS // 2) % MAP_CELLS - MAP_CELLS // 2
+            d = np.linalg.norm(d, axis=1) * MAP_RESOLUTION
+            ring = (d > FEET_ANCHOR_MIN) & (d < FEET_ANCHOR_MAX)
+            offsets.append(bottom - z[ring])
+        offsets = np.concatenate([np.zeros(0)] + offsets)
         anchors = self.mean_var.reshape(-1)[cells] < ANCHOR_STD**2
         shift = 0.0
-        if np.count_nonzero(anchors) >= ANCHOR_CELLS:
+        if (
+            len(offsets) >= FEET_ANCHOR_CELLS
+            and np.subtract(*np.percentile(offsets, [75, 25]))
+            < FEET_ANCHOR_SPREAD
+        ):
+            shift = np.median(offsets)
+        elif np.count_nonzero(anchors) >= ANCHOR_CELLS:
             shift = np.median(
                 self.mean.reshape(-1)[cells[anchors]] - z[anchors]
             )
@@ -545,6 +579,18 @@ def smooth(height):
     return height
 
 
+def blur(height):
+    """Averages each cell of a height grid without holes over BLUR_CELLS
+    cells on each side along each axis"""
+    k = BLUR_CELLS
+    n = 2 * k + 1
+    total = np.pad(height, k, mode="edge").cumsum(0).cumsum(1)
+    total = np.pad(total, ((1, 0), (1, 0)))
+    return (
+        total[n:, n:] - total[:-n, n:] - total[n:, :-n] + total[:-n, :-n]
+    ) / n**2
+
+
 def pin_to_feet(height, bottoms, x0, y0):
     """Sets the cells within FOOT_PIN_REACH of each foot (along each axis) to
     its bottom (world points), the lowest where feet overlap, with the grid's
@@ -643,6 +689,12 @@ class Mapper:
         keep = ~own_points(base_points, joints) & ~beside_feet(
             base_points, R, joints
         )
+        last = rows[-1]
+        planted = last[20:22] > 0.5
+        front = leg_points(joints)[:, :2, 2]
+        off = np.einsum("nij,nlj->nli", R, base_points[:, None] - front)
+        near = np.linalg.norm(off[..., :2], axis=2) < SWING_CLEAR_RADIUS
+        keep &= ~np.any(near & ~planted, axis=1)
         base_points, pos, R = base_points[keep], pos[keep], R[keep]
         world = np.einsum("nij,nj->ni", R, base_points) + pos
 
@@ -657,7 +709,11 @@ class Mapper:
 
         self.map.recenter(*pos[-1, :2])
         self.map.age(times[-1])
-        shift = self.map.add_points(world, var)
+        feet = quat_to_rotation(last[None, 4:8])[0] @ leg_points(
+            last[None, 8:20]
+        )[0, :2, 2].T
+        feet = feet.T[planted] + last[1:4] - [0.0, 0.0, FOOT_RADIUS]
+        shift = self.map.add_points(world, var, feet)
         world[:, 2] += shift
 
         # The feet since the last sweep bound the ground below them. They
