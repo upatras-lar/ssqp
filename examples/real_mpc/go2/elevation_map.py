@@ -93,11 +93,6 @@ DESPECKLE_HEIGHT = 0.015
 SMOOTH_CELLS = 4
 SMOOTH_STD = 3.0
 SMOOTH_HEIGHT_STD = 0.01
-# The heights shared with the walk are then averaged over BLUR_CELLS cells
-# on each side along each axis, since the slope between neighbouring cells
-# stays far noisier than the heights. Footholds stay further than this from
-# edges, so their heights do not change
-BLUR_CELLS = 2
 
 # Cells next to a step of more than EDGE_HEIGHT are edges, and so are unseen
 # cells, whose height is only guessed. The distance from each cell to the
@@ -579,18 +574,6 @@ def smooth(height):
     return height
 
 
-def blur(height):
-    """Averages each cell of a height grid without holes over BLUR_CELLS
-    cells on each side along each axis"""
-    k = BLUR_CELLS
-    n = 2 * k + 1
-    total = np.pad(height, k, mode="edge").cumsum(0).cumsum(1)
-    total = np.pad(total, ((1, 0), (1, 0)))
-    return (
-        total[n:, n:] - total[:-n, n:] - total[n:, :-n] + total[:-n, :-n]
-    ) / n**2
-
-
 def pin_to_feet(height, bottoms, x0, y0):
     """Sets the cells within FOOT_PIN_REACH of each foot (along each axis) to
     its bottom (world points), the lowest where feet overlap, with the grid's
@@ -709,9 +692,10 @@ class Mapper:
 
         self.map.recenter(*pos[-1, :2])
         self.map.age(times[-1])
-        feet = quat_to_rotation(last[None, 4:8])[0] @ leg_points(
-            last[None, 8:20]
-        )[0, :2, 2].T
+        feet = (
+            quat_to_rotation(last[None, 4:8])[0]
+            @ leg_points(last[None, 8:20])[0, :2, 2].T
+        )
         feet = feet.T[planted] + last[1:4] - [0.0, 0.0, FOOT_RADIUS]
         shift = self.map.add_points(world, var, feet)
         world[:, 2] += shift

@@ -3,6 +3,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/pair.h>
+#include <nanobind/stl/shared_ptr.h>
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
@@ -945,7 +946,15 @@ void bind_Constraints(nb::module_ &m)
       .def("set_max_normal_force",
            &ContactConstraint::set_max_normal_force,
            nb::arg("max_normal_force"))
-      .def("set_eq_tol", &ContactConstraint::set_eq_tol, nb::arg("eq_tol"));
+      .def("set_eq_tol", &ContactConstraint::set_eq_tol, nb::arg("eq_tol"))
+      .def("set_terrain",
+           &ContactConstraint::set_terrain,
+           nb::arg("terrain").none(),
+           R"doc(
+        Sets the terrain this contact uses for its friction cone and height in
+        place of the model's terrain
+        Passing `None` restores the model's terrain
+        )doc");
 }
 }
 }

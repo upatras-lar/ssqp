@@ -814,6 +814,10 @@ class ContactConstraint : public StageConstraints
     void set_max_normal_force(const double max_normal_force);
     void set_eq_tol(const double eq_tol);
 
+    // Terrain used by this contact in place of the model's terrain
+    // A null terrain restores the model's terrain
+    void set_terrain(const std::shared_ptr<terrain::Terrain> &terrain);
+
     void set_enabled(const bool enabled) override;
 
     uint output_size() const override;
@@ -857,6 +861,9 @@ class ContactConstraint : public StageConstraints
     VecX                   _lb, _ub;
     mutable MatX           _jac_world_scratch, _jac_local_scratch;
     mutable MatX           _dVdq_scratch, _dVdv_scratch;
+    std::shared_ptr<terrain::Terrain> _terrain;
+
+    std::shared_ptr<terrain::Terrain> contact_terrain() const;
 };
 
 }

@@ -4,6 +4,7 @@
 #include "model/stagewise/predefined/Costs.hpp"
 #include "model/stagewise/predefined/Constraints.hpp"
 #include "model/terrain/predefined/HeightmapTerrain.hpp"
+#include "model/terrain/predefined/SlopeTerrain.hpp"
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -682,6 +683,56 @@ void heightmapSetHeightsMatchesNewTerrain()
             "The contact constraint must use the new heights");
 }
 
+// A contact given its own terrain must act as if the model had that terrain,
+// and must return to the model's terrain when it is cleared
+void contactTerrainOverridesModelTerrain()
+{
+    using namespace model::terrain::predefined;
+    using model::stagewise::predefined::constraints::ContactConstraint;
+
+    const auto slope = model::terrain::make_terrain<SlopeTerrain>(0.3, -0.2,
+                                                                  0.1);
+
+    model::Model::Structure flat_structure;
+    flat_structure.from_preset = model::Preset::Go2;
+    flat_structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
+    model::Model flat_model(1, 0.01, flat_structure);
+    auto contact = std::static_pointer_cast<ContactConstraint>(
+      flat_model.addConstraints<ContactConstraint>(0, flat_model, "FL_foot"));
+
+    model::Model::Structure slope_structure = flat_structure;
+    slope_structure.terrain                 = slope;
+    model::Model slope_model(1, 0.01, slope_structure);
+    auto         expected =
+      slope_model.addConstraints<ContactConstraint>(0, slope_model, "FL_foot");
+
+    VecX x = VecX::Zero(flat_model.nq() + flat_model.nv());
+    x[6]   = 1.0;
+    for (uint leg = 0; leg < 4; ++leg)
+    {
+        x[8 + 3 * leg] = 0.8;
+        x[9 + 3 * leg] = -1.5;
+    }
+    x.tail(flat_model.nv()).setConstant(0.1);
+    VecX u                      = VecX::Zero(flat_model.nu() + 3);
+    u.tail<3>()                 = Vec3(5.0, -3.0, 60.0);
+    const VecX flat_evaluation = contact->evaluate(x, u);
+
+    contact->set_terrain(slope);
+    MatX dX, dU, expected_dX, expected_dU;
+    contact->gradient(x, u, dX, dU);
+    expected->gradient(x, u, expected_dX, expected_dU);
+    require(contact->evaluate(x, u).isApprox(expected->evaluate(x, u)),
+            "A contact's own terrain must replace the model's terrain");
+    require(dX.isApprox(expected_dX) && dU.isApprox(expected_dU),
+            "A contact's own terrain must replace the model's terrain in its "
+            "gradient");
+
+    contact->set_terrain(nullptr);
+    require(contact->evaluate(x, u).isApprox(flat_evaluation),
+            "Clearing a contact's terrain must restore the model's terrain");
+}
+
 // A preset must build the same model as loading its URDF by path directly
 void modelFromPresetMatchesUrdfPath()
 {
@@ -1071,6 +1122,9 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_HeightmapTerrain_SetHeightsMatchesNewTerrain",
       heightmapSetHeightsMatchesNewTerrain));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_ContactConstraint_TerrainOverridesModelTerrain",
+      contactTerrainOverridesModelTerrain));
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_ModelFromPreset_MatchesUrdfPath",
       modelFromPresetMatchesUrdfPath));

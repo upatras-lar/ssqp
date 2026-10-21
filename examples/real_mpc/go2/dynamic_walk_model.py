@@ -6,7 +6,7 @@ ssqpy.setSilentMode()
 # Keep MPC_DT a multiple of the controller's command period, so that plan
 # stages line up with commands
 MPC_DT = 0.02
-MPC_H = 10
+MPC_H = 14
 
 T_WGT = 1.0
 R_WGT = 1.0
@@ -23,6 +23,14 @@ Z_WGT = 3.0
 CONTACT_MU = 0.4
 # Limit on each foot's normal force
 MAX_FOOT_FORCE = 150.0
+
+# Radius of the terrain patch around a foothold fit to the plane its friction
+# cone stands on, and how near an edge the patch's points can be
+CONTACT_PATCH = 0.04
+CONTACT_EDGE_GAP = 0.02
+# Limit on the tilt of a foot's contact plane, under the friction angle so
+# that the foot's share of the weight stays inside its cone
+MAX_CONTACT_TILT = 0.3
 
 # Height of the model's foot points above the ground under stance feet. The
 # feet are spheres of radius 0.022 and the points lie 0.0235 past their
@@ -54,6 +62,12 @@ FOOTHOLD_EDGE_MARGIN = 0.05
 # The margin is measured from the foot's sphere centre, which sits this far
 # from the foot frame along the heading when the foot lands
 FOOT_SPHERE_OFFSET = np.array([-0.017, 0.0, 0.0])
+# The knees point back, so the lower leg rises behind the foot by about
+# CALF_SLOPE per unit of distance, up to CALF_REACH behind it. Footholds near
+# edges also keep the terrain behind them LEG_CLEARANCE below that line
+CALF_SLOPE = 1.5
+CALF_REACH = 0.12
+LEG_CLEARANCE = 0.02
 FOOTHOLD_SEARCH = 0.14
 FOOTHOLD_SIDE_SEARCH = 0.08
 FOOTHOLD_SEARCH_STEP = 0.01
@@ -146,13 +160,16 @@ MAX_STEP_HEIGHT = 0.1
 STEP_HEIGHT_RATE = 0.05
 
 # Where the terrain along a swing, sampled at SWING_PATH_SAMPLES points, rises
-# more than SWING_ROUGH_HEIGHT above its lower foothold, the foot lifts in
-# place for SWING_LIFT_PHASE of the swing, clears the highest of them by
-# SWING_CLEARANCE, and comes down onto its foothold for as long at the end
+# more than SWING_ROUGH_HEIGHT above its lower foothold, the foot rises from
+# its liftoff, crosses high enough to clear the terrain on the way by
+# SWING_CLEARANCE, and comes down onto its foothold from above. Within
+# SWING_END_REACH of its footholds the foot only has to clear them, and it
+# crosses at most MAX_SWING_LIFT above the higher one
 SWING_ROUGH_HEIGHT = 0.02
-SWING_LIFT_PHASE = 0.15
-SWING_PATH_SAMPLES = 8
+SWING_PATH_SAMPLES = 16
 SWING_CLEARANCE = 0.05
+SWING_END_REACH = 0.03
+MAX_SWING_LIFT = 0.3
 
 # Base pitch while tilting the front up or down, and the rate at which it
 # changes, including back to level once the tilt stops
@@ -169,6 +186,11 @@ ROLL_RATE = 0.5
 # changes, including back to straight once the turn stops
 MAX_BASE_YAW = 0.3
 YAW_RATE = 0.5
+
+# The base tilts to lie parallel to the terrain between its feet, up to these
+# angles, on top of the tilt commands
+MAX_TERRAIN_PITCH = 0.6
+MAX_TERRAIN_ROLL = 0.3
 
 # Small jump in place, started by pressing the jump button while standing
 # level with the command at rest. The base crouches, pushes off, flies with all
@@ -393,13 +415,16 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
     if terrain is None:
         terrain = ssqpy.model.terrain.HeightmapTerrain(np.zeros((2, 2)), 1.0)
 
+    # The model keeps its default flat ground. Each stance foot's contact
+    # takes a plane fit to the terrain around its foothold instead (see
+    # contact_plane), since the terrain's own normals turn sharply at edges and
+    # follow its noise
     model = ssqpy.model.Model(
         MPC_H,
         MPC_DT,
         mjcf_path="../../assets/mjcf/go2/go2.xml",
         free_flyer=True,
         solver_mode=ssqpy.model.SolverMode.ReducedInverseDynamics,
-        terrain=terrain,
     )
 
     nq = model.getnq()
@@ -416,6 +441,16 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
     }
     for offset in foot_offsets.values():
         offset[2] = 0.0
+
+    # Points on a grid between the feet's nominal positions, where the terrain
+    # is sampled for its tilt, and the matrix fitting a plane to them
+    corners = np.array(list(foot_offsets.values()))
+    tilt_offsets = [
+        np.array([dx, dy, 0.0])
+        for dx in np.linspace(corners[:, 0].min(), corners[:, 0].max(), 5)
+        for dy in np.linspace(corners[:, 1].min(), corners[:, 1].max(), 3)
+    ]
+    tilt_fit = np.array([[1.0, p[0], p[1]] for p in tilt_offsets])
 
     def ground(p):
         # The point on the terrain below p
@@ -454,15 +489,33 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         # at p
         return (p + rotation_z(yaw) @ FOOT_SPHERE_OFFSET)[:2]
 
+    calf_samples = np.arange(0.02, CALF_REACH + 1e-9, 0.02)
+    slack_margin = FOOTHOLD_EDGE_MARGIN + FOOTHOLD_KEEP_SLACK
+
+    def clear_spot(p, yaw, margin=FOOTHOLD_EDGE_MARGIN):
+        # Whether a foothold at p is margin from any edge, with the terrain
+        # behind it clear of the lower leg
+        distance = edges(*sphere(p, yaw))
+        if distance < margin:
+            return False
+        if distance > CALF_REACH:
+            return True
+        back = rotation_z(yaw)[:2, 0]
+        foot = terrain.at(p[0], p[1]).height
+        for s in calf_samples:
+            x, y = p[:2] - s * back
+            if terrain.at(x, y).height > foot + CALF_SLOPE * s - LEG_CLEARANCE:
+                return False
+        return True
+
     def away_from_edges(name, p, yaw, level=None):
-        # The nearest spot to p that is FOOTHOLD_EDGE_MARGIN from any edge, and
-        # at the given level if there is one there, or p if there is none
-        # within the search
+        # The nearest clear spot to p, at the given level if there is one
+        # there, or p if there is none within the search
         R = rotation_z(yaw)
         nearest = None
         for offset in foothold_offsets[name]:
             q = p + R @ offset
-            if edges(*sphere(q, yaw)) < FOOTHOLD_EDGE_MARGIN:
+            if not clear_spot(q, yaw):
                 continue
             change = 0.0 if level is None else abs(ground(q)[2] - level)
             if change <= FOOTHOLD_LEVEL_CHANGE:
@@ -477,6 +530,24 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
             ground((1 - s) * start + s * end)[2]
             for s in np.linspace(0.0, 1.0, SWING_PATH_SAMPLES)
         )
+
+    def swing_apex(liftoff, landing):
+        # Height of the middle control points of a swing curve over rough
+        # terrain, which lie above the footholds, so that the foot clears the
+        # terrain on the way. The curve's height is linear in it, so each
+        # sample gives the least height it needs directly
+        z0, z1 = liftoff[2], landing[2]
+        apex = max(z0, z1) + SWING_CLEARANCE / 0.75
+        span = np.linalg.norm((landing - liftoff)[:2])
+        for t in np.linspace(0.0, 1.0, SWING_PATH_SAMPLES + 2)[1:-1]:
+            s = t * t * (3 - 2 * t)
+            if min(s, 1 - s) * span < SWING_END_REACH:
+                continue
+            p = ground((1 - s) * liftoff + s * landing)
+            ends = (1 - t) ** 3 * z0 + t**3 * z1
+            needed = (p[2] + SWING_CLEARANCE - ends) / (3 * t * (1 - t))
+            apex = max(apex, needed)
+        return min(apex, max(z0, z1) + MAX_SWING_LIFT)
 
     def ground_height(x, y, yaw):
         # Terrain height under the base with the given pose, averaged over
@@ -564,14 +635,17 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         # frozen foothold with the stage it lands at
         "foothold_shift": np.zeros(3),
         "frozen": {},
-        # Footholds and the highest terrain between them by foot and gait
-        # period, and foot references by foot and stage, computed since the
-        # references were last updated
+        # Footholds and the apex of the swing between them (None over smooth
+        # terrain) by foot and gait period, and foot references by foot and
+        # stage, computed since the references were last updated
         "footholds": {},
         "swing_tops": {},
         # Where each foothold was placed, by foot and landing stage
         "placed_footholds": {},
         "foot_references": {},
+        # Contact planes by foothold, fit since the references were last
+        # updated
+        "contact_planes": {},
         # Current gait
         "gait": GAIT,
         "gait_held": False,
@@ -901,19 +975,18 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
             level = spot[2]
             kept = ground(nominal + correction)
             if (
-                edges(*sphere(nominal, yaw))
-                >= FOOTHOLD_EDGE_MARGIN + FOOTHOLD_KEEP_SLACK
+                clear_spot(nominal, yaw, slack_margin)
                 and abs(nominal[2] - level) <= FOOTHOLD_LEVEL_CHANGE
             ):
                 p = nominal
             elif (
-                edges(*sphere(kept, yaw)) >= FOOTHOLD_EDGE_MARGIN
+                clear_spot(kept, yaw)
                 and abs(kept[2] - level) <= FOOTHOLD_LEVEL_CHANGE
             ):
                 p = kept
             elif (
                 np.linalg.norm((spot - nominal)[:2]) <= FOOTHOLD_STICK_RANGE
-                and edges(*sphere(spot, yaw)) >= FOOTHOLD_EDGE_MARGIN
+                and clear_spot(spot, yaw)
                 and abs(ground(spot)[2] - level) <= FOOTHOLD_LEVEL_CHANGE
             ):
                 p = ground(spot)
@@ -922,7 +995,7 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
                 if (
                     stage + land <= swing_stages()
                     and abs(p[2] - level) > FOOTHOLD_LEVEL_CHANGE
-                    and edges(*sphere(spot, yaw)) >= FOOTHOLD_EDGE_MARGIN
+                    and clear_spot(spot, yaw)
                 ):
                     p = ground(spot)
         est["placed_footholds"][key] = (p, (p - nominal) * [1.0, 1.0, 0.0])
@@ -956,28 +1029,81 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         liftoff = foothold(name, period - len(groups))
         landing = foothold(name, period)
         if (name, period) not in est["swing_tops"]:
-            est["swing_tops"][name, period] = path_top(liftoff, landing)
-        top = est["swing_tops"][name, period]
+            top = path_top(liftoff, landing)
+            rough = top - min(liftoff[2], landing[2]) > SWING_ROUGH_HEIGHT
+            apex = swing_apex(liftoff, landing) if rough else None
+            est["swing_tops"][name, period] = apex
 
         # Ease in and out of the swing, so that the foot lifts off and touches
-        # down without sliding. Midway, the foot is step_height above the
-        # higher of its footholds
-        if top - min(liftoff[2], landing[2]) <= SWING_ROUGH_HEIGHT:
-            blend = 0.5 * (1 - np.cos(np.pi * phase))
+        # down without sliding. Over smooth terrain, midway, the foot is
+        # step_height above the higher of its footholds
+        apex = est["swing_tops"][name, period]
+        blend = 0.5 * (1 - np.cos(np.pi * phase))
+        if apex is None:
             p = (1 - blend) * liftoff + blend * landing
             lift = est["step_height"] + abs(landing[2] - liftoff[2]) / 2
             p[2] += lift * np.sin(np.pi * phase) ** 2
             return p, True
 
-        # Over rough terrain, the foot rises above the highest terrain on the
-        # way before it moves, and moves over its foothold before it comes down
-        move = (phase - SWING_LIFT_PHASE) / (1 - 2 * SWING_LIFT_PHASE)
-        blend = 0.5 * (1 - np.cos(np.pi * np.clip(move, 0.0, 1.0)))
-        p = (1 - blend) * liftoff + blend * landing
-        end = liftoff[2] if phase < 0.5 else landing[2]
-        apex = top + SWING_CLEARANCE
-        p[2] = end + (apex - end) * 0.5 * (1 - np.cos(2 * np.pi * phase))
+        # Over rough terrain, the foot follows a Bezier curve whose middle
+        # control points are at the apex height above the footholds, so that
+        # it moves across high and comes down onto its foothold from above
+        s = blend * blend * (3 - 2 * blend)
+        p = (1 - s) * liftoff + s * landing
+        p[2] = (
+            (1 - blend) ** 3 * liftoff[2]
+            + 3 * blend * (1 - blend) * apex
+            + blend**3 * landing[2]
+        )
         return p, True
+
+    def terrain_tilt(x, y, yaw):
+        # Pitch and roll of the plane fit to the terrain between the feet's
+        # nominal positions, for the base pose with the given heading yaw
+        R = rotation_z(yaw)
+        heights = [
+            ground(np.array([x, y, 0.0]) + R @ offset)[2]
+            for offset in tilt_offsets
+        ]
+        slope = np.linalg.lstsq(tilt_fit, heights, rcond=None)[0]
+        pitch, roll = np.arctan(slope[1:])
+        return (
+            np.clip(pitch, -MAX_TERRAIN_PITCH, MAX_TERRAIN_PITCH),
+            np.clip(roll, -MAX_TERRAIN_ROLL, MAX_TERRAIN_ROLL),
+        )
+
+    # Points of the patch around a foothold, relative to it
+    patch_steps = np.arange(-CONTACT_PATCH, CONTACT_PATCH + 1e-9, 0.02)
+    patch_offsets = [
+        np.array([dx, dy])
+        for dx in patch_steps
+        for dy in patch_steps
+        if np.hypot(dx, dy) <= CONTACT_PATCH + 1e-9
+    ]
+    max_contact_slope = np.tan(MAX_CONTACT_TILT)
+
+    def contact_plane(p):
+        # The plane through foothold p fit to the terrain around it, leaving
+        # out points near edges, as the terrain for the foot's contact
+        key = tuple(p)
+        if key not in est["contact_planes"]:
+            points = [
+                p[:2] + offset
+                for offset in patch_offsets
+                if edges(*(p[:2] + offset)) >= CONTACT_EDGE_GAP
+            ]
+            slope = np.zeros(2)
+            if len(points) >= 3:
+                fit = np.array([[1.0, *(q - p[:2])] for q in points])
+                heights = [terrain.at(q[0], q[1]).height for q in points]
+                slope = np.linalg.lstsq(fit, heights, rcond=None)[0][1:]
+            size = np.linalg.norm(slope)
+            if size > max_contact_slope:
+                slope *= max_contact_slope / size
+            est["contact_planes"][key] = ssqpy.model.terrain.SlopeTerrain(
+                slope[0], slope[1], p[2] - slope @ p[:2]
+            )
+        return est["contact_planes"][key]
 
     config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
         model, nominal_config[7:], C_WGT
@@ -1039,13 +1165,16 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
 
         for name in FOOT_NAMES:
             foot_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
-                model, name, est["landed"][name], T_WGT
+                model, name, est["landed"][name], np.array((1.0, 1.0, 1.0))
             )
+            # The contact constraint leaves the foot's height free, so that a
+            # foot the plan has in stance while it is off the terrain, like
+            # one landing late, cannot make the plan infeasible
             foot_constraint = model.addContactConstraint(
                 k,
                 name,
                 CONTACT_MU,
-                eq_tol=0.02,
+                eq_tol=np.inf,
                 max_normal_force=MAX_FOOT_FORCE,
                 no_slip=False,
             )
@@ -1098,6 +1227,7 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         est["footholds"] = {}
         est["foot_references"] = {}
         est["swing_tops"] = {}
+        est["contact_planes"] = {}
 
         config_cost.set_desired_configuration(
             stance_config(
@@ -1115,11 +1245,20 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
             k = current_stage + idx
             x, y, yaw = est["poses"][idx]
 
+            # Outside of jumps, the base follows the terrain's tilt, keeping
+            # its height along the tilted base's up axis
             j = jump_stage(k)
             height = gait_base_height(k) if j is None else jump_base_height(j)
+            pitch, roll = 0.0, 0.0
+            if j is None:
+                pitch, roll = terrain_tilt(x, y, yaw)
+            height /= np.cos(pitch) * np.cos(roll)
             height += ground_height(x, y, yaw)
+            terrain_rotation = rotation_y(-pitch) @ rotation_x(roll)
             base_costs[idx].set_desired_translation(np.array([x, y, height]))
-            base_costs[idx].set_desired_rotation(rotation_z(yaw) @ tilt)
+            base_costs[idx].set_desired_rotation(
+                rotation_z(yaw) @ terrain_rotation @ tilt
+            )
 
             # In the air, the legs hold their configuration rather than
             # following the feet's references. Before takeoff, the base's
@@ -1150,9 +1289,11 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
 
                 # Swinging feet track their swing trajectory, while stance
                 # feet stay in contact. The contact constraint only bounds the
-                # foot's height, so the tracking cost also keeps stance feet
-                # from sliding
+                # foot's force, so the tracking cost and the velocity bound
+                # keep stance feet in place
                 foot_constraint.set_enabled(not swinging)
+                if not swinging:
+                    foot_constraint.set_terrain(contact_plane(foot_pos))
                 if vel_bound is not None:
                     vel_bound.set_enabled(not swinging)
                 foot_cost.set_enabled(not flight)

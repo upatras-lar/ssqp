@@ -177,7 +177,7 @@ def run_mapper(interface, view=False, save=None):
             filled = em.smooth(em.despeckle(filled))
             filled = em.pin_to_feet(filled, mapper.stance_bottoms, x0, y0)
             edges = em.edge_distance(filled, em.unseen(height))
-            shared.write(em.blur(filled), edges, x0, y0, received)
+            shared.write(filled, edges, x0, y0, received)
             if viewer is not None:
                 viewer.log(received, world, height, filled, x0, y0, history)
     finally:

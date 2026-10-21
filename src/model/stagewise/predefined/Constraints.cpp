@@ -1366,6 +1366,17 @@ void ContactConstraint::set_eq_tol(const double eq_tol)
     _ub[5]  = eq_tol;
 }
 
+void ContactConstraint::set_terrain(
+  const std::shared_ptr<terrain::Terrain> &terrain)
+{
+    _terrain = terrain;
+}
+
+std::shared_ptr<terrain::Terrain> ContactConstraint::contact_terrain() const
+{
+    return _terrain ? _terrain : _model->terrain();
+}
+
 void ContactConstraint::set_enabled(const bool enabled)
 {
     StageConstraints::set_enabled(enabled);
@@ -1407,7 +1418,7 @@ const VecX &ContactConstraint::upper_bound() const
 
 VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 {
-    std::shared_ptr<terrain::Terrain> terrain = _model->terrain();
+    std::shared_ptr<terrain::Terrain> terrain = contact_terrain();
 
     Vec3 pos;
     Mat3 R;
@@ -1442,7 +1453,7 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                  MatX &dU) const
 {
-    std::shared_ptr<terrain::Terrain> terrain = _model->terrain();
+    std::shared_ptr<terrain::Terrain> terrain = contact_terrain();
 
     Vec3 pos;
     Mat3 R;
