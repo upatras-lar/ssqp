@@ -67,23 +67,12 @@ def get_controller(init_config):
         model, q_v, "Velocity Regularization Cost"
     )
 
+    limits = go2_planner.config.ReferenceGeneration
     base_height_constraint = constraints.FrameTranslationBound(
         model,
         "base_link",
-        np.array(
-            (
-                -np.inf,
-                -np.inf,
-                go2_planner.config.ReferenceGeneration.zb_min,
-            )
-        ),
-        np.array(
-            (
-                np.inf,
-                np.inf,
-                go2_planner.config.ReferenceGeneration.zb_max,
-            )
-        ),
+        np.array((-np.inf, -np.inf, limits.zb_min)),
+        np.array((np.inf, np.inf, limits.zb_max)),
         "Base Height Constraint",
     )
 
@@ -163,9 +152,7 @@ def get_controller(init_config):
         if k > 0:
             model.addConstraints(k, base_height_constraint)
 
-    model.finalize(
-        init_states=[init_config],
-    )
+    model.finalize(init_states=[init_config])
 
     ssqp_params = ssqpy.solvers.ssqpParams()
     ssqp_params.tolerance = 1e-1
@@ -180,8 +167,6 @@ def get_controller(init_config):
     ssqp_params.admmParams = admm_params
 
     mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=3, qp_iters=200)
-
-    np.set_printoptions(suppress=True)
 
     def update_func(v_cmd, config, vel, step):
         vel_3 = np.hstack((vel[:2], vel[5]))
@@ -205,21 +190,16 @@ def get_controller(init_config):
             stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
 
             for foot in go2_planner.config.FRAME_NAMES:
-                if stage_p_ref[foot][1]:  # swing
+                p, swing = stage_p_ref[foot]
+                if swing:
                     feet_constraints[foot][k].set_enabled(False)
                     feet_costs[foot][k].set_enabled(True)
-                    feet_costs[foot][k].set_desired_translation(
-                        stage_p_ref[foot][0]
-                    )
+                    feet_costs[foot][k].set_desired_translation(p)
                 else:  # stance
                     feet_costs[foot][k].set_enabled(False)
                     feet_constraints[foot][k].set_enabled(True)
-                    feet_constraints[foot][k].set_lower_bound(
-                        stage_p_ref[foot][0]
-                    )
-                    feet_constraints[foot][k].set_upper_bound(
-                        stage_p_ref[foot][0]
-                    )
+                    feet_constraints[foot][k].set_lower_bound(p)
+                    feet_constraints[foot][k].set_upper_bound(p)
 
             line_segment_costs[k].update_reference(stage_p_ref)
 

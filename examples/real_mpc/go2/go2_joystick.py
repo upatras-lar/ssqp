@@ -5,7 +5,7 @@ import sys
 import time
 import argparse
 import numpy as np
-from threading import Lock, RLock, Thread
+from threading import Event, Lock, RLock, Thread
 
 from unitree_sdk2py.core.channel import (
     ChannelPublisher,
@@ -13,8 +13,7 @@ from unitree_sdk2py.core.channel import (
     ChannelFactoryInitialize,
 )
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_
-from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_
-from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowState_, SportModeState_
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_, LowState_
 from unitree_sdk2py.utils.crc import CRC
 from unitree_sdk2py.utils.thread import RecurrentThread
 from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import (
@@ -22,11 +21,9 @@ from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import (
 )
 from unitree_sdk2py.go2.sport.sport_client import SportClient
 
-from threading import Event
-
 import kinematic_walk_model
-import dynamic_walk_model
-import elevation_map
+import dynamic_walk_model as dwm
+import elevation_map as em
 
 from mujoco_mpc.go2.go2_controllers.joystick import Controller
 
@@ -52,28 +49,45 @@ def performance_cores():
     return cores
 
 
+def blend(start, end, share):
+    # The joint positions the given share of the way from start to end
+    return (1 - share) * np.asarray(start) + share * np.asarray(end)
+
+
 PosStopF = 2.146e9
 VelStopF = 16000.0
 
 
 class CustomGo2Controller:
     JOINT_REORDER_MAP = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
-    JOINT_Kps = [
-        30.0,
-        40.0,
-        40.0,
-        30.0,
-        40.0,
-        40.0,
-        30.0,
-        30.0,
-        30.0,
-        30.0,
-        30.0,
-        30.0,
-    ]
-
+    # Joint gains of the kinematic walk
+    JOINT_Kps = [30.0, 40.0, 40.0] * 2 + [30.0] * 6
     JOINT_Kds = [0.3 * np.sqrt(Kp) for Kp in JOINT_Kps]
+
+    # Joint positions to start the stand move from, to stand at, and to drop
+    # to from standing, by leg in the robot's order (FR, FL, RR and RL)
+    STAND_GROUND_POS = np.ravel(
+        [
+            [0.0, 1.36, -2.65],
+            [0.0, 1.36, -2.65],
+            [-0.2, 1.66, -2.65],
+            [0.2, 1.66, -2.65],
+        ]
+    )
+    STANCE_POS = np.tile([0.0, 0.67, -1.3], 4)
+    DROP_POS = np.ravel(
+        [
+            [-0.35, 1.36, -2.65],
+            [0.35, 1.36, -2.65],
+            [-0.5, 1.36, -2.65],
+            [0.5, 1.36, -2.65],
+        ]
+    )
+
+    # The robot measures neither its base position nor its linear velocity,
+    # so the measured configurations take this base position, and the
+    # measured velocities a base at rest
+    BASE_POS = kinematic_walk_model.go2_planner.config.INIT_BASE_POS
 
     # Fallback, which moves to the stance position, then lies down and damps
     # the joints. It stays on until the robot stands up again
@@ -149,9 +163,7 @@ class CustomGo2Controller:
         # Shared memory the dynamic walk's state estimate goes to the LIDAR
         # map process (lidar_map.py) through, and the command that runs it,
         # showing the map in a Rerun viewer or saving it to a .rrd file if set
-        self.shared_poses = elevation_map.SharedPoses(
-            elevation_map.POSES_NAME, create=True
-        )
+        self.shared_poses = em.SharedPoses(em.POSES_NAME, create=True)
         mapper_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "lidar_map.py"
         )
@@ -175,64 +187,12 @@ class CustomGo2Controller:
         self.low_state = None
         self.low_state_time = None
         self.sim_foot_forces = False
-        self.current_base_pos = (
-            kinematic_walk_model.go2_planner.config.INIT_BASE_POS
-        )
-        self.current_base_vel = np.zeros(3)
 
         self.state_lock = Lock()
         self.cmd_lock = RLock()
 
         # Gamepad for the walks and the fallback button
         self.joystick = Controller()
-
-        # Position before starting stand move
-        self._stand_ground_pos = [
-            0.0,
-            1.36,
-            -2.65,
-            0.0,
-            1.36,
-            -2.65,
-            -0.2,
-            1.66,
-            -2.65,
-            0.2,
-            1.66,
-            -2.65,
-        ]
-
-        # Stance position
-        self._stance_pos = [
-            0.0,
-            0.67,
-            -1.3,
-            0.0,
-            0.67,
-            -1.3,
-            0.0,
-            0.67,
-            -1.3,
-            0.0,
-            0.67,
-            -1.3,
-        ]
-
-        # Position after dropping from stance
-        self._drop_pos = [
-            -0.35,
-            1.36,
-            -2.65,
-            0.35,
-            1.36,
-            -2.65,
-            -0.5,
-            1.36,
-            -2.65,
-            0.5,
-            1.36,
-            -2.65,
-        ]
 
         # Starting position
         self.start_pos = [0.0] * 12
@@ -246,90 +206,21 @@ class CustomGo2Controller:
 
         self.stand_start = None
 
-        def stand_task(self):
-            self.first_run = True
-            self.percent_1 = 0.0
-            self.percent_2 = 0.0
-            self.percent_3 = 0.0
+        # The dynamic walk's solver thread, while it runs
+        self.solver_running = False
+        self.solver_thread = None
 
-        def drop_task(self):
-            self.first_run = True
-            self.percent_1 = 0.0
-            self.percent_2 = 0.0
-
-        def kinematic_walk_task(self):
-            self.step = 0
-            self.stance_feet = []
-
-            self.model, self.mpc_controller, self.update_func = (
-                kinematic_walk_model.get_controller(
-                    self._getGeneralizedConfiguration(self.current_base_pos)
-                )
-            )
-
-        def dynamic_walk_task(self):
-            # Ground the walk steps on and the distances to its edges, flat
-            # until the walk has read MAP_SETTLE_MAPS LIDAR maps. The walk's frame starts over here, so the map process
-            # starts a new map, and maps made before now are left out
-            terrain = dynamic_walk_model.ssqpy.model.terrain
-            self.terrain = terrain.HeightmapTerrain(
-                np.zeros((2, 2)), elevation_map.MAP_RESOLUTION
-            )
-            # Heights and corner of the latest map, which the terrain goes
-            # back to once the walk uses the map again, and whether the walk
-            # leaves the map out and takes the terrain to be flat
-            self.terrain_heights = (np.zeros((2, 2)), 0.0, 0.0)
-            self.flat_terrain = False
-            self.edges = None
-            self.terrain_time = time.time()
-            self.maps_read = 0
-            self.shared_poses.restart()
-
-            (
-                self.model,
-                self.mpc_controller,
-                self.update_func,
-                self.plan_commands,
-                self.command_torques,
-                self.filter_state,
-                self.flat_ground,
-                self.jumping,
-                self.stance,
-            ) = dynamic_walk_model.get_controller(
-                self._getGeneralizedConfiguration(self.current_base_pos),
-                SIMULATION,
-                self.terrain,
-                self._edgeDistance,
-            )
-
-            # Leave everything made so far out of garbage collections, which
-            # would otherwise pause every thread for several milliseconds
-            # each time they go through all objects
-            gc.freeze()
-
-            # Latest plan with the time it started
-            self.plan = None
-            self.stance_error_commands = 0
-            self.swing_error_commands = 0
-
-            # Solve in a separate thread, so that commands keep going out and
-            # the state keeps updating while it solves
-            self.solver_running = True
-            self.solver_thread = Thread(
-                target=self._runDynamicWalkSolver, daemon=True
-            )
-            self.solver_thread.start()
-
+        # Each task's initializer and the function giving its commands
         self.task_map = {
-            None: (lambda obj: None, lambda: None),
-            "stand": (stand_task, self._execStandTask),
-            "drop": (drop_task, self._execDropTask),
+            None: (lambda: None, lambda: None),
+            "stand": (self._initStandTask, self._execStandTask),
+            "drop": (self._initDropTask, self._execDropTask),
             "kinematic-walk": (
-                kinematic_walk_task,
+                self._initKinematicWalkTask,
                 self._execKinematicWalkTask,
             ),
             "dynamic-walk": (
-                dynamic_walk_task,
+                self._initDynamicWalkTask,
                 self._execDynamicWalkTask,
             ),
         }
@@ -339,18 +230,18 @@ class CustomGo2Controller:
 
         self.crc = CRC()
 
-        # Inititalize `low_cmd`
+        # Initialize `low_cmd`
         self.low_cmd.head[0] = 0xFE
         self.low_cmd.head[1] = 0xEF
         self.low_cmd.level_flag = 0xFF
         self.low_cmd.gpio = 0
-        for i in range(20):
-            self.low_cmd.motor_cmd[i].mode = 0x01  # (PMSM) mode
-            self.low_cmd.motor_cmd[i].q = PosStopF
-            self.low_cmd.motor_cmd[i].kp = 0
-            self.low_cmd.motor_cmd[i].dq = VelStopF
-            self.low_cmd.motor_cmd[i].kd = 0
-            self.low_cmd.motor_cmd[i].tau = 0
+        for cmd in self.low_cmd.motor_cmd:
+            cmd.mode = 0x01  # (PMSM) mode
+            cmd.q = PosStopF
+            cmd.kp = 0
+            cmd.dq = VelStopF
+            cmd.kd = 0
+            cmd.tau = 0
 
         # Create publisher
         self.lowcmd_publisher = ChannelPublisher("rt/lowcmd", LowCmd_)
@@ -359,11 +250,6 @@ class CustomGo2Controller:
         # Create subscriber
         self.lowstate_subscriber = ChannelSubscriber("rt/lowstate", LowState_)
         self.lowstate_subscriber.Init(self._lowStateMessageHandler, 1)
-
-        # self.sportmode_subscriber = ChannelSubscriber(
-        #     "rt/sportmodestate", SportModeState_
-        # )
-        # self.sportmode_subscriber.Init(self._sportStateMessageHandler, 1)
 
         self.sc = SportClient()
         self.sc.SetTimeout(1.0)
@@ -418,12 +304,12 @@ class CustomGo2Controller:
     def _stopDynamicWalkSolver(self):
         # Stop the dynamic walk solver, if it is running
         self.solver_running = False
-        if getattr(self, "solver_thread", None) is not None:
+        if self.solver_thread is not None:
             self.solver_thread.join()
             self.solver_thread = None
 
     def set_task(self, task):
-        if task not in self.task_map.keys():
+        if task not in self.task_map:
             raise ValueError("Invalid task")
 
         if self.fallback_start is not None:
@@ -433,21 +319,19 @@ class CustomGo2Controller:
         self._stopDynamicWalkSolver()
 
         # Initialize task via task initializer function
-        self.task_map[task][0](self)
+        self.task_map[task][0]()
         # Set task as the current task
         self.task = task
 
     # Private methods
     def _lowStateMessageHandler(self, msg: LowState_):
         filtering = self.task == "dynamic-walk"
-        self.state_lock.acquire()
-        self.low_state = msg
-        self.low_state_time = time.time()
-        if filtering:
-            pos = self._getGeneralizedConfiguration(self.current_base_pos)
-            vel = self._getGeneralizedVelocity(self.current_base_vel)
-            acc = np.array(msg.imu_state.accelerometer)
-        self.state_lock.release()
+        with self.state_lock:
+            self.low_state = msg
+            self.low_state_time = time.time()
+            if filtering:
+                pos, vel = self._measuredState()
+                acc = np.array(msg.imu_state.accelerometer)
 
         # Update the state filter with every message, and share its estimate,
         # the feet it takes to be on the ground and whether the robot is
@@ -458,17 +342,11 @@ class CustomGo2Controller:
             self.shared_poses.write(
                 now,
                 x[:3],
-                np.roll(dynamic_walk_model.rotation_to_quat(R), 1),
+                np.roll(dwm.rotation_to_quat(R), 1),
                 pos[7:],
                 self.stance(),
                 self.jumping(),
             )
-
-    def _sportStateMessageHandler(self, msg: SportModeState_):
-        self.state_lock.acquire()
-        self.current_base_pos = np.hstack((np.zeros(2), msg.position[2]))
-        self.current_base_vel = np.array(msg.velocity)
-        self.state_lock.release()
 
     def _lowCmdWrite(self):
         if self.low_state is None:
@@ -508,105 +386,96 @@ class CustomGo2Controller:
             self.low_cmd.crc = self.crc.Crc(self.low_cmd)
             self.lowcmd_publisher.Write(self.low_cmd)
 
+    def _command(self, q, dq, kp, kd, tau):
+        # Sets the motor commands, each from a value per motor (robot order)
+        # or one for all of them
+        q, dq, kp, kd, tau = np.broadcast_arrays(q, dq, kp, kd, tau)
+        for i in range(12):
+            cmd = self.low_cmd.motor_cmd[i]
+            cmd.q = q[i]
+            cmd.dq = dq[i]
+            cmd.kp = kp[i]
+            cmd.kd = kd[i]
+            cmd.tau = tau[i]
+
+    def _moveJoints(self, q):
+        # Commands the joints to q (robot order) with the stand gains
+        self._command(q, 0.0, self.Kp, self.Kd, 0.0)
+
+    def _initStandTask(self):
+        self.first_run = True
+        self.percent_1 = 0.0
+        self.percent_2 = 0.0
+        self.percent_3 = 0.0
+
     def _execStandTask(self):
         # On first run, copy current motor state
         if self.first_run:
-            for i in range(12):
-                self.start_pos[i] = self.low_state.motor_state[i].q
+            self.start_pos = [
+                self.low_state.motor_state[i].q for i in range(12)
+            ]
             self.first_run = False
 
         # On sub-move 1, interpolate between initial and stand-ground positions
-        self.percent_1 += self.dt / 0.5
-        self.percent_1 = min(self.percent_1, 1)
+        self.percent_1 = min(self.percent_1 + self.dt / 0.5, 1)
         if self.percent_1 < 1:
-            for i in range(12):
-                self.low_cmd.motor_cmd[i].q = (
-                    1 - self.percent_1
-                ) * self.start_pos[
-                    i
-                ] + self.percent_1 * self._stand_ground_pos[
-                    i
-                ]
-                self.low_cmd.motor_cmd[i].dq = 0
-                self.low_cmd.motor_cmd[i].kp = self.Kp
-                self.low_cmd.motor_cmd[i].kd = self.Kd
-                self.low_cmd.motor_cmd[i].tau = 0
+            self._moveJoints(
+                blend(self.start_pos, self.STAND_GROUND_POS, self.percent_1)
+            )
 
         # On sub-move 2, interpolate between stand-ground and stance positions
         elif self.percent_2 < 1:
-            self.percent_2 += self.dt / 2.0
-            self.percent_2 = min(self.percent_2, 1)
-            for i in range(12):
-                self.low_cmd.motor_cmd[i].q = (
-                    1 - self.percent_2
-                ) * self._stand_ground_pos[
-                    i
-                ] + self.percent_2 * self._stance_pos[
-                    i
-                ]
-                self.low_cmd.motor_cmd[i].dq = 0
-                self.low_cmd.motor_cmd[i].kp = self.Kp
-                self.low_cmd.motor_cmd[i].kd = self.Kd
-                self.low_cmd.motor_cmd[i].tau = 0
+            self.percent_2 = min(self.percent_2 + self.dt / 2.0, 1)
+            self._moveJoints(
+                blend(self.STAND_GROUND_POS, self.STANCE_POS, self.percent_2)
+            )
 
         # On sub-move 3, hold stance position
         elif self.percent_3 < 1:
-            self.percent_3 += self.dt / 2.0
-            self.percent_3 = min(self.percent_3, 1)
-            for i in range(12):
-                self.low_cmd.motor_cmd[i].q = self._stance_pos[i]
-                self.low_cmd.motor_cmd[i].dq = 0
-                self.low_cmd.motor_cmd[i].kp = self.Kp
-                self.low_cmd.motor_cmd[i].kd = self.Kd
-                self.low_cmd.motor_cmd[i].tau = 0
+            self.percent_3 = min(self.percent_3 + self.dt / 2.0, 1)
+            self._moveJoints(self.STANCE_POS)
 
         # On finish, revert to None task
         else:
             self.task = None
+
+    def _initDropTask(self):
+        self.percent = 0.0
 
     def _execDropTask(self):
-        # On first run, copy current motor state
-        if self.first_run:
-            for i in range(12):
-                self.start_pos[i] = self.low_state.motor_state[i].q
-            self.first_run = False
-
-        # On sub-move 2, interpolate between stance and ground positions
-        if self.percent_2 < 1:
-            self.percent_2 += self.dt / 2.5
-            self.percent_2 = min(self.percent_2, 1)
-            for i in range(12):
-                self.low_cmd.motor_cmd[i].q = (
-                    1 - self.percent_2
-                ) * self._stance_pos[i] + self.percent_2 * self._drop_pos[i]
-                self.low_cmd.motor_cmd[i].dq = 0
-                self.low_cmd.motor_cmd[i].kp = self.Kp
-                self.low_cmd.motor_cmd[i].kd = self.Kd
-                self.low_cmd.motor_cmd[i].tau = 0
+        # Interpolate between stance and ground positions
+        if self.percent < 1:
+            self.percent = min(self.percent + self.dt / 2.5, 1)
+            self._moveJoints(
+                blend(self.STANCE_POS, self.DROP_POS, self.percent)
+            )
 
         # On finish, revert to None task
         else:
             self.task = None
 
+    def _initKinematicWalkTask(self):
+        self.step = 0
+        self.stance_feet = []
+
+        self.model, self.mpc_controller, self.update_func = (
+            kinematic_walk_model.get_controller(self._measuredState()[0])
+        )
+
     def _execKinematicWalkTask(self):
-        # Get generalized position and velocity vectors
-        self.state_lock.acquire()
-        pos = self._getGeneralizedConfiguration(self.current_base_pos)
-        vel = self._getGeneralizedVelocity(self.current_base_vel)
-        self.state_lock.release()
+        with self.state_lock:
+            pos, vel = self._measuredState()
 
         # Estimate the base height from the feet in stance, which are on the
         # ground, using forward kinematics with the base at the origin
+        config = kinematic_walk_model.go2_planner.config
         if self.stance_feet:
             local = pos.copy()
             local[:3] = 0.0
             height = -np.mean(
                 [
                     self.model.forwardKinematics(
-                        local,
-                        kinematic_walk_model.go2_planner.config.FRAME_NAMES[
-                            foot
-                        ],
+                        local, config.FRAME_NAMES[foot]
                     )[0][2]
                     for foot in self.stance_feet
                 ]
@@ -614,7 +483,7 @@ class CustomGo2Controller:
             # Offset height by some amount
             pos[2] = height + 0.05
 
-        limits = kinematic_walk_model.go2_planner.config.ReferenceGeneration
+        limits = config.ReferenceGeneration
         v_cmd = self.joystick.read(
             limits.max_vel_front,
             limits.max_vel_back,
@@ -623,30 +492,72 @@ class CustomGo2Controller:
         )
         self.step += 1
 
-        p_ref = self.update_func(
-            v_cmd,
-            pos,
-            vel,
-            self.step,
+        p_ref = self.update_func(v_cmd, pos, vel, self.step)
+
+        # The feet the references have in stance
+        self.stance_feet = [foot for foot in p_ref if not p_ref[foot][0][1]]
+
+        x, u = (v.toarray() for v in self.mpc_controller.step(pos))
+        self._command(
+            x[1][7:][self.JOINT_REORDER_MAP],
+            u[1][6:][self.JOINT_REORDER_MAP],
+            self.JOINT_Kps,
+            self.JOINT_Kds,
+            0.0,
         )
 
-        self.stance_feet = []
-        for foot in p_ref:
-            if not p_ref[foot][0][1]:  # if stance
-                self.stance_feet.append(foot)
+    def _initDynamicWalkTask(self):
+        # Ground the walk steps on and the distances to its edges, flat until
+        # the walk has read MAP_SETTLE_MAPS LIDAR maps. The walk's frame
+        # starts over here, so the map process starts a new map, and maps
+        # made before now are left out
+        self.terrain = dwm.ssqpy.model.terrain.HeightmapTerrain(
+            np.zeros((2, 2)), em.MAP_RESOLUTION
+        )
+        # Heights and corner of the latest map, which the terrain goes back to
+        # once the walk uses the map again, and whether the walk leaves the
+        # map out and takes the terrain to be flat
+        self.terrain_heights = (np.zeros((2, 2)), 0.0, 0.0)
+        self.flat_terrain = False
+        self.edges = None
+        self.terrain_time = time.time()
+        self.maps_read = 0
+        self.shared_poses.restart()
 
-        next = [x.toarray() for x in self.mpc_controller.step(pos)]
+        (
+            self.model,
+            self.mpc_controller,
+            self.update_func,
+            self.plan_commands,
+            self.command_torques,
+            self.filter_state,
+            self.flat_ground,
+            self.jumping,
+            self.stance,
+        ) = dwm.get_controller(
+            self._measuredState()[0],
+            SIMULATION,
+            self.terrain,
+            self._edgeDistance,
+        )
 
-        for i in range(12):
-            self.low_cmd.motor_cmd[i].q = next[0][1][
-                7 + self.JOINT_REORDER_MAP[i]
-            ]
-            self.low_cmd.motor_cmd[i].dq = next[1][1][
-                6 + self.JOINT_REORDER_MAP[i]
-            ]
-            self.low_cmd.motor_cmd[i].kp = self.JOINT_Kps[i]
-            self.low_cmd.motor_cmd[i].kd = self.JOINT_Kds[i]
-            self.low_cmd.motor_cmd[i].tau = 0.0
+        # Leave everything made so far out of garbage collections, which
+        # would otherwise pause every thread for several milliseconds
+        # each time they go through all objects
+        gc.freeze()
+
+        # Latest plan with the time it started
+        self.plan = None
+        self.stance_error_commands = 0
+        self.swing_error_commands = 0
+
+        # Solve in a separate thread, so that commands keep going out and
+        # the state keeps updating while it solves
+        self.solver_running = True
+        self.solver_thread = Thread(
+            target=self._runDynamicWalkSolver, daemon=True
+        )
+        self.solver_thread.start()
 
     def _runDynamicWalkSolver(self):
         cores = performance_cores()
@@ -664,11 +575,9 @@ class CustomGo2Controller:
 
             # Get generalized position and velocity vectors
             now = time.time()
-            self.state_lock.acquire()
-            pos = self._getGeneralizedConfiguration(self.current_base_pos)
-            vel = self._getGeneralizedVelocity(self.current_base_vel)
-            forces = np.array(self.low_state.foot_force)
-            self.state_lock.release()
+            with self.state_lock:
+                pos, vel = self._measuredState()
+                forces = np.array(self.low_state.foot_force)
 
             # The simulator counts as reporting foot forces once any foot has
             # reported one
@@ -682,10 +591,10 @@ class CustomGo2Controller:
                 )
 
             v_cmd = self.joystick.read(
-                dynamic_walk_model.MAX_VEL_FRONT,
-                dynamic_walk_model.MAX_VEL_BACK,
-                dynamic_walk_model.MAX_VEL_SIDE,
-                dynamic_walk_model.MAX_VEL_YAW,
+                dwm.MAX_VEL_FRONT,
+                dwm.MAX_VEL_BACK,
+                dwm.MAX_VEL_SIDE,
+                dwm.MAX_VEL_YAW,
             )
 
             # Pitch, roll and yaw commands from pairs of opposite buttons
@@ -700,7 +609,7 @@ class CustomGo2Controller:
             ]
 
             # Solve from the state predicted for when the plan starts
-            start = now + dynamic_walk_model.PREDICT_TIME
+            start = now + dwm.PREDICT_TIME
             plan = self.plan
 
             try:
@@ -717,7 +626,7 @@ class CustomGo2Controller:
                     contacts,
                 )
                 if plan is not None:
-                    state = dynamic_walk_model.predict_state(
+                    state = dwm.predict_state(
                         state, plan[1], now - plan[0], start - plan[0]
                     )
                 x, u = self.mpc_controller.step(state)
@@ -747,9 +656,7 @@ class CustomGo2Controller:
             self._lowCmdWrite()
 
             # Keep a fixed solve rate, but skip stages that are already late
-            next_solve = max(
-                next_solve + dynamic_walk_model.MPC_DT, time.time()
-            )
+            next_solve = max(next_solve + dwm.MPC_DT, time.time())
 
     def _updateTerrain(self):
         # Takes the latest LIDAR map into the walk's terrain if it is new.
@@ -769,9 +676,7 @@ class CustomGo2Controller:
             return
         if self.shared_map is None:
             try:
-                self.shared_map = elevation_map.SharedMap(
-                    elevation_map.MAP_NAME
-                )
+                self.shared_map = em.SharedMap(em.MAP_NAME)
             except FileNotFoundError:
                 return
 
@@ -785,11 +690,7 @@ class CustomGo2Controller:
         self.maps_read += 1
         if self.maps_read < self.MAP_SETTLE_MAPS:
             return
-        self.terrain_heights = (
-            heights + dynamic_walk_model.FOOT_POINT_HEIGHT,
-            x0,
-            y0,
-        )
+        self.terrain_heights = (heights + dwm.FOOT_POINT_HEIGHT, x0, y0)
         if not self.flat_terrain:
             self.terrain.set_heights(*self.terrain_heights)
         self.edges = (edges, x0, y0)
@@ -801,8 +702,8 @@ class CustomGo2Controller:
             return np.inf
 
         edges, x0, y0 = self.edges
-        i = round((x - x0) / elevation_map.MAP_RESOLUTION)
-        j = round((y - y0) / elevation_map.MAP_RESOLUTION)
+        i = round((x - x0) / em.MAP_RESOLUTION)
+        j = round((y - y0) / em.MAP_RESOLUTION)
         if not (0 <= i < edges.shape[0] and 0 <= j < edges.shape[1]):
             return np.inf
         return edges[i, j]
@@ -814,27 +715,25 @@ class CustomGo2Controller:
             return
 
         with self.state_lock:
-            pos = self._getGeneralizedConfiguration(self.current_base_pos)
-            vel = self._getGeneralizedVelocity(self.current_base_vel)
+            pos, vel = self._measuredState()
             state_time = self.low_state_time
 
-        # Play the latest plan back by the time elapsed since it started
+        # Play the latest plan back by the time elapsed since it started, ahead
+        # by the time the motors take to act on the commands
         now = time.time()
         elapsed = now - plan[0]
-        q, dq = dynamic_walk_model.playback(plan[1], elapsed)
-        tau = self.command_torques(plan[1], elapsed, pos, vel)
+        lead = dwm.SIM_COMMAND_LEAD if SIMULATION else dwm.COMMAND_LEAD
+        q, dq = dwm.playback(plan[1], elapsed + lead)
+        tau = self.command_torques(plan[1], elapsed + lead, pos, vel)
 
-        # Joints off the plan, counted separately for the legs the plan has in
-        # stance and the swinging ones
-        error = q - pos[7:]
+        # Joints off the plan as it is now, counted separately for the legs
+        # the plan has in stance and the swinging ones
+        planned_q, _ = dwm.playback(plan[1], elapsed)
+        error = planned_q - pos[7:]
         worst = np.argmax(np.abs(error))
         stages = plan[1][2]
-        k = min(
-            int(max(elapsed, 0.0) / dynamic_walk_model.MPC_DT), len(stages) - 1
-        )
-        stance = np.repeat(
-            [name in stages[k] for name in dynamic_walk_model.FOOT_NAMES], 3
-        )
+        k = min(int(max(elapsed, 0.0) / dwm.MPC_DT), len(stages) - 1)
+        stance = np.repeat([name in stages[k] for name in dwm.FOOT_NAMES], 3)
         off = np.abs(error) > self.MAX_TRACKING_ERROR
         self.stance_error_commands = (
             self.stance_error_commands + 1 if off[stance].any() else 0
@@ -845,10 +744,10 @@ class CustomGo2Controller:
 
         # Cosine of the angle between the measured and planned base tilts,
         # comparing the world z axis as seen from the base, which ignores yaw
-        planned = dynamic_walk_model.plan_state(plan[1][0], elapsed)
+        planned = dwm.plan_state(plan[1][0], elapsed)
         cos_tilt = (
-            dynamic_walk_model.quat_to_rotation(pos[3:7])[2]
-            @ dynamic_walk_model.quat_to_rotation(planned[3:7])[2]
+            dwm.quat_to_rotation(pos[3:7])[2]
+            @ dwm.quat_to_rotation(planned[3:7])[2]
         )
 
         reason = None
@@ -866,7 +765,8 @@ class CustomGo2Controller:
             joint = ["hip", "thigh", "calf"][worst % 3]
             reason = (
                 f"the joints stopped following the plan ({leg} {joint} at "
-                f"{pos[7 + worst]:.2f} rad, planned {q[worst]:.2f} rad)"
+                f"{pos[7 + worst]:.2f} rad, planned {planned_q[worst]:.2f} "
+                "rad)"
             )
         elif cos_tilt < np.cos(self.MAX_TILT):
             reason = "the base tilted too far from the plan"
@@ -877,19 +777,11 @@ class CustomGo2Controller:
             return
 
         if SIMULATION:
-            kp = dynamic_walk_model.SIM_JOINT_KP
-            kd = dynamic_walk_model.SIM_JOINT_KD
+            kp, kd = dwm.SIM_JOINT_KP, dwm.SIM_JOINT_KD
         else:
-            kp = dynamic_walk_model.JOINT_KP
-            kd = dynamic_walk_model.JOINT_KD
-
-        for i in range(12):
-            j = self.JOINT_REORDER_MAP[i]
-            self.low_cmd.motor_cmd[i].q = q[j]
-            self.low_cmd.motor_cmd[i].dq = dq[j]
-            self.low_cmd.motor_cmd[i].kp = kp
-            self.low_cmd.motor_cmd[i].kd = kd
-            self.low_cmd.motor_cmd[i].tau = tau[j]
+            kp, kd = dwm.JOINT_KP, dwm.JOINT_KD
+        reorder = self.JOINT_REORDER_MAP
+        self._command(q[reorder], dq[reorder], kp, kd, tau[reorder])
 
     def _startFallback(self, reason):
         with self.cmd_lock:
@@ -898,68 +790,44 @@ class CustomGo2Controller:
 
             print(f"Falling back since {reason}")
             self.solver_running = False
-            for i in range(12):
-                self.start_pos[i] = self.low_state.motor_state[i].q
+            self.start_pos = [
+                self.low_state.motor_state[i].q for i in range(12)
+            ]
             self.fallback_start = time.time()
 
     def _execFallbackTask(self):
         elapsed = time.time() - self.fallback_start
 
         # Move the joints to the stance position, then to the lying position
-        if elapsed < self.FALLBACK_STAND_TIME + self.FALLBACK_DROP_TIME:
-            if elapsed < self.FALLBACK_STAND_TIME:
-                percent = elapsed / self.FALLBACK_STAND_TIME
-                start, end = self.start_pos, self._stance_pos
-            else:
-                percent = (
-                    elapsed - self.FALLBACK_STAND_TIME
-                ) / self.FALLBACK_DROP_TIME
-                start, end = self._stance_pos, self._drop_pos
-            for i in range(12):
-                self.low_cmd.motor_cmd[i].q = (1 - percent) * start[
-                    i
-                ] + percent * end[i]
-                self.low_cmd.motor_cmd[i].dq = 0
-                self.low_cmd.motor_cmd[i].kp = self.Kp
-                self.low_cmd.motor_cmd[i].kd = self.Kd
-                self.low_cmd.motor_cmd[i].tau = 0
+        if elapsed < self.FALLBACK_STAND_TIME:
+            percent = elapsed / self.FALLBACK_STAND_TIME
+            self._moveJoints(blend(self.start_pos, self.STANCE_POS, percent))
+        elif elapsed < self.FALLBACK_STAND_TIME + self.FALLBACK_DROP_TIME:
+            percent = (
+                elapsed - self.FALLBACK_STAND_TIME
+            ) / self.FALLBACK_DROP_TIME
+            self._moveJoints(blend(self.STANCE_POS, self.DROP_POS, percent))
 
         # Once lying down, damp the joints
         else:
-            for i in range(12):
-                self.low_cmd.motor_cmd[i].dq = 0.0
-                self.low_cmd.motor_cmd[i].kp = 0.0
-                self.low_cmd.motor_cmd[i].kd = self.DAMPING_KD
-                self.low_cmd.motor_cmd[i].tau = 0.0
+            for cmd in self.low_cmd.motor_cmd[:12]:
+                cmd.dq = 0.0
+                cmd.kp = 0.0
+                cmd.kd = self.DAMPING_KD
+                cmd.tau = 0.0
 
-    def _getGeneralizedConfiguration(self, base_pos):
-        # Extract & reorder quaternion
-        quat = np.array(self.low_state.imu_state.quaternion)
-        w = quat[0]
-        quat[:3] = quat[1:]
-        quat[3] = w
+    def _measuredState(self):
+        # The configuration and velocity from the latest state message, with
+        # the joints reordered to the model's order
+        state = self.low_state
+        quat = np.roll(state.imu_state.quaternion, -1)
         quat /= np.linalg.norm(quat)
-
-        # Extract & reorder joint angles
-        joints = []
-        for i in range(12):
-            joints.append(
-                self.low_state.motor_state[self.JOINT_REORDER_MAP[i]].q
-            )
-
-        return np.hstack((base_pos, quat, joints))
-
-    def _getGeneralizedVelocity(self, base_vel):
-        # Extract angular velocity
-        ang_vel = list(self.low_state.imu_state.gyroscope)
-
-        joint_vel = []
-        for i in range(12):
-            joint_vel.append(
-                self.low_state.motor_state[self.JOINT_REORDER_MAP[i]].dq
-            )
-
-        return np.hstack((base_vel, ang_vel, joint_vel))
+        motors = [state.motor_state[j] for j in self.JOINT_REORDER_MAP]
+        config = np.hstack((self.BASE_POS, quat, [m.q for m in motors]))
+        vel = np.hstack(
+            (np.zeros(3), state.imu_state.gyroscope, [m.dq for m in motors])
+        )
+        return config, vel
 
 
 def parse_args():
@@ -980,8 +848,8 @@ def parse_args():
         "--simulation",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Whether to control the unitree_mujoco simulator instead of the \
-            robot",
+        help="Whether to control the unitree_mujoco simulator instead of the "
+        "robot",
     )
 
     parser.add_argument(
@@ -989,8 +857,8 @@ def parse_args():
         "--interface",
         type=str,
         default=None,
-        help=f"The network interface to use (default: {SIMULATION_INTERFACE} \
-            when simulating, {ROBOT_INTERFACE} otherwise)",
+        help=f"The network interface to use (default: {SIMULATION_INTERFACE} "
+        f"when simulating, {ROBOT_INTERFACE} otherwise)",
     )
 
     parser.add_argument(
@@ -1012,8 +880,8 @@ def parse_args():
         "--map",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Whether the dynamic walk uses the LIDAR map, rather than taking \
-            the ground to be flat. The map is still made when shown or saved",
+        help="Whether the dynamic walk uses the LIDAR map, rather than taking "
+        "the ground to be flat. The map is still made when shown or saved",
     )
 
     parser.add_argument(
@@ -1021,8 +889,8 @@ def parse_args():
         "--rate",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Whether to print the dynamic walk's MPC rate and solve times \
-            every few seconds",
+        help="Whether to print the dynamic walk's MPC rate and solve times "
+        "every few seconds",
     )
 
     return parser.parse_args()

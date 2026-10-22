@@ -335,21 +335,25 @@ class ElevationMap:
             wanted = o + (np.arange(n) - o) % n
             moved = slots != wanted
             if moved.any():
-                index = (
+                self._clear(
                     (moved, slice(None)) if axis == 0 else (slice(None), moved)
                 )
-                self.height[index] = np.nan
-                self.var[index] = np.inf
-                self.mean[index] = np.nan
-                self.mean_var[index] = np.inf
-                self.lower[index] = 0
                 slots[:] = wanted
 
     def age(self, t):
         if self.last_t is not None:
-            self.var += DRIFT_STD**2 * max(t - self.last_t, 0.0)
-            self.mean_var += DRIFT_STD**2 * max(t - self.last_t, 0.0)
+            growth = DRIFT_STD**2 * max(t - self.last_t, 0.0)
+            self.var += growth
+            self.mean_var += growth
         self.last_t = t
+
+    def _clear(self, index):
+        # Forgets the cells at the given index of the arrays
+        self.height[index] = np.nan
+        self.var[index] = np.inf
+        self.mean[index] = np.nan
+        self.mean_var[index] = np.inf
+        self.lower[index] = 0
 
     def _slots(self, xy):
         cells = np.floor(xy / MAP_RESOLUTION).astype(int)
@@ -415,11 +419,7 @@ class ElevationMap:
             return
         flat = slots[inside, 0] * MAP_CELLS + slots[inside, 1]
         above = flat[self.height.reshape(-1)[flat] > points[inside, 2]]
-        self.height.reshape(-1)[above] = np.nan
-        self.var.reshape(-1)[above] = np.inf
-        self.mean.reshape(-1)[above] = np.nan
-        self.mean_var.reshape(-1)[above] = np.inf
-        self.lower.reshape(-1)[above] = 0
+        self._clear(np.unravel_index(above, self.height.shape))
 
     def _update(self, cells, z, var_z, points):
         # Fuses one height per cell, measured by the given number of points
@@ -471,6 +471,19 @@ class ElevationMap:
         return height, var, x0, y0
 
 
+def neighbours(grid, **pad):
+    """Each cell's 9 neighbours, itself included, as 9 shifted copies of the
+    grid, with its borders padded as np.pad does with the given arguments
+    """
+    n = grid.shape
+    padded = np.pad(grid, 1, **pad)
+    return [
+        padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]]
+        for di in (-1, 0, 1)
+        for dj in (-1, 0, 1)
+    ]
+
+
 def fill_holes(height, default=0.0):
     """Fills unknown cells from their known neighbours, taking the highest
 
@@ -479,17 +492,8 @@ def fill_holes(height, default=0.0):
     """
     unknown = np.isnan(height)
     height = np.where(unknown, -np.inf, height)
-    n = height.shape
     while unknown.any():
-        padded = np.pad(height, 1, constant_values=-np.inf)
-        highest = np.full(n, -np.inf)
-        for di in (-1, 0, 1):
-            for dj in (-1, 0, 1):
-                np.maximum(
-                    highest,
-                    padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]],
-                    out=highest,
-                )
+        highest = np.max(neighbours(height, constant_values=-np.inf), axis=0)
         reached = unknown & (highest > -np.inf)
         if not reached.any():
             height[unknown] = default
@@ -525,13 +529,7 @@ MEDIAN9_NETWORK = [
 
 def median9(grid):
     """Median of each cell and its 8 neighbours, of a grid without holes"""
-    n = grid.shape
-    padded = np.pad(grid, 1, mode="edge")
-    near = [
-        padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]]
-        for di in (-1, 0, 1)
-        for dj in (-1, 0, 1)
-    ]
+    near = neighbours(grid, mode="edge")
     for a, b in MEDIAN9_NETWORK:
         near[a], near[b] = np.minimum(near[a], near[b]), np.maximum(
             near[a], near[b]
@@ -603,14 +601,7 @@ def unseen(height):
     larger unknown areas are mostly hidden from the sensor, like the ground
     just past a drop
     """
-    unknown = np.isnan(height)
-    n = height.shape
-    padded = np.pad(unknown, 1, constant_values=True)
-    alone = unknown.copy()
-    for di in (-1, 0, 1):
-        for dj in (-1, 0, 1):
-            alone &= padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]]
-    return alone
+    return np.all(neighbours(np.isnan(height), constant_values=True), axis=0)
 
 
 def edge_distance(height, unseen_cells):
@@ -621,14 +612,13 @@ def edge_distance(height, unseen_cells):
     neighbour, so they are at least this far. Cells further than EDGE_RANGE
     from any edge get EDGE_RANGE
     """
-    n = height.shape
-    padded = np.pad(height, 1, mode="edge")
-    edges = unseen_cells.copy()
-    for di in (-1, 0, 1):
-        for dj in (-1, 0, 1):
-            near = padded[1 + di : 1 + di + n[0], 1 + dj : 1 + dj + n[1]]
-            edges |= np.abs(near - height) > EDGE_HEIGHT
+    steps = [
+        np.abs(near - height) > EDGE_HEIGHT
+        for near in neighbours(height, mode="edge")
+    ]
+    edges = unseen_cells | np.any(steps, axis=0)
 
+    n = height.shape
     k = int(EDGE_RANGE / MAP_RESOLUTION)
     distance = np.full(n, EDGE_RANGE)
     padded = np.pad(edges, k)
