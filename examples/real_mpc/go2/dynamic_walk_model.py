@@ -24,7 +24,7 @@ Z_WGT = 3.0
 
 CONTACT_MU = 0.4
 # Limit on each foot's normal force
-MAX_FOOT_FORCE = 150.0
+MAX_FOOT_FORCE = 200.0
 
 # Radius of the terrain patch around a foothold fit to the plane its friction
 # cone stands on, and how near an edge the patch's points can be
@@ -228,14 +228,51 @@ JUMP_LAND_FORCE = 90.0
 JUMP_TOUCH_STAGES = 0
 # Stages after every foot has landed before the feet step back under the hips
 JUMP_TROT_DELAY = 26
+# Forward jump, started by the forward jump button in the same way as the jump
+# in place, with the same crouch stages. The base leans back as it crouches to
+# FORWARD_JUMP_CROUCH_HEIGHT, and pushes off up to FORWARD_JUMP_TAKEOFF_HEIGHT,
+# speeding up forward as well. It keeps its speed in the air while the legs
+# tuck in by FORWARD_JUMP_TUCK and swing forward, touches down at
+# FORWARD_JUMP_LAND_HEIGHT and stops its fall by the crouch height, with each
+# foot pushing with up to FORWARD_JUMP_LAND_FORCE. It stops its forward speed
+# at FORWARD_JUMP_BRAKE, which friction allows, landing with the feet far
+# enough ahead to do so. Where the terrain rises by more than
+# FORWARD_JUMP_RISE ahead of the front feet, the jump lands on it with the rear
+# feet FORWARD_JUMP_EDGE_MARGIN past its edge, as long as the feet move at most
+# FORWARD_JUMP_MAX_DISTANCE. Otherwise the feet land FORWARD_JUMP_DISTANCE
+# ahead of where they took off. The base rises at least FORWARD_JUMP_HEIGHT
+# above its takeoff height, and FORWARD_JUMP_CLEARANCE above where it lands.
+# The robot does not jump when that takes a takeoff speed above
+# FORWARD_JUMP_MAX_SPEED, or when the feet would land on different levels
+FORWARD_JUMP_DISTANCE = 0.6
+FORWARD_JUMP_RISE = 0.04
+FORWARD_JUMP_EDGE_MARGIN = 0.12
+FORWARD_JUMP_MAX_DISTANCE = 1.0
+FORWARD_JUMP_CROUCH_HEIGHT = 0.15
+FORWARD_JUMP_TAKEOFF_HEIGHT = 0.38
+FORWARD_JUMP_LAND_HEIGHT = 0.32
+FORWARD_JUMP_LAND_FORCE = 200.0
+FORWARD_JUMP_BRAKE = 3.0
+FORWARD_JUMP_TUCK = 0.15
+FORWARD_JUMP_HEIGHT = 0.2
+FORWARD_JUMP_CLEARANCE = 0.1
+FORWARD_JUMP_MAX_SPEED = 2.6
+# Weight holding the stance feet at their measured height through the push of
+# a forward jump. Their contacts leave it free, and the plan would otherwise
+# stretch the legs further by pushing the feet into the ground, which the
+# ground turns into forces that tip the base
+FORWARD_JUMP_FOOT_WGT = 300.0
+# The robot takes off slower than its plan, by a steady share forward and up,
+# so a forward jump's references aim faster by these factors
+FORWARD_JUMP_SPEED_GAIN = 1.3
+FORWARD_JUMP_RISE_GAIN = 1.1
+# Share of the way from the previous plan's legs to the measured ones that
+# each plan in the air of a forward jump starts from. The legs follow the plan
+# with some lag, and starting from the measured legs alone makes each plan
+# jerk them back toward the last one
+FORWARD_JUMP_LEG_PULL = 0.5
 
 JUMP_SPEED = -GRAVITY[2] * JUMP_FLIGHT_STAGES * MPC_DT / 2
-JUMP_CROUCH_HEIGHT = (
-    JUMP_TAKEOFF_HEIGHT - JUMP_SPEED * JUMP_PUSH_STAGES * MPC_DT / 2
-)
-# Stages of the jump where the flight and the landing start
-JUMP_TAKEOFF_STAGE = JUMP_CROUCH_STAGES + JUMP_PUSH_STAGES
-JUMP_LAND_STAGE = JUMP_TAKEOFF_STAGE + JUMP_FLIGHT_STAGES
 
 # Joint gains around the planned joint positions and velocities, on top of the
 # planned torques
@@ -289,12 +326,12 @@ GAITS = {
     "trot": Gait(
         [["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 1.0, 0.5, 12
     ),
-    "run": Gait(
-        [["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 3.0, 0.4, 10
-    ),
     "walk": Gait(
         [["RL_foot"], ["FL_foot"], ["RR_foot"], ["FR_foot"]], 0.5, 0.75, 12
     ),
+    # "run": Gait(
+    #         [["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]], 3.0, 0.4, 10
+    #     ),
 }
 # Gait at the start. The gait button cycles through them while standing
 GAIT = "trot"
@@ -409,9 +446,10 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
        while tilting the front up, tilting to the right or turning the front
        to the left, or the other way, and 0 otherwise), whether the jump
        button is held, the measured configuration and velocity, and
-       optionally whether each foot is in contact (in FOOT_NAMES order). The
-       base linear velocity is estimated from the stance feet as well, so the
-       one in the given velocity is ignored. It returns the estimated state.
+       optionally whether each foot is in contact (in FOOT_NAMES order) and
+       whether the forward jump button is held. The base linear velocity is
+       estimated from the stance feet as well, so the one in the given
+       velocity is ignored. It returns the estimated state.
        Predict it to when the plan will be applied before solving (see
        predict_state)
      - plan_commands, taking the solved states and controls and returning the
@@ -617,11 +655,12 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         )
         return np.array([hip, thigh, calf])
 
-    def stance_config(height, pitch, roll, yaw):
+    def stance_config(height, pitch, roll, yaw, ahead=0.0):
         # Joint angles keeping each foot on its nominal spot on the ground,
-        # with the base at the given height and orientation
+        # moved ahead by the given distance, with the base at the given height
+        # and orientation
         R = base_rotation(pitch, roll, yaw)
-        base = np.array([0.0, 0.0, height])
+        base = np.array([-ahead, 0.0, height])
         return np.hstack(
             [
                 leg_ik(
@@ -659,6 +698,8 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         # stance, which its next swing starts from
         "landed": {},
         "liftoff": {},
+        # Each foot's measured height at the last update
+        "foot_heights": {},
         # Shift of the footholds for the base velocity error, and each foot's
         # frozen foothold with the stage it lands at
         "foothold_shift": np.zeros(3),
@@ -685,9 +726,33 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         "stand_stage": 0,
         # Stages the command has been at rest for
         "idle_stages": 0,
-        # First stage of the jump, None when not jumping
+        # First stage of the jump, None when not jumping, how far ahead its
+        # feet land, its stages pushing off, in the air, landing and stopping
+        # its forward speed, the stage
+        # it takes off at, its takeoff height and speed, its height at
+        # touchdown, the force limit on each foot in the landing, how far its
+        # legs tuck in, the change to the legs' landing configuration for the
+        # base's tilt in the air of a forward jump, the legs' configuration
+        # through each stage of its flight, and for forward jumps the terrain
+        # height it takes off from and where each foot lands
         "jump_start": None,
         "jump_held": False,
+        "forward_jump_held": False,
+        "jump_distance": 0.0,
+        "jump_push": JUMP_PUSH_STAGES,
+        "jump_flight": JUMP_FLIGHT_STAGES,
+        "jump_land": JUMP_LAND_STAGES,
+        "jump_brake": JUMP_LAND_STAGES,
+        "takeoff_at": None,
+        "jump_takeoff": JUMP_TAKEOFF_HEIGHT,
+        "jump_rise": JUMP_SPEED,
+        "jump_land_height": JUMP_TAKEOFF_HEIGHT,
+        "jump_land_force": JUMP_LAND_FORCE,
+        "jump_tuck": JUMP_TUCK,
+        "landing_tilt": None,
+        "flight_configs": None,
+        "jump_ground": None,
+        "jump_landing": None,
         # Height of the terrain under the feet when the walk stopped using
         # the map, None while it uses it
         "flat_ground": None,
@@ -760,13 +825,15 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
     init_state[3:7] = rotation_to_quat(R0)
 
     # Filter time, estimate (base position and linear velocity, in the
-    # yaw-aligned frame) and covariance, and the feet it takes as stance
+    # yaw-aligned frame) and covariance, the feet it takes as stance, and
+    # whether it takes the base to be falling freely
     est["filter"] = (
         None,
         np.array([0.0, 0.0, height0, 0.0, 0.0, 0.0]),
         1e-4 * np.eye(6),
     )
     est["stance_feet"] = FOOT_NAMES
+    est["falling_freely"] = False
 
     # The filter runs alongside the solver, so it uses its own model
     filter_model = go2_model(1)
@@ -783,10 +850,12 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         )
 
         # Predict with the accelerometer, which measures the base
-        # acceleration minus gravity
+        # acceleration minus gravity. In the air of a forward jump the base
+        # falls freely, while the accelerometer also picks up the legs swinging
+        # around it and the base's turning, so it is left out
         if last_t is not None:
             dt = min(max(t - last_t, 0.0), 0.05)
-            a = R @ acc + GRAVITY
+            a = GRAVITY if est["falling_freely"] else R @ acc + GRAVITY
             x = x.copy()
             x[:3] += dt * x[3:] + 0.5 * dt**2 * a
             x[3:] += dt * a
@@ -838,28 +907,43 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         j = k - est["jump_start"]
         return j if 0 <= j < JUMP_STAGES else None
 
+    def takeoff_stage():
+        # Stage of the jump where the flight starts
+        return JUMP_CROUCH_STAGES + est["jump_push"]
+
+    def land_stage():
+        # Stage of the jump where the landing starts
+        return takeoff_stage() + est["jump_flight"]
+
+    def crouch_height(speed):
+        # Base height the push starts from to take off at the given speed
+        return est["jump_takeoff"] - speed * est["jump_push"] * MPC_DT / 2
+
     def jump_base_height(j):
-        # Base reference height at stage j of the jump
+        # Base reference height at stage j of the jump. In the air, it is
+        # taken from the terrain the jump took off from
         height = est["base_height"]
         push = JUMP_CROUCH_STAGES
-        flight = JUMP_TAKEOFF_STAGE
-        land = JUMP_LAND_STAGE
-        recover = land + JUMP_LAND_STAGES
+        flight = takeoff_stage()
+        land = land_stage()
+        recover = land + est["jump_land"]
+        speed = est["jump_rise"]
+        crouch = crouch_height(speed)
 
         if j < push:
             blend = 0.5 * (1 - np.cos(np.pi * j / JUMP_CROUCH_STAGES))
-            return (1 - blend) * height + blend * JUMP_CROUCH_HEIGHT
+            return (1 - blend) * height + blend * crouch
         if j < flight:
             t = (j - push) * MPC_DT
-            acc = JUMP_SPEED / (JUMP_PUSH_STAGES * MPC_DT)
-            return JUMP_CROUCH_HEIGHT + 0.5 * acc * t**2
+            acc = speed / (est["jump_push"] * MPC_DT)
+            return crouch + 0.5 * acc * t**2
         if j < land:
             t = (j - flight) * MPC_DT
-            rise = JUMP_SPEED * t + 0.5 * GRAVITY[2] * t**2
-            return JUMP_TAKEOFF_HEIGHT + rise
+            rise = speed * t + 0.5 * GRAVITY[2] * t**2
+            return est["jump_takeoff"] + rise
         # The landing stops the base's fall evenly, from where it touched down
         land_height, land_speed = est["touchdown"]
-        duration = JUMP_LAND_STAGES * MPC_DT
+        duration = est["jump_land"] * MPC_DT
         if j < recover:
             t = (j - land) * MPC_DT
             acc = -land_speed / duration
@@ -869,10 +953,46 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         landed = land_height + land_speed * duration / 2
         return (1 - blend) * landed + blend * height
 
+    def jump_speed():
+        # Forward speed of the jump in the air. The feet take off a quarter of
+        # the push's travel behind the base, and land half of the travel to
+        # stop ahead of it, so that the base comes to rest over them
+        stages = (
+            est["jump_flight"] + est["jump_push"] / 4 + est["jump_brake"] / 2
+        )
+        speed = est["jump_distance"] / (stages * MPC_DT)
+        return FORWARD_JUMP_SPEED_GAIN * speed
+
+    def jump_advance(j, landed):
+        # How far ahead the base's reference is at stage j of the jump, from
+        # where it started the jump, or once the feet have landed, from where
+        # it stands over them
+        speed = jump_speed()
+        push_time = est["jump_push"] * MPC_DT
+        land_time = est["jump_brake"] * MPC_DT
+        back = speed * push_time / 4
+        takeoff = takeoff_stage()
+        land = land_stage()
+        start = 0.0 if landed else est["jump_distance"]
+        if j < JUMP_CROUCH_STAGES:
+            blend = 0.5 * (1 - np.cos(np.pi * j / JUMP_CROUCH_STAGES))
+            return -blend * back
+        if j < takeoff:
+            t = (j - JUMP_CROUCH_STAGES) * MPC_DT
+            return -back + 0.5 * speed / push_time * t**2
+        if j < land:
+            t = (j - takeoff) * MPC_DT
+            return back + speed * t
+        if j < land + est["jump_brake"]:
+            t = (j - land) * MPC_DT
+            slow = speed * t - 0.5 * speed / land_time * t**2
+            return start - speed * land_time / 2 + slow
+        return start
+
     def in_flight(k):
         # Whether all feet are in the air at stage k
         j = jump_stage(k)
-        return j is not None and JUMP_TAKEOFF_STAGE <= j < JUMP_LAND_STAGE
+        return j is not None and takeoff_stage() <= j < land_stage()
 
     def falling(name, k):
         # Whether the foot is still coming down at stage k of the landing
@@ -1135,18 +1255,147 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         model, np.zeros(6), np.array([0.0, 0.0, 0.0, W_WGT, W_WGT, 0.0])
     )
 
-    # Leg configuration through each stage of the flight, pulling the feet in
-    # and out smoothly
-    flight_configs = [
-        stance_config(
-            JUMP_TAKEOFF_HEIGHT
-            - JUMP_TUCK * np.sin(np.pi * i / JUMP_FLIGHT_STAGES) ** 2,
-            0.0,
-            0.0,
-            0.0,
+    def flight_configs():
+        # Leg configuration through each stage of the flight and at its end,
+        # pulling the feet in and out smoothly, and moving them from where
+        # they take off to where they land relative to the base
+        speed = jump_speed()
+        takeoff = -speed * est["jump_push"] * MPC_DT / 4
+        landing = speed * est["jump_brake"] * MPC_DT / 2
+        stretch = est["jump_land_height"] - est["jump_takeoff"]
+        configs = []
+        stages = est["jump_flight"]
+        for i in range(stages + 1):
+            blend = 0.5 * (1 - np.cos(np.pi * i / stages))
+            configs.append(
+                stance_config(
+                    est["jump_takeoff"]
+                    + blend * stretch
+                    - est["jump_tuck"] * np.sin(np.pi * i / stages) ** 2,
+                    0.0,
+                    0.0,
+                    0.0,
+                    (1 - blend) * takeoff + blend * landing,
+                )
+            )
+        return configs
+
+    est["flight_configs"] = flight_configs()
+
+    def flight_config(k):
+        # The legs' configuration at stage k of the flight, following how far
+        # it is from takeoff to the landing, so that the legs move smoothly
+        # when the landing moves
+        takeoff = est["takeoff_at"]
+        land = est["jump_start"] + land_stage()
+        i = (k - takeoff) * est["jump_flight"] / (land - takeoff)
+        low = int(i)
+        share = i - low
+        configs = est["flight_configs"]
+        if share == 0.0:
+            config = configs[low]
+        else:
+            config = (1 - share) * configs[low] + share * configs[low + 1]
+        if est["landing_tilt"] is not None:
+            blend = 0.5 * (1 - np.cos(np.pi * i / est["jump_flight"]))
+            config = config + blend * est["landing_tilt"]
+        return config
+
+    def landing_tilt(R):
+        # Change to the legs' landing configuration that keeps the feet
+        # landing level and where planned relative to the base, with the
+        # base tilted as R
+        yaw = np.arctan2(R[1, 0], R[0, 0])
+        local = rotation_z(-yaw) @ R
+        pitch = np.arcsin(np.clip(local[2, 0], -1.0, 1.0))
+        roll = np.arctan2(local[2, 1], local[2, 2])
+        ahead = jump_speed() * est["jump_brake"] * MPC_DT / 2
+        height = est["jump_land_height"]
+        return stance_config(height, pitch, roll, 0.0, ahead) - stance_config(
+            height, 0.0, 0.0, 0.0, ahead
         )
-        for i in range(JUMP_FLIGHT_STAGES)
-    ]
+
+    def plan_forward_jump():
+        # Plans a forward jump from where the feet stand, returning whether
+        # the robot can make it. With the terrain rising ahead of the front
+        # feet within reach, the jump lands on it, and otherwise
+        # FORWARD_JUMP_DISTANCE ahead. Each foot lands on the clear spot
+        # nearest to where the jump would take it
+        yaw = est["poses"][est["stage"] - est["pose_stage"]][2]
+        heading = rotation_z(yaw)[:, 0]
+        feet = est["landed"]
+        start = np.mean([feet[name][2] for name in FOOT_NAMES])
+        front = np.mean([feet[name] for name in FOOT_NAMES[:2]], axis=0)
+        rear = np.mean([feet[name] for name in FOOT_NAMES[2:]], axis=0)
+        length = (front - rear) @ heading
+        reach = FORWARD_JUMP_MAX_DISTANCE - length - FORWARD_JUMP_EDGE_MARGIN
+        distance = FORWARD_JUMP_DISTANCE
+        for ahead in np.arange(0.02, reach + 1e-9, 0.02):
+            if ground(front + ahead * heading)[2] > start + FORWARD_JUMP_RISE:
+                distance = ahead + length + FORWARD_JUMP_EDGE_MARGIN
+                break
+        landing = {
+            name: ground(
+                away_from_edges(name, feet[name] + distance * heading, yaw)
+            )
+            for name in FOOT_NAMES
+        }
+        heights = [p[2] for p in landing.values()]
+        if max(heights) - min(heights) > FORWARD_JUMP_RISE:
+            print(
+                "Not jumping forward, the feet would land on different levels"
+            )
+            return False
+
+        # The base rises at least FORWARD_JUMP_HEIGHT, and
+        # FORWARD_JUMP_CLEARANCE above where it lands, over a whole number of
+        # stages in the air until it touches down. The push takes it from the
+        # crouch to its takeoff height at a constant acceleration
+        g = -GRAVITY[2]
+        rise = np.mean(heights) - start
+        apex = max(FORWARD_JUMP_HEIGHT, rise + FORWARD_JUMP_CLEARANCE)
+        speed = np.sqrt(2 * g * apex)
+        rise += FORWARD_JUMP_LAND_HEIGHT - FORWARD_JUMP_TAKEOFF_HEIGHT
+        flight = (speed + np.sqrt(speed**2 - 2 * g * rise)) / g
+        stages = round(flight / MPC_DT)
+        flight = stages * MPC_DT
+        speed = (rise + g * flight**2 / 2) / flight
+        if speed > FORWARD_JUMP_MAX_SPEED:
+            print(f"Not jumping forward, {rise:.2f} m up is too high")
+            return False
+        travel = FORWARD_JUMP_TAKEOFF_HEIGHT - FORWARD_JUMP_CROUCH_HEIGHT
+        speed *= FORWARD_JUMP_RISE_GAIN
+
+        est["jump_distance"] = np.mean(
+            [(landing[name] - feet[name]) @ heading for name in FOOT_NAMES]
+        )
+        est["jump_push"] = max(round(2 * travel / (speed * MPC_DT)), 1)
+        est["jump_flight"] = stages
+        est["jump_takeoff"] = FORWARD_JUMP_TAKEOFF_HEIGHT
+        est["jump_rise"] = speed
+        est["jump_land_height"] = FORWARD_JUMP_LAND_HEIGHT
+        est["jump_land_force"] = FORWARD_JUMP_LAND_FORCE
+        est["jump_tuck"] = FORWARD_JUMP_TUCK
+        est["jump_ground"] = start
+        est["jump_landing"] = landing
+        est["touchdown"] = (FORWARD_JUMP_LAND_HEIGHT, speed - g * flight)
+
+        # The landing stops the fall evenly by the crouch height, taking at
+        # most as long as the jump in place
+        depth = FORWARD_JUMP_LAND_HEIGHT - FORWARD_JUMP_CROUCH_HEIGHT
+        land = np.ceil(2 * depth / (g * flight - speed) / MPC_DT)
+        est["jump_land"] = min(int(land), JUMP_LAND_STAGES)
+
+        # Stopping the forward speed at FORWARD_JUMP_BRAKE takes longer than
+        # stopping the fall. The speed depends on how long that takes, since
+        # the feet land half of its travel ahead
+        start = (stages + est["jump_push"] / 4) * MPC_DT
+        brake = FORWARD_JUMP_BRAKE
+        forward = brake * (
+            np.sqrt(start**2 + 2 * est["jump_distance"] / brake) - start
+        )
+        est["jump_brake"] = max(int(np.ceil(forward / (brake * MPC_DT))), 1)
+        return True
 
     base_costs = []
     flight_costs = []
@@ -1161,7 +1410,7 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         )
         flight_costs.append(
             ssqpy.model.costs.SquaredConfigurationErrorCost(
-                model, flight_configs[0], JUMP_CONFIG_WGT
+                model, est["flight_configs"][0], JUMP_CONFIG_WGT
             )
         )
         flight_vel_costs.append(
@@ -1247,19 +1496,34 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         )
 
         tilt = base_rotation(*orientation)
+        current = jump_stage(current_stage)
+        landed = current is not None and current >= land_stage()
         for idx in range(MPC_H):
             k = current_stage + idx
             x, y, yaw = est["poses"][idx]
 
+            # Through a forward jump, the base moves ahead of its pose
+            j = jump_stage(k)
+            if j is not None:
+                ahead = jump_advance(j, landed)
+                x += ahead * np.cos(yaw)
+                y += ahead * np.sin(yaw)
+
             # Outside of jumps, the base follows the terrain's tilt, keeping
             # its height along the tilted base's up axis
-            j = jump_stage(k)
             height = gait_base_height(k) if j is None else jump_base_height(j)
             pitch, roll = 0.0, 0.0
             if j is None:
                 pitch, roll = terrain_tilt(x, y, yaw)
             height /= np.cos(pitch) * np.cos(roll)
-            height += ground_height(x, y, yaw)
+            if (
+                j is not None
+                and est["jump_ground"] is not None
+                and j < land_stage()
+            ):
+                height += est["jump_ground"]
+            else:
+                height += ground_height(x, y, yaw)
             terrain_rotation = rotation_y(-pitch) @ rotation_x(roll)
             base_costs[idx].set_desired_translation(np.array([x, y, height]))
             base_costs[idx].set_desired_rotation(
@@ -1279,14 +1543,20 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
             )
             flight_costs[idx].set_enabled(flight)
             if flight:
-                flight_costs[idx].set_desired_configuration(
-                    flight_configs[j - JUMP_TAKEOFF_STAGE]
-                )
+                flight_costs[idx].set_desired_configuration(flight_config(k))
             flight_vel_costs[idx].set_enabled(flight)
 
-            land = JUMP_LAND_STAGE
-            landing = j is not None and land <= j < land + JUMP_LAND_STAGES
-            max_force = JUMP_LAND_FORCE if landing else MAX_FOOT_FORCE
+            land = land_stage()
+            landing = j is not None and land <= j < land + est["jump_land"]
+            pushing = (
+                j is not None
+                and est["jump_ground"] is not None
+                and JUMP_CROUCH_STAGES <= j < takeoff_stage()
+            )
+            foot_weight = np.array(
+                [1.0, 1.0, FORWARD_JUMP_FOOT_WGT if pushing else 1.0]
+            )
+            max_force = est["jump_land_force"] if landing else MAX_FOOT_FORCE
 
             for name in FOOT_NAMES:
                 foot_pos, swinging = foot_reference(name, k)
@@ -1303,7 +1573,11 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
                 if vel_bound is not None:
                     vel_bound.set_enabled(not swinging)
                 foot_cost.set_enabled(not flight)
+                if pushing and not swinging:
+                    foot_pos = foot_pos.copy()
+                    foot_pos[2] = est["foot_heights"][name]
                 foot_cost.set_desired_translation(foot_pos)
+                foot_cost.set_weight(foot_weight)
 
     update_references()
 
@@ -1357,13 +1631,14 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         config,
         vel,
         contacts=None,
+        forward_jump=False,
     ):
         current_stage = est["stage"]
         moving = np.max(np.abs(v_cmd)) > MOVE_THRESHOLD
 
-        # Jump on each new press of the jump button while standing still with
-        # the base level and facing straight, and ignore move and tilt
-        # commands until the jump is over
+        # Jump in place or forward on each new press of the jump or forward
+        # jump button while standing still with the base level and facing
+        # straight, and ignore move and tilt commands until the jump is over
         level = not np.any(orientation) and not any(
             est[key] for key in ["base_pitch", "base_roll", "base_yaw"]
         )
@@ -1372,29 +1647,47 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
             and current_stage >= est["jump_start"] + JUMP_STAGES
         ):
             est["jump_start"] = None
+        pressed = jump and not est["jump_held"]
+        forward = forward_jump and not est["forward_jump_held"]
         if (
             JUMP_ENABLED
-            and jump
-            and not est["jump_held"]
+            and (pressed or forward)
             and est["jump_start"] is None
             and est["gait_start"] is None
             and not moving
             and not np.any(est["v_cmd"])
             and level
         ):
-            est["jump_start"] = current_stage + 1
-            est["touchdown"] = (JUMP_TAKEOFF_HEIGHT, -JUMP_SPEED)
-            est["falling_feet"] = set()
+            if pressed:
+                est["jump_distance"] = 0.0
+                est["jump_push"] = JUMP_PUSH_STAGES
+                est["jump_flight"] = JUMP_FLIGHT_STAGES
+                est["jump_land"] = JUMP_LAND_STAGES
+                est["jump_brake"] = JUMP_LAND_STAGES
+                est["jump_takeoff"] = JUMP_TAKEOFF_HEIGHT
+                est["jump_rise"] = JUMP_SPEED
+                est["jump_land_height"] = JUMP_TAKEOFF_HEIGHT
+                est["jump_land_force"] = JUMP_LAND_FORCE
+                est["jump_tuck"] = JUMP_TUCK
+                est["jump_ground"] = None
+                est["jump_landing"] = None
+                est["touchdown"] = (JUMP_TAKEOFF_HEIGHT, -JUMP_SPEED)
+            if pressed or plan_forward_jump():
+                est["jump_start"] = current_stage + 1
+                est["takeoff_at"] = est["jump_start"] + takeoff_stage()
+                est["falling_feet"] = set()
+                est["flight_configs"] = flight_configs()
         est["jump_held"] = jump
+        est["forward_jump_held"] = forward_jump
 
         # Start the landing as soon as a foot touches down, and follow the
-        # other feet down as they touch down too. The base's height comes
-        # from the accelerometer alone in the air, so it is reset from the
-        # feet that touched down. Their joints have yet to move on impact,
-        # so they are no good for the velocity
+        # other feet down as they touch down too. Nothing measures the base's
+        # height in the air, so it is reset from the feet that touched down.
+        # Their joints have yet to move on impact, so they are no good for
+        # the velocity
         j = jump_stage(current_stage)
-        takeoff = JUMP_TAKEOFF_STAGE
-        touchdown = JUMP_LAND_STAGE
+        takeoff = takeoff_stage()
+        touchdown = land_stage()
         if contacts is not None and j is not None:
             touching = [n for n, c in zip(FOOT_NAMES, contacts) if c]
             if takeoff + 1 < j < touchdown and touching:
@@ -1402,13 +1695,24 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
                 est["falling_feet"] = set(FOOT_NAMES) - set(touching)
                 _, positions, _ = leg_odometry(config, vel, touching)
                 reset = np.mean([positions[n][2] for n in touching])
+                # Forward jumps land away from where the feet took off, so
+                # the height comes from the terrain where they touch down
+                if est["jump_landing"] is not None:
+                    _, R, feet = estimate_state(config, vel)
+                    reset = np.mean(
+                        [
+                            ground(est["filter"][1][:3] + R @ feet[n])[2]
+                            - (R @ feet[n])[2]
+                            for n in touching
+                        ]
+                    )
                 # The filter runs alongside, so it takes the reset as well
                 filter_time, x, P = est["filter"]
                 x = x.copy()
                 x[2] = reset
                 est["filter"] = (filter_time, x, P)
                 est["filter_reset"] = reset
-            elif touchdown <= j < touchdown + JUMP_LAND_STAGES:
+            elif touchdown <= j < touchdown + est["jump_land"]:
                 est["falling_feet"] -= set(touching)
             else:
                 est["falling_feet"] = set()
@@ -1420,7 +1724,7 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         j = jump_stage(current_stage)
         if (
             j is not None
-            and touchdown <= j <= touchdown + JUMP_LAND_STAGES
+            and touchdown <= j <= touchdown + est["jump_land"]
             and not est["falling_feet"]
             and est["gait_start"] is None
         ):
@@ -1444,9 +1748,11 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
             print(f"Switched to the {est['gait']} gait")
         est["gait_held"] = switch_gait
 
-        # The map is left out while jumping and in MAP_FREE_GAITS, taking the
-        # terrain to be flat at its height under the feet from then on
-        if est["jump_start"] is None and est["gait"] not in MAP_FREE_GAITS:
+        # The map is left out while jumping in place and in MAP_FREE_GAITS,
+        # taking the terrain to be flat at its height under the feet from
+        # then on
+        in_place = est["jump_start"] is not None and est["jump_ground"] is None
+        if not in_place and est["gait"] not in MAP_FREE_GAITS:
             est["flat_ground"] = None
         elif est["flat_ground"] is None:
             est["flat_ground"] = np.mean(
@@ -1528,6 +1834,15 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         last_swing = swing_feet(current_stage - 1)
         stance_feet = [name for name in FOOT_NAMES if name not in last_swing]
         state, R, feet = estimate_state(config, vel)
+        est["foot_heights"] = {
+            name: (state[:3] + R @ feet[name])[2] for name in FOOT_NAMES
+        }
+
+        # In the air of a forward jump, the legs land level for however the
+        # base has tilted
+        est["landing_tilt"] = None
+        if est["jump_ground"] is not None and in_flight(current_stage):
+            est["landing_tilt"] = landing_tilt(R)
 
         # In the air, the landing moves to when the lowest foot is predicted
         # to reach the ground, so that the plan never reaches for the ground
@@ -1537,14 +1852,31 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
         if j is not None and takeoff + 1 < j < touchdown:
             g = -GRAVITY[2]
             rise = (R @ state[19:22])[2]
-            reach = np.array([0.0, 0.0, JUMP_TAKEOFF_HEIGHT])
+            reach = np.array([0.0, 0.0, est["jump_land_height"]])
             feet_down = [
                 state[:3] + R @ (foot_offsets[name] - reach)
                 for name in FOOT_NAMES
             ]
-            drop = max(min(p[2] - ground(p)[2] for p in feet_down), 0.0)
+            # A forward jump tilts the legs to keep the feet level below the
+            # base, at the landing height
+            if est["landing_tilt"] is not None:
+                for p in feet_down:
+                    p[2] = state[2] - est["jump_land_height"]
+            # Forward jumps land on the terrain at their landing spots,
+            # rather than on the terrain below the feet
+            if est["jump_landing"] is None:
+                below = [ground(p)[2] for p in feet_down]
+            else:
+                below = [est["jump_landing"][name][2] for name in FOOT_NAMES]
+            drop = max(min(p[2] - z for p, z in zip(feet_down, below)), 0.0)
             fall_time = (rise + np.sqrt(rise**2 + 2 * g * drop)) / g
             stages = round(fall_time / MPC_DT)
+            # With foot contacts measured, a forward jump's landing starts at
+            # the first stage after the feet are predicted to touch down,
+            # since a landing that starts early stops the feet in the air and
+            # folds the legs, while touching down early starts it anyway
+            if est["landing_tilt"] is not None and contacts is not None:
+                stages = int(np.ceil(fall_time / MPC_DT))
             stages = min(max(stages, 1), touchdown - takeoff - 2)
             est["jump_start"] = current_stage + stages - touchdown
 
@@ -1596,6 +1928,11 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
             and name not in swing_feet(current_stage)
             and (contacts is None or contacts[i])
         ]
+        est["falling_freely"] = (
+            est["jump_ground"] is not None
+            and in_flight(current_stage)
+            and (contacts is None or not any(contacts))
+        )
 
         update_references()
 
@@ -1614,13 +1951,16 @@ def get_controller(init_config, simulation=False, terrain=None, edges=None):
 
     def plan_commands(x, u):
         # The plan's states at the start of its first stages (and at the end of
-        # the last one), and its controls and stance feet over those stages
+        # the last one), its controls and stance feet over those stages, and
+        # whether the next plan starts partly from this one's legs, which it
+        # does in the air of a forward jump
         states = [np.array(x.stage(k)) for k in range(PLAN_STAGES + 1)]
         controls = [np.array(u.stage(k)) for k in range(PLAN_STAGES)]
-        return states, controls, est["plan_stance"]
+        airborne = est["jump_ground"] is not None and in_flight(est["stage"])
+        return states, controls, est["plan_stance"], airborne
 
     def command_torques(commands, elapsed, config, vel):
-        states, controls, plan_stance = commands
+        states, controls, plan_stance, _ = commands
 
         # Inverse dynamics at the measured orientation, joints and angular
         # velocity. The base position does not enter it, and the base linear
@@ -1697,6 +2037,13 @@ def predict_state(state, commands, start, end):
     after = plan_state(states, end)
 
     predicted = state + after - before
+
+    # In the air, the legs start partly from the plan's
+    if commands[3]:
+        for part in [slice(7, 19), slice(25, 37)]:
+            predicted[part] = after[part] + FORWARD_JUMP_LEG_PULL * (
+                predicted[part] - after[part]
+            )
 
     # Rotate the base by the plan's rotation in between, in the base frame
     rotation = quat_to_rotation(before[3:7]).T @ quat_to_rotation(after[3:7])

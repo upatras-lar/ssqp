@@ -111,6 +111,7 @@ class CustomGo2Controller:
 
     # Gamepad button that makes the dynamic walk jump in place while standing
     JUMP_BUTTON = "BTN_C"
+    FORWARD_JUMP_BUTTON = "BTN_START"
 
     # Gamepad button that switches the dynamic walk to its next gait while
     # standing
@@ -608,6 +609,11 @@ class CustomGo2Controller:
                 ]
             ]
 
+            # The jump button jumps forward while the forward jump button is
+            # held, and in place otherwise
+            jump = self.JUMP_BUTTON in buttons
+            forward = self.FORWARD_JUMP_BUTTON in buttons
+
             # Solve from the state predicted for when the plan starts
             start = now + dwm.PREDICT_TIME
             plan = self.plan
@@ -619,11 +625,12 @@ class CustomGo2Controller:
                     self.joystick.dpad_x,
                     self.joystick.dpad_y,
                     orientation,
-                    self.JUMP_BUTTON in buttons,
+                    jump,
                     self.GAIT_BUTTON in buttons,
                     pos,
                     vel,
                     contacts,
+                    forward,
                 )
                 if plan is not None:
                     state = dwm.predict_state(

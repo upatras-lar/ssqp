@@ -205,7 +205,7 @@ The defaults of these parameters are the `SIMULATION`, `ROBOT_INTERFACE` and `SI
 - **Gaits.** A trot, a run (a trot with all feet in the air between stances, faster forward, and turning slower at its top speeds), and a slower walk lifting one foot at a time, with the gamepad switching between them. The robot stands on all four feet until it is commanded to move, and goes back to standing once the command has been at rest.
 - **State estimation.** The robot only measures the base orientation, so the base position and velocity are estimated from the stance feet using leg odometry, fused with the accelerometer in a Kalman filter. The foot force sensors tell when a foot is on the ground.
 - **Latency handling.** The solver runs in its own thread, pinned to the performance cores of hybrid CPUs, at a fixed rate. It solves from the state predicted for when the plan will start, and the plan is then played back at the command rate, with the joint torques recomputed from the measured state at every command.
-- **A small jump in place**, and adjustable base height, step height, pitch, roll and yaw.
+- **A small jump in place, and a jump forward**, and adjustable base height, step height, pitch, roll and yaw.
 
 ### Gamepad controls
 
@@ -219,7 +219,7 @@ Button names are evdev codes, which map to different physical buttons on differe
 | `BTN_Z`, `BTN_TR` | Pitch the base up or down |
 | `BTN_NORTH`, `BTN_EAST` | Roll the base to the left or right |
 | `BTN_WEST`, `BTN_TL` | Turn the front to the left or right, with the feet staying in place |
-| `BTN_C` | Jump in place, while standing |
+| `BTN_C` | Jump in place, while standing, or jump forward with `BTN_SELECT` held |
 | `BTN_TL2` | Switch to the next gait, while standing |
 | `BTN_SOUTH` | Fallback (see below) |
 
