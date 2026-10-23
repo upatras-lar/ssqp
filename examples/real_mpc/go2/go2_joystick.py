@@ -343,7 +343,7 @@ class CustomGo2Controller:
             self.shared_poses.write(
                 now,
                 x[:3],
-                np.roll(dwm.rotation_to_quat(R), 1),
+                np.roll(dwm.rotation_matrix_to_quat_xyzw(R), 1),
                 pos[7:],
                 self.stance(),
                 self.jumping(),
@@ -535,7 +535,7 @@ class CustomGo2Controller:
             self.flat_ground,
             self.jumping,
             self.stance,
-        ) = dwm.get_controller(
+        ) = dwm.create_controller(
             self._measuredState()[0],
             SIMULATION,
             self.terrain,
@@ -633,7 +633,7 @@ class CustomGo2Controller:
                     forward,
                 )
                 if plan is not None:
-                    state = dwm.predict_state(
+                    state = dwm.propagate_state_over_interval(
                         state, plan[1], now - plan[0], start - plan[0]
                     )
                 x, u = self.mpc_controller.step(state)
@@ -730,12 +730,12 @@ class CustomGo2Controller:
         now = time.time()
         elapsed = now - plan[0]
         lead = dwm.SIM_COMMAND_LEAD if SIMULATION else dwm.COMMAND_LEAD
-        q, dq = dwm.playback(plan[1], elapsed + lead)
+        q, dq = dwm.get_joint_references_from_plan(plan[1], elapsed + lead)
         tau = self.command_torques(plan[1], elapsed + lead, pos, vel)
 
         # Joints off the plan as it is now, counted separately for the legs
         # the plan has in stance and the swinging ones
-        planned_q, _ = dwm.playback(plan[1], elapsed)
+        planned_q, _ = dwm.get_joint_references_from_plan(plan[1], elapsed)
         error = planned_q - pos[7:]
         worst = np.argmax(np.abs(error))
         stages = plan[1][2]
@@ -751,10 +751,10 @@ class CustomGo2Controller:
 
         # Cosine of the angle between the measured and planned base tilts,
         # comparing the world z axis as seen from the base, which ignores yaw
-        planned = dwm.plan_state(plan[1][0], elapsed)
+        planned = dwm.interpolate_planned_state(plan[1][0], elapsed)
         cos_tilt = (
-            dwm.quat_to_rotation(pos[3:7])[2]
-            @ dwm.quat_to_rotation(planned[3:7])[2]
+            dwm.quat_xyzw_to_rotation_matrix(pos[3:7])[2]
+            @ dwm.quat_xyzw_to_rotation_matrix(planned[3:7])[2]
         )
 
         reason = None
