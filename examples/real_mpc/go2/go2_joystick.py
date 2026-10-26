@@ -128,6 +128,15 @@ class CustomGo2Controller:
     SWING_TRACKING_ERROR_COMMANDS = 5
     MAX_TILT = 0.35
 
+    # Time to move the joints between the walking commands and the pose held
+    # while the robot is lifted
+    LIFT_BLEND_TIME = 0.5
+    # Times to move the joints to the stand task's ground pose once the robot
+    # is set down, and from there to the stance position. The stance is held
+    # for the rest of dwm.SET_DOWN_STAND_TIME before the walk resumes
+    SET_DOWN_GROUND_TIME = 0.5
+    SET_DOWN_RISE_TIME = 1.0
+
     # Foot sensor reading above which a foot counts as on the ground. The
     # sensors read about 12 in the air and 30 or more when loaded. The
     # simulator reports the force in newtons if its bridge fills it in, and
@@ -335,8 +344,9 @@ class CustomGo2Controller:
                 acc = np.array(msg.imu_state.accelerometer)
 
         # Update the state filter with every message, and share its estimate,
-        # the feet it takes to be on the ground and whether the robot is
-        # jumping with the map process
+        # the feet it takes to be on the ground and whether the estimate is
+        # too poor to map with, as while jumping or off the ground, with the
+        # map process
         if filtering:
             now = time.time()
             x, R = self.filter_state(pos, vel, acc, now)
@@ -346,7 +356,10 @@ class CustomGo2Controller:
                 np.roll(dwm.rotation_matrix_to_quat_xyzw(R), 1),
                 pos[7:],
                 self.stance(),
-                self.jumping(),
+                self.jumping()
+                or self.lift_pending()
+                or self.lifted()
+                or self.standing_up(),
             )
 
     def _lowCmdWrite(self):
@@ -520,10 +533,7 @@ class CustomGo2Controller:
         # map out and takes the terrain to be flat
         self.terrain_heights = (np.zeros((2, 2)), 0.0, 0.0)
         self.flat_terrain = False
-        self.edges = None
-        self.terrain_time = time.time()
-        self.maps_read = 0
-        self.shared_poses.restart()
+        self._restartMap()
 
         (
             self.model,
@@ -535,6 +545,9 @@ class CustomGo2Controller:
             self.flat_ground,
             self.jumping,
             self.stance,
+            self.lifted,
+            self.lift_pending,
+            self.standing_up,
         ) = dwm.create_controller(
             self._measuredState()[0],
             SIMULATION,
@@ -549,6 +562,10 @@ class CustomGo2Controller:
 
         # Latest plan with the time it started
         self.plan = None
+        self.ground_mode = None
+        self.hold_pos = None
+        self.blend_pos = None
+        self.blend_start = None
         self.stance_error_commands = 0
         self.swing_error_commands = 0
 
@@ -567,6 +584,8 @@ class CustomGo2Controller:
 
         next_solve = time.time()
         rate_start = next_solve
+        last_solve = None
+        off_ground = False
         solve_times = []
 
         while self.solver_running:
@@ -617,6 +636,8 @@ class CustomGo2Controller:
             # Solve from the state predicted for when the plan starts
             start = now + dwm.PREDICT_TIME
             plan = self.plan
+            dt = dwm.MPC_DT if last_solve is None else now - last_solve
+            last_solve = now
 
             try:
                 self._updateTerrain()
@@ -631,7 +652,25 @@ class CustomGo2Controller:
                     vel,
                     contacts,
                     forward,
+                    dt,
                 )
+
+                # Nothing is planned while lifted, and walking resumes with a
+                # fresh plan once the robot is set down and has stood up. The
+                # base estimate drifts in the air and the robot may be set
+                # down anywhere, so the map starts over as well. Nothing is
+                # planned while a lift is pending either, since the next plans
+                # start from the last one, which would be made for a robot
+                # that may already be turning in the air
+                pending = self.lift_pending()
+                if pending or self.lifted() or self.standing_up():
+                    if not pending and not off_ground:
+                        off_ground = True
+                        self._restartMap()
+                    self.plan = None
+                    next_solve = max(next_solve + dwm.MPC_DT, time.time())
+                    continue
+                off_ground = False
                 if plan is not None:
                     state = dwm.propagate_state_over_interval(
                         state, plan[1], now - plan[0], start - plan[0]
@@ -664,6 +703,18 @@ class CustomGo2Controller:
 
             # Keep a fixed solve rate, but skip stages that are already late
             next_solve = max(next_solve + dwm.MPC_DT, time.time())
+
+    def _restartMap(self):
+        # Takes the terrain to be flat until the walk has read MAP_SETTLE_MAPS
+        # new LIDAR maps. The map process starts a new map in the walk's
+        # frame from here on, and maps made before now are left out
+        self.terrain_heights = (np.zeros((2, 2)), 0.0, 0.0)
+        if not self.flat_terrain:
+            self.terrain.set_heights(*self.terrain_heights)
+        self.edges = None
+        self.terrain_time = time.time()
+        self.maps_read = 0
+        self.shared_poses.restart()
 
     def _updateTerrain(self):
         # Takes the latest LIDAR map into the walk's terrain if it is new.
@@ -716,6 +767,61 @@ class CustomGo2Controller:
         return edges[i, j]
 
     def _execDynamicWalkTask(self):
+        # Move smoothly into the lifted pose from the measured joints while
+        # lifted, and once set down, stand up through the stand task's poses
+        mode = (
+            "lifted"
+            if self.lifted()
+            else "standing" if self.standing_up() else None
+        )
+        if mode != self.ground_mode:
+            self.ground_mode = mode
+            self.blend_pos = [
+                self.low_state.motor_state[i].q for i in range(12)
+            ]
+            self.blend_start = time.time() if mode is not None else None
+        if mode is not None:
+            self.hold_pos = None
+            elapsed = time.time() - self.blend_start
+            if mode == "lifted":
+                share = min(elapsed / self.LIFT_BLEND_TIME, 1.0)
+                q = blend(
+                    self.blend_pos,
+                    blend(self.STANCE_POS, self.DROP_POS, 0.8),
+                    share,
+                )
+            elif elapsed < self.SET_DOWN_GROUND_TIME:
+                q = blend(
+                    self.blend_pos,
+                    self.STAND_GROUND_POS,
+                    elapsed / self.SET_DOWN_GROUND_TIME,
+                )
+            else:
+                share = min(
+                    (elapsed - self.SET_DOWN_GROUND_TIME)
+                    / self.SET_DOWN_RISE_TIME,
+                    1.0,
+                )
+                q = blend(self.STAND_GROUND_POS, self.STANCE_POS, share)
+            self._moveJoints(q)
+            return
+
+        # Hold the joints where they were once no foot touches, since the
+        # plan's stance torques would swing the legs in the air. If the feet
+        # touch again before the robot is taken to be lifted, the joints
+        # move back to the plan
+        if self.lift_pending():
+            if self.hold_pos is None:
+                self.hold_pos = [
+                    self.low_state.motor_state[i].q for i in range(12)
+                ]
+            self._moveJoints(self.hold_pos)
+            return
+        if self.hold_pos is not None:
+            self.blend_pos = self.hold_pos
+            self.blend_start = None
+            self.hold_pos = None
+
         # Keep the previous commands until the first plan is ready
         plan = self.plan
         if plan is None:
@@ -742,6 +848,19 @@ class CustomGo2Controller:
         k = min(int(max(elapsed, 0.0) / dwm.MPC_DT), len(stages) - 1)
         stance = np.repeat([name in stages[k] for name in dwm.FOOT_NAMES], 3)
         off = np.abs(error) > self.MAX_TRACKING_ERROR
+
+        # Move from the pose held while lifted or without contact to the plan,
+        # which the joints lag behind meanwhile
+        share = 1.0
+        if self.blend_pos is not None:
+            if self.blend_start is None:
+                self.blend_start = now
+            share = (now - self.blend_start) / self.LIFT_BLEND_TIME
+            if share >= 1.0:
+                self.blend_pos = None
+                share = 1.0
+            else:
+                off[:] = False
         self.stance_error_commands = (
             self.stance_error_commands + 1 if off[stance].any() else 0
         )
@@ -788,7 +907,10 @@ class CustomGo2Controller:
         else:
             kp, kd = dwm.JOINT_KP, dwm.JOINT_KD
         reorder = self.JOINT_REORDER_MAP
-        self._command(q[reorder], dq[reorder], kp, kd, tau[reorder])
+        q = q[reorder]
+        if share < 1.0:
+            q = blend(self.blend_pos, q, share)
+        self._command(q, dq[reorder], kp, kd, tau[reorder])
 
     def _startFallback(self, reason):
         with self.cmd_lock:

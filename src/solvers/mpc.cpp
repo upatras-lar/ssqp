@@ -60,6 +60,8 @@ void MPC::reinitialize(const VecX &state)
     }
 
     _model.setInitState(H, state);
+    _prev_states.reset();
+    _prev_controls.reset();
 }
 
 // Sets MPC warm-start to the given states and controls
@@ -74,6 +76,8 @@ void MPC::reinitialize(const FlatVec &states, const FlatVec &controls)
     }
 
     _model.setInitState(H, states.stage(H));
+    _prev_states.reset();
+    _prev_controls.reset();
 }
 
 void MPC::reinitialize(const std::vector<VecX> &states,
@@ -88,6 +92,8 @@ void MPC::reinitialize(const std::vector<VecX> &states,
     }
 
     _model.setInitState(H, states[H]);
+    _prev_states.reset();
+    _prev_controls.reset();
 }
 
 std::pair<FlatVec, FlatVec> MPC::step(const VecX &state)
