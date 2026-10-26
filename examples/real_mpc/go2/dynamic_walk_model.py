@@ -278,14 +278,15 @@ FORWARD_JUMP_LEG_PULL = 0.5
 GROUND_MODE_NORMAL = "normal"
 GROUND_MODE_LIFTED = "lifted"
 GROUND_MODE_AIRBORNE = "airborne"
-GROUND_MODE_STANDING_UP = "standing_up"
+GROUND_MODE_SET_DOWN = "set_down"
 GROUND_MODE_SWITCH_DELAY = 0.24
-# Time the robot takes to stand up once set down, before the walk resumes
-SET_DOWN_STAND_TIME = 2.0
-# Rate the base's reference rises at, in m/s, from its height when the robot is
-# set down back to its commanded height, and the most it starts below it
-SET_DOWN_RISE_RATE = 0.1
-SET_DOWN_MAX_DROP = 0.25
+# While walking, every foot can read no contact for a moment, so the robot
+# then only counts as held up while the accelerometer's upward reading, in
+# m/s^2 and averaged since the feet left the ground, is above LIFT_MIN_ACC,
+# and the walk stops once no foot has touched for LIFT_PENDING_TIME. Feet that
+# each read below the contact threshold carry at most about half its weight
+LIFT_MIN_ACC = 7.0
+LIFT_PENDING_TIME = 0.05
 
 JUMP_SPEED = -GRAVITY[2] * JUMP_FLIGHT_STAGES * MPC_DT / 2
 
@@ -490,13 +491,15 @@ def create_controller(
        estimate is too poor to map the ground
      - get_stance_foot_mask, returning whether each foot (in FOOT_NAMES order) is one
        the state filter takes to be on the ground
-     - is_robot_lifted, returning whether no foot has touched the ground for a
-       while, which stops the walk until all feet are down again and the
-       robot has stood up
-     - is_lift_pending, returning whether no foot is touching yet while the
-       robot has not been taken to be lifted, outside of jumps
-     - is_standing_up, returning whether the robot is standing up after being
-       set down, for SET_DOWN_STAND_TIME, before the walk resumes
+     - is_robot_lifted, returning whether the robot has been held up with no
+       foot on the ground for a while, which stops the walk until all feet
+       are down again
+     - is_lift_pending, returning whether the robot is held up with no foot
+       on the ground while it has not been taken to be lifted yet, outside of
+       jumps
+     - is_robot_set_down, returning whether all feet have been down for a
+       while after a lift. The controller then plans nothing more, and the
+       robot stands up and starts over with a new one
     """
     if terrain is None:
         terrain = ssqpy.model.terrain.HeightmapTerrain(np.zeros((2, 2)), 1.0)
@@ -732,9 +735,6 @@ def create_controller(
         "stage": 0,
         "v_cmd": np.zeros(3),
         "base_height": BASE_HEIGHT,
-        # How far the base's reference is below its commanded height after the
-        # robot was set down, rising back to zero
-        "height_offset": 0.0,
         "step_height": STEP_HEIGHT,
         # Positive pitch tilts the front of the base up, positive roll tilts
         # the base to the right, and positive yaw turns the front to the left
@@ -817,6 +817,12 @@ def create_controller(
         "ground_mode": GROUND_MODE_NORMAL,
         "no_contact_time": 0.0,
         "stable_contact_time": 0.0,
+        # Sum and count of the accelerometer's vertical readings since the
+        # last stage, which the filter adds to, and since no foot has touched
+        # the ground, and whether the robot is taken to be held up then
+        "vertical_acc": (0.0, 0),
+        "off_ground_acc": (0.0, 0),
+        "held": False,
     }
 
     def get_foot_positions_in_base_frame(config, kinematics=model):
@@ -906,13 +912,12 @@ def create_controller(
         if reset is not None:
             x = x.copy()
             x[2] = reset
-        restart = est.pop("filter_restart", None)
-        if restart is not None:
-            x = restart
         stance_feet = est["stance_feet"]
         R, positions, velocities = estimate_base_motion_from_stance_feet(
             config, vel, stance_feet, filter_model
         )
+        total, count = est["vertical_acc"]
+        est["vertical_acc"] = (total + (R @ acc)[2], count + 1)
 
         # Predict with the accelerometer, which measures the base
         # acceleration minus gravity. In the air of a forward jump the base
@@ -1346,6 +1351,8 @@ def create_controller(
 
     def update_ground_mode(contacts, dt):
         # Updates the ground mode of the robot
+        total, count = est["vertical_acc"]
+        est["vertical_acc"] = (0.0, 0)
         if contacts is None:
             return est["ground_mode"]
 
@@ -1358,10 +1365,26 @@ def create_controller(
             est["no_contact_time"] = 0.0
             return est["ground_mode"]
 
+        # With no foot on the ground, a standing robot is held up. While
+        # walking, it is held up only if the accelerometer has read close to
+        # gravity since the feet left the ground, and is falling or stepping
+        # down otherwise. The legs swinging in the air shake the base, but
+        # cannot move it on average
         if est["ground_mode"] == GROUND_MODE_NORMAL:
             if not any(contacts):
+                off_total, off_count = est["off_ground_acc"]
+                off_total, off_count = off_total + total, off_count + count
+                est["off_ground_acc"] = (off_total, off_count)
+                est["held"] = (
+                    est["gait_start"] is None
+                    or off_count > 0
+                    and off_total / off_count > LIFT_MIN_ACC
+                )
                 est["no_contact_time"] += dt
-                if est["no_contact_time"] >= GROUND_MODE_SWITCH_DELAY:
+                if (
+                    est["no_contact_time"] >= GROUND_MODE_SWITCH_DELAY
+                    and est["held"]
+                ):
                     est["ground_mode"] = GROUND_MODE_LIFTED
                     est["stable_contact_time"] = 0.0
                     print("The robot was lifted")
@@ -1376,27 +1399,17 @@ def create_controller(
                     est["stand_stage"] = est["stage"]
             else:
                 est["no_contact_time"] = 0.0
+                est["off_ground_acc"] = (0.0, 0)
+                est["held"] = False
 
         elif est["ground_mode"] == GROUND_MODE_LIFTED:
             if all(contacts):
                 est["stable_contact_time"] += dt
                 if est["stable_contact_time"] >= GROUND_MODE_SWITCH_DELAY:
-                    est["ground_mode"] = GROUND_MODE_STANDING_UP
-                    est["stand_up_time"] = 0.0
+                    est["ground_mode"] = GROUND_MODE_SET_DOWN
                     print("The robot was set down")
             else:
                 est["stable_contact_time"] = 0.0
-
-        # The stand up passes through a pose low enough for the base to rest
-        # on the ground, where the feet read no contact, so lifts are only
-        # looked for again once it is over
-        elif est["ground_mode"] == GROUND_MODE_STANDING_UP:
-            est["stand_up_time"] += dt
-            if est["stand_up_time"] >= SET_DOWN_STAND_TIME:
-                est["ground_mode"] = GROUND_MODE_NORMAL
-                est["no_contact_time"] = 0.0
-                est["set_down"] = True
-                print("The robot stood up")
 
         return est["ground_mode"]
 
@@ -1655,7 +1668,7 @@ def create_controller(
         orientation = est["base_pitch"], est["base_roll"], est["base_yaw"]
         config_cost.set_desired_configuration(
             compute_stance_joint_configuration(
-                est["base_height"] + est["height_offset"], *orientation
+                est["base_height"], *orientation
             )
         )
 
@@ -1676,7 +1689,7 @@ def create_controller(
             # Outside of jumps, the base follows the terrain's tilt, keeping
             # its height along the tilted base's up axis
             height = (
-                get_gait_base_height(k) + est["height_offset"]
+                get_gait_base_height(k)
                 if j is None
                 else get_jump_base_height(j)
             )
@@ -1813,61 +1826,19 @@ def create_controller(
 
         if update_ground_mode(contacts, dt) in [
             GROUND_MODE_LIFTED,
-            GROUND_MODE_STANDING_UP,
+            GROUND_MODE_SET_DOWN,
         ]:
             moving = False
             v_cmd = np.zeros(3)
             dpad_x = 0
             dpad_y = 0
             orientation = [0, 0, 0]
+            jump = False
+            forward_jump = False
             est["stance_feet"] = []
             # The velocity estimate drifts in the air, which must not count as
             # a push that starts the gait
             est["stand_stage"] = current_stage
-
-        # Nothing measures the base's height while lifted, so once the robot
-        # has been set down and stood up it is reset from the feet, and the
-        # base's reference rises from there to its commanded height.
-        # The robot may be set down anywhere and facing any way, while the MPC
-        # still starts its plans from the last one before the lift, so the
-        # walk's frame turns and the position estimate moves to put the base
-        # back on its reference from then. The filter thread takes the whole
-        # reset, since a filter update running meanwhile would undo it
-        if est.pop("set_down", False):
-            nonlocal initial_yaw
-            pose = est["poses"][current_stage - est["pose_stage"]]
-            R = compute_walk_frame_base_rotation(config)
-            initial_yaw += np.arctan2(R[1, 0], R[0, 0]) - pose[2]
-            _, R, feet = estimate_robot_state(config, vel)
-            filter_time, x, P = est["filter"]
-            x = x.copy()
-            x[:2] = pose[:2]
-            x[2] = np.mean(
-                [
-                    project_point_to_terrain(x[:3] + R @ feet[n])[2]
-                    - (R @ feet[n])[2]
-                    for n in FOOT_NAMES
-                ]
-            )
-            x[3:] = 0.0
-            est["filter"] = (filter_time, x, P)
-            est["filter_restart"] = x
-
-            # The feet stand where they are now
-            for n in FOOT_NAMES:
-                est["liftoff"][n] = x[:3] + R @ feet[n]
-                est["landed"][n] = project_point_to_terrain(est["liftoff"][n])
-            est["poses"] = [pose.copy()]
-            est["pose_stage"] = current_stage
-            est["stand_stage"] = current_stage
-
-            terrain = estimate_terrain_height_under_base(x[0], x[1], 0.0)
-            est["height_offset"] = np.clip(
-                x[2] - terrain - est["base_height"], -SET_DOWN_MAX_DROP, 0.0
-            )
-        est["height_offset"] = min(
-            est["height_offset"] + SET_DOWN_RISE_RATE * MPC_DT, 0.0
-        )
 
         # Jump in place or forward on each new press of the jump or forward
         # jump button while standing still with the base level and facing
@@ -2002,12 +1973,14 @@ def create_controller(
         # Start stepping on a move command or a push, and stop at the end of
         # the current period once the command has been at rest for a while,
         # counting from when the base's reference has slowed to rest or from
-        # the push
+        # the push. With no foot on the ground, the velocity estimate follows
+        # the accelerometer alone, so it takes no push then
         pushed = (
             est["gait_start"] is None
             and est["jump_start"] is None
             and current_stage >= est["stand_stage"] + PUSH_SETTLE_STAGES
             and np.linalg.norm(est["filter"][1][3:5]) > PUSH_SPEED
+            and (contacts is None or any(contacts))
         )
         slowing = np.max(np.abs(est["v_cmd"])) > MOVE_THRESHOLD
         est["idle_stages"] = (
@@ -2253,15 +2226,18 @@ def create_controller(
     def is_robot_lifted():
         return est["ground_mode"] == GROUND_MODE_LIFTED
 
-    def is_standing_up():
-        return est["ground_mode"] == GROUND_MODE_STANDING_UP
+    def is_robot_set_down():
+        return est["ground_mode"] == GROUND_MODE_SET_DOWN
 
     def is_lift_pending():
-        # Whether no foot is touching yet while the robot has not been taken
-        # to be lifted, outside of jumps, whose feet leave the ground anyway
+        # Whether the robot is held up with no foot touching, for
+        # LIFT_PENDING_TIME while walking, while it has not been taken to be
+        # lifted yet, outside of jumps, whose feet leave the ground anyway
+        wait = 0.0 if est["gait_start"] is None else LIFT_PENDING_TIME
         return (
             est["ground_mode"] == GROUND_MODE_NORMAL
-            and est["no_contact_time"] > 0.0
+            and est["held"]
+            and est["no_contact_time"] > wait
             and est["jump_start"] is None
         )
 
@@ -2277,7 +2253,7 @@ def create_controller(
         get_stance_foot_mask,
         is_robot_lifted,
         is_lift_pending,
-        is_standing_up,
+        is_robot_set_down,
     )
 
 
