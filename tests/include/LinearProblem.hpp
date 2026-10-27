@@ -143,7 +143,8 @@ inline std::shared_ptr<model::Model> integratorProblem(uint   horizon,
     model->finalize(config);
     return model;
 }
-inline solvers::ssqp::Params accurateParams(solvers::ssqp::QPSolverType backend)
+inline solvers::ssqp::Params accurateParams(solvers::ssqp::QPSolverType backend,
+                                            bool parallel = false)
 {
     solvers::ssqp::Params p;
     p.qp_solver_type            = backend;
@@ -159,6 +160,11 @@ inline solvers::ssqp::Params accurateParams(solvers::ssqp::QPSolverType backend)
     p.hpipm_params.tol_eq       = 1e-10;
     p.hpipm_params.tol_ineq     = 1e-10;
     p.hpipm_params.tol_comp     = 1e-10;
+    p.piqp_params.eps_abs       = 1e-10;
+    p.piqp_params.eps_rel       = 1e-10;
+    p.piqp_params.reg_prim      = 1e-12;
+    p.piqp_params.parallel      = parallel;
+    p.piqp_params.num_threads   = 2;
     return p;
 }
 // Closed-form backward scalar Riccati recursion, independent of ssqp/LQR.

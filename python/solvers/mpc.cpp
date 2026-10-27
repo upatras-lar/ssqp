@@ -114,7 +114,7 @@ void bind_MPC(nb::module_ &m)
 
         HPIPM returns the Riccati gain of its last interior point iteration.
         ADMM returns the gain of its final LQR, which also penalizes inactive
-        constraints, so it is stiffer.
+        constraints, so it is stiffer. PIQP does not provide a feedback gain.
            )doc");
 }
 

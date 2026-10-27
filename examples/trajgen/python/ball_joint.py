@@ -19,6 +19,14 @@ def parse_args():
         help="Path of the output JSON file",
     )
 
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default="admm",
+        help="QP solver used at each SSQP iteration",
+    )
+
     return parser.parse_args()
 
 
@@ -57,7 +65,13 @@ for k in range(H):
 
 model.finalize(terminal_cost=config_cost)
 
-solver = ssqpy.solvers.ssqp(model, tolerance=1e-2)
+solver = ssqpy.solvers.ssqp(
+    model,
+    tolerance=1e-2,
+    qp_solver_type=getattr(
+        ssqpy.solvers.QPSolverType, args.qp_solver.upper()
+    ),
+)
 
 state, x, u = solver.solve()
 

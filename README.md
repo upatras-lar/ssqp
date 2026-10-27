@@ -40,7 +40,7 @@ and [C++](https://lar.upatras.gr/ssqp/cpp-reference/) API references.
 - Custom or predefined dynamics, costs, constraints, and terrain models.
 - Kinematics, ForwardDynamics, InverseDynamics, and ReducedInverseDynamics
   formulations.
-- ADMM QP solver by default, with optional HPIPM/BLASFEO support.
+- ADMM QP solver by default, with optional HPIPM/BLASFEO and PIQP support.
 - Receding-horizon MPC with warm starts and bounded per-step iteration counts.
 - C++17 library and Python bindings through nanobind.
 - Deterministic regression, finite-difference, and sanitizer-enabled tests.
@@ -91,7 +91,8 @@ The default source build requires:
 
 Pinocchio and its URDF parser dependencies are fetched and built by CMake.
 Nanobind is fetched when the Python bindings are enabled. HPIPM and BLASFEO
-are fetched only when `SSQP_WITH_HPIPM=ON`.
+are fetched only when `SSQP_WITH_HPIPM=ON`. PIQP is fetched only when
+`SSQP_WITH_PIQP=ON`, along with BLASFEO if HPIPM is off.
 
 Clone the repository with its submodules:
 
@@ -133,6 +134,8 @@ Pass options during configuration with `-DNAME=VALUE`:
 | Option | Default | Description |
 | --- | --- | --- |
 | `SSQP_WITH_HPIPM` | `ON` | Build and enable the HPIPM/BLASFEO QP backend |
+| `SSQP_WITH_PIQP` | `ON` | Build and enable the PIQP QP backend |
+| `SSQP_PIQP_OPENMP` | `OFF` | Build PIQP with OpenMP for its parallel multistage solver |
 | `SSQP_BUILD_PYTHON` | `ON` | Build the `ssqpy` Python module |
 | `SSQP_BUILD_TESTS` | `ON` | Build the unit and regression tests |
 | `SSQP_BUILD_EXAMPLES` | `OFF` | Build the C++ trajectory-generation examples |
@@ -162,13 +165,14 @@ want to support. The PyPI wheels use the settings in
 
 ### Prebuilt dependencies
 
-Pinocchio and, when HPIPM is enabled, HPIPM/BLASFEO can be supplied as
+Pinocchio and, when enabled, HPIPM/BLASFEO and PIQP can be supplied as
 prebuilt packages instead of being compiled from source:
 
 ```sh
 cmake -S . -B build \
   -DSSQP_PREBUILT_PINOCCHIO_DIR=/path/to/prebuilt/pinocchio \
-  -DSSQP_PREBUILT_HPIPM_DIR=/path/to/prebuilt/hpipm
+  -DSSQP_PREBUILT_HPIPM_DIR=/path/to/prebuilt/hpipm \
+  -DSSQP_PREBUILT_PIQP_DIR=/path/to/prebuilt/piqp
 cmake --build build -j"$(nproc)"
 ```
 
@@ -178,11 +182,14 @@ packages with:
 ```sh
 cmake --build build --target package-pinocchio
 cmake --build build --target package-hpipm
+cmake --build build --target package-piqp
 ```
 
-The resulting packages are written to `build/prebuilt/pinocchio` and
-`build/prebuilt/hpipm`. They must match the target compiler, architecture, and
-CPU features.
+The resulting packages are written to `build/prebuilt/pinocchio`,
+`build/prebuilt/hpipm` and `build/prebuilt/piqp`. They must match the target
+compiler, architecture, and CPU features. The PIQP package only holds BLASFEO
+when built with `SSQP_WITH_HPIPM=OFF`, so a package made with HPIPM on only
+works for builds that also have HPIPM on.
 
 ## C++ library
 
@@ -254,6 +261,9 @@ params = ssqpy.solvers.ssqpParams()
 params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
 solver = ssqpy.solvers.ssqp(model, params)
 ```
+
+PIQP is selected the same way, with `QPSolverType.PIQP`. It does not provide
+the feedback gains returned by `MPC.feedbackGain`.
 
 For receding-horizon control, `ssqpy.solvers.MPC` repeatedly solves the OCP
 with a small iteration budget, applies the first control, feeds back the

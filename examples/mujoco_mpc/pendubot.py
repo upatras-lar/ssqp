@@ -64,6 +64,15 @@ def parse_args():
             identification",
     )
 
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default=None,
+        help="QP solver used at each SSQP iteration, HPIPM in inverse \
+            dynamics mode and ADMM otherwise by default",
+    )
+
     return parser.parse_args()
 
 
@@ -115,11 +124,16 @@ mpc = None
 
 if INVERSE_MODE:
     ssqp_params.tolerance = 1e-3
-    ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+    ssqp_params.qp_solver_type = getattr(
+        ssqpy.solvers.QPSolverType, (args.qp_solver or "hpipm").upper()
+    )
 
     mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=4, qp_iters=100)
 else:
     ssqp_params.tolerance = 1e-2
+    ssqp_params.qp_solver_type = getattr(
+        ssqpy.solvers.QPSolverType, (args.qp_solver or "admm").upper()
+    )
     ssqp_params.admmParams.abs_tolerance = 1e-3
     ssqp_params.admmParams.rel_tolerance = 1e-3
     ssqp_params.admmParams.warm_start = False

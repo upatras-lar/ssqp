@@ -1,7 +1,7 @@
 """
 Smoke test for built wheels (see [tool.cibuildwheel] in pyproject.toml)
-Solves a short Panda reaching problem from the embedded preset with both QP
-solvers, which exercises Pinocchio, HPIPM/BLASFEO and the ADMM solver
+Solves a short Panda reaching problem from the embedded preset with every QP
+solver, which exercises Pinocchio, HPIPM/BLASFEO, PIQP and the ADMM solver
 """
 
 import numpy as np
@@ -15,7 +15,11 @@ init_state[:7] = [0.0, -0.9, 0.0, -2.6, 0.0, 1.7, 0.8]
 target = np.array([0.4, 0.1, 0.3])
 Rd = np.diag([1.0, -1.0, -1.0])
 
-for qp_solver in (ssqpy.solvers.QPSolverType.ADMM, ssqpy.solvers.QPSolverType.HPIPM):
+for qp_solver in (
+    ssqpy.solvers.QPSolverType.ADMM,
+    ssqpy.solvers.QPSolverType.HPIPM,
+    ssqpy.solvers.QPSolverType.PIQP,
+):
     model = ssqpy.model.Model(
         H,
         dt,

@@ -11,8 +11,8 @@ Python surface only; see the [C++ API Reference](../cpp-reference/index.md) for 
 * [`ssqpy.model.constraints`](model-constraints.md): `StageConstraints` and predefined constraints
 * [`ssqpy.model.dynamics`](model-dynamics.md): `StageDynamics`
 * [`ssqpy.model.terrain`](model-terrain.md): `Terrain`, `FlatTerrain`
-* [`ssqpy.solvers`](solvers.md): `ssqp`, `MPC`, `ssqpParams`, `admmParams`, `hpipmParams`, `FlatVec`, convergence
-  data
+* [`ssqpy.solvers`](solvers.md): `ssqp`, `MPC`, `ssqpParams`, `admmParams`, `hpipmParams`, `piqpParams`, `FlatVec`,
+  convergence data
 * [`ssqpy.solvers.search`](solvers-search.md): dynamics and hyperparameter search
 
 !!! note

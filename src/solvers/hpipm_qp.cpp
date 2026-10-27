@@ -454,21 +454,6 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
     {
         logln_at(LogLevel::Warning,
                  "Warning: HPIPM returned status " << _status);
-
-        // double res_stat;
-        // double res_eq;
-        // double res_ineq;
-        // double res_comp;
-
-        // d_ocp_qp_ipm_get_max_res_stat(&_hpipm_data->ws, &res_stat);
-        // d_ocp_qp_ipm_get_max_res_eq(&_hpipm_data->ws, &res_eq);
-        // d_ocp_qp_ipm_get_max_res_ineq(&_hpipm_data->ws, &res_ineq);
-        // d_ocp_qp_ipm_get_max_res_comp(&_hpipm_data->ws, &res_comp);
-
-        // logln(" -> Stationarity Residual:   " << res_stat);
-        // logln(" -> Dynamics (Eq) Residual:  " << res_eq);
-        // logln(" -> Bounds (Ineq) Residual:  " << res_ineq);
-        // logln(" -> Complementarity Resid:   " << res_comp);
     }
 
     logln_at(LogLevel::Debug, "HPIPM status: " << _status);

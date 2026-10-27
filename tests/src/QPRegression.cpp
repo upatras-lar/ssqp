@@ -170,13 +170,22 @@ VecX referenceSolution(const DenseProblem &d)
 
 std::unique_ptr<QPSolver> makeSolver(const QPData               &qp,
                                      solvers::ssqp::QPSolverType backend,
-                                     bool limited = false)
+                                     bool limited = false, bool parallel = false)
 {
-    auto params = accurateParams(backend);
+    auto params = accurateParams(backend, parallel);
     if (backend == solvers::ssqp::ADMM)
     {
         params.admm_params.max_iter = limited ? 1 : 100000;
         return std::make_unique<solvers::admm_qp>(qp, params.admm_params);
+    }
+    if (backend == solvers::ssqp::PIQP)
+    {
+#ifdef WITH_PIQP
+        params.piqp_params.max_iter = limited ? 1 : 100;
+        return std::make_unique<solvers::piqp_qp>(qp, params.piqp_params);
+#else
+        throw std::runtime_error("PIQP disabled");
+#endif
     }
 #ifdef WITH_HPIPM
     params.hpipm_params.max_iter = limited ? 1 : 100;
@@ -296,10 +305,11 @@ QPData conflictingQP()
     return qp;
 }
 
-QPSolver::Solution qpInfeasibility(const QPData        &qp,
-                                   solvers::SolverState expected)
+QPSolver::Solution qpInfeasibility(solvers::ssqp::QPSolverType backend,
+                                   const QPData                &qp,
+                                   solvers::SolverState         expected)
 {
-    auto               solver = makeSolver(qp, solvers::ssqp::ADMM);
+    auto               solver = makeSolver(qp, backend);
     QPSolver::Solution sol(qp.dims);
     solver->reset();
     const auto state = solver->solve(sol);
@@ -310,10 +320,10 @@ QPSolver::Solution qpInfeasibility(const QPData        &qp,
 }
 
 void qpRegression(solvers::ssqp::QPSolverType backend, uint horizon,
-                  bool bounded)
+                  bool bounded, bool parallel = false)
 {
     auto               qp     = makeQP(horizon, bounded);
-    auto               solver = makeSolver(qp, backend);
+    auto               solver = makeSolver(qp, backend, false, parallel);
     QPSolver::Solution sol(qp.dims);
     for (int iteration = 0; iteration < 5; ++iteration)
     {
@@ -348,9 +358,12 @@ void addQPRegressionTests(TestContainer &tests)
 #ifdef WITH_HPIPM
     backends.push_back(solvers::ssqp::HPIPM);
 #endif
+#ifdef WITH_PIQP
+    backends.push_back(solvers::ssqp::PIQP);
+#endif
     for (auto backend : backends)
     {
-        std::string suffix = backend == solvers::ssqp::ADMM ? "ADMM" : "HPIPM";
+        std::string suffix = solvers::ssqp::QPSolverTypeName(backend);
         for (uint horizon : { 1u, 3u })
             for (bool bounded : { false, true })
                 tests.addTest(std::make_shared<FunctionTest>(
@@ -391,21 +404,70 @@ void addQPRegressionTests(TestContainer &tests)
               }
           }));
     }
+#ifdef WITH_PIQP_OPENMP
+    for (uint horizon : { 1u, 3u, 8u })
+        for (bool bounded : { false, true })
+            tests.addTest(std::make_shared<FunctionTest>(
+              "Regression_QP_Dense_H" + std::to_string(horizon) +
+                (bounded ? "_Bounded_" : "_Free_") + "PIQPParallel",
+              [=] { qpRegression(solvers::ssqp::PIQP, horizon, bounded, true); }));
+#elif defined(WITH_PIQP)
     tests.addTest(std::make_shared<FunctionTest>(
-      "Regression_QP_Infeasible_Unreachable_ADMM",
-      [] { qpInfeasibility(unreachableQP(1.0), solvers::PRIMAL_INFEASIBLE); }));
-    tests.addTest(std::make_shared<FunctionTest>(
-      "Regression_QP_Infeasible_ConflictingRows_ADMM",
-      [] { qpInfeasibility(conflictingQP(), solvers::PRIMAL_INFEASIBLE); }));
-    tests.addTest(std::make_shared<FunctionTest>(
-      "Regression_QP_Feasible_NearBoundary_ADMM",
+      "Regression_QP_ParallelUnavailable_PIQP",
       []
       {
-          const auto sol =
-            qpInfeasibility(unreachableQP(0.28), solvers::SUCCESS);
-          require(sol.dx.stage(1)[0] > 0.28 - 1e-5,
-                  "Near-boundary row must be satisfied");
+          auto qp    = makeQP(1, false);
+          bool threw = false;
+          try
+          {
+              makeSolver(qp, solvers::ssqp::PIQP, false, true);
+          }
+          catch (const std::runtime_error &)
+          {
+              threw = true;
+          }
+          require(threw, "The parallel solver needs SSQP_PIQP_OPENMP");
       }));
+#endif
+    // HPIPM does not report infeasibility
+    std::vector<solvers::ssqp::QPSolverType> detecting { solvers::ssqp::ADMM };
+#ifdef WITH_PIQP
+    detecting.push_back(solvers::ssqp::PIQP);
+#endif
+    for (auto backend : detecting)
+    {
+        std::string suffix = solvers::ssqp::QPSolverTypeName(backend);
+        // PIQP stalls on this QP and reaches its iteration limit instead
+        if (backend != solvers::ssqp::PIQP)
+        {
+            tests.addTest(std::make_shared<FunctionTest>(
+              "Regression_QP_Infeasible_Unreachable_" + suffix,
+              [=]
+              {
+                  qpInfeasibility(backend,
+                                  unreachableQP(1.0),
+                                  solvers::PRIMAL_INFEASIBLE);
+              }));
+        }
+        tests.addTest(std::make_shared<FunctionTest>(
+          "Regression_QP_Infeasible_ConflictingRows_" + suffix,
+          [=]
+          {
+              qpInfeasibility(backend,
+                              conflictingQP(),
+                              solvers::PRIMAL_INFEASIBLE);
+          }));
+        tests.addTest(std::make_shared<FunctionTest>(
+          "Regression_QP_Feasible_NearBoundary_" + suffix,
+          [=]
+          {
+              const auto sol = qpInfeasibility(backend,
+                                               unreachableQP(0.28),
+                                               solvers::SUCCESS);
+              require(sol.dx.stage(1)[0] > 0.28 - 1e-5,
+                      "Near-boundary row must be satisfied");
+          }));
+    }
 }
 }
 }

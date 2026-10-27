@@ -24,7 +24,7 @@ SSQP only expects a couple of dependencies to already be present on the system:
   building and when later using `ssqpy`
 
 !!! tip
-    Building Pinocchio (and, if enabled, HPIPM/BLASFEO) from source is the default, but SSQP also supports building
+    Building Pinocchio (and, if enabled, HPIPM/BLASFEO and PIQP) from source is the default, but SSQP also supports building
     against **prebuilt** packages for them instead; see [Building against prebuilt
     dependencies](#building-against-prebuilt-dependencies) below.
 
@@ -45,6 +45,9 @@ or manual build step required:
   enabled (the default)
 * [BLASFEO](https://github.com/giaf/blasfeo) and [HPIPM](https://github.com/giaf/hpipm): fetched automatically if
   the `SSQP_WITH_HPIPM` CMake option is enabled, for the HPIPM-based QP solver (see [QP Solvers](../concepts/qp-solvers.md))
+* [PIQP](https://github.com/PREDICT-EPFL/piqp): header-only, fetched automatically if the `SSQP_WITH_PIQP` CMake
+  option is enabled, for the PIQP-based QP solver (see [QP Solvers](../concepts/qp-solvers.md)). Its multistage solver
+  also needs BLASFEO, which is shared with HPIPM when both are enabled and fetched and built for PIQP otherwise
 * [nlohmann/json](https://github.com/nlohmann/json) and [Tracy](https://github.com/wolfpld/tracy): vendored under
   [`external/`](https://github.com/upatras-lar/ssqp/tree/main/external) as git submodules
 
@@ -56,7 +59,7 @@ git clone --recurse-submodules git@github.com:upatras-lar/ssqp.git
 
 The dependencies fetched by CMake (see [`cmake/`](https://github.com/upatras-lar/ssqp/tree/main/cmake)) require
 network access during the build. The first build will take noticeably longer than subsequent ones since it has to
-compile Pinocchio and, if enabled, HPIPM/BLASFEO from source; later builds only recompile them if their vendored
+compile Pinocchio and, if enabled, HPIPM/BLASFEO from source (PIQP itself is header-only); later builds only recompile them if their vendored
 sources change. The [`.ci/Dockerfile`](https://github.com/upatras-lar/ssqp/blob/main/.ci/Dockerfile) documents a working system
 setup (Ubuntu 24.04, Eigen3, Boost) to have in place before running CMake; Boost is included there so CI doesn't pay
 the fetch-and-build cost on every run, not because it's strictly required (see [Dependencies](#dependencies) above).
@@ -86,6 +89,9 @@ cmake --build . --target verify-static-dependencies
 | `SSQP_WITH_HPIPM` | `ON` | Fetch, build and link against HPIPM and BLASFEO to enable the [HPIPM QP solver](../concepts/qp-solvers.md) |
 | `SSQP_PREBUILT_PINOCCHIO_DIR` | *(empty)* | Path to a prebuilt Pinocchio package instead of building it from source; see [Building against prebuilt dependencies](#building-against-prebuilt-dependencies) |
 | `SSQP_PREBUILT_HPIPM_DIR` | *(empty)* | Path to a prebuilt HPIPM/BLASFEO package instead of building it from source (only relevant if `SSQP_WITH_HPIPM=ON`) |
+| `SSQP_WITH_PIQP` | `ON` | Fetch and link against PIQP (and BLASFEO) to enable the [PIQP QP solver](../concepts/qp-solvers.md#piqp) |
+| `SSQP_PIQP_OPENMP` | `OFF` | Build the PIQP backend with OpenMP, enabling its [parallel multistage solver](../concepts/qp-solvers.md#piqp); adds a shared dependency on the OpenMP runtime (only relevant if `SSQP_WITH_PIQP=ON`) |
+| `SSQP_PREBUILT_PIQP_DIR` | *(empty)* | Path to a prebuilt PIQP package instead of fetching it, along with BLASFEO when `SSQP_WITH_HPIPM=OFF` (only relevant if `SSQP_WITH_PIQP=ON`) |
 | `SSQP_BOOST_VERSION` | `1.86.0` | Boost release fetched when no system Boost headers are available (see [Dependencies](#dependencies) above) |
 | `SSQP_ENABLE_PROFILING` | `OFF` | Enable [Tracy](https://github.com/wolfpld/tracy) profiling |
 | `SSQP_DISABLE_LOGGING` | `OFF` | Compile out SSQP's logging (see `ssqp::set_log_level`) |
@@ -113,13 +119,14 @@ Build a specific target instead of everything with `cmake --build . --target <ta
 | `verify-static-dependencies` | Confirms `ssqp`/`ssqpy` link no shared Boost, Pinocchio, URDF, HPIPM, or BLASFEO libraries (`SSQP_BUILD_PYTHON=ON` and [`readelf`](https://man7.org/linux/man-pages/man1/readelf.1.html) available) |
 | `package-pinocchio` | Assembles a redistributable prebuilt Pinocchio package; see [Building against prebuilt dependencies](#building-against-prebuilt-dependencies) below (unavailable when `SSQP_PREBUILT_PINOCCHIO_DIR` is set) |
 | `package-hpipm` | Assembles a redistributable prebuilt HPIPM/BLASFEO package; see [Building against prebuilt dependencies](#building-against-prebuilt-dependencies) below (`SSQP_WITH_HPIPM=ON`, unavailable when `SSQP_PREBUILT_HPIPM_DIR` is set) |
+| `package-piqp` | Assembles a redistributable prebuilt PIQP package, which also holds BLASFEO when `SSQP_WITH_HPIPM=OFF`; see [Building against prebuilt dependencies](#building-against-prebuilt-dependencies) below (`SSQP_WITH_PIQP=ON`, unavailable when `SSQP_PREBUILT_PIQP_DIR` is set) |
 
 ## Building against prebuilt dependencies
 
 Building Pinocchio (and, if `SSQP_WITH_HPIPM` is on, HPIPM/BLASFEO) from source is the default, but that isn't always
 practical, since the target machine may lack network access, or its CPU/toolchain combination may trip up one of
-their builds. As an alternative, SSQP provides prebuilt packages for Pinocchio and HPIPM/BLASFEO that a build can
-link against directly instead of building either from source.
+their builds. As an alternative, SSQP provides prebuilt packages for Pinocchio, HPIPM/BLASFEO and PIQP that a build
+can link against directly instead of building them from source.
 
 <!-- TODO: where to get the prebuilt packages -->
 
@@ -130,6 +137,7 @@ mkdir build && cd build
 cmake -DSSQP_WITH_HPIPM=ON \
       -DSSQP_PREBUILT_PINOCCHIO_DIR=/path/to/prebuilt/pinocchio \
       -DSSQP_PREBUILT_HPIPM_DIR=/path/to/prebuilt/hpipm \
+      -DSSQP_PREBUILT_PIQP_DIR=/path/to/prebuilt/piqp \
       ..
 cmake --build .
 ```
@@ -140,7 +148,10 @@ sources include Pinocchio headers that use Boost types directly, not just precom
 though the linking itself is static), so `SSQP_PREBUILT_PINOCCHIO_DIR` can be used without Boost installed at all
 either: unlike the default from-source build (see [Dependencies](#dependencies) above), this mode never has to
 detect, fetch, or build Boost itself. `SSQP_PREBUILT_HPIPM_DIR` can be set independently of
-`SSQP_PREBUILT_PINOCCHIO_DIR` and vice versa; each falls back to building from source if left unset.
+`SSQP_PREBUILT_PINOCCHIO_DIR` and vice versa; each falls back to building from source if left unset. The same goes
+for `SSQP_PREBUILT_PIQP_DIR`, except that a PIQP package only holds BLASFEO when it was made with
+`SSQP_WITH_HPIPM=OFF`. With HPIPM on, PIQP uses the BLASFEO from the HPIPM build or package, so a PIQP package made
+that way only works for builds that also have HPIPM on.
 
 A prebuilt package is tied to the architecture, compiler, and (for HPIPM/BLASFEO) CPU microarchitecture it was built
 on. It isn't a portable, run-anywhere artifact, just a way to build once and reuse the result across machines with
@@ -149,10 +160,11 @@ matching setups.
 !!! note
     Instead of using a package we provide, you can also produce your own. On a machine that can build from source
     matching your target architecture, a build can package what it just built into a redistributable directory:
-    `cmake --build . --target package-pinocchio` and `cmake --build . --target package-hpipm` produce
-    `build/prebuilt/pinocchio/{include,lib}` and `build/prebuilt/hpipm/{include,lib}` respectively. Copy either
-    directory to another machine and point `SSQP_PREBUILT_PINOCCHIO_DIR`/`SSQP_PREBUILT_HPIPM_DIR` at it, same as
-    above.
+    `cmake --build . --target package-pinocchio`, `cmake --build . --target package-hpipm` and
+    `cmake --build . --target package-piqp` produce `build/prebuilt/pinocchio/{include,lib}`,
+    `build/prebuilt/hpipm/{include,lib}` and `build/prebuilt/piqp` respectively. Copy any of these directories to
+    another machine and point `SSQP_PREBUILT_PINOCCHIO_DIR`/`SSQP_PREBUILT_HPIPM_DIR`/`SSQP_PREBUILT_PIQP_DIR` at it,
+    same as above.
 
 ## Using the C++ library
 

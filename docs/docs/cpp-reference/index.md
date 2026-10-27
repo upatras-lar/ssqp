@@ -19,7 +19,7 @@ or the [Python reference](../reference/model-costs.md) for exact parameters.
   predefined implementations
 * [Terrain](terrain.md): `Terrain`, `FlatTerrain`
 * [The SSQP Solver](solver.md): `ssqp::solvers::ssqp`
-* [QP Solvers](qp-solvers.md): `QPSolver`, `admm_qp`, `hpipm_qp`, `lqr`
+* [QP Solvers](qp-solvers.md): `QPSolver`, `admm_qp`, `hpipm_qp`, `piqp_qp`, `lqr`
 * [MPC](mpc.md): `ssqp::solvers::MPC`
 * [Parameter Search](parameter-search.md): `ssqp::param_search`
 
@@ -32,7 +32,7 @@ All library code lives under `ssqp::`, mirroring the Python package layout:
   implementations (in `model/stagewise/predefined/`)
 * `ssqp::model::terrain`: `Terrain` and predefined terrains (in `model/terrain/predefined/`)
 * `ssqp::model::presets`: URDFs baked into the binary at build time, looked up by `Model::Structure::from_preset`
-* `ssqp::solvers`: `ssqp`, `MPC`, `QPSolver`, `admm_qp`, `hpipm_qp`, `lqr`
+* `ssqp::solvers`: `ssqp`, `MPC`, `QPSolver`, `admm_qp`, `hpipm_qp`, `piqp_qp`, `lqr`
 * `ssqp::step`: the filter and merit line search implementations
 * `ssqp::param_search`: dynamics parameter and hyperparameter search
 
@@ -48,7 +48,7 @@ All library code lives under `ssqp::`, mirroring the Python package layout:
 | `ssqp::model::presets` | `include/model/presets/Presets.hpp` |
 | `ssqp::solvers::ssqp` | `include/solvers/ssqp.hpp` |
 | Filter / merit line search | `include/sqp_step/filter.hpp`, `include/sqp_step/merit.hpp` |
-| `ssqp::solvers::QPSolver` / `admm_qp` / `hpipm_qp` | `include/solvers/qp.hpp`, `admm_qp.hpp`, `hpipm_qp.hpp` |
+| `ssqp::solvers::QPSolver` / `admm_qp` / `hpipm_qp` / `piqp_qp` | `include/solvers/qp.hpp`, `admm_qp.hpp`, `hpipm_qp.hpp`, `piqp_qp.hpp` |
 | `ssqp::solvers::lqr` | `include/solvers/lqr.hpp` |
 | `ssqp::solvers::MPC` | `include/solvers/mpc.hpp` |
 | `ssqp::param_search` | `include/param_search/search.hpp` |
@@ -60,5 +60,5 @@ All library code lives under `ssqp::`, mirroring the Python package layout:
 installed package found with `find_package(ssqp)` or by adding this repository with `FetchContent` or
 `add_subdirectory`; the target propagates its include directories, compile definitions and the static libraries it
 depends on. See [Using the C++ library](../getting-started/installation.md#using-the-c-library) for both, and
-[CMake options](../getting-started/installation.md#cmake-options), particularly `SSQP_WITH_HPIPM` if you need the
-HPIPM QP solver.
+[CMake options](../getting-started/installation.md#cmake-options), particularly `SSQP_WITH_HPIPM` and `SSQP_WITH_PIQP`
+if you need the HPIPM or PIQP QP solvers.

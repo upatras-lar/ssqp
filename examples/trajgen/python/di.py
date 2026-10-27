@@ -1,6 +1,7 @@
 import ssqpy
 import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
+import argparse
 import numpy as np
 from math import pi
 
@@ -9,6 +10,25 @@ Double integrator example
 Moves a point mass to position 1 using custom dynamics and cost, defined
 directly in Python instead of coming from a robot model
 """
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Double integrator trajectory generation"
+    )
+
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default="admm",
+        help="QP solver used at each SSQP iteration",
+    )
+
+    return parser.parse_args()
+
+
+args = parse_args()
 
 # Horizon and time step
 H, dt = 10, 0.1
@@ -91,7 +111,12 @@ model.finalize(
 )
 
 # Create an SSQP solver for the model
-solver = ssqpy.solvers.ssqp(model)
+solver = ssqpy.solvers.ssqp(
+    model,
+    qp_solver_type=getattr(
+        ssqpy.solvers.QPSolverType, args.qp_solver.upper()
+    ),
+)
 
 state, x, u = solver.solve()
 

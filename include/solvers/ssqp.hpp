@@ -16,6 +16,7 @@
 #include "model/Model.hpp"
 #include "solvers/admm_qp.hpp"
 #include "solvers/hpipm_qp.hpp"
+#include "solvers/piqp_qp.hpp"
 
 #include "nlohmann/json.hpp"
 
@@ -71,9 +72,24 @@ class ssqp
 
     enum QPSolverType
     {
-        ADMM,
-        HPIPM
+        ADMM  = 0,
+        HPIPM = 1,
+        PIQP  = 2,
     };
+
+    static std::string QPSolverTypeName(QPSolverType type)
+    {
+        switch (type)
+        {
+        case ADMM:
+        default:
+            return "ADMM";
+        case HPIPM:
+            return "HPIPM";
+        case PIQP:
+            return "PIQP";
+        }
+    }
 
     struct Params
     {
@@ -169,6 +185,9 @@ class ssqp
 
         // Parameters for HPIPM (applicable when using the HPIPM solver)
         hpipm_qp::Params hpipm_params;
+
+        // Parameters for PIQP (applicable when using the PIQP solver)
+        piqp_qp::Params piqp_params;
 
         static Params Default()
         {

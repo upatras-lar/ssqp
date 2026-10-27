@@ -21,7 +21,6 @@ U_WGT = 1e-4
 F_WGT = 1e-6
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Go2 standing trajectory generation"
@@ -41,6 +40,14 @@ def parse_args():
         "--output",
         default="../../data/go2_standing.json",
         help="Path of the output JSON file",
+    )
+
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default="hpipm",
+        help="QP solver used at each SSQP iteration",
     )
 
     return parser.parse_args()
@@ -118,7 +125,9 @@ model.finalize(init_states=init)
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.loose_success = False
 ssqp_params.tolerance = 1e-2
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = getattr(
+    ssqpy.solvers.QPSolverType, args.qp_solver.upper()
+)
 ssqp_params.stop_after_constraint_satisfaction = True
 
 hpipm_params = ssqpy.solvers.hpipmParams()

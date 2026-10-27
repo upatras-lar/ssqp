@@ -8,6 +8,7 @@
 #include "solvers/ssqp.hpp"
 #include "solvers/admm_qp.hpp"
 #include "solvers/hpipm_qp.hpp"
+#include "solvers/piqp_qp.hpp"
 
 namespace ssqp
 {

@@ -28,6 +28,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # Tests and Python bindings default to off when ssqp is added to another
 # project with add_subdirectory or FetchContent
 option(SSQP_WITH_HPIPM "Link against HPIPM and BLASFEO" ON)
+option(SSQP_WITH_PIQP "Link against PIQP and BLASFEO" ON)
+option(SSQP_PIQP_OPENMP "Build PIQP with OpenMP for its parallel multistage solver" OFF)
 option(SSQP_ENABLE_PROFILING "Enable Tracy profiling" OFF)
 option(SSQP_DISABLE_LOGGING "Add -DDISABLE_LOGGING compile flag" OFF)
 option(SSQP_BUILD_EXAMPLES "Build example executables" OFF)
@@ -44,6 +46,10 @@ set(SSQP_PREBUILT_PINOCCHIO_DIR "" CACHE PATH "Path to a prebuilt Pinocchio pack
 # Same idea for BLASFEO/HPIPM (only relevant if SSQP_WITH_HPIPM is ON), as
 # produced by the `package-hpipm` target.
 set(SSQP_PREBUILT_HPIPM_DIR "" CACHE PATH "Path to a prebuilt HPIPM/BLASFEO package (see cmake/VendorHpipm.cmake)")
+
+# And for PIQP (only relevant if SSQP_WITH_PIQP is ON), as produced by the
+# `package-piqp` target.
+set(SSQP_PREBUILT_PIQP_DIR "" CACHE PATH "Path to a prebuilt PIQP/BLASFEO package (see cmake/VendorPiqp.cmake)")
 
 # BLASFEO kernel selection when building it from source (see
 # cmake/VendorHpipm.cmake)
@@ -158,6 +164,25 @@ if(SSQP_WITH_HPIPM)
     target_link_libraries(ssqp PRIVATE $<BUILD_INTERFACE:hpipm_vendored>)
     target_compile_definitions(ssqp PUBLIC WITH_HPIPM=1)
     list(APPEND SSQP_VENDORED_LIBS ${SSQP_HPIPM_LIBS})
+endif()
+
+if(SSQP_WITH_PIQP)
+    include(VendorPiqp)
+    target_link_libraries(ssqp PRIVATE $<BUILD_INTERFACE:piqp_vendored>)
+    target_compile_definitions(ssqp PUBLIC WITH_PIQP=1)
+    list(APPEND SSQP_VENDORED_LIBS ${SSQP_PIQP_LIBS})
+
+    # Only the PIQP backend is compiled with OpenMP, since the flag would
+    # also parallelize Eigen's matrix products in the rest of ssqp
+    if(SSQP_PIQP_OPENMP)
+        find_package(OpenMP REQUIRED COMPONENTS CXX)
+        separate_arguments(_ssqp_openmp_flags NATIVE_COMMAND "${OpenMP_CXX_FLAGS}")
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/solvers/piqp_qp.cpp PROPERTIES
+            COMPILE_OPTIONS "${_ssqp_openmp_flags}"
+            COMPILE_DEFINITIONS PIQP_HAS_OPENMP)
+        target_link_libraries(ssqp PRIVATE ${OpenMP_CXX_LIBRARIES})
+        target_compile_definitions(ssqp PUBLIC WITH_PIQP_OPENMP=1)
+    endif()
 endif()
 
 include(VendorPinocchio)

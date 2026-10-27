@@ -2,6 +2,7 @@ import mujoco
 import mujoco.viewer
 import glfw
 import ssqpy
+import argparse
 import numpy as np
 from time import time
 from go2_controllers.joystick import Controller
@@ -12,6 +13,25 @@ from utils_go2_mujoco import (
     mujoco_to_ssqp_state,
     clip_joints_to_limits,
 )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Go2 walking MPC in MuJoCo using SSQP"
+    )
+
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default="hpipm",
+        help="QP solver used at each SSQP iteration",
+    )
+
+    return parser.parse_args()
+
+
+args = parse_args()
 
 ssqpy.setSilentMode()
 np.set_printoptions(suppress=True)
@@ -547,7 +567,9 @@ model.finalize(init_states=[init_state])
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = getattr(
+    ssqpy.solvers.QPSolverType, args.qp_solver.upper()
+)
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3

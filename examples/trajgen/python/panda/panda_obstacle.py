@@ -40,6 +40,14 @@ def parse_args():
         help="Path of the output JSON file",
     )
 
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default="admm",
+        help="QP solver used at each SSQP iteration",
+    )
+
     return parser.parse_args()
 
 
@@ -112,6 +120,9 @@ model.addCost(H, joint_vel_cost)
 model.finalize(init_states=init_state)
 
 params = ssqpy.solvers.ssqpParams()
+params.qp_solver_type = getattr(
+    ssqpy.solvers.QPSolverType, args.qp_solver.upper()
+)
 params.tolerance = 1e-2
 params.admmParams.abs_tolerance = 1e-4
 params.admmParams.rel_tolerance = 1e-4

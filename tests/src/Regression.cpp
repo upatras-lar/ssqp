@@ -64,10 +64,11 @@ void solverKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon,
     }
 }
 
-void mpcKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon)
+void mpcKnownSolution(solvers::ssqp::QPSolverType backend, uint horizon,
+                      bool parallel = false)
 {
     auto                 model  = integratorProblem(horizon, 0.0);
-    auto                 params = accurateParams(backend);
+    auto                 params = accurateParams(backend, parallel);
     solvers::MPC::Params mp;
     mp.sqp_iters             = 20;
     mp.qp_iters              = 10000;
@@ -169,6 +170,28 @@ void mpcFeedbackGains(solvers::ssqp::QPSolverType backend, uint horizon)
     }
     require(out_of_range, "No feedback gain past the last control stage");
 }
+
+#ifdef WITH_PIQP
+void piqpFeedbackGainUnavailable()
+{
+    auto                 model = integratorProblem(2, 0.0);
+    solvers::MPC::Params mp;
+    mp.sqp_iters = 20;
+    mp.qp_iters  = 10000;
+    solvers::MPC mpc(*model, mp, accurateParams(solvers::ssqp::PIQP));
+    mpc.step(VecX::Ones(1));
+    bool threw = false;
+    try
+    {
+        mpc.feedbackGain(0);
+    }
+    catch (const std::runtime_error &)
+    {
+        threw = true;
+    }
+    require(threw, "PIQP has no feedback gain");
+}
+#endif
 
 #ifdef WITH_HPIPM
 void hpipmActiveBoundGains()
@@ -1094,6 +1117,24 @@ void paramsJsonOptionalKeys()
     require(written(solvers::ssqp::Params(path)) == written(expected),
             "Written parameters must read back unchanged");
 
+#ifdef WITH_PIQP
+    {
+        std::ofstream out(path);
+        out << R"({"qp_solver_type": "PIQP", "piqp": {"max_iter": 7}})";
+    }
+    solvers::ssqp::Params piqp_expected;
+    piqp_expected.qp_solver_type       = solvers::ssqp::PIQP;
+    piqp_expected.piqp_params.max_iter = 7;
+    require(written(solvers::ssqp::Params(path)) == written(piqp_expected),
+            "Missing PIQP parameters must keep their defaults");
+
+    piqp_expected.piqp_params.eps_abs  = 1e-6;
+    piqp_expected.piqp_params.reg_prim = 1e-9;
+    require(piqp_expected.write(path), "Parameter file must be writable");
+    require(written(solvers::ssqp::Params(path)) == written(piqp_expected),
+            "Written PIQP parameters must read back unchanged");
+#endif
+
     std::filesystem::remove(path);
 }
 }
@@ -1138,9 +1179,12 @@ void addRegressionTests(TestContainer &tests)
 #ifdef WITH_HPIPM
     backends.push_back(solvers::ssqp::HPIPM);
 #endif
+#ifdef WITH_PIQP
+    backends.push_back(solvers::ssqp::PIQP);
+#endif
     for (auto backend : backends)
     {
-        std::string suffix = backend == solvers::ssqp::ADMM ? "ADMM" : "HPIPM";
+        std::string suffix = solvers::ssqp::QPSolverTypeName(backend);
         for (uint horizon : { 1u, 2u, 8u })
         {
             tests.addTest(std::make_shared<FunctionTest>(
@@ -1150,10 +1194,14 @@ void addRegressionTests(TestContainer &tests)
             tests.addTest(std::make_shared<FunctionTest>(
               "Regression_MPC_Known_H" + std::to_string(horizon) + "_" + suffix,
               [=] { mpcKnownSolution(backend, horizon); }));
-            tests.addTest(std::make_shared<FunctionTest>(
-              "Regression_MPC_FeedbackGains_H" + std::to_string(horizon) + "_" +
-                suffix,
-              [=] { mpcFeedbackGains(backend, horizon); }));
+            // PIQP has no feedback gain, see piqpFeedbackGainUnavailable
+            if (backend != solvers::ssqp::PIQP)
+            {
+                tests.addTest(std::make_shared<FunctionTest>(
+                  "Regression_MPC_FeedbackGains_H" + std::to_string(horizon) +
+                    "_" + suffix,
+                  [=] { mpcFeedbackGains(backend, horizon); }));
+            }
         }
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_SSQP_ActiveBounds_" + suffix,
@@ -1184,6 +1232,17 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_MPC_FeedbackGains_ActiveBounds_HPIPM",
       hpipmActiveBoundGains));
+#endif
+#ifdef WITH_PIQP
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_MPC_FeedbackGains_Unavailable_PIQP",
+      piqpFeedbackGainUnavailable));
+#endif
+#ifdef WITH_PIQP_OPENMP
+    for (uint horizon : { 1u, 2u, 8u })
+        tests.addTest(std::make_shared<FunctionTest>(
+          "Regression_MPC_Known_H" + std::to_string(horizon) + "_PIQPParallel",
+          [=] { mpcKnownSolution(solvers::ssqp::PIQP, horizon, true); }));
 #endif
     addQPRegressionTests(tests);
 }

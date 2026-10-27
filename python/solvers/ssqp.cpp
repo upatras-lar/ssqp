@@ -7,6 +7,7 @@
 #include "solvers/ssqp.hpp"
 #include "solvers/admm_qp.hpp"
 #include "solvers/hpipm_qp.hpp"
+#include "solvers/piqp_qp.hpp"
 #include "model/Model.hpp"
 #include "../model/model_reference.hpp"
 
@@ -67,9 +68,11 @@ void bind_ssqp(nb::module_ &m)
         Available solvers:
          - ADMM: The custom ADMM implementation.
          - HPIPM: The HPIPM interior point solver, using the HPIPM library.
+         - PIQP: The PIQP proximal interior point solver, using the PIQP library.
         )doc")
       .value("ADMM", ssqp::QPSolverType::ADMM)
       .value("HPIPM", ssqp::QPSolverType::HPIPM)
+      .value("PIQP", ssqp::QPSolverType::PIQP)
       .export_values();
 
     nb::enum_<HPIPMMode>(m, "HPIPMMode", R"doc(
@@ -276,7 +279,10 @@ void bind_ssqp(nb::module_ &m)
               "Parameters for the ADMM QP solver.")
       .def_rw("hpipmParams",
               &ssqp::Params::hpipm_params,
-              "Parameters for the HPIPM QP solver.");
+              "Parameters for the HPIPM QP solver.")
+      .def_rw("piqpParams",
+              &ssqp::Params::piqp_params,
+              "Parameters for the PIQP QP solver.");
 
     nb::class_<admm_qp::Params>(m, "admmParams")
       .def(nb::init())
@@ -387,7 +393,31 @@ void bind_ssqp(nb::module_ &m)
               "Whether to use different step for primal and dual variables.");
 #endif
 
-    nb::class_<ssqp>(m, "ssqp", nb::dynamic_attr(), R"doc(
+#ifdef WITH_PIQP
+    nb::class_<piqp_qp::Params>(m, "piqpParams")
+      .def(nb::init())
+      .def("print", &piqp_qp::Params::print)
+      .def_rw("max_iter",
+              &piqp_qp::Params::max_iter,
+              "Maximum number of PIQP iterations.")
+      .def_rw("eps_abs", &piqp_qp::Params::eps_abs, "The absolute tolerance.")
+      .def_rw("eps_rel", &piqp_qp::Params::eps_rel, "The relative tolerance.")
+      .def_rw("rho_init", &piqp_qp::Params::rho_init, "The initial rho.")
+      .def_rw("delta_init", &piqp_qp::Params::delta_init, "The initial delta.")
+      .def_rw("reg_prim",
+              &piqp_qp::Params::reg_prim,
+              "The regularization term.")
+      .def_rw("parallel",
+              &piqp_qp::Params::parallel,
+              "Whether to use the parallel multistage solver (requires "
+              "building with SSQP_PIQP_OPENMP).")
+      .def_rw("num_threads",
+              &piqp_qp::Params::num_threads,
+              "The number of threads to use if using the parallel solver "
+              "(0 uses the OpenMP default).");
+#endif
+
+        nb::class_<ssqp>(m, "ssqp", nb::dynamic_attr(), R"doc(
         Defines an SSQP problem solver based on a given SSQP model and the desired
         parameters.
 
@@ -680,6 +710,49 @@ void bind_ssqp(nb::module_ &m)
             params.hpipm_params = hpipm_params;
 #endif
 
+#ifdef WITH_PIQP
+            piqp_qp::Params piqp_params;
+
+            if (kwargs.contains("piqp_max_iter"))
+            {
+                piqp_params.max_iter = nb::cast<int>(kwargs["piqp_max_iter"]);
+            }
+            if (kwargs.contains("piqp_eps_abs"))
+            {
+                piqp_params.eps_abs = nb::cast<double>(kwargs["piqp_eps_abs"]);
+            }
+            if (kwargs.contains("piqp_eps_rel"))
+            {
+                piqp_params.eps_rel = nb::cast<double>(kwargs["piqp_eps_rel"]);
+            }
+            if (kwargs.contains("piqp_rho_init"))
+            {
+                piqp_params.rho_init =
+                  nb::cast<double>(kwargs["piqp_rho_init"]);
+            }
+            if (kwargs.contains("piqp_delta_init"))
+            {
+                piqp_params.delta_init =
+                  nb::cast<double>(kwargs["piqp_delta_init"]);
+            }
+            if (kwargs.contains("piqp_reg_prim"))
+            {
+                piqp_params.reg_prim =
+                  nb::cast<double>(kwargs["piqp_reg_prim"]);
+            }
+            if (kwargs.contains("piqp_parallel"))
+            {
+                piqp_params.parallel = nb::cast<bool>(kwargs["piqp_parallel"]);
+            }
+            if (kwargs.contains("piqp_num_threads"))
+            {
+                piqp_params.num_threads =
+                  nb::cast<uint>(kwargs["piqp_num_threads"]);
+            }
+
+            params.piqp_params = piqp_params;
+#endif
+
             new (self) ssqp(model, params);
         },
         nb::call_policy<keep_model>(),
@@ -688,8 +761,8 @@ void bind_ssqp(nb::module_ &m)
         Parameters, as defined in ssqpParams, can be passed as keyword arguments
         to this constructor. ADMM parameters, as defined in admmParams, can be 
         passed as keyword arguments with the `admm_` prefix. Similarly, HPIPM
-        parameters, as defined in hpipmParams, can be passed as keyword
-        arguments with the `hpipm_` prefix.
+        and PIQP parameters, as defined in hpipmParams and piqpParams, can be
+        passed as keyword arguments with the `hpipm_` and `piqp_` prefixes.
         )doc")
       .def(
         "solve",

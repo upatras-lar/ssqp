@@ -1,6 +1,7 @@
 import ssqpy
 import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
+import argparse
 import numpy as np
 from utils_go2_mujoco import (
     ssqp_to_mujoco_state_kin,
@@ -28,6 +29,24 @@ from time import sleep
 
 from go2_controllers.joystick import Controller
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Go2 kinematic walking MPC in MuJoCo using SSQP"
+    )
+
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default="admm",
+        help="QP solver used at each SSQP iteration",
+    )
+
+    return parser.parse_args()
+
+
+args = parse_args()
 
 class KinematicJointSpacePD:
     def __init__(
@@ -250,6 +269,9 @@ model.finalize(
 )
 
 ssqp_params = ssqpy.solvers.ssqpParams()
+ssqp_params.qp_solver_type = getattr(
+    ssqpy.solvers.QPSolverType, args.qp_solver.upper()
+)
 ssqp_params.tolerance = 1e-1
 
 admm_params = ssqpy.solvers.admmParams()

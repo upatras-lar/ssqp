@@ -2,7 +2,7 @@
 
 At each SSQP iteration, quadratizing the cost and linearizing the dynamics/constraints produces a Quadratic Program
 with the same stagewise (banded) structure as the original OCP. `QPSolver` (`ssqp::solvers::QPSolver`) is the
-abstract interface both QP backends implement:
+abstract interface all QP backends implement:
 
 ```cpp
 virtual void        reset()                  = 0;
@@ -11,7 +11,8 @@ virtual SolverState solve(Solution &sol)     = 0;
 virtual uint        iterations() const       = 0;
 ```
 
-Select the backend via `ssqpParams.qp_solver_type` (`QPSolverType.ADMM` or `QPSolverType.HPIPM`); see
+Select the backend via `ssqpParams.qp_solver_type` (`QPSolverType.ADMM`, `QPSolverType.HPIPM` or
+`QPSolverType.PIQP`); see
 [The SSQP Solver](solver.md#choosing-a-qp-solver).
 
 ## QP formulation
@@ -60,7 +61,7 @@ dynamics and constraints, which become the next iterate's estimates.
 ## ADMM
 
 `admm_qp` is SSQP's own Alternating Direction Method of Multipliers implementation. It requires no extra
-dependencies (unlike HPIPM, see below) and is the default. Key parameters (`admmParams`, or `admm_`-prefixed
+dependencies (unlike HPIPM and PIQP, see below) and is the default. Key parameters (`admmParams`, or `admm_`-prefixed
 keyword arguments):
 
 * `init_rho`, `alpha` (over-relaxation), `sigma` (proximal regularization)
@@ -89,6 +90,38 @@ interior-point QP solver. It requires building SSQP with `-DWITH_HPIPM=ON` (see
 * `reg_prim`: primal regularization
 * `warm_start`, `prediction_correction`, `square_root_riccati`, `split_step`
 
+## PIQP
+
+`piqp_qp` wraps [PIQP](https://github.com/PREDICT-EPFL/piqp), a proximal interior-point QP solver, using its
+multistage KKT solver, which exploits the stagewise structure of the QP. The multistage solver needs
+[BLASFEO](https://github.com/giaf/blasfeo), which is shared with HPIPM when both are enabled. It requires building SSQP
+with `-DSSQP_WITH_PIQP=ON`, which is the default (see [Installation](../getting-started/installation.md#cmake-options)).
+Key parameters (`piqpParams`, or `piqp_`-prefixed keyword arguments):
+
+* `max_iter`
+* `eps_abs`, `eps_rel`: absolute and relative tolerances
+* `rho_init`, `delta_init`: initial primal and dual proximal regularization
+* `reg_prim`: primal regularization added to the Hessian diagonal, increased when the line search fails. It defaults
+  to `1e-4`, far above HPIPM's, because PIQP solves the QP accurately enough that directions with little or no
+  curvature (e.g. lightly weighted contact forces) otherwise produce very large steps that slow SSQP down
+* `parallel`, `num_threads`: use PIQP's parallel multistage solver, which splits the horizon into segments that are
+  factorized on separate threads, with `num_threads` threads (0 uses the OpenMP default, all logical cores). This
+  requires building with `-DSSQP_PIQP_OPENMP=ON`, and setting `parallel` otherwise raises an error. With `parallel`
+  off, the serial solver runs on a single thread either way
+
+The parallel solver mainly pays off for long horizons: on a 301-stage Go2 trajectory it roughly halves the QP solve
+time with 8 threads, while the setup on the first solve stays sequential. Use about as many threads as the CPU has
+performance cores, since more are usually slower. As PIQP's
+[documentation](https://predict-epfl.github.io/piqp/multistage) recommends, binding the threads to cores
+(`OMP_PLACES=cores OMP_PROC_BIND=close`) also helps.
+
+PIQP differs from the other backends in a few ways:
+
+* It does not provide a feedback gain, so `MPC.feedbackGain` raises an error with it
+* It reports `PrimalInfeasible` for some infeasible QPs, but may also stall on one and stop at `max_iter`
+* Its setup runs on the first solve after the QP solver is created. An `MPC` creates a new one whenever the problem
+  dimensions change, e.g. when contact constraints are toggled, so each such step pays this cost again
+
 ## LQR
 
 `ssqp::solvers::lqr` is a Riccati-recursion based solver used internally to warm-start/solve the unconstrained
@@ -96,4 +129,5 @@ interior-point QP solver. It requires building SSQP with `-DWITH_HPIPM=ON` (see
 gain matrices $P, K$) and a full `unconstrained` solve. It is not exposed as a standalone `QPSolverType`; instead it
 backs the ADMM solver's per-iteration linear solves.
 
-See the [API reference](../reference/solvers.md) for `ssqpParams`, `admmParams` and `hpipmParams` in full.
+See the [API reference](../reference/solvers.md) for `ssqpParams`, `admmParams`, `hpipmParams` and `piqpParams` in
+full.

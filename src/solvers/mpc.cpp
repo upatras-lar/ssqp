@@ -35,6 +35,9 @@ MPC::MPC(model::Model &model, const Params &params,
     case ssqp::QPSolverType::HPIPM:
         _ssqp_params.hpipm_params.max_iter = params.qp_iters;
         break;
+    case ssqp::QPSolverType::PIQP:
+        _ssqp_params.piqp_params.max_iter = params.qp_iters;
+        break;
     }
 
     if (!model.finalized())

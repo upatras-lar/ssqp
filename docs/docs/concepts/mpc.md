@@ -24,7 +24,7 @@ while running:
 ## Parameters
 
 `MPC.Params` (or keyword arguments to the constructor) cap the iteration budget *independently* of whatever
-`ssqpParams`/`admmParams`/`hpipmParams` are passed alongside them; the MPC-level `sqp_iters` and `qp_iters` are
+`ssqpParams`/`admmParams`/`hpipmParams`/`piqpParams` are passed alongside them; the MPC-level `sqp_iters` and `qp_iters` are
 what actually bound the per-step solve time:
 
 * `sqp_iters`: maximum SSQP iterations per MPC step (default keeps this low, e.g. `5`–`10`, since MPC relies on

@@ -31,6 +31,14 @@ def parse_args():
         help="Path of the output JSON file",
     )
 
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default="piqp",
+        help="QP solver used at each SSQP iteration",
+    )
+
     return parser.parse_args()
 
 
@@ -323,7 +331,9 @@ model.finalize(init_states=init)
 # SSQP model parameters
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = getattr(
+    ssqpy.solvers.QPSolverType, args.qp_solver.upper()
+)
 
 admm_params = ssqpy.solvers.admmParams()
 admm_params.abs_tolerance = 1e-3
@@ -344,6 +354,12 @@ hpipm_params.tol_comp = 1e-3
 hpipm_params.tol_eq = 1e-3
 hpipm_params.tol_ineq = 1e-3
 ssqp_params.hpipmParams = hpipm_params
+
+piqp_params = ssqpy.solvers.piqpParams()
+piqp_params.max_iter = 200
+piqp_params.eps_abs = 1e-3
+piqp_params.eps_rel = 1e-3
+ssqp_params.piqpParams = piqp_params
 
 # Create a solver with the model
 solver = ssqpy.solvers.ssqp(model, ssqp_params)

@@ -28,7 +28,14 @@ jobs:
       fail-fast: false
       matrix:
         with_hpipm: [ON, OFF]
-    name: build-and-test (SSQP_WITH_HPIPM=${{ matrix.with_hpipm }})
+        with_piqp: [ON, OFF]
+        piqp_openmp: [OFF]
+        # A separate job, since it changes piqp_openmp
+        include:
+          - with_hpipm: ON
+            with_piqp: ON
+            piqp_openmp: ON
+    name: build-and-test (SSQP_WITH_HPIPM=${{ matrix.with_hpipm }}, SSQP_WITH_PIQP=${{ matrix.with_piqp }}, SSQP_PIQP_OPENMP=${{ matrix.piqp_openmp }})
 
     steps:
       - uses: actions/checkout@v7.0.1
@@ -54,12 +61,14 @@ jobs:
         uses: actions/cache@v6.1.0
         with:
           path: build
-          key: build-${{ matrix.with_hpipm }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+          key: build-${{ matrix.with_hpipm }}-${{ matrix.with_piqp }}-${{ matrix.piqp_openmp }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
 
       - name: Configure
         run: |
           cmake -S . -B build \
             -DSSQP_WITH_HPIPM=${{ matrix.with_hpipm }} \
+            -DSSQP_WITH_PIQP=${{ matrix.with_piqp }} \
+            -DSSQP_PIQP_OPENMP=${{ matrix.piqp_openmp }} \
             -DSSQP_BUILD_PYTHON=OFF
 
       - name: Build
@@ -72,7 +81,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: test-logs-hpipm-${{ matrix.with_hpipm }}
+          name: test-logs-hpipm-${{ matrix.with_hpipm }}-piqp-${{ matrix.with_piqp }}-openmp-${{ matrix.piqp_openmp }}
           path: tests/logs/
 
   sanitizers:
@@ -109,6 +118,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DSSQP_ENABLE_SANITIZERS=ON \
             -DSSQP_WITH_HPIPM=ON \
+            -DSSQP_WITH_PIQP=ON \
             -DSSQP_BUILD_PYTHON=OFF
 
       - name: Build

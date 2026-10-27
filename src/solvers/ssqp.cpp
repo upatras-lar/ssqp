@@ -199,6 +199,18 @@ ssqp::Params::Params(const std::string &filepath)
         throw std::runtime_error("SSQP was not compiled with HPIPM support!");
 #endif
     }
+    else if (j.value("qp_solver_type", "") == "PIQP")
+    {
+#ifdef WITH_PIQP
+        qp_solver_type = QPSolverType::PIQP;
+        if (j.contains("piqp"))
+        {
+            piqp_params = piqp_qp::Params(j["piqp"]);
+        }
+#else
+        throw std::runtime_error("SSQP was not compiled with PIQP support!");
+#endif
+    }
     else
     {
         qp_solver_type = QPSolverType::ADMM;
@@ -269,9 +281,7 @@ void ssqp::Params::print() const
               << std::endl;
 
     std::cout << "---------------" << std::endl;
-    std::cout << "QP Solver: "
-              << (qp_solver_type == QPSolverType::ADMM ? "ADMM" : "HPIPM")
-              << std::endl;
+    std::cout << "QP Solver: " << QPSolverTypeName(qp_solver_type) << std::endl;
     std::cout << "---------------" << std::endl;
 
     if (qp_solver_type == QPSolverType::ADMM)
@@ -284,6 +294,14 @@ void ssqp::Params::print() const
         hpipm_params.print();
 #else
         throw std::runtime_error("SSQP was not compiled with HPIPM support!");
+#endif
+    }
+    else if (qp_solver_type == QPSolverType::PIQP)
+    {
+#ifdef WITH_PIQP
+        piqp_params.print();
+#else
+        throw std::runtime_error("SSQP was not compiled with PIQP support!");
 #endif
     }
 }
@@ -329,6 +347,15 @@ void ssqp::Params::write(nlohmann::ordered_json &j) const
         hpipm_params.write(j);
 #else
         throw std::runtime_error("SSQP was not compiled with HPIPM support!");
+#endif
+    }
+    else if (qp_solver_type == QPSolverType::PIQP)
+    {
+#ifdef WITH_PIQP
+        j["qp_solver_type"] = "PIQP";
+        piqp_params.write(j);
+#else
+        throw std::runtime_error("SSQP was not compiled with PIQP support!");
 #endif
     }
 }
@@ -469,6 +496,13 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         throw std::runtime_error("SSQP was not compiled with HPIPM support!");
 #endif
         break;
+    case PIQP:
+#ifdef WITH_PIQP
+        _qp_solver = std::make_unique<piqp_qp>(_qp, _params.piqp_params);
+#else
+        throw std::runtime_error("SSQP was not compiled with PIQP support!");
+#endif
+        break;
     }
 
     const model::Dimensions &lin_dims = model.linear_dims();
@@ -538,15 +572,6 @@ void ssqp::reinitialize()
 
     _prev_cost_dx.vec.setZero();
     _prev_cost_du.vec.setZero();
-
-    _filter_memory.clear();
-
-    if (_params.line_search_method == LineSearchMethod::Filter)
-    {
-        _filter_memory.push_front({ _lf(_guess.x, _guess.u),
-                                    _gammaf(_guess.x, _guess.u),
-                                    _cf(_guess.x, _guess.u) });
-    }
 }
 
 const model::Model &ssqp::model() const
@@ -561,6 +586,17 @@ SolverState ssqp::solve(Guess &guess)
     _check_bounds();
 
     _stale_iters = 0;
+
+    // The filter starts from the current guess, since entries from previous
+    // solves may refer to different bounds
+    _filter_memory.clear();
+
+    if (_params.line_search_method == LineSearchMethod::Filter)
+    {
+        _filter_memory.push_front({ _lf(_guess.x, _guess.u),
+                                    _gammaf(_guess.x, _guess.u),
+                                    _cf(_guess.x, _guess.u) });
+    }
 
     _convergence_data.iteration_data.clear();
     _convergence_data.iteration_data.reserve(_params.max_iter);

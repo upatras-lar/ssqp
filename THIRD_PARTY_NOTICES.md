@@ -11,8 +11,9 @@ following projects. Their licenses are reproduced below.
 | [console_bridge](https://github.com/ros/console_bridge) | 1.0.2 | BSD-3-Clause | Logging for urdfdom |
 | [TinyXML-2](https://github.com/leethomason/tinyxml2) | 10.1.0 | Zlib | XML parsing for urdfdom |
 | [Boost](https://www.boost.org) (Filesystem, Serialization and headers) | See below | BSL-1.0 | Pinocchio dependency |
-| [BLASFEO](https://github.com/giaf/blasfeo) | 6049328 | BSD-2-Clause | Linear algebra for HPIPM |
+| [BLASFEO](https://github.com/giaf/blasfeo) | 6049328 | BSD-2-Clause | Linear algebra for HPIPM and PIQP |
 | [HPIPM](https://github.com/giaf/hpipm) | 16a8db5 | BSD-2-Clause | Optional HPIPM QP backend |
+| [PIQP](https://github.com/PREDICT-EPFL/piqp) | 439f6ff | BSD-2-Clause | Optional PIQP QP backend |
 | [Eigen](https://eigen.tuxfamily.org) | System | MPL-2.0 | Linear algebra |
 | [nanobind](https://github.com/wjakob/nanobind) | 2.15.0 | BSD-3-Clause | Python bindings |
 | [robin-map](https://github.com/Tessil/robin-map) | Bundled with nanobind | MIT | Python bindings |
@@ -223,6 +224,36 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## PIQP
+
+```
+BSD 2-Clause License
+
+Copyright (c) 2023, EPFL
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## nanobind

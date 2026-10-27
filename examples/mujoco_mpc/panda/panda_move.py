@@ -39,6 +39,14 @@ def parse_args():
             (and obstacle box)",
     )
 
+    parser.add_argument(
+        "-q",
+        "--qp-solver",
+        choices=["admm", "hpipm", "piqp"],
+        default="hpipm",
+        help="QP solver used at each SSQP iteration",
+    )
+
     return parser.parse_args()
 
 
@@ -193,7 +201,9 @@ model.addCost(MPC_H, v_cost)
 
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-1
-ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+ssqp_params.qp_solver_type = getattr(
+    ssqpy.solvers.QPSolverType, args.qp_solver.upper()
+)
 
 ssqp_params.hpipmParams.tol_comp = 1e-3
 ssqp_params.hpipmParams.tol_stat = 1e-3

@@ -346,13 +346,14 @@ the measured state and the planned one, taken in the tangent space of the dynami
 The gain describes the last QP, so it only holds near the plan and for the plan's active constraints. With HPIPM
 it is the Riccati gain of the last interior point iteration, where the barrier stiffens the active constraints (a
 looser tolerance gives a smoother gain). With ADMM it is the gain of the final LQR, which penalizes inactive
-constraints as well, so it is stiffer. The gains can be too aggressive to apply as they are when the loop adds
-delay, so scaling them down may be needed.
+constraints as well, so it is stiffer. PIQP does not provide a feedback gain, so `feedbackGain` raises an error with
+it. The gains can be too aggressive to apply as they are when the loop adds delay, so scaling them down may be needed.
 
-## How do I switch between the ADMM and HPIPM QP solvers?
+## How do I switch between the ADMM, HPIPM and PIQP QP solvers?
 
-HPIPM requires building SSQP with `-DWITH_HPIPM=ON` (see
-[Installation](getting-started/installation.md#cmake-options)), which is enabled by default.
+HPIPM requires building SSQP with `-DWITH_HPIPM=ON` and PIQP with `-DSSQP_WITH_PIQP=ON` (see
+[Installation](getting-started/installation.md#cmake-options)); both are enabled by default. For example, to use
+HPIPM:
 
 === "Python"
 
@@ -373,6 +374,9 @@ HPIPM requires building SSQP with `-DWITH_HPIPM=ON` (see
 
     ssqp::solvers::ssqp solver(model, params);
     ```
+
+PIQP is selected the same way, with `qp_solver_type=ssqpy.solvers.PIQP` and `piqp_`-prefixed keyword arguments in
+Python, or `ssqp::solvers::ssqp::PIQP` and `params.piqp_params` in C++.
 
 See [QP Solvers](concepts/qp-solvers.md) for the tunable parameters of each backend.
 
@@ -628,9 +632,9 @@ silences everything first. Each level covers a different kind of output:
 | Level | On by default | What it prints |
 | --- | --- | --- |
 | `Info` | yes | The SSQP iteration table (iteration, step norms, constraint violation, and, unless the output is reduced, the first violated stage, QP iterations, QP runtime and step size) and the total solve time |
-| `Warning` | yes | Non-fatal problems: HPIPM returning a non-zero status, NaNs in the QP solution, one dynamics object shared by several stages, or asking an MPC for its convergence data when `keep_convergence_data` is off |
+| `Warning` | yes | Non-fatal problems: HPIPM returning a non-zero status, PIQP not reporting a solved QP, NaNs in the QP solution, one dynamics object shared by several stages, or asking an MPC for its convergence data when `keep_convergence_data` is off |
 | `Error` | yes | Line search failure with regularization disabled |
-| `Debug` | no | The initial guess, every iterate's states and controls, the QP matrices built for each stage, and HPIPM's status; this is a lot of output for anything beyond a tiny problem |
+| `Debug` | no | The initial guess, every iterate's states and controls, the QP matrices built for each stage, and HPIPM's and PIQP's status; this is a lot of output for anything beyond a tiny problem |
 
 `setReducedOutput` only trims the iteration table; it doesn't change which levels are on. The mask is global to the
 process, so it applies to every model and solver at once, and it only affects printing: the solve's

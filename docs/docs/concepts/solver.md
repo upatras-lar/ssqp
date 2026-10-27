@@ -147,8 +147,9 @@ regularization and retries; set `accept_worse_update` to accept the `min_alpha` 
 
 ## Choosing a QP solver
 
-`qp_solver_type` selects between the two [QP solvers](qp-solvers.md) (`ADMM` or `HPIPM`); `admm_params`/`hpipm_*`
-keyword arguments (prefixed `admm_`/`hpipm_` when passed to the `ssqp` constructor) configure the selected one.
+`qp_solver_type` selects between the three [QP solvers](qp-solvers.md) (`ADMM`, `HPIPM` or `PIQP`);
+`admm_params`/`hpipm_*`/`piqp_*` keyword arguments (prefixed `admm_`/`hpipm_`/`piqp_` when passed to the `ssqp`
+constructor) configure the selected one.
 
 ## Saving and loading trajectories
 

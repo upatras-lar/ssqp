@@ -264,6 +264,12 @@ int main(int argc, char **argv)
       ssqp::solvers::ssqp::QPSolverType::HPIPM));
 #endif
 
+#ifdef WITH_PIQP
+    tests.addTest(std::make_shared<ssqp::tests::MPCStepTest>(
+      "MPCStepPIQPTest",
+      ssqp::solvers::ssqp::QPSolverType::PIQP));
+#endif
+
     ssqp::tests::addRegressionTests(tests);
     if (list)
     {
