@@ -170,6 +170,11 @@ class ssqp
         // Whether to stop when the QP solver reports an infeasible QP
         // Otherwise ADMM skips infeasibility detection and runs as usual
         bool stop_on_qp_infeasibility = true;
+        // Whether to skip the termination check after the last iteration
+        // max_iter allows, which saves its gradient evaluations
+        // A solve that converges on that iteration then reports reaching
+        // max_iter
+        bool skip_last_termination_check = false;
 
         // Whether to calculate full stage costs and violations at each step
         // This is usually skipped once a violation is detected to speed up
@@ -400,6 +405,10 @@ class ssqp
     friend class tests::FDGradFullTrajectoryConstraintViolation;
 
     std::deque<std::tuple<double, double, double>> _filter_memory;
+
+    // (cost, stage gap, constraint violation) at the current guess, kept from
+    // the line search's accepted point so that it is evaluated once
+    std::tuple<double, double, double> _current_metrics;
 
     // Temporaries to prevent aliasing for Eigen operations
     struct

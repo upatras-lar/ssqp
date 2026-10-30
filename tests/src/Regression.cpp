@@ -937,6 +937,54 @@ void solverTimeLimit(solvers::ssqp::QPSolverType backend)
     requireClose(loose_guess.u.vec, free_guess.u.vec, "Control trajectory");
 }
 
+// Skipping the termination check after the last iteration max_iter allows
+// returns the same solution, and only changes the reported state of a solve
+// that converges on that iteration
+void solverSkipLastTerminationCheck(solvers::ssqp::QPSolverType backend)
+{
+    auto model  = pendubotSwingProblem();
+    auto params = accurateParams(backend);
+
+    const auto solve = [&](uint max_iter, bool skip)
+    {
+        params.max_iter                    = max_iter;
+        params.skip_last_termination_check = skip;
+        solvers::ssqp        solver(*model, params);
+        solvers::ssqp::Guess guess(model->dims(), model->linear_dims());
+        const auto           state = solver.solve(guess);
+        return std::make_tuple(state, solver.convergenceData(), guess);
+    };
+
+    const auto [free_state, free_cd, free_guess] = solve(50, false);
+    require(free_state == solvers::SUCCESS && free_cd.iterations > 1,
+            "The test problem must converge after several iterations (" +
+              solvers::to_string(free_state) + ")");
+    const uint needed = free_cd.iterations;
+
+    for (const uint max_iter : { needed, needed - 1 })
+    {
+        const auto [state, cd, guess]                = solve(max_iter, false);
+        const auto [skip_state, skip_cd, skip_guess] = solve(max_iter, true);
+
+        require(skip_guess.x.vec == guess.x.vec &&
+                  skip_guess.u.vec == guess.u.vec,
+                "Skipping the last check must return the same trajectory");
+        require(skip_cd.trajectory_cost == cd.trajectory_cost &&
+                  skip_cd.trajectory_stage_gap == cd.trajectory_stage_gap &&
+                  skip_cd.trajectory_constraint_violation ==
+                    cd.trajectory_constraint_violation,
+                "Skipping the last check must report the same metrics");
+        require(skip_state == solvers::MAX_ITER_REACHED &&
+                  skip_cd.max_iter_reached && skip_cd.iterations == max_iter,
+                "A skipped last check must report reaching max_iter (" +
+                  solvers::to_string(skip_state) + ")");
+        require(state == (max_iter == needed ? solvers::SUCCESS
+                                             : solvers::MAX_ITER_REACHED),
+                "Without skipping, the state must follow the last check (" +
+                  solvers::to_string(state) + ")");
+    }
+}
+
 // Bounds the state of the scalar integrator
 class StateBound : public model::stagewise::StageConstraints
 {
@@ -1113,6 +1161,7 @@ void paramsJsonOptionalKeys()
     expected.tolerance                = 1e-4;
     expected.constraint_tolerance     = 1e-5;
     expected.stop_on_qp_infeasibility = false;
+    expected.skip_last_termination_check = true;
     require(expected.write(path), "Parameter file must be writable");
     require(written(solvers::ssqp::Params(path)) == written(expected),
             "Written parameters must read back unchanged");
@@ -1212,6 +1261,9 @@ void addRegressionTests(TestContainer &tests)
         tests.addTest(
           std::make_shared<FunctionTest>("Regression_SSQP_TimeLimit_" + suffix,
                                          [=] { solverTimeLimit(backend); }));
+        tests.addTest(std::make_shared<FunctionTest>(
+          "Regression_SSQP_SkipLastTerminationCheck_" + suffix,
+          [=] { solverSkipLastTerminationCheck(backend); }));
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_SSQP_CrossedBounds_" + suffix,
           [=] { solverCrossedBounds(backend); }));

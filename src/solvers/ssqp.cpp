@@ -186,6 +186,8 @@ ssqp::Params::Params(const std::string &filepath)
     skip_regularization = j.value("skip_regularization", skip_regularization);
     stop_on_qp_infeasibility =
       j.value("stop_on_qp_infeasibility", stop_on_qp_infeasibility);
+    skip_last_termination_check =
+      j.value("skip_last_termination_check", skip_last_termination_check);
 
     if (j.value("qp_solver_type", "") == "HPIPM")
     {
@@ -279,6 +281,8 @@ void ssqp::Params::print() const
     std::cout << "Skip regularization: " << skip_regularization << std::endl;
     std::cout << "Stop on QP infeasibility: " << stop_on_qp_infeasibility
               << std::endl;
+    std::cout << "Skip last termination check: " << skip_last_termination_check
+              << std::endl;
 
     std::cout << "---------------" << std::endl;
     std::cout << "QP Solver: " << QPSolverTypeName(qp_solver_type) << std::endl;
@@ -334,6 +338,7 @@ void ssqp::Params::write(nlohmann::ordered_json &j) const
     j["accept_worse_update"]      = accept_worse_update;
     j["skip_regularization"]      = skip_regularization;
     j["stop_on_qp_infeasibility"] = stop_on_qp_infeasibility;
+    j["skip_last_termination_check"] = skip_last_termination_check;
 
     if (qp_solver_type == QPSolverType::ADMM)
     {
@@ -587,15 +592,17 @@ SolverState ssqp::solve(Guess &guess)
 
     _stale_iters = 0;
 
+    _current_metrics = { _lf(_guess.x, _guess.u),
+                         _gammaf(_guess.x, _guess.u),
+                         _cf(_guess.x, _guess.u) };
+
     // The filter starts from the current guess, since entries from previous
     // solves may refer to different bounds
     _filter_memory.clear();
 
     if (_params.line_search_method == LineSearchMethod::Filter)
     {
-        _filter_memory.push_front({ _lf(_guess.x, _guess.u),
-                                    _gammaf(_guess.x, _guess.u),
-                                    _cf(_guess.x, _guess.u) });
+        _filter_memory.push_front(_current_metrics);
     }
 
     _convergence_data.iteration_data.clear();
@@ -668,19 +675,14 @@ SolverState ssqp::solve(Guess &guess)
         // Guess (x, u) update
         if (_params.line_search_method == LineSearchMethod::Filter)
         {
-            const std::tuple<double, double, double> previous_metrics(
-              _lf(_guess.x, _guess.u),
-              _gammaf(_guess.x, _guess.u),
-              _cf(_guess.x, _guess.u));
-
             _convergence_data.iteration_data.back().step_size = step::step(
-              [this, &previous_metrics, &next_metrics](const step::Point &,
-                                                       const step::Point &b,
-                                                       const step::Point &,
-                                                       const double)
+              [this, &next_metrics](const step::Point &,
+                                    const step::Point &b,
+                                    const step::Point &,
+                                    const double)
               {
                   return step::filter(
-                    previous_metrics,
+                    _current_metrics,
                     b,
                     _filter_memory,
                     [this](const FlatVec &x, const FlatVec &u)
@@ -703,9 +705,9 @@ SolverState ssqp::solve(Guess &guess)
         }
         else
         {
-            const double lf_prev     = _lf(_guess.x, _guess.u);
-            const double gammaf_prev = _gammaf(_guess.x, _guess.u);
-            const double cf_prev     = _cf(_guess.x, _guess.u);
+            const double lf_prev     = std::get<0>(_current_metrics);
+            const double gammaf_prev = std::get<1>(_current_metrics);
+            const double cf_prev     = std::get<2>(_current_metrics);
             const double mf_previous = lf_prev +
                                        _params.merit_mu_gamma * gammaf_prev +
                                        _params.merit_mu_c * cf_prev;
@@ -808,8 +810,9 @@ SolverState ssqp::solve(Guess &guess)
             continue;
         }
 
-        _guess.x = _candidate_x;
-        _guess.u = _candidate_u;
+        _guess.x         = _candidate_x;
+        _guess.u         = _candidate_u;
+        _current_metrics = next_metrics;
 
         if (_params.line_search_method == LineSearchMethod::Filter)
         {
@@ -829,10 +832,16 @@ SolverState ssqp::solve(Guess &guess)
         _guess.lambda = sol.lambda;
         _guess.mu     = sol.mu;
 
+        // No QP follows the last iteration max_iter allows, so its QP setup is
+        // skipped, and so can be the termination check, whose gradients feed
+        // that setup
+        const bool last_iteration = _iter + 1 == _params.max_iter;
+
         // Termination
-        if ((ssqp_state =
+        if (!(last_iteration && _params.skip_last_termination_check) &&
+            (ssqp_state =
                _check_termination<Params::calculate_stagewise_convergence>()) !=
-            ONGOING)
+              ONGOING)
         {
             _convergence_data.iteration_data.back().iter_duration_us =
               std::chrono::duration_cast<std::chrono::microseconds>(
@@ -912,13 +921,16 @@ SolverState ssqp::solve(Guess &guess)
                                        start_time);
         }
 
-        start_setup_time = std::chrono::high_resolution_clock::now();
+        if (!last_iteration)
+        {
+            start_setup_time = std::chrono::high_resolution_clock::now();
 
-        // Skip gradient calculation in _setup_qp, since they have been
-        // calculated in _check_termination
-        std::visit([this](auto xml) { _setup_qp<false, xml.value>(); },
-                   xml_model);
-        _qp_solver->reset();
+            // Skip gradient calculation in _setup_qp, since they have been
+            // calculated in _check_termination
+            std::visit([this](auto xml) { _setup_qp<false, xml.value>(); },
+                       xml_model);
+            _qp_solver->reset();
+        }
 
         _convergence_data.iteration_data.back().iter_duration_us =
           std::chrono::duration_cast<std::chrono::microseconds>(
@@ -992,9 +1004,10 @@ SolverState ssqp::_finish_unconverged(
 
     _convergence_data.max_iter_reached     = state == MAX_ITER_REACHED;
     _convergence_data.time_limit_reached   = state == TIME_LIMIT_REACHED;
-    _convergence_data.trajectory_cost      = _lf(_guess.x, _guess.u);
-    _convergence_data.trajectory_stage_gap = _gammaf(_guess.x, _guess.u);
-    _convergence_data.trajectory_constraint_violation = _cf(_guess.x, _guess.u);
+    _convergence_data.trajectory_cost      = std::get<0>(_current_metrics);
+    _convergence_data.trajectory_stage_gap = std::get<1>(_current_metrics);
+    _convergence_data.trajectory_constraint_violation =
+      std::get<2>(_current_metrics);
 
     logln_at(LogLevel::Info,
              "SSQP: Total runtime: "

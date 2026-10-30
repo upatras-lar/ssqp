@@ -1791,6 +1791,9 @@ def create_controller(
     ssqp_params = ssqpy.solvers.ssqpParams()
     ssqp_params.tolerance = 1e-2
     ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM
+    # The plan is used whether or not the last iteration converges, so the
+    # termination check after it is skipped
+    ssqp_params.skip_last_termination_check = True
 
     hpipm_params = ssqpy.solvers.hpipmParams()
     hpipm_params.tol_stat = 1e-4

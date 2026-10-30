@@ -271,6 +271,14 @@ void bind_ssqp(nb::module_ &m)
         Whether to stop when the QP solver reports an infeasible QP
         Otherwise ADMM skips infeasibility detection and runs as usual
         )doc")
+      .def_rw("skip_last_termination_check",
+              &ssqp::Params::skip_last_termination_check,
+              R"doc(
+        Whether to skip the termination check after the last iteration
+        max_iter allows, which saves its gradient evaluations
+        A solve that converges on that iteration then reports reaching
+        max_iter
+        )doc")
       .def_rw("qp_solver_type",
               &ssqp::Params::qp_solver_type,
               "The type of QP solver to use.")
@@ -546,6 +554,11 @@ void bind_ssqp(nb::module_ &m)
             {
                 params.stop_on_qp_infeasibility =
                   nb::cast<bool>(kwargs["stop_on_qp_infeasibility"]);
+            }
+            if (kwargs.contains("skip_last_termination_check"))
+            {
+                params.skip_last_termination_check =
+                  nb::cast<bool>(kwargs["skip_last_termination_check"]);
             }
             if (kwargs.contains("qp_solver_type"))
             {
