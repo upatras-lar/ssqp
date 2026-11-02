@@ -160,7 +160,7 @@ class CustomGo2Controller:
         # Task to switch to once the robot is standing
         self.walk_task = walk_task
         # Whether the dynamic walk reads the LIDAR map at all, rather than
-        # taking the ground to be flat
+        # planning on a horizontal plane at the height its feet touched down at
         self.use_map = use_map
         # Whether the dynamic walk prints its MPC rate and solve times
         self.show_rate = show_rate
@@ -551,6 +551,7 @@ class CustomGo2Controller:
             SIMULATION,
             self.terrain,
             self._edgeDistance,
+            self.use_map,
         )
 
         # Leave everything made so far out of garbage collections, which
@@ -979,8 +980,9 @@ def parse_args():
         "--map",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Whether the dynamic walk uses the LIDAR map, rather than taking "
-        "the ground to be flat. The map is still made when shown or saved",
+        help="Whether the dynamic walk uses the LIDAR map, rather than planning "
+        "on a horizontal plane at the height its feet touched down at. The "
+        "map is still made when shown or saved",
     )
 
     parser.add_argument(

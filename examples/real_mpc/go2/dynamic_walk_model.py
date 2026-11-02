@@ -439,7 +439,11 @@ def build_go2_mpc_model(horizon):
 
 
 def create_controller(
-    init_config, simulation=False, terrain=None, get_edge_distance=None
+    init_config,
+    simulation=False,
+    terrain=None,
+    get_edge_distance=None,
+    use_map=True,
 ):
     """
     Builds the dynamics walking MPC for the robot starting at init_config,
@@ -457,6 +461,10 @@ def create_controller(
     the origin and x along its initial heading. It defaults to flat ground at
     zero height. get_edge_distance gives the distance from a point (x and y) to the
     nearest edge in the terrain, and defaults to there being none
+
+    Without use_map, the walk has no map of the terrain. Each foot lands where
+    it is measured to be once it touches the ground, and the walk sets the
+    terrain to a horizontal plane at the height its stance feet landed at
 
     The robot stands on all four feet until the command moves it, and stands
     again once the command has been at rest for IDLE_TIME
@@ -749,6 +757,9 @@ def create_controller(
         # stance, which its next swing starts from
         "landed": {},
         "liftoff": {},
+        # Without a map, feet whose swing has ended but which have yet to
+        # touch the ground, whose landing is taken once they do
+        "unlanded": set(),
         # Each foot's measured height at the last update
         "foot_heights": {},
         # Shift of the footholds for the base velocity error, and each foot's
@@ -2099,13 +2110,39 @@ def create_controller(
             stages = min(max(stages, 1), touchdown - takeoff - 2)
             est["jump_start"] = current_stage + stages - touchdown
 
-        # Feet finishing their swing keep the spot they actually landed on
-        for name in last_swing:
-            if name not in get_swinging_feet(current_stage):
-                p = project_point_to_terrain(state[:3] + R @ feet[name])
-                if abs(p[2] - est["landed"][name][2]) < LAND_HOLD:
-                    p[2] = est["landed"][name][2]
-                est["landed"][name] = p
+        # Feet finishing their swing keep the spot they actually landed on.
+        # Without a map, the spot is where the foot is measured to be when it
+        # touches the ground, which a foot that is late reaches only after its
+        # swing has ended
+        landing = [
+            name
+            for name in FOOT_NAMES
+            if name not in get_swinging_feet(current_stage)
+            and (name in last_swing or name in est["unlanded"])
+        ]
+        for name in landing:
+            p = state[:3] + R @ feet[name]
+            if use_map:
+                p = project_point_to_terrain(p)
+            else:
+                touching = contacts is None or contacts[FOOT_NAMES.index(name)]
+                if not touching:
+                    est["unlanded"].add(name)
+                    continue
+                est["unlanded"].discard(name)
+            if abs(p[2] - est["landed"][name][2]) < LAND_HOLD:
+                p[2] = est["landed"][name][2]
+            est["landed"][name] = p
+
+        # Without a map, the walk plans on a horizontal plane at the height its
+        # stance feet last touched down at, kept while no foot is down. A foot
+        # that has yet to touch down counts at its previous landing
+        if not use_map and stance_feet:
+            terrain.set_heights(
+                np.full(
+                    (2, 2), np.mean([est["landed"][n][2] for n in stance_feet])
+                )
+            )
 
         # Feet in stance may have slipped from where they landed, so their
         # next swings start from where they are measured to be. Swinging feet
