@@ -94,6 +94,8 @@ std::shared_ptr<Test> get_floating_base_squared_pose_error_cost_grad_test();
 std::shared_ptr<Test> get_floating_base_squared_velocity_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_translation_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_terrain_height_error_cost_grad_test();
+std::shared_ptr<Test>
+get_frame_squared_terrain_height_error_cost_own_terrain_grad_test();
 std::shared_ptr<Test> get_frame_squared_rotation_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_pose_error_cost_grad_test();
 std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test();

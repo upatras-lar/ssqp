@@ -1373,6 +1373,18 @@ void FrameSquaredTerrainHeightErrorCost::set_weight(const double weight)
     _weight = weight;
 }
 
+void FrameSquaredTerrainHeightErrorCost::set_terrain(
+  const std::shared_ptr<terrain::Terrain> &terrain)
+{
+    _terrain = terrain;
+}
+
+std::shared_ptr<terrain::Terrain>
+FrameSquaredTerrainHeightErrorCost::cost_terrain() const
+{
+    return _terrain ? _terrain : _model->terrain();
+}
+
 VecX FrameSquaredTerrainHeightErrorCost::evaluate(const VecX &x,
                                                   const VecX &u) const
 {
@@ -1382,7 +1394,7 @@ VecX FrameSquaredTerrainHeightErrorCost::evaluate(const VecX &x,
     std::tie(pos, std::ignore) =
       _model->forwardKinematics(x.head(_nq), _frame_id);
 
-    const double height = pos[2] - _model->terrain()->at(pos[0], pos[1]).height;
+    const double height = pos[2] - cost_terrain()->at(pos[0], pos[1]).height;
 
     return Scalar::Constant(0.5 * _weight * _weight *
                             (height - _desired_height) *
@@ -1399,7 +1411,7 @@ void FrameSquaredTerrainHeightErrorCost::gradient(const VecX &x, const VecX &u,
       _model->forwardKinematics(x.head(_nq), _frame_id);
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
-    terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
+    terrain::Terrain::TerrainPoint tp = cost_terrain()->at(pos[0], pos[1]);
 
     dx.setZero(_ndx);
     dx.head(_nv) = _weight * _weight * (pos[2] - tp.height - _desired_height) *
@@ -1420,7 +1432,7 @@ void FrameSquaredTerrainHeightErrorCost::hessian_xx(const VecX &x,
       _model->forwardKinematics(x.head(_nq), _frame_id);
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
-    terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
+    terrain::Terrain::TerrainPoint tp = cost_terrain()->at(pos[0], pos[1]);
 
     VecX dh = _jac_scratch.topRows(3).transpose() * Vec3(-tp.dhdx, -tp.dhdy, 1);
 

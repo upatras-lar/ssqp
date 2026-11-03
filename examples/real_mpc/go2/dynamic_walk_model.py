@@ -33,6 +33,11 @@ CONTACT_EDGE_GAP = 0.02
 # Limit on the tilt of a foot's contact plane, under the friction angle so
 # that the foot's share of the weight stays inside its cone
 MAX_CONTACT_TILT = 0.3
+# Weight on a foot's height above the contact plane of its next foothold. In
+# stance it takes the place of the weight on the foot's height, so that the
+# foot's height follows the plane wherever the plan puts it, and through a
+# swing it takes over from it gradually
+FOOT_PLANE_WGT = T_WGT
 
 # Height of the model's foot points above the ground under stance feet. The
 # feet are spheres of radius 0.022 and the points lie 0.0235 past their
@@ -1249,6 +1254,22 @@ def create_controller(
         est["footholds"][name, period] = p
         return p
 
+    def get_next_foothold(name, k):
+        # The foothold the foot stands on at stage k, or lands on at the end of
+        # its swing, and how much its height follows that foothold's contact
+        # plane, from 0 at liftoff to 1 at touchdown and through stance. None
+        # while the foot's height does not follow a plane
+        if is_robot_airborne(k) or is_foot_descending_during_landing(name, k):
+            return None
+        start = est["gait_start"]
+        if start is None or k < start:
+            return est["landed"][name], 1.0
+        swing = get_foot_swing_phase(name, k)
+        if swing is None:
+            return plan_foothold(name, latest_swing(name, k)), 1.0
+        period, phase = swing
+        return plan_foothold(name, period), 0.5 * (1 - np.cos(np.pi * phase))
+
     def get_foot_reference(name, k):
         # Returns the foot's reference position at stage k and whether it
         # swings, computing each once per update of the references
@@ -1623,6 +1644,10 @@ def create_controller(
             )
 
             model.addCost(k, foot_cost)
+            plane_cost = ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost(
+                model, name, 0.0, 0.0
+            )
+            model.addCost(k, plane_cost)
 
             # The contact constraint lets stance feet move, so bound their
             # velocity as well. The first stage's velocity is measured, so it
@@ -1637,7 +1662,9 @@ def create_controller(
                 )
                 model.addConstraints(k, vel_bound)
 
-            foot_funcs[name].append((foot_cost, foot_constraint, vel_bound))
+            foot_funcs[name].append(
+                (foot_cost, plane_cost, foot_constraint, vel_bound)
+            )
 
     def update_motion_references():
         current_stage = est["stage"]
@@ -1756,7 +1783,9 @@ def create_controller(
 
             for name in FOOT_NAMES:
                 foot_pos, swinging = get_foot_reference(name, k)
-                foot_cost, foot_constraint, vel_bound = foot_funcs[name][idx]
+                foot_cost, plane_cost, foot_constraint, vel_bound = foot_funcs[
+                    name
+                ][idx]
                 foot_constraint.set_max_normal_force(max_force)
 
                 # Swinging feet track their swing trajectory, while stance
@@ -1775,7 +1804,29 @@ def create_controller(
                     foot_pos = foot_pos.copy()
                     foot_pos[2] = est["foot_heights"][name]
                 foot_cost.set_desired_translation(foot_pos)
-                foot_cost.set_weight(foot_weight)
+
+                # Outside of jumps, the foot's height is taken relative to the
+                # contact plane of its next foothold, which shares the weight
+                # on it with the foot's own height by the share it follows the
+                # plane. Wherever the plan puts a stance foot, its height is
+                # then on the plane. On a horizontal plane the two costs add up
+                # to the foot's own height cost alone
+                next_foothold = None
+                if j is None:
+                    next_foothold = get_next_foothold(name, k)
+                share = 0.0
+                if next_foothold is not None:
+                    foothold, share = next_foothold
+                    plane = fit_terrain_plane_at_foothold(foothold)
+                    plane_cost.set_terrain(plane)
+                    plane_cost.set_desired_height(
+                        foot_pos[2] - plane.at(foot_pos[0], foot_pos[1]).height
+                    )
+                    plane_cost.set_weight(np.sqrt(share) * FOOT_PLANE_WGT)
+                plane_cost.set_enabled(bool(share > 0.0))
+                weight = foot_weight.copy()
+                weight[2] *= np.sqrt(1.0 - share)
+                foot_cost.set_weight(weight)
 
     update_motion_references()
 

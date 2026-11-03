@@ -237,6 +237,10 @@ int main(int argc, char **argv)
                     get_frame_squared_terrain_height_error_cost_grad_test());
 
     tests.addTest(
+      ssqp::tests::generators::
+        get_frame_squared_terrain_height_error_cost_own_terrain_grad_test());
+
+    tests.addTest(
       ssqp::tests::generators::get_frame_squared_pose_error_cost_grad_test());
 
     tests.addTest(ssqp::tests::generators::

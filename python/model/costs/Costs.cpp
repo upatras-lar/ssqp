@@ -3,6 +3,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/pair.h>
+#include <nanobind/stl/shared_ptr.h>
 #include <nanobind/eigen/dense.h>
 
 #include "model/Model.hpp"
@@ -759,7 +760,8 @@ void bind_Costs(nb::module_ &m)
 
         where:
          - $\boldsymbol{p}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
-         - $h$ is the height of the model's terrain at the frame's horizontal position
+         - $h$ is the height of the terrain at the frame's horizontal position, the
+           model's terrain unless the cost is given one of its own
          - $d_d$ is the desired height of the frame above the terrain
          - $w$ is the weight on the height error
 
@@ -783,7 +785,15 @@ void bind_Costs(nb::module_ &m)
            nb::arg("desired_height"))
       .def("set_weight",
            &FrameSquaredTerrainHeightErrorCost::set_weight,
-           nb::arg("weight"));
+           nb::arg("weight"))
+      .def("set_terrain",
+           &FrameSquaredTerrainHeightErrorCost::set_terrain,
+           nb::arg("terrain").none(),
+           R"doc(
+        Sets the terrain this cost measures the frame's height above in place
+        of the model's terrain
+        Passing `None` restores the model's terrain
+        )doc");
 
     nb::class_<FrameSquaredRotationErrorCost, StageCost>(
       m,

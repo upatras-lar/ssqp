@@ -533,7 +533,8 @@ class FrameSquaredTranslationErrorCost : public StageCost
  *
  * where:
  *  - $\boldsymbol{p}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
- *  - $h$ is the height of the model's terrain at the frame's horizontal position
+ *  - $h$ is the height of the terrain at the frame's horizontal position, the
+ *    model's terrain unless the cost is given one of its own
  *  - $d_d$ is the desired height of the frame above the terrain
  *  - $w$ is the weight on the height error
  *
@@ -553,6 +554,10 @@ class FrameSquaredTerrainHeightErrorCost : public StageCost
     void set_desired_height(const double desired_height);
     void set_weight(const double weight);
 
+    // Terrain used by this cost in place of the model's terrain
+    // A null terrain restores the model's terrain
+    void set_terrain(const std::shared_ptr<terrain::Terrain> &terrain);
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
                   VecX &du) const override;
@@ -568,6 +573,10 @@ class FrameSquaredTerrainHeightErrorCost : public StageCost
     double            _desired_height;
     double            _weight;
     mutable MatX      _jac_scratch;
+
+    std::shared_ptr<terrain::Terrain> _terrain;
+
+    std::shared_ptr<terrain::Terrain> cost_terrain() const;
 };
 
 /** Predefined squared frame rotation error cost

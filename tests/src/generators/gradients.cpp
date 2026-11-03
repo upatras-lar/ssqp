@@ -748,6 +748,42 @@ std::shared_ptr<Test> get_frame_squared_terrain_height_error_cost_grad_test()
     return cost_test;
 }
 
+std::shared_ptr<Test>
+get_frame_squared_terrain_height_error_cost_own_terrain_grad_test()
+{
+    model::Model::Structure model_structure;
+    model_structure.terrain    = get_test_heightmap_terrain();
+    model_structure.urdf_path  = "examples/assets/urdf/a1/a1.urdf";
+    model_structure.free_flyer = true;
+    std::shared_ptr<model::Model> model =
+      std::make_shared<model::Model>(2, 0.01, model_structure);
+
+    // A tilted plane of the cost's own, in place of the model's heightmap
+    std::shared_ptr<model::terrain::Terrain> plane =
+      std::make_shared<model::terrain::predefined::SlopeTerrain>(0.3, -0.2,
+                                                                 0.1);
+    for (uint k = 0; k <= model->dims().horizon; ++k)
+    {
+        std::shared_ptr<model::stagewise::StageCost> cost =
+          model->addCost<model::stagewise::predefined::costs::
+                           FrameSquaredTerrainHeightErrorCost>(k,
+                                                               *model.get(),
+                                                               "FL_foot",
+                                                               0.1,
+                                                               3.58);
+        std::static_pointer_cast<model::stagewise::predefined::costs::
+                                   FrameSquaredTerrainHeightErrorCost>(cost)
+          ->set_terrain(plane);
+    }
+
+    model->finalize();
+
+    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
+      "FrameSquaredTerrainHeightErrorCostOwnTerrainGradTest", model, 0);
+
+    return cost_test;
+}
+
 std::shared_ptr<Test> get_squared_joint_angle_cost_grad_test()
 {
     model::Model::Structure model_structure;
