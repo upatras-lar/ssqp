@@ -684,7 +684,8 @@ FloatingBaseSquaredTranslationErrorCost::
   FloatingBaseSquaredTranslationErrorCost(const Model &model,
                                           const Vec3  &desired_translation,
                                           const double weight,
-                                          const std::string &name)
+                                          const ReferenceFrame &reference_frame,
+                                          const std::string    &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -696,13 +697,15 @@ FloatingBaseSquaredTranslationErrorCost::
                           "with a custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
     _weight.setConstant(weight);
+    set_reference_frame(reference_frame);
 }
 
 FloatingBaseSquaredTranslationErrorCost::
   FloatingBaseSquaredTranslationErrorCost(const Model &model,
                                           const Vec3  &desired_translation,
                                           const Vec3  &weight,
-                                          const std::string &name)
+                                          const ReferenceFrame &reference_frame,
+                                          const std::string    &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -714,6 +717,7 @@ FloatingBaseSquaredTranslationErrorCost::
     assert(model.xml() && "Cannot use FloatingBaseSquaredTranslationErrorCost "
                           "with a custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
+    set_reference_frame(reference_frame);
 }
 
 void FloatingBaseSquaredTranslationErrorCost::set_desired_translation(
@@ -732,17 +736,25 @@ void FloatingBaseSquaredTranslationErrorCost::set_weight(const Vec3 &weight)
     _weight = weight;
 }
 
+void FloatingBaseSquaredTranslationErrorCost::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
+                            "FloatingBaseSquaredTranslationErrorCost");
+    _reference_frame = reference_frame;
+}
+
 VecX FloatingBaseSquaredTranslationErrorCost::evaluate(const VecX &x,
                                                        const VecX &u) const
 {
-    return (Scalar() << 0.5 * (_weight.array() *
-                               (x.head<3>() - _desired_translation).array())
-                                .matrix()
-                                .squaredNorm())
+    const Vec3 error = _reference_frame.rotation().transpose() *
+                       (x.head<3>() - _desired_translation);
+
+    return (Scalar()
+            << 0.5 * (_weight.array() * error.array()).matrix().squaredNorm())
       .finished();
 }
 
-// TODO: Figure out this gradient!
 void FloatingBaseSquaredTranslationErrorCost::gradient(const VecX &x,
                                                        const VecX &u, VecX &dx,
                                                        VecX &du) const
@@ -750,16 +762,16 @@ void FloatingBaseSquaredTranslationErrorCost::gradient(const VecX &x,
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
     Mat3               R = q.toRotationMatrix();
 
+    const Mat3 &F     = _reference_frame.rotation();
+    const Vec3  error = F.transpose() * (x.head<3>() - _desired_translation);
+
     dx.setZero(_ndx);
     dx.head<3>() =
-      R.transpose() *
-      (_weight.array().square() * (x.head<3>() - _desired_translation).array())
-        .matrix();
+      R.transpose() * F * (_weight.array().square() * error.array()).matrix();
 
     du.setZero(u.size());
 }
 
-// TODO: This hessian also!
 void FloatingBaseSquaredTranslationErrorCost::hessian_xx(const VecX &x,
                                                          const VecX &u,
                                                          MatX       &Hxx) const
@@ -767,9 +779,12 @@ void FloatingBaseSquaredTranslationErrorCost::hessian_xx(const VecX &x,
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
     Mat3               R = q.toRotationMatrix();
 
+    // Gauss-Newton Hessian of the error through the base's tangent step
+    const Mat3 A = _reference_frame.rotation().transpose() * R;
+
     Hxx.setZero(_ndx, _ndx);
-    Hxx.diagonal().head<3>() =
-      R.transpose() * _weight.array().square().matrix();
+    Hxx.topLeftCorner<3, 3>() =
+      A.transpose() * _weight.array().square().matrix().asDiagonal() * A;
 }
 
 void FloatingBaseSquaredTranslationErrorCost::hessian_xu(const VecX &x,
@@ -1229,7 +1244,8 @@ void FloatingBaseSquaredVelocityErrorCost::hessian_uu(const VecX &x,
 // FrameSquaredTranslationErrorCost
 FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
-  const double weight, const std::string &name)
+  const double weight, const ReferenceFrame &reference_frame,
+  const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1244,11 +1260,13 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
                           "custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
     _weight.setConstant(weight);
+    set_reference_frame(reference_frame);
 }
 
 FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
   const Model &model, const std::string &frame, const Vec3 &desired_translation,
-  const Vec3 &weight, const std::string &name)
+  const Vec3 &weight, const ReferenceFrame &reference_frame,
+  const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1263,6 +1281,7 @@ FrameSquaredTranslationErrorCost::FrameSquaredTranslationErrorCost(
     assert(model.xml() && "Cannot use FrameSquaredTranslationErrorCost with a "
                           "custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
+    set_reference_frame(reference_frame);
 }
 
 void FrameSquaredTranslationErrorCost::set_desired_translation(
@@ -1281,6 +1300,14 @@ void FrameSquaredTranslationErrorCost::set_weight(const Vec3 &weight)
     _weight = weight;
 }
 
+void FrameSquaredTranslationErrorCost::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
+                            "FrameSquaredTranslationErrorCost");
+    _reference_frame = reference_frame;
+}
+
 VecX FrameSquaredTranslationErrorCost::evaluate(const VecX &x,
                                                 const VecX &u) const
 {
@@ -1290,10 +1317,11 @@ VecX FrameSquaredTranslationErrorCost::evaluate(const VecX &x,
     std::tie(pos, std::ignore) =
       _model->forwardKinematics(x.head(_nq), _frame_id);
 
-    return (Scalar() << 0.5 * (_weight.array() *
-                               (pos - _desired_translation).array())
-                                .matrix()
-                                .squaredNorm())
+    const Vec3 error =
+      _reference_frame.rotation().transpose() * (pos - _desired_translation);
+
+    return (Scalar()
+            << 0.5 * (_weight.array() * error.array()).matrix().squaredNorm())
       .finished();
 }
 
@@ -1307,12 +1335,13 @@ void FrameSquaredTranslationErrorCost::gradient(const VecX &x, const VecX &u,
       _model->forwardKinematics(x.head(_nq), _frame_id);
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
+    const Mat3 Rt    = _reference_frame.rotation().transpose();
+    const Vec3 error = Rt * (pos - _desired_translation);
+
     dx.setZero(_ndx);
 
-    dx.head(_nv) =
-      _jac_scratch.topRows(3).transpose() *
-      (_weight.array().square() * (pos - _desired_translation).array())
-        .matrix();
+    dx.head(_nv) = (Rt * _jac_scratch.topRows(3)).transpose() *
+                   (_weight.array().square() * error.array()).matrix();
 
     du.setZero(u.size());
 }
@@ -1324,10 +1353,12 @@ void FrameSquaredTranslationErrorCost::hessian_xx(const VecX &x, const VecX &u,
 
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
+    const MatX A =
+      _reference_frame.rotation().transpose() * _jac_scratch.topRows(3);
+
     Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) =
-      _jac_scratch.topRows(3).transpose() *
-      _weight.array().square().matrix().asDiagonal() * _jac_scratch.topRows(3);
+      A.transpose() * _weight.array().square().matrix().asDiagonal() * A;
 }
 
 void FrameSquaredTranslationErrorCost::hessian_xu(const VecX &x, const VecX &u,
@@ -1814,7 +1845,8 @@ void FrameSquaredPoseErrorCost::hessian_uu(const VecX &x, const VecX &u,
 // FrameSquaredVelocityErrorCost
 FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   const Model &model, const std::string &frame, const Vec6 &desired_velocity,
-  const double weight, const std::string &name)
+  const double weight, const ReferenceFrame &reference_frame,
+  const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1823,6 +1855,7 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _desired_velocity(desired_velocity)
+  , _reference_frame(reference_frame)
   , _jac_scratch(MatX::Zero(6, _nv))
   , _dVdq_scratch(MatX::Zero(6, _nv))
   , _dVdv_scratch(MatX::Zero(6, _nv))
@@ -1836,7 +1869,8 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
 
 FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   const Model &model, const std::string &frame, const Vec6 &desired_velocity,
-  const Vec6 &weight, const std::string &name)
+  const Vec6 &weight, const ReferenceFrame &reference_frame,
+  const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1846,6 +1880,7 @@ FrameSquaredVelocityErrorCost::FrameSquaredVelocityErrorCost(
   , _frame_id(model.frameId(frame))
   , _desired_velocity(desired_velocity)
   , _weight(weight)
+  , _reference_frame(reference_frame)
   , _jac_scratch(MatX::Zero(6, _nv))
   , _dVdq_scratch(MatX::Zero(6, _nv))
   , _dVdv_scratch(MatX::Zero(6, _nv))
@@ -1871,19 +1906,28 @@ void FrameSquaredVelocityErrorCost::set_weight(const Vec6 &weight)
     _weight = weight;
 }
 
+void FrameSquaredVelocityErrorCost::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    _reference_frame = reference_frame;
+}
+
 VecX FrameSquaredVelocityErrorCost::evaluate(const VecX &x, const VecX &u) const
 {
     assert(x.size() >= _nq + _nv && "Invalid state passed (size < nq + nv)");
 
-    return (Scalar() << 0.5 *
-                          (_weight.array() * (_model->frameVelocity(x.head(_nq),
-                                                                    x.tail(_nv),
-                                                                    _frame_id,
-                                                                    true) -
-                                              _desired_velocity)
-                                               .array())
-                            .matrix()
-                            .squaredNorm())
+    const bool local = _reference_frame.type() == ReferenceFrame::Local;
+    const Mat3 Rt    = _reference_frame.rotation().transpose();
+
+    Vec6 velocity =
+      _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local);
+    velocity.head<3>() = Rt * velocity.head<3>();
+    velocity.tail<3>() = Rt * velocity.tail<3>();
+
+    return (Scalar() << 0.5 * (_weight.array() *
+                               (velocity - _desired_velocity).array())
+                                .matrix()
+                                .squaredNorm())
       .finished();
 }
 
@@ -1892,18 +1936,44 @@ void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq + _nv && "Invalid state passed (size < nq + nv)");
 
-    Vec6 diff =
-      _weight.array().square() *
-      (_model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true) -
-       _desired_velocity)
-        .array();
-
+    const Vec6 local_velocity =
+      _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true);
     _model->frameVelocityDerivatives(x.head(_nq),
                                      x.tail(_nv),
                                      _frame_id,
                                      true,
                                      _dVdq_scratch,
                                      _dVdv_scratch);
+
+    Mat3 Rt = Mat3::Identity();
+    if (_reference_frame.type() != ReferenceFrame::Local)
+    {
+        // The local velocity rotated by the frame's rotation, which turns
+        // with the frame's angular Jacobian, the angular rows of dV/dv
+        Mat3 R;
+        std::tie(std::ignore, R) =
+          _model->forwardKinematics(x.head(_nq), _frame_id);
+
+        _dVdq_scratch.topRows<3>() +=
+          _dVdv_scratch.bottomRows<3>().colwise().cross(
+            local_velocity.head<3>());
+        _dVdq_scratch.bottomRows<3>() +=
+          _dVdv_scratch.bottomRows<3>().colwise().cross(
+            local_velocity.tail<3>());
+        Rt = _reference_frame.rotation().transpose() * R;
+    }
+
+    Vec6 velocity;
+    velocity.head<3>() = Rt * local_velocity.head<3>();
+    velocity.tail<3>() = Rt * local_velocity.tail<3>();
+
+    Vec6 diff =
+      _weight.array().square() * (velocity - _desired_velocity).array();
+
+    _dVdq_scratch.topRows<3>()    = Rt * _dVdq_scratch.topRows<3>();
+    _dVdq_scratch.bottomRows<3>() = Rt * _dVdq_scratch.bottomRows<3>();
+    _dVdv_scratch.topRows<3>()    = Rt * _dVdv_scratch.topRows<3>();
+    _dVdv_scratch.bottomRows<3>() = Rt * _dVdv_scratch.bottomRows<3>();
 
     dx.setZero(_ndx);
 
@@ -1916,7 +1986,12 @@ void FrameSquaredVelocityErrorCost::gradient(const VecX &x, const VecX &u,
 void FrameSquaredVelocityErrorCost::hessian_xx(const VecX &x, const VecX &u,
                                                MatX &Hxx) const
 {
-    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
+    const bool local = _reference_frame.type() == ReferenceFrame::Local;
+    const Mat3 Rt    = _reference_frame.rotation().transpose();
+
+    _model->frameJacobian(x.head(_nq), _frame_id, local, _jac_scratch);
+    _jac_scratch.topRows<3>()    = Rt * _jac_scratch.topRows<3>();
+    _jac_scratch.bottomRows<3>() = Rt * _jac_scratch.bottomRows<3>();
 
     Hxx.setZero(_ndx, _ndx);
     Hxx.bottomRightCorner(_nv, _nv) =
@@ -1935,10 +2010,9 @@ void FrameSquaredVelocityErrorCost::hessian_uu(const VecX &x, const VecX &u,
 }
 
 // CenterOfMassTrackingCost
-CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model       &model,
-                                                   const Vec3        &cref,
-                                                   const double       weight,
-                                                   const std::string &name)
+CenterOfMassTrackingCost::CenterOfMassTrackingCost(
+  const Model &model, const Vec3 &cref, const double weight,
+  const ReferenceFrame &reference_frame, const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1949,12 +2023,12 @@ CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model       &model,
     assert(model.xml() &&
            "Cannot use CenterOfMassTrackingCost with a custom Model");
     _weight.setConstant(weight);
+    set_reference_frame(reference_frame);
 }
 
-CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model       &model,
-                                                   const Vec3        &cref,
-                                                   const Vec3        &weight,
-                                                   const std::string &name)
+CenterOfMassTrackingCost::CenterOfMassTrackingCost(
+  const Model &model, const Vec3 &cref, const Vec3 &weight,
+  const ReferenceFrame &reference_frame, const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1965,6 +2039,7 @@ CenterOfMassTrackingCost::CenterOfMassTrackingCost(const Model       &model,
 {
     assert(model.xml() &&
            "Cannot use CenterOfMassTrackingCost with a custom Model");
+    set_reference_frame(reference_frame);
 }
 
 void CenterOfMassTrackingCost::set_weight(const double weight)
@@ -1977,6 +2052,14 @@ void CenterOfMassTrackingCost::set_weight(const Vec3 &weight)
     _weight = weight;
 }
 
+void CenterOfMassTrackingCost::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
+                            "CenterOfMassTrackingCost");
+    _reference_frame = reference_frame;
+}
+
 void CenterOfMassTrackingCost::set_cref(const Vec3 &cref)
 {
     _cref = cref;
@@ -1986,9 +2069,10 @@ VecX CenterOfMassTrackingCost::evaluate(const VecX &x, const VecX &u) const
 {
     Vec3 CoM = _model->centerOfMass(x.head(_nq));
 
-    return (Scalar() << 0.5 * (_weight.array() * (CoM - _cref).array())
-                                .matrix()
-                                .squaredNorm())
+    const Vec3 error = _reference_frame.rotation().transpose() * (CoM - _cref);
+
+    return (Scalar()
+            << 0.5 * (_weight.array() * error.array()).matrix().squaredNorm())
       .finished();
 }
 
@@ -1997,13 +2081,16 @@ void CenterOfMassTrackingCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 {
     const VecX q = x.head(_nq);
 
+    const Mat3 Rt = _reference_frame.rotation().transpose();
+
     Vec3 CoM  = _model->centerOfMass(q);
-    MatX JCoM = _model->jacobianCenterOfMass(q);
+    MatX JCoM = Rt * _model->jacobianCenterOfMass(q);
+
+    const Vec3 error = Rt * (CoM - _cref);
 
     dx.setZero(_ndx);
     dx.head(_nv).noalias() =
-      JCoM.transpose() *
-      (_weight.array().square() * (CoM - _cref).array()).matrix();
+      JCoM.transpose() * (_weight.array().square() * error.array()).matrix();
 
     du.setZero(u.size());
 }
@@ -2011,7 +2098,8 @@ void CenterOfMassTrackingCost::gradient(const VecX &x, const VecX &u, VecX &dx,
 void CenterOfMassTrackingCost::hessian_xx(const VecX &x, const VecX &u,
                                           MatX &Hxx) const
 {
-    MatX JCoM = _model->jacobianCenterOfMass(x.head(_nq));
+    MatX JCoM = _reference_frame.rotation().transpose() *
+                _model->jacobianCenterOfMass(x.head(_nq));
 
     Hxx.setZero(_ndx, _ndx);
     Hxx.topLeftCorner(_nv, _nv) =
@@ -2047,7 +2135,8 @@ std::vector<uint> FramesInverseSquaredDistanceCost::_resolveFrameIds(
 
 FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
   const Model &model, const std::vector<std::string> &frames,
-  const double weight, const double distance_scale, const std::string &name)
+  const double weight, const double distance_scale,
+  const ReferenceFrame &reference_frame, const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -2064,6 +2153,7 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
         assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
     }
     set_distance_scale(distance_scale);
+    set_reference_frame(reference_frame);
     _jac_scratch.resize(6, _nv);
     _jac_cache.resize(_frames.size());
     for (MatX &jac : _jac_cache)
@@ -2074,7 +2164,8 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
 
 FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
   const Model &model, const std::vector<std::string> &frames,
-  const double weight, const Vec3 &distance_scale, const std::string &name)
+  const double weight, const Vec3 &distance_scale,
+  const ReferenceFrame &reference_frame, const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
@@ -2091,12 +2182,21 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
         assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
     }
     set_distance_scale(distance_scale);
+    set_reference_frame(reference_frame);
     _jac_scratch.resize(6, _nv);
     _jac_cache.resize(_frames.size());
     for (MatX &jac : _jac_cache)
     {
         jac.resize(3, _nv);
     }
+}
+
+void FramesInverseSquaredDistanceCost::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
+                            "FramesInverseSquaredDistanceCost");
+    _reference_frame = reference_frame;
 }
 
 void FramesInverseSquaredDistanceCost::set_weight(const double weight)
@@ -2124,12 +2224,15 @@ VecX FramesInverseSquaredDistanceCost::evaluate(const VecX &x,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
+    const Mat3 Rt = _reference_frame.rotation().transpose();
+
     std::vector<Vec3> translations(_frames.size());
 
     for (uint i = 0; i < _frames.size(); ++i)
     {
         std::tie(translations[i], std::ignore) =
           _model->forwardKinematics(x.head(_nq), _frame_ids[i]);
+        translations[i] = Rt * translations[i];
     }
 
     Scalar res = Scalar::Zero();
@@ -2154,14 +2257,17 @@ void FramesInverseSquaredDistanceCost::gradient(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
+    const Mat3 Rt = _reference_frame.rotation().transpose();
+
     std::vector<Vec3> translations(_frames.size());
 
     for (uint i = 0; i < _frames.size(); ++i)
     {
         std::tie(translations[i], std::ignore) =
           _model->forwardKinematics(x.head(_nq), _frame_ids[i]);
+        translations[i] = Rt * translations[i];
         _model->frameJacobian(x.head(_nq), _frame_ids[i], false, _jac_scratch);
-        _jac_cache[i] = _jac_scratch.topRows<3>();
+        _jac_cache[i] = Rt * _jac_scratch.topRows<3>();
     }
 
     dx.setZero(_ndx);
@@ -2190,14 +2296,17 @@ void FramesInverseSquaredDistanceCost::gradient(const VecX &x, const VecX &u,
 void FramesInverseSquaredDistanceCost::hessian_xx(const VecX &x, const VecX &u,
                                                   MatX &Hxx) const
 {
+    const Mat3 Rt = _reference_frame.rotation().transpose();
+
     std::vector<Vec3> translations(_frames.size());
 
     for (uint i = 0; i < _frames.size(); ++i)
     {
         std::tie(translations[i], std::ignore) =
           _model->forwardKinematics(x.head(_nq), _frame_ids[i]);
+        translations[i] = Rt * translations[i];
         _model->frameJacobian(x.head(_nq), _frame_ids[i], false, _jac_scratch);
-        _jac_cache[i] = _jac_scratch.topRows<3>();
+        _jac_cache[i] = Rt * _jac_scratch.topRows<3>();
     }
 
     Hxx.setZero(_ndx, _ndx);

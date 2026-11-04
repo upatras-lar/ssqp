@@ -19,6 +19,7 @@ namespace nb = nanobind;
 
 using namespace model;
 using namespace model::stagewise;
+using namespace model::stagewise::predefined;
 using namespace model::stagewise::predefined::costs;
 
 struct __attribute__((visibility("default"))) PyStageCost : StageCost
@@ -442,12 +443,14 @@ void bind_Costs(nb::module_ &m)
       R"doc(
         Predefined squared floating base translation error cost
 
-        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t}_f - \boldsymbol{t}_d)\rVert_2^2$
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{t}_f - \boldsymbol{t}_d)\rVert_2^2$
 
         where:
         - $\boldsymbol{t}_f$ is the floating base translation (in $\mathcal{R}^3$)
         - $\boldsymbol{t}_d$ is the desired translation of the floating base (in $\mathcal{R}^3$)
         - $\boldsymbol{w}$ is the weight on the translation error
+        - $R$ is the rotation of the reference frame the error is expressed in
+        (World or Fixed, identity for World)
 
         Assumes:
         - The model joint configuration is the first part of the state vector (size
@@ -458,24 +461,31 @@ void bind_Costs(nb::module_ &m)
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const double,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_translation"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("name")            = "")
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const Vec3 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_translation"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("name")            = "")
       .def("set_desired_translation",
            &FloatingBaseSquaredTranslationErrorCost::set_desired_translation,
            nb::arg("desired_translation"))
+      .def("set_reference_frame",
+           &FloatingBaseSquaredTranslationErrorCost::set_reference_frame,
+           nb::arg("reference_frame"))
       .def(
         "set_weight",
         static_cast<void (FloatingBaseSquaredTranslationErrorCost::*)(
@@ -703,42 +713,51 @@ void bind_Costs(nb::module_ &m)
       R"doc(
         Predefined squared frame translation error cost
 
-        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
 
         where:
          - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
          - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
          - $\boldsymbol{w}$ is the weight on the translation error
+         - $R$ is the rotation of the reference frame the error is expressed in
+           (World or Fixed, identity for World)
 
         Assumes:
-         - The model joint configuration is the first part of the state vector (size 
+         - The model joint configuration is the first part of the state vector (size
            `model.nq()`)
       )doc")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
                     const double,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("name")            = "")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
                     const Vec3 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_translation"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("name")            = "")
       .def("set_desired_translation",
            &FrameSquaredTranslationErrorCost::set_desired_translation,
            nb::arg("desired_translation"))
+      .def("set_reference_frame",
+           &FrameSquaredTranslationErrorCost::set_reference_frame,
+           nb::arg("reference_frame"))
       .def(
         "set_weight",
         static_cast<void (FrameSquaredTranslationErrorCost::*)(const double)>(
@@ -974,12 +993,15 @@ void bind_Costs(nb::module_ &m)
         Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_f - \boldsymbol{v}_d)\rVert_2^2$
 
         where:
-         - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model (in $\mathcal{R}^6$)
-         - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$)
+         - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model
+           (in $\mathcal{R}^6$), with its linear and angular parts expressed in the
+           reference frame (Local by default, World or Fixed)
+         - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$),
+           expressed in the same reference frame
          - $\boldsymbol{w}$ is the weight on the velocity error
 
         Assumes:
-         - The model joint configuration is the first part of the state vector (size 
+         - The model joint configuration is the first part of the state vector (size
            `model.nq()`)
          - The model joint velocity is the final part of the state vector (size
            `model.nv()`)
@@ -988,27 +1010,34 @@ void bind_Costs(nb::module_ &m)
                     const std::string &,
                     const Vec6 &,
                     const double,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_velocity"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("name")            = "")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec6 &,
                     const Vec6 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("desired_velocity"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("name")            = "")
       .def("set_desired_velocity",
            &FrameSquaredVelocityErrorCost::set_desired_velocity,
            nb::arg("desired_velocity"))
+      .def("set_reference_frame",
+           &FrameSquaredVelocityErrorCost::set_reference_frame,
+           nb::arg("reference_frame"))
       .def("set_weight",
            static_cast<void (FrameSquaredVelocityErrorCost::*)(const double)>(
              &FrameSquaredVelocityErrorCost::set_weight),
@@ -1023,34 +1052,43 @@ void bind_Costs(nb::module_ &m)
                                                     R"doc(
         Predefined center of mass (CoM) tracking cost
 
-        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
 
         where:
          - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
          - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
+         - $R$ is the rotation of the reference frame the error is expressed in
+           (World or Fixed, identity for World)
 
         Assumes:
-         - The model joint configuration is the first part of the state vector (size 
+         - The model joint configuration is the first part of the state vector (size
            `model.nq()`)
                                                     )doc")
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const double,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("cref"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("name")            = "")
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const Vec3 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("cref"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("name")            = "")
+      .def("set_reference_frame",
+           &CenterOfMassTrackingCost::set_reference_frame,
+           nb::arg("reference_frame"))
       .def("set_weight",
            static_cast<void (CenterOfMassTrackingCost::*)(const double)>(
              &CenterOfMassTrackingCost::set_weight),
@@ -1067,7 +1105,7 @@ void bind_Costs(nb::module_ &m)
       R"doc(
         Predefined frames squared inverse distance cost
 
-        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \sum_{i < j} \frac{w}{2 \lVert \boldsymbol{\sigma} \odot (\boldsymbol{t}_i - \boldsymbol{t}_j)\rVert_2^2}$
+        Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \sum_{i < j} \frac{w}{2 \lVert \boldsymbol{\sigma} \odot R^\top (\boldsymbol{t}_i - \boldsymbol{t}_j)\rVert_2^2}$
 
         where:
          - $\boldsymbol{t}_i$ is the frame translation for frame $i$ of the model (in $\mathcal{R}^3$)
@@ -1076,33 +1114,42 @@ void bind_Costs(nb::module_ &m)
            scaling factor for each axis; the factors work in an inverse manner, i.e.
            larger values place less importance on an axis, while smaller ones place
            more
+         - $R$ is the rotation of the reference frame whose axes the distance scale
+           applies along (World or Fixed, identity for World)
 
         Assumes:
-         - The model joint configuration is the first part of the state vector (size 
+         - The model joint configuration is the first part of the state vector (size
            `model.nq()`)
       )doc")
       .def(nb::init<const Model &,
                     const std::vector<std::string> &,
                     const double,
                     const double,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frames"),
            nb::arg("weight"),
-           nb::arg("distance_scale") = 100.0,
-           nb::arg("name")           = "")
+           nb::arg("distance_scale")  = 100.0,
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("name")            = "")
       .def(nb::init<const Model &,
                     const std::vector<std::string> &,
                     const double,
                     const Vec3 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frames"),
            nb::arg("weight"),
            nb::arg("distance_scale"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("name")            = "")
+      .def("set_reference_frame",
+           &FramesInverseSquaredDistanceCost::set_reference_frame,
+           nb::arg("reference_frame"))
       .def(
         "set_weight",
         static_cast<void (FramesInverseSquaredDistanceCost::*)(const double)>(

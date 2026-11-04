@@ -262,12 +262,14 @@ class SquaredConfigurationErrorCost : public StageCost
 
 /** Predefined squared floating base translation error cost
  *
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t}_f - \boldsymbol{t}_d)\rVert_2^2$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{t}_f - \boldsymbol{t}_d)\rVert_2^2$
  *
  * where:
  *  - $\boldsymbol{t}_f$ is the floating base translation (in $\mathcal{R}^3$)
  *  - $\boldsymbol{t}_d$ is the desired translation of the floating base (in $\mathcal{R}^3$)
  *  - $\boldsymbol{w}$ is the weight on the translation error
+ *  - $R$ is the rotation of the reference frame the error is expressed in
+ *    (World or Fixed, identity for World)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -278,19 +280,20 @@ class SquaredConfigurationErrorCost : public StageCost
 class FloatingBaseSquaredTranslationErrorCost : public StageCost
 {
   public:
-    FloatingBaseSquaredTranslationErrorCost(const Model &model,
-                                            const Vec3  &desired_translation,
-                                            const double weight,
-                                            const std::string &name = "");
+    FloatingBaseSquaredTranslationErrorCost(
+      const Model &model, const Vec3 &desired_translation, const double weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const std::string &name               = "");
 
-    FloatingBaseSquaredTranslationErrorCost(const Model &model,
-                                            const Vec3  &desired_translation,
-                                            const Vec3  &weight,
-                                            const std::string &name = "");
+    FloatingBaseSquaredTranslationErrorCost(
+      const Model &model, const Vec3 &desired_translation, const Vec3 &weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const std::string &name               = "");
 
     void set_desired_translation(const Vec3 &desired_translation);
     void set_weight(const double weight);
     void set_weight(const Vec3 &weight);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -300,10 +303,11 @@ class FloatingBaseSquaredTranslationErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model *_model;
-    const uint   _nq, _nv, _ndx;
-    Vec3         _desired_translation;
-    Vec3         _weight;
+    const Model   *_model;
+    const uint     _nq, _nv, _ndx;
+    Vec3           _desired_translation;
+    Vec3           _weight;
+    ReferenceFrame _reference_frame;
 };
 
 /** Predefined squared floating base rotation error cost
@@ -481,34 +485,37 @@ class FloatingBaseSquaredVelocityErrorCost : public StageCost
 
 /** Predefined squared frame translation error cost
  *
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
- * 
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2$
+ *
  * where:
  *  - $\boldsymbol{t}$ is the frame translation for a given frame of the model (in $\mathcal{R}^3$)
  *  - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
  *  - $\boldsymbol{w}$ is the weight on the translation error
- * 
+ *  - $R$ is the rotation of the reference frame the error is expressed in
+ *    (World or Fixed, identity for World)
+ *
  * Assumes:
- *  - The model joint configuration is the first part of the state vector (size 
+ *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
 class FrameSquaredTranslationErrorCost : public StageCost
 {
   public:
-    FrameSquaredTranslationErrorCost(const Model       &model,
-                                     const std::string &frame,
-                                     const Vec3        &desired_translation,
-                                     const double       weight,
-                                     const std::string &name = "");
-    FrameSquaredTranslationErrorCost(const Model       &model,
-                                     const std::string &frame,
-                                     const Vec3        &desired_translation,
-                                     const Vec3        &weight,
-                                     const std::string &name = "");
+    FrameSquaredTranslationErrorCost(
+      const Model &model, const std::string &frame,
+      const Vec3 &desired_translation, const double weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const std::string &name               = "");
+    FrameSquaredTranslationErrorCost(
+      const Model &model, const std::string &frame,
+      const Vec3 &desired_translation, const Vec3 &weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const std::string &name               = "");
 
     void set_desired_translation(const Vec3 &desired_translation);
     void set_weight(const double weight);
     void set_weight(const Vec3 &weight);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -524,6 +531,7 @@ class FrameSquaredTranslationErrorCost : public StageCost
     const std::string _frame;
     const uint        _frame_id;
     Vec3              _weight;
+    ReferenceFrame    _reference_frame;
     mutable MatX      _jac_scratch;
 };
 
@@ -707,12 +715,15 @@ class FrameSquaredPoseErrorCost : public StageCost
  * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_f - \boldsymbol{v}_d)\rVert_2^2$
  * 
  * where:
- *  - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model (in $\mathcal{R}^6$)
- *  - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$)
+ *  - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model
+ *    (in $\mathcal{R}^6$), with its linear and angular parts expressed in the
+ *    reference frame (Local by default, World or Fixed)
+ *  - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$),
+ *    expressed in the same reference frame
  *  - $\boldsymbol{w}$ is the weight on the velocity error
- * 
+ *
  * Assumes:
- *  - The model joint configuration is the first part of the state vector (size 
+ *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  *  - The model joint velocity is the final part of the state vector (size
  *    `model.nv()`)
@@ -720,18 +731,21 @@ class FrameSquaredPoseErrorCost : public StageCost
 class FrameSquaredVelocityErrorCost : public StageCost
 {
   public:
-    FrameSquaredVelocityErrorCost(const Model &model, const std::string &frame,
-                                  const Vec6        &desired_velocity,
-                                  const double       weight,
-                                  const std::string &name = "");
-    FrameSquaredVelocityErrorCost(const Model &model, const std::string &frame,
-                                  const Vec6        &desired_velocity,
-                                  const Vec6        &weight,
-                                  const std::string &name = "");
+    FrameSquaredVelocityErrorCost(
+      const Model &model, const std::string &frame,
+      const Vec6 &desired_velocity, const double weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const std::string &name               = "");
+    FrameSquaredVelocityErrorCost(
+      const Model &model, const std::string &frame,
+      const Vec6 &desired_velocity, const Vec6 &weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const std::string &name               = "");
 
     void set_desired_velocity(const Vec6 &desired_velocity);
     void set_weight(const double weight);
     void set_weight(const Vec6 &weight);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -747,32 +761,40 @@ class FrameSquaredVelocityErrorCost : public StageCost
     const std::string _frame;
     const uint        _frame_id;
     Vec6              _weight;
+    ReferenceFrame    _reference_frame;
     mutable MatX      _jac_scratch;
     mutable MatX      _dVdq_scratch, _dVdv_scratch;
 };
 
 /** Predefined center of mass (CoM) tracking cost
  *
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
- * 
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2$
+ *
  * where:
  *  - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
  *  - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
- * 
+ *  - $R$ is the rotation of the reference frame the error is expressed in
+ *    (World or Fixed, identity for World)
+ *
  * Assumes:
- *  - The model joint configuration is the first part of the state vector (size 
+ *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
 class CenterOfMassTrackingCost : public StageCost
 {
   public:
-    CenterOfMassTrackingCost(const Model &model, const Vec3 &cref,
-                             const double weight, const std::string &name = "");
-    CenterOfMassTrackingCost(const Model &model, const Vec3 &cref,
-                             const Vec3 &weight, const std::string &name = "");
+    CenterOfMassTrackingCost(
+      const Model &model, const Vec3 &cref, const double weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const std::string &name               = "");
+    CenterOfMassTrackingCost(
+      const Model &model, const Vec3 &cref, const Vec3 &weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const std::string &name               = "");
 
     void set_weight(const double weight);
     void set_weight(const Vec3 &weight);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     void set_cref(const Vec3 &cref);
 
@@ -786,14 +808,15 @@ class CenterOfMassTrackingCost : public StageCost
   protected:
     const Model *_model;
 
-    Vec3       _cref;
-    const uint _nq, _nv, _ndx;
-    Vec3       _weight;
+    Vec3           _cref;
+    const uint     _nq, _nv, _ndx;
+    Vec3           _weight;
+    ReferenceFrame _reference_frame;
 };
 
 /** Predefined frames squared inverse distance cost
  *
- * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \sum_{i < j} \frac{w}{2 \lVert \boldsymbol{\sigma} \odot (\boldsymbol{t}_i - \boldsymbol{t}_j)\rVert_2^2}$
+ * Defines the cost term $\ell(\boldsymbol{x}, \boldsymbol{u}) = \sum_{i < j} \frac{w}{2 \lVert \boldsymbol{\sigma} \odot R^\top (\boldsymbol{t}_i - \boldsymbol{t}_j)\rVert_2^2}$
  *
  * where:
  *  - $\boldsymbol{t}_i$ is the frame translation for frame $i$ of the model (in $\mathcal{R}^3$)
@@ -802,29 +825,32 @@ class CenterOfMassTrackingCost : public StageCost
  *    scaling factor for each axis; the factors work in an inverse manner, i.e.
  *    larger values place less importance on an axis, while smaller ones place
  *    more
- * 
+ *  - $R$ is the rotation of the reference frame whose axes the distance scale
+ *    applies along (World or Fixed, identity for World)
+ *
  * Assumes:
- *  - The model joint configuration is the first part of the state vector (size 
+ *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
 class FramesInverseSquaredDistanceCost : public StageCost
 {
   public:
-    FramesInverseSquaredDistanceCost(const Model                    &model,
-                                     const std::vector<std::string> &frames,
-                                     const double                    weight,
-                                     const double distance_scale = 100.0,
-                                     const std::string &name     = "");
-    FramesInverseSquaredDistanceCost(const Model                    &model,
-                                     const std::vector<std::string> &frames,
-                                     const double                    weight,
-                                     const Vec3        &distance_scale,
-                                     const std::string &name = "");
+    FramesInverseSquaredDistanceCost(
+      const Model &model, const std::vector<std::string> &frames,
+      const double weight, const double distance_scale = 100.0,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const std::string &name               = "");
+    FramesInverseSquaredDistanceCost(
+      const Model &model, const std::vector<std::string> &frames,
+      const double weight, const Vec3 &distance_scale,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const std::string &name               = "");
 
     void set_weight(const double weight);
 
     void set_distance_scale(const double distance_scale);
     void set_distance_scale(const Vec3 &distance_scale);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -844,6 +870,7 @@ class FramesInverseSquaredDistanceCost : public StageCost
     const std::vector<uint>        _frame_ids;
     double                         _weight;
     Vec3                           _distance_scale;
+    ReferenceFrame                 _reference_frame;
     mutable MatX                   _jac_scratch;
     mutable std::vector<MatX>      _jac_cache;
 };

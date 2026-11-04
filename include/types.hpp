@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <random>
 #include <cassert>
+#include <initializer_list>
+#include <stdexcept>
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -280,6 +282,65 @@ inline const std::unordered_map<std::string, Preset> str_to_Preset = {
     {          "Talos",          Preset::Talos },
     { "DoublePendulum", Preset::DoublePendulum }
 };
+
+namespace stagewise
+{
+namespace predefined
+{
+/** Reference frame of a predefined cost or constraint
+ * Selects the axes that a cost's error, weights and desired value, or a
+ * constraint's bounds, are expressed along. Only the axes change: positions
+ * keep the world origin, unless a bound's center moves it
+ * Options:
+ *  - World: The world axes
+ *  - Local: The axes of the frame the cost or constraint acts on, moving with
+ *    it
+ *  - Fixed: Constant axes given by a rotation matrix $R$, whose columns are
+ *    the axes in world coordinates. A vector $\boldsymbol{v}$ in world
+ *    coordinates is then expressed as $R^\top \boldsymbol{v}$
+ * Each cost or constraint documents the options it supports, and throws
+ * `std::invalid_argument` when given another
+ */
+class ReferenceFrame
+{
+  public:
+    enum Type
+    {
+        World = 0,
+        Local = 1,
+        Fixed = 2,
+    };
+
+    // World or Local axes. Fixed axes need a rotation, given by the other
+    // constructor
+    ReferenceFrame(const Type type = World);
+
+    // Fixed axes, from a rotation matrix whose columns are the axes in world
+    // coordinates
+    ReferenceFrame(const Mat3 &rotation);
+
+    // Fixed axes rotated about the world z axis by the given angle
+    static ReferenceFrame yaw(const double angle);
+
+    // Fixed axes with z along the given normal and x along the direction of
+    // the given yaw angle, projected onto the plane normal to it
+    static ReferenceFrame normal(const Vec3 &normal, const double yaw = 0.0);
+
+    Type type() const;
+
+    // The rotation of Fixed axes, identity for the other types
+    const Mat3 &rotation() const;
+
+    // Throws std::invalid_argument if the type is not one of the given ones
+    void require(std::initializer_list<Type> supported,
+                 const std::string          &user) const;
+
+  private:
+    Type _type;
+    Mat3 _rotation;
+};
+}
+}
 
 }
 

@@ -21,6 +21,7 @@ namespace nb = nanobind;
 
 using namespace model;
 using namespace model::stagewise;
+using namespace model::stagewise::predefined;
 using namespace model::stagewise::predefined::constraints;
 using namespace model::terrain;
 
@@ -146,6 +147,72 @@ void bind_Model(nb::module_ &m)
               "Index of this force among those of the same type (force/wrench) "
               "added at the same stage.")
       .def_ro("dim", &Force::dim, "The number of components this force has.");
+
+    nb::class_<ReferenceFrame> reference_frame(m, "ReferenceFrame", R"doc(
+        Reference frame of a predefined cost or constraint
+        Selects the axes that a cost's error, weights and desired value, or a
+        constraint's bounds, are expressed along. Only the axes change:
+        positions keep the world origin, unless a bound's center moves it
+        Options:
+         - ReferenceFrame.World: The world axes
+         - ReferenceFrame.Local: The axes of the frame the cost or constraint
+           acts on, moving with it
+         - ReferenceFrame(rotation): Fixed axes given by a rotation matrix $R$,
+           whose columns are the axes in world coordinates. A vector
+           $\boldsymbol{v}$ in world coordinates is then expressed as
+           $R^\top \boldsymbol{v}$. A 3x3 array converts to these implicitly
+         - ReferenceFrame.yaw(angle), ReferenceFrame.normal(normal, yaw):
+           Fixed axes built from a yaw angle, or from a surface normal and a
+           heading
+        Each cost or constraint documents the options it supports, and raises
+        ValueError when given another
+        )doc");
+
+    nb::enum_<ReferenceFrame::Type>(reference_frame, "Type", R"doc(
+        The type of a reference frame
+        Options:
+         - World: The world axes
+         - Local: The axes of the frame the cost or constraint acts on
+         - Fixed: Constant axes given by a rotation matrix
+        )doc")
+      .value("World", ReferenceFrame::World)
+      .value("Local", ReferenceFrame::Local)
+      .value("Fixed", ReferenceFrame::Fixed);
+
+    reference_frame
+      .def(nb::init_implicit<ReferenceFrame::Type>(),
+           nb::arg("type"),
+           "World or Local axes. Fixed axes need a rotation, given by the "
+           "other constructor.")
+      .def(nb::init_implicit<const Mat3 &>(),
+           nb::arg("rotation"),
+           "Fixed axes, from a rotation matrix whose columns are the axes in "
+           "world coordinates.")
+      .def_static("yaw",
+                  &ReferenceFrame::yaw,
+                  nb::arg("angle"),
+                  "Fixed axes rotated about the world z axis by the given "
+                  "angle.")
+      .def_static("normal",
+                  &ReferenceFrame::normal,
+                  nb::arg("normal"),
+                  nb::arg("yaw") = 0.0,
+                  "Fixed axes with z along the given normal and x along the "
+                  "direction of the given yaw angle, projected onto the plane "
+                  "normal to it.")
+      .def_prop_ro("type", &ReferenceFrame::type, "The reference frame type.")
+      .def_prop_ro("rotation",
+                   &ReferenceFrame::rotation,
+                   "The rotation of Fixed axes, identity for the other "
+                   "types.")
+      .def_prop_ro_static(
+        "World",
+        [](nb::handle) { return ReferenceFrame(ReferenceFrame::World); },
+        "The world axes.")
+      .def_prop_ro_static(
+        "Local",
+        [](nb::handle) { return ReferenceFrame(ReferenceFrame::Local); },
+        "The axes of the frame the cost or constraint acts on.");
 
     nb::class_<Model::CustomProperties>(
       m,

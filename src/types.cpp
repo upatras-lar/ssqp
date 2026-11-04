@@ -11,6 +11,122 @@ Force::Force(const std::string &frame, const uint force_index,
   , dim(dim)
 {
 }
+
+namespace stagewise
+{
+namespace predefined
+{
+namespace
+{
+// How far a Fixed rotation may be from orthonormal
+constexpr double ROTATION_TOL = 1e-6;
+
+std::string reference_frame_type_name(const ReferenceFrame::Type type)
+{
+    switch (type)
+    {
+    case ReferenceFrame::World:
+        return "World";
+    case ReferenceFrame::Local:
+        return "Local";
+    case ReferenceFrame::Fixed:
+        return "Fixed";
+    }
+    return "Unknown";
+}
+}
+
+ReferenceFrame::ReferenceFrame(const Type type)
+  : _type(type)
+  , _rotation(Mat3::Identity())
+{
+    if (type == Fixed)
+    {
+        throw std::invalid_argument(
+          "A Fixed reference frame needs a rotation matrix");
+    }
+}
+
+ReferenceFrame::ReferenceFrame(const Mat3 &rotation)
+  : _type(Fixed)
+  , _rotation(rotation)
+{
+    const bool orthonormal =
+      (rotation.transpose() * rotation - Mat3::Identity())
+        .lpNorm<Eigen::Infinity>() < ROTATION_TOL;
+    if (!orthonormal || std::abs(rotation.determinant() - 1.0) > ROTATION_TOL)
+    {
+        throw std::invalid_argument(
+          "A reference frame rotation must be orthonormal with determinant 1");
+    }
+}
+
+ReferenceFrame ReferenceFrame::yaw(const double angle)
+{
+    return ReferenceFrame(
+      Eigen::AngleAxisd(angle, Vec3::UnitZ()).toRotationMatrix());
+}
+
+ReferenceFrame ReferenceFrame::normal(const Vec3 &normal, const double yaw)
+{
+    if (normal.norm() < ROTATION_TOL)
+    {
+        throw std::invalid_argument("A reference frame normal must be nonzero");
+    }
+
+    const Vec3 z       = normal.normalized();
+    const Vec3 heading = Vec3(std::cos(yaw), std::sin(yaw), 0.0);
+
+    // x is the heading projected onto the plane normal to z
+    Vec3 x = heading - heading.dot(z) * z;
+    Vec3 y;
+    if (x.norm() > ROTATION_TOL)
+    {
+        x.normalize();
+        y = z.cross(x);
+    }
+    else
+    {
+        // A normal along the heading takes y from the direction to its left
+        // instead
+        const Vec3 left = Vec3(-std::sin(yaw), std::cos(yaw), 0.0);
+        y               = (left - left.dot(z) * z).normalized();
+        x               = y.cross(z);
+    }
+
+    Mat3 rotation;
+    rotation.col(0) = x;
+    rotation.col(1) = y;
+    rotation.col(2) = z;
+    return ReferenceFrame(rotation);
+}
+
+ReferenceFrame::Type ReferenceFrame::type() const
+{
+    return _type;
+}
+
+const Mat3 &ReferenceFrame::rotation() const
+{
+    return _rotation;
+}
+
+void ReferenceFrame::require(std::initializer_list<Type> supported,
+                             const std::string          &user) const
+{
+    for (const Type type : supported)
+    {
+        if (type == _type)
+        {
+            return;
+        }
+    }
+    throw std::invalid_argument(user + " does not support " +
+                                reference_frame_type_name(_type) +
+                                " reference frames");
+}
+}
+}
 }
 
 void print_matrix_dimensions(const MatX &mat)

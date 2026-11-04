@@ -19,6 +19,7 @@ namespace nb = nanobind;
 
 using namespace model;
 using namespace model::stagewise;
+using namespace model::stagewise::predefined;
 using namespace model::stagewise::predefined::constraints;
 
 struct __attribute__((visibility("default"))) PyStageConstraints
@@ -457,11 +458,14 @@ void bind_Constraints(nb::module_ &m)
         Floating base position bound constraint
 
         Creates a linear bound constraint on the position of the floating base:
-        $\boldsymbol{b}_l \leq p_f \leq \boldsymbol{b}_u$
+        $\boldsymbol{b}_l \leq R^\top (p_f - \boldsymbol{c}) \leq \boldsymbol{b}_u$
 
         where:
         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the base position (in $\mathcal{R}^3$)
         - $p_f$: Floating base position extracted from the system state
+        - $R$: Rotation of the reference frame the bounds are expressed in (World
+        or Fixed, identity for World)
+        - $\boldsymbol{c}$: Center the bounds are taken around (in $\mathcal{R}^3$)
 
         Assumes:
         - The Model contains a floating-base where the base position is the first
@@ -470,18 +474,28 @@ void bind_Constraints(nb::module_ &m)
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const Vec3 &,
+                    const ReferenceFrame &,
+                    const Vec3 &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("center")          = Vec3::Zero().eval(),
+           nb::arg("name")            = "")
       .def("set_lower_bound",
            &FloatingBaseTranslationBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
            &FloatingBaseTranslationBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"))
+      .def("set_reference_frame",
+           &FloatingBaseTranslationBound::set_reference_frame,
+           nb::arg("reference_frame"))
+      .def("set_center",
+           &FloatingBaseTranslationBound::set_center,
+           nb::arg("center"));
 
     nb::class_<FloatingBaseRotationBound, StageConstraints>(
       m,
@@ -652,19 +666,25 @@ void bind_Constraints(nb::module_ &m)
         Predefined 3D position bound for a given frame
 
         Creates a linear bound constraint on the position of a frame of the given
-        model: $\boldsymbol{b}_l \leq \boldsymbol{p}_f \leq \boldsymbol{b}_u$
+        model:
+        $\boldsymbol{b}_l \leq R^\top (\boldsymbol{p}_f - \boldsymbol{c}) \leq \boldsymbol{b}_u$
 
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
          - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
+         - $R$: Rotation of the reference frame the bounds are expressed in (World
+           or Fixed, identity for World)
+         - $\boldsymbol{c}$: Center the bounds are taken around (in $\mathcal{R}^3$)
 
         Assumes:
-         - The model joint configuration is the first part of the state vector (size 
+         - The model joint configuration is the first part of the state vector (size
            `model.nq()`)
            )doc")
       .def(nb::init<const Model &,
                     const std::string &,
                     const Vec3 &,
+                    const Vec3 &,
+                    const ReferenceFrame &,
                     const Vec3 &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
@@ -672,13 +692,19 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("frame"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("center")          = Vec3::Zero().eval(),
+           nb::arg("name")            = "")
       .def("set_lower_bound",
            &FrameTranslationBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
            &FrameTranslationBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"))
+      .def("set_reference_frame",
+           &FrameTranslationBound::set_reference_frame,
+           nb::arg("reference_frame"))
+      .def("set_center", &FrameTranslationBound::set_center, nb::arg("center"));
 
     nb::class_<FrameTerrainHeightBound, StageConstraints>(
       m,
@@ -818,10 +844,11 @@ void bind_Constraints(nb::module_ &m)
         
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
-         - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)
+         - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$), expressed
+           in the reference frame (Local by default, World or Fixed)
 
         Assumes:
-         - The model joint configuration is the first part of the state vector (size 
+         - The model joint configuration is the first part of the state vector (size
            `model.nq()`)
          - The model joint velocity is the final part of the state vector (size
            `model.nv()`)
@@ -830,19 +857,24 @@ void bind_Constraints(nb::module_ &m)
                     const std::string &,
                     const Vec3 &,
                     const Vec3 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("name")            = "")
       .def("set_lower_bound",
            &FrameLinearVelocityBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
            &FrameLinearVelocityBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"))
+      .def("set_reference_frame",
+           &FrameLinearVelocityBound::set_reference_frame,
+           nb::arg("reference_frame"));
 
     nb::class_<FrameAngularVelocityBound, StageConstraints>(
       m,
@@ -856,7 +888,8 @@ void bind_Constraints(nb::module_ &m)
 
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
-         - $\boldsymbol{\omega}_f$: Frame angular velocity vector (in $\mathcal{R}^3$)
+         - $\boldsymbol{\omega}_f$: Frame angular velocity vector (in $\mathcal{R}^3$),
+           expressed in the reference frame (Local by default, World or Fixed)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -869,19 +902,24 @@ void bind_Constraints(nb::module_ &m)
                     const std::string &,
                     const Vec3 &,
                     const Vec3 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("frame"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("name")            = "")
       .def("set_lower_bound",
            &FrameAngularVelocityBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
            &FrameAngularVelocityBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"))
+      .def("set_reference_frame",
+           &FrameAngularVelocityBound::set_reference_frame,
+           nb::arg("reference_frame"));
 
     nb::class_<CenterOfMassBound, StageConstraints>(m,
                                                     "CenterOfMassBound",
@@ -889,31 +927,42 @@ void bind_Constraints(nb::module_ &m)
         Predefined center of mass bound
 
         Creates a linear bound constraint on the center of mass of the model:
-        $\boldsymbol{b}_l \leq \boldsymbol{c} \leq \boldsymbol{b}_u$
+        $\boldsymbol{b}_l \leq R^\top (\boldsymbol{c} - \boldsymbol{c}_0) \leq \boldsymbol{b}_u$
 
         where:
         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
         - $\boldsymbol{c}$ is the center of mass of the model
+        - $R$: Rotation of the reference frame the bounds are expressed in (World
+        or Fixed, identity for World)
+        - $\boldsymbol{c}_0$: Center the bounds are taken around (in $\mathcal{R}^3$)
 
         Assumes:
-        - The model joint configuration is the first part of the state vector (size 
+        - The model joint configuration is the first part of the state vector (size
         `model.nq()`)
         )doc")
       .def(nb::init<const Model &,
                     const Vec3 &,
+                    const Vec3 &,
+                    const ReferenceFrame &,
                     const Vec3 &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
+           nb::arg("center")          = Vec3::Zero().eval(),
+           nb::arg("name")            = "")
       .def("set_lower_bound",
            &CenterOfMassBound::set_lower_bound,
            nb::arg("lower_bound"))
       .def("set_upper_bound",
            &CenterOfMassBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"))
+      .def("set_reference_frame",
+           &CenterOfMassBound::set_reference_frame,
+           nb::arg("reference_frame"))
+      .def("set_center", &CenterOfMassBound::set_center, nb::arg("center"));
 
     nb::class_<ContactConstraint, StageConstraints>(m,
                                                     "ContactConstraint",

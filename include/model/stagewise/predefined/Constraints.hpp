@@ -157,11 +157,14 @@ class JointControlConstraint : public StageConstraints
 /** Floating base position bound constraint
  *
  * Creates a linear bound constraint on the position of the floating base:
- * $\boldsymbol{b}_l \leq p_f \leq \boldsymbol{b}_u$
+ * $\boldsymbol{b}_l \leq R^\top (p_f - \boldsymbol{c}) \leq \boldsymbol{b}_u$
  *
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the base position (in $\mathcal{R}^3$)
  *  - $p_f$: Floating base position extracted from the system state
+ *  - $R$: Rotation of the reference frame the bounds are expressed in (World
+ *    or Fixed, identity for World)
+ *  - $\boldsymbol{c}$: Center the bounds are taken around (in $\mathcal{R}^3$)
  *
  * Assumes:
  *  - The Model contains a floating-base where the base position is the first
@@ -170,11 +173,15 @@ class JointControlConstraint : public StageConstraints
 class FloatingBaseTranslationBound : public StageConstraints
 {
   public:
-    FloatingBaseTranslationBound(const Model &model, const Vec3 &lb,
-                                 const Vec3 &ub, const std::string &name = "");
+    FloatingBaseTranslationBound(
+      const Model &model, const Vec3 &lb, const Vec3 &ub,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const Vec3 &center = Vec3::Zero(), const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
+    void set_center(const Vec3 &center);
 
     uint output_size() const override;
 
@@ -194,9 +201,11 @@ class FloatingBaseTranslationBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model *_model;
-    const uint   _nq, _nv, _ndx;
-    VecX         _lb, _ub;
+    const Model   *_model;
+    const uint     _nq, _nv, _ndx;
+    VecX           _lb, _ub;
+    ReferenceFrame _reference_frame;
+    Vec3           _center;
 };
 
 /** Predefined floating base orientation bound
@@ -412,26 +421,34 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
 /** Predefined 3D position bound for a given frame
  *
  * Creates a linear bound constraint on the position of a frame of the given
- * model: $\boldsymbol{b}_l \leq \boldsymbol{p}_f \leq \boldsymbol{b}_u$
- * 
+ * model:
+ * $\boldsymbol{b}_l \leq R^\top (\boldsymbol{p}_f - \boldsymbol{c}) \leq \boldsymbol{b}_u$
+ *
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
- * 
+ *  - $R$: Rotation of the reference frame the bounds are expressed in (World
+ *    or Fixed, identity for World)
+ *  - $\boldsymbol{c}$: Center the bounds are taken around (in $\mathcal{R}^3$)
+ *
  * Assumes:
- *  - The model joint configuration is the first part of the state vector (size 
+ *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
 class FrameTranslationBound : public StageConstraints
 {
   public:
     // Regular constructor
-    FrameTranslationBound(const Model &model, const std::string &frame,
-                          const Vec3 &lb, const Vec3 &ub,
-                          const std::string &name = "");
+    FrameTranslationBound(
+      const Model &model, const std::string &frame, const Vec3 &lb,
+      const Vec3           &ub,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const Vec3 &center = Vec3::Zero(), const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
+    void set_center(const Vec3 &center);
 
     uint output_size() const override;
 
@@ -456,6 +473,8 @@ class FrameTranslationBound : public StageConstraints
     const std::string _frame;
     const uint        _frame_id;
     VecX              _lb, _ub;
+    ReferenceFrame    _reference_frame;
+    Vec3              _center;
     mutable MatX      _jac_scratch;
 };
 
@@ -627,13 +646,14 @@ class FramePoseBound : public StageConstraints
  *
  * Creates a linear bound constraint on the velocity of a frame of the given
  * model: $\boldsymbol{b}_l \leq \boldsymbol{v}_f \leq \boldsymbol{b}_u$
- * 
+ *
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
- *  - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$)
- * 
+ *  - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$), expressed
+ *    in the reference frame (Local by default, World or Fixed)
+ *
  * Assumes:
- *  - The model joint configuration is the first part of the state vector (size 
+ *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  *  - The model joint velocity is the final part of the state vector (size
  *    `model.nv()`)
@@ -642,12 +662,15 @@ class FrameLinearVelocityBound : public StageConstraints
 {
   public:
     // Regular constructor
-    FrameLinearVelocityBound(const Model &model, const std::string &frame,
-                             const Vec3 &lb, const Vec3 &ub,
-                             const std::string &name = "");
+    FrameLinearVelocityBound(
+      const Model &model, const std::string &frame, const Vec3 &lb,
+      const Vec3           &ub,
+      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const std::string &name               = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     uint output_size() const override;
 
@@ -672,6 +695,7 @@ class FrameLinearVelocityBound : public StageConstraints
     const std::string _frame;
     const uint        _frame_id;
     VecX              _lb, _ub;
+    ReferenceFrame    _reference_frame;
     mutable MatX      _dVdq_scratch, _dVdv_scratch;
 };
 
@@ -683,7 +707,8 @@ class FrameLinearVelocityBound : public StageConstraints
  *
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
- *  - $\boldsymbol{\omega}_f$: Frame angular velocity vector (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{\omega}_f$: Frame angular velocity vector (in $\mathcal{R}^3$),
+ *    expressed in the reference frame (Local by default, World or Fixed)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -695,12 +720,15 @@ class FrameAngularVelocityBound : public StageConstraints
 {
   public:
     // Regular constructor
-    FrameAngularVelocityBound(const Model &model, const std::string &frame,
-                              const Vec3 &lb, const Vec3 &ub,
-                              const std::string &name = "");
+    FrameAngularVelocityBound(
+      const Model &model, const std::string &frame, const Vec3 &lb,
+      const Vec3           &ub,
+      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const std::string &name               = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     uint output_size() const override;
 
@@ -725,30 +753,38 @@ class FrameAngularVelocityBound : public StageConstraints
     const std::string _frame;
     const uint        _frame_id;
     VecX              _lb, _ub;
+    ReferenceFrame    _reference_frame;
     mutable MatX      _dVdq_scratch, _dVdv_scratch;
 };
 
 /** Predefined center of mass bound
  *
  * Creates a linear bound constraint on the center of mass of the model:
- * $\boldsymbol{b}_l \leq \boldsymbol{c} \leq \boldsymbol{b}_u$
- * 
+ * $\boldsymbol{b}_l \leq R^\top (\boldsymbol{c} - \boldsymbol{c}_0) \leq \boldsymbol{b}_u$
+ *
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{c}$ is the center of mass of the model
- * 
+ *  - $R$: Rotation of the reference frame the bounds are expressed in (World
+ *    or Fixed, identity for World)
+ *  - $\boldsymbol{c}_0$: Center the bounds are taken around (in $\mathcal{R}^3$)
+ *
  * Assumes:
- *  - The model joint configuration is the first part of the state vector (size 
+ *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
 class CenterOfMassBound : public StageConstraints
 {
   public:
-    CenterOfMassBound(const Model &model, const Vec3 &lb, const Vec3 &ub,
-                      const std::string &name = "");
+    CenterOfMassBound(
+      const Model &model, const Vec3 &lb, const Vec3 &ub,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
+      const Vec3 &center = Vec3::Zero(), const std::string &name = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
+    void set_center(const Vec3 &center);
 
     uint output_size() const override;
 
@@ -768,9 +804,11 @@ class CenterOfMassBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model *_model;
-    const uint   _nq, _nv, _ndx;
-    VecX         _lb, _ub;
+    const Model   *_model;
+    const uint     _nq, _nv, _ndx;
+    VecX           _lb, _ub;
+    ReferenceFrame _reference_frame;
+    Vec3           _center;
 };
 
 /** Predefined contact constraint for a given frame
@@ -849,18 +887,18 @@ class ContactConstraint : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model           *_model;
-    const uint             _nq, _nv, _nu;
-    const std::string      _frame;
-    const uint             _frame_id;
-    std::shared_ptr<Force> _force;
-    double                 _mu;
-    double                 _max_normal_force;
-    double                 _eq_tol;
-    const bool             _no_slip;
-    VecX                   _lb, _ub;
-    mutable MatX           _jac_world_scratch, _jac_local_scratch;
-    mutable MatX           _dVdq_scratch, _dVdv_scratch;
+    const Model                      *_model;
+    const uint                        _nq, _nv, _nu;
+    const std::string                 _frame;
+    const uint                        _frame_id;
+    std::shared_ptr<Force>            _force;
+    double                            _mu;
+    double                            _max_normal_force;
+    double                            _eq_tol;
+    const bool                        _no_slip;
+    VecX                              _lb, _ub;
+    mutable MatX                      _jac_world_scratch, _jac_local_scratch;
+    mutable MatX                      _dVdq_scratch, _dVdv_scratch;
     std::shared_ptr<terrain::Terrain> _terrain;
 
     std::shared_ptr<terrain::Terrain> contact_terrain() const;

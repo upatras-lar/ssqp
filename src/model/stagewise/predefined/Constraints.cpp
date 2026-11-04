@@ -246,7 +246,9 @@ void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
 
 // FloatingBaseTranslationBound
 FloatingBaseTranslationBound::FloatingBaseTranslationBound(
-  const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
+  const Model &model, const Vec3 &lb, const Vec3 &ub,
+  const ReferenceFrame &reference_frame, const Vec3 &center,
+  const std::string &name)
   : StageConstraints(name)
   , _model(&model)
   , _nq(model.nq())
@@ -254,10 +256,12 @@ FloatingBaseTranslationBound::FloatingBaseTranslationBound(
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
+  , _center(center)
 {
     assert(model.xml() && "Cannot use FloatingBaseTranslationBound "
                           "with a custom Model");
     assert(model.floatingBase() && "Provided Model has no floating base");
+    set_reference_frame(reference_frame);
 }
 
 uint FloatingBaseTranslationBound::output_size() const
@@ -275,6 +279,19 @@ void FloatingBaseTranslationBound::set_upper_bound(const Vec3 &ub)
     _ub = ub;
 }
 
+void FloatingBaseTranslationBound::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
+                            "FloatingBaseTranslationBound");
+    _reference_frame = reference_frame;
+}
+
+void FloatingBaseTranslationBound::set_center(const Vec3 &center)
+{
+    _center = center;
+}
+
 const VecX &FloatingBaseTranslationBound::lower_bound() const
 {
     return _lb;
@@ -287,7 +304,7 @@ const VecX &FloatingBaseTranslationBound::upper_bound() const
 
 VecX FloatingBaseTranslationBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return x.head<3>();
+    return _reference_frame.rotation().transpose() * (x.head<3>() - _center);
 }
 
 // TODO: is this valid? recheck
@@ -299,7 +316,7 @@ void FloatingBaseTranslationBound::gradient(const VecX &x, const VecX &u,
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
     Mat3               R = q.toRotationMatrix();
 
-    dX.leftCols<3>() = R;
+    dX.leftCols<3>() = _reference_frame.rotation().transpose() * R;
 
     dU.setZero(output_size(), u.size());
 }
@@ -683,10 +700,10 @@ void FloatingBaseAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 }
 
 // FrameTranslationBound
-FrameTranslationBound::FrameTranslationBound(const Model       &model,
-                                             const std::string &frame,
-                                             const Vec3 &lb, const Vec3 &ub,
-                                             const std::string &name)
+FrameTranslationBound::FrameTranslationBound(
+  const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
+  const ReferenceFrame &reference_frame, const Vec3 &center,
+  const std::string &name)
   : StageConstraints(name)
   , _model(&model)
   , _nq(model.nq())
@@ -696,11 +713,13 @@ FrameTranslationBound::FrameTranslationBound(const Model       &model,
   , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
+  , _center(center)
   , _jac_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameTranslationBound with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
+    set_reference_frame(reference_frame);
 }
 
 void FrameTranslationBound::set_lower_bound(const Vec3 &lb)
@@ -711,6 +730,19 @@ void FrameTranslationBound::set_lower_bound(const Vec3 &lb)
 void FrameTranslationBound::set_upper_bound(const Vec3 &ub)
 {
     _ub = ub;
+}
+
+void FrameTranslationBound::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
+                            "FrameTranslationBound");
+    _reference_frame = reference_frame;
+}
+
+void FrameTranslationBound::set_center(const Vec3 &center)
+{
+    _center = center;
 }
 
 uint FrameTranslationBound::output_size() const
@@ -732,7 +764,7 @@ VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
     Vec3 pos;
     std::tie(pos, std::ignore) =
       _model->forwardKinematics(x.head(_nq), _frame_id);
-    return pos;
+    return _reference_frame.rotation().transpose() * (pos - _center);
 }
 
 void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -741,7 +773,8 @@ void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv) = _jac_scratch.topRows(3);
+    dX.leftCols(_nv) =
+      _reference_frame.rotation().transpose() * _jac_scratch.topRows(3);
 
     dU.setZero(3, u.size());
 }
@@ -1061,11 +1094,9 @@ void FramePoseBound::hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
 }
 
 // FrameLinearVelocityBound
-FrameLinearVelocityBound::FrameLinearVelocityBound(const Model       &model,
-                                                   const std::string &frame,
-                                                   const Vec3        &lb,
-                                                   const Vec3        &ub,
-                                                   const std::string &name)
+FrameLinearVelocityBound::FrameLinearVelocityBound(
+  const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
+  const ReferenceFrame &reference_frame, const std::string &name)
   : StageConstraints(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1075,6 +1106,7 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(const Model       &model,
   , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
+  , _reference_frame(reference_frame)
   , _dVdq_scratch(MatX::Zero(6, _nv))
   , _dVdv_scratch(MatX::Zero(6, _nv))
 {
@@ -1093,6 +1125,12 @@ void FrameLinearVelocityBound::set_upper_bound(const Vec3 &ub)
     _ub = ub;
 }
 
+void FrameLinearVelocityBound::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    _reference_frame = reference_frame;
+}
+
 uint FrameLinearVelocityBound::output_size() const
 {
     return 3;
@@ -1109,8 +1147,10 @@ const VecX &FrameLinearVelocityBound::upper_bound() const
 
 VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true)
-      .head<3>();
+    const bool local = _reference_frame.type() == ReferenceFrame::Local;
+    return _reference_frame.rotation().transpose() *
+           _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local)
+             .head<3>();
 }
 
 void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -1123,9 +1163,26 @@ void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                      _dVdq_scratch,
                                      _dVdv_scratch);
 
+    Mat3 Rt = Mat3::Identity();
+    if (_reference_frame.type() != ReferenceFrame::Local)
+    {
+        // The local velocity rotated by the frame's rotation, which turns
+        // with the frame's angular Jacobian, the angular rows of dV/dv
+        Mat3 R;
+        std::tie(std::ignore, R) =
+          _model->forwardKinematics(x.head(_nq), _frame_id);
+        const Vec3 velocity =
+          _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true)
+            .head<3>();
+
+        _dVdq_scratch.topRows<3>() +=
+          _dVdv_scratch.bottomRows<3>().colwise().cross(velocity);
+        Rt = _reference_frame.rotation().transpose() * R;
+    }
+
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv)  = _dVdq_scratch.topRows<3>();
-    dX.rightCols(_nv) = _dVdv_scratch.topRows<3>();
+    dX.leftCols(_nv)  = Rt * _dVdq_scratch.topRows<3>();
+    dX.rightCols(_nv) = Rt * _dVdv_scratch.topRows<3>();
 
     dU.setZero(3, u.size());
 }
@@ -1147,11 +1204,9 @@ void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 }
 
 // FrameAngularVelocityBound
-FrameAngularVelocityBound::FrameAngularVelocityBound(const Model       &model,
-                                                     const std::string &frame,
-                                                     const Vec3        &lb,
-                                                     const Vec3        &ub,
-                                                     const std::string &name)
+FrameAngularVelocityBound::FrameAngularVelocityBound(
+  const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
+  const ReferenceFrame &reference_frame, const std::string &name)
   : StageConstraints(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1161,6 +1216,7 @@ FrameAngularVelocityBound::FrameAngularVelocityBound(const Model       &model,
   , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
+  , _reference_frame(reference_frame)
   , _dVdq_scratch(MatX::Zero(6, _nv))
   , _dVdv_scratch(MatX::Zero(6, _nv))
 {
@@ -1177,6 +1233,12 @@ void FrameAngularVelocityBound::set_lower_bound(const Vec3 &lb)
 void FrameAngularVelocityBound::set_upper_bound(const Vec3 &ub)
 {
     _ub = ub;
+}
+
+void FrameAngularVelocityBound::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    _reference_frame = reference_frame;
 }
 
 uint FrameAngularVelocityBound::output_size() const
@@ -1196,23 +1258,28 @@ const VecX &FrameAngularVelocityBound::upper_bound() const
 
 VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true)
-      .tail<3>();
+    const bool local = _reference_frame.type() == ReferenceFrame::Local;
+    return _reference_frame.rotation().transpose() *
+           _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local)
+             .tail<3>();
 }
 
 void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                          MatX &dU) const
 {
+    const bool local = _reference_frame.type() == ReferenceFrame::Local;
     _model->frameVelocityDerivatives(x.head(_nq),
                                      x.tail(_nv),
                                      _frame_id,
-                                     true,
+                                     local,
                                      _dVdq_scratch,
                                      _dVdv_scratch);
 
+    const Mat3 Rt = _reference_frame.rotation().transpose();
+
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv)  = _dVdq_scratch.bottomRows<3>();
-    dX.rightCols(_nv) = _dVdv_scratch.bottomRows<3>();
+    dX.leftCols(_nv)  = Rt * _dVdq_scratch.bottomRows<3>();
+    dX.rightCols(_nv) = Rt * _dVdv_scratch.bottomRows<3>();
 
     dU.setZero(3, u.size());
 }
@@ -1235,7 +1302,10 @@ void FrameAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 
 // CenterOfMassBound
 CenterOfMassBound::CenterOfMassBound(const Model &model, const Vec3 &lb,
-                                     const Vec3 &ub, const std::string &name)
+                                     const Vec3           &ub,
+                                     const ReferenceFrame &reference_frame,
+                                     const Vec3           &center,
+                                     const std::string    &name)
   : StageConstraints(name)
   , _model(&model)
   , _nq(model.nq())
@@ -1243,8 +1313,10 @@ CenterOfMassBound::CenterOfMassBound(const Model &model, const Vec3 &lb,
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
+  , _center(center)
 {
     assert(model.xml() && "Cannot use CenterOfMassBound with a custom Model");
+    set_reference_frame(reference_frame);
 }
 
 void CenterOfMassBound::set_lower_bound(const Vec3 &lb)
@@ -1255,6 +1327,19 @@ void CenterOfMassBound::set_lower_bound(const Vec3 &lb)
 void CenterOfMassBound::set_upper_bound(const Vec3 &ub)
 {
     _ub = ub;
+}
+
+void CenterOfMassBound::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
+                            "CenterOfMassBound");
+    _reference_frame = reference_frame;
+}
+
+void CenterOfMassBound::set_center(const Vec3 &center)
+{
+    _center = center;
 }
 
 uint CenterOfMassBound::output_size() const
@@ -1274,14 +1359,16 @@ const VecX &CenterOfMassBound::upper_bound() const
 
 VecX CenterOfMassBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return _model->centerOfMass(x.head(_nq));
+    return _reference_frame.rotation().transpose() *
+           (_model->centerOfMass(x.head(_nq)) - _center);
 }
 
 void CenterOfMassBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                  MatX &dU) const
 {
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv) = _model->jacobianCenterOfMass(x.head(_nq));
+    dX.leftCols(_nv) = _reference_frame.rotation().transpose() *
+                       _model->jacobianCenterOfMass(x.head(_nq));
 
     dU.setZero(3, u.size());
 }
