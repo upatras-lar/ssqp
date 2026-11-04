@@ -15,8 +15,8 @@ or the [Python reference](../reference/model-costs.md) for exact parameters.
 ## Pages
 
 * [Model](model.md): `ssqp::model::Model`, the problem definition
-* [Stagewise Functions](stagewise.md): `Function`, `StageCost`, `StageDynamics`, `StageConstraints`, and the
-  predefined implementations
+* [Stagewise Functions](stagewise.md): `Function`, `StageCost`, `StageDynamics`, `StageConstraints`
+* [Predefined Costs & Constraints](predefined.md): every predefined cost and constraint, and `ReferenceFrame`
 * [Terrain](terrain.md): `Terrain`, `FlatTerrain`
 * [The SSQP Solver](solver.md): `ssqp::solvers::ssqp`
 * [QP Solvers](qp-solvers.md): `QPSolver`, `admm_qp`, `hpipm_qp`, `piqp_qp`, `lqr`
@@ -44,6 +44,7 @@ All library code lives under `ssqp::`, mirroring the Python package layout:
 | `ssqp::model::Container` | `include/model/Container.hpp` |
 | `ssqp::model::stagewise::Function` / `StageCost` / `StageDynamics` / `StageConstraints` | `include/model/stagewise/Function.hpp`, `StageCost.hpp`, `StageDynamics.hpp`, `StageConstraints.hpp` |
 | Predefined costs / constraints | `include/model/stagewise/predefined/Costs.hpp`, `Constraints.hpp` |
+| `ssqp::model::stagewise::predefined::ReferenceFrame` | `include/types.hpp` |
 | `ssqp::model::terrain::Terrain` / `FlatTerrain` | `include/model/terrain/Terrain.hpp`, `include/model/terrain/predefined/FlatTerrain.hpp` |
 | `ssqp::model::presets` | `include/model/presets/Presets.hpp` |
 | `ssqp::solvers::ssqp` | `include/solvers/ssqp.hpp` |

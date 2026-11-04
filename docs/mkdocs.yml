@@ -78,6 +78,7 @@ nav:
       - Overview: cpp-reference/index.md
       - Model: cpp-reference/model.md
       - Stagewise Functions: cpp-reference/stagewise.md
+      - Predefined Costs & Constraints: cpp-reference/predefined.md
       - Terrain: cpp-reference/terrain.md
       - SSQP Solver: cpp-reference/solver.md
       - QP Solvers: cpp-reference/qp-solvers.md

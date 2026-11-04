@@ -43,23 +43,5 @@ The common base for `StageCost`, `StageDynamics` and `StageConstraints`:
 [`predefined/Costs.hpp`](https://github.com/upatras-lar/ssqp/blob/main/include/model/stagewise/predefined/Costs.hpp)
 and
 [`predefined/Constraints.hpp`](https://github.com/upatras-lar/ssqp/blob/main/include/model/stagewise/predefined/Constraints.hpp)
-provide ready-made subclasses built on Pinocchio kinematics, matching the classes exposed in
-[`ssqpy.model.costs`](../reference/model-costs.md) and [`ssqpy.model.constraints`](../reference/model-constraints.md):
-
-**Costs**: `SquaredJointAngleCost`, `SquaredJointVelocityCost`, `SquaredControlCost`, `SquaredIDTorqueCost`,
-`SquaredForceCost`, `SquaredConfigurationErrorCost`, `FloatingBaseSquaredTranslationErrorCost`,
-`FloatingBaseSquaredRotationErrorCost`, `FloatingBaseSquaredPoseErrorCost`,
-`FloatingBaseSquaredVelocityErrorCost`, `FrameSquaredTranslationErrorCost`, `FrameSquaredTerrainHeightErrorCost`,
-`FrameSquaredRotationErrorCost`,
-`FrameSquaredPoseErrorCost`, `FrameSquaredVelocityErrorCost`, `CenterOfMassTrackingCost`,
-`FramesInverseSquaredDistanceCost`.
-
-**Constraints**: `JointAngleConstraint`, `JointVelocityConstraint`, `JointControlConstraint`,
-`FloatingBaseTranslationBound`, `FloatingBaseRotationBound`, `FloatingBasePoseBound`,
-`FloatingBaseLinearVelocityBound`, `FloatingBaseAngularVelocityBound`, `FrameTranslationBound`,
-`FrameTerrainHeightBound`, `FrameRotationBound`, `FramePoseBound`, `FrameLinearVelocityBound`, `FrameAngularVelocityBound`,
-`CenterOfMassBound`, and `ContactConstraint` (friction cone + non-penetration + optional no-slip; C++-only, not
-directly exposed to Python, since `Model.addContactConstraint` constructs one for you).
-
-Their constructor arguments mirror the Python bindings; see the corresponding entry in the
-[Python API reference](../reference/model-costs.md) for the parameter list of each.
+provide ready-made subclasses of `StageCost` and `StageConstraints` built on Pinocchio kinematics. See
+[Predefined Costs & Constraints](predefined.md) for the reference of each, and of the `ReferenceFrame` they take.

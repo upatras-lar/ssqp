@@ -109,6 +109,92 @@ size, and adds:
 
 See [`ssqpy.model.constraints`](../reference/model-constraints.md) for constructor arguments and details for each.
 
+## Reference frames
+
+Predefined costs and constraints on a position or a velocity take a `reference_frame`, either as a constructor
+argument or through `set_reference_frame`. It selects the axes that a cost's error, weights and desired value, or a
+constraint's bounds, are expressed along. Only the axes change: positions keep the world origin. A world vector
+$\boldsymbol{v}$ is expressed along axes with rotation $R$ (whose columns are the axes in world coordinates) as
+$R^\top \boldsymbol{v}$.
+
+| Option | Axes |
+|---|---|
+| `ReferenceFrame.World` | The world axes |
+| `ReferenceFrame.Local` | The axes of the frame the cost or constraint acts on, moving with it |
+| `ReferenceFrame.Base` | The axes of the model's floating base, moving with it. On floating base terms this is the same as `Local` |
+| `ReferenceFrame(rotation)` | Fixed axes given by a rotation matrix. A 3x3 array converts to these implicitly |
+| `ReferenceFrame.yaw(angle)` | Fixed axes rotated about the world $z$ axis |
+| `ReferenceFrame.normal(normal, yaw=0.0)` | Fixed axes with $z$ along a surface normal and $x$ along the horizontal direction at angle `yaw` from the world $x$ axis, projected onto the surface |
+
+In C++, the same options are `ReferenceFrame::World`, `ReferenceFrame::Local`, `ReferenceFrame::Base`,
+`ReferenceFrame(rotation)`, `ReferenceFrame::yaw(angle)` and `ReferenceFrame::normal(normal, yaw)`, in
+`ssqp::model::stagewise::predefined`.
+
+Each term supports the options that make sense for it, and its default keeps the behaviour it had before reference
+frames existed:
+
+| Term | Options | Default |
+|---|---|---|
+| `FrameTranslationBound`, `FrameSquaredTranslationErrorCost` | World, Fixed, Local, Base | World |
+| `FloatingBaseTranslationBound`, `FloatingBaseSquaredTranslationErrorCost` | World, Fixed, Local (= Base) | World |
+| `FloatingBaseLinearVelocityBound`, `FloatingBaseAngularVelocityBound`, `FloatingBaseSquaredVelocityErrorCost` | Local (= Base, the base frame), World, Fixed | Local |
+| `FrameLinearVelocityBound`, `FrameAngularVelocityBound`, `FrameSquaredVelocityErrorCost` | Local, World, Fixed, Base | Local |
+| `CenterOfMassBound`, `CenterOfMassTrackingCost`, `FramesInverseSquaredDistanceCost` | World, Fixed, Base | World |
+
+Rotation and pose costs and bounds are not in the list: they already measure their error along their reference's
+axes, so choosing the reference rotation chooses the axes. For `FramesInverseSquaredDistanceCost`, the reference
+frame sets the axes the distance scale applies along.
+
+Passing an option a term does not support raises `ValueError` (`std::invalid_argument` in C++), as does `Base` on a
+model without a floating base, or a rotation that is not orthonormal with determinant 1.
+
+### Bound centers
+
+The position bounds (`FrameTranslationBound`, `FloatingBaseTranslationBound` and `CenterOfMassBound`) also take a
+`center` $\boldsymbol{c}$, through the constructor or `set_center`, which moves the bounds' origin whatever the
+reference frame:
+
+$$
+\boldsymbol{b}_l \leq R^\top (\boldsymbol{p} - \boldsymbol{c}) \leq \boldsymbol{b}_u
+$$
+
+For example, a box around a foothold, aligned with the robot's yaw and updated at each MPC step:
+
+```python
+import numpy as np
+from ssqpy.model import ReferenceFrame, constraints, costs
+
+box = constraints.FrameTranslationBound(
+    model,
+    "FL_foot",
+    lb=np.array([-0.05, -0.03, -np.inf]),
+    ub=np.array([0.05, 0.03, np.inf]),
+    reference_frame=ReferenceFrame.yaw(robot_yaw),
+    center=foothold,
+)
+
+# Later, for a new plan
+box.set_reference_frame(ReferenceFrame.yaw(new_robot_yaw))
+box.set_center(new_foothold)
+```
+
+Similarly, a commanded base velocity given in world axes can be tracked directly, rather than converted to the base
+frame first:
+
+```python
+costs.FloatingBaseSquaredVelocityErrorCost(
+    model, v_command, weight, reference_frame=ReferenceFrame.World
+)
+```
+
+### Moving axes
+
+`Local` and `Base` axes depend on the state, so the derivatives of these terms include how the axes turn with the
+frame or the base. On a bound, this gives the solver a second way to satisfy it: turning the frame or the base
+instead of moving the point. With `Base` axes on a foot box, for example, the plan may yaw or pitch the body to fit
+the foot inside. That is the intended behaviour for bounds meant relative to the body. When it is not, use fixed
+axes, such as `ReferenceFrame.yaw` with the planned yaw of each stage.
+
 ## Innate (XML-derived) constraints
 
 When a model is built from a URDF/MJCF file, joint position, velocity and torque limits declared in the XML are

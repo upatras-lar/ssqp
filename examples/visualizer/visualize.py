@@ -101,6 +101,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--target",
+        type=str,
+        help="Path to a JSON file with a moving target's position at each "
+        'stage, as {"positions": [[x, y, z], ...]}, drawn as a sphere that '
+        "moves with the trajectory, along with its path",
+    )
+
+    parser.add_argument(
         "--shaded-model-base",
         nargs=7,
         type=float,
@@ -310,6 +318,29 @@ if args.goal:
         point_size=0.02,
     )
 
+target_positions = None
+if args.target:
+    with open(args.target, "r") as f:
+        target_positions = np.array(json.loads(f.read())["positions"])
+
+    if len(target_positions) < data["properties"]["horizon"]:
+        print(
+            f"Target positions ({len(target_positions)}) fewer than the trajectory's stages ({data['properties']['horizon']})"
+        )
+        exit(14)
+
+    server.scene.add_spline_catmull_rom(
+        "/target_path",
+        points=target_positions,
+        color=(1.0, 0.5, 0.0),
+    )
+    target = server.scene.add_icosphere(
+        "/target",
+        radius=0.02,
+        color=(255, 0, 0),
+        position=target_positions[0],
+    )
+
 if args.circle:
     cx, cy, cz, cr = args.circle
     theta = np.linspace(0, 2 * np.pi, 64)
@@ -482,6 +513,9 @@ while True:
         configuration = process_state(data["stage_data"][k][configuration_key])
 
         urdf.update_cfg(configuration)
+
+        if target_positions is not None:
+            target.position = target_positions[k]
 
         if shaded_urdf and not updated_cfg:
             shaded_urdf.update_cfg(configuration)

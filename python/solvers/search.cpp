@@ -121,9 +121,17 @@ void bind_search(nb::module_ &m)
       .def(nb::init())
       .def(nb::init<const std::vector<solvers::ssqp::Params> &,
                     const std::vector<std::shared_ptr<model::Model>> &>())
-      .def("addHyperparams", &param_search::HyperParamSearch::addHyperparams)
-      .def("addProblem", &param_search::HyperParamSearch::addProblem)
-      .def("search", &param_search::HyperParamSearch::search);
+      .def("addHyperparams",
+           &param_search::HyperParamSearch::addHyperparams,
+           "Adds a set of solver parameters to compare.")
+      .def("addProblem",
+           &param_search::HyperParamSearch::addProblem,
+           "Adds a problem to solve with each set of parameters.")
+      .def("search",
+           &param_search::HyperParamSearch::search,
+           "Solves every problem with each set of parameters and returns the "
+           "set that scores best on iterations, solve time, cost, constraint "
+           "violation and stage gap.");
 }
 }
 }

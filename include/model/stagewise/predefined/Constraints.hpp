@@ -162,8 +162,9 @@ class JointControlConstraint : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the base position (in $\mathcal{R}^3$)
  *  - $p_f$: Floating base position extracted from the system state
- *  - $R$: Rotation of the reference frame the bounds are expressed in (World
- *    or Fixed, identity for World)
+ *  - $R$: Rotation of the reference frame the bounds are expressed in (World,
+ *    Fixed, Local or Base, identity for World, with Local and Base both the
+ *    base's axes)
  *  - $\boldsymbol{c}$: Center the bounds are taken around (in $\mathcal{R}^3$)
  *
  * Assumes:
@@ -329,7 +330,9 @@ class FloatingBasePoseBound : public StageConstraints
  *
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
- *  - $\boldsymbol{v}_b$: Floating base linear velocity vector (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{v}_b$: Floating base linear velocity vector (in $\mathcal{R}^3$),
+ *    expressed in the reference frame (Local or Base by default, both the base
+ *    frame, World or Fixed)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -340,12 +343,14 @@ class FloatingBasePoseBound : public StageConstraints
 class FloatingBaseLinearVelocityBound : public StageConstraints
 {
   public:
-    FloatingBaseLinearVelocityBound(const Model &model, const Vec3 &lb,
-                                    const Vec3        &ub,
-                                    const std::string &name = "");
+    FloatingBaseLinearVelocityBound(
+      const Model &model, const Vec3 &lb, const Vec3 &ub,
+      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const std::string    &name            = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     uint output_size() const override;
 
@@ -365,9 +370,10 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model *_model;
-    const uint   _nq, _nv, _ndx;
-    VecX         _lb, _ub;
+    const Model   *_model;
+    const uint     _nq, _nv, _ndx;
+    VecX           _lb, _ub;
+    ReferenceFrame _reference_frame;
 };
 
 /** Predefined floating base angular velocity bound
@@ -377,7 +383,9 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
  *
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
- *  - $\boldsymbol{\omega}_b$: Floating base angular velocity vector (in $\mathcal{R}^3$)
+ *  - $\boldsymbol{\omega}_b$: Floating base angular velocity vector (in $\mathcal{R}^3$),
+ *    expressed in the reference frame (Local or Base by default, both the base
+ *    frame, World or Fixed)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -388,12 +396,14 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
 class FloatingBaseAngularVelocityBound : public StageConstraints
 {
   public:
-    FloatingBaseAngularVelocityBound(const Model &model, const Vec3 &lb,
-                                     const Vec3        &ub,
-                                     const std::string &name = "");
+    FloatingBaseAngularVelocityBound(
+      const Model &model, const Vec3 &lb, const Vec3 &ub,
+      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const std::string    &name            = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     uint output_size() const override;
 
@@ -413,9 +423,10 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
                      MatX &Puu) const override;
 
   protected:
-    const Model *_model;
-    const uint   _nq, _nv, _ndx;
-    VecX         _lb, _ub;
+    const Model   *_model;
+    const uint     _nq, _nv, _ndx;
+    VecX           _lb, _ub;
+    ReferenceFrame _reference_frame;
 };
 
 /** Predefined 3D position bound for a given frame
@@ -427,8 +438,8 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
- *  - $R$: Rotation of the reference frame the bounds are expressed in (World
- *    or Fixed, identity for World)
+ *  - $R$: Rotation of the reference frame the bounds are expressed in (World,
+ *    Fixed, Local or Base, identity for World)
  *  - $\boldsymbol{c}$: Center the bounds are taken around (in $\mathcal{R}^3$)
  *
  * Assumes:
@@ -650,7 +661,7 @@ class FramePoseBound : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$), expressed
- *    in the reference frame (Local by default, World or Fixed)
+ *    in the reference frame (Local by default, World, Fixed or Base)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -708,7 +719,7 @@ class FrameLinearVelocityBound : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{\omega}_f$: Frame angular velocity vector (in $\mathcal{R}^3$),
- *    expressed in the reference frame (Local by default, World or Fixed)
+ *    expressed in the reference frame (Local by default, World, Fixed or Base)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -765,8 +776,8 @@ class FrameAngularVelocityBound : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{c}$ is the center of mass of the model
- *  - $R$: Rotation of the reference frame the bounds are expressed in (World
- *    or Fixed, identity for World)
+ *  - $R$: Rotation of the reference frame the bounds are expressed in (World,
+ *    Fixed or Base, identity for World)
  *  - $\boldsymbol{c}_0$: Center the bounds are taken around (in $\mathcal{R}^3$)
  *
  * Assumes:

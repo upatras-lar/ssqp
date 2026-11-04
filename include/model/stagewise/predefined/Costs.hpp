@@ -269,7 +269,8 @@ class SquaredConfigurationErrorCost : public StageCost
  *  - $\boldsymbol{t}_d$ is the desired translation of the floating base (in $\mathcal{R}^3$)
  *  - $\boldsymbol{w}$ is the weight on the translation error
  *  - $R$ is the rotation of the reference frame the error is expressed in
- *    (World or Fixed, identity for World)
+ *    (World, Fixed, Local or Base, identity for World, with Local and Base
+ *    both the base's axes)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -441,8 +442,11 @@ class FloatingBaseSquaredPoseErrorCost : public StageCost
  * $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_b - \boldsymbol{v}_d)\rVert_2^2$
  *
  * where:
- *  - $\boldsymbol{v}_b$ is the floating base velocity (in $\mathcal{R}^6$)
- *  - $\boldsymbol{v}_d$ is the desired floating base velocity (in $\mathcal{R}^6$)
+ *  - $\boldsymbol{v}_b$ is the floating base velocity (in $\mathcal{R}^6$), with
+ *    its linear and angular parts expressed in the reference frame (Local or
+ *    Base by default, both the base frame, World or Fixed)
+ *  - $\boldsymbol{v}_d$ is the desired floating base velocity (in $\mathcal{R}^6$),
+ *    expressed in the same reference frame
  *  - $\boldsymbol{w}$ is the weight on the velocity error
  *
  * Assumes:
@@ -454,19 +458,20 @@ class FloatingBaseSquaredPoseErrorCost : public StageCost
 class FloatingBaseSquaredVelocityErrorCost : public StageCost
 {
   public:
-    FloatingBaseSquaredVelocityErrorCost(const Model       &model,
-                                         const Vec6        &desired_velocity,
-                                         const double       weight,
-                                         const std::string &name = "");
+    FloatingBaseSquaredVelocityErrorCost(
+      const Model &model, const Vec6 &desired_velocity, const double weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const std::string    &name            = "");
 
-    FloatingBaseSquaredVelocityErrorCost(const Model       &model,
-                                         const Vec6        &desired_velocity,
-                                         const Vec6        &weight,
-                                         const std::string &name = "");
+    FloatingBaseSquaredVelocityErrorCost(
+      const Model &model, const Vec6 &desired_velocity, const Vec6 &weight,
+      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const std::string    &name            = "");
 
     void set_desired_velocity(const Vec6 &desired_velocity);
     void set_weight(const double weight);
     void set_weight(const Vec6 &weight);
+    void set_reference_frame(const ReferenceFrame &reference_frame);
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -477,10 +482,11 @@ class FloatingBaseSquaredVelocityErrorCost : public StageCost
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
 
   protected:
-    const Model *_model;
-    const uint   _nq, _nv, _ndx;
-    Vec6         _desired_velocity;
-    Vec6         _weight;
+    const Model   *_model;
+    const uint     _nq, _nv, _ndx;
+    Vec6           _desired_velocity;
+    Vec6           _weight;
+    ReferenceFrame _reference_frame;
 };
 
 /** Predefined squared frame translation error cost
@@ -492,7 +498,7 @@ class FloatingBaseSquaredVelocityErrorCost : public StageCost
  *  - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
  *  - $\boldsymbol{w}$ is the weight on the translation error
  *  - $R$ is the rotation of the reference frame the error is expressed in
- *    (World or Fixed, identity for World)
+ *    (World, Fixed, Local or Base, identity for World)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -717,7 +723,7 @@ class FrameSquaredPoseErrorCost : public StageCost
  * where:
  *  - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model
  *    (in $\mathcal{R}^6$), with its linear and angular parts expressed in the
- *    reference frame (Local by default, World or Fixed)
+ *    reference frame (Local by default, World, Fixed or Base)
  *  - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$),
  *    expressed in the same reference frame
  *  - $\boldsymbol{w}$ is the weight on the velocity error
@@ -774,7 +780,7 @@ class FrameSquaredVelocityErrorCost : public StageCost
  *  - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
  *  - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
  *  - $R$ is the rotation of the reference frame the error is expressed in
- *    (World or Fixed, identity for World)
+ *    (World, Fixed or Base, identity for World)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -826,7 +832,7 @@ class CenterOfMassTrackingCost : public StageCost
  *    larger values place less importance on an axis, while smaller ones place
  *    more
  *  - $R$ is the rotation of the reference frame whose axes the distance scale
- *    applies along (World or Fixed, identity for World)
+ *    applies along (World, Fixed or Base, identity for World)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size

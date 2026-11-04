@@ -175,10 +175,12 @@ void bind_ssqp(nb::module_ &m)
     nb::class_<ssqp::Params>(m, "ssqpParams", "SSQP solver parameters.")
       .def(nb::init())
       .def(nb::init<const std::string &>())
-      .def("print", &ssqp::Params::print)
+      .def("print", &ssqp::Params::print, "Prints the parameters.")
       .def("write",
            static_cast<bool (ssqp::Params::*)(const std::string &) const>(
-             &ssqp::Params::write))
+             &ssqp::Params::write),
+           "Writes the parameters to a JSON file at the given path, returning "
+           "whether the file could be opened.")
       .def_rw("max_iter",
               &ssqp::Params::max_iter,
               "Maximum number of SSQP iterations.")
@@ -292,9 +294,11 @@ void bind_ssqp(nb::module_ &m)
               &ssqp::Params::piqp_params,
               "Parameters for the PIQP QP solver.");
 
-    nb::class_<admm_qp::Params>(m, "admmParams")
+    nb::class_<admm_qp::Params>(m,
+                                "admmParams",
+                                "Parameters for the ADMM QP solver.")
       .def(nb::init())
-      .def("print", &admm_qp::Params::print)
+      .def("print", &admm_qp::Params::print, "Prints the parameters.")
       .def_rw("init_rho", &admm_qp::Params::init_rho, "Initial rho value.")
       .def_rw("alpha", &admm_qp::Params::alpha, "Over-relaxation parameter.")
       .def_rw("sigma",
@@ -369,9 +373,11 @@ void bind_ssqp(nb::module_ &m)
         )doc");
 
 #ifdef WITH_HPIPM
-    nb::class_<hpipm_qp::Params>(m, "hpipmParams")
+    nb::class_<hpipm_qp::Params>(m,
+                                 "hpipmParams",
+                                 "Parameters for the HPIPM QP solver.")
       .def(nb::init())
-      .def("print", &hpipm_qp::Params::print)
+      .def("print", &hpipm_qp::Params::print, "Prints the parameters.")
       .def_rw("mode", &hpipm_qp::Params::mode, "The HPIPM solver mode.")
       .def_rw("alpha_min",
               &hpipm_qp::Params::alpha_min,
@@ -380,10 +386,18 @@ void bind_ssqp(nb::module_ &m)
       .def_rw("max_iter",
               &hpipm_qp::Params::max_iter,
               "Maximum number of HPIPM iterations.")
-      .def_rw("tol_stat", &hpipm_qp::Params::tol_stat)
-      .def_rw("tol_eq", &hpipm_qp::Params::tol_eq)
-      .def_rw("tol_ineq", &hpipm_qp::Params::tol_ineq)
-      .def_rw("tol_comp", &hpipm_qp::Params::tol_comp)
+      .def_rw("tol_stat",
+              &hpipm_qp::Params::tol_stat,
+              "Stationarity tolerance.")
+      .def_rw("tol_eq",
+              &hpipm_qp::Params::tol_eq,
+              "Equality constraint tolerance.")
+      .def_rw("tol_ineq",
+              &hpipm_qp::Params::tol_ineq,
+              "Inequality constraint tolerance.")
+      .def_rw("tol_comp",
+              &hpipm_qp::Params::tol_comp,
+              "Complementarity tolerance.")
       .def_rw("reg_prim",
               &hpipm_qp::Params::reg_prim,
               "The regularization term.")
@@ -402,9 +416,11 @@ void bind_ssqp(nb::module_ &m)
 #endif
 
 #ifdef WITH_PIQP
-    nb::class_<piqp_qp::Params>(m, "piqpParams")
+    nb::class_<piqp_qp::Params>(m,
+                                "piqpParams",
+                                "Parameters for the PIQP QP solver.")
       .def(nb::init())
-      .def("print", &piqp_qp::Params::print)
+      .def("print", &piqp_qp::Params::print, "Prints the parameters.")
       .def_rw("max_iter",
               &piqp_qp::Params::max_iter,
               "Maximum number of PIQP iterations.")

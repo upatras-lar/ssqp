@@ -34,6 +34,7 @@ If the file contains a terrain (a slope, stairs, or a heightmap, as set on the m
 | `--goal X Y Z` | Draw a goal point |
 | `--circle CX CY CZ R` | Draw a circle on the yz-plane, for example the path of a circle tracking example |
 | `--box-region XMIN YMIN ZMIN XMAX YMAX ZMAX` | Draw a box, for example a constraint region |
+| `--target FILE` | Draw a moving target from a JSON file with its position at each stage, `{"positions": [[x, y, z], ...]}`, as a sphere that moves with the trajectory, along with its path. `panda_look_at.py` writes such a file |
 | `--shaded-model-base X Y Z QW QX QY QZ` | Position and orientation of an additional, semi-transparent copy of the robot, which can be used to show a start or a target pose (default: the origin, with no rotation) |
 | `--shaded-model-configuration Q ...` | Configuration of that shaded copy (default: the robot's first configuration in the trajectory) |
 

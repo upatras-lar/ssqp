@@ -95,6 +95,8 @@ using DMatX = Eigen::DiagonalMatrix<double, -1>;
 void   print_matrix_dimensions(const MatX &mat);
 int    sgn(double val);
 double softmax_max(const VecX &v, double alpha);
+// The cross product matrix of v, such that skew(v) * a = v x a
+Mat3   skew(const Vec3 &v);
 
 namespace model
 {
@@ -298,6 +300,8 @@ namespace predefined
  *  - Fixed: Constant axes given by a rotation matrix $R$, whose columns are
  *    the axes in world coordinates. A vector $\boldsymbol{v}$ in world
  *    coordinates is then expressed as $R^\top \boldsymbol{v}$
+ *  - Base: The axes of the model's floating base, moving with it. On floating
+ *    base costs and constraints, this is the same as Local
  * Each cost or constraint documents the options it supports, and throws
  * `std::invalid_argument` when given another
  */
@@ -309,10 +313,11 @@ class ReferenceFrame
         World = 0,
         Local = 1,
         Fixed = 2,
+        Base  = 3,
     };
 
-    // World or Local axes. Fixed axes need a rotation, given by the other
-    // constructor
+    // World, Local or Base axes. Fixed axes need a rotation, given by the
+    // other constructor
     ReferenceFrame(const Type type = World);
 
     // Fixed axes, from a rotation matrix whose columns are the axes in world
@@ -331,9 +336,15 @@ class ReferenceFrame
     // The rotation of Fixed axes, identity for the other types
     const Mat3 &rotation() const;
 
-    // Throws std::invalid_argument if the type is not one of the given ones
+    // The rotation of World, Fixed or Base axes, reading the base's rotation
+    // from the state x of a floating base model for Base. Local axes depend
+    // on the cost or constraint, and give identity here
+    Mat3 axes(const VecX &x) const;
+
+    // Throws std::invalid_argument if the type is not one of the given ones,
+    // or is Base on a model without a floating base
     void require(std::initializer_list<Type> supported,
-                 const std::string          &user) const;
+                 const std::string &user, const bool floating_base = true) const;
 
   private:
     Type _type;

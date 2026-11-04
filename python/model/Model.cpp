@@ -163,7 +163,10 @@ void bind_Model(nb::module_ &m)
            $R^\top \boldsymbol{v}$. A 3x3 array converts to these implicitly
          - ReferenceFrame.yaw(angle), ReferenceFrame.normal(normal, yaw):
            Fixed axes built from a yaw angle, or from a surface normal and a
-           heading
+           yaw angle
+         - ReferenceFrame.Base: The axes of the model's floating base, moving
+           with it. On floating base costs and constraints, this is the same as
+           Local
         Each cost or constraint documents the options it supports, and raises
         ValueError when given another
         )doc");
@@ -174,10 +177,12 @@ void bind_Model(nb::module_ &m)
          - World: The world axes
          - Local: The axes of the frame the cost or constraint acts on
          - Fixed: Constant axes given by a rotation matrix
+         - Base: The axes of the model's floating base
         )doc")
       .value("World", ReferenceFrame::World)
       .value("Local", ReferenceFrame::Local)
-      .value("Fixed", ReferenceFrame::Fixed);
+      .value("Fixed", ReferenceFrame::Fixed)
+      .value("Base", ReferenceFrame::Base);
 
     reference_frame
       .def(nb::init_implicit<ReferenceFrame::Type>(),
@@ -212,7 +217,11 @@ void bind_Model(nb::module_ &m)
       .def_prop_ro_static(
         "Local",
         [](nb::handle) { return ReferenceFrame(ReferenceFrame::Local); },
-        "The axes of the frame the cost or constraint acts on.");
+        "The axes of the frame the cost or constraint acts on.")
+      .def_prop_ro_static(
+        "Base",
+        [](nb::handle) { return ReferenceFrame(ReferenceFrame::Base); },
+        "The axes of the model's floating base.");
 
     nb::class_<Model::CustomProperties>(
       m,

@@ -282,9 +282,15 @@ void FloatingBaseTranslationBound::set_upper_bound(const Vec3 &ub)
 void FloatingBaseTranslationBound::set_reference_frame(
   const ReferenceFrame &reference_frame)
 {
-    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
+    reference_frame.require({ ReferenceFrame::World,
+                              ReferenceFrame::Fixed,
+                              ReferenceFrame::Local,
+                              ReferenceFrame::Base },
                             "FloatingBaseTranslationBound");
-    _reference_frame = reference_frame;
+    // The base's own axes are the base axes
+    _reference_frame = reference_frame.type() == ReferenceFrame::Local
+                         ? ReferenceFrame(ReferenceFrame::Base)
+                         : reference_frame;
 }
 
 void FloatingBaseTranslationBound::set_center(const Vec3 &center)
@@ -304,7 +310,7 @@ const VecX &FloatingBaseTranslationBound::upper_bound() const
 
 VecX FloatingBaseTranslationBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return _reference_frame.rotation().transpose() * (x.head<3>() - _center);
+    return _reference_frame.axes(x).transpose() * (x.head<3>() - _center);
 }
 
 // TODO: is this valid? recheck
@@ -316,7 +322,16 @@ void FloatingBaseTranslationBound::gradient(const VecX &x, const VecX &u,
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
     Mat3               R = q.toRotationMatrix();
 
-    dX.leftCols<3>() = _reference_frame.rotation().transpose() * R;
+    const Mat3 A = _reference_frame.axes(x);
+
+    dX.leftCols<3>() = A.transpose() * R;
+
+    // Base axes turn with the base, which adds the bound's value crossed with
+    // the base's angular tangent
+    if (_reference_frame.type() == ReferenceFrame::Base)
+    {
+        dX.block<3, 3>(0, 3) += skew(A.transpose() * (x.head<3>() - _center));
+    }
 
     dU.setZero(output_size(), u.size());
 }
@@ -554,7 +569,8 @@ void FloatingBasePoseBound::hessprod_uu(const VecX &x, const VecX &u,
 
 // FloatingBaseLinearVelocityBound
 FloatingBaseLinearVelocityBound::FloatingBaseLinearVelocityBound(
-  const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
+  const Model &model, const Vec3 &lb, const Vec3 &ub,
+  const ReferenceFrame &reference_frame, const std::string &name)
   : StageConstraints(name)
   , _model(&model)
   , _nq(model.nq())
@@ -562,6 +578,7 @@ FloatingBaseLinearVelocityBound::FloatingBaseLinearVelocityBound(
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
+  , _reference_frame(reference_frame)
 {
 }
 
@@ -573,6 +590,12 @@ void FloatingBaseLinearVelocityBound::set_lower_bound(const Vec3 &lb)
 void FloatingBaseLinearVelocityBound::set_upper_bound(const Vec3 &ub)
 {
     _ub = ub;
+}
+
+void FloatingBaseLinearVelocityBound::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    _reference_frame = reference_frame;
 }
 
 uint FloatingBaseLinearVelocityBound::output_size() const
@@ -593,14 +616,38 @@ const VecX &FloatingBaseLinearVelocityBound::upper_bound() const
 VecX FloatingBaseLinearVelocityBound::evaluate(const VecX &x,
                                                const VecX &u) const
 {
-    return x.segment<3>(_nq);
+    const ReferenceFrame::Type type = _reference_frame.type();
+    if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
+    {
+        return x.segment<3>(_nq);
+    }
+
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+    return _reference_frame.rotation().transpose() * q.toRotationMatrix() *
+           x.segment<3>(_nq);
 }
 
 void FloatingBaseLinearVelocityBound::gradient(const VecX &x, const VecX &u,
                                                MatX &dX, MatX &dU) const
 {
     dX.setZero(3, _ndx);
-    dX.block<3, 3>(0, _nv).setIdentity();
+
+    const ReferenceFrame::Type type = _reference_frame.type();
+    if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
+    {
+        dX.block<3, 3>(0, _nv).setIdentity();
+    }
+    else
+    {
+        // The base velocity rotated by the base's rotation, which turns with
+        // the base's angular tangent
+        Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+        const Mat3 A =
+          _reference_frame.rotation().transpose() * q.toRotationMatrix();
+
+        dX.block<3, 3>(0, _nv) = A;
+        dX.block<3, 3>(0, 3)   = -A * skew(x.segment<3>(_nq));
+    }
 
     dU.setZero(3, u.size());
 }
@@ -628,7 +675,8 @@ void FloatingBaseLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
 
 // FloatingBaseAngularVelocityBound
 FloatingBaseAngularVelocityBound::FloatingBaseAngularVelocityBound(
-  const Model &model, const Vec3 &lb, const Vec3 &ub, const std::string &name)
+  const Model &model, const Vec3 &lb, const Vec3 &ub,
+  const ReferenceFrame &reference_frame, const std::string &name)
   : StageConstraints(name)
   , _model(&model)
   , _nq(model.nq())
@@ -636,6 +684,7 @@ FloatingBaseAngularVelocityBound::FloatingBaseAngularVelocityBound(
   , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
+  , _reference_frame(reference_frame)
 {
 }
 
@@ -647,6 +696,12 @@ void FloatingBaseAngularVelocityBound::set_lower_bound(const Vec3 &lb)
 void FloatingBaseAngularVelocityBound::set_upper_bound(const Vec3 &ub)
 {
     _ub = ub;
+}
+
+void FloatingBaseAngularVelocityBound::set_reference_frame(
+  const ReferenceFrame &reference_frame)
+{
+    _reference_frame = reference_frame;
 }
 
 uint FloatingBaseAngularVelocityBound::output_size() const
@@ -667,13 +722,37 @@ const VecX &FloatingBaseAngularVelocityBound::upper_bound() const
 VecX FloatingBaseAngularVelocityBound::evaluate(const VecX &x,
                                                 const VecX &u) const
 {
-    return x.segment<3>(_nq + 3);
+    const ReferenceFrame::Type type = _reference_frame.type();
+    if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
+    {
+        return x.segment<3>(_nq + 3);
+    }
+
+    Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+    return _reference_frame.rotation().transpose() * q.toRotationMatrix() *
+           x.segment<3>(_nq + 3);
 }
 void FloatingBaseAngularVelocityBound::gradient(const VecX &x, const VecX &u,
                                                 MatX &dX, MatX &dU) const
 {
     dX.setZero(3, _ndx);
-    dX.block<3, 3>(0, _nv + 3).setIdentity();
+
+    const ReferenceFrame::Type type = _reference_frame.type();
+    if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
+    {
+        dX.block<3, 3>(0, _nv + 3).setIdentity();
+    }
+    else
+    {
+        // The base velocity rotated by the base's rotation, which turns with
+        // the base's angular tangent
+        Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
+        const Mat3 A =
+          _reference_frame.rotation().transpose() * q.toRotationMatrix();
+
+        dX.block<3, 3>(0, _nv + 3) = A;
+        dX.block<3, 3>(0, 3)       = -A * skew(x.segment<3>(_nq + 3));
+    }
 
     dU.setZero(3, u.size());
 }
@@ -735,8 +814,12 @@ void FrameTranslationBound::set_upper_bound(const Vec3 &ub)
 void FrameTranslationBound::set_reference_frame(
   const ReferenceFrame &reference_frame)
 {
-    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
-                            "FrameTranslationBound");
+    reference_frame.require({ ReferenceFrame::World,
+                              ReferenceFrame::Fixed,
+                              ReferenceFrame::Local,
+                              ReferenceFrame::Base },
+                            "FrameTranslationBound",
+                            _model->floatingBase());
     _reference_frame = reference_frame;
 }
 
@@ -762,9 +845,13 @@ const VecX &FrameTranslationBound::upper_bound() const
 VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
 {
     Vec3 pos;
-    std::tie(pos, std::ignore) =
-      _model->forwardKinematics(x.head(_nq), _frame_id);
-    return _reference_frame.rotation().transpose() * (pos - _center);
+    Mat3 R;
+    std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
+
+    const Mat3 A = _reference_frame.type() == ReferenceFrame::Local
+                     ? R
+                     : _reference_frame.axes(x);
+    return A.transpose() * (pos - _center);
 }
 
 void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -773,8 +860,35 @@ void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv) =
-      _reference_frame.rotation().transpose() * _jac_scratch.topRows(3);
+
+    const ReferenceFrame::Type type = _reference_frame.type();
+    if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
+    {
+        // The axes turn with the frame or the base, which adds the bound's
+        // value crossed with their angular tangent
+        Vec3 pos;
+        Mat3 R;
+        std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
+
+        const Mat3 A = type == ReferenceFrame::Local ? R : _reference_frame.axes(x);
+        const Vec3 value = A.transpose() * (pos - _center);
+
+        dX.leftCols(_nv) = A.transpose() * _jac_scratch.topRows(3);
+        if (type == ReferenceFrame::Local)
+        {
+            dX.leftCols(_nv) +=
+              skew(value) * R.transpose() * _jac_scratch.bottomRows(3);
+        }
+        else
+        {
+            dX.block<3, 3>(0, 3) += skew(value);
+        }
+    }
+    else
+    {
+        dX.leftCols(_nv) =
+          _reference_frame.rotation().transpose() * _jac_scratch.topRows(3);
+    }
 
     dU.setZero(3, u.size());
 }
@@ -1106,13 +1220,13 @@ FrameLinearVelocityBound::FrameLinearVelocityBound(
   , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
-  , _reference_frame(reference_frame)
   , _dVdq_scratch(MatX::Zero(6, _nv))
   , _dVdv_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameLinearVelocityBound with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
+    set_reference_frame(reference_frame);
 }
 
 void FrameLinearVelocityBound::set_lower_bound(const Vec3 &lb)
@@ -1128,6 +1242,12 @@ void FrameLinearVelocityBound::set_upper_bound(const Vec3 &ub)
 void FrameLinearVelocityBound::set_reference_frame(
   const ReferenceFrame &reference_frame)
 {
+    reference_frame.require({ ReferenceFrame::World,
+                              ReferenceFrame::Fixed,
+                              ReferenceFrame::Local,
+                              ReferenceFrame::Base },
+                            "FrameLinearVelocityBound",
+                            _model->floatingBase());
     _reference_frame = reference_frame;
 }
 
@@ -1148,7 +1268,7 @@ const VecX &FrameLinearVelocityBound::upper_bound() const
 VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
     const bool local = _reference_frame.type() == ReferenceFrame::Local;
-    return _reference_frame.rotation().transpose() *
+    return _reference_frame.axes(x).transpose() *
            _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local)
              .head<3>();
 }
@@ -1163,7 +1283,8 @@ void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                      _dVdq_scratch,
                                      _dVdv_scratch);
 
-    Mat3 Rt = Mat3::Identity();
+    Mat3 Rt    = Mat3::Identity();
+    Vec3 value = Vec3::Zero();
     if (_reference_frame.type() != ReferenceFrame::Local)
     {
         // The local velocity rotated by the frame's rotation, which turns
@@ -1177,12 +1298,20 @@ void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 
         _dVdq_scratch.topRows<3>() +=
           _dVdv_scratch.bottomRows<3>().colwise().cross(velocity);
-        Rt = _reference_frame.rotation().transpose() * R;
+        Rt    = _reference_frame.axes(x).transpose() * R;
+        value = Rt * velocity;
     }
 
     dX.setZero(3, _ndx);
     dX.leftCols(_nv)  = Rt * _dVdq_scratch.topRows<3>();
     dX.rightCols(_nv) = Rt * _dVdv_scratch.topRows<3>();
+
+    // Base axes turn with the base, which adds the bound's value crossed with
+    // the base's angular tangent
+    if (_reference_frame.type() == ReferenceFrame::Base)
+    {
+        dX.block<3, 3>(0, 3) += skew(value);
+    }
 
     dU.setZero(3, u.size());
 }
@@ -1216,13 +1345,13 @@ FrameAngularVelocityBound::FrameAngularVelocityBound(
   , _frame_id(model.frameId(frame))
   , _lb(lb)
   , _ub(ub)
-  , _reference_frame(reference_frame)
   , _dVdq_scratch(MatX::Zero(6, _nv))
   , _dVdv_scratch(MatX::Zero(6, _nv))
 {
     assert(model.xml() &&
            "Cannot use FrameAngularVelocityBound with a custom Model");
     assert(model.hasFrame(frame) && "Invalid frame for given model");
+    set_reference_frame(reference_frame);
 }
 
 void FrameAngularVelocityBound::set_lower_bound(const Vec3 &lb)
@@ -1238,6 +1367,12 @@ void FrameAngularVelocityBound::set_upper_bound(const Vec3 &ub)
 void FrameAngularVelocityBound::set_reference_frame(
   const ReferenceFrame &reference_frame)
 {
+    reference_frame.require({ ReferenceFrame::World,
+                              ReferenceFrame::Fixed,
+                              ReferenceFrame::Local,
+                              ReferenceFrame::Base },
+                            "FrameAngularVelocityBound",
+                            _model->floatingBase());
     _reference_frame = reference_frame;
 }
 
@@ -1259,7 +1394,7 @@ const VecX &FrameAngularVelocityBound::upper_bound() const
 VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
     const bool local = _reference_frame.type() == ReferenceFrame::Local;
-    return _reference_frame.rotation().transpose() *
+    return _reference_frame.axes(x).transpose() *
            _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local)
              .tail<3>();
 }
@@ -1275,11 +1410,21 @@ void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                      _dVdq_scratch,
                                      _dVdv_scratch);
 
-    const Mat3 Rt = _reference_frame.rotation().transpose();
+    const Mat3 Rt = _reference_frame.axes(x).transpose();
 
     dX.setZero(3, _ndx);
     dX.leftCols(_nv)  = Rt * _dVdq_scratch.bottomRows<3>();
     dX.rightCols(_nv) = Rt * _dVdv_scratch.bottomRows<3>();
+
+    // Base axes turn with the base, which adds the bound's value crossed with
+    // the base's angular tangent
+    if (_reference_frame.type() == ReferenceFrame::Base)
+    {
+        dX.block<3, 3>(0, 3) += skew(
+          Rt *
+          _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, false)
+            .tail<3>());
+    }
 
     dU.setZero(3, u.size());
 }
@@ -1332,8 +1477,11 @@ void CenterOfMassBound::set_upper_bound(const Vec3 &ub)
 void CenterOfMassBound::set_reference_frame(
   const ReferenceFrame &reference_frame)
 {
-    reference_frame.require({ ReferenceFrame::World, ReferenceFrame::Fixed },
-                            "CenterOfMassBound");
+    reference_frame.require({ ReferenceFrame::World,
+                              ReferenceFrame::Fixed,
+                              ReferenceFrame::Base },
+                            "CenterOfMassBound",
+                            _model->floatingBase());
     _reference_frame = reference_frame;
 }
 
@@ -1359,16 +1507,25 @@ const VecX &CenterOfMassBound::upper_bound() const
 
 VecX CenterOfMassBound::evaluate(const VecX &x, const VecX &u) const
 {
-    return _reference_frame.rotation().transpose() *
+    return _reference_frame.axes(x).transpose() *
            (_model->centerOfMass(x.head(_nq)) - _center);
 }
 
 void CenterOfMassBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                  MatX &dU) const
 {
+    const Mat3 Rt = _reference_frame.axes(x).transpose();
+
     dX.setZero(3, _ndx);
-    dX.leftCols(_nv) = _reference_frame.rotation().transpose() *
-                       _model->jacobianCenterOfMass(x.head(_nq));
+    dX.leftCols(_nv) = Rt * _model->jacobianCenterOfMass(x.head(_nq));
+
+    // Base axes turn with the base, which adds the bound's value crossed with
+    // the base's angular tangent
+    if (_reference_frame.type() == ReferenceFrame::Base)
+    {
+        dX.block<3, 3>(0, 3) +=
+          skew(Rt * (_model->centerOfMass(x.head(_nq)) - _center));
+    }
 
     dU.setZero(3, u.size());
 }

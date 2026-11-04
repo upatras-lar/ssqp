@@ -31,6 +31,8 @@ std::string reference_frame_type_name(const ReferenceFrame::Type type)
         return "Local";
     case ReferenceFrame::Fixed:
         return "Fixed";
+    case ReferenceFrame::Base:
+        return "Base";
     }
     return "Unknown";
 }
@@ -111,9 +113,24 @@ const Mat3 &ReferenceFrame::rotation() const
     return _rotation;
 }
 
-void ReferenceFrame::require(std::initializer_list<Type> supported,
-                             const std::string          &user) const
+Mat3 ReferenceFrame::axes(const VecX &x) const
 {
+    if (_type == Base)
+    {
+        return Eigen::Quaterniond(x[6], x[3], x[4], x[5]).toRotationMatrix();
+    }
+    return _rotation;
+}
+
+void ReferenceFrame::require(std::initializer_list<Type> supported,
+                             const std::string &user,
+                             const bool         floating_base) const
+{
+    if (_type == Base && !floating_base)
+    {
+        throw std::invalid_argument(user + " needs a floating base for Base "
+                                           "reference frames");
+    }
     for (const Type type : supported)
     {
         if (type == _type)
@@ -143,6 +160,13 @@ double softmax_max(const VecX &v, double alpha)
 {
     const double m = v.maxCoeff();
     return m + std::log((alpha * (v.array() - m)).exp().sum()) / alpha;
+}
+
+Mat3 skew(const Vec3 &v)
+{
+    Mat3 S;
+    S << 0.0, -v.z(), v.y(), v.z(), 0.0, -v.x(), -v.y(), v.x(), 0.0;
+    return S;
 }
 
 std::string format_double(double val, uint precision)

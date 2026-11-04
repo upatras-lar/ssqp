@@ -65,6 +65,16 @@ std::shared_ptr<Test> get_frame_linear_velocity_bound_fixed_frame_grad_test();
 std::shared_ptr<Test> get_frame_angular_velocity_bound_world_frame_grad_test();
 std::shared_ptr<Test> get_frame_angular_velocity_bound_fixed_frame_grad_test();
 std::shared_ptr<Test> get_center_of_mass_bound_fixed_frame_grad_test();
+std::shared_ptr<Test>
+get_floating_base_linear_velocity_bound_fixed_frame_grad_test();
+std::shared_ptr<Test>
+get_floating_base_angular_velocity_bound_fixed_frame_grad_test();
+std::shared_ptr<Test> get_frame_translation_bound_local_frame_grad_test();
+std::shared_ptr<Test> get_frame_translation_bound_base_frame_grad_test();
+std::shared_ptr<Test> get_floating_base_position_bound_local_frame_grad_test();
+std::shared_ptr<Test> get_frame_linear_velocity_bound_base_frame_grad_test();
+std::shared_ptr<Test> get_frame_angular_velocity_bound_base_frame_grad_test();
+std::shared_ptr<Test> get_center_of_mass_bound_base_frame_grad_test();
 std::shared_ptr<Test> get_contact_constraint_grad_test(
   const std::string &name = "ContactConstraintGradTest",
   const std::shared_ptr<model::terrain::Terrain> &terrain = nullptr);
@@ -119,6 +129,19 @@ get_frame_squared_velocity_error_cost_fixed_frame_grad_test();
 std::shared_ptr<Test> get_center_of_mass_tracking_cost_fixed_frame_grad_test();
 std::shared_ptr<Test>
 get_frames_inverse_squared_distance_cost_fixed_frame_grad_test();
+std::shared_ptr<Test>
+get_floating_base_squared_velocity_error_cost_fixed_frame_grad_test();
+std::shared_ptr<Test>
+get_frame_squared_translation_error_cost_local_frame_grad_test();
+std::shared_ptr<Test>
+get_frame_squared_translation_error_cost_base_frame_grad_test();
+std::shared_ptr<Test>
+get_floating_base_squared_translation_error_cost_base_frame_grad_test();
+std::shared_ptr<Test>
+get_frame_squared_velocity_error_cost_base_frame_grad_test();
+std::shared_ptr<Test> get_center_of_mass_tracking_cost_base_frame_grad_test();
+std::shared_ptr<Test>
+get_frames_inverse_squared_distance_cost_base_frame_grad_test();
 
 // Full trajectory cost gradients
 std::shared_ptr<Test> get_lf_grad_test();

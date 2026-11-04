@@ -236,11 +236,13 @@ void bind_Costs(nb::module_ &m)
       .def("set_weight",
            static_cast<void (SquaredJointAngleCost::*)(const double)>(
              &SquaredJointAngleCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (SquaredJointAngleCost::*)(const VecX &)>(
              &SquaredJointAngleCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<SquaredJointVelocityCost, StageCost>(m,
                                                     "SquaredJointVelocityCost",
@@ -270,11 +272,13 @@ void bind_Costs(nb::module_ &m)
       .def("set_weight",
            static_cast<void (SquaredJointVelocityCost::*)(const double)>(
              &SquaredJointVelocityCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (SquaredJointVelocityCost::*)(const VecX &)>(
              &SquaredJointVelocityCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<SquaredControlCost, StageCost>(m, "SquaredControlCost", R"doc(
         Predefined squared control cost
@@ -302,11 +306,13 @@ void bind_Costs(nb::module_ &m)
       .def("set_weight",
            static_cast<void (SquaredControlCost::*)(const double)>(
              &SquaredControlCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (SquaredControlCost::*)(const VecX &)>(
              &SquaredControlCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<SquaredIDTorqueCost, StageCost>(m, "SquaredIDTorqueCost", R"doc(
         Predefined squared inverse dynamics torque cost
@@ -351,11 +357,13 @@ void bind_Costs(nb::module_ &m)
       .def("set_weight",
            static_cast<void (SquaredIDTorqueCost::*)(const double)>(
              &SquaredIDTorqueCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (SquaredIDTorqueCost::*)(const VecX &)>(
              &SquaredIDTorqueCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<SquaredForceCost, StageCost>(m, "SquaredForceCost", R"doc(
         Predefined squared force cost
@@ -384,11 +392,13 @@ void bind_Costs(nb::module_ &m)
       .def("set_weight",
            static_cast<void (SquaredForceCost::*)(const double)>(
              &SquaredForceCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (SquaredForceCost::*)(const VecX &)>(
              &SquaredForceCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<SquaredConfigurationErrorCost, StageCost>(
       m,
@@ -427,15 +437,18 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_desired_configuration",
            &SquaredConfigurationErrorCost::set_desired_configuration,
-           nb::arg("desired_configuration"))
+           nb::arg("desired_configuration"),
+           "Sets the desired configuration.")
       .def("set_weight",
            static_cast<void (SquaredConfigurationErrorCost::*)(const double)>(
              &SquaredConfigurationErrorCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (SquaredConfigurationErrorCost::*)(const VecX &)>(
              &SquaredConfigurationErrorCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<FloatingBaseSquaredTranslationErrorCost, StageCost>(
       m,
@@ -450,7 +463,8 @@ void bind_Costs(nb::module_ &m)
         - $\boldsymbol{t}_d$ is the desired translation of the floating base (in $\mathcal{R}^3$)
         - $\boldsymbol{w}$ is the weight on the translation error
         - $R$ is the rotation of the reference frame the error is expressed in
-        (World or Fixed, identity for World)
+        (World, Fixed, Local or Base, identity for World, with Local and Base
+        both the base's axes)
 
         Assumes:
         - The model joint configuration is the first part of the state vector (size
@@ -482,20 +496,24 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_desired_translation",
            &FloatingBaseSquaredTranslationErrorCost::set_desired_translation,
-           nb::arg("desired_translation"))
+           nb::arg("desired_translation"),
+           "Sets the desired translation.")
       .def("set_reference_frame",
            &FloatingBaseSquaredTranslationErrorCost::set_reference_frame,
-           nb::arg("reference_frame"))
+           nb::arg("reference_frame"),
+           "Sets the reference frame the error is expressed in.")
       .def(
         "set_weight",
         static_cast<void (FloatingBaseSquaredTranslationErrorCost::*)(
           const double)>(&FloatingBaseSquaredTranslationErrorCost::set_weight),
-        nb::arg("weight"))
+        nb::arg("weight"),
+        "Sets the same weight on every element.")
       .def(
         "set_weight",
         static_cast<void (FloatingBaseSquaredTranslationErrorCost::*)(
           const Vec3 &)>(&FloatingBaseSquaredTranslationErrorCost::set_weight),
-        nb::arg("weight"));
+        nb::arg("weight"),
+        "Sets the weight of each element.");
 
     nb::class_<FloatingBaseSquaredRotationErrorCost, StageCost>(
       m,
@@ -537,15 +555,18 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_desired_rotation",
            &FloatingBaseSquaredRotationErrorCost::set_desired_rotation,
-           nb::arg("desired_rotation"))
+           nb::arg("desired_rotation"),
+           "Sets the desired rotation.")
       .def("set_weight",
            static_cast<void (FloatingBaseSquaredRotationErrorCost::*)(
              const double)>(&FloatingBaseSquaredRotationErrorCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (FloatingBaseSquaredRotationErrorCost::*)(
              const Vec3 &)>(&FloatingBaseSquaredRotationErrorCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<FloatingBaseSquaredPoseErrorCost, StageCost>(
       m,
@@ -633,29 +654,36 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_desired_pose",
            &FloatingBaseSquaredPoseErrorCost::set_desired_pose,
-           nb::arg("desired_pose"))
+           nb::arg("desired_pose"),
+           "Sets the desired pose.")
       .def("set_desired_translation",
            &FloatingBaseSquaredPoseErrorCost::set_desired_translation,
-           nb::arg("desired_translation"))
+           nb::arg("desired_translation"),
+           "Sets the translation of the desired pose.")
       .def("set_desired_rotation",
            &FloatingBaseSquaredPoseErrorCost::set_desired_rotation,
-           nb::arg("desired_rotation"))
+           nb::arg("desired_rotation"),
+           "Sets the rotation of the desired pose.")
       .def("set_translation_weight",
            &FloatingBaseSquaredPoseErrorCost::set_translation_weight,
-           nb::arg("translation_weight"))
+           nb::arg("translation_weight"),
+           "Sets the weight on the translation error.")
       .def("set_rotation_weight",
            &FloatingBaseSquaredPoseErrorCost::set_rotation_weight,
-           nb::arg("rotation_weight"))
+           nb::arg("rotation_weight"),
+           "Sets the weight on the rotation error.")
       .def(
         "set_weight",
         static_cast<void (FloatingBaseSquaredPoseErrorCost::*)(const double)>(
           &FloatingBaseSquaredPoseErrorCost::set_weight),
-        nb::arg("weight"))
+        nb::arg("weight"),
+        "Sets the same weight on every element.")
       .def(
         "set_weight",
         static_cast<void (FloatingBaseSquaredPoseErrorCost::*)(const Vec6 &)>(
           &FloatingBaseSquaredPoseErrorCost::set_weight),
-        nb::arg("weight"));
+        nb::arg("weight"),
+        "Sets the weight of each element.");
 
     nb::class_<FloatingBaseSquaredVelocityErrorCost, StageCost>(
       m,
@@ -667,8 +695,11 @@ void bind_Costs(nb::module_ &m)
         $\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_b - \boldsymbol{v}_d)\rVert_2^2$
 
         where:
-         - $\boldsymbol{v}_b$ is the floating base velocity (in $\mathcal{R}^6$)
-         - $\boldsymbol{v}_d$ is the desired floating base velocity (in $\mathcal{R}^6$)
+         - $\boldsymbol{v}_b$ is the floating base velocity (in $\mathcal{R}^6$), with
+           its linear and angular parts expressed in the reference frame (Local or
+           Base by default, both the base frame, World or Fixed)
+         - $\boldsymbol{v}_d$ is the desired floating base velocity (in $\mathcal{R}^6$),
+           expressed in the same reference frame
          - $\boldsymbol{w}$ is the weight on the velocity error
 
         Assumes:
@@ -680,32 +711,43 @@ void bind_Costs(nb::module_ &m)
       .def(nb::init<const Model &,
                     const Vec6 &,
                     const double,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_velocity"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("name")            = "")
       .def(nb::init<const Model &,
                     const Vec6 &,
                     const Vec6 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("desired_velocity"),
            nb::arg("weight"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("name")            = "")
       .def("set_desired_velocity",
            &FloatingBaseSquaredVelocityErrorCost::set_desired_velocity,
-           nb::arg("desired_velocity"))
+           nb::arg("desired_velocity"),
+           "Sets the desired velocity, expressed in the reference frame.")
+      .def("set_reference_frame",
+           &FloatingBaseSquaredVelocityErrorCost::set_reference_frame,
+           nb::arg("reference_frame"),
+           "Sets the reference frame the error is expressed in.")
       .def("set_weight",
            static_cast<void (FloatingBaseSquaredVelocityErrorCost::*)(
              const double)>(&FloatingBaseSquaredVelocityErrorCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (FloatingBaseSquaredVelocityErrorCost::*)(
              const Vec6 &)>(&FloatingBaseSquaredVelocityErrorCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<FrameSquaredTranslationErrorCost, StageCost>(
       m,
@@ -720,7 +762,7 @@ void bind_Costs(nb::module_ &m)
          - $\boldsymbol{t}_d$ is the desired translation for that frame (in $\mathcal{R}^3$)
          - $\boldsymbol{w}$ is the weight on the translation error
          - $R$ is the rotation of the reference frame the error is expressed in
-           (World or Fixed, identity for World)
+           (World, Fixed, Local or Base, identity for World)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -754,20 +796,24 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_desired_translation",
            &FrameSquaredTranslationErrorCost::set_desired_translation,
-           nb::arg("desired_translation"))
+           nb::arg("desired_translation"),
+           "Sets the desired translation.")
       .def("set_reference_frame",
            &FrameSquaredTranslationErrorCost::set_reference_frame,
-           nb::arg("reference_frame"))
+           nb::arg("reference_frame"),
+           "Sets the reference frame the error is expressed in.")
       .def(
         "set_weight",
         static_cast<void (FrameSquaredTranslationErrorCost::*)(const double)>(
           &FrameSquaredTranslationErrorCost::set_weight),
-        nb::arg("weight"))
+        nb::arg("weight"),
+        "Sets the same weight on every element.")
       .def(
         "set_weight",
         static_cast<void (FrameSquaredTranslationErrorCost::*)(const Vec3 &)>(
           &FrameSquaredTranslationErrorCost::set_weight),
-        nb::arg("weight"));
+        nb::arg("weight"),
+        "Sets the weight of each element.");
 
     nb::class_<FrameSquaredTerrainHeightErrorCost, StageCost>(
       m,
@@ -801,10 +847,12 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_desired_height",
            &FrameSquaredTerrainHeightErrorCost::set_desired_height,
-           nb::arg("desired_height"))
+           nb::arg("desired_height"),
+           "Sets the desired height above the terrain.")
       .def("set_weight",
            &FrameSquaredTerrainHeightErrorCost::set_weight,
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the weight of each element.")
       .def("set_terrain",
            &FrameSquaredTerrainHeightErrorCost::set_terrain,
            nb::arg("terrain").none(),
@@ -855,15 +903,18 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_desired_rotation",
            &FrameSquaredRotationErrorCost::set_desired_rotation,
-           nb::arg("desired_rotation"))
+           nb::arg("desired_rotation"),
+           "Sets the desired rotation.")
       .def("set_weight",
            static_cast<void (FrameSquaredRotationErrorCost::*)(const double)>(
              &FrameSquaredRotationErrorCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (FrameSquaredRotationErrorCost::*)(const Vec3 &)>(
              &FrameSquaredRotationErrorCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<FrameSquaredPoseErrorCost, StageCost>(
       m,
@@ -962,27 +1013,34 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_desired_pose",
            &FrameSquaredPoseErrorCost::set_desired_pose,
-           nb::arg("desired_pose"))
+           nb::arg("desired_pose"),
+           "Sets the desired pose.")
       .def("set_desired_translation",
            &FrameSquaredPoseErrorCost::set_desired_translation,
-           nb::arg("desired_translation"))
+           nb::arg("desired_translation"),
+           "Sets the translation of the desired pose.")
       .def("set_desired_rotation",
            &FrameSquaredPoseErrorCost::set_desired_rotation,
-           nb::arg("desired_rotation"))
+           nb::arg("desired_rotation"),
+           "Sets the rotation of the desired pose.")
       .def("set_translation_weight",
            &FrameSquaredPoseErrorCost::set_translation_weight,
-           nb::arg("translation_weight"))
+           nb::arg("translation_weight"),
+           "Sets the weight on the translation error.")
       .def("set_rotation_weight",
            &FrameSquaredPoseErrorCost::set_rotation_weight,
-           nb::arg("rotation_weight"))
+           nb::arg("rotation_weight"),
+           "Sets the weight on the rotation error.")
       .def("set_weight",
            static_cast<void (FrameSquaredPoseErrorCost::*)(const double)>(
              &FrameSquaredPoseErrorCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (FrameSquaredPoseErrorCost::*)(const Vec6 &)>(
              &FrameSquaredPoseErrorCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<FrameSquaredVelocityErrorCost, StageCost>(
       m,
@@ -995,7 +1053,7 @@ void bind_Costs(nb::module_ &m)
         where:
          - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model
            (in $\mathcal{R}^6$), with its linear and angular parts expressed in the
-           reference frame (Local by default, World or Fixed)
+           reference frame (Local by default, World, Fixed or Base)
          - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$),
            expressed in the same reference frame
          - $\boldsymbol{w}$ is the weight on the velocity error
@@ -1034,18 +1092,22 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_desired_velocity",
            &FrameSquaredVelocityErrorCost::set_desired_velocity,
-           nb::arg("desired_velocity"))
+           nb::arg("desired_velocity"),
+           "Sets the desired velocity, expressed in the reference frame.")
       .def("set_reference_frame",
            &FrameSquaredVelocityErrorCost::set_reference_frame,
-           nb::arg("reference_frame"))
+           nb::arg("reference_frame"),
+           "Sets the reference frame the error is expressed in.")
       .def("set_weight",
            static_cast<void (FrameSquaredVelocityErrorCost::*)(const double)>(
              &FrameSquaredVelocityErrorCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (FrameSquaredVelocityErrorCost::*)(const Vec6 &)>(
              &FrameSquaredVelocityErrorCost::set_weight),
-           nb::arg("weight"));
+           nb::arg("weight"),
+           "Sets the weight of each element.");
 
     nb::class_<CenterOfMassTrackingCost, StageCost>(m,
                                                     "CenterOfMassTrackingCost",
@@ -1058,7 +1120,7 @@ void bind_Costs(nb::module_ &m)
          - $\boldsymbol{c}$ is the center of mass for the model (in $\mathcal{R}^3$)
          - $\boldsymbol{c}_r$ is the reference point for the center of mass (in $\mathcal{R}^3$)
          - $R$ is the rotation of the reference frame the error is expressed in
-           (World or Fixed, identity for World)
+           (World, Fixed or Base, identity for World)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -1088,16 +1150,22 @@ void bind_Costs(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_reference_frame",
            &CenterOfMassTrackingCost::set_reference_frame,
-           nb::arg("reference_frame"))
+           nb::arg("reference_frame"),
+           "Sets the reference frame the error is expressed in.")
       .def("set_weight",
            static_cast<void (CenterOfMassTrackingCost::*)(const double)>(
              &CenterOfMassTrackingCost::set_weight),
-           nb::arg("weight"))
+           nb::arg("weight"),
+           "Sets the same weight on every element.")
       .def("set_weight",
            static_cast<void (CenterOfMassTrackingCost::*)(const Vec3 &)>(
              &CenterOfMassTrackingCost::set_weight),
-           nb::arg("weight"))
-      .def("set_cref", &CenterOfMassTrackingCost::set_cref, nb::arg("cref"));
+           nb::arg("weight"),
+           "Sets the weight of each element.")
+      .def("set_cref",
+           &CenterOfMassTrackingCost::set_cref,
+           nb::arg("cref"),
+           "Sets the reference point for the center of mass.");
 
     nb::class_<FramesInverseSquaredDistanceCost, StageCost>(
       m,
@@ -1115,7 +1183,7 @@ void bind_Costs(nb::module_ &m)
            larger values place less importance on an axis, while smaller ones place
            more
          - $R$ is the rotation of the reference frame whose axes the distance scale
-           applies along (World or Fixed, identity for World)
+           applies along (World, Fixed or Base, identity for World)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -1147,24 +1215,29 @@ void bind_Costs(nb::module_ &m)
            nb::arg("distance_scale"),
            nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
            nb::arg("name")            = "")
-      .def("set_reference_frame",
-           &FramesInverseSquaredDistanceCost::set_reference_frame,
-           nb::arg("reference_frame"))
+      .def(
+        "set_reference_frame",
+        &FramesInverseSquaredDistanceCost::set_reference_frame,
+        nb::arg("reference_frame"),
+        "Sets the reference frame whose axes the distance scale applies along.")
       .def(
         "set_weight",
         static_cast<void (FramesInverseSquaredDistanceCost::*)(const double)>(
           &FramesInverseSquaredDistanceCost::set_weight),
-        nb::arg("weight"))
+        nb::arg("weight"),
+        "Sets the weight.")
       .def(
         "set_distance_scale",
         static_cast<void (FramesInverseSquaredDistanceCost::*)(const double)>(
           &FramesInverseSquaredDistanceCost::set_distance_scale),
-        nb::arg("distance_scale"))
+        nb::arg("distance_scale"),
+        "Sets the same distance scale on every axis.")
       .def(
         "set_distance_scale",
         static_cast<void (FramesInverseSquaredDistanceCost::*)(const Vec3 &)>(
           &FramesInverseSquaredDistanceCost::set_distance_scale),
-        nb::arg("distance_scale"));
+        nb::arg("distance_scale"),
+        "Sets the distance scale of each axis.");
 }
 }
 }

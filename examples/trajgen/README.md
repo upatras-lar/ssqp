@@ -62,7 +62,7 @@ trajgen/
 │   ├── ball_joint.py            Ball joint
 │   ├── a1_jump.py               A1 jump
 │   ├── double_pendulum/         Pendubot and acrobot
-│   ├── panda/                   Panda circle and obstacle
+│   ├── panda/                   Panda circle, obstacle and look at
 │   ├── go2/                     Go2 (standing, jumps, gaits, ...)
 │   │   └── utils/               Helper for building quadruped gaits
 │   ├── g1/                      G1 humanoid
@@ -133,6 +133,25 @@ The end effector moves from its starting position to a target, while a bound on 
 | `-t`, `--target` | The target end effector position (default 0.3 0.3 0.1) |
 | `--min-height` | Height the end effector may not go under in the middle of the trajectory (default 0.4) |
 | `-o`, `--output` | Output JSON file |
+
+#### `python/panda/panda_look_at.py`
+
+The Panda's end effector keeps pointing at a target moving on a circle on the table in front of it, like a camera following an object, while a light cost keeps it near where it starts. A cost on the target's offset across the end effector's x and y axes, expressed in the end effector's own (`Local`) axes, has its minimum where the target lies on the end effector's z axis, so the solver turns the end effector towards the target instead of moving it there. A bound around the target, in the same axes, keeps it between 0.2 and 0.8 m ahead. With `--reference-frame world`, the cost and the bound are expressed in the world axes instead, and the end effector moves over the target, staying above it, without pointing at it. After solving, it prints the angle between the end effector's z axis and the direction to the target, and can plot it.
+
+It writes the target's position at each stage to its own file, which `visualize.py` draws with `--target`. From the `visualizer` directory:
+
+```bash
+python visualize.py -u ../assets/urdf/panda/panda.urdf -i ../trajgen/data/panda_look_at.json \
+    --target ../trajgen/data/panda_look_at_target.json
+```
+
+| Parameter | Description |
+|---|---|
+| `-r`, `--reference-frame` | Axes of the pointing cost and the distance bound, `local` or `world` (default `local`) |
+| `-p`, `--plot` | Plot the pointing error (default on) |
+| `-o`, `--output` | Output JSON file |
+| `-t`, `--target-output` | Output JSON file with the target's position at each stage |
+| `-q`, `--qp-solver` | QP solver used at each SSQP iteration, `admm`, `hpipm` or `piqp` (default `hpipm`) |
 
 ### A1
 

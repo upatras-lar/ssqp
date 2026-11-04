@@ -373,10 +373,12 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_lower_bound",
            &JointAngleConstraint::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound.")
       .def("set_upper_bound",
            &JointAngleConstraint::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound.");
 
     nb::class_<JointVelocityConstraint, StageConstraints>(
       m,
@@ -408,10 +410,12 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_lower_bound",
            &JointVelocityConstraint::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound.")
       .def("set_upper_bound",
            &JointVelocityConstraint::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound.");
 
     nb::class_<JointControlConstraint, StageConstraints>(
       m,
@@ -446,10 +450,12 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_lower_bound",
            &JointControlConstraint::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound.")
       .def("set_upper_bound",
            &JointControlConstraint::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound.");
 
     nb::class_<FloatingBaseTranslationBound, StageConstraints>(
       m,
@@ -463,8 +469,9 @@ void bind_Constraints(nb::module_ &m)
         where:
         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors on the base position (in $\mathcal{R}^3$)
         - $p_f$: Floating base position extracted from the system state
-        - $R$: Rotation of the reference frame the bounds are expressed in (World
-        or Fixed, identity for World)
+        - $R$: Rotation of the reference frame the bounds are expressed in (World,
+        Fixed, Local or Base, identity for World, with Local and Base both the
+        base's axes)
         - $\boldsymbol{c}$: Center the bounds are taken around (in $\mathcal{R}^3$)
 
         Assumes:
@@ -486,16 +493,20 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_lower_bound",
            &FloatingBaseTranslationBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound, along the reference frame's axes.")
       .def("set_upper_bound",
            &FloatingBaseTranslationBound::set_upper_bound,
-           nb::arg("upper_bound"))
+           nb::arg("upper_bound"),
+           "Sets the upper bound, along the reference frame's axes.")
       .def("set_reference_frame",
            &FloatingBaseTranslationBound::set_reference_frame,
-           nb::arg("reference_frame"))
+           nb::arg("reference_frame"),
+           "Sets the reference frame the bounds are expressed in.")
       .def("set_center",
            &FloatingBaseTranslationBound::set_center,
-           nb::arg("center"));
+           nb::arg("center"),
+           "Sets the center the bounds are taken around.");
 
     nb::class_<FloatingBaseRotationBound, StageConstraints>(
       m,
@@ -528,13 +539,18 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("lb")   = Vec3::Zero(),
            nb::arg("ub")   = Vec3::Zero(),
            nb::arg("name") = "")
-      .def("set_Rref", &FloatingBaseRotationBound::set_Rref, nb::arg("Rref"))
+      .def("set_Rref",
+           &FloatingBaseRotationBound::set_Rref,
+           nb::arg("Rref"),
+           "Sets the reference rotation.")
       .def("set_lower_bound",
            &FloatingBaseRotationBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound.")
       .def("set_upper_bound",
            &FloatingBaseRotationBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound.");
 
     nb::class_<FloatingBasePoseBound, StageConstraints>(m,
                                                         "FloatingBasePoseBound",
@@ -580,15 +596,26 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("lb")   = Vec6::Zero(),
            nb::arg("ub")   = Vec6::Zero(),
            nb::arg("name") = "")
-      .def("set_Tref", &FloatingBasePoseBound::set_Tref, nb::arg("Tref"))
-      .def("set_tref", &FloatingBasePoseBound::set_tref, nb::arg("tref"))
-      .def("set_Rref", &FloatingBasePoseBound::set_Rref, nb::arg("Rref"))
+      .def("set_Tref",
+           &FloatingBasePoseBound::set_Tref,
+           nb::arg("Tref"),
+           "Sets the reference pose.")
+      .def("set_tref",
+           &FloatingBasePoseBound::set_tref,
+           nb::arg("tref"),
+           "Sets the translation of the reference pose.")
+      .def("set_Rref",
+           &FloatingBasePoseBound::set_Rref,
+           nb::arg("Rref"),
+           "Sets the rotation of the reference pose.")
       .def("set_lower_bound",
            &FloatingBasePoseBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound.")
       .def("set_upper_bound",
            &FloatingBasePoseBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound.");
 
     nb::class_<FloatingBaseLinearVelocityBound, StageConstraints>(
       m,
@@ -601,7 +628,9 @@ void bind_Constraints(nb::module_ &m)
 
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
-         - $\boldsymbol{v}_b$: Floating base linear velocity vector (in $\mathcal{R}^3$)
+         - $\boldsymbol{v}_b$: Floating base linear velocity vector (in $\mathcal{R}^3$),
+           expressed in the reference frame (Local or Base by default, both the
+           base frame, World or Fixed)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -612,18 +641,26 @@ void bind_Constraints(nb::module_ &m)
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const Vec3 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("name")            = "")
       .def("set_lower_bound",
            &FloatingBaseLinearVelocityBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound, along the reference frame's axes.")
       .def("set_upper_bound",
            &FloatingBaseLinearVelocityBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound, along the reference frame's axes.")
+      .def("set_reference_frame",
+           &FloatingBaseLinearVelocityBound::set_reference_frame,
+           nb::arg("reference_frame"),
+           "Sets the reference frame the bounds are expressed in.");
 
     nb::class_<FloatingBaseAngularVelocityBound, StageConstraints>(
       m,
@@ -636,7 +673,9 @@ void bind_Constraints(nb::module_ &m)
 
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
-         - $\boldsymbol{\omega}_b$: Floating base angular velocity vector (in $\mathcal{R}^3$)
+         - $\boldsymbol{\omega}_b$: Floating base angular velocity vector (in $\mathcal{R}^3$),
+           expressed in the reference frame (Local or Base by default, both the
+           base frame, World or Fixed)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -647,18 +686,26 @@ void bind_Constraints(nb::module_ &m)
       .def(nb::init<const Model &,
                     const Vec3 &,
                     const Vec3 &,
+                    const ReferenceFrame &,
                     const std::string &>(),
            nb::call_policy<keep_model>(),
            nb::arg("model"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("name") = "")
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("name")            = "")
       .def("set_lower_bound",
            &FloatingBaseAngularVelocityBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound, along the reference frame's axes.")
       .def("set_upper_bound",
            &FloatingBaseAngularVelocityBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound, along the reference frame's axes.")
+      .def("set_reference_frame",
+           &FloatingBaseAngularVelocityBound::set_reference_frame,
+           nb::arg("reference_frame"),
+           "Sets the reference frame the bounds are expressed in.");
 
     nb::class_<FrameTranslationBound, StageConstraints>(m,
                                                         "FrameTranslationBound",
@@ -672,8 +719,8 @@ void bind_Constraints(nb::module_ &m)
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
          - $\boldsymbol{p}_f$: Frame position vector (in $\mathcal{R^3}$)
-         - $R$: Rotation of the reference frame the bounds are expressed in (World
-           or Fixed, identity for World)
+         - $R$: Rotation of the reference frame the bounds are expressed in (World,
+           Fixed, Local or Base, identity for World)
          - $\boldsymbol{c}$: Center the bounds are taken around (in $\mathcal{R}^3$)
 
         Assumes:
@@ -697,14 +744,20 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_lower_bound",
            &FrameTranslationBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound, along the reference frame's axes.")
       .def("set_upper_bound",
            &FrameTranslationBound::set_upper_bound,
-           nb::arg("upper_bound"))
+           nb::arg("upper_bound"),
+           "Sets the upper bound, along the reference frame's axes.")
       .def("set_reference_frame",
            &FrameTranslationBound::set_reference_frame,
-           nb::arg("reference_frame"))
-      .def("set_center", &FrameTranslationBound::set_center, nb::arg("center"));
+           nb::arg("reference_frame"),
+           "Sets the reference frame the bounds are expressed in.")
+      .def("set_center",
+           &FrameTranslationBound::set_center,
+           nb::arg("center"),
+           "Sets the center the bounds are taken around.");
 
     nb::class_<FrameTerrainHeightBound, StageConstraints>(
       m,
@@ -737,10 +790,12 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name") = "")
       .def("set_lower_bound",
            &FrameTerrainHeightBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound.")
       .def("set_upper_bound",
            &FrameTerrainHeightBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound.");
 
     nb::class_<FrameRotationBound, StageConstraints>(m,
                                                      "FrameRotationBound",
@@ -772,13 +827,18 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("lb")   = Vec3::Zero(),
            nb::arg("ub")   = Vec3::Zero(),
            nb::arg("name") = "")
-      .def("set_Rref", &FrameRotationBound::set_Rref, nb::arg("Rref"))
+      .def("set_Rref",
+           &FrameRotationBound::set_Rref,
+           nb::arg("Rref"),
+           "Sets the reference rotation.")
       .def("set_lower_bound",
            &FrameRotationBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound.")
       .def("set_upper_bound",
            &FrameRotationBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound.");
 
     nb::class_<FramePoseBound, StageConstraints>(m, "FramePoseBound", R"doc(
         Predefined SE(3) pose bound for a given frame
@@ -823,15 +883,26 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("lb")   = Vec6::Zero(),
            nb::arg("ub")   = Vec6::Zero(),
            nb::arg("name") = "")
-      .def("set_Tref", &FramePoseBound::set_Tref, nb::arg("Tref"))
-      .def("set_tref", &FramePoseBound::set_tref, nb::arg("tref"))
-      .def("set_Rref", &FramePoseBound::set_Rref, nb::arg("Rref"))
+      .def("set_Tref",
+           &FramePoseBound::set_Tref,
+           nb::arg("Tref"),
+           "Sets the reference pose.")
+      .def("set_tref",
+           &FramePoseBound::set_tref,
+           nb::arg("tref"),
+           "Sets the translation of the reference pose.")
+      .def("set_Rref",
+           &FramePoseBound::set_Rref,
+           nb::arg("Rref"),
+           "Sets the rotation of the reference pose.")
       .def("set_lower_bound",
            &FramePoseBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound.")
       .def("set_upper_bound",
            &FramePoseBound::set_upper_bound,
-           nb::arg("upper_bound"));
+           nb::arg("upper_bound"),
+           "Sets the upper bound.");
 
     nb::class_<FrameLinearVelocityBound, StageConstraints>(
       m,
@@ -845,7 +916,7 @@ void bind_Constraints(nb::module_ &m)
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
          - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$), expressed
-           in the reference frame (Local by default, World or Fixed)
+           in the reference frame (Local by default, World, Fixed or Base)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -868,13 +939,16 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_lower_bound",
            &FrameLinearVelocityBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound, along the reference frame's axes.")
       .def("set_upper_bound",
            &FrameLinearVelocityBound::set_upper_bound,
-           nb::arg("upper_bound"))
+           nb::arg("upper_bound"),
+           "Sets the upper bound, along the reference frame's axes.")
       .def("set_reference_frame",
            &FrameLinearVelocityBound::set_reference_frame,
-           nb::arg("reference_frame"));
+           nb::arg("reference_frame"),
+           "Sets the reference frame the bounds are expressed in.");
 
     nb::class_<FrameAngularVelocityBound, StageConstraints>(
       m,
@@ -889,7 +963,7 @@ void bind_Constraints(nb::module_ &m)
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
          - $\boldsymbol{\omega}_f$: Frame angular velocity vector (in $\mathcal{R}^3$),
-           expressed in the reference frame (Local by default, World or Fixed)
+           expressed in the reference frame (Local by default, World, Fixed or Base)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -913,13 +987,16 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_lower_bound",
            &FrameAngularVelocityBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound, along the reference frame's axes.")
       .def("set_upper_bound",
            &FrameAngularVelocityBound::set_upper_bound,
-           nb::arg("upper_bound"))
+           nb::arg("upper_bound"),
+           "Sets the upper bound, along the reference frame's axes.")
       .def("set_reference_frame",
            &FrameAngularVelocityBound::set_reference_frame,
-           nb::arg("reference_frame"));
+           nb::arg("reference_frame"),
+           "Sets the reference frame the bounds are expressed in.");
 
     nb::class_<CenterOfMassBound, StageConstraints>(m,
                                                     "CenterOfMassBound",
@@ -932,8 +1009,8 @@ void bind_Constraints(nb::module_ &m)
         where:
         - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
         - $\boldsymbol{c}$ is the center of mass of the model
-        - $R$: Rotation of the reference frame the bounds are expressed in (World
-        or Fixed, identity for World)
+        - $R$: Rotation of the reference frame the bounds are expressed in (World,
+        Fixed or Base, identity for World)
         - $\boldsymbol{c}_0$: Center the bounds are taken around (in $\mathcal{R}^3$)
 
         Assumes:
@@ -955,14 +1032,20 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("name")            = "")
       .def("set_lower_bound",
            &CenterOfMassBound::set_lower_bound,
-           nb::arg("lower_bound"))
+           nb::arg("lower_bound"),
+           "Sets the lower bound, along the reference frame's axes.")
       .def("set_upper_bound",
            &CenterOfMassBound::set_upper_bound,
-           nb::arg("upper_bound"))
+           nb::arg("upper_bound"),
+           "Sets the upper bound, along the reference frame's axes.")
       .def("set_reference_frame",
            &CenterOfMassBound::set_reference_frame,
-           nb::arg("reference_frame"))
-      .def("set_center", &CenterOfMassBound::set_center, nb::arg("center"));
+           nb::arg("reference_frame"),
+           "Sets the reference frame the bounds are expressed in.")
+      .def("set_center",
+           &CenterOfMassBound::set_center,
+           nb::arg("center"),
+           "Sets the center the bounds are taken around.");
 
     nb::class_<ContactConstraint, StageConstraints>(m,
                                                     "ContactConstraint",
@@ -991,11 +1074,19 @@ void bind_Constraints(nb::module_ &m)
         Note that this constraint cannot be manually added in the Python library,
         use the `Model`'s `addContactConstraint` method instead.
         )doc")
-      .def("set_mu", &ContactConstraint::set_mu, nb::arg("mu"))
+      .def("set_mu",
+           &ContactConstraint::set_mu,
+           nb::arg("mu"),
+           "Sets the static friction coefficient.")
       .def("set_max_normal_force",
            &ContactConstraint::set_max_normal_force,
-           nb::arg("max_normal_force"))
-      .def("set_eq_tol", &ContactConstraint::set_eq_tol, nb::arg("eq_tol"))
+           nb::arg("max_normal_force"),
+           "Sets the maximum normal contact force.")
+      .def("set_eq_tol",
+           &ContactConstraint::set_eq_tol,
+           nb::arg("eq_tol"),
+           "Sets the tolerance of the contact height constraint. An infinite "
+           "tolerance leaves the height free.")
       .def("set_terrain",
            &ContactConstraint::set_terrain,
            nb::arg("terrain").none(),
