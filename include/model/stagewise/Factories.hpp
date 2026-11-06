@@ -19,14 +19,12 @@ namespace factory
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1 = decltype(ZeroHessian_xx),
          typename HessianFunction2 = decltype(ZeroHessian_xu),
-         typename HessianFunction3 = decltype(ZeroHessian_uu),
-         typename EnabledFunction  = decltype(DefaultEnabledFunc)>
+         typename HessianFunction3 = decltype(ZeroHessian_uu)>
 inline std::shared_ptr<StageCost> make_cost(
   const std::vector<std::string> names, EvaluationFunction eval,
   GradientFunction grad, HessianFunction1 hess_xx = ZeroHessian_xx,
-  HessianFunction2 hess_xu     = ZeroHessian_xu,
-  HessianFunction3 hess_uu     = ZeroHessian_uu,
-  EnabledFunction enabled_func = DefaultEnabledFunc);
+  HessianFunction2 hess_xu = ZeroHessian_xu,
+  HessianFunction3 hess_uu = ZeroHessian_uu);
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
          typename EvaluationFunction, typename multiGradientFunction,
@@ -49,40 +47,25 @@ template<typename NOutFunction, typename NdcFunction,
          typename ManifoldOperator  = decltype(DefaultRightMinus),
          typename HessprodFunction1 = decltype(ZeroHessprod_xx),
          typename HessprodFunction2 = decltype(ZeroHessprod_xu),
-         typename HessprodFunction3 = decltype(ZeroHessprod_uu),
-         typename EnabledFunction   = decltype(DefaultEnabledFunc)>
+         typename HessprodFunction3 = decltype(ZeroHessprod_uu)>
 inline std::shared_ptr<StageConstraints> make_constraints(
   const std::vector<std::string> names, NOutFunction nout, NdcFunction ndc,
   LowerBoundFunction lb, UpperBoundFunction ub, EvaluationFunction eval,
   multiGradientFunction grad, ManifoldOperator op = DefaultRightMinus,
-  HessprodFunction1 hess_xx    = ZeroHessprod_xx,
-  HessprodFunction2 hess_xu    = ZeroHessprod_xu,
-  HessprodFunction3 hess_uu    = ZeroHessprod_uu,
-  EnabledFunction enabled_func = DefaultEnabledFunc);
-
-inline std::shared_ptr<StageCost> merge_costs(
-  const std::shared_ptr<StageCost> &l1, const std::shared_ptr<StageCost> &l2);
-
-inline std::shared_ptr<StageConstraints> merge_constraints(
-  const std::shared_ptr<StageConstraints> &c1,
-  const std::shared_ptr<StageConstraints> &c2);
+  HessprodFunction1 hess_xx = ZeroHessprod_xx,
+  HessprodFunction2 hess_xu = ZeroHessprod_xu,
+  HessprodFunction3 hess_uu = ZeroHessprod_uu);
 
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
-         typename HessianFunction3, typename EnabledFunction>
+         typename HessianFunction3>
 class FunctionStageCost : public StageCost
 {
   public:
     inline FunctionStageCost(const std::vector<std::string> names,
                              EvaluationFunction eval, GradientFunction grad,
                              HessianFunction1 hess_xx, HessianFunction2 hess_xu,
-                             HessianFunction3 hess_uu,
-                             EnabledFunction  enabled_func);
-
-    // Not supported for a custom enabled function (merged costs), which is
-    // enabled if any of the costs it is made of is; set it on those instead
-    inline void set_enabled(const bool enabled) override;
-    inline bool enabled() const override;
+                             HessianFunction3 hess_uu);
 
     inline VecX evaluate(const VecX &x, const VecX &u) const override;
     inline void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -100,7 +83,6 @@ class FunctionStageCost : public StageCost
     const HessianFunction1   _hess_xx;
     const HessianFunction2   _hess_xu;
     const HessianFunction3   _hess_uu;
-    const EnabledFunction    _enabled_func;
 };
 
 class FunctionStageDynamicsBase : public StageDynamics
@@ -167,8 +149,7 @@ template<typename NOutFunction, typename NdcFunction,
          typename LowerBoundFunction, typename UpperBoundFunction,
          typename EvaluationFunction, typename multiGradientFunction,
          typename ManifoldOperator, typename HessprodFunction1,
-         typename HessprodFunction2, typename HessprodFunction3,
-         typename EnabledFunction>
+         typename HessprodFunction2, typename HessprodFunction3>
 class FunctionStageConstraints : public StageConstraints
 {
   public:
@@ -177,14 +158,7 @@ class FunctionStageConstraints : public StageConstraints
       const LowerBoundFunction lb, const UpperBoundFunction ub,
       const EvaluationFunction eval, const multiGradientFunction grad,
       const ManifoldOperator op, const HessprodFunction1 hess_xx,
-      const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu,
-      const EnabledFunction enabled_func);
-
-    // Not supported: this is always a combination of other constraints, whose
-    // enabled state is set on those directly
-    inline void set_enabled(const bool enabled) override;
-
-    inline bool enabled() const override;
+      const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu);
 
     inline uint output_size() const override;
 
@@ -220,12 +194,11 @@ class FunctionStageConstraints : public StageConstraints
     const HessprodFunction1     _hess_xx;
     const HessprodFunction2     _hess_xu;
     const HessprodFunction3     _hess_uu;
-    const EnabledFunction       _enabled_func;
 
   private:
     // Scratch backing lower_bound()/upper_bound(); recomputed on every call
-    // (bounds may depend on mutable state, e.g. enabled() for merged
-    // constraints) but reused across calls to avoid a fresh allocation
+    // (bounds may depend on mutable state) but reused across calls to avoid a
+    // fresh allocation
     mutable VecX _lb_cache, _ub_cache;
 };
 }

@@ -916,7 +916,7 @@ void bind_Constraints(nb::module_ &m)
         where:
          - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
          - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$), expressed
-           in the reference frame (Local by default, World, Fixed or Base)
+           in the reference frame (World by default, Local, Fixed or Base)
 
         Assumes:
          - The model joint configuration is the first part of the state vector (size
@@ -935,7 +935,7 @@ void bind_Constraints(nb::module_ &m)
            nb::arg("frame"),
            nb::arg("lb"),
            nb::arg("ub"),
-           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
            nb::arg("name")            = "")
       .def("set_lower_bound",
            &FrameLinearVelocityBound::set_lower_bound,

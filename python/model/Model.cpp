@@ -682,7 +682,8 @@ void bind_Model(nb::module_ &m)
            "Get the solver mode formulation")
       .def(
         "getCost",
-        [](Model &self, const uint k) { return self.costs()[k]; },
+        [](Model &self, const uint k) -> std::shared_ptr<StageCost>
+        { return self.costs()[k]; },
         nb::arg("k"),
         "Get the current model cost at a stage.")
       .def(
@@ -692,7 +693,8 @@ void bind_Model(nb::module_ &m)
         "Get the current model dynamics at a stage.")
       .def(
         "getConstraints",
-        [](Model &self, const uint k) { return self.constraints()[k]; },
+        [](Model &self, const uint k) -> std::shared_ptr<StageConstraints>
+        { return self.constraints()[k]; },
         nb::arg("k"),
         "Get the current model constraints at a stage.")
       .def_prop_ro(

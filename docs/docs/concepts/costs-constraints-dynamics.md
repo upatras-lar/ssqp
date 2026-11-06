@@ -130,15 +130,17 @@ In C++, the same options are `ReferenceFrame::World`, `ReferenceFrame::Local`, `
 `ReferenceFrame(rotation)`, `ReferenceFrame::yaw(angle)` and `ReferenceFrame::normal(normal, yaw)`, in
 `ssqp::model::stagewise::predefined`.
 
-Each term supports the options that make sense for it, and its default keeps the behaviour it had before reference
-frames existed:
+Each term supports the options that make sense for it. Positions, a frame's linear velocity bound and its velocity
+cost default to the world axes, while floating base velocities, which the state holds in the base frame, and a
+frame's angular velocity bound default to `Local`:
 
 | Term | Options | Default |
 |---|---|---|
 | `FrameTranslationBound`, `FrameSquaredTranslationErrorCost` | World, Fixed, Local, Base | World |
 | `FloatingBaseTranslationBound`, `FloatingBaseSquaredTranslationErrorCost` | World, Fixed, Local (= Base) | World |
 | `FloatingBaseLinearVelocityBound`, `FloatingBaseAngularVelocityBound`, `FloatingBaseSquaredVelocityErrorCost` | Local (= Base, the base frame), World, Fixed | Local |
-| `FrameLinearVelocityBound`, `FrameAngularVelocityBound`, `FrameSquaredVelocityErrorCost` | Local, World, Fixed, Base | Local |
+| `FrameLinearVelocityBound`, `FrameSquaredVelocityErrorCost` | World, Local, Fixed, Base | World |
+| `FrameAngularVelocityBound` | Local, World, Fixed, Base | Local |
 | `CenterOfMassBound`, `CenterOfMassTrackingCost`, `FramesInverseSquaredDistanceCost` | World, Fixed, Base | World |
 
 Rotation and pose costs and bounds are not in the list: they already measure their error along their reference's

@@ -723,7 +723,7 @@ class FrameSquaredPoseErrorCost : public StageCost
  * where:
  *  - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model
  *    (in $\mathcal{R}^6$), with its linear and angular parts expressed in the
- *    reference frame (Local by default, World, Fixed or Base)
+ *    reference frame (World by default, Local, Fixed or Base)
  *  - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$),
  *    expressed in the same reference frame
  *  - $\boldsymbol{w}$ is the weight on the velocity error
@@ -740,12 +740,12 @@ class FrameSquaredVelocityErrorCost : public StageCost
     FrameSquaredVelocityErrorCost(
       const Model &model, const std::string &frame,
       const Vec6 &desired_velocity, const double weight,
-      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
       const std::string &name               = "");
     FrameSquaredVelocityErrorCost(
       const Model &model, const std::string &frame,
       const Vec6 &desired_velocity, const Vec6 &weight,
-      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
       const std::string &name               = "");
 
     void set_desired_velocity(const Vec6 &desired_velocity);

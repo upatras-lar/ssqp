@@ -661,7 +661,7 @@ class FramePoseBound : public StageConstraints
  * where:
  *  - $\boldsymbol{b}_l$, $\boldsymbol{b}_u$: Lower and upper bound vectors (in $\mathcal{R}^3$)
  *  - $\boldsymbol{v}_f$: Frame velocity vector (in $\mathcal{R^3}$), expressed
- *    in the reference frame (Local by default, World, Fixed or Base)
+ *    in the reference frame (World by default, Local, Fixed or Base)
  *
  * Assumes:
  *  - The model joint configuration is the first part of the state vector (size
@@ -676,7 +676,7 @@ class FrameLinearVelocityBound : public StageConstraints
     FrameLinearVelocityBound(
       const Model &model, const std::string &frame, const Vec3 &lb,
       const Vec3           &ub,
-      const ReferenceFrame &reference_frame = ReferenceFrame::Local,
+      const ReferenceFrame &reference_frame = ReferenceFrame::World,
       const std::string &name               = "");
 
     void set_lower_bound(const Vec3 &lb);

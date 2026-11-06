@@ -16,14 +16,15 @@
 #include "model/stagewise/StageDynamics.hpp"
 #include "model/stagewise/StageConstraints.hpp"
 #include "model/stagewise/Factories.hpp"
+#include "model/stagewise/Merged.hpp"
 
 namespace ssqp
 {
 namespace model
 {
-using CostsContainer       = Container<stagewise::StageCost>;
+using CostsContainer       = Container<stagewise::MergedStageCost>;
 using DynamicsContainer    = Container<stagewise::StageDynamics>;
-using ConstraintsContainer = Container<stagewise::StageConstraints>;
+using ConstraintsContainer = Container<stagewise::MergedStageConstraints>;
 
 auto to_compile_time(bool b);
 auto to_compile_time(SolverMode sm);

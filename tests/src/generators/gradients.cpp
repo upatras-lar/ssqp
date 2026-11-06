@@ -581,7 +581,8 @@ std::shared_ptr<Test> get_frame_linear_velocity_bound_grad_test()
       *model.get(),
       "trunk",
       Vec3::Zero(),
-      Vec3::Zero());
+      Vec3::Zero(),
+      model::stagewise::predefined::ReferenceFrame::Local);
 
     model->finalize();
 
@@ -1908,7 +1909,8 @@ std::shared_ptr<Test> get_frame_squared_velocity_error_cost_grad_test()
           *model.get(),
           "FR_foot",
           vd,
-          5.87);
+          5.87,
+          model::stagewise::predefined::ReferenceFrame::Local);
     }
 
     model->finalize();

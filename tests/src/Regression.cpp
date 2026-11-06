@@ -260,9 +260,10 @@ void costToggling()
     auto a      = std::make_shared<Quadratic>();
     auto b      = std::make_shared<Quadratic>();
     auto c      = std::make_shared<Quadratic>();
-    auto merged = model::stagewise::factory::merge_costs(
-      model::stagewise::factory::merge_costs(a, b),
-      c);
+    auto merged = std::make_shared<model::stagewise::MergedStageCost>();
+    merged->add(a);
+    merged->add(b);
+    merged->add(c);
     const VecX x = VecX::Constant(1, 2.0), u = VecX::Constant(1, 0.0);
     // Each enabled cost contributes 0.5 * |x|^2 = 2
     auto value = [&]() { return merged->evaluate(x, u)[0]; };
@@ -277,7 +278,7 @@ void costToggling()
     b->set_enabled(false);
     require(std::abs(value() - 4.0) < 1e-12, "Middle cost disabled");
     a->set_enabled(false);
-    require(std::abs(value() - 2.0) < 1e-12, "Two nested costs disabled");
+    require(std::abs(value() - 2.0) < 1e-12, "First two costs disabled");
     require(std::abs(grad() - 2.0) < 1e-12,
             "Gradient of the only enabled cost");
     c->set_enabled(false);
@@ -320,6 +321,173 @@ void constraintToggling()
         threw = true;
     }
     require(threw, "Combined constraints cannot be toggled directly");
+}
+
+// Constraints with n rows, of which the first ndc make up their difference,
+// and everything scaled by s, so each one's place in a merged stack shows
+class ScaledRows : public model::stagewise::StageConstraints
+{
+  public:
+    ScaledRows(uint n, uint ndc, double s)
+      : _n(n)
+      , _ndc(ndc)
+      , _s(s)
+      , _lb(VecX::Constant(n, -s))
+      , _ub(VecX::Constant(n, s))
+    {
+    }
+    uint output_size() const override
+    {
+        return _n;
+    }
+    uint constraint_diff_size() const override
+    {
+        return _ndc;
+    }
+    VecX right_minus(const VecX &x, const VecX &y) const override
+    {
+        return (x - y).head(_ndc);
+    }
+    const VecX &lower_bound() const override
+    {
+        return _lb;
+    }
+    const VecX &upper_bound() const override
+    {
+        return _ub;
+    }
+    VecX evaluate(const VecX &x, const VecX &) const override
+    {
+        return _s * x[0] * VecX::LinSpaced(_n, 1.0, _n);
+    }
+    void gradient(const VecX &, const VecX &, MatX &dx, MatX &du) const override
+    {
+        dx = _s * VecX::LinSpaced(_ndc, 1.0, _ndc);
+        du = MatX::Constant(_ndc, 1, -_s);
+    }
+    void hessprod_xx(const VecX &, const VecX &, const VecX &mu,
+                     MatX &h) const override
+    {
+        h = MatX::Constant(1, 1, _s * mu.sum());
+    }
+    void hessprod_xu(const VecX &, const VecX &, const VecX &mu,
+                     MatX &h) const override
+    {
+        h = MatX::Constant(1, 1, 2.0 * _s * mu.sum());
+    }
+    void hessprod_uu(const VecX &, const VecX &, const VecX &mu,
+                     MatX &h) const override
+    {
+        h = MatX::Constant(1, 1, 3.0 * _s * mu.sum());
+    }
+
+  private:
+    uint   _n, _ndc;
+    double _s;
+    VecX   _lb, _ub;
+};
+
+void mergedConstraintStacking()
+{
+    auto a = std::make_shared<ScaledRows>(2, 2, 1.0);
+    auto b = std::make_shared<ScaledRows>(3, 1, 10.0);
+    auto c = std::make_shared<ScaledRows>(1, 1, 100.0);
+
+    model::stagewise::MergedStageConstraints merged;
+    merged.add(a);
+    merged.add(b);
+    merged.add(c);
+
+    const VecX x = VecX::Constant(1, 2.0), u = VecX::Constant(1, 0.5);
+    auto       same = [](const MatX &m1, const MatX &m2)
+    {
+        return m1.rows() == m2.rows() && m1.cols() == m2.cols() &&
+               (m1 - m2).norm() < 1e-12;
+    };
+
+    // Compares the merged constraints with the enabled ones stacked by hand
+    auto check = [&](const std::string &label)
+    {
+        uint nc = 0, ndc = 0;
+        for (const auto &p : { a, b, c })
+        {
+            if (p->enabled())
+            {
+                nc  += p->output_size();
+                ndc += p->constraint_diff_size();
+            }
+        }
+
+        const VecX mu = VecX::LinSpaced(ndc, 1.0, ndc);
+        VecX       value(nc), lb(nc), ub(nc), diff(ndc);
+        MatX       dX(ndc, 1), dU(ndc, 1);
+        MatX       Pxx = MatX::Zero(1, 1), Pxu = MatX::Zero(1, 1),
+             Puu = MatX::Zero(1, 1);
+        uint row = 0, diff_row = 0;
+
+        for (const auto &p : { a, b, c })
+        {
+            if (!p->enabled())
+            {
+                continue;
+            }
+
+            const uint n = p->output_size(), nd = p->constraint_diff_size();
+            MatX       gx, gu, h;
+
+            value.segment(row, n) = p->evaluate(x, u);
+            lb.segment(row, n)    = p->lower_bound();
+            ub.segment(row, n)    = p->upper_bound();
+            diff.segment(diff_row, nd) =
+              p->right_minus(p->evaluate(x, u), p->lower_bound());
+
+            p->gradient(x, u, gx, gu);
+            dX.middleRows(diff_row, nd) = gx;
+            dU.middleRows(diff_row, nd) = gu;
+
+            p->hessprod_xx(x, u, mu.segment(diff_row, nd), h);
+            Pxx += h;
+            p->hessprod_xu(x, u, mu.segment(diff_row, nd), h);
+            Pxu += h;
+            p->hessprod_uu(x, u, mu.segment(diff_row, nd), h);
+            Puu += h;
+
+            row      += n;
+            diff_row += nd;
+        }
+
+        require(merged.output_size() == nc, label + ": output size");
+        require(merged.constraint_diff_size() == ndc, label + ": diff size");
+        require(same(merged.lower_bound(), lb), label + ": lower bound");
+        require(same(merged.upper_bound(), ub), label + ": upper bound");
+        require(same(merged.evaluate(x, u), value), label + ": value");
+        require(
+          same(merged.right_minus(merged.evaluate(x, u), merged.lower_bound()),
+               diff),
+          label + ": difference");
+
+        MatX mX, mU, P;
+        merged.gradient(x, u, mX, mU);
+        require(same(mX, dX) && same(mU, dU), label + ": gradient");
+
+        merged.hessprod_xx(x, u, mu, P);
+        require(same(P, Pxx), label + ": hessprod_xx");
+        merged.hessprod_xu(x, u, mu, P);
+        require(same(P, Pxu), label + ": hessprod_xu");
+        merged.hessprod_uu(x, u, mu, P);
+        require(same(P, Puu), label + ": hessprod_uu");
+    };
+
+    check("All enabled");
+    b->set_enabled(false);
+    check("Middle constraints disabled");
+    a->set_enabled(false);
+    check("First two constraints disabled");
+    c->set_enabled(false);
+    require(!merged.enabled(), "Disabled when all constraints are");
+    check("All disabled");
+    b->set_enabled(true);
+    check("Re-enabled constraints");
 }
 
 void flatVecOwnership()
@@ -1274,6 +1442,9 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(
       std::make_shared<FunctionTest>("Regression_Model_ConstraintToggling",
                                      constraintToggling));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_Model_MergedConstraintStacking",
+      mergedConstraintStacking));
     tests.addTest(
       std::make_shared<FunctionTest>("Regression_SSQP_ParamsJsonOptionalKeys",
                                      paramsJsonOptionalKeys));

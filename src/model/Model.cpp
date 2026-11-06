@@ -507,11 +507,13 @@ void Model::_buildXMLInnateConstraints(const Config &config)
             k == _dims.horizon ? ct_true : ct_false,
             ct_sm);
 
-        _constraints[k] =
-          _constraints[k] == nullptr
-            ? innate_constraints
-            : stagewise::factory::merge_constraints(_constraints[k],
-                                                    innate_constraints);
+        if (_constraints[k] == nullptr)
+        {
+            _constraints[k] =
+              std::make_shared<stagewise::MergedStageConstraints>();
+        }
+
+        _constraints[k]->add(innate_constraints);
     }
 }
 
@@ -574,11 +576,13 @@ void Model::_buildXMLIDTorqueConstraints(const Config &config)
                                                                : ct_false,
             ctx.force_width == 0 ? ct_false : ct_true);
 
-        _constraints[k] =
-          _constraints[k] == nullptr
-            ? innate_constraints
-            : stagewise::factory::merge_constraints(_constraints[k],
-                                                    innate_constraints);
+        if (_constraints[k] == nullptr)
+        {
+            _constraints[k] =
+              std::make_shared<stagewise::MergedStageConstraints>();
+        }
+
+        _constraints[k]->add(innate_constraints);
     }
 }
 
@@ -842,11 +846,10 @@ void Model::addCost(const uint                                   k,
 
     if (_costs[k] == nullptr)
     {
-        _costs[k] = cost;
-        return;
+        _costs[k] = std::make_shared<stagewise::MergedStageCost>();
     }
 
-    _costs[k] = stagewise::factory::merge_costs(_costs[k], cost);
+    _costs[k]->add(cost);
 }
 
 void Model::addRunningCost(const std::shared_ptr<stagewise::StageCost> &cost)
@@ -857,35 +860,6 @@ void Model::addRunningCost(const std::shared_ptr<stagewise::StageCost> &cost)
     }
 }
 
-// Stateless placeholder shared by every stage that is merged with it
-static const std::shared_ptr<stagewise::StageConstraints> &
-neverEnabledConstraints()
-{
-    static const auto empty = []()
-    {
-        auto never_enabled = []() { return false; };
-        auto no_rows       = []() { return 0u; };
-        auto no_bound      = []() { return VecX(); };
-        auto no_value      = [](const VecX &, const VecX &) { return VecX(); };
-        auto no_gradient   = [](const VecX &, const VecX &, MatX &, MatX &) {};
-
-        return stagewise::factory::make_constraints({},
-                                                    no_rows,
-                                                    no_rows,
-                                                    no_bound,
-                                                    no_bound,
-                                                    no_value,
-                                                    no_gradient,
-                                                    DefaultRightMinus,
-                                                    ZeroHessprod_xx,
-                                                    ZeroHessprod_xu,
-                                                    ZeroHessprod_uu,
-                                                    never_enabled);
-    }();
-
-    return empty;
-}
-
 void Model::addConstraints(
   const uint k, const std::shared_ptr<stagewise::StageConstraints> &constraints)
 {
@@ -893,15 +867,10 @@ void Model::addConstraints(
 
     if (_constraints[k] == nullptr)
     {
-        // Always merged, since only merged constraints honor enabled()
-        _constraints[k] =
-          stagewise::factory::merge_constraints(neverEnabledConstraints(),
-                                                constraints);
-        return;
+        _constraints[k] = std::make_shared<stagewise::MergedStageConstraints>();
     }
 
-    _constraints[k] =
-      stagewise::factory::merge_constraints(_constraints[k], constraints);
+    _constraints[k]->add(constraints);
 }
 
 std::shared_ptr<Force> Model::_addForce(const uint k, const std::string &frame,

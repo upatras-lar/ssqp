@@ -1053,7 +1053,7 @@ void bind_Costs(nb::module_ &m)
         where:
          - $\boldsymbol{v}_f$ is the frame velocity for a given frame of the model
            (in $\mathcal{R}^6$), with its linear and angular parts expressed in the
-           reference frame (Local by default, World, Fixed or Base)
+           reference frame (World by default, Local, Fixed or Base)
          - $\boldsymbol{v}_d$ is the desired velocity for that frame (in $\mathcal{R}^6$),
            expressed in the same reference frame
          - $\boldsymbol{w}$ is the weight on the velocity error
@@ -1075,7 +1075,7 @@ void bind_Costs(nb::module_ &m)
            nb::arg("frame"),
            nb::arg("desired_velocity"),
            nb::arg("weight"),
-           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
            nb::arg("name")            = "")
       .def(nb::init<const Model &,
                     const std::string &,
@@ -1088,7 +1088,7 @@ void bind_Costs(nb::module_ &m)
            nb::arg("frame"),
            nb::arg("desired_velocity"),
            nb::arg("weight"),
-           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::Local),
+           nb::arg("reference_frame") = ReferenceFrame(ReferenceFrame::World),
            nb::arg("name")            = "")
       .def("set_desired_velocity",
            &FrameSquaredVelocityErrorCost::set_desired_velocity,
