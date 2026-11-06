@@ -60,6 +60,20 @@ FOOTHOLD_VEL_GAIN = 0.19
 FOOTHOLD_MAX_SHIFT = 0.2
 FOOTHOLD_FREEZE_STAGES = 4
 
+# The plan chooses the footholds itself. Through a swing, the weight on the
+# foot's horizontal position fades along with the weight on its height, down to
+# FREE_FOOTHOLD_XY_WGT of it at touchdown, and the foot's position is left free
+# through the planned stance after it until the touchdown happens
+FREE_FOOTHOLD_XY_WGT = 0.3
+
+# The touchdown stays in a box around the planned foothold on its contact
+# plane, with half sizes FREE_FOOTHOLD_BOX forward and to the side of the base,
+# shrunk near edges to the edge distance less FOOTHOLD_EDGE_MARGIN. The map
+# measures edge distances up to FREE_FOOTHOLD_EDGE_RANGE, so no edge is near
+# at that distance or more
+FREE_FOOTHOLD_BOX = (0.06, 0.04)
+FREE_FOOTHOLD_EDGE_RANGE = 0.08
+
 # Footholds stay FOOTHOLD_EDGE_MARGIN away from edges in the terrain, which
 # covers the foot's radius and errors in the terrain and the base estimate.
 # One that does not moves to the nearest spot that does, up to FOOTHOLD_SEARCH
@@ -777,8 +791,20 @@ def create_controller(
         "footholds": {},
         "swing_tops": {},
         "foot_references": {},
+        # Each foot's swing phase and latest swing by stage, kept only while
+        # the references are updated, since the gait may change between updates
+        "swing_phases": None,
+        "latest_swings": None,
         # Where each foothold was placed, by foot and landing stage
         "placed_footholds": {},
+        # The landing stage of each foot's free touchdown in the horizon, found
+        # when the references were last updated, and where the last plan
+        # touched down on each, by foot and landing stage
+        "touchdowns": {},
+        "planned_touchdowns": {},
+        # The box each free touchdown stays in, by foot and landing stage,
+        # found since the references were last updated
+        "touchdown_boxes": {},
         # Contact planes by foothold, fit since the references were last
         # updated
         "contact_planes": {},
@@ -1160,7 +1186,16 @@ def create_controller(
 
     def latest_swing(name, k):
         # The gait period of the foot's latest swing to start by stage k. No
-        # swings start once the gait stops
+        # swings start once the gait stops. Computed once per stage while the
+        # references are updated
+        cache = est["latest_swings"]
+        if cache is None:
+            return compute_latest_swing(name, k)
+        if (name, k) not in cache:
+            cache[name, k] = compute_latest_swing(name, k)
+        return cache[name, k]
+
+    def compute_latest_swing(name, k):
         start, stop = est["gait_start"], est["gait_stop"]
         period = (k - start) // get_gait_period_stages()
         if stop is not None:
@@ -1171,7 +1206,16 @@ def create_controller(
 
     def get_foot_swing_phase(name, k):
         # The foot's swing period and how far it is through it at stage k, or
-        # None while it stands
+        # None while it stands. Computed once per stage while the references
+        # are updated
+        cache = est["swing_phases"]
+        if cache is None:
+            return compute_foot_swing_phase(name, k)
+        if (name, k) not in cache:
+            cache[name, k] = compute_foot_swing_phase(name, k)
+        return cache[name, k]
+
+    def compute_foot_swing_phase(name, k):
         start = est["gait_start"]
         if start is None or k < start:
             return None
@@ -1256,19 +1300,22 @@ def create_controller(
 
     def get_next_foothold(name, k):
         # The foothold the foot stands on at stage k, or lands on at the end of
-        # its swing, and how much its height follows that foothold's contact
-        # plane, from 0 at liftoff to 1 at touchdown and through stance. None
-        # while the foot's height does not follow a plane
+        # its swing, how much its height follows that foothold's contact
+        # plane, from 0 at liftoff to 1 at touchdown and through stance, and
+        # the gait period of the swing that lands on it, None before the gait
+        # starts. None while the foot's height does not follow a plane
         if is_robot_airborne(k) or is_foot_descending_during_landing(name, k):
             return None
         start = est["gait_start"]
         if start is None or k < start:
-            return est["landed"][name], 1.0
+            return est["landed"][name], 1.0, None
         swing = get_foot_swing_phase(name, k)
         if swing is None:
-            return plan_foothold(name, latest_swing(name, k)), 1.0
+            period = latest_swing(name, k)
+            return plan_foothold(name, period), 1.0, period
         period, phase = swing
-        return plan_foothold(name, period), 0.5 * (1 - np.cos(np.pi * phase))
+        share = 0.5 * (1 - np.cos(np.pi * phase))
+        return plan_foothold(name, period), share, period
 
     def get_foot_reference(name, k):
         # Returns the foot's reference position at stage k and whether it
@@ -1276,6 +1323,16 @@ def create_controller(
         if (name, k) not in est["foot_references"]:
             est["foot_references"][name, k] = compute_foot_reference(name, k)
         return est["foot_references"][name, k]
+
+    def get_planned_touchdown(name, lands, foothold):
+        # The foothold moved to where the last plan touched down on it, if it
+        # did
+        planned = est["planned_touchdowns"].get((name, lands))
+        if planned is None:
+            return foothold
+        foothold = foothold.copy()
+        foothold[:2] = planned
+        return foothold
 
     def compute_foot_reference(name, k):
         if is_robot_airborne(k) or is_foot_descending_during_landing(name, k):
@@ -1290,7 +1347,9 @@ def create_controller(
 
         period, phase = swing
         # A swing that follows the foot's last landing starts from where the
-        # foot is, rather than where it landed
+        # foot is, rather than where it landed. Swings end where the last plan
+        # touched down, and the swing after one starts there too
+        cycle = len(get_active_gait().groups) * get_gait_period_stages()
         previous = period - len(get_active_gait().groups)
         lands = (
             est["gait_start"]
@@ -1300,8 +1359,12 @@ def create_controller(
         if previous < 0 or lands <= est["pose_stage"]:
             liftoff = est["liftoff"][name]
         else:
-            liftoff = plan_foothold(name, previous)
-        landing = plan_foothold(name, period)
+            liftoff = get_planned_touchdown(
+                name, lands, plan_foothold(name, previous)
+            )
+        landing = get_planned_touchdown(
+            name, lands + cycle, plan_foothold(name, period)
+        )
         if (name, period) not in est["swing_tops"]:
             top = get_max_terrain_height_along_path(liftoff, landing)
             rough = top - min(liftoff[2], landing[2]) > SWING_ROUGH_HEIGHT
@@ -1662,9 +1725,71 @@ def create_controller(
                 )
                 model.addConstraints(k, vel_bound)
 
+            # The box a free foot's touchdown stays in, placed with the
+            # references
+            box = None
+            if k > 0:
+                box = ssqpy.model.constraints.FrameTranslationBound(
+                    model, name, np.full(3, -np.inf), np.full(3, np.inf)
+                )
+                model.addConstraints(k, box)
+
             foot_funcs[name].append(
-                (foot_cost, plane_cost, foot_constraint, vel_bound)
+                (foot_cost, plane_cost, foot_constraint, vel_bound, box)
             )
+
+    # The velocity bounds of stance feet, and of held ones, which keep their
+    # place while their height may still settle, with the bounds set to the
+    # latter by foot and stage
+    stance_vel_tol = np.full(3, STANCE_VEL_TOL)
+    held_vel_tol = np.array([0.0, 0.0, STANCE_VEL_TOL])
+    held_vel_bounds = set()
+
+    def get_free_touchdown(foothold, period):
+        # The foothold and landing stage of the touchdown on the foothold by
+        # the swing of the given gait period, while that touchdown has yet to
+        # happen
+        if period is None or period < 0:
+            return None
+        lands = (
+            est["gait_start"]
+            + period * get_gait_period_stages()
+            + get_swing_duration_stages()
+        )
+        if lands <= est["pose_stage"]:
+            return None
+        return foothold, lands
+
+    def place_touchdown_box(box, name, foothold, lands):
+        # The box on the foothold's contact plane, turned with the base's yaw
+        # at touchdown and shrunk near edges, found once per touchdown
+        if (name, lands) not in est["touchdown_boxes"]:
+            est["touchdown_boxes"][name, lands] = compute_touchdown_box(
+                foothold, lands
+            )
+        frame, lower, upper = est["touchdown_boxes"][name, lands]
+        box.set_reference_frame(frame)
+        box.set_center(foothold)
+        box.set_lower_bound(lower)
+        box.set_upper_bound(upper)
+
+    def compute_touchdown_box(foothold, lands):
+        poses = est["poses"]
+        yaw = poses[min(lands - est["pose_stage"], len(poses) - 1)][2]
+        distance = get_edge_distance(
+            *compute_foot_sphere_center_xy(foothold, yaw)
+        )
+        half = np.array(FREE_FOOTHOLD_BOX)
+        if distance < FREE_FOOTHOLD_EDGE_RANGE:
+            half = np.minimum(half, max(distance - FOOTHOLD_EDGE_MARGIN, 0.0))
+        normal = (
+            fit_terrain_plane_at_foothold(foothold).at(*foothold[:2]).normal
+        )
+        return (
+            ssqpy.model.ReferenceFrame.normal(normal, yaw),
+            np.array([-half[0], -half[1], -np.inf]),
+            np.array([half[0], half[1], np.inf]),
+        )
 
     def update_motion_references():
         current_stage = est["stage"]
@@ -1702,6 +1827,10 @@ def create_controller(
         est["foot_references"] = {}
         est["swing_tops"] = {}
         est["contact_planes"] = {}
+        est["touchdowns"] = {}
+        est["touchdown_boxes"] = {}
+        est["swing_phases"] = {}
+        est["latest_swings"] = {}
 
         orientation = est["base_pitch"], est["base_roll"], est["base_yaw"]
         config_cost.set_desired_configuration(
@@ -1783,9 +1912,9 @@ def create_controller(
 
             for name in FOOT_NAMES:
                 foot_pos, swinging = get_foot_reference(name, k)
-                foot_cost, plane_cost, foot_constraint, vel_bound = foot_funcs[
-                    name
-                ][idx]
+                foot_cost, plane_cost, foot_constraint, vel_bound, box = (
+                    foot_funcs[name][idx]
+                )
                 foot_constraint.set_max_normal_force(max_force)
 
                 # Swinging feet track their swing trajectory, while stance
@@ -1816,7 +1945,7 @@ def create_controller(
                     next_foothold = get_next_foothold(name, k)
                 share = 0.0
                 if next_foothold is not None:
-                    foothold, share = next_foothold
+                    foothold, share, period = next_foothold
                     plane = fit_terrain_plane_at_foothold(foothold)
                     plane_cost.set_terrain(plane)
                     plane_cost.set_desired_height(
@@ -1826,7 +1955,43 @@ def create_controller(
                 plane_cost.set_enabled(bool(share > 0.0))
                 weight = foot_weight.copy()
                 weight[2] *= np.sqrt(1.0 - share)
+
+                # A foot heading for a touchdown that has yet to happen follows
+                # its horizontal position less and less through the swing, and
+                # is left free in the planned stance after it
+                free = None
+                if next_foothold is not None:
+                    free = get_free_touchdown(foothold, period)
+                if free is not None:
+                    weight[:2] *= (
+                        np.sqrt(1.0 - share * (1.0 - FREE_FOOTHOLD_XY_WGT**2))
+                        if swinging
+                        else 0.0
+                    )
                 foot_cost.set_weight(weight)
+
+                # With its position left free, a stance foot stays where it
+                # touches down, inside the box around its planned foothold,
+                # while its height may still settle
+                held = free is not None and not swinging
+                if vel_bound is not None and held != (
+                    (name, idx) in held_vel_bounds
+                ):
+                    tol = held_vel_tol if held else stance_vel_tol
+                    vel_bound.set_lower_bound(-tol)
+                    vel_bound.set_upper_bound(tol)
+                    if held:
+                        held_vel_bounds.add((name, idx))
+                    else:
+                        held_vel_bounds.discard((name, idx))
+                if box is not None:
+                    box.set_enabled(held)
+                    if held:
+                        place_touchdown_box(box, name, *free)
+                        est["touchdowns"].setdefault(name, free[1])
+
+        est["swing_phases"] = None
+        est["latest_swings"] = None
 
     update_motion_references()
 
@@ -2269,6 +2434,18 @@ def create_controller(
         # the last one), its controls and stance feet over those stages, and
         # whether the next plan starts partly from this one's legs, which it
         # does in the air of a forward jump
+
+        # Where the plan touches down for each free touchdown, which the swing
+        # paths end at from then on, for the touchdowns yet to happen
+        planned = est["planned_touchdowns"]
+        for key in [key for key in planned if key[1] <= est["pose_stage"]]:
+            del planned[key]
+        for name, lands in est["touchdowns"].items():
+            p, _ = model.forwardKinematics(
+                np.array(x.stage(lands - est["pose_stage"]))[:nq], name
+            )
+            planned[name, lands] = np.array(p[:2])
+
         states = [np.array(x.stage(k)) for k in range(PLAN_STAGES + 1)]
         controls = [np.array(u.stage(k)) for k in range(PLAN_STAGES)]
         airborne = est["jump_ground"] is not None and is_robot_airborne(
