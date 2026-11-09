@@ -196,8 +196,8 @@ int main(int argc, char **argv)
     tests.addTest(ssqp::tests::generators::
                     get_frame_angular_velocity_bound_base_frame_grad_test());
 
-    tests.addTest(ssqp::tests::generators::
-                    get_center_of_mass_bound_base_frame_grad_test());
+    tests.addTest(
+      ssqp::tests::generators::get_center_of_mass_bound_base_frame_grad_test());
 
     tests.addTest(ssqp::tests::generators::get_contact_constraint_grad_test());
 

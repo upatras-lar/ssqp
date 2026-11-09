@@ -27,6 +27,14 @@ class StageCost : public Function
     // Whether this cost is enabled
     virtual bool enabled() const;
 
+    // Set the forces and wrenches of the stage this cost is added to, in the
+    // order they appear in the controls
+    // Called by the model when it's finalized, once for every stage the cost
+    // is added to; has no effect by default
+    virtual void set_stage_forces(
+      const std::vector<std::shared_ptr<Force>> &forces,
+      const std::vector<std::shared_ptr<Force>> &wrenches);
+
     // Cost function output size, always $1$
     uint output_size() const final
     {

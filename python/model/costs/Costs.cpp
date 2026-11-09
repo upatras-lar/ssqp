@@ -333,27 +333,21 @@ void bind_Costs(nb::module_ &m)
            Inverse Dynamics; actuated joints only, for Reduced Inverse
            Dynamics) and potential forces
 
-        `k` (the model stage) only matters when there are forces present at
-        that stage. Construct one instance per stage (rather than sharing a
-        single instance across stages via Model.addCost) whenever forces
-        vary between the stages a cost is added to
+        The torque accounts for the forces of the stage the cost is added to,
+        which the model passes in when it's finalized. A single instance can
+        only be added to several stages if they all have the same forces, so
+        construct one instance per stage otherwise
         )doc")
-      .def(
-        nb::
-          init<const Model &, const double, const std::string &, const uint>(),
-        nb::call_policy<keep_model>(),
-        nb::arg("model"),
-        nb::arg("weight"),
-        nb::arg("name") = "",
-        nb::arg("k")    = 0)
-      .def(
-        nb::
-          init<const Model &, const VecX &, const std::string &, const uint>(),
-        nb::call_policy<keep_model>(),
-        nb::arg("model"),
-        nb::arg("weight"),
-        nb::arg("name") = "",
-        nb::arg("k")    = 0)
+      .def(nb::init<const Model &, const double, const std::string &>(),
+           nb::call_policy<keep_model>(),
+           nb::arg("model"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
+      .def(nb::init<const Model &, const VecX &, const std::string &>(),
+           nb::call_policy<keep_model>(),
+           nb::arg("model"),
+           nb::arg("weight"),
+           nb::arg("name") = "")
       .def("set_weight",
            static_cast<void (SquaredIDTorqueCost::*)(const double)>(
              &SquaredIDTorqueCost::set_weight),

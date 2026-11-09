@@ -146,23 +146,26 @@ class SquaredControlCost : public StageCost
  *    Dynamics; actuated joints only, for Reduced Inverse Dynamics) and
  *    potential forces
  *
- * `k` (the model stage) only matters when there are forces present at that
- * stage; it selects which of those forces this cost accounts for, since a
- * cost added at multiple stages otherwise has no way to know which one it's
- * currently being evaluated at. Construct one instance per stage (rather
- * than sharing a single instance across stages via Model::addCost) whenever
- * forces vary between the stages a cost is added to
+ * The torque accounts for the forces of the stage the cost is added to, which
+ * the model passes in when it's finalized. A single instance can only be
+ * added to several stages if they all have the same forces, so construct one
+ * instance per stage otherwise
  */
 class SquaredIDTorqueCost : public StageCost
 {
   public:
     SquaredIDTorqueCost(const Model &model, const double weight,
-                        const std::string &name = "", const uint k = 0);
+                        const std::string &name = "");
     SquaredIDTorqueCost(const Model &model, const VecX &weight,
-                        const std::string &name = "", const uint k = 0);
+                        const std::string &name = "");
 
     void set_weight(const double weight);
     void set_weight(const VecX &weight);
+
+    // Throws if the cost was already given different forces by another stage
+    void set_stage_forces(
+      const std::vector<std::shared_ptr<Force>> &forces,
+      const std::vector<std::shared_ptr<Force>> &wrenches) override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
@@ -173,8 +176,12 @@ class SquaredIDTorqueCost : public StageCost
 
   protected:
     const Model *_model;
-    const uint   _nq, _nv, _nu, _k;
+    const uint   _nq, _nv, _nu;
     VecX         _weight;
+
+    // Forces of the stages this cost is added to
+    std::vector<std::shared_ptr<Force>> _forces, _wrenches;
+    bool                                _has_stage_forces = false;
 };
 
 /** Predefined squared force cost
@@ -461,12 +468,12 @@ class FloatingBaseSquaredVelocityErrorCost : public StageCost
     FloatingBaseSquaredVelocityErrorCost(
       const Model &model, const Vec6 &desired_velocity, const double weight,
       const ReferenceFrame &reference_frame = ReferenceFrame::Local,
-      const std::string    &name            = "");
+      const std::string &name               = "");
 
     FloatingBaseSquaredVelocityErrorCost(
       const Model &model, const Vec6 &desired_velocity, const Vec6 &weight,
       const ReferenceFrame &reference_frame = ReferenceFrame::Local,
-      const std::string    &name            = "");
+      const std::string &name               = "");
 
     void set_desired_velocity(const Vec6 &desired_velocity);
     void set_weight(const double weight);

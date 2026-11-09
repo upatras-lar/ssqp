@@ -2478,7 +2478,9 @@ def create_controller(
             if name not in plan_stance[k]:
                 u[nv - 6 + 3 * i : nv - 3 + 3 * i] = 0.0
 
-        torques = torque_model.getActuatedTorqueVector(state, u, 0)
+        torques = torque_model.getActuatedTorqueVector(
+            state, u, torque_model.getForces(0)
+        )
         torques += armature * u[: nv - 6]
         return np.clip(torques, -TORQUE_LIMITS, TORQUE_LIMITS)
 

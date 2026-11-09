@@ -25,6 +25,8 @@ void ssqp::_setup_qp()
     {
         logln_at(LogLevel::Debug, "Stage " << k << ":");
 
+        model::Model::StageScope stage_scope(_model, k);
+
         if constexpr (firstSetup)
         {
             // Get A_k and B_k matrices
@@ -217,6 +219,9 @@ void ssqp::_setup_qp()
     }
 
     logln_at(LogLevel::Debug, "Terminal stage");
+
+    model::Model::StageScope stage_scope(_model, _qp.dims.horizon);
+
     // Terminal values for Q, q, D and c
     costs[_qp.dims.horizon]->hessian_xx(_guess.x.stage(_qp.dims.horizon),
                                         _emptyVec,
@@ -315,6 +320,7 @@ SolverState ssqp::_check_termination()
     MatX tmp_mat;
 
     // Add terminal terms for x
+    model::Model::StageScope terminal_scope(_model, horizon);
     costs[horizon]->gradient(_guess.x.stage(horizon),
                              _emptyVec,
                              _qp.qx_t,
@@ -342,6 +348,7 @@ SolverState ssqp::_check_termination()
     }
 
     // Add k=0 terms for u
+    model::Model::StageScope stage_0_scope(_model, 0);
     costs[0]->gradient(_guess.x.stage(0),
                        _guess.u.stage(0),
                        _qp.stages[0].qx,
@@ -375,6 +382,8 @@ SolverState ssqp::_check_termination()
     // Ignore x0 terms since it is not being optimized
     for (int k = 1; k < horizon; ++k)
     {
+        model::Model::StageScope stage_scope(_model, k);
+
         auto &stage = _qp.stages[k];
 
         const uint nx = _qp.dims.stage_state[k];
@@ -453,6 +462,8 @@ SolverState ssqp::_check_termination()
 
     for (uint k = 0; k < horizon; ++k)
     {
+        model::Model::StageScope stage_scope(_model, k);
+
         // Stage gap violation
         // Cached here for the _setup_qp call following this iteration, which
         // runs at the same guess
@@ -547,6 +558,8 @@ SolverState ssqp::_check_termination()
     // runs at the same guess
     if (constraints[horizon] != nullptr)
     {
+        model::Model::StageScope stage_scope(_model, horizon);
+
         _cached_c[horizon] =
           constraints[horizon]->evaluate(_guess.x.stage(horizon), _emptyVec);
         csnorm = std::max(constraints[horizon]
@@ -594,9 +607,12 @@ SolverState ssqp::_check_termination()
         const model::CostsContainer &costs = _model.costs();
         for (uint k = 0; k < horizon; ++k)
         {
+            model::Model::StageScope stage_scope(_model, k);
             _convergence_data.iteration_data.back().costs[k] =
               costs[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k))[0];
         }
+
+        model::Model::StageScope terminal_cost_scope(_model, horizon);
         _convergence_data.iteration_data.back().costs[horizon] =
           costs[horizon]->evaluate(_guess.x.stage(horizon), _emptyVec)[0];
 

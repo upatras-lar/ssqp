@@ -645,7 +645,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
                             (
                                 np.zeros(6),
                                 model.getActuatedTorqueVector(
-                                    state, u.stage(0)
+                                    state, u.stage(0), model.getForces(0)
                                 ),
                             )
                         )

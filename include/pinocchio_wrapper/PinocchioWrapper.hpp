@@ -7,22 +7,99 @@
 
 #include <Eigen/Core>
 
+#include "types.hpp"
+
 namespace ssqp
 {
 namespace pinocchio_wrapper
 {
 class ModelImpl;
 
-Eigen::Vector3d logSO3(const Eigen::Matrix3d &mat);
-Eigen::Matrix3d JlogSO3(const Eigen::Matrix3d &mat);
+// Whether two vectors hold the same values, compared bitwise
+bool sameBits(const VecX &a, const VecX &b);
 
-Eigen::Vector<double, 6>    logSE3(const Eigen::Matrix<double, 4, 4> &mat);
-Eigen::Matrix<double, 6, 6> JlogSE3(const Eigen::Matrix<double, 4, 4> &mat);
+// Results of a stage's dynamics at one point, so that queries at the same
+// point share a single computation
+// The model fills and reads it, since the results depend on the stage's forces
+// and the actuated joints
+struct DynamicsCache
+{
+    // Point the flags below hold results for
+    VecX x, u;
+    // The model owns the forces for as long as it has caches
+    std::vector<const model::Force *> forces, wrenches;
+    // Ignore flags of the forces, then of the wrenches
+    std::vector<bool> ignored;
 
-Eigen::Matrix<double, 6, 6> SE3ToActionMatrixInverse(
-  const Eigen::Matrix<double, 4, 4> &mat);
+    // Results for the point
+    bool joint_forces             = false;
+    bool force_jacobian           = false;
+    bool acceleration             = false;
+    bool torque                   = false;
+    bool torque_derivatives       = false;
+    bool acceleration_derivatives = false;
+
+    // Drops every result
+    void clear()
+    {
+        joint_forces             = false;
+        force_jacobian           = false;
+        acceleration             = false;
+        torque                   = false;
+        torque_derivatives       = false;
+        acceleration_derivatives = false;
+    }
+
+    // Joint forces and force Jacobian
+    std::vector<Vec6> fext;
+    MatX              Jf;
+
+    // Acceleration, along with the mass matrix parts and factorization
+    // ReducedInverseDynamics uses
+    VecX              ddq;
+    MatX              M, Muu, Muj;
+    Eigen::LDLT<MatX> Muu_ldlt;
+
+    // Torque and its RNEA derivatives
+    VecX tau;
+    MatX dtau_dq, dtau_dv, dtau_da;
+
+    // Acceleration derivatives, from the ABA derivatives in ForwardDynamics
+    MatX ddq_dq, ddq_dv, Minv;
+    // and in ReducedInverseDynamics, along with the torque derivatives with
+    // respect to the actuated accelerations
+    MatX da_dq, da_dv, da_daj, da_df, dtau_daj;
+
+    // Temporaries of the ReducedInverseDynamics acceleration derivatives
+    MatX Ju;
+    MatX dtau_dq_unact, dtau_dv_unact;
+    MatX da_dq_reordered, da_dv_reordered, da_daj_reordered, da_df_reordered;
+};
+
+Vec3 logSO3(const Mat3 &mat);
+Mat3 JlogSO3(const Mat3 &mat);
+
+Vec6 logSE3(const Mat4 &mat);
+Mat6 JlogSE3(const Mat4 &mat);
+
+Mat6 SE3ToActionMatrixInverse(const Mat4 &mat);
 
 std::shared_ptr<ModelImpl> makeImpl();
+
+// Kinematics queries keep their results in a kinematics cache and dynamics
+// queries in a dynamics cache, so that queries at the same point share a
+// single pass
+// Creates a default cache of each kind at index 0 and one per stage after it,
+// so stage k uses index k + 1
+void makeStageCaches(const std::shared_ptr<ModelImpl> &impl, const uint stages);
+
+// Index of the kinematics and dynamics caches that queries use
+uint activeCacheIndex(const std::shared_ptr<ModelImpl> &impl);
+void setActiveCacheIndex(const std::shared_ptr<ModelImpl> &impl,
+                         const uint                        index);
+
+// The dynamics cache at the active index
+DynamicsCache &activeDynamicsCache(const std::shared_ptr<ModelImpl> &impl);
 
 void buildModelFromUrdf(const std::string         &urdf,
                         std::shared_ptr<ModelImpl> impl,
@@ -71,7 +148,7 @@ std::vector<std::string> getOrderedActuatedJoints(
 
 uint getTotalActuatedJoints(const std::shared_ptr<ModelImpl> &impl);
 
-Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl);
+VecX neutralPose(const std::shared_ptr<ModelImpl> &impl);
 
 std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl);
 
@@ -83,189 +160,152 @@ std::vector<uint> modelBoundedJointIndices(
   std::unordered_map<uint, uint>   &indices_to_tangent,
   const bool                        free_flyer = false);
 
-std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
+std::pair<VecX, VecX> modelBounds(
   const std::shared_ptr<ModelImpl>     &impl,
   const std::vector<uint>              &bounded_joint_indices,
   const std::unordered_map<uint, uint> &indices_to_config,
   const bool free_flyer = false, const bool skip_velocities = false,
   const bool skip_torques = false);
 
-std::pair<Eigen::VectorXd, Eigen::VectorXd> modelEffortLimits(
-  const std::shared_ptr<ModelImpl> &impl);
+std::pair<VecX, VecX> modelEffortLimits(const std::shared_ptr<ModelImpl> &impl);
 
-Eigen::VectorXd integrate(const std::shared_ptr<ModelImpl> &impl,
-                          const Eigen::VectorXd &q, const Eigen::VectorXd &v);
+VecX integrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+               const VecX &v);
 
-Eigen::VectorXd difference(const std::shared_ptr<ModelImpl> &impl,
-                           const Eigen::VectorXd            &q0,
-                           const Eigen::VectorXd            &q1);
+VecX difference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
+                const VecX &q1);
 
 void getFramejMfMatrix(const std::shared_ptr<ModelImpl> &impl,
-                       const std::string &frame, uint &joint_id,
-                       Eigen::Matrix3d &rotation, Eigen::Vector3d &translation);
+                       const std::string &frame, uint &joint_id, Mat3 &rotation,
+                       Vec3 &translation);
 
-Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
-                                     const std::string                &frame,
-                                     const Eigen::Vector3d            &force,
-                                     uint &joint_id);
+Vec6 framejMfAct(const std::shared_ptr<ModelImpl> &impl,
+                 const std::string &frame, const Vec3 &force, uint &joint_id);
 
-Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
-                                     const uint                        frame_id,
-                                     const Eigen::Vector3d            &force,
-                                     uint &joint_id);
+Vec6 framejMfAct(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
+                 const Vec3 &force, uint &joint_id);
 
 // Same as framejMfAct, but for a full spatial wrench (linear force plus
 // moment/torque) rather than a pure linear force
-Eigen::Vector<double, 6> framejMfActWrench(
-  const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
-  const Eigen::Vector<double, 6> &wrench, uint &joint_id);
+Vec6 framejMfActWrench(const std::shared_ptr<ModelImpl> &impl,
+                       const uint frame_id, const Vec6 &wrench, uint &joint_id);
 
 // Output-buffer version; resizes `M` as needed
-void crba(const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-          Eigen::MatrixXd &M, bool local = false);
+void crba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, MatX &M,
+          bool local = false);
 
-Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
-                    const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                    const Eigen::VectorXd &tau);
+VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
+         const VecX &tau);
 
-Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
-                    const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                    const Eigen::VectorXd                       &tau,
-                    const std::vector<Eigen::Vector<double, 6>> &fext);
+VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
+         const VecX &tau, const std::vector<Vec6> &fext);
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                           const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                           const Eigen::VectorXd &tau,
-                           Eigen::MatrixXd       &aba_partial_dq,
-                           Eigen::MatrixXd       &aba_partial_dv,
-                           Eigen::MatrixXd       &Minv);
+                           const VecX &q, const VecX &v, const VecX &tau,
+                           MatX &aba_partial_dq, MatX &aba_partial_dv,
+                           MatX &Minv);
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                           const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                           const Eigen::VectorXd                       &tau,
-                           const std::vector<Eigen::Vector<double, 6>> &fext,
-                           Eigen::MatrixXd &aba_partial_dq,
-                           Eigen::MatrixXd &aba_partial_dv,
-                           Eigen::MatrixXd &Minv);
+                           const VecX &q, const VecX &v, const VecX &tau,
+                           const std::vector<Vec6> &fext, MatX &aba_partial_dq,
+                           MatX &aba_partial_dv, MatX &Minv);
 
-Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
-                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                     const Eigen::VectorXd &a);
+VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
+          const VecX &a);
 
-Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
-                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                     const Eigen::VectorXd                       &a,
-                     const std::vector<Eigen::Vector<double, 6>> &fext);
+VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
+          const VecX &a, const std::vector<Vec6> &fext);
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                            const Eigen::VectorXd &a,
-                            Eigen::MatrixXd       &rnea_partial_dq,
-                            Eigen::MatrixXd       &rnea_partial_dv,
-                            Eigen::MatrixXd       &rnea_partial_da);
+                            const VecX &q, const VecX &v, const VecX &a,
+                            MatX &rnea_partial_dq, MatX &rnea_partial_dv,
+                            MatX &rnea_partial_da);
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                            const Eigen::VectorXd                       &a,
-                            const std::vector<Eigen::Vector<double, 6>> &fext,
-                            Eigen::MatrixXd &rnea_partial_dq,
-                            Eigen::MatrixXd &rnea_partial_dv,
-                            Eigen::MatrixXd &rnea_partial_da);
+                            const VecX &q, const VecX &v, const VecX &a,
+                            const std::vector<Vec6> &fext,
+                            MatX &rnea_partial_dq, MatX &rnea_partial_dv,
+                            MatX &rnea_partial_da);
 
-void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
-                const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                Eigen::MatrixXd &J, const uint arg_pos);
+void dIntegrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                const VecX &v, MatX &J, const uint arg_pos);
 
-void dDifference(const std::shared_ptr<ModelImpl> &impl,
-                 const Eigen::VectorXd &q0, const Eigen::VectorXd &q1,
-                 Eigen::MatrixXd &J, const uint arg_pos);
-
-void updateFramePlacements(const std::shared_ptr<ModelImpl> &impl);
+void dDifference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
+                 const VecX &q1, MatX &J, const uint arg_pos);
 
 // FK including updateFramePlacement
-std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const std::string &frame);
+std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
+                                        const VecX                       &q,
+                                        const std::string &frame);
 
-std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const uint frame_id);
+std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
+                                        const VecX &q, const uint frame_id);
 
 // FK including updateFramePlacement, returning SE3 matrix
-Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
-                                     const Eigen::VectorXd            &q,
-                                     const std::string                &frame);
+Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                          const std::string &frame);
 
-Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
-                                     const Eigen::VectorXd            &q,
-                                     const uint frame_id);
+Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                          const uint frame_id);
 
-std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const Eigen::VectorXd &v, const std::string &frame);
+std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
+                                        const VecX &q, const VecX &v,
+                                        const std::string &frame);
 
-std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const Eigen::VectorXd &v, const uint frame_id);
+std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
+                                        const VecX &q, const VecX &v,
+                                        const uint frame_id);
 
-Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
-                                       const std::string                &frame,
-                                       bool local = false);
+Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl,
+                   const std::string &frame, bool local = false);
 
-Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
-                                       const uint frame_id, bool local = false);
+Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
+                   bool local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const Eigen::VectorXd            &q,
-                              const Eigen::VectorXd &v, const std::string frame,
-                              Eigen::Ref<Eigen::MatrixXd> dVdq,
-                              Eigen::Ref<Eigen::MatrixXd> dVdv,
-                              bool                        local = false);
+                              const VecX &q, const VecX &v,
+                              const std::string frame, Eigen::Ref<MatX> dVdq,
+                              Eigen::Ref<MatX> dVdv, bool local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const Eigen::VectorXd            &q,
-                              const Eigen::VectorXd &v, const uint frame_id,
-                              Eigen::Ref<Eigen::MatrixXd> dVdq,
-                              Eigen::Ref<Eigen::MatrixXd> dVdv,
-                              bool                        local = false);
+                              const VecX &q, const VecX &v, const uint frame_id,
+                              Eigen::Ref<MatX> dVdq, Eigen::Ref<MatX> dVdv,
+                              bool local = false);
 
 // Compute and get frame jacobian
-void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const Eigen::VectorXd &q, const std::string &frame,
-                   Eigen::Ref<Eigen::MatrixXd> J, bool local = false);
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                   const std::string &frame, Eigen::Ref<MatX> J,
+                   bool local = false);
 
-void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const Eigen::VectorXd &q, const uint frame_id,
-                   Eigen::Ref<Eigen::MatrixXd> J, bool local = false);
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                   const uint frame_id, Eigen::Ref<MatX> J, bool local = false);
 
 void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
-                           const Eigen::VectorXd            &q);
+                           const VecX                       &q);
 
 // Get frame jacobian (assumes computeJointJacobians has been called)
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const std::string &frame, Eigen::Ref<Eigen::MatrixXd> J,
+                   const std::string &frame, Eigen::Ref<MatX> J,
                    bool local = false);
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
-                   Eigen::Ref<Eigen::MatrixXd> J, bool local = false);
+                   Eigen::Ref<MatX> J, bool local = false);
 
 // Get center of mass
-Eigen::Vector3d centerOfMass(const std::shared_ptr<ModelImpl> &impl,
-                             const Eigen::VectorXd            &q);
+Vec3 centerOfMass(const std::shared_ptr<ModelImpl> &impl, const VecX &q);
 
-Eigen::MatrixXd jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
-                                     const Eigen::VectorXd            &q);
+MatX jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
+                          const VecX                       &q);
 
-Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl);
+VecX randomConfiguration(const std::shared_ptr<ModelImpl> &impl);
 
-Eigen::VectorXd getAllDynamicParameters(const std::shared_ptr<ModelImpl> &impl);
+VecX getAllDynamicParameters(const std::shared_ptr<ModelImpl> &impl);
 
 void setAllDynamicParameters(std::shared_ptr<ModelImpl> &impl,
-                             const Eigen::VectorXd      &parameters);
+                             const VecX                 &parameters);
 
-Eigen::MatrixXd computeJointTorqueRegressor(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const Eigen::VectorXd &v, const Eigen::VectorXd &a);
+MatX computeJointTorqueRegressor(const std::shared_ptr<ModelImpl> &impl,
+                                 const VecX &q, const VecX &v, const VecX &a);
 }
 }
 

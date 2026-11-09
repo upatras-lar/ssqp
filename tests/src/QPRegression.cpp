@@ -170,7 +170,8 @@ VecX referenceSolution(const DenseProblem &d)
 
 std::unique_ptr<QPSolver> makeSolver(const QPData               &qp,
                                      solvers::ssqp::QPSolverType backend,
-                                     bool limited = false, bool parallel = false)
+                                     bool limited  = false,
+                                     bool parallel = false)
 {
     auto params = accurateParams(backend, parallel);
     if (backend == solvers::ssqp::ADMM)
@@ -306,8 +307,8 @@ QPData conflictingQP()
 }
 
 QPSolver::Solution qpInfeasibility(solvers::ssqp::QPSolverType backend,
-                                   const QPData                &qp,
-                                   solvers::SolverState         expected)
+                                   const QPData               &qp,
+                                   solvers::SolverState        expected)
 {
     auto               solver = makeSolver(qp, backend);
     QPSolver::Solution sol(qp.dims);
@@ -410,7 +411,8 @@ void addQPRegressionTests(TestContainer &tests)
             tests.addTest(std::make_shared<FunctionTest>(
               "Regression_QP_Dense_H" + std::to_string(horizon) +
                 (bounded ? "_Bounded_" : "_Free_") + "PIQPParallel",
-              [=] { qpRegression(solvers::ssqp::PIQP, horizon, bounded, true); }));
+              [=]
+              { qpRegression(solvers::ssqp::PIQP, horizon, bounded, true); }));
 #elif defined(WITH_PIQP)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_QP_ParallelUnavailable_PIQP",
@@ -461,9 +463,8 @@ void addQPRegressionTests(TestContainer &tests)
           "Regression_QP_Feasible_NearBoundary_" + suffix,
           [=]
           {
-              const auto sol = qpInfeasibility(backend,
-                                               unreachableQP(0.28),
-                                               solvers::SUCCESS);
+              const auto sol =
+                qpInfeasibility(backend, unreachableQP(0.28), solvers::SUCCESS);
               require(sol.dx.stage(1)[0] > 0.28 - 1e-5,
                       "Near-boundary row must be satisfied");
           }));

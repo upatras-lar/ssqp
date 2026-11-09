@@ -879,9 +879,8 @@ get_floating_base_linear_velocity_bound_fixed_frame_grad_test()
       *model.get(),
       Vec3::Zero(),
       Vec3::Zero(),
-      model::stagewise::predefined::ReferenceFrame::normal(
-        Vec3(0.3, -0.2, 1.0),
-        0.7));
+      model::stagewise::predefined::ReferenceFrame::normal(Vec3(0.3, -0.2, 1.0),
+                                                           0.7));
 
     model->finalize();
 
@@ -911,9 +910,8 @@ get_floating_base_angular_velocity_bound_fixed_frame_grad_test()
       *model.get(),
       Vec3::Zero(),
       Vec3::Zero(),
-      model::stagewise::predefined::ReferenceFrame::normal(
-        Vec3(0.3, -0.2, 1.0),
-        0.7));
+      model::stagewise::predefined::ReferenceFrame::normal(Vec3(0.3, -0.2, 1.0),
+                                                           0.7));
 
     model->finalize();
 
@@ -2375,10 +2373,10 @@ std::shared_ptr<Test> get_center_of_mass_tracking_cost_base_frame_grad_test()
 
     model->finalize();
 
-    std::shared_ptr<FDGradCost> cost_test = std::make_shared<FDGradCost>(
-      "CenterOfMassTrackingCostBaseFrameGradTest",
-      model,
-      0);
+    std::shared_ptr<FDGradCost> cost_test =
+      std::make_shared<FDGradCost>("CenterOfMassTrackingCostBaseFrameGradTest",
+                                   model,
+                                   0);
 
     return cost_test;
 }

@@ -123,8 +123,8 @@ Mat3 ReferenceFrame::axes(const VecX &x) const
 }
 
 void ReferenceFrame::require(std::initializer_list<Type> supported,
-                             const std::string &user,
-                             const bool         floating_base) const
+                             const std::string          &user,
+                             const bool                  floating_base) const
 {
     if (_type == Base && !floating_base)
     {

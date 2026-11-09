@@ -37,6 +37,16 @@ bool MergedStageCost::enabled() const
                        { return cost->enabled(); });
 }
 
+void MergedStageCost::set_stage_forces(
+  const std::vector<std::shared_ptr<Force>> &forces,
+  const std::vector<std::shared_ptr<Force>> &wrenches)
+{
+    for (const std::shared_ptr<StageCost> &cost : _costs)
+    {
+        cost->set_stage_forces(forces, wrenches);
+    }
+}
+
 VecX MergedStageCost::evaluate(const VecX &x, const VecX &u) const
 {
     const bool any_enabled = enabled();

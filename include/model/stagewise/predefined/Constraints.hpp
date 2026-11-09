@@ -346,7 +346,7 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
     FloatingBaseLinearVelocityBound(
       const Model &model, const Vec3 &lb, const Vec3 &ub,
       const ReferenceFrame &reference_frame = ReferenceFrame::Local,
-      const std::string    &name            = "");
+      const std::string &name               = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);
@@ -399,7 +399,7 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
     FloatingBaseAngularVelocityBound(
       const Model &model, const Vec3 &lb, const Vec3 &ub,
       const ReferenceFrame &reference_frame = ReferenceFrame::Local,
-      const std::string    &name            = "");
+      const std::string &name               = "");
 
     void set_lower_bound(const Vec3 &lb);
     void set_upper_bound(const Vec3 &ub);

@@ -30,6 +30,11 @@ class MergedStageCost : public StageCost
     void set_enabled(const bool enabled) override;
     bool enabled() const override;
 
+    // Passes the stage forces on to every summed cost
+    void set_stage_forces(
+      const std::vector<std::shared_ptr<Force>> &forces,
+      const std::vector<std::shared_ptr<Force>> &wrenches) override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
     void gradient(const VecX &x, const VecX &u, VecX &dx,
                   VecX &du) const override;

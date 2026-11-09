@@ -198,7 +198,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             model.inverseDynamics(
                 state[:nq],
                 state[nq:],
-                model.getFullAccelerationVector(state, u, 0),
+                model.getFullAccelerationVector(state, u, model.getForces(0)),
                 {"FL_foot": [u[nu : nu + 3]]},
             )
         )[6:]

@@ -96,7 +96,7 @@ void   print_matrix_dimensions(const MatX &mat);
 int    sgn(double val);
 double softmax_max(const VecX &v, double alpha);
 // The cross product matrix of v, such that skew(v) * a = v x a
-Mat3   skew(const Vec3 &v);
+Mat3 skew(const Vec3 &v);
 
 namespace model
 {
@@ -341,8 +341,8 @@ class ReferenceFrame
 
     // Throws std::invalid_argument if the type is not one of the given ones,
     // or is Base on a model without a floating base
-    void require(std::initializer_list<Type> supported,
-                 const std::string &user, const bool floating_base = true) const;
+    void require(std::initializer_list<Type> supported, const std::string &user,
+                 const bool floating_base = true) const;
 
   private:
     Type _type;

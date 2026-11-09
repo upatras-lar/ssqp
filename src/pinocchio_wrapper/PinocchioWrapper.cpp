@@ -19,20 +19,169 @@
 #include <pinocchio/algorithm/regressor.hpp>
 
 #include <boost/variant.hpp>
+#include <cstring>
+#include <memory>
 #include <optional>
+#include <vector>
 
 namespace ssqp
 {
 namespace pinocchio_wrapper
 {
+// Results of kinematics passes at one configuration and velocity, so that
+// queries at the same point share a single pass
+struct KinematicsCache
+{
+    explicit KinematicsCache(const pinocchio::Model &model) : data(model) {}
+
+    pinocchio::Data data;
+
+    // Point the flags below hold results for
+    VecX q, v;
+
+    // Results for q
+    bool placements = false;
+    bool jacobians  = false;
+
+    // Results for q and v
+    bool velocities           = false;
+    bool velocity_derivatives = false;
+};
+
 struct ModelImpl
 {
     pinocchio::Model model;
     // Data must be constructed after Model. Constructing a temporary Data and
     // move-assigning it into Pinocchio's default Data reads uninitialized
     // Eigen solver state under sanitizers.
+    // Used by all algorithms other than the kinematics queries
     std::optional<pinocchio::Data> data;
+
+    // Kinematics and dynamics caches, the default ones first and then one of
+    // each per stage
+    std::vector<std::unique_ptr<KinematicsCache>> kinematics_caches;
+    std::vector<std::unique_ptr<DynamicsCache>>   dynamics_caches;
+    // Index of the caches queries use
+    uint active_cache = 0;
 };
+
+bool sameBits(const VecX &a, const VecX &b)
+{
+    return a.size() == b.size() &&
+           std::memcmp(a.data(), b.data(), a.size() * sizeof(double)) == 0;
+}
+
+namespace
+{
+// Points the cache at configuration q, dropping results for any other one
+void setConfiguration(KinematicsCache &cache, const VecX &q)
+{
+    if (sameBits(cache.q, q))
+    {
+        return;
+    }
+
+    cache.q                    = q;
+    cache.placements           = false;
+    cache.jacobians            = false;
+    cache.velocities           = false;
+    cache.velocity_derivatives = false;
+}
+
+// Points the cache at velocity v, dropping results for any other one
+void setVelocity(KinematicsCache &cache, const VecX &v)
+{
+    if (sameBits(cache.v, v))
+    {
+        return;
+    }
+
+    cache.v                    = v;
+    cache.velocities           = false;
+    cache.velocity_derivatives = false;
+}
+
+// The functions below run a kinematics pass on the active cache only if its
+// results for the given point are missing
+// A pass also marks the results it computes along the way, which match those
+// of the pass computing them alone
+// The exception is the joint Jacobians, which the FK derivatives pass computes
+// with roundoff differences, so the Jacobian and FK derivatives passes each
+// drop the other's results when they write the shared Jacobians
+
+KinematicsCache &ensurePlacements(const std::shared_ptr<ModelImpl> &impl,
+                                  const VecX                       &q)
+{
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+
+    if (!cache.placements)
+    {
+        pinocchio::forwardKinematics(impl->model, cache.data, q);
+        cache.placements = true;
+    }
+
+    return cache;
+}
+
+KinematicsCache &ensureJacobians(const std::shared_ptr<ModelImpl> &impl,
+                                 const VecX                       &q)
+{
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+
+    if (!cache.jacobians)
+    {
+        pinocchio::computeJointJacobians(impl->model, cache.data, q);
+        cache.placements           = true;
+        cache.jacobians            = true;
+        cache.velocity_derivatives = false;
+    }
+
+    return cache;
+}
+
+KinematicsCache &ensureVelocities(const std::shared_ptr<ModelImpl> &impl,
+                                  const VecX &q, const VecX &v)
+{
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
+
+    if (!cache.velocities)
+    {
+        pinocchio::forwardKinematics(impl->model, cache.data, q, v);
+        cache.placements = true;
+        cache.velocities = true;
+    }
+
+    return cache;
+}
+
+// Derivatives at zero acceleration
+KinematicsCache &ensureVelocityDerivatives(
+  const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v)
+{
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
+
+    if (!cache.velocity_derivatives)
+    {
+        pinocchio::computeForwardKinematicsDerivatives(impl->model,
+                                                       cache.data,
+                                                       q,
+                                                       v,
+                                                       VecX::Zero(v.size()));
+        cache.placements           = true;
+        cache.jacobians            = false;
+        cache.velocities           = true;
+        cache.velocity_derivatives = true;
+    }
+
+    return cache;
+}
+}
 
 struct JointTypeIdentifier : public boost::static_visitor<void>
 {
@@ -46,33 +195,32 @@ struct JointTypeIdentifier : public boost::static_visitor<void>
     }
 };
 
-Eigen::Vector3d logSO3(const Eigen::Matrix3d &mat)
+Vec3 logSO3(const Mat3 &mat)
 {
     return pinocchio::log3(mat);
 }
 
-Eigen::Matrix3d JlogSO3(const Eigen::Matrix3d &mat)
+Mat3 JlogSO3(const Mat3 &mat)
 {
-    Eigen::Matrix3d Jlog;
+    Mat3 Jlog;
     pinocchio::Jlog3(mat, Jlog);
     return Jlog;
 }
 
-Eigen::Vector<double, 6> logSE3(const Eigen::Matrix<double, 4, 4> &mat)
+Vec6 logSE3(const Mat4 &mat)
 {
     return pinocchio::log6(mat);
 }
 
-Eigen::Matrix<double, 6, 6> JlogSE3(const Eigen::Matrix<double, 4, 4> &mat)
+Mat6 JlogSE3(const Mat4 &mat)
 {
-    Eigen::Matrix<double, 6, 6> Jlog;
+    Mat6 Jlog;
     Jlog.setZero();
     pinocchio::Jlog6(pinocchio::SE3(mat), Jlog);
     return Jlog;
 }
 
-Eigen::Matrix<double, 6, 6> SE3ToActionMatrixInverse(
-  const Eigen::Matrix<double, 4, 4> &mat)
+Mat6 SE3ToActionMatrixInverse(const Mat4 &mat)
 {
     return pinocchio::SE3(mat).toActionMatrixInverse();
 }
@@ -80,6 +228,37 @@ Eigen::Matrix<double, 6, 6> SE3ToActionMatrixInverse(
 std::shared_ptr<ModelImpl> makeImpl()
 {
     return std::make_shared<ModelImpl>();
+}
+
+void makeStageCaches(const std::shared_ptr<ModelImpl> &impl, const uint stages)
+{
+    impl->kinematics_caches.clear();
+    impl->dynamics_caches.clear();
+
+    for (uint i = 0; i <= stages; ++i)
+    {
+        impl->kinematics_caches.push_back(
+          std::make_unique<KinematicsCache>(impl->model));
+        impl->dynamics_caches.push_back(std::make_unique<DynamicsCache>());
+    }
+
+    impl->active_cache = 0;
+}
+
+uint activeCacheIndex(const std::shared_ptr<ModelImpl> &impl)
+{
+    return impl->active_cache;
+}
+
+void setActiveCacheIndex(const std::shared_ptr<ModelImpl> &impl,
+                         const uint                        index)
+{
+    impl->active_cache = index;
+}
+
+DynamicsCache &activeDynamicsCache(const std::shared_ptr<ModelImpl> &impl)
+{
+    return *impl->dynamics_caches[impl->active_cache];
 }
 
 void buildModelFromUrdf(const std::string         &urdf,
@@ -96,6 +275,7 @@ void buildModelFromUrdf(const std::string         &urdf,
         pinocchio::urdf::buildModel(urdf, impl->model);
     }
     impl->data.emplace(impl->model);
+    makeStageCaches(impl, 0);
 }
 
 void buildModelFromUrdfXML(const std::string         &urdf,
@@ -112,6 +292,7 @@ void buildModelFromUrdfXML(const std::string         &urdf,
         pinocchio::urdf::buildModelFromXML(urdf, impl->model);
     }
     impl->data.emplace(impl->model);
+    makeStageCaches(impl, 0);
 }
 
 void buildModelFromMjcf(const std::string         &mjcf,
@@ -128,6 +309,7 @@ void buildModelFromMjcf(const std::string         &mjcf,
         pinocchio::mjcf::buildModel(mjcf, impl->model);
     }
     impl->data.emplace(impl->model);
+    makeStageCaches(impl, 0);
 }
 
 std::pair<uint, uint> modelDimensions(const std::shared_ptr<ModelImpl> &impl)
@@ -178,7 +360,7 @@ std::vector<uint> modelBoundedJointIndices(
     return indices;
 }
 
-std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
+std::pair<VecX, VecX> modelBounds(
   const std::shared_ptr<ModelImpl>     &impl,
   const std::vector<uint>              &bounded_joint_indices,
   const std::unordered_map<uint, uint> &indices_to_config,
@@ -192,7 +374,7 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
 
     uint nbounds = bounded_joint_indices.size() +
                    (!skip_velocities + !skip_torques) * nv_reduced;
-    Eigen::VectorXd lb(nbounds), ub(nbounds);
+    VecX lb(nbounds), ub(nbounds);
 
     for (uint i = 0; i < bounded_joint_indices.size(); ++i)
     {
@@ -223,27 +405,26 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> modelBounds(
     return { lb, ub };
 }
 
-std::pair<Eigen::VectorXd, Eigen::VectorXd> modelEffortLimits(
-  const std::shared_ptr<ModelImpl> &impl)
+std::pair<VecX, VecX> modelEffortLimits(const std::shared_ptr<ModelImpl> &impl)
 {
     return { -impl->model.effortLimit, impl->model.effortLimit };
 }
 
-Eigen::VectorXd integrate(const std::shared_ptr<ModelImpl> &impl,
-                          const Eigen::VectorXd &q, const Eigen::VectorXd &v)
+VecX integrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+               const VecX &v)
 {
     return pinocchio::integrate(impl->model, q, v);
 }
 
-Eigen::VectorXd difference(const std::shared_ptr<ModelImpl> &impl,
-                           const Eigen::VectorXd &q0, const Eigen::VectorXd &q1)
+VecX difference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
+                const VecX &q1)
 {
     return pinocchio::difference(impl->model, q0, q1);
 }
 
 void getFramejMfMatrix(const std::shared_ptr<ModelImpl> &impl,
-                       const std::string &frame, uint &joint_id,
-                       Eigen::Matrix3d &rotation, Eigen::Vector3d &translation)
+                       const std::string &frame, uint &joint_id, Mat3 &rotation,
+                       Vec3 &translation)
 {
     pinocchio::FrameIndex frame_id = impl->model.getFrameId(frame);
     pinocchio::SE3        jMf      = impl->model.frames[frame_id].placement;
@@ -252,18 +433,14 @@ void getFramejMfMatrix(const std::shared_ptr<ModelImpl> &impl,
     translation                    = jMf.translation();
 }
 
-Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
-                                     const std::string                &frame,
-                                     const Eigen::Vector3d            &force,
-                                     uint                             &joint_id)
+Vec6 framejMfAct(const std::shared_ptr<ModelImpl> &impl,
+                 const std::string &frame, const Vec3 &force, uint &joint_id)
 {
     return framejMfAct(impl, impl->model.getFrameId(frame), force, joint_id);
 }
 
-Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
-                                     const uint                        frame_id,
-                                     const Eigen::Vector3d            &force,
-                                     uint                             &joint_id)
+Vec6 framejMfAct(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
+                 const Vec3 &force, uint &joint_id)
 {
     pinocchio::Force f = pinocchio::Force::Zero();
     f.linear()         = force;
@@ -274,9 +451,8 @@ Eigen::Vector<double, 6> framejMfAct(const std::shared_ptr<ModelImpl> &impl,
     return res.toVector();
 }
 
-Eigen::Vector<double, 6> framejMfActWrench(
-  const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
-  const Eigen::Vector<double, 6> &wrench, uint &joint_id)
+Vec6 framejMfActWrench(const std::shared_ptr<ModelImpl> &impl,
+                       const uint frame_id, const Vec6 &wrench, uint &joint_id)
 {
     pinocchio::Force f = pinocchio::Force::Zero();
     f.linear()         = wrench.head<3>();
@@ -288,8 +464,8 @@ Eigen::Vector<double, 6> framejMfActWrench(
     return res.toVector();
 }
 
-void crba(const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-          Eigen::MatrixXd &M, bool local)
+void crba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, MatX &M,
+          bool local)
 {
     pinocchio::crba(impl->model,
                     *impl->data,
@@ -300,10 +476,8 @@ void crba(const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
     M = impl->data->M.selfadjointView<Eigen::Upper>();
 }
 
-Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
-                    const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                    const Eigen::VectorXd                       &tau,
-                    const std::vector<Eigen::Vector<double, 6>> &fext)
+VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
+         const VecX &tau, const std::vector<Vec6> &fext)
 {
     pinocchio::container::aligned_vector<pinocchio::Force> forces(fext.size());
 
@@ -317,20 +491,17 @@ Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
     return impl->data->ddq;
 }
 
-Eigen::VectorXd aba(const std::shared_ptr<ModelImpl> &impl,
-                    const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                    const Eigen::VectorXd &tau)
+VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
+         const VecX &tau)
 {
     pinocchio::aba(impl->model, *impl->data, q, v, tau);
     return impl->data->ddq;
 }
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                           const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                           const Eigen::VectorXd &tau,
-                           Eigen::MatrixXd       &aba_partial_dq,
-                           Eigen::MatrixXd       &aba_partial_dv,
-                           Eigen::MatrixXd       &Minv)
+                           const VecX &q, const VecX &v, const VecX &tau,
+                           MatX &aba_partial_dq, MatX &aba_partial_dv,
+                           MatX &Minv)
 {
     pinocchio::computeABADerivatives(impl->model, *impl->data, q, v, tau);
     aba_partial_dq = impl->data->ddq_dq;
@@ -339,12 +510,9 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                           const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                           const Eigen::VectorXd                       &tau,
-                           const std::vector<Eigen::Vector<double, 6>> &fext,
-                           Eigen::MatrixXd &aba_partial_dq,
-                           Eigen::MatrixXd &aba_partial_dv,
-                           Eigen::MatrixXd &Minv)
+                           const VecX &q, const VecX &v, const VecX &tau,
+                           const std::vector<Vec6> &fext, MatX &aba_partial_dq,
+                           MatX &aba_partial_dv, MatX &Minv)
 {
     pinocchio::container::aligned_vector<pinocchio::Force> forces(fext.size());
 
@@ -366,17 +534,14 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
     Minv           = impl->data->Minv;
 }
 
-Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
-                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                     const Eigen::VectorXd &a)
+VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
+          const VecX &a)
 {
     return pinocchio::rnea(impl->model, *impl->data, q, v, a);
 }
 
-Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
-                     const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                     const Eigen::VectorXd                       &a,
-                     const std::vector<Eigen::Vector<double, 6>> &fext)
+VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
+          const VecX &a, const std::vector<Vec6> &fext)
 {
     pinocchio::container::aligned_vector<pinocchio::Force> forces(
       fext.size(),
@@ -392,11 +557,9 @@ Eigen::VectorXd rnea(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                            const Eigen::VectorXd &a,
-                            Eigen::MatrixXd       &rnea_partial_dq,
-                            Eigen::MatrixXd       &rnea_partial_dv,
-                            Eigen::MatrixXd       &rnea_partial_da)
+                            const VecX &q, const VecX &v, const VecX &a,
+                            MatX &rnea_partial_dq, MatX &rnea_partial_dv,
+                            MatX &rnea_partial_da)
 {
     pinocchio::computeRNEADerivatives(impl->model, *impl->data, q, v, a);
 
@@ -408,12 +571,10 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                            const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                            const Eigen::VectorXd                       &a,
-                            const std::vector<Eigen::Vector<double, 6>> &fext,
-                            Eigen::MatrixXd &rnea_partial_dq,
-                            Eigen::MatrixXd &rnea_partial_dv,
-                            Eigen::MatrixXd &rnea_partial_da)
+                            const VecX &q, const VecX &v, const VecX &a,
+                            const std::vector<Vec6> &fext,
+                            MatX &rnea_partial_dq, MatX &rnea_partial_dv,
+                            MatX &rnea_partial_da)
 {
     pinocchio::container::aligned_vector<pinocchio::Force> forces(
       fext.size(),
@@ -621,14 +782,13 @@ uint getTotalActuatedJoints(const std::shared_ptr<ModelImpl> &impl)
     return total;
 }
 
-Eigen::VectorXd neutralPose(const std::shared_ptr<ModelImpl> &impl)
+VecX neutralPose(const std::shared_ptr<ModelImpl> &impl)
 {
     return pinocchio::neutral(impl->model);
 }
 
-void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
-                const Eigen::VectorXd &q, const Eigen::VectorXd &v,
-                Eigen::MatrixXd &J, const uint arg_pos)
+void dIntegrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                const VecX &v, MatX &J, const uint arg_pos)
 {
     pinocchio::dIntegrate(impl->model,
                           q,
@@ -637,9 +797,8 @@ void dIntegrate(const std::shared_ptr<ModelImpl> &impl,
                           static_cast<pinocchio::ArgumentPosition>(arg_pos));
 }
 
-void dDifference(const std::shared_ptr<ModelImpl> &impl,
-                 const Eigen::VectorXd &q0, const Eigen::VectorXd &q1,
-                 Eigen::MatrixXd &J, const uint arg_pos)
+void dDifference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
+                 const VecX &q1, MatX &J, const uint arg_pos)
 {
     pinocchio::dDifference(impl->model,
                            q0,
@@ -648,76 +807,65 @@ void dDifference(const std::shared_ptr<ModelImpl> &impl,
                            static_cast<pinocchio::ArgumentPosition>(arg_pos));
 }
 
-void updateFramePlacements(const std::shared_ptr<ModelImpl> &impl)
-{
-    pinocchio::updateFramePlacements(impl->model, *impl->data);
-}
-
-std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const std::string &frame)
+std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
+                                        const VecX &q, const std::string &frame)
 {
     return forwardKinematics(impl, q, impl->model.getFrameId(frame));
 }
 
-std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const uint frame_id)
+std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
+                                        const VecX &q, const uint frame_id)
 {
-    pinocchio::forwardKinematics(impl->model, *impl->data, q);
-    pinocchio::updateFramePlacement(impl->model, *impl->data, frame_id);
+    pinocchio::Data &data = ensurePlacements(impl, q).data;
+    pinocchio::updateFramePlacement(impl->model, data, frame_id);
 
-    return { impl->data->oMf[frame_id].translation(),
-             impl->data->oMf[frame_id].rotation() };
+    return { data.oMf[frame_id].translation(), data.oMf[frame_id].rotation() };
 }
 
-std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const Eigen::VectorXd &v, const std::string &frame)
+std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
+                                        const VecX &q, const VecX &v,
+                                        const std::string &frame)
 {
     return forwardKinematics(impl, q, v, impl->model.getFrameId(frame));
 }
 
-std::pair<Eigen::Vector3d, Eigen::Matrix3d> forwardKinematics(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const Eigen::VectorXd &v, const uint frame_id)
+std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
+                                        const VecX &q, const VecX &v,
+                                        const uint frame_id)
 {
-    pinocchio::forwardKinematics(impl->model, *impl->data, q, v);
-    pinocchio::updateFramePlacement(impl->model, *impl->data, frame_id);
+    pinocchio::Data &data = ensureVelocities(impl, q, v).data;
+    pinocchio::updateFramePlacement(impl->model, data, frame_id);
 
-    return { impl->data->oMf[frame_id].translation(),
-             impl->data->oMf[frame_id].rotation() };
+    return { data.oMf[frame_id].translation(), data.oMf[frame_id].rotation() };
 }
 
-Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
-                                     const Eigen::VectorXd            &q,
-                                     const std::string                &frame)
+Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                          const std::string &frame)
 {
     return forwardKinematicsSE3(impl, q, impl->model.getFrameId(frame));
 }
 
-Eigen::Matrix4d forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
-                                     const Eigen::VectorXd            &q,
-                                     const uint                        frame_id)
+Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                          const uint frame_id)
 {
-    pinocchio::forwardKinematics(impl->model, *impl->data, q);
-    pinocchio::updateFramePlacement(impl->model, *impl->data, frame_id);
+    pinocchio::Data &data = ensurePlacements(impl, q).data;
+    pinocchio::updateFramePlacement(impl->model, data, frame_id);
 
-    return impl->data->oMf[frame_id].toHomogeneousMatrix();
+    return data.oMf[frame_id].toHomogeneousMatrix();
 }
 
-Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
-                                       const std::string &frame, bool local)
+Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl,
+                   const std::string &frame, bool local)
 {
     return frameVelocity(impl, impl->model.getFrameId(frame), local);
 }
 
-Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
-                                       const uint frame_id, bool local)
+Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
+                   bool local)
 {
     return pinocchio::getFrameVelocity(
              impl->model,
-             *impl->data,
+             impl->kinematics_caches[impl->active_cache]->data,
              frame_id,
              local ? pinocchio::ReferenceFrame::LOCAL
                    : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED)
@@ -725,10 +873,9 @@ Eigen::Vector<double, 6> frameVelocity(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const Eigen::VectorXd            &q,
-                              const Eigen::VectorXd &v, const std::string frame,
-                              Eigen::Ref<Eigen::MatrixXd> dVdq,
-                              Eigen::Ref<Eigen::MatrixXd> dVdv, bool local)
+                              const VecX &q, const VecX &v,
+                              const std::string frame, Eigen::Ref<MatX> dVdq,
+                              Eigen::Ref<MatX> dVdv, bool local)
 {
     frameVelocityDerivatives(impl,
                              q,
@@ -740,28 +887,22 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const Eigen::VectorXd            &q,
-                              const Eigen::VectorXd &v, const uint frame_id,
-                              Eigen::Ref<Eigen::MatrixXd> dVdq,
-                              Eigen::Ref<Eigen::MatrixXd> dVdv, bool local)
+                              const VecX &q, const VecX &v, const uint frame_id,
+                              Eigen::Ref<MatX> dVdq, Eigen::Ref<MatX> dVdv,
+                              bool local)
 {
-    pinocchio::computeForwardKinematicsDerivatives(
-      impl->model,
-      *impl->data,
-      q,
-      v,
-      Eigen::VectorXd::Zero(v.size()));
+    pinocchio::Data &data = ensureVelocityDerivatives(impl, q, v).data;
 
-    Eigen::MatrixXd tmp1 = Eigen::MatrixXd::Zero(6, v.size());
-    Eigen::MatrixXd tmp2 = Eigen::MatrixXd::Zero(6, v.size());
-    Eigen::MatrixXd tmp3 = Eigen::MatrixXd::Zero(6, v.size());
+    MatX tmp1 = MatX::Zero(6, v.size());
+    MatX tmp2 = MatX::Zero(6, v.size());
+    MatX tmp3 = MatX::Zero(6, v.size());
 
     dVdq.setZero();
     dVdv.setZero();
 
     pinocchio::getFrameAccelerationDerivatives(
       impl->model,
-      *impl->data,
+      data,
       frame_id,
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
@@ -772,22 +913,18 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
       tmp3);
 }
 
-void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const Eigen::VectorXd &q, const std::string &frame,
-                   Eigen::Ref<Eigen::MatrixXd> J, bool local)
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                   const std::string &frame, Eigen::Ref<MatX> J, bool local)
 {
     frameJacobian(impl, q, impl->model.getFrameId(frame), J, local);
 }
 
-void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const Eigen::VectorXd &q, const uint frame_id,
-                   Eigen::Ref<Eigen::MatrixXd> J, bool local)
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+                   const uint frame_id, Eigen::Ref<MatX> J, bool local)
 {
-    pinocchio::computeJointJacobians(impl->model, *impl->data, q);
-    pinocchio::updateFramePlacements(impl->model, *impl->data);
     pinocchio::getFrameJacobian(
       impl->model,
-      *impl->data,
+      ensureJacobians(impl, q).data,
       frame_id,
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
@@ -795,46 +932,42 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
-                           const Eigen::VectorXd            &q)
+                           const VecX                       &q)
 {
-    pinocchio::computeJointJacobians(impl->model, *impl->data, q);
-    pinocchio::updateFramePlacements(impl->model, *impl->data);
+    ensureJacobians(impl, q);
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const std::string &frame, Eigen::Ref<Eigen::MatrixXd> J,
-                   bool local)
+                   const std::string &frame, Eigen::Ref<MatX> J, bool local)
 {
     frameJacobian(impl, impl->model.getFrameId(frame), J, local);
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
-                   Eigen::Ref<Eigen::MatrixXd> J, bool local)
+                   Eigen::Ref<MatX> J, bool local)
 {
     pinocchio::getFrameJacobian(
       impl->model,
-      *impl->data,
+      impl->kinematics_caches[impl->active_cache]->data,
       frame_id,
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
       J);
 }
 
-Eigen::Vector3d centerOfMass(const std::shared_ptr<ModelImpl> &impl,
-                             const Eigen::VectorXd            &q)
+Vec3 centerOfMass(const std::shared_ptr<ModelImpl> &impl, const VecX &q)
 {
     return pinocchio::centerOfMass(impl->model, *impl->data, q, false);
 }
 
-Eigen::MatrixXd jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
-                                     const Eigen::VectorXd            &q)
+MatX jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl, const VecX &q)
 {
     return pinocchio::jacobianCenterOfMass(impl->model, *impl->data, q, false);
 }
 
-Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl)
+VecX randomConfiguration(const std::shared_ptr<ModelImpl> &impl)
 {
-    Eigen::VectorXd rc(impl->model.nq);
+    VecX rc(impl->model.nq);
     pinocchio::randomConfiguration(impl->model,
                                    impl->model.lowerPositionLimit,
                                    impl->model.upperPositionLimit,
@@ -843,9 +976,9 @@ Eigen::VectorXd randomConfiguration(const std::shared_ptr<ModelImpl> &impl)
     return rc;
 }
 
-Eigen::VectorXd getAllDynamicParameters(const std::shared_ptr<ModelImpl> &impl)
+VecX getAllDynamicParameters(const std::shared_ptr<ModelImpl> &impl)
 {
-    Eigen::VectorXd parameters(10 * (impl->model.njoints - 1));
+    VecX parameters(10 * (impl->model.njoints - 1));
 
     for (uint i = 1; i < impl->model.njoints; ++i)
     {
@@ -857,16 +990,15 @@ Eigen::VectorXd getAllDynamicParameters(const std::shared_ptr<ModelImpl> &impl)
 }
 
 void setAllDynamicParameters(std::shared_ptr<ModelImpl> &impl,
-                             const Eigen::VectorXd      &parameters)
+                             const VecX                 &parameters)
 {
     for (uint i = 1; i < impl->model.njoints; ++i)
     {
-        const Eigen::VectorXd parameters_i =
-          parameters.segment<10>(10 * (i - 1));
+        const VecX parameters_i = parameters.segment<10>(10 * (i - 1));
 
-        const double          m   = parameters_i[0];
-        const Eigen::Vector3d com = parameters_i.segment<3>(1) / m;
-        Eigen::Matrix3d       I;
+        const double m   = parameters_i[0];
+        const Vec3   com = parameters_i.segment<3>(1) / m;
+        Mat3         I;
 
         I << parameters_i[4], parameters_i[5], parameters_i[6], parameters_i[5],
           parameters_i[7], parameters_i[8], parameters_i[6], parameters_i[8],
@@ -874,11 +1006,17 @@ void setAllDynamicParameters(std::shared_ptr<ModelImpl> &impl,
 
         impl->model.inertias[i] = pinocchio::Inertia(m, com, I);
     }
+
+    // Dynamics results depend on the inertias, which the caches' keys don't
+    // cover
+    for (const std::unique_ptr<DynamicsCache> &cache : impl->dynamics_caches)
+    {
+        cache->clear();
+    }
 }
 
-Eigen::MatrixXd computeJointTorqueRegressor(
-  const std::shared_ptr<ModelImpl> &impl, const Eigen::VectorXd &q,
-  const Eigen::VectorXd &v, const Eigen::VectorXd &a)
+MatX computeJointTorqueRegressor(const std::shared_ptr<ModelImpl> &impl,
+                                 const VecX &q, const VecX &v, const VecX &a)
 {
     return pinocchio::computeJointTorqueRegressor(impl->model,
                                                   *impl->data,

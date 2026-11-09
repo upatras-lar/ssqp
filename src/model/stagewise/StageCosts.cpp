@@ -26,6 +26,12 @@ bool StageCost::enabled() const
 {
     return _enabled;
 }
+
+void StageCost::set_stage_forces(
+  const std::vector<std::shared_ptr<Force>> &forces,
+  const std::vector<std::shared_ptr<Force>> &wrenches)
+{
+}
 }
 }
 }

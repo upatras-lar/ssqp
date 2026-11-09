@@ -86,16 +86,16 @@ def cvt(
     return generators * span + lo
 
 
-def control_cost(model, dynamics_mode, weight, k=0):
+def control_cost(model, dynamics_mode, weight):
     # ForwardDynamics controls are torques, so SquaredControlCost already
     # penalizes torque. InverseDynamics/ReducedInverseDynamics controls are
     # accelerations, so use SquaredIDTorqueCost to penalize the torque they
-    # imply instead, with the same weight. `k` only matters when the model
-    # has forces at that stage; construct one cost per stage (not a single
+    # imply instead, with the same weight. The torque cost takes the forces of
+    # the stage it's added to, so construct one cost per stage (not a single
     # shared instance) if forces vary across the stages it's added to
     if dynamics_mode == ssqpy.model.SolverMode.ForwardDynamics:
         return ssqpy.model.costs.SquaredControlCost(model, weight)
-    return ssqpy.model.costs.SquaredIDTorqueCost(model, weight, k=k)
+    return ssqpy.model.costs.SquaredIDTorqueCost(model, weight)
 
 
 def generate_pendubot_problems(n, horizon, dynamics_mode):
@@ -425,10 +425,10 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
             init_controls.extend(gait_manager.addStandingStage(k))
 
         # Constructed per-stage (not shared) since the gait's contact
-        # forces vary by stage, and control_cost snapshots the model's
-        # forces at that stage when it builds a SquaredIDTorqueCost
+        # forces vary by stage, and a SquaredIDTorqueCost takes the forces
+        # of the stage it's added to
         for k in range(HORIZON):
-            model.addCost(k, control_cost(model, dynamics_mode, U_WGT, k))
+            model.addCost(k, control_cost(model, dynamics_mode, U_WGT))
 
         model.finalize(init_states=init)
 
@@ -607,9 +607,10 @@ def generate_go2_multi_jump_problems(dynamics_mode):
 
     # Constructed per-stage (not shared) since the jump sequence's contact
     # forces vary heavily across the horizon (4 feet down to none while
-    # airborne), and control_cost snapshots the model's forces at that stage
+    # airborne), and a SquaredIDTorqueCost takes the forces of the stage it's
+    # added to
     for k in range(HORIZON):
-        model.addCost(k, control_cost(model, dynamics_mode, U_WGT, k))
+        model.addCost(k, control_cost(model, dynamics_mode, U_WGT))
 
     model.finalize(init_states=init)
 
@@ -698,7 +699,7 @@ def generate_g1_jump_problems(dynamics_mode):
     # Constructed per-stage (not shared) since contact forces vary (8
     # contacts while standing, none while airborne)
     for k in range(H):
-        model.addCost(k, control_cost(model, dynamics_mode, U_WGT, k))
+        model.addCost(k, control_cost(model, dynamics_mode, U_WGT))
 
     model.finalize(init_states=init)
 

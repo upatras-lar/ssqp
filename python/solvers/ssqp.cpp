@@ -441,7 +441,7 @@ void bind_ssqp(nb::module_ &m)
               "(0 uses the OpenMP default).");
 #endif
 
-        nb::class_<ssqp>(m, "ssqp", nb::dynamic_attr(), R"doc(
+    nb::class_<ssqp>(m, "ssqp", nb::dynamic_attr(), R"doc(
         Defines an SSQP problem solver based on a given SSQP model and the desired
         parameters.
 

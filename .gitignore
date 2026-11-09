@@ -42,6 +42,7 @@
 /VARIABLES.sh
 /out.txt
 /TODO.md
+/PERFORMANCE.md
 /perf*
 /benchmarks/solver/go2_wheelie*
 

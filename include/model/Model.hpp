@@ -234,6 +234,36 @@ class Model
     Model(const Model &)            = delete;
     Model &operator=(const Model &) = delete;
 
+    /** StageScope class
+     * ---
+     * Kinematics and dynamics queries keep their results in caches, so that
+     * queries at the same point share a single computation
+     * Each stage has its own caches, so a stage's results are kept even with
+     * other stages' queries in between, and default caches serve queries
+     * outside of stages
+     *
+     * While a StageScope exists, queries use stage `k`'s caches, and the
+     * previously used caches are restored when it is destroyed
+     *
+     * Results never depend on which cache is used, since each cache keeps the
+     * point its results are for; the scope only decides which results are
+     * kept for reuse
+     * Has no effect on models not loaded from an XML file
+     */
+    class StageScope
+    {
+      public:
+        StageScope(const Model &model, const uint k);
+        ~StageScope();
+
+        StageScope(const StageScope &)            = delete;
+        StageScope &operator=(const StageScope &) = delete;
+
+      private:
+        const Model &_model;
+        uint         _previous;
+    };
+
     /** finalize method
      * ---
      * Finalizes the model with the given configuration
@@ -327,6 +357,14 @@ class Model
 
     // Returns the number of wrenches added for a given stage
     uint nwrenches(const uint k) const;
+
+    // Linear forces added for a given stage, in the order they appear in the
+    // controls
+    const std::vector<std::shared_ptr<Force>> &forces(const uint k) const;
+
+    // Wrenches added for a given stage, in the order they appear in the
+    // controls after the linear forces
+    const std::vector<std::shared_ptr<Force>> &wrenches(const uint k) const;
 
     // Vector containing frame names, ordered 1-1 with forces for stage k
     std::vector<std::string> orderedForceFrames(const uint k) const;
@@ -534,23 +572,28 @@ class Model
     // sized (nu x nu) and is written in place, avoiding an allocation
     void getMatrixActuatedPart(const MatX &M, Eigen::Ref<MatX> out) const;
 
-    /** Returns the full acceleration vector for a given stage
+    /** Returns the full acceleration vector
      * Input:
      *  - `x`: The model state
      *  - `u`: The model controls
-     *  - `k`: The model stage (only required if model is in ReducedInverseDynamics
-     *     mode and there are present forces)
-     * 
+     *  - `forces`: The linear forces the force part of `u` refers to, in
+     *     order (see forces); only used in ReducedInverseDynamics mode
+     *  - `wrenches`: The wrenches the force part of `u` refers to, after the
+     *     linear forces (see wrenches); only used in ReducedInverseDynamics
+     *     mode
+     *
      * Note: For InverseDynamics mode, this function is trivial, since it only
      * returns the non-force part of the control vector
      * Note: XML-based function
      */
-    VecX getFullAccelerationVector(const VecX &x, const VecX &u,
-                                   const uint k = 0) const;
+    VecX getFullAccelerationVector(
+      const VecX &x, const VecX &u,
+      const std::vector<std::shared_ptr<Force>> &forces   = {},
+      const std::vector<std::shared_ptr<Force>> &wrenches = {}) const;
 
     /** Returns the actuated-joint torque vector implied by the inverse
      * dynamics computation for the given state and controls, accounting for
-     * any forces present at stage `k`
+     * the given forces
      *
      * For InverseDynamics mode, this is the RNEA torque computed directly
      * from the (full) acceleration control. For ReducedInverseDynamics mode,
@@ -562,15 +605,19 @@ class Model
      * Input:
      *  - `x`: The model state
      *  - `u`: The model controls
-     *  - `k`: The model stage (only required if there are forces present at
-     *     that stage)
+     *  - `forces`: The linear forces the force part of `u` refers to, in
+     *     order (see forces)
+     *  - `wrenches`: The wrenches the force part of `u` refers to, after the
+     *     linear forces (see wrenches)
      *
      * Note: XML-based function
      * Note: Assumes the model is in InverseDynamics or ReducedInverseDynamics
      *   mode
      */
-    VecX getActuatedTorqueVector(const VecX &x, const VecX &u,
-                                 const uint k = 0) const;
+    VecX getActuatedTorqueVector(
+      const VecX &x, const VecX &u,
+      const std::vector<std::shared_ptr<Force>> &forces   = {},
+      const std::vector<std::shared_ptr<Force>> &wrenches = {}) const;
 
     /** Derivatives of getActuatedTorqueVector with respect to the state (x)
      * and controls (u)
@@ -579,9 +626,10 @@ class Model
      *  - `dtau_dx`: derivative with respect to the state (nu x 2*nv)
      *  - `dtau_du`: derivative with respect to the controls (nu x u.size())
      */
-    void getActuatedTorqueVectorDerivatives(const VecX &x, const VecX &u,
-                                            MatX &dtau_dx, MatX &dtau_du,
-                                            const uint k = 0) const;
+    void getActuatedTorqueVectorDerivatives(
+      const VecX &x, const VecX &u, MatX &dtau_dx, MatX &dtau_du,
+      const std::vector<std::shared_ptr<Force>> &forces   = {},
+      const std::vector<std::shared_ptr<Force>> &wrenches = {}) const;
 
     VecX randomState(const uint stage) const;
     VecX randomControls(const uint stage) const;
@@ -639,10 +687,10 @@ class Model
     // i.e. `3 * nforces(k) + 6 * nwrenches(k)`
     uint _forceControlWidth(const uint k) const;
 
-    /** Calculates joint forces given a configuration and an external force
-     * vector
+    /** Calculates joint forces given an external force vector
+     * Forces are expressed in their frames, so the joint forces don't depend
+     * on the configuration
      * Input:
-     *  - `q`: The model configuration
      *  - `f`: Stacked vector of external forces (the force part of the
      *    control vector): linear forces first, then wrenches
      *  - `force_data`: Vector of data about each linear force in `f`
@@ -652,11 +700,10 @@ class Model
      *  - `joint_forces`: A vector of 6D forces, one for each of the model's
      *     joints; must already be sized (`_dims.total_joints`)
      */
-    void _calculateJointForces(
-      const VecX &q, const VecX &f,
-      const std::vector<std::shared_ptr<Force>> &force_data,
-      const std::vector<std::shared_ptr<Force>> &wrench_data,
-      std::vector<Vec6>                         &joint_forces) const;
+    void _calculateJointForces(const VecX                        &f,
+                               const std::vector<const Force *> &force_data,
+                               const std::vector<const Force *> &wrench_data,
+                               std::vector<Vec6> &joint_forces) const;
 
     /** Calculates joint forces and total force jacobian given a configuration
      * and an external force vector
@@ -671,122 +718,92 @@ class Model
      */
     void _calculateJointForcesAndJacobian(
       const VecX &q, const VecX &f,
-      const std::vector<std::shared_ptr<Force>> &force_data,
-      const std::vector<std::shared_ptr<Force>> &wrench_data,
+      const std::vector<const Force *> &force_data,
+      const std::vector<const Force *> &wrench_data,
       std::vector<Vec6> &joint_forces, MatX &Jf_full) const;
 
-    /** Persistent scratch for the ReducedInverseDynamics mode's acceleration
-     * and acceleration-derivatives helpers (`_calculateReducedInverseFullAcceleration`/
-     * `_calculateReducedInverseFullAccelerationDerivatives`), sized once per
-     * stage and reused across repeated evaluate()/gradient() calls instead of
-     * being reallocated every call
-     * Bundled into a single struct so the two functions don't need a long
-     * individual output-parameter list
+    using DynamicsCache = pinocchio_wrapper::DynamicsCache;
+
+    /** The active dynamics cache, pointed at the given point
+     * Its results are dropped unless they're for the same state, controls,
+     * forces and wrenches, and the same ignore flags on those
      *
-     * `M`, `Muu`, `Muj`, `Muu_ldlt`: used/populated by
-     * `_calculateReducedInverseFullAcceleration`
-     *
-     * `dtau_dq`, `dtau_dv`, `dtau_da`, `dtau_daj`, `da_dq`, `da_dv`,
-     * `da_daj`, `da_df`: outputs of
-     * `_calculateReducedInverseFullAccelerationDerivatives`
-     *
-     * `Ju`, `dtau_dq_unact`, `dtau_dv_unact`, `da_dq_reordered`,
-     * `da_dv_reordered`, `da_daj_reordered`, `da_df_reordered`: internal-only
-     * temporaries of `_calculateReducedInverseFullAccelerationDerivatives`
+     * The functions below compute a result for the cache's point only if it's
+     * missing, after the results it depends on
      */
-    struct _ReducedInverseDynamicsScratch
-    {
-        MatX                             M;
-        MatX                             Muu, Muj;
-        std::optional<Eigen::LDLT<MatX>> Muu_ldlt;
+    DynamicsCache &_dynamicsCache(
+      const VecX &x, const VecX &u,
+      const std::vector<std::shared_ptr<Force>> &forces,
+      const std::vector<std::shared_ptr<Force>> &wrenches) const;
 
-        MatX dtau_dq, dtau_dv, dtau_da, dtau_daj;
-        MatX da_dq, da_dv, da_daj, da_df;
+    // Joint forces (`cache.fext`)
+    void _ensureJointForces(DynamicsCache &cache) const;
 
-        MatX Ju;
-        MatX dtau_dq_unact, dtau_dv_unact;
-        MatX da_dq_reordered, da_dv_reordered, da_daj_reordered,
-          da_df_reordered;
-    };
+    // Force Jacobian (`cache.Jf`), along with the joint forces
+    void _ensureForceJacobian(DynamicsCache &cache) const;
+
+    // Full acceleration (`cache.ddq`)
+    template<bool FloatingBase, bool WithForces, SolverMode SM>
+    void _ensureAcceleration(DynamicsCache &cache) const;
+
+    // Torque at the full acceleration (`cache.tau`)
+    template<bool FloatingBase, bool WithForces, SolverMode SM>
+    void _ensureTorque(DynamicsCache &cache) const;
+
+    // RNEA derivatives at the full acceleration (`cache.dtau_dq`,
+    // `cache.dtau_dv` and `cache.dtau_da`)
+    template<bool FloatingBase, bool WithForces, SolverMode SM>
+    void _ensureTorqueDerivatives(DynamicsCache &cache) const;
+
+    // Derivatives of the full acceleration: `cache.ddq_dq`, `cache.ddq_dv` and
+    // `cache.Minv` in ForwardDynamics, and `cache.da_dq`, `cache.da_dv`,
+    // `cache.da_daj`, `cache.da_df` and `cache.dtau_daj` in
+    // ReducedInverseDynamics, along with the force Jacobian
+    template<bool FloatingBase, bool WithForces, SolverMode SM>
+    void _ensureAccelerationDerivatives(DynamicsCache &cache) const;
+
+    // The non-force part of the controls with the unactuated entries zeroed,
+    // as ForwardDynamics applies them
+    template<bool FloatingBase>
+    VecX _forwardDynamicsControls(const VecX &u) const;
 
     /** Calculates the full acceleration vector for ReducedInverseDynamics mode
-     * Input:
-     *  - `q`: The configuration vector
-     *  - `v`: The velocity vector
-     *  - `ctrl`: The non-force part of the control vector; this is assumed to
-     *     be the accelerations for each of the actuated joints
-     *  - `f`: The force part of the control vector
-     *  - `force_data`: Vector of data about each linear force in `f`
-     *  - `wrench_data`: Vector of data about each wrench in `f`
-     *  - `actuated_joints`: Vector of indices of joints that are actuated
-     *  - `unactuated_joints`: Complement vector of `actuated_joints`
+     * at the cache's point, where the non-force part of the controls is the
+     * acceleration of each actuated joint
      *
      * Output:
-     *  - `scratch`: Populates `scratch.M`, `scratch.Muu`, `scratch.Muj` and
-     *     `scratch.Muu_ldlt` (see `_ReducedInverseDynamicsScratch`)
-     *  - `joint_forces`: The forces on each joint
-     *  - `Jf_full`: The full force jacobian
+     *  - `cache.ddq`: The full acceleration vector
+     *  - `cache.M`, `cache.Muu`, `cache.Muj`, `cache.Muu_ldlt`: The mass
+     *     matrix, its unactuated block and its unactuated-actuated block, and
+     *     the factorization of the unactuated block
      *
-     * Returns:
-     *  - `ddq`: The full acceleration vector
+     * Ensures the force Jacobian first when there are forces
      */
     template<bool FloatingBase, bool WithForces>
-    VecX _calculateReducedInverseFullAcceleration(
-      const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-      const std::vector<std::shared_ptr<Force>> &force_data,
-      const std::vector<std::shared_ptr<Force>> &wrench_data,
-      const std::vector<uint>                   &actuated_joints,
-      const std::vector<uint>                   &unactuated_joints,
-      _ReducedInverseDynamicsScratch &scratch, std::vector<Vec6> &joint_forces,
-      MatX &Jf_full) const;
+    void _calculateReducedInverseFullAcceleration(DynamicsCache &cache) const;
 
-    /** Calculates the derivatives of the acceleration vector for ReducedInverseDynamics
-     * mode, with respect to q, v, aj (the actual actuated controls) and f
-     * Input:
-     *  - `q`: The configuration vector
-     *  - `v`: The velocity vector
-     *  - `ctrl`: The non-force part of the control vector; this is assumed to
-     *     be the accelerations for each of the actuated joints
-     *  - `f`: The force part of the control vector
-     *  - `force_data`: Vector of data about each linear force in `f`
-     *  - `wrench_data`: Vector of data about each wrench in `f`
-     *  - `actuated_joints`: Vector of indices of joints that are actuated
-     *  - `unactuated_joints`: Complement vector of `actuated_joints`
+    /** Calculates the derivatives of the acceleration vector for
+     * ReducedInverseDynamics mode, with respect to q, v, aj (the actuated
+     * accelerations) and f
      *
-     * Inputs from `_calculateReducedInverseFullAcceleration`'s output:
-     *  - `ddq`: The full acceleration vector
-     *  - `scratch.Muu`, `scratch.Muj`, `scratch.Muu_ldlt`: See
-     *     `_calculateReducedInverseFullAcceleration`'s output
-     *  - `joint_forces`: The forces on each joint
-     *  - `Jf_full`: The full force jacobian
+     * Ensures the torque derivatives first, along with the acceleration they
+     * need, and the force Jacobian when there are forces
      *
      * Output:
-     *  - `scratch.dtau_dq`: The RNEA derivative with respect to the
-     *     configuration (q)
-     *  - `scratch.dtau_dv`: The RNEA derivative with respect to the velocity
-     *     (v)
-     *  - `scratch.dtau_da`: The RNEA derivative with respect to the full
-     *     acceleration (a)
-     *  - `scratch.dtau_daj`: The RNEA derivative with respect to the actuated
+     *  - `cache.dtau_daj`: The RNEA derivative with respect to the actuated
      *     part of the acceleration (aj)
-     *  - `scratch.da_dq`: The derivative of the full acceleration vector with
+     *  - `cache.da_dq`: The derivative of the full acceleration vector with
      *     respect to the configuration (q)
-     *  - `scratch.da_dv`: The derivative of the full acceleration vector with
+     *  - `cache.da_dv`: The derivative of the full acceleration vector with
      *     respect to the velocity (v)
-     *  - `scratch.da_daj`: The derivative of the full acceleration vector
-     *     with respect to the actuated part of the acceleration
-     *  - `scratch.da_df`: The derivative of the full acceleration vector with
+     *  - `cache.da_daj`: The derivative of the full acceleration vector with
+     *     respect to the actuated part of the acceleration
+     *  - `cache.da_df`: The derivative of the full acceleration vector with
      *     respect to the forces
      */
     template<bool FloatingBase, bool WithForces>
     void _calculateReducedInverseFullAccelerationDerivatives(
-      const VecX &q, const VecX &v, const VecX &ctrl, const VecX &f,
-      const std::vector<std::shared_ptr<Force>> &force_data,
-      const std::vector<std::shared_ptr<Force>> &wrench_data,
-      const std::vector<uint>                   &actuated_joints,
-      const std::vector<uint> &unactuated_joints, const VecX &ddq,
-      _ReducedInverseDynamicsScratch &scratch,
-      const std::vector<Vec6> &joint_forces, const MatX &Jf_full) const;
+      DynamicsCache &cache) const;
 
     /** Derivatives of getActuatedTorqueVectorDerivatives for
      * ReducedInverseDynamics mode: composes
@@ -795,10 +812,11 @@ class Model
      * restricts to the actuated joints' rows
      */
     template<bool FloatingBase, bool WithForces>
-    void _getActuatedTorqueVectorReducedDerivatives(const VecX &x,
-                                                    const VecX &u, const uint k,
-                                                    MatX &dtau_dx,
-                                                    MatX &dtau_du) const;
+    void _getActuatedTorqueVectorReducedDerivatives(
+      const VecX &x, const VecX &u,
+      const std::vector<std::shared_ptr<Force>> &forces,
+      const std::vector<std::shared_ptr<Force>> &wrenches, MatX &dtau_dx,
+      MatX &dtau_du) const;
 
     // Functionality functions
 
@@ -840,17 +858,6 @@ class Model
         uint                                nq, nv, nu, nf, nw, force_width;
         std::vector<uint>                   actuated_joints, unactuated_joints;
         std::string                         stage_dynamics_name;
-
-        // Persistent joint-force/force-jacobian scratch, sized once per
-        // stage; reused across repeated evaluate()/gradient() calls instead
-        // of being reallocated every call. `mutable` since it's written to
-        // from the (const) evaluate()/gradient() callbacks
-        mutable std::vector<Vec6> joint_forces_scratch;
-        mutable MatX              jf_full_scratch;
-
-        // See _ReducedInverseDynamicsScratch; only populated/used in the
-        // ReducedInverseDynamics solver mode
-        mutable _ReducedInverseDynamicsScratch reduced_id_scratch;
     };
 
     /** Makes the dynamics for a given stage with context `ctx` based on the
@@ -895,14 +902,6 @@ class Model
         std::vector<uint> actuated_joints, unactuated_joints;
         std::string       stage_constraints_name;
         VecX lower_pos_bound, upper_pos_bound, vel_bound, tau_bound;
-
-        // See the comment on _StageDynamicsContext's equivalent fields; only
-        // populated/used when this context backs the ID torque constraints
-        // (_buildXMLIDTorqueConstraints), not the plain innate bounds
-        // (_buildXMLInnateConstraints)
-        mutable std::vector<Vec6>              joint_forces_scratch;
-        mutable MatX                           jf_full_scratch;
-        mutable _ReducedInverseDynamicsScratch reduced_id_scratch;
     };
 
     /** Makes the innate constraints for a given stage with context `ctx` based
@@ -926,19 +925,19 @@ class Model
      * or ReducedInverseDynamics solver modes, based on the XML effort limits.
      * Options:
      *  - `FloatingBase`: Whether the system includes a floating base or not
-     *  - `ReducedInverseDynamics`: Whether the solver mode is ReducedInverseDynamics, such
-     *     that zero equality constraints are not added
+     *  - `SM`: The solver mode, either InverseDynamics or
+     *     ReducedInverseDynamics (where zero equality constraints are not
+     *     added)
      *  - `WithForces`: Whether there are additional external forces for this
      *     stage
-     * 
+     *
      * @note
      * This function will only generate inverse dynamics torque constraints,
      * intended for use with the InverseDynamics mode. This function must be
      * called regardless of the value of the `ignore_innate_constraints` option,
      * since InverseDynamics mode always requires these constraints.
      */
-    template<bool FloatingBase, bool ReducedInverseDynamics = false,
-             bool WithForces = false>
+    template<bool FloatingBase, SolverMode SM, bool WithForces = false>
     std::shared_ptr<stagewise::StageConstraints> _makeStageIDTorqueConstraints(
       const std::shared_ptr<const _StageInnateConstraintsContext> &ctx) const;
 };

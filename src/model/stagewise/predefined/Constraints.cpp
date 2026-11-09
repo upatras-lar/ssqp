@@ -642,7 +642,7 @@ void FloatingBaseLinearVelocityBound::gradient(const VecX &x, const VecX &u,
         // The base velocity rotated by the base's rotation, which turns with
         // the base's angular tangent
         Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
-        const Mat3 A =
+        const Mat3         A =
           _reference_frame.rotation().transpose() * q.toRotationMatrix();
 
         dX.block<3, 3>(0, _nv) = A;
@@ -747,7 +747,7 @@ void FloatingBaseAngularVelocityBound::gradient(const VecX &x, const VecX &u,
         // The base velocity rotated by the base's rotation, which turns with
         // the base's angular tangent
         Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
-        const Mat3 A =
+        const Mat3         A =
           _reference_frame.rotation().transpose() * q.toRotationMatrix();
 
         dX.block<3, 3>(0, _nv + 3) = A;
@@ -870,7 +870,8 @@ void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
         Mat3 R;
         std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
 
-        const Mat3 A = type == ReferenceFrame::Local ? R : _reference_frame.axes(x);
+        const Mat3 A =
+          type == ReferenceFrame::Local ? R : _reference_frame.axes(x);
         const Vec3 value = A.transpose() * (pos - _center);
 
         dX.leftCols(_nv) = A.transpose() * _jac_scratch.topRows(3);
@@ -1421,9 +1422,8 @@ void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     if (_reference_frame.type() == ReferenceFrame::Base)
     {
         dX.block<3, 3>(0, 3) += skew(
-          Rt *
-          _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, false)
-            .tail<3>());
+          Rt * _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, false)
+                 .tail<3>());
     }
 
     dU.setZero(3, u.size());
@@ -1477,11 +1477,10 @@ void CenterOfMassBound::set_upper_bound(const Vec3 &ub)
 void CenterOfMassBound::set_reference_frame(
   const ReferenceFrame &reference_frame)
 {
-    reference_frame.require({ ReferenceFrame::World,
-                              ReferenceFrame::Fixed,
-                              ReferenceFrame::Base },
-                            "CenterOfMassBound",
-                            _model->floatingBase());
+    reference_frame.require(
+      { ReferenceFrame::World, ReferenceFrame::Fixed, ReferenceFrame::Base },
+      "CenterOfMassBound",
+      _model->floatingBase());
     _reference_frame = reference_frame;
 }
 

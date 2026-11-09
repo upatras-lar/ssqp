@@ -135,7 +135,9 @@ def run(dynamics_mode):
             torques = model.inverseDynamics(
                 simulator.state[:nq],
                 simulator.state[nq:],
-                model.getFullAccelerationVector(simulator.state, control),
+                model.getFullAccelerationVector(
+                    simulator.state, control, model.getForces(0)
+                ),
             )
             sim_ctrl[6:] = torques[6:]
         else:

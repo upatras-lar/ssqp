@@ -792,6 +792,14 @@ void bind_Model(nb::module_ &m)
         Get the current number of forces for a stage.
         Only defined if the model was initialized using an XML file.
         )doc")
+      .def("getForces", &Model::forces, nb::arg("k"), R"doc(
+        Get the linear forces of a stage, in the order they appear in the
+        controls.
+        )doc")
+      .def("getWrenches", &Model::wrenches, nb::arg("k"), R"doc(
+        Get the wrenches of a stage, in the order they appear in the controls
+        after the linear forces.
+        )doc")
       .def("getOrderedForceFrames",
            &Model::orderedForceFrames,
            nb::arg("k"),
@@ -1036,32 +1044,44 @@ void bind_Model(nb::module_ &m)
            )doc")
       .def(
         "getFullAccelerationVector",
-        [](Model &self, const VecX &x, const VecX &u, const uint k)
+        [](Model &self,
+           const VecX &x,
+           const VecX &u,
+           const std::vector<std::shared_ptr<Force>> &forces,
+           const std::vector<std::shared_ptr<Force>> &wrenches)
         {
             if (!self.xml())
             {
                 throw std::runtime_error("Model was not loaded from XML");
             }
-            return self.getFullAccelerationVector(x, u, k);
+            return self.getFullAccelerationVector(x, u, forces, wrenches);
         },
         nb::arg("x"),
         nb::arg("u"),
-        nb::arg("k") = 0,
+        nb::arg("forces")   = std::vector<std::shared_ptr<Force>> {},
+        nb::arg("wrenches") = std::vector<std::shared_ptr<Force>> {},
         R"doc(
-        Returns the full acceleration vector for a given stage
+        Returns the full acceleration vector
         Input:
          - `x`: The model state
          - `u`: The model controls
-         - `k`: The model stage (only required if model is in Reduced Inverse
-            mode and there are present forces)
-            
+         - `forces`: The linear forces the force part of `u` refers to, in
+            order (see `getForces`); only used in Reduced Inverse mode
+         - `wrenches`: The wrenches the force part of `u` refers to, after
+            the linear forces (see `getWrenches`); only used in Reduced
+            Inverse mode
+
         Note: For Inverse dynamics mode, this function is trivial, since it only
         returns the non-force part of the control vector
         Note: XML-based function
         )doc")
       .def(
         "getActuatedTorqueVector",
-        [](Model &self, const VecX &x, const VecX &u, const uint k)
+        [](Model &self,
+           const VecX &x,
+           const VecX &u,
+           const std::vector<std::shared_ptr<Force>> &forces,
+           const std::vector<std::shared_ptr<Force>> &wrenches)
         {
             if (!self.xml())
             {
@@ -1073,21 +1093,24 @@ void bind_Model(nb::module_ &m)
                   "Model is in ForwardDynamics mode, where the controls are "
                   "already the actuated torques");
             }
-            return self.getActuatedTorqueVector(x, u, k);
+            return self.getActuatedTorqueVector(x, u, forces, wrenches);
         },
         nb::arg("x"),
         nb::arg("u"),
-        nb::arg("k") = 0,
+        nb::arg("forces")   = std::vector<std::shared_ptr<Force>> {},
+        nb::arg("wrenches") = std::vector<std::shared_ptr<Force>> {},
         R"doc(
         Returns the actuated joint torques that realize the given controls
         Input:
          - `x`: The model state
          - `u`: The model controls
-         - `k`: The model stage (only required if there are forces present at
-            that stage)
+         - `forces`: The linear forces the force part of `u` refers to, in
+            order (see `getForces`)
+         - `wrenches`: The wrenches the force part of `u` refers to, after
+            the linear forces (see `getWrenches`)
 
-        The torques come from the inverse dynamics, accounting for the forces
-        present at stage `k`. In Reduced Inverse mode, the full acceleration
+        The torques come from the inverse dynamics, accounting for the given
+        forces. In Reduced Inverse mode, the full acceleration
         vector is reconstructed first (see `getFullAccelerationVector`)
 
         Note: Only defined in Inverse and Reduced Inverse dynamics modes

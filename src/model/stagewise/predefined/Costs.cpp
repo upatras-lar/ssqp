@@ -287,13 +287,12 @@ void SquaredControlCost::hessian_uu(const VecX &x, const VecX &u,
 // SquaredIDTorqueCost
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model       &model,
                                          const double       weight,
-                                         const std::string &name, const uint k)
+                                         const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _nu(model.nu())
-  , _k(k)
   , _weight(_nu)
 {
     // clang-format off
@@ -306,13 +305,12 @@ SquaredIDTorqueCost::SquaredIDTorqueCost(const Model       &model,
     _weight.setConstant(weight);
 }
 SquaredIDTorqueCost::SquaredIDTorqueCost(const Model &model, const VecX &weight,
-                                         const std::string &name, const uint k)
+                                         const std::string &name)
   : StageCost(name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
   , _nu(model.nu())
-  , _k(k)
   , _weight(weight)
 {
     // clang-format off
@@ -336,11 +334,29 @@ void SquaredIDTorqueCost::set_weight(const VecX &weight)
     _weight = weight;
 }
 
+void SquaredIDTorqueCost::set_stage_forces(
+  const std::vector<std::shared_ptr<Force>> &forces,
+  const std::vector<std::shared_ptr<Force>> &wrenches)
+{
+    if (_has_stage_forces && (forces != _forces || wrenches != _wrenches))
+    {
+        throw std::runtime_error(
+          "SquaredIDTorqueCost was added to stages with different forces; "
+          "construct one per stage instead");
+    }
+
+    _forces           = forces;
+    _wrenches         = wrenches;
+    _has_stage_forces = true;
+}
+
 VecX SquaredIDTorqueCost::evaluate(const VecX &x, const VecX &u) const
 {
     return (Scalar() << 0.5 *
                           (_weight.array() *
-                           _model->getActuatedTorqueVector(x, u, _k).array())
+                           _model
+                             ->getActuatedTorqueVector(x, u, _forces, _wrenches)
+                             .array())
                             .matrix()
                             .squaredNorm())
       .finished();
@@ -349,11 +365,17 @@ VecX SquaredIDTorqueCost::evaluate(const VecX &x, const VecX &u) const
 void SquaredIDTorqueCost::gradient(const VecX &x, const VecX &u, VecX &dx,
                                    VecX &du) const
 {
-    VecX w_tau = _weight.array().square() *
-                 _model->getActuatedTorqueVector(x, u, _k).array();
+    VecX w_tau =
+      _weight.array().square() *
+      _model->getActuatedTorqueVector(x, u, _forces, _wrenches).array();
 
     MatX dtau_dx, dtau_du;
-    _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
+    _model->getActuatedTorqueVectorDerivatives(x,
+                                               u,
+                                               dtau_dx,
+                                               dtau_du,
+                                               _forces,
+                                               _wrenches);
 
     dx = dtau_dx.transpose() * w_tau;
     du = dtau_du.transpose() * w_tau;
@@ -363,7 +385,12 @@ void SquaredIDTorqueCost::hessian_xx(const VecX &x, const VecX &u,
                                      MatX &Hxx) const
 {
     MatX dtau_dx, dtau_du;
-    _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
+    _model->getActuatedTorqueVectorDerivatives(x,
+                                               u,
+                                               dtau_dx,
+                                               dtau_du,
+                                               _forces,
+                                               _wrenches);
 
     MatX W2 = _weight.array().square().matrix().asDiagonal();
 
@@ -374,7 +401,12 @@ void SquaredIDTorqueCost::hessian_xu(const VecX &x, const VecX &u,
                                      MatX &Hxu) const
 {
     MatX dtau_dx, dtau_du;
-    _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
+    _model->getActuatedTorqueVectorDerivatives(x,
+                                               u,
+                                               dtau_dx,
+                                               dtau_du,
+                                               _forces,
+                                               _wrenches);
 
     MatX W2 = _weight.array().square().matrix().asDiagonal();
 
@@ -385,7 +417,12 @@ void SquaredIDTorqueCost::hessian_uu(const VecX &x, const VecX &u,
                                      MatX &Huu) const
 {
     MatX dtau_dx, dtau_du;
-    _model->getActuatedTorqueVectorDerivatives(x, u, dtau_dx, dtau_du, _k);
+    _model->getActuatedTorqueVectorDerivatives(x,
+                                               u,
+                                               dtau_dx,
+                                               dtau_du,
+                                               _forces,
+                                               _wrenches);
 
     Huu = dtau_du.transpose() * _weight.array().square().matrix().asDiagonal() *
           dtau_du;
@@ -1277,7 +1314,7 @@ void FloatingBaseSquaredVelocityErrorCost::gradient(const VecX &x,
         velocity.head<3>() = A * linear;
         velocity.tail<3>() = A * angular;
 
-        MatX J                  = MatX::Zero(6, _ndx);
+        MatX J                    = MatX::Zero(6, _ndx);
         J.block<3, 3>(0, _nv)     = A;
         J.block<3, 3>(3, _nv + 3) = A;
         J.block<3, 3>(0, 3)       = -A * skew(linear);
@@ -1309,14 +1346,14 @@ void FloatingBaseSquaredVelocityErrorCost::hessian_xx(const VecX &x,
         const Mat3         A =
           _reference_frame.rotation().transpose() * q.toRotationMatrix();
 
-        MatX J                  = MatX::Zero(6, _ndx);
+        MatX J                    = MatX::Zero(6, _ndx);
         J.block<3, 3>(0, _nv)     = A;
         J.block<3, 3>(3, _nv + 3) = A;
         J.block<3, 3>(0, 3)       = -A * skew(x.segment<3>(_nq));
         J.block<3, 3>(3, 3)       = -A * skew(x.segment<3>(_nq + 3));
 
-        Hxx = J.transpose() * _weight.array().square().matrix().asDiagonal() *
-              J;
+        Hxx =
+          J.transpose() * _weight.array().square().matrix().asDiagonal() * J;
     }
 }
 
@@ -1414,9 +1451,9 @@ VecX FrameSquaredTranslationErrorCost::evaluate(const VecX &x,
     Mat3 R;
     std::tie(pos, R) = _model->forwardKinematics(x.head(_nq), _frame_id);
 
-    const Mat3 A = _reference_frame.type() == ReferenceFrame::Local
-                     ? R
-                     : _reference_frame.axes(x);
+    const Mat3 A     = _reference_frame.type() == ReferenceFrame::Local
+                         ? R
+                         : _reference_frame.axes(x);
     const Vec3 error = A.transpose() * (pos - _desired_translation);
 
     return (Scalar()
@@ -2207,11 +2244,10 @@ void CenterOfMassTrackingCost::set_weight(const Vec3 &weight)
 void CenterOfMassTrackingCost::set_reference_frame(
   const ReferenceFrame &reference_frame)
 {
-    reference_frame.require({ ReferenceFrame::World,
-                              ReferenceFrame::Fixed,
-                              ReferenceFrame::Base },
-                            "CenterOfMassTrackingCost",
-                            _model->floatingBase());
+    reference_frame.require(
+      { ReferenceFrame::World, ReferenceFrame::Fixed, ReferenceFrame::Base },
+      "CenterOfMassTrackingCost",
+      _model->floatingBase());
     _reference_frame = reference_frame;
 }
 
@@ -2364,11 +2400,10 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
 void FramesInverseSquaredDistanceCost::set_reference_frame(
   const ReferenceFrame &reference_frame)
 {
-    reference_frame.require({ ReferenceFrame::World,
-                              ReferenceFrame::Fixed,
-                              ReferenceFrame::Base },
-                            "FramesInverseSquaredDistanceCost",
-                            _model->floatingBase());
+    reference_frame.require(
+      { ReferenceFrame::World, ReferenceFrame::Fixed, ReferenceFrame::Base },
+      "FramesInverseSquaredDistanceCost",
+      _model->floatingBase());
     _reference_frame = reference_frame;
 }
 

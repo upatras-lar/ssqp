@@ -335,9 +335,9 @@ void ssqp::Params::write(nlohmann::ordered_json &j) const
     j["inv_alpha_scale_factor"] = inv_alpha_scale_factor;
     j["min_alpha"]              = min_alpha;
 
-    j["accept_worse_update"]      = accept_worse_update;
-    j["skip_regularization"]      = skip_regularization;
-    j["stop_on_qp_infeasibility"] = stop_on_qp_infeasibility;
+    j["accept_worse_update"]         = accept_worse_update;
+    j["skip_regularization"]         = skip_regularization;
+    j["stop_on_qp_infeasibility"]    = stop_on_qp_infeasibility;
     j["skip_last_termination_check"] = skip_last_termination_check;
 
     if (qp_solver_type == QPSolverType::ADMM)
@@ -1315,9 +1315,11 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
 
     for (uint k = 0; k < horizon; ++k)
     {
+        model::Model::StageScope stage_scope(_model, k);
         sum += costs[k]->evaluate(x.stage(k), u.stage(k))(0);
     }
 
+    model::Model::StageScope stage_scope(_model, horizon);
     return sum + costs[horizon]->evaluate(x.stage(horizon), _emptyVec)(0);
 }
 
@@ -1332,11 +1334,13 @@ void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     VecX dxk, duk;
     for (uint k = 0; k < horizon; ++k)
     {
+        model::Model::StageScope stage_scope(_model, k);
         costs[k]->gradient(x.stage(k), u.stage(k), dxk, duk);
         dx.stage(k) = dxk;
         du.stage(k) = duk;
     }
 
+    model::Model::StageScope stage_scope(_model, horizon);
     costs[horizon]->gradient(x.stage(horizon), _emptyVec, dxk, duk);
     dx.stage(horizon) = dxk;
 }
@@ -1351,6 +1355,7 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
 
     for (uint k = 0; k < horizon; ++k)
     {
+        model::Model::StageScope stage_scope(_model, k);
         sum += (dynamics[k]->state_right_minus(
                   dynamics[k]->evaluate(x.stage(k), u.stage(k)),
                   x.stage(k + 1)))
@@ -1368,7 +1373,8 @@ double ssqp::_gammaf_softmax(const FlatVec &x, const FlatVec &u) const
 
     for (uint k = 0; k < horizon; ++k)
     {
-        Eigen::VectorXd r = dynamics[k]->state_right_minus(
+        model::Model::StageScope stage_scope(_model, k);
+        Eigen::VectorXd          r = dynamics[k]->state_right_minus(
           dynamics[k]->evaluate(x.stage(k), u.stage(k)),
           x.stage(k + 1));
 
@@ -1398,6 +1404,8 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     MatX dXk, dUk;
     for (uint k = 0; k < horizon; ++k)
     {
+        model::Model::StageScope stage_scope(_model, k);
+
         VecX f_scratch;
         if (!reuse_cached_f)
         {
@@ -1465,6 +1473,8 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
             continue;
         }
 
+        model::Model::StageScope stage_scope(_model, k);
+
         c = constraints[k]->evaluate(x.stage(k), u.stage(k));
         sum +=
           constraints[k]
@@ -1478,6 +1488,8 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 
     if (constraints[horizon] != nullptr)
     {
+        model::Model::StageScope stage_scope(_model, horizon);
+
         c    = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
         sum += constraints[horizon]
                  ->right_minus(c, constraints[horizon]->lower_bound())
@@ -1508,6 +1520,8 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
             continue;
         }
 
+        model::Model::StageScope stage_scope(_model, k);
+
         c = constraints[k]->evaluate(x.stage(k), u.stage(k));
 
         VecX v =
@@ -1523,6 +1537,8 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 
     if (constraints[horizon])
     {
+        model::Model::StageScope stage_scope(_model, horizon);
+
         c = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
 
         VecX v = constraints[horizon]
@@ -1554,6 +1570,8 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         {
             continue;
         }
+
+        model::Model::StageScope stage_scope(_model, k);
 
         VecX c_scratch;
         if (!reuse_cached_c)
@@ -1598,6 +1616,8 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     {
         return;
     }
+
+    model::Model::StageScope stage_scope(_model, horizon);
 
     VecX c_scratch_H;
     if (!reuse_cached_c)

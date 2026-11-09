@@ -5,9 +5,14 @@
 #include "model/stagewise/predefined/Constraints.hpp"
 #include "model/terrain/predefined/HeightmapTerrain.hpp"
 #include "model/terrain/predefined/SlopeTerrain.hpp"
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <map>
+#include <optional>
+#include <random>
+#include <tuple>
 
 namespace ssqp
 {
@@ -772,19 +777,24 @@ void jointControlConstraintBoundsFirstControls()
 }
 
 // A cost built before the model's forces are added must still see them, since
-// it refers to the model rather than keeping its own copy
+// the model passes each cost its stage's forces when it's finalized
 void costSeesForcesAddedLater()
 {
     using model::stagewise::predefined::constraints::ContactConstraint;
     using model::stagewise::predefined::costs::SquaredIDTorqueCost;
+    using model::stagewise::predefined::costs::SquaredJointVelocityCost;
 
     model::Model::Structure structure;
     structure.from_preset = model::Preset::Go2;
     structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
     model::Model model(1, 0.01, structure);
 
-    SquaredIDTorqueCost cost(model, 1.0, "", 0);
+    std::shared_ptr<SquaredIDTorqueCost> cost =
+      std::make_shared<SquaredIDTorqueCost>(model, 1.0);
+    model.addCost(0, cost);
     model.addConstraints<ContactConstraint>(0, model, "FL_foot");
+    model.addCost<SquaredJointVelocityCost>(1, model, 1.0);
+    model.finalize();
 
     VecX x = VecX::Zero(model.nq() + model.nv());
     x[6]   = 1.0;
@@ -796,10 +806,45 @@ void costSeesForcesAddedLater()
     VecX u          = VecX::Zero(model.nu() + 3);
     u[u.size() - 1] = 60.0;
 
-    const VecX tau = model.getActuatedTorqueVector(x, u, 0);
-    require(std::abs(cost.evaluate(x, u)[0] - 0.5 * tau.squaredNorm()) <
+    const VecX tau =
+      model.getActuatedTorqueVector(x, u, model.forces(0), model.wrenches(0));
+    require(std::abs(cost->evaluate(x, u)[0] - 0.5 * tau.squaredNorm()) <
               1e-9 * tau.squaredNorm(),
             "The torque cost must include forces added after it was built");
+}
+
+// A torque cost shared by stages with different forces can't know which
+// forces it's evaluated with, so finalizing the model must reject it
+void torqueCostRejectsDifferentStageForces()
+{
+    using model::stagewise::predefined::constraints::ContactConstraint;
+    using model::stagewise::predefined::costs::SquaredIDTorqueCost;
+    using model::stagewise::predefined::costs::SquaredJointVelocityCost;
+
+    model::Model::Structure structure;
+    structure.from_preset = model::Preset::Go2;
+    structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
+    model::Model model(2, 0.01, structure);
+
+    std::shared_ptr<SquaredIDTorqueCost> cost =
+      std::make_shared<SquaredIDTorqueCost>(model, 1.0);
+    model.addRunningCost(cost);
+    model.addConstraints<ContactConstraint>(0, model, "FL_foot");
+    model.addCost<SquaredJointVelocityCost>(2, model, 1.0);
+
+    bool threw = false;
+    try
+    {
+        model.finalize();
+    }
+    catch (const std::runtime_error &)
+    {
+        threw = true;
+    }
+
+    require(threw,
+            "Finalizing must fail when a torque cost is shared by stages "
+            "with different forces");
 }
 
 // Replacing a heightmap's grid must act as if the terrain had been built from
@@ -881,14 +926,14 @@ void contactTerrainOverridesModelTerrain()
     using namespace model::terrain::predefined;
     using model::stagewise::predefined::constraints::ContactConstraint;
 
-    const auto slope = model::terrain::make_terrain<SlopeTerrain>(0.3, -0.2,
-                                                                  0.1);
+    const auto slope =
+      model::terrain::make_terrain<SlopeTerrain>(0.3, -0.2, 0.1);
 
     model::Model::Structure flat_structure;
     flat_structure.from_preset = model::Preset::Go2;
     flat_structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
     model::Model flat_model(1, 0.01, flat_structure);
-    auto contact = std::static_pointer_cast<ContactConstraint>(
+    auto         contact = std::static_pointer_cast<ContactConstraint>(
       flat_model.addConstraints<ContactConstraint>(0, flat_model, "FL_foot"));
 
     model::Model::Structure slope_structure = flat_structure;
@@ -905,8 +950,8 @@ void contactTerrainOverridesModelTerrain()
         x[9 + 3 * leg] = -1.5;
     }
     x.tail(flat_model.nv()).setConstant(0.1);
-    VecX u                      = VecX::Zero(flat_model.nu() + 3);
-    u.tail<3>()                 = Vec3(5.0, -3.0, 60.0);
+    VecX u                     = VecX::Zero(flat_model.nu() + 3);
+    u.tail<3>()                = Vec3(5.0, -3.0, 60.0);
     const VecX flat_evaluation = contact->evaluate(x, u);
 
     contact->set_terrain(slope);
@@ -1325,10 +1370,10 @@ void paramsJsonOptionalKeys()
             "Missing parameters must keep their defaults");
 
     // Full files written by the parameters read back unchanged
-    expected.max_time                 = 0.012;
-    expected.tolerance                = 1e-4;
-    expected.constraint_tolerance     = 1e-5;
-    expected.stop_on_qp_infeasibility = false;
+    expected.max_time                    = 0.012;
+    expected.tolerance                   = 1e-4;
+    expected.constraint_tolerance        = 1e-5;
+    expected.stop_on_qp_infeasibility    = false;
     expected.skip_last_termination_check = true;
     require(expected.write(path), "Parameter file must be writable");
     require(written(solvers::ssqp::Params(path)) == written(expected),
@@ -1354,6 +1399,353 @@ void paramsJsonOptionalKeys()
 
     std::filesystem::remove(path);
 }
+
+// Kinematics queries must give the results of a fresh model, bit for bit,
+// whichever stage's kinematics cache is in use and however queries at
+// different points and of different kinds are interleaved
+void kinematicsCachesMatchFreshModel()
+{
+    model::Model::Structure structure;
+    structure.from_preset = model::Preset::Go2;
+    const uint   horizon  = 2;
+    model::Model model(horizon, 0.01, structure);
+
+    const uint nq = model.nq();
+    const uint nv = model.nv();
+
+    std::mt19937                           rng(7);
+    std::uniform_real_distribution<double> uniform(-1.0, 1.0);
+
+    auto random_vector = [&](uint size)
+    {
+        VecX out(size);
+        for (uint i = 0; i < size; ++i) out[i] = uniform(rng);
+        return out;
+    };
+
+    auto random_configuration = [&]()
+    {
+        VecX q           = random_vector(nq);
+        q.segment<4>(3)  = q.segment<4>(3).normalized();
+        q.tail(nq - 7)  *= 0.5;
+        return q;
+    };
+
+    // Two configurations and two velocities, so that points share either q
+    // or v with each other
+    const std::vector<VecX> qs = { random_configuration(),
+                                   random_configuration() };
+    const std::vector<VecX> vs = { random_vector(nv), random_vector(nv) };
+
+    const std::vector<uint> frames = { model.frameId("FL_foot"),
+                                       model.frameId("RR_foot") };
+
+    // Each kind of query, with its result flattened into a matrix
+    auto query = [&](const model::Model &m,
+                     uint kind,
+                     const VecX &q,
+                     const VecX &v,
+                     uint frame) -> MatX
+    {
+        switch (kind)
+        {
+        case 0:
+        {
+            const auto [p, R] = m.forwardKinematics(q, frame);
+            MatX out(3, 4);
+            out << R, p;
+            return out;
+        }
+        case 1:
+            return m.forwardKinematicsSE3(q, frame);
+        case 2:
+            return m.frameJacobian(q, frame, false);
+        case 3:
+            return m.frameJacobian(q, frame, true);
+        case 4:
+            return m.frameVelocity(q, v, frame, true);
+        default:
+        {
+            const auto [dVdq, dVdv] =
+              m.frameVelocityDerivatives(q, v, frame, false);
+            MatX out(6, 2 * nv);
+            out << dVdq, dVdv;
+            return out;
+        }
+        }
+    };
+    const uint kinds = 6;
+
+    // Results of a model built for each query, so that nothing is reused
+    std::map<std::tuple<uint, uint, uint, uint>, MatX> fresh_results;
+    auto fresh = [&](uint kind, uint qi, uint vi, uint fi) -> const MatX &
+    {
+        const auto key = std::make_tuple(kind, qi, vi, fi);
+        auto       it  = fresh_results.find(key);
+        if (it == fresh_results.end())
+        {
+            model::Model fresh_model(horizon, 0.01, structure);
+            it =
+              fresh_results
+                .emplace(key,
+                         query(fresh_model, kind, qs[qi], vs[vi], frames[fi]))
+                .first;
+        }
+        return it->second;
+    };
+
+    std::uniform_int_distribution<uint> pick_kind(0, kinds - 1);
+    std::uniform_int_distribution<uint> pick_two(0, 1);
+    // Stage caches 0 to horizon, or the default cache when equal to horizon + 1
+    std::uniform_int_distribution<uint> pick_cache(0, horizon + 1);
+
+    for (uint i = 0; i < 400; ++i)
+    {
+        const uint kind  = pick_kind(rng);
+        const uint qi    = pick_two(rng);
+        const uint vi    = pick_two(rng);
+        const uint fi    = pick_two(rng);
+        const uint cache = pick_cache(rng);
+
+        MatX result;
+        {
+            std::optional<model::Model::StageScope> scope;
+            if (cache <= horizon)
+            {
+                scope.emplace(model, cache);
+            }
+            result = query(model, kind, qs[qi], vs[vi], frames[fi]);
+        }
+
+        const MatX &expected = fresh(kind, qi, vi, fi);
+        require(result.rows() == expected.rows() &&
+                  result.cols() == expected.cols() &&
+                  std::memcmp(result.data(),
+                              expected.data(),
+                              result.size() * sizeof(double)) == 0,
+                "Query " + std::to_string(i) + " (kind " +
+                  std::to_string(kind) + ", cache " + std::to_string(cache) +
+                  ") must match a fresh model bit for bit");
+    }
+}
+
+// Dynamics queries must give the results of a fresh model, bit for bit,
+// whichever stage's dynamics cache is in use, however queries are
+// interleaved, and after contacts are toggled or the dynamic parameters change
+void dynamicsCachesMatchFreshModel(const model::SolverMode mode)
+{
+    using model::stagewise::predefined::constraints::ContactConstraint;
+    using model::stagewise::predefined::costs::SquaredJointVelocityCost;
+
+    model::Model::Structure structure;
+    structure.from_preset = model::Preset::Go2;
+    structure.solver_mode = mode;
+    const uint horizon    = 2;
+
+    // Bit 0 of the state disables the first contact, and bit 1 scales the
+    // dynamic parameters
+    auto make_model = [&](uint state)
+    {
+        auto model = std::make_unique<model::Model>(horizon, 0.01, structure);
+
+        std::shared_ptr<model::stagewise::StageConstraints> contact =
+          model->addConstraints<ContactConstraint>(0, *model, "FL_foot");
+        model->addConstraints<ContactConstraint>(0, *model, "RR_foot");
+
+        for (uint k = 0; k <= horizon; ++k)
+        {
+            model->addCost<SquaredJointVelocityCost>(k, *model, 1.0);
+        }
+
+        model->finalize();
+
+        if (state & 1)
+        {
+            contact->set_enabled(false);
+        }
+
+        if (state & 2)
+        {
+            model->setAllDynamicParameters(1.1 *
+                                           model->getAllDynamicParameters());
+        }
+
+        return std::make_pair(std::move(model), contact);
+    };
+
+    auto [model_ptr, contact] = make_model(0);
+    model::Model &model       = *model_ptr;
+
+    std::mt19937                           rng(7);
+    std::uniform_real_distribution<double> uniform(-1.0, 1.0);
+
+    auto random_vector = [&](uint size)
+    {
+        VecX out(size);
+        for (uint i = 0; i < size; ++i) out[i] = uniform(rng);
+        return out;
+    };
+
+    // Two points at each of the first two stages, the first with forces and
+    // the second without
+    std::vector<std::tuple<uint, VecX, VecX>> points;
+    for (uint k = 0; k < 2; ++k)
+    {
+        for (uint p = 0; p < 2; ++p)
+        {
+            VecX x          = random_vector(model.nq() + model.nv());
+            x.segment<4>(3) = x.segment<4>(3).normalized();
+
+            VecX u = 10.0 * random_vector(model.nu() + 3 * model.nforces(k));
+
+            points.emplace_back(k, x, u);
+        }
+    }
+
+    // Each kind of query, with its result flattened into a matrix
+    auto query = [&](const model::Model &m, uint kind, uint pi) -> MatX
+    {
+        const auto &[k, x, u] = points[pi];
+
+        MatX dX, dU;
+
+        switch (kind)
+        {
+        case 0:
+            return m.dynamics()[k]->evaluate(x, u);
+        case 1:
+            m.dynamics()[k]->gradient(x, u, dX, dU);
+            break;
+        case 2:
+            return m.constraints()[k]->evaluate(x, u);
+        case 3:
+            m.constraints()[k]->gradient(x, u, dX, dU);
+            break;
+        case 4:
+            return m.getFullAccelerationVector(x,
+                                               u,
+                                               m.forces(k),
+                                               m.wrenches(k));
+        case 5:
+            return m.getActuatedTorqueVector(x, u, m.forces(k), m.wrenches(k));
+        default:
+            m.getActuatedTorqueVectorDerivatives(x,
+                                                 u,
+                                                 dX,
+                                                 dU,
+                                                 m.forces(k),
+                                                 m.wrenches(k));
+            break;
+        }
+
+        MatX out(dX.rows(), dX.cols() + dU.cols());
+        out << dX, dU;
+        return out;
+    };
+    // The torque functions only apply in the inverse dynamics modes
+    const uint kinds = mode == model::SolverMode::ForwardDynamics ? 5 : 7;
+
+    // Results of a model built for each query, so that nothing is reused
+    std::map<std::tuple<uint, uint, uint>, MatX> fresh_results;
+    auto fresh = [&](uint kind, uint pi, uint state) -> const MatX &
+    {
+        const auto key = std::make_tuple(kind, pi, state);
+        auto       it  = fresh_results.find(key);
+        if (it == fresh_results.end())
+        {
+            auto fresh_model = make_model(state).first;
+            it =
+              fresh_results.emplace(key, query(*fresh_model, kind, pi)).first;
+        }
+        return it->second;
+    };
+
+    std::uniform_int_distribution<uint> pick_kind(0, kinds - 1);
+    std::uniform_int_distribution<uint> pick_point(0, points.size() - 1);
+    // Stage caches 0 to horizon, or the default cache when equal to horizon + 1
+    std::uniform_int_distribution<uint> pick_cache(0, horizon + 1);
+
+    uint state = 0;
+
+    auto check = [&](const std::string &label, uint kind, uint pi, uint cache)
+    {
+        MatX result;
+        {
+            std::optional<model::Model::StageScope> scope;
+            if (cache <= horizon)
+            {
+                scope.emplace(model, cache);
+            }
+            result = query(model, kind, pi);
+        }
+
+        const MatX &expected = fresh(kind, pi, state);
+        require(result.rows() == expected.rows() &&
+                  result.cols() == expected.cols() &&
+                  std::memcmp(result.data(),
+                              expected.data(),
+                              result.size() * sizeof(double)) == 0,
+                label + " (kind " + std::to_string(kind) + ", cache " +
+                  std::to_string(cache) + ", state " + std::to_string(state) +
+                  ") must match a fresh model bit for bit");
+    };
+
+    // Queries every cache at a known point around a change of state, so that
+    // the queries after it would find results kept from before it
+    auto change_state = [&](uint bit)
+    {
+        for (uint cache = 0; cache <= horizon + 1; ++cache)
+        {
+            for (uint kind = 0; kind < kinds; ++kind)
+            {
+                check("Query before change " + std::to_string(bit),
+                      kind,
+                      cache % points.size(),
+                      cache);
+            }
+        }
+
+        if (bit == 1)
+        {
+            contact->set_enabled(false);
+        }
+        else
+        {
+            model.setAllDynamicParameters(1.1 *
+                                          model.getAllDynamicParameters());
+        }
+        state |= bit;
+
+        for (uint cache = 0; cache <= horizon + 1; ++cache)
+        {
+            for (uint kind = 0; kind < kinds; ++kind)
+            {
+                check("Query after change " + std::to_string(bit),
+                      kind,
+                      cache % points.size(),
+                      cache);
+            }
+        }
+    };
+
+    for (uint i = 0; i < 400; ++i)
+    {
+        if (i == 130)
+        {
+            change_state(1);
+        }
+        if (i == 260)
+        {
+            change_state(2);
+        }
+
+        const uint kind  = pick_kind(rng);
+        const uint pi    = pick_point(rng);
+        const uint cache = pick_cache(rng);
+
+        check("Query " + std::to_string(i), kind, pi, cache);
+    }
+}
 }
 void addQPRegressionTests(TestContainer &tests);
 void addRegressionTests(TestContainer &tests)
@@ -1377,6 +1769,9 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(
       std::make_shared<FunctionTest>("Regression_Cost_SeesForcesAddedLater",
                                      costSeesForcesAddedLater));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_Cost_TorqueCostRejectsDifferentStageForces",
+      torqueCostRejectsDifferentStageForces));
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_HeightmapTerrain_SetHeightsMatchesNewTerrain",
       heightmapSetHeightsMatchesNewTerrain));
@@ -1442,6 +1837,20 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(
       std::make_shared<FunctionTest>("Regression_Model_ConstraintToggling",
                                      constraintToggling));
+    tests.addTest(std::make_shared<FunctionTest>(
+      "Regression_Model_KinematicsCachesMatchFreshModel",
+      kinematicsCachesMatchFreshModel));
+    for (const auto &[mode, suffix] :
+         { std::make_pair(model::SolverMode::ForwardDynamics, "Forward"),
+           std::make_pair(model::SolverMode::InverseDynamics, "Inverse"),
+           std::make_pair(model::SolverMode::ReducedInverseDynamics,
+                          "ReducedInverse") })
+    {
+        tests.addTest(std::make_shared<FunctionTest>(
+          std::string("Regression_Model_DynamicsCachesMatchFreshModel_") +
+            suffix,
+          [mode = mode] { dynamicsCachesMatchFreshModel(mode); }));
+    }
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_Model_MergedConstraintStacking",
       mergedConstraintStacking));

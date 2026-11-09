@@ -255,15 +255,15 @@ piqp_qp::piqp_qp(const QPData &qp, const Params &params)
         settings.num_threads = _params.num_threads;
     }
 #endif
-    settings.max_iter   = _params.max_iter;
-    settings.eps_abs    = _params.eps_abs;
-    settings.eps_rel    = _params.eps_rel;
+    settings.max_iter = _params.max_iter;
+    settings.eps_abs  = _params.eps_abs;
+    settings.eps_rel  = _params.eps_rel;
     // The duality gap has separate tolerances, which are otherwise far
     // tighter than the requested ones
     settings.eps_duality_gap_abs = _params.eps_abs;
     settings.eps_duality_gap_rel = _params.eps_rel;
-    settings.rho_init   = _params.rho_init;
-    settings.delta_init = _params.delta_init;
+    settings.rho_init            = _params.rho_init;
+    settings.delta_init          = _params.delta_init;
 
     // reset() uploads numeric QP data. The QP is assembled by SSQP after this
     // constructor returns, so defer that upload until the first solve.

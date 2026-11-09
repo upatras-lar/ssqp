@@ -189,7 +189,7 @@ int main()
     model.finalize(model_config);
 
     ssqp::solvers::ssqp::Params params;
-    params.tolerance = 2e-2;
+    params.tolerance     = 2e-2;
     params.loose_success = true;
     // Edit filter size (line search parameter)
     params.filter_size = 100;
