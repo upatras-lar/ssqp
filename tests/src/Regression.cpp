@@ -5,7 +5,6 @@
 #include "model/stagewise/predefined/Constraints.hpp"
 #include "model/terrain/predefined/HeightmapTerrain.hpp"
 #include "model/terrain/predefined/SlopeTerrain.hpp"
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -1400,7 +1399,7 @@ void paramsJsonOptionalKeys()
     std::filesystem::remove(path);
 }
 
-// Kinematics queries must give the results of a fresh model, bit for bit,
+// Kinematics queries must give the results of a fresh model up to roundoff,
 // whichever stage's kinematics cache is in use and however queries at
 // different points and of different kinds are interleaved
 void kinematicsCachesMatchFreshModel()
@@ -1518,20 +1517,18 @@ void kinematicsCachesMatchFreshModel()
         }
 
         const MatX &expected = fresh(kind, qi, vi, fi);
-        require(result.rows() == expected.rows() &&
-                  result.cols() == expected.cols() &&
-                  std::memcmp(result.data(),
-                              expected.data(),
-                              result.size() * sizeof(double)) == 0,
-                "Query " + std::to_string(i) + " (kind " +
-                  std::to_string(kind) + ", cache " + std::to_string(cache) +
-                  ") must match a fresh model bit for bit");
+        require(
+          close(result, expected, 1e-12 * expected.cwiseAbs().maxCoeff(), 0.0),
+          "Query " + std::to_string(i) + " (kind " + std::to_string(kind) +
+            ", cache " + std::to_string(cache) +
+            ") must match a fresh model up to roundoff");
     }
 }
 
-// Dynamics queries must give the results of a fresh model, bit for bit,
+// Dynamics queries must give the results of a fresh model up to roundoff,
 // whichever stage's dynamics cache is in use, however queries are
-// interleaved, and after contacts are toggled or the dynamic parameters change
+// interleaved with each other and with kinematics queries, and after contacts
+// are toggled or the dynamic parameters change
 void dynamicsCachesMatchFreshModel(const model::SolverMode mode)
 {
     using model::stagewise::predefined::constraints::ContactConstraint;
@@ -1605,7 +1602,13 @@ void dynamicsCachesMatchFreshModel(const model::SolverMode mode)
     // Each kind of query, with its result flattened into a matrix
     auto query = [&](const model::Model &m, uint kind, uint pi) -> MatX
     {
-        const auto &[k, x, u] = points[pi];
+        const auto &[k, x, u]         = points[pi];
+        const VecX              q     = x.head(m.nq());
+        const VecX              v     = x.tail(m.nv());
+        const uint              frame = m.frameId("FL_foot");
+        const VecX              a     = 2.0 * v;
+        const std::vector<Vec6> joint_forces(m.total_joints(),
+                                             10.0 * x.tail<6>());
 
         MatX dX, dU;
 
@@ -1627,6 +1630,29 @@ void dynamicsCachesMatchFreshModel(const model::SolverMode mode)
                                                m.forces(k),
                                                m.wrenches(k));
         case 5:
+            return m.forwardKinematicsSE3(q, frame);
+        case 6:
+            return m.frameJacobian(q, frame, false);
+        case 7:
+            return m.frameVelocity(q, v, frame, true);
+        case 8:
+            std::tie(dX, dU) = m.frameVelocityDerivatives(q, v, frame, false);
+            break;
+        // Dynamics passes alone, with no kinematics pass after them as in the
+        // stage functions
+        case 9:
+            return m.inverseDynamics(q, v, a, joint_forces);
+        case 10:
+        {
+            MatX dA;
+            m.inverseDynamicsDerivatives(q, v, a, joint_forces, dX, dU, dA);
+            MatX out(dX.rows(), 3 * dX.cols());
+            out << dX, dU, dA;
+            return out;
+        }
+        case 11:
+            return m.forwardDynamics(q, v, a, joint_forces);
+        case 12:
             return m.getActuatedTorqueVector(x, u, m.forces(k), m.wrenches(k));
         default:
             m.getActuatedTorqueVectorDerivatives(x,
@@ -1643,7 +1669,7 @@ void dynamicsCachesMatchFreshModel(const model::SolverMode mode)
         return out;
     };
     // The torque functions only apply in the inverse dynamics modes
-    const uint kinds = mode == model::SolverMode::ForwardDynamics ? 5 : 7;
+    const uint kinds = mode == model::SolverMode::ForwardDynamics ? 12 : 14;
 
     // Results of a model built for each query, so that nothing is reused
     std::map<std::tuple<uint, uint, uint>, MatX> fresh_results;
@@ -1680,14 +1706,11 @@ void dynamicsCachesMatchFreshModel(const model::SolverMode mode)
         }
 
         const MatX &expected = fresh(kind, pi, state);
-        require(result.rows() == expected.rows() &&
-                  result.cols() == expected.cols() &&
-                  std::memcmp(result.data(),
-                              expected.data(),
-                              result.size() * sizeof(double)) == 0,
-                label + " (kind " + std::to_string(kind) + ", cache " +
-                  std::to_string(cache) + ", state " + std::to_string(state) +
-                  ") must match a fresh model bit for bit");
+        require(
+          close(result, expected, 1e-12 * expected.cwiseAbs().maxCoeff(), 0.0),
+          label + " (kind " + std::to_string(kind) + ", cache " +
+            std::to_string(cache) + ", state " + std::to_string(state) +
+            ") must match a fresh model up to roundoff");
     };
 
     // Queries every cache at a known point around a change of state, so that

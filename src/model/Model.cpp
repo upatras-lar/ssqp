@@ -1692,7 +1692,7 @@ VecX Model::_randomVector(const uint size, const double start,
     return start + (end - start) * 0.5 * (VecX::Random(size).array() + 1.0);
 }
 
-void Model::_calculateJointForces(const VecX                        &f,
+void Model::_calculateJointForces(const VecX                       &f,
                                   const std::vector<const Force *> &force_data,
                                   const std::vector<const Force *> &wrench_data,
                                   std::vector<Vec6> &joint_forces) const
@@ -1844,7 +1844,7 @@ Model::DynamicsCache &Model::_dynamicsCache(
 
     for (uint i = 0; i < wrenches.size(); ++i)
     {
-        cache.wrenches[i]                 = wrenches[i].get();
+        cache.wrenches[i]                = wrenches[i].get();
         cache.ignored[forces.size() + i] = wrenches[i]->ignore;
     }
 

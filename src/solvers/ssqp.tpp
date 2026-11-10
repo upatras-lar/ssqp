@@ -349,6 +349,13 @@ SolverState ssqp::_check_termination()
 
     // Add k=0 terms for u
     model::Model::StageScope stage_0_scope(_model, 0);
+    // Dynamics gradients go first, as their passes leave kinematics results
+    // the cost gradients can use
+    dynamics[0]->gradient(_guess.x.stage(0),
+                          _guess.u.stage(0),
+                          _qp.stages[0].A,
+                          _qp.stages[0].B);
+
     costs[0]->gradient(_guess.x.stage(0),
                        _guess.u.stage(0),
                        _qp.stages[0].qx,
@@ -356,11 +363,6 @@ SolverState ssqp::_check_termination()
     lagrangian_du.stage(0) += _qp.stages[0].qu;
 
     _cost_du.stage(0) = _qp.stages[0].qu;
-
-    dynamics[0]->gradient(_guess.x.stage(0),
-                          _guess.u.stage(0),
-                          _qp.stages[0].A,
-                          _qp.stages[0].B);
 
     const uint nu = _qp.dims.stage_control[0];
     auto       u1 = _tmp.u1.head(nu);
@@ -393,6 +395,14 @@ SolverState ssqp::_check_termination()
         auto u1 = _tmp.u1.head(nu);
 
         // =========================
+        // Dynamics
+        // =========================
+        dynamics[k]->gradient(_guess.x.stage(k),
+                              _guess.u.stage(k),
+                              stage.A,
+                              stage.B);
+
+        // =========================
         // Cost
         // =========================
         costs[k]->gradient(_guess.x.stage(k),
@@ -405,14 +415,6 @@ SolverState ssqp::_check_termination()
 
         _cost_dx.stage(k) = stage.qx;
         _cost_du.stage(k) = stage.qu;
-
-        // =========================
-        // Dynamics
-        // =========================
-        dynamics[k]->gradient(_guess.x.stage(k),
-                              _guess.u.stage(k),
-                              stage.A,
-                              stage.B);
 
         // dx += Aᵀ λ_k
         x1.noalias()            = stage.A.transpose() * _guess.lambda.stage(k);

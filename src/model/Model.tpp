@@ -1031,17 +1031,26 @@ void Model::_ensureTorque(DynamicsCache &cache) const
 
     _ensureAcceleration<FloatingBase, WithForces, SM>(cache);
 
-    const VecX q = cache.x.head(_dims.nq);
-    const VecX v = cache.x.tail(_dims.nv);
-
-    if constexpr (WithForces)
+    if constexpr (SM == SolverMode::ReducedInverseDynamics)
     {
-        _ensureJointForces(cache);
-        cache.tau = inverseDynamics(q, v, cache.ddq, cache.fext);
+        // The acceleration already computed the mass matrix and the bias
+        // torque, joint forces included
+        cache.tau = cache.M * cache.ddq + cache.bias;
     }
     else
     {
-        cache.tau = inverseDynamics(q, v, cache.ddq);
+        const VecX q = cache.x.head(_dims.nq);
+        const VecX v = cache.x.tail(_dims.nv);
+
+        if constexpr (WithForces)
+        {
+            _ensureJointForces(cache);
+            cache.tau = inverseDynamics(q, v, cache.ddq, cache.fext);
+        }
+        else
+        {
+            cache.tau = inverseDynamics(q, v, cache.ddq);
+        }
     }
 
     cache.torque = true;
@@ -1155,11 +1164,11 @@ void Model::_calculateReducedInverseFullAcceleration(DynamicsCache &cache) const
 
     pinocchio_wrapper::crba(_impl, q, M, true);
 
-    VecX bias;
+    VecX &bias = cache.bias;
 
     if constexpr (WithForces)
     {
-        _ensureForceJacobian(cache);
+        _ensureJointForces(cache);
 
         bias = pinocchio_wrapper::rnea(_impl, q, v, VecX::Zero(nv), cache.fext);
     }

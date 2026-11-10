@@ -513,7 +513,8 @@ class Model
     void frameJacobian(const VecX &q, const uint frame_id, bool local,
                        Eigen::Ref<MatX> J) const;
 
-    // Get frame jacobian (assuming computeJointJacobians has been called)
+    // Get frame jacobian (assuming computeJointJacobians has been called, with
+    // no dynamics pass at another point since)
     const MatX frameJacobian(const std::string &frame,
                              bool               local = false) const;
 
@@ -776,8 +777,9 @@ class Model
      *  - `cache.M`, `cache.Muu`, `cache.Muj`, `cache.Muu_ldlt`: The mass
      *     matrix, its unactuated block and its unactuated-actuated block, and
      *     the factorization of the unactuated block
+     *  - `cache.bias`: The torque at zero acceleration, joint forces included
      *
-     * Ensures the force Jacobian first when there are forces
+     * Ensures the joint forces first when there are forces
      */
     template<bool FloatingBase, bool WithForces>
     void _calculateReducedInverseFullAcceleration(DynamicsCache &cache) const;

@@ -44,8 +44,8 @@ struct KinematicsCache
     bool jacobians  = false;
 
     // Results for q and v
-    bool velocities           = false;
-    bool velocity_derivatives = false;
+    bool velocities       = false;
+    bool world_velocities = false;
 };
 
 struct ModelImpl
@@ -54,7 +54,7 @@ struct ModelImpl
     // Data must be constructed after Model. Constructing a temporary Data and
     // move-assigning it into Pinocchio's default Data reads uninitialized
     // Eigen solver state under sanitizers.
-    // Used by all algorithms other than the kinematics queries
+    // Used by the center of mass and regressor algorithms
     std::optional<pinocchio::Data> data;
 
     // Kinematics and dynamics caches, the default ones first and then one of
@@ -81,11 +81,11 @@ void setConfiguration(KinematicsCache &cache, const VecX &q)
         return;
     }
 
-    cache.q                    = q;
-    cache.placements           = false;
-    cache.jacobians            = false;
-    cache.velocities           = false;
-    cache.velocity_derivatives = false;
+    cache.q                = q;
+    cache.placements       = false;
+    cache.jacobians        = false;
+    cache.velocities       = false;
+    cache.world_velocities = false;
 }
 
 // Points the cache at velocity v, dropping results for any other one
@@ -96,18 +96,15 @@ void setVelocity(KinematicsCache &cache, const VecX &v)
         return;
     }
 
-    cache.v                    = v;
-    cache.velocities           = false;
-    cache.velocity_derivatives = false;
+    cache.v                = v;
+    cache.velocities       = false;
+    cache.world_velocities = false;
 }
 
 // The functions below run a kinematics pass on the active cache only if its
 // results for the given point are missing
 // A pass also marks the results it computes along the way, which match those
-// of the pass computing them alone
-// The exception is the joint Jacobians, which the FK derivatives pass computes
-// with roundoff differences, so the Jacobian and FK derivatives passes each
-// drop the other's results when they write the shared Jacobians
+// of the pass computing them alone up to roundoff
 
 KinematicsCache &ensurePlacements(const std::shared_ptr<ModelImpl> &impl,
                                   const VecX                       &q)
@@ -133,9 +130,8 @@ KinematicsCache &ensureJacobians(const std::shared_ptr<ModelImpl> &impl,
     if (!cache.jacobians)
     {
         pinocchio::computeJointJacobians(impl->model, cache.data, q);
-        cache.placements           = true;
-        cache.jacobians            = true;
-        cache.velocity_derivatives = false;
+        cache.placements = true;
+        cache.jacobians  = true;
     }
 
     return cache;
@@ -158,25 +154,23 @@ KinematicsCache &ensureVelocities(const std::shared_ptr<ModelImpl> &impl,
     return cache;
 }
 
-// Derivatives at zero acceleration
+// Velocity derivatives only need the placements, the Jacobians and the joint
+// velocities in the world frame, which follow from the local ones
 KinematicsCache &ensureVelocityDerivatives(
   const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v)
 {
-    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
-    setConfiguration(cache, q);
-    setVelocity(cache, v);
+    ensureJacobians(impl, q);
+    KinematicsCache &cache = ensureVelocities(impl, q, v);
 
-    if (!cache.velocity_derivatives)
+    if (!cache.world_velocities)
     {
-        pinocchio::computeForwardKinematicsDerivatives(impl->model,
-                                                       cache.data,
-                                                       q,
-                                                       v,
-                                                       VecX::Zero(v.size()));
-        cache.placements           = true;
-        cache.jacobians            = false;
-        cache.velocities           = true;
-        cache.velocity_derivatives = true;
+        for (pinocchio::JointIndex i = 1;
+             i < (pinocchio::JointIndex)impl->model.njoints;
+             ++i)
+        {
+            cache.data.ov[i] = cache.data.oMi[i].act(cache.data.v[i]);
+        }
+        cache.world_velocities = true;
     }
 
     return cache;
@@ -467,13 +461,23 @@ Vec6 framejMfActWrench(const std::shared_ptr<ModelImpl> &impl,
 void crba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, MatX &M,
           bool local)
 {
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+
     pinocchio::crba(impl->model,
-                    *impl->data,
+                    cache.data,
                     q,
                     local ? pinocchio::Convention::LOCAL
                           : pinocchio::Convention::WORLD);
 
-    M = impl->data->M.selfadjointView<Eigen::Upper>();
+    // The WORLD convention also leaves the placements and Jacobians
+    if (!local)
+    {
+        cache.placements = true;
+        cache.jacobians  = true;
+    }
+
+    M = cache.data.M.selfadjointView<Eigen::Upper>();
 }
 
 VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
@@ -487,15 +491,31 @@ VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
         forces[i].angular() = fext[i].tail(3);
     }
 
-    pinocchio::aba(impl->model, *impl->data, q, v, tau, forces);
-    return impl->data->ddq;
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
+
+    pinocchio::aba(impl->model, cache.data, q, v, tau, forces);
+
+    // The pass leaves the joint velocities, which need the placements too
+    cache.velocities = cache.placements;
+
+    return cache.data.ddq;
 }
 
 VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
          const VecX &tau)
 {
-    pinocchio::aba(impl->model, *impl->data, q, v, tau);
-    return impl->data->ddq;
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
+
+    pinocchio::aba(impl->model, cache.data, q, v, tau);
+
+    // The pass leaves the joint velocities, which need the placements too
+    cache.velocities = cache.placements;
+
+    return cache.data.ddq;
 }
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
@@ -503,10 +523,20 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
                            MatX &aba_partial_dq, MatX &aba_partial_dv,
                            MatX &Minv)
 {
-    pinocchio::computeABADerivatives(impl->model, *impl->data, q, v, tau);
-    aba_partial_dq = impl->data->ddq_dq;
-    aba_partial_dv = impl->data->ddq_dv;
-    Minv           = impl->data->Minv;
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
+
+    pinocchio::computeABADerivatives(impl->model, cache.data, q, v, tau);
+
+    // The pass leaves the placements, Jacobians and world velocities
+    cache.placements       = true;
+    cache.jacobians        = true;
+    cache.world_velocities = true;
+
+    aba_partial_dq = cache.data.ddq_dq;
+    aba_partial_dv = cache.data.ddq_dv;
+    Minv           = cache.data.Minv;
 }
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
@@ -522,22 +552,40 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
         forces[i].angular() = fext[i].tail(3);
     }
 
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
+
     pinocchio::computeABADerivatives(impl->model,
-                                     *impl->data,
+                                     cache.data,
                                      q,
                                      v,
                                      tau,
                                      forces);
 
-    aba_partial_dq = impl->data->ddq_dq;
-    aba_partial_dv = impl->data->ddq_dv;
-    Minv           = impl->data->Minv;
+    // The pass leaves the placements, Jacobians and world velocities
+    cache.placements       = true;
+    cache.jacobians        = true;
+    cache.world_velocities = true;
+
+    aba_partial_dq = cache.data.ddq_dq;
+    aba_partial_dv = cache.data.ddq_dv;
+    Minv           = cache.data.Minv;
 }
 
 VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
           const VecX &a)
 {
-    return pinocchio::rnea(impl->model, *impl->data, q, v, a);
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
+
+    pinocchio::rnea(impl->model, cache.data, q, v, a);
+
+    // The pass leaves the joint velocities, which need the placements too
+    cache.velocities = cache.placements;
+
+    return cache.data.tau;
 }
 
 VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
@@ -553,7 +601,16 @@ VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
         forces[i].angular() = fext[i].tail<3>();
     }
 
-    return pinocchio::rnea(impl->model, *impl->data, q, v, a, forces);
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
+
+    pinocchio::rnea(impl->model, cache.data, q, v, a, forces);
+
+    // The pass leaves the joint velocities, which need the placements too
+    cache.velocities = cache.placements;
+
+    return cache.data.tau;
 }
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
@@ -561,11 +618,21 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
                             MatX &rnea_partial_dq, MatX &rnea_partial_dv,
                             MatX &rnea_partial_da)
 {
-    pinocchio::computeRNEADerivatives(impl->model, *impl->data, q, v, a);
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
 
-    rnea_partial_dq = impl->data->dtau_dq;
-    rnea_partial_dv = impl->data->dtau_dv;
-    rnea_partial_da = impl->data->M;
+    pinocchio::computeRNEADerivatives(impl->model, cache.data, q, v, a);
+
+    // The pass leaves every kinematics result
+    cache.placements       = true;
+    cache.jacobians        = true;
+    cache.velocities       = true;
+    cache.world_velocities = true;
+
+    rnea_partial_dq = cache.data.dtau_dq;
+    rnea_partial_dv = cache.data.dtau_dv;
+    rnea_partial_da = cache.data.M;
 
     rnea_partial_da = rnea_partial_da.selfadjointView<Eigen::Upper>();
 }
@@ -586,16 +653,21 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
         forces[i].angular() = fext[i].tail<3>();
     }
 
-    pinocchio::computeRNEADerivatives(impl->model,
-                                      *impl->data,
-                                      q,
-                                      v,
-                                      a,
-                                      forces);
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
+    setConfiguration(cache, q);
+    setVelocity(cache, v);
 
-    rnea_partial_dq = impl->data->dtau_dq;
-    rnea_partial_dv = impl->data->dtau_dv;
-    rnea_partial_da = impl->data->M;
+    pinocchio::computeRNEADerivatives(impl->model, cache.data, q, v, a, forces);
+
+    // The pass leaves every kinematics result
+    cache.placements       = true;
+    cache.jacobians        = true;
+    cache.velocities       = true;
+    cache.world_velocities = true;
+
+    rnea_partial_dq = cache.data.dtau_dq;
+    rnea_partial_dv = cache.data.dtau_dv;
+    rnea_partial_da = cache.data.M;
 
     rnea_partial_da = rnea_partial_da.selfadjointView<Eigen::Upper>();
 }
@@ -893,24 +965,17 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 {
     pinocchio::Data &data = ensureVelocityDerivatives(impl, q, v).data;
 
-    MatX tmp1 = MatX::Zero(6, v.size());
-    MatX tmp2 = MatX::Zero(6, v.size());
-    MatX tmp3 = MatX::Zero(6, v.size());
-
     dVdq.setZero();
     dVdv.setZero();
 
-    pinocchio::getFrameAccelerationDerivatives(
+    pinocchio::getFrameVelocityDerivatives(
       impl->model,
       data,
       frame_id,
       local ? pinocchio::ReferenceFrame::LOCAL
             : pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED,
       dVdq,
-      dVdv,
-      tmp1,
-      tmp2,
-      tmp3);
+      dVdv);
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,

@@ -54,11 +54,12 @@ struct DynamicsCache
     std::vector<Vec6> fext;
     MatX              Jf;
 
-    // Acceleration, along with the mass matrix parts and factorization
-    // ReducedInverseDynamics uses
+    // Acceleration, along with the mass matrix parts, factorization and bias
+    // torque ReducedInverseDynamics uses
     VecX              ddq;
     MatX              M, Muu, Muj;
     Eigen::LDLT<MatX> Muu_ldlt;
+    VecX              bias;
 
     // Torque and its RNEA derivatives
     VecX tau;
@@ -89,6 +90,8 @@ std::shared_ptr<ModelImpl> makeImpl();
 // Kinematics queries keep their results in a kinematics cache and dynamics
 // queries in a dynamics cache, so that queries at the same point share a
 // single pass
+// Dynamics passes run on the active kinematics cache too, so the kinematics
+// results they compute along the way are shared as well
 // Creates a default cache of each kind at index 0 and one per stage after it,
 // so stage k uses index k + 1
 void makeStageCaches(const std::shared_ptr<ModelImpl> &impl, const uint stages);
@@ -283,7 +286,8 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
 void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
                            const VecX                       &q);
 
-// Get frame jacobian (assumes computeJointJacobians has been called)
+// Get frame jacobian (assumes computeJointJacobians has been called, with no
+// dynamics pass at another point since)
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
                    const std::string &frame, Eigen::Ref<MatX> J,
                    bool local = false);
