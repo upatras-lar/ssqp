@@ -324,10 +324,6 @@ class ssqp
     // Scratch trajectory overwritten by the line search each iteration
     FlatVec _candidate_x, _candidate_u;
 
-    // Scratch Hessian-block buffers for _setup_qp, one per shape so reuse
-    // doesn't thrash between shapes within a stage
-    MatX _tmp_hess_xx, _tmp_hess_xu, _tmp_hess_uu;
-
     // Scratch XML Jacobian-transform buffers for _setup_qp (nv/nu are
     // whole-model constants, not per-stage)
     MatX _tmp_jac_x, _tmp_jac_u, _tmp_jac_r_inv, _tmp_jac_r_inv_act;

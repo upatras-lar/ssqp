@@ -68,38 +68,41 @@ int main()
           .finished();
     };
 
+    // The derivative functions add to their outputs
     auto cost_grad = [target](const Eigen::VectorXd &x,
                               const Eigen::VectorXd &u,
-                              Eigen::VectorXd &dx,
-                              Eigen::VectorXd &du)
+                              Eigen::Ref<Eigen::VectorXd>
+                                dx,
+                              Eigen::Ref<Eigen::VectorXd>
+                                du)
     {
-        dx                  = Eigen::VectorXd::Zero(2 * STATE_SIZE);
-        dx.head(STATE_SIZE) = 2 * Q_WGT * (x.head(STATE_SIZE) - target);
-        du                  = 2 * U_WGT * u;
+        dx.head(STATE_SIZE) += 2 * Q_WGT * (x.head(STATE_SIZE) - target);
+        du                  += 2 * U_WGT * u;
     };
 
     auto cost_hess_xx = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd &Hxx)
+                           Eigen::Ref<Eigen::MatrixXd>
+                             Hxx)
     {
-        Hxx = Eigen::MatrixXd::Zero(2 * STATE_SIZE, 2 * STATE_SIZE);
-        Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE)
-          .diagonal()
-          .setConstant(2 * Q_WGT);
+        Hxx.topLeftCorner(STATE_SIZE, STATE_SIZE).diagonal().array() +=
+          2 * Q_WGT;
     };
 
     auto cost_hess_uu = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd &Huu)
-    { Huu = 2 * U_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE); };
+                           Eigen::Ref<Eigen::MatrixXd>
+                             Huu)
+    { Huu += 2 * U_WGT * Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE); };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
-      ssqp::model::stagewise::factory::make_cost({},
-                                                 cost_eval,
-                                                 cost_grad,
-                                                 cost_hess_xx,
-                                                 ssqp::model::ZeroHessian_xu,
-                                                 cost_hess_uu);
+      ssqp::model::stagewise::factory::make_add_cost({},
+                                                     2 * STATE_SIZE,
+                                                     cost_eval,
+                                                     cost_grad,
+                                                     cost_hess_xx,
+                                                     ssqp::model::ZeroHessian,
+                                                     cost_hess_uu);
 
     auto terminal_cost_eval =
       [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
@@ -113,30 +116,31 @@ int main()
 
     auto terminal_cost_grad = [target](const Eigen::VectorXd &x,
                                        const Eigen::VectorXd &u,
-                                       Eigen::VectorXd &dx,
-                                       Eigen::VectorXd &du)
+                                       Eigen::Ref<Eigen::VectorXd>
+                                         dx,
+                                       Eigen::Ref<Eigen::VectorXd>
+                                         du)
     {
-        dx = Eigen::VectorXd::Zero(2 * STATE_SIZE);
-        dx.head(STATE_SIZE) =
+        dx.head(STATE_SIZE) +=
           QF_WGT * 2 * Q_WGT * (x.head(STATE_SIZE) - target);
-        dx.tail(STATE_SIZE) = QF_WGT * 2 * x.tail(STATE_SIZE);
+        dx.tail(STATE_SIZE) += QF_WGT * 2 * x.tail(STATE_SIZE);
     };
 
     auto terminal_cost_hess_xx = [](const Eigen::VectorXd &x,
                                     const Eigen::VectorXd &u,
-                                    Eigen::MatrixXd &Hxx)
+                                    Eigen::Ref<Eigen::MatrixXd>
+                                      Hxx)
     {
-        Hxx = QF_WGT * 2 * Q_WGT *
-              Eigen::MatrixXd::Identity(2 * STATE_SIZE, 2 * STATE_SIZE);
+        Hxx += QF_WGT * 2 * Q_WGT *
+               Eigen::MatrixXd::Identity(2 * STATE_SIZE, 2 * STATE_SIZE);
     };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
-      ssqp::model::stagewise::factory::make_cost({},
-                                                 terminal_cost_eval,
-                                                 terminal_cost_grad,
-                                                 terminal_cost_hess_xx,
-                                                 ssqp::model::ZeroHessian_xu,
-                                                 ssqp::model::ZeroHessian_uu);
+      ssqp::model::stagewise::factory::make_add_cost({},
+                                                     2 * STATE_SIZE,
+                                                     terminal_cost_eval,
+                                                     terminal_cost_grad,
+                                                     terminal_cost_hess_xx);
 
     ssqp::model::Model::Structure model_structure;
     model_structure.from_preset = ssqp::model::Preset::Panda;

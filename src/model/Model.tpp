@@ -398,73 +398,36 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         }
     };
 
-    auto dyn_hessprod_xx =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
-    {
-        if constexpr (SM == SolverMode::Kinematics)
-        {
-            Pxx.setZero(ctx->nv, ctx->nv);
-        }
-        else if constexpr (SM == SolverMode::ForwardDynamics ||
-                           SM == SolverMode::InverseDynamics ||
-                           SM == SolverMode::ReducedInverseDynamics)
-        {
-            Pxx.setZero(2 * ctx->nv, 2 * ctx->nv);
-        }
-    };
-
-    auto dyn_hessprod_xu =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
-    {
-        if constexpr (SM == SolverMode::Kinematics)
-        {
-            Pxu.setZero(ctx->nv, ctx->nu + ctx->force_width);
-        }
-        else if constexpr (SM == SolverMode::ForwardDynamics ||
-                           SM == SolverMode::InverseDynamics ||
-                           SM == SolverMode::ReducedInverseDynamics)
-        {
-            Pxu.setZero(2 * ctx->nv, ctx->nu + ctx->force_width);
-        }
-    };
-
-    auto dyn_hessprod_uu =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu.setZero(ctx->nu + ctx->force_width, ctx->nu + ctx->force_width); };
-
+    // The dynamics Hessian products are left out, so they default to zero
     if constexpr (SM == SolverMode::Kinematics)
     {
-        return stagewise::factory::make_dynamics({ ctx->stage_dynamics_name },
-                                                 ctx->nq,
-                                                 ctx->nu + ctx->force_width,
-                                                 ctx->nq,
-                                                 ctx->nv,
-                                                 ctx->init_state,
-                                                 ctx->init_control,
-                                                 ops,
-                                                 dyn_eval,
-                                                 dyn_grad,
-                                                 dyn_hessprod_xx,
-                                                 dyn_hessprod_xu,
-                                                 dyn_hessprod_uu);
+        return stagewise::factory::make_add_dynamics(
+          { ctx->stage_dynamics_name },
+          ctx->nq,
+          ctx->nu + ctx->force_width,
+          ctx->nq,
+          ctx->nv,
+          ctx->init_state,
+          ctx->init_control,
+          ops,
+          dyn_eval,
+          dyn_grad);
     }
     else if constexpr (SM == SolverMode::ForwardDynamics ||
                        SM == SolverMode::InverseDynamics ||
                        SM == SolverMode::ReducedInverseDynamics)
     {
-        return stagewise::factory::make_dynamics({ ctx->stage_dynamics_name },
-                                                 ctx->nq + ctx->nv,
-                                                 ctx->nu + ctx->force_width,
-                                                 ctx->nq + ctx->nv,
-                                                 2 * ctx->nv,
-                                                 ctx->init_state,
-                                                 ctx->init_control,
-                                                 ops,
-                                                 dyn_eval,
-                                                 dyn_grad,
-                                                 dyn_hessprod_xx,
-                                                 dyn_hessprod_xu,
-                                                 dyn_hessprod_uu);
+        return stagewise::factory::make_add_dynamics(
+          { ctx->stage_dynamics_name },
+          ctx->nq + ctx->nv,
+          ctx->nu + ctx->force_width,
+          ctx->nq + ctx->nv,
+          2 * ctx->nv,
+          ctx->init_state,
+          ctx->init_control,
+          ops,
+          dyn_eval,
+          dyn_grad);
     }
 }
 
@@ -592,48 +555,18 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         return c;
     };
 
-    auto innate_constraint_grad =
-      [this, ctx, nv_reduced](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+    // Adds the unit entries of the bounded joints, on top of what dX and dU
+    // already hold
+    auto innate_constraint_grad = [this, ctx, nv_reduced](const VecX &x,
+                                                          const VecX &u,
+                                                          MatXRef dX,
+                                                          MatXRef dU)
     {
-        if constexpr (SM == SolverMode::Kinematics)
-        {
-            dX.setZero(_bounded_joint_indices.size(), ctx->nv);
-
-            if constexpr (IsTerminal)
-            {
-                dU.setZero(_bounded_joint_indices.size(), 0);
-            }
-            else
-            {
-                dU.setZero(_bounded_joint_indices.size(),
-                           ctx->nu + ctx->force_width);
-            }
-        }
-        else if constexpr (IsTerminal)
-        {
-            dX.setZero(_bounded_joint_indices.size() + nv_reduced, 2 * ctx->nv);
-            dU.setZero(_bounded_joint_indices.size() + nv_reduced, 0);
-        }
-        else if constexpr (SM == SolverMode::ForwardDynamics)
-        {
-            dX.setZero(_bounded_joint_indices.size() + 2 * nv_reduced,
-                       2 * ctx->nv);
-            dU.setZero(_bounded_joint_indices.size() + 2 * nv_reduced,
-                       ctx->nu + ctx->force_width);
-        }
-        else if constexpr (SM == SolverMode::InverseDynamics ||
-                           SM == SolverMode::ReducedInverseDynamics)
-        {
-            dX.setZero(_bounded_joint_indices.size() + nv_reduced, 2 * ctx->nv);
-            dU.setZero(_bounded_joint_indices.size() + nv_reduced,
-                       ctx->nu + ctx->force_width);
-        }
-
         for (uint i = 0; i < _bounded_joint_indices.size(); ++i)
         {
             dX(i,
                _bounded_joint_indices_to_tangent.at(
-                 _bounded_joint_indices[i])) = 1.0;
+                 _bounded_joint_indices[i])) += 1.0;
         }
 
         if constexpr (SM == SolverMode::ForwardDynamics ||
@@ -646,7 +579,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                          ctx->nv + 6,
                          nv_reduced,
                          nv_reduced)
-                  .setIdentity();
+                  .diagonal()
+                  .array() += 1.0;
             }
             else
             {
@@ -654,7 +588,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                          ctx->nv,
                          nv_reduced,
                          nv_reduced)
-                  .setIdentity();
+                  .diagonal()
+                  .array() += 1.0;
             }
         }
 
@@ -666,7 +601,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                          6,
                          nv_reduced,
                          nv_reduced)
-                  .setIdentity();
+                  .diagonal()
+                  .array() += 1.0;
             }
             else
             {
@@ -674,65 +610,33 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                          0,
                          nv_reduced,
                          nv_reduced)
-                  .setIdentity();
+                  .diagonal()
+                  .array() += 1.0;
             }
         }
     };
 
-    auto innate_constraint_hessprod_xx =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
-    {
-        if constexpr (SM == SolverMode::Kinematics)
-        {
-            Pxx.setZero(ctx->nv, ctx->nv);
-        }
-        else if constexpr (SM == SolverMode::ForwardDynamics ||
-                           SM == SolverMode::InverseDynamics ||
-                           SM == SolverMode::ReducedInverseDynamics)
-        {
-            Pxx.setZero(2 * ctx->nv, 2 * ctx->nv);
-        }
-    };
-
-    auto innate_constraint_hessprod_xu =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
-    {
-        if constexpr (SM == SolverMode::Kinematics)
-        {
-            Pxu.setZero(ctx->nv, ctx->nu + ctx->force_width);
-        }
-        else if constexpr (SM == SolverMode::ForwardDynamics ||
-                           SM == SolverMode::InverseDynamics ||
-                           SM == SolverMode::ReducedInverseDynamics)
-        {
-            Pxu.setZero(2 * ctx->nv, ctx->nu + ctx->force_width);
-        }
-    };
-
-    auto innate_constraint_hessprod_uu =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu.setZero(ctx->nu + ctx->force_width, ctx->nu + ctx->force_width); };
+    // The bounds are linear, so their Hessian products default to zero
+    const uint ndx = SM == SolverMode::Kinematics ? ctx->nv : 2 * ctx->nv;
 
     if constexpr (SM == SolverMode::Kinematics)
     {
-        return stagewise::factory::make_constraints(
+        return stagewise::factory::make_add_constraints(
           { ctx->stage_constraints_name },
+          ndx,
           [this]() { return _bounded_joint_indices.size(); },
           [this]() { return _bounded_joint_indices.size(); },
           [lb]() { return lb; },
           [ub]() { return ub; },
           innate_constraint_eval,
-          innate_constraint_grad,
-          DefaultRightMinus,
-          innate_constraint_hessprod_xx,
-          innate_constraint_hessprod_xu,
-          innate_constraint_hessprod_uu);
+          innate_constraint_grad);
     }
 
     else if constexpr (IsTerminal)
     {
-        return stagewise::factory::make_constraints(
+        return stagewise::factory::make_add_constraints(
           { ctx->stage_constraints_name },
+          ndx,
           [this, nv_reduced]()
           { return _bounded_joint_indices.size() + nv_reduced; },
           [this, nv_reduced]()
@@ -742,16 +646,13 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [this, ub, nv_reduced]()
           { return ub.head(_bounded_joint_indices.size() + nv_reduced); },
           innate_constraint_eval,
-          innate_constraint_grad,
-          DefaultRightMinus,
-          innate_constraint_hessprod_xx,
-          innate_constraint_hessprod_xu,
-          innate_constraint_hessprod_uu);
+          innate_constraint_grad);
     }
     else if constexpr (SM == SolverMode::ForwardDynamics)
     {
-        return stagewise::factory::make_constraints(
+        return stagewise::factory::make_add_constraints(
           { ctx->stage_constraints_name },
+          ndx,
           [this, nv_reduced]()
           { return _bounded_joint_indices.size() + 2 * nv_reduced; },
           [this, nv_reduced]()
@@ -759,17 +660,14 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [lb]() { return lb; },
           [ub]() { return ub; },
           innate_constraint_eval,
-          innate_constraint_grad,
-          DefaultRightMinus,
-          innate_constraint_hessprod_xx,
-          innate_constraint_hessprod_xu,
-          innate_constraint_hessprod_uu);
+          innate_constraint_grad);
     }
     else if constexpr (SM == SolverMode::InverseDynamics ||
                        SM == SolverMode::ReducedInverseDynamics)
     {
-        return stagewise::factory::make_constraints(
+        return stagewise::factory::make_add_constraints(
           { ctx->stage_constraints_name },
+          ndx,
           [this, nv_reduced]()
           { return _bounded_joint_indices.size() + nv_reduced; },
           [this, nv_reduced]()
@@ -777,11 +675,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [lb]() { return lb; },
           [ub]() { return ub; },
           innate_constraint_eval,
-          innate_constraint_grad,
-          DefaultRightMinus,
-          innate_constraint_hessprod_xx,
-          innate_constraint_hessprod_xu,
-          innate_constraint_hessprod_uu);
+          innate_constraint_grad);
     }
 }
 
@@ -874,11 +768,8 @@ Model::_makeStageIDTorqueConstraints(
     };
 
     auto innate_constraint_grad =
-      [this, ctx](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+      [this, ctx](const VecX &x, const VecX &u, MatXRef dX, MatXRef dU)
     {
-        dX.setZero(ctx->nu, 2 * ctx->nv);
-        dU.setZero(ctx->nu, ctx->nu + ctx->force_width);
-
         DynamicsCache &cache =
           _dynamicsCache(x, u, ctx->force_data, ctx->wrench_data);
 
@@ -915,52 +806,38 @@ Model::_makeStageIDTorqueConstraints(
 
             for (uint i = 0; i < ctx->nu; ++i)
             {
-                uint true_i = offset + ctx->actuated_joints[i];
-                dX.row(i)   = dX_full.row(true_i);
-                dU.row(i)   = dU_full.row(true_i);
+                uint true_i  = offset + ctx->actuated_joints[i];
+                dX.row(i)   += dX_full.row(true_i);
+                dU.row(i)   += dU_full.row(true_i);
             }
         }
         else
         {
             _ensureTorqueDerivatives<FloatingBase, WithForces, SM>(cache);
 
-            dX.leftCols(ctx->nv)  = cache.dtau_dq;
-            dX.rightCols(ctx->nv) = cache.dtau_dv;
-            dU.leftCols(ctx->nu)  = cache.dtau_da;
+            dX.leftCols(ctx->nv)  += cache.dtau_dq;
+            dX.rightCols(ctx->nv) += cache.dtau_dv;
+            dU.leftCols(ctx->nu)  += cache.dtau_da;
 
             if constexpr (WithForces)
             {
                 _ensureForceJacobian(cache);
 
-                dU.rightCols(ctx->force_width) = -cache.Jf.transpose();
+                dU.rightCols(ctx->force_width) -= cache.Jf.transpose();
             }
         }
     };
 
-    auto innate_constraint_hessprod_xx =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxx)
-    { Pxx.setZero(2 * ctx->nv, 2 * ctx->nv); };
-
-    auto innate_constraint_hessprod_xu =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Pxu)
-    { Pxu.setZero(2 * ctx->nv, ctx->nu + ctx->force_width); };
-
-    auto innate_constraint_hessprod_uu =
-      [this, ctx](const VecX &x, const VecX &u, const VecX &lambda, MatX &Puu)
-    { Puu.setZero(ctx->nu + ctx->force_width, ctx->nu + ctx->force_width); };
-
-    return stagewise::factory::make_constraints(
+    // The torque Hessian products are left out, so they default to zero
+    return stagewise::factory::make_add_constraints(
       { ctx->stage_constraints_name },
+      2 * ctx->nv,
       [ctx]() { return ctx->nu; },
       [ctx]() { return ctx->nu; },
       [lb]() { return lb; },
       [ub]() { return ub; },
       innate_constraint_eval,
-      innate_constraint_grad,
-      DefaultRightMinus,
-      innate_constraint_hessprod_xx,
-      innate_constraint_hessprod_xu,
-      innate_constraint_hessprod_uu);
+      innate_constraint_grad);
 }
 
 template<bool FloatingBase>

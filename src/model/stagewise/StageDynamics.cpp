@@ -58,6 +58,27 @@ VecX StageDynamics::state_right_minus(const VecX &x, const VecX &y) const
     return x - y;
 }
 
+void StageDynamics::add_hessprod_xx(const VecX &x, const VecX &u,
+                                    const VecX &lambda, MatXRef Pxx) const
+{
+    hessprod_xx(x, u, lambda, _add_scratch_xx);
+    Pxx += _add_scratch_xx;
+}
+
+void StageDynamics::add_hessprod_xu(const VecX &x, const VecX &u,
+                                    const VecX &lambda, MatXRef Pxu) const
+{
+    hessprod_xu(x, u, lambda, _add_scratch_xu);
+    Pxu += _add_scratch_xu;
+}
+
+void StageDynamics::add_hessprod_uu(const VecX &x, const VecX &u,
+                                    const VecX &lambda, MatXRef Puu) const
+{
+    hessprod_uu(x, u, lambda, _add_scratch_uu);
+    Puu += _add_scratch_uu;
+}
+
 uint StageDynamics::parameter_size() const
 {
     return 0;

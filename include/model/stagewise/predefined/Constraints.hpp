@@ -54,6 +54,14 @@ class JointAngleConstraint : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     VecX       _lb, _ub;
@@ -100,6 +108,14 @@ class JointVelocityConstraint : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     VecX       _lb, _ub;
@@ -148,6 +164,14 @@ class JointControlConstraint : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     VecX       _lb, _ub;
@@ -200,6 +224,14 @@ class FloatingBaseTranslationBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model   *_model;
@@ -254,6 +286,14 @@ class FloatingBaseRotationBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model *_model;
@@ -315,6 +355,14 @@ class FloatingBasePoseBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model *_model;
@@ -368,6 +416,14 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model   *_model;
@@ -421,6 +477,14 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model   *_model;
@@ -477,6 +541,14 @@ class FrameTranslationBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
@@ -529,6 +601,14 @@ class FrameTerrainHeightBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
@@ -582,6 +662,14 @@ class FrameRotationBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
@@ -642,6 +730,14 @@ class FramePoseBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
@@ -699,6 +795,14 @@ class FrameLinearVelocityBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
@@ -757,6 +861,14 @@ class FrameAngularVelocityBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
@@ -813,6 +925,14 @@ class CenterOfMassBound : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model   *_model;
@@ -896,6 +1016,14 @@ class ContactConstraint : public StageConstraints
                      MatX &Pxu) const override;
     void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                      MatX &Puu) const override;
+    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                      MatXRef dU) const override;
+    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                         MatXRef Puu) const override;
 
   protected:
     const Model                      *_model;

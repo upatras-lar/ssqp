@@ -26,45 +26,46 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
         return res;
     };
 
-    // Gradient function
+    // Gradient function, which adds to dx and du (the gradient with respect to
+    // the controls is zero)
     auto cost_grad = [weight](const Eigen::VectorXd &x,
                               const Eigen::VectorXd &u,
-                              Eigen::VectorXd &dx,
-                              Eigen::VectorXd &du)
+                              Eigen::Ref<Eigen::VectorXd>
+                                dx,
+                              Eigen::Ref<Eigen::VectorXd>
+                                du)
     {
         double s1 = std::sin(x[0]);
         double s2 = std::sin(x[1]);
 
-        dx    = Eigen::Vector4d();
-        dx[0] = weight * s1;
-        dx[1] = weight * s2;
-        dx[2] = weight * 0.01 * x[2];
-        dx[3] = weight * 0.01 * x[3];
-
-        du = Eigen::Vector2d();
-        du.setZero();
+        dx[0] += weight * s1;
+        dx[1] += weight * s2;
+        dx[2] += weight * 0.01 * x[2];
+        dx[3] += weight * 0.01 * x[3];
     };
 
-    // Hessian xx function
+    // Hessian xx function, which adds to Hxx
     auto cost_hess_xx = [weight](const Eigen::VectorXd &x,
                                  const Eigen::VectorXd &u,
-                                 Eigen::MatrixXd &Hxx)
+                                 Eigen::Ref<Eigen::MatrixXd>
+                                   Hxx)
     {
         // Gauss-Newton approximation (sin^2 + cos^2 = 1), which keeps the
         // Hessian positive semidefinite for any angle
-        Hxx       = Eigen::Matrix4d::Zero();
-        Hxx(0, 0) = weight;
-        Hxx(1, 1) = weight;
-        Hxx(2, 2) = weight * 0.01;
-        Hxx(3, 3) = weight * 0.01;
+        Hxx(0, 0) += weight;
+        Hxx(1, 1) += weight;
+        Hxx(2, 2) += weight * 0.01;
+        Hxx(3, 3) += weight * 0.01;
     };
 
-    // Use the make_cost helper to create the custom stage cost
-    // By leaving hessian_xu and hessian_uu empty, they are set to zero
-    return ssqp::model::stagewise::factory::make_cost({},
-                                                      cost_eval,
-                                                      cost_grad,
-                                                      cost_hess_xx);
+    // Use the make_add_cost helper to create the custom stage cost, whose
+    // functions add to outputs it sizes for 4 states
+    // By leaving hessian_xu and hessian_uu out, they default to zero
+    return ssqp::model::stagewise::factory::make_add_cost({},
+                                                          4,
+                                                          cost_eval,
+                                                          cost_grad,
+                                                          cost_hess_xx);
 }
 
 #define HORIZON 100

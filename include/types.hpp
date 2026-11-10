@@ -92,6 +92,10 @@ using Mat6  = Eigen::Matrix<double, 6, 6>;
 using MatX  = Eigen::MatrixXd;
 using DMatX = Eigen::DiagonalMatrix<double, -1>;
 
+// Writable views of a vector or matrix, or of a block of one
+using VecXRef = Eigen::Ref<VecX>;
+using MatXRef = Eigen::Ref<MatX>;
+
 void   print_matrix_dimensions(const MatX &mat);
 int    sgn(double val);
 double softmax_max(const VecX &v, double alpha);
@@ -100,28 +104,11 @@ Mat3 skew(const Vec3 &v);
 
 namespace model
 {
-// TODO: These use x.rows() and x.cols()
-// But if n_x != n_{dx}, they will fail
-inline auto ZeroHessian_xx = [](const VecX &x, const VecX &u, MatX &Hxx)
-{ Hxx.setZero(x.rows(), x.rows()); };
+// Hessians and Hessian products that are zero, which add nothing
+inline auto ZeroHessian = [](const VecX &x, const VecX &u, MatXRef H) {};
 
-inline auto ZeroHessian_xu = [](const VecX &x, const VecX &u, MatX &Hxu)
-{ Hxu.setZero(x.rows(), u.rows()); };
-
-inline auto ZeroHessian_uu = [](const VecX &x, const VecX &u, MatX &Huu)
-{ Huu.setZero(u.rows(), u.rows()); };
-
-inline auto ZeroHessprod_xx =
-  [](const VecX &x, const VecX &u, const VecX &vec, MatX &Pxx)
-{ Pxx.setZero(x.rows(), x.rows()); };
-
-inline auto ZeroHessprod_xu =
-  [](const VecX &x, const VecX &u, const VecX &vec, MatX &Pxu)
-{ Pxu.setZero(x.rows(), u.rows()); };
-
-inline auto ZeroHessprod_uu =
-  [](const VecX &x, const VecX &u, const VecX &vec, MatX &Puu)
-{ Puu.setZero(u.rows(), u.rows()); };
+inline auto ZeroHessprod = [](const VecX &x, const VecX &u, const VecX &v,
+                              MatXRef P) {};
 
 inline auto DefaultRightMinus = [](const VecX &x, const VecX &y)
 { return x - y; };

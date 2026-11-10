@@ -97,6 +97,27 @@ class StageDynamics : public Function
     virtual void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
                              MatX &Puu) const = 0;
 
+    /** Add $\nabla_{x} \lambda_k^\top \nabla_{x} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
+     * to Pxx, which must already be $n_{dx} \times n_{dx}$
+     * Defaults to adding the output of hessprod_xx
+     */
+    virtual void add_hessprod_xx(const VecX &x, const VecX &u,
+                                 const VecX &lambda, MatXRef Pxx) const;
+
+    /** Add $\nabla_{x} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
+     * to Pxu, which must already be $n_{dx} \times n_u$
+     * Defaults to adding the output of hessprod_xu
+     */
+    virtual void add_hessprod_xu(const VecX &x, const VecX &u,
+                                 const VecX &lambda, MatXRef Pxu) const;
+
+    /** Add $\nabla_{u} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
+     * to Puu, which must already be $n_u \times n_u$
+     * Defaults to adding the output of hessprod_uu
+     */
+    virtual void add_hessprod_uu(const VecX &x, const VecX &u,
+                                 const VecX &lambda, MatXRef Puu) const;
+
     // Size of parameter vector $\theta$ (optional method)
     virtual uint parameter_size() const;
 
@@ -128,6 +149,11 @@ class StageDynamics : public Function
     static uint TOTAL;
 
     VecX _init_state, _init_control;
+
+  private:
+    // Hold the outputs the default add methods add, one per product so that
+    // each keeps its size between calls
+    mutable MatX _add_scratch_xx, _add_scratch_xu, _add_scratch_uu;
 };
 }
 }

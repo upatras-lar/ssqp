@@ -512,15 +512,6 @@ ssqp::ssqp(const model::Model &model, const Params &params)
 
     const model::Dimensions &lin_dims = model.linear_dims();
 
-    const uint max_nx = *std::max_element(lin_dims.stage_state.begin(),
-                                          lin_dims.stage_state.end());
-    const uint max_nu = *std::max_element(lin_dims.stage_control.begin(),
-                                          lin_dims.stage_control.end());
-
-    _tmp_hess_xx.resize(max_nx, max_nx);
-    _tmp_hess_xu.resize(max_nx, max_nu);
-    _tmp_hess_uu.resize(max_nu, max_nu);
-
     if (model.xml())
     {
         const uint nv = model.nv();
@@ -592,19 +583,6 @@ SolverState ssqp::solve(Guess &guess)
 
     _stale_iters = 0;
 
-    _current_metrics = { _lf(_guess.x, _guess.u),
-                         _gammaf(_guess.x, _guess.u),
-                         _cf(_guess.x, _guess.u) };
-
-    // The filter starts from the current guess, since entries from previous
-    // solves may refer to different bounds
-    _filter_memory.clear();
-
-    if (_params.line_search_method == LineSearchMethod::Filter)
-    {
-        _filter_memory.push_front(_current_metrics);
-    }
-
     _convergence_data.iteration_data.clear();
     _convergence_data.iteration_data.reserve(_params.max_iter);
     _convergence_data.loose_success      = false;
@@ -624,6 +602,21 @@ SolverState ssqp::solve(Guess &guess)
 
     std::visit([this](auto xml) { _setup_qp<true, xml.value>(); }, xml_model);
     _qp_solver->reset();
+
+    // Evaluated after the first QP setup, whose dynamics passes leave the
+    // kinematics results these evaluations need
+    _current_metrics = { _lf(_guess.x, _guess.u),
+                         _gammaf(_guess.x, _guess.u),
+                         _cf(_guess.x, _guess.u) };
+
+    // The filter starts from the current guess, since entries from previous
+    // solves may refer to different bounds
+    _filter_memory.clear();
+
+    if (_params.line_search_method == LineSearchMethod::Filter)
+    {
+        _filter_memory.push_front(_current_metrics);
+    }
 
     QPSolver::Solution sol(_qp.dims);
 

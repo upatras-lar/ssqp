@@ -51,6 +51,14 @@ class SquaredJointAngleCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const bool _free_flyer;
@@ -87,6 +95,14 @@ class SquaredJointVelocityCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const uint _nv, _njoints;
@@ -122,6 +138,14 @@ class SquaredControlCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const uint _nu, _ndx;
@@ -173,6 +197,14 @@ class SquaredIDTorqueCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model *_model;
@@ -214,6 +246,14 @@ class SquaredForceCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const uint _nv, _nu, _ndx;
@@ -257,6 +297,14 @@ class SquaredConfigurationErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model *_model;
@@ -309,6 +357,14 @@ class FloatingBaseSquaredTranslationErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model   *_model;
@@ -358,6 +414,14 @@ class FloatingBaseSquaredRotationErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model *_model;
@@ -435,6 +499,14 @@ class FloatingBaseSquaredPoseErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model *_model;
@@ -487,6 +559,14 @@ class FloatingBaseSquaredVelocityErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model   *_model;
@@ -536,6 +616,14 @@ class FrameSquaredTranslationErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model      *_model;
@@ -585,6 +673,14 @@ class FrameSquaredTerrainHeightErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model      *_model;
@@ -637,6 +733,14 @@ class FrameSquaredRotationErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model      *_model;
@@ -712,6 +816,14 @@ class FrameSquaredPoseErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model      *_model;
@@ -766,6 +878,14 @@ class FrameSquaredVelocityErrorCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model      *_model;
@@ -817,6 +937,14 @@ class CenterOfMassTrackingCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     const Model *_model;
@@ -871,6 +999,14 @@ class FramesInverseSquaredDistanceCost : public StageCost
     void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
     void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
     void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                      VecXRef du) const override;
+    void add_hessian_xx(const VecX &x, const VecX &u,
+                        MatXRef Hxx) const override;
+    void add_hessian_xu(const VecX &x, const VecX &u,
+                        MatXRef Hxu) const override;
+    void add_hessian_uu(const VecX &x, const VecX &u,
+                        MatXRef Huu) const override;
 
   protected:
     // Resolves each frame name to its index once, at construction

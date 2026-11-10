@@ -52,34 +52,39 @@ int main()
           .finished();
     };
 
+    // The derivative functions add to their outputs
     auto cost_grad = [target](const Eigen::VectorXd &x,
                               const Eigen::VectorXd &u,
-                              Eigen::VectorXd &dx,
-                              Eigen::VectorXd &du)
+                              Eigen::Ref<Eigen::VectorXd>
+                                dx,
+                              Eigen::Ref<Eigen::VectorXd>
+                                du)
     {
-        dx         = Eigen::VectorXd::Zero(14);
-        dx.head(7) = 2 * Q_WGT * (x.head(7) - target);
-        du         = 2 * U_WGT * u;
+        dx.head(7) += 2 * Q_WGT * (x.head(7) - target);
+        du         += 2 * U_WGT * u;
     };
 
     auto cost_hess_xx = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd &Hxx)
-    { Hxx = 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
+                           Eigen::Ref<Eigen::MatrixXd>
+                             Hxx)
+    { Hxx += 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
 
     auto cost_hess_uu = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd &Huu)
-    { Huu = 2 * U_WGT * Eigen::MatrixXd::Identity(7, 7); };
+                           Eigen::Ref<Eigen::MatrixXd>
+                             Huu)
+    { Huu += 2 * U_WGT * Eigen::MatrixXd::Identity(7, 7); };
 
-    // Create StageCost object using the make_cost helper
+    // Create StageCost object using the make_add_cost helper, for 2 * 7 states
     std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
-      ssqp::model::stagewise::factory::make_cost({},
-                                                 cost_eval,
-                                                 cost_grad,
-                                                 cost_hess_xx,
-                                                 ssqp::model::ZeroHessian_xu,
-                                                 cost_hess_uu);
+      ssqp::model::stagewise::factory::make_add_cost({},
+                                                     2 * 7,
+                                                     cost_eval,
+                                                     cost_grad,
+                                                     cost_hess_xx,
+                                                     ssqp::model::ZeroHessian,
+                                                     cost_hess_uu);
 
     // Define terminal cost with a larger terminal weight
     auto terminal_cost_eval =
@@ -93,26 +98,27 @@ int main()
 
     auto terminal_cost_grad = [target](const Eigen::VectorXd &x,
                                        const Eigen::VectorXd &u,
-                                       Eigen::VectorXd &dx,
-                                       Eigen::VectorXd &du)
+                                       Eigen::Ref<Eigen::VectorXd>
+                                         dx,
+                                       Eigen::Ref<Eigen::VectorXd>
+                                         du)
     {
-        dx         = Eigen::VectorXd::Zero(14);
-        dx.head(7) = TERM_WGT * 2 * Q_WGT * (x.head(7) - target);
-        dx.tail(7) = TERM_WGT * 2 * x.tail(7);
+        dx.head(7) += TERM_WGT * 2 * Q_WGT * (x.head(7) - target);
+        dx.tail(7) += TERM_WGT * 2 * x.tail(7);
     };
 
     auto terminal_cost_hess_xx = [](const Eigen::VectorXd &x,
                                     const Eigen::VectorXd &u,
-                                    Eigen::MatrixXd &Hxx)
-    { Hxx = TERM_WGT * 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
+                                    Eigen::Ref<Eigen::MatrixXd>
+                                      Hxx)
+    { Hxx += TERM_WGT * 2 * Q_WGT * Eigen::MatrixXd::Identity(2 * 7, 2 * 7); };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
-      ssqp::model::stagewise::factory::make_cost({},
-                                                 terminal_cost_eval,
-                                                 terminal_cost_grad,
-                                                 terminal_cost_hess_xx,
-                                                 ssqp::model::ZeroHessian_xu,
-                                                 ssqp::model::ZeroHessian_uu);
+      ssqp::model::stagewise::factory::make_add_cost({},
+                                                     2 * 7,
+                                                     terminal_cost_eval,
+                                                     terminal_cost_grad,
+                                                     terminal_cost_hess_xx);
 
     // Use model structure object to pass URDF path
     ssqp::model::Model::Structure model_structure;

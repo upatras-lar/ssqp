@@ -38,30 +38,36 @@ int main()
                0.5 * u.transpose() * R * u;
     };
 
+    // The derivative functions add to their outputs
     auto cost_grad = [](const Eigen::VectorXd &x,
                         const Eigen::VectorXd &u,
-                        Eigen::VectorXd &dx,
-                        Eigen::VectorXd &du)
+                        Eigen::Ref<Eigen::VectorXd>
+                          dx,
+                        Eigen::Ref<Eigen::VectorXd>
+                          du)
     {
-        dx = Q * (x - x_target);
-        du = R * u;
+        dx += Q * (x - x_target);
+        du += R * u;
     };
 
     auto cost_hess_xx = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd &Hxx) { Hxx = Q; };
+                           Eigen::Ref<Eigen::MatrixXd>
+                             Hxx) { Hxx += Q; };
 
     auto cost_hess_uu = [](const Eigen::VectorXd &x,
                            const Eigen::VectorXd &u,
-                           Eigen::MatrixXd &Huu) { Huu = R; };
+                           Eigen::Ref<Eigen::MatrixXd>
+                             Huu) { Huu += R; };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> cost =
-      ssqp::model::stagewise::factory::make_cost({},
-                                                 cost_eval,
-                                                 cost_grad,
-                                                 ssqp::model::ZeroHessian_xx,
-                                                 ssqp::model::ZeroHessian_xu,
-                                                 cost_hess_uu);
+      ssqp::model::stagewise::factory::make_add_cost({},
+                                                     N,
+                                                     cost_eval,
+                                                     cost_grad,
+                                                     cost_hess_xx,
+                                                     ssqp::model::ZeroHessian,
+                                                     cost_hess_uu);
 
     auto terminal_cost_eval =
       [](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
@@ -69,21 +75,22 @@ int main()
 
     auto terminal_cost_grad = [](const Eigen::VectorXd &x,
                                  const Eigen::VectorXd &u,
-                                 Eigen::VectorXd &dx,
-                                 Eigen::VectorXd &du)
-    { dx = Qf * (x - x_target); };
+                                 Eigen::Ref<Eigen::VectorXd>
+                                   dx,
+                                 Eigen::Ref<Eigen::VectorXd>
+                                   du) { dx += Qf * (x - x_target); };
 
     auto terminal_cost_hess_xx = [](const Eigen::VectorXd &x,
                                     const Eigen::VectorXd &u,
-                                    Eigen::MatrixXd &Hxx) { Hxx = Qf; };
+                                    Eigen::Ref<Eigen::MatrixXd>
+                                      Hxx) { Hxx += Qf; };
 
     std::shared_ptr<ssqp::model::stagewise::StageCost> terminal_cost =
-      ssqp::model::stagewise::factory::make_cost({},
-                                                 terminal_cost_eval,
-                                                 terminal_cost_grad,
-                                                 terminal_cost_hess_xx,
-                                                 ssqp::model::ZeroHessian_xu,
-                                                 cost_hess_uu);
+      ssqp::model::stagewise::factory::make_add_cost({},
+                                                     N,
+                                                     terminal_cost_eval,
+                                                     terminal_cost_grad,
+                                                     terminal_cost_hess_xx);
 
     ssqp::model::Model::Structure model_structure;
     model_structure.urdf_path = "examples/assets/urdf/pendulum_point_mass.urdf";

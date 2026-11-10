@@ -76,6 +76,35 @@ VecX StageConstraints::right_minus(const VecX &x, const VecX &y) const
 {
     return x - y;
 }
+
+void StageConstraints::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                                    MatXRef dU) const
+{
+    gradient(x, u, _add_scratch_dX, _add_scratch_dU);
+    dX += _add_scratch_dX;
+    dU += _add_scratch_dU;
+}
+
+void StageConstraints::add_hessprod_xx(const VecX &x, const VecX &u,
+                                       const VecX &mu, MatXRef Pxx) const
+{
+    hessprod_xx(x, u, mu, _add_scratch_xx);
+    Pxx += _add_scratch_xx;
+}
+
+void StageConstraints::add_hessprod_xu(const VecX &x, const VecX &u,
+                                       const VecX &mu, MatXRef Pxu) const
+{
+    hessprod_xu(x, u, mu, _add_scratch_xu);
+    Pxu += _add_scratch_xu;
+}
+
+void StageConstraints::add_hessprod_uu(const VecX &x, const VecX &u,
+                                       const VecX &mu, MatXRef Puu) const
+{
+    hessprod_uu(x, u, mu, _add_scratch_uu);
+    Puu += _add_scratch_uu;
+}
 }
 }
 }

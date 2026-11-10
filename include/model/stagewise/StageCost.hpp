@@ -70,9 +70,39 @@ class StageCost : public Function
     //  Huu: Hessian matrix, $n_u \times n_u$
     virtual void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const = 0;
 
+    // Add the cost gradients to dx and du, which must already be sized
+    // $n_{dx}$ and $n_u$
+    // Defaults to adding the output of gradient
+    virtual void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+                              VecXRef du) const;
+
+    // Add $\nabla_{xx}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$ to Hxx, which
+    // must already be $n_{dx} \times n_{dx}$
+    // Defaults to adding the output of hessian_xx
+    virtual void add_hessian_xx(const VecX &x, const VecX &u,
+                                MatXRef Hxx) const;
+
+    // Add $\nabla_{xu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$ to Hxu, which
+    // must already be $n_{dx} \times n_u$
+    // Defaults to adding the output of hessian_xu
+    virtual void add_hessian_xu(const VecX &x, const VecX &u,
+                                MatXRef Hxu) const;
+
+    // Add $\nabla_{uu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$ to Huu, which
+    // must already be $n_u \times n_u$
+    // Defaults to adding the output of hessian_uu
+    virtual void add_hessian_uu(const VecX &x, const VecX &u,
+                                MatXRef Huu) const;
+
   protected:
     bool        _enabled = true;
     static uint TOTAL;
+
+  private:
+    // Hold the outputs the default add methods add, one per output so that
+    // each keeps its size between calls
+    mutable VecX _add_scratch_dx, _add_scratch_du;
+    mutable MatX _add_scratch_xx, _add_scratch_xu, _add_scratch_uu;
 };
 }
 }

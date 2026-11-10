@@ -76,6 +76,30 @@ class StageConstraints : public Function
     virtual void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                              MatX &Puu) const = 0;
 
+    // Add the constraint Jacobians to dX and dU, which must already be
+    // $n_c \times n_{dx}$ and $n_c \times n_u$
+    // Defaults to adding the output of gradient
+    virtual void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                              MatXRef dU) const;
+
+    // Add $\nabla_{x} \mu_k^\top \nabla_{x} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+    // to Pxx, which must already be $n_{dx} \times n_{dx}$
+    // Defaults to adding the output of hessprod_xx
+    virtual void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+                                 MatXRef Pxx) const;
+
+    // Add $\nabla_{x} \mu_k^\top \nabla_{u} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+    // to Pxu, which must already be $n_{dx} \times n_u$
+    // Defaults to adding the output of hessprod_xu
+    virtual void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+                                 MatXRef Pxu) const;
+
+    // Add $\nabla_{u} \mu_k^\top \nabla_{u} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
+    // to Puu, which must already be $n_u \times n_u$
+    // Defaults to adding the output of hessprod_uu
+    virtual void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+                                 MatXRef Puu) const;
+
   protected:
     bool        _enabled = true;
     static uint TOTAL;
@@ -84,6 +108,11 @@ class StageConstraints : public Function
     // Lazily-computed default bounds (+-infinity), backing the default
     // lower_bound()/upper_bound() implementations
     mutable VecX _default_lb, _default_ub;
+
+    // Hold the outputs the default add methods add, one per output so that
+    // each keeps its size between calls
+    mutable MatX _add_scratch_dX, _add_scratch_dU;
+    mutable MatX _add_scratch_xx, _add_scratch_xu, _add_scratch_uu;
 };
 }
 }

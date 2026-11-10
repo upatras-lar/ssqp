@@ -67,16 +67,21 @@ void JointAngleConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                     MatX &dU) const
 {
     dX.setZero(_njoints, _ndx);
+    dU.setZero(_njoints, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void JointAngleConstraint::add_gradient(const VecX &x, const VecX &u,
+                                        MatXRef dX, MatXRef dU) const
+{
     if (_free_flyer)
     {
-        dX.block(0, 6, _njoints, _njoints).setIdentity();
+        dX.block(0, 6, _njoints, _njoints).diagonal().array() += 1.0;
     }
     else
     {
-        dX.topLeftCorner(_njoints, _njoints).setIdentity();
+        dX.topLeftCorner(_njoints, _njoints).diagonal().array() += 1.0;
     }
-
-    dU.setZero(_njoints, u.size());
 }
 
 void JointAngleConstraint::hessprod_xx(const VecX &x, const VecX &u,
@@ -93,6 +98,21 @@ void JointAngleConstraint::hessprod_uu(const VecX &x, const VecX &u,
                                        const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void JointAngleConstraint::add_hessprod_xx(const VecX &x, const VecX &u,
+                                           const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void JointAngleConstraint::add_hessprod_xu(const VecX &x, const VecX &u,
+                                           const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void JointAngleConstraint::add_hessprod_uu(const VecX &x, const VecX &u,
+                                           const VecX &mu, MatXRef Puu) const
+{
 }
 
 // JointVelocityConstraint
@@ -149,9 +169,14 @@ void JointVelocityConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                        MatX &dU) const
 {
     dX.setZero(_njoints, 2 * _nv);
-    dX.bottomRightCorner(_njoints, _njoints).setIdentity();
-
     dU.setZero(_njoints, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void JointVelocityConstraint::add_gradient(const VecX &x, const VecX &u,
+                                           MatXRef dX, MatXRef dU) const
+{
+    dX.bottomRightCorner(_njoints, _njoints).diagonal().array() += 1.0;
 }
 
 void JointVelocityConstraint::hessprod_xx(const VecX &x, const VecX &u,
@@ -168,6 +193,21 @@ void JointVelocityConstraint::hessprod_uu(const VecX &x, const VecX &u,
                                           const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void JointVelocityConstraint::add_hessprod_xx(const VecX &x, const VecX &u,
+                                              const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void JointVelocityConstraint::add_hessprod_xu(const VecX &x, const VecX &u,
+                                              const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void JointVelocityConstraint::add_hessprod_uu(const VecX &x, const VecX &u,
+                                              const VecX &mu, MatXRef Puu) const
+{
 }
 
 // JointControlConstraint
@@ -225,7 +265,13 @@ void JointControlConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 {
     dX.setZero(_nu, _ndx);
     dU.setZero(_nu, u.size());
-    dU.topLeftCorner(_nu, _nu).setIdentity();
+    add_gradient(x, u, dX, dU);
+}
+
+void JointControlConstraint::add_gradient(const VecX &x, const VecX &u,
+                                          MatXRef dX, MatXRef dU) const
+{
+    dU.topLeftCorner(_nu, _nu).diagonal().array() += 1.0;
 }
 
 void JointControlConstraint::hessprod_xx(const VecX &x, const VecX &u,
@@ -242,6 +288,21 @@ void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
                                          const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void JointControlConstraint::add_hessprod_xx(const VecX &x, const VecX &u,
+                                             const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void JointControlConstraint::add_hessprod_xu(const VecX &x, const VecX &u,
+                                             const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void JointControlConstraint::add_hessprod_uu(const VecX &x, const VecX &u,
+                                             const VecX &mu, MatXRef Puu) const
+{
 }
 
 // FloatingBaseTranslationBound
@@ -318,13 +379,19 @@ void FloatingBaseTranslationBound::gradient(const VecX &x, const VecX &u,
                                             MatX &dX, MatX &dU) const
 {
     dX.setZero(output_size(), _ndx);
+    dU.setZero(output_size(), u.size());
+    add_gradient(x, u, dX, dU);
+}
 
+void FloatingBaseTranslationBound::add_gradient(const VecX &x, const VecX &u,
+                                                MatXRef dX, MatXRef dU) const
+{
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
     Mat3               R = q.toRotationMatrix();
 
     const Mat3 A = _reference_frame.axes(x);
 
-    dX.leftCols<3>() = A.transpose() * R;
+    dX.leftCols<3>() += A.transpose() * R;
 
     // Base axes turn with the base, which adds the bound's value crossed with
     // the base's angular tangent
@@ -332,8 +399,6 @@ void FloatingBaseTranslationBound::gradient(const VecX &x, const VecX &u,
     {
         dX.block<3, 3>(0, 3) += skew(A.transpose() * (x.head<3>() - _center));
     }
-
-    dU.setZero(output_size(), u.size());
 }
 
 void FloatingBaseTranslationBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -352,6 +417,24 @@ void FloatingBaseTranslationBound::hessprod_uu(const VecX &x, const VecX &u,
                                                const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FloatingBaseTranslationBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                                   const VecX &mu,
+                                                   MatXRef     Pxx) const
+{
+}
+
+void FloatingBaseTranslationBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                                   const VecX &mu,
+                                                   MatXRef     Pxu) const
+{
+}
+
+void FloatingBaseTranslationBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                                   const VecX &mu,
+                                                   MatXRef     Puu) const
+{
 }
 
 // FloatingBaseRotationBound
@@ -414,14 +497,18 @@ VecX FloatingBaseRotationBound::evaluate(const VecX &x, const VecX &u) const
 void FloatingBaseRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                          MatX &dU) const
 {
+    dX.setZero(3, _ndx);
+    dU.setZero(3, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void FloatingBaseRotationBound::add_gradient(const VecX &x, const VecX &u,
+                                             MatXRef dX, MatXRef dU) const
+{
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
 
-    dX.setZero(3, _ndx);
-
-    dX.block<3, 3>(0, 3) =
+    dX.block<3, 3>(0, 3) +=
       pinocchio_wrapper::JlogSO3(_Rref.transpose() * q.toRotationMatrix());
-
-    dU.setZero(3, u.size());
 }
 
 void FloatingBaseRotationBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -439,6 +526,24 @@ void FloatingBaseRotationBound::hessprod_uu(const VecX &x, const VecX &u,
                                             const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FloatingBaseRotationBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                                const VecX &mu,
+                                                MatXRef     Pxx) const
+{
+}
+
+void FloatingBaseRotationBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                                const VecX &mu,
+                                                MatXRef     Pxu) const
+{
+}
+
+void FloatingBaseRotationBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                                const VecX &mu,
+                                                MatXRef     Puu) const
+{
 }
 
 // FloatingBasePoseBound
@@ -534,6 +639,14 @@ VecX FloatingBasePoseBound::evaluate(const VecX &x, const VecX &u) const
 void FloatingBasePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                      MatX &dU) const
 {
+    dX.setZero(6, _ndx);
+    dU.setZero(6, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void FloatingBasePoseBound::add_gradient(const VecX &x, const VecX &u,
+                                         MatXRef dX, MatXRef dU) const
+{
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
 
     Mat4 Tfl              = Mat4::Zero();
@@ -543,10 +656,7 @@ void FloatingBasePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     Mat6 Jlog = pinocchio_wrapper::JlogSE3(_Tref_inv * Tfl);
 
-    dX.setZero(6, _ndx);
-    dX.topLeftCorner<6, 6>() = Jlog;
-
-    dU.setZero(6, u.size());
+    dX.topLeftCorner<6, 6>() += Jlog;
 }
 
 void FloatingBasePoseBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -565,6 +675,21 @@ void FloatingBasePoseBound::hessprod_uu(const VecX &x, const VecX &u,
                                         const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FloatingBasePoseBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void FloatingBasePoseBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void FloatingBasePoseBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatXRef Puu) const
+{
 }
 
 // FloatingBaseLinearVelocityBound
@@ -631,11 +756,17 @@ void FloatingBaseLinearVelocityBound::gradient(const VecX &x, const VecX &u,
                                                MatX &dX, MatX &dU) const
 {
     dX.setZero(3, _ndx);
+    dU.setZero(3, u.size());
+    add_gradient(x, u, dX, dU);
+}
 
+void FloatingBaseLinearVelocityBound::add_gradient(const VecX &x, const VecX &u,
+                                                   MatXRef dX, MatXRef dU) const
+{
     const ReferenceFrame::Type type = _reference_frame.type();
     if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
     {
-        dX.block<3, 3>(0, _nv).setIdentity();
+        dX.block<3, 3>(0, _nv).diagonal().array() += 1.0;
     }
     else
     {
@@ -645,11 +776,9 @@ void FloatingBaseLinearVelocityBound::gradient(const VecX &x, const VecX &u,
         const Mat3         A =
           _reference_frame.rotation().transpose() * q.toRotationMatrix();
 
-        dX.block<3, 3>(0, _nv) = A;
-        dX.block<3, 3>(0, 3)   = -A * skew(x.segment<3>(_nq));
+        dX.block<3, 3>(0, _nv) += A;
+        dX.block<3, 3>(0, 3)   -= A * skew(x.segment<3>(_nq));
     }
-
-    dU.setZero(3, u.size());
 }
 
 void FloatingBaseLinearVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -671,6 +800,27 @@ void FloatingBaseLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
                                                   MatX       &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FloatingBaseLinearVelocityBound::add_hessprod_xx(const VecX &x,
+                                                      const VecX &u,
+                                                      const VecX &mu,
+                                                      MatXRef     Pxx) const
+{
+}
+
+void FloatingBaseLinearVelocityBound::add_hessprod_xu(const VecX &x,
+                                                      const VecX &u,
+                                                      const VecX &mu,
+                                                      MatXRef     Pxu) const
+{
+}
+
+void FloatingBaseLinearVelocityBound::add_hessprod_uu(const VecX &x,
+                                                      const VecX &u,
+                                                      const VecX &mu,
+                                                      MatXRef     Puu) const
+{
 }
 
 // FloatingBaseAngularVelocityBound
@@ -736,11 +886,18 @@ void FloatingBaseAngularVelocityBound::gradient(const VecX &x, const VecX &u,
                                                 MatX &dX, MatX &dU) const
 {
     dX.setZero(3, _ndx);
+    dU.setZero(3, u.size());
+    add_gradient(x, u, dX, dU);
+}
 
+void FloatingBaseAngularVelocityBound::add_gradient(const VecX &x,
+                                                    const VecX &u, MatXRef dX,
+                                                    MatXRef dU) const
+{
     const ReferenceFrame::Type type = _reference_frame.type();
     if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
     {
-        dX.block<3, 3>(0, _nv + 3).setIdentity();
+        dX.block<3, 3>(0, _nv + 3).diagonal().array() += 1.0;
     }
     else
     {
@@ -750,11 +907,9 @@ void FloatingBaseAngularVelocityBound::gradient(const VecX &x, const VecX &u,
         const Mat3         A =
           _reference_frame.rotation().transpose() * q.toRotationMatrix();
 
-        dX.block<3, 3>(0, _nv + 3) = A;
-        dX.block<3, 3>(0, 3)       = -A * skew(x.segment<3>(_nq + 3));
+        dX.block<3, 3>(0, _nv + 3) += A;
+        dX.block<3, 3>(0, 3)       -= A * skew(x.segment<3>(_nq + 3));
     }
-
-    dU.setZero(3, u.size());
 }
 
 void FloatingBaseAngularVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -776,6 +931,27 @@ void FloatingBaseAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
                                                    MatX       &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FloatingBaseAngularVelocityBound::add_hessprod_xx(const VecX &x,
+                                                       const VecX &u,
+                                                       const VecX &mu,
+                                                       MatXRef     Pxx) const
+{
+}
+
+void FloatingBaseAngularVelocityBound::add_hessprod_xu(const VecX &x,
+                                                       const VecX &u,
+                                                       const VecX &mu,
+                                                       MatXRef     Pxu) const
+{
+}
+
+void FloatingBaseAngularVelocityBound::add_hessprod_uu(const VecX &x,
+                                                       const VecX &u,
+                                                       const VecX &mu,
+                                                       MatXRef     Puu) const
+{
 }
 
 // FrameTranslationBound
@@ -857,9 +1033,15 @@ VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
 void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                      MatX &dU) const
 {
-    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
-
     dX.setZero(3, _ndx);
+    dU.setZero(3, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void FrameTranslationBound::add_gradient(const VecX &x, const VecX &u,
+                                         MatXRef dX, MatXRef dU) const
+{
+    _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
 
     const ReferenceFrame::Type type = _reference_frame.type();
     if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
@@ -874,7 +1056,7 @@ void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
           type == ReferenceFrame::Local ? R : _reference_frame.axes(x);
         const Vec3 value = A.transpose() * (pos - _center);
 
-        dX.leftCols(_nv) = A.transpose() * _jac_scratch.topRows(3);
+        dX.leftCols(_nv) += A.transpose() * _jac_scratch.topRows(3);
         if (type == ReferenceFrame::Local)
         {
             dX.leftCols(_nv) +=
@@ -887,11 +1069,9 @@ void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     }
     else
     {
-        dX.leftCols(_nv) =
+        dX.leftCols(_nv) +=
           _reference_frame.rotation().transpose() * _jac_scratch.topRows(3);
     }
-
-    dU.setZero(3, u.size());
 }
 
 void FrameTranslationBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -908,6 +1088,21 @@ void FrameTranslationBound::hessprod_uu(const VecX &x, const VecX &u,
                                         const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FrameTranslationBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void FrameTranslationBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void FrameTranslationBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                            const VecX &mu, MatXRef Puu) const
+{
 }
 
 // FrameTerrainHeightBound
@@ -969,6 +1164,14 @@ VecX FrameTerrainHeightBound::evaluate(const VecX &x, const VecX &u) const
 void FrameTerrainHeightBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                        MatX &dU) const
 {
+    dX.setZero(1, _ndx);
+    dU.setZero(1, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void FrameTerrainHeightBound::add_gradient(const VecX &x, const VecX &u,
+                                           MatXRef dX, MatXRef dU) const
+{
     Vec3 pos;
     std::tie(pos, std::ignore) =
       _model->forwardKinematics(x.head(_nq), _frame_id);
@@ -976,11 +1179,8 @@ void FrameTerrainHeightBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     terrain::Terrain::TerrainPoint tp = _model->terrain()->at(pos[0], pos[1]);
 
-    dX.setZero(1, _ndx);
-    dX.leftCols(_nv) =
+    dX.leftCols(_nv) +=
       Vec3(-tp.dhdx, -tp.dhdy, 1).transpose() * _jac_scratch.topRows(3);
-
-    dU.setZero(1, u.size());
 }
 
 void FrameTerrainHeightBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -997,6 +1197,21 @@ void FrameTerrainHeightBound::hessprod_uu(const VecX &x, const VecX &u,
                                           const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FrameTerrainHeightBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                              const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void FrameTerrainHeightBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                              const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void FrameTerrainHeightBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                              const VecX &mu, MatXRef Puu) const
+{
 }
 
 // FrameRotationBound
@@ -1061,6 +1276,14 @@ VecX FrameRotationBound::evaluate(const VecX &x, const VecX &u) const
 void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                   MatX &dU) const
 {
+    dX.setZero(3, _ndx);
+    dU.setZero(3, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void FrameRotationBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                                      MatXRef dU) const
+{
     Mat3 Rf;
     std::tie(std::ignore, Rf) =
       _model->forwardKinematics(x.head(_nq), _frame_id);
@@ -1069,10 +1292,7 @@ void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     MatX Jw   = _jac_scratch.bottomRows(3);
     Mat3 Jlog = pinocchio_wrapper::JlogSO3(_Rref.transpose() * Rf);
 
-    dX.setZero(3, _ndx);
-    dX.leftCols(_nv) = Jlog * Jw;
-
-    dU.setZero(3, u.size());
+    dX.leftCols(_nv) += Jlog * Jw;
 }
 
 void FrameRotationBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -1089,6 +1309,21 @@ void FrameRotationBound::hessprod_uu(const VecX &x, const VecX &u,
                                      const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FrameRotationBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                         const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void FrameRotationBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                         const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void FrameRotationBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                         const VecX &mu, MatXRef Puu) const
+{
 }
 
 // FramePoseBound
@@ -1179,15 +1414,20 @@ VecX FramePoseBound::evaluate(const VecX &x, const VecX &u) const
 void FramePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                               MatX &dU) const
 {
+    dX.setZero(6, _ndx);
+    dU.setZero(6, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void FramePoseBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                                  MatXRef dU) const
+{
     Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
 
     _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_scratch);
     Mat6 Jlog = pinocchio_wrapper::JlogSE3(_Tref_inv * Tf);
 
-    dX.setZero(6, _ndx);
-    dX.leftCols(_nv) = Jlog * _jac_scratch;
-
-    dU.setZero(6, u.size());
+    dX.leftCols(_nv) += Jlog * _jac_scratch;
 }
 
 void FramePoseBound::hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
@@ -1206,6 +1446,21 @@ void FramePoseBound::hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
                                  MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FramePoseBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void FramePoseBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void FramePoseBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                     const VecX &mu, MatXRef Puu) const
+{
 }
 
 // FrameLinearVelocityBound
@@ -1277,6 +1532,14 @@ VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
 void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                         MatX &dU) const
 {
+    dX.setZero(3, _ndx);
+    dU.setZero(3, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void FrameLinearVelocityBound::add_gradient(const VecX &x, const VecX &u,
+                                            MatXRef dX, MatXRef dU) const
+{
     _model->frameVelocityDerivatives(x.head(_nq),
                                      x.tail(_nv),
                                      _frame_id,
@@ -1303,9 +1566,8 @@ void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
         value = Rt * velocity;
     }
 
-    dX.setZero(3, _ndx);
-    dX.leftCols(_nv)  = Rt * _dVdq_scratch.topRows<3>();
-    dX.rightCols(_nv) = Rt * _dVdv_scratch.topRows<3>();
+    dX.leftCols(_nv)  += Rt * _dVdq_scratch.topRows<3>();
+    dX.rightCols(_nv) += Rt * _dVdv_scratch.topRows<3>();
 
     // Base axes turn with the base, which adds the bound's value crossed with
     // the base's angular tangent
@@ -1313,8 +1575,6 @@ void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
     {
         dX.block<3, 3>(0, 3) += skew(value);
     }
-
-    dU.setZero(3, u.size());
 }
 
 void FrameLinearVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -1331,6 +1591,24 @@ void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
                                            const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FrameLinearVelocityBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                               const VecX &mu,
+                                               MatXRef     Pxx) const
+{
+}
+
+void FrameLinearVelocityBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                               const VecX &mu,
+                                               MatXRef     Pxu) const
+{
+}
+
+void FrameLinearVelocityBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                               const VecX &mu,
+                                               MatXRef     Puu) const
+{
 }
 
 // FrameAngularVelocityBound
@@ -1403,6 +1681,14 @@ VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
 void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                          MatX &dU) const
 {
+    dX.setZero(3, _ndx);
+    dU.setZero(3, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void FrameAngularVelocityBound::add_gradient(const VecX &x, const VecX &u,
+                                             MatXRef dX, MatXRef dU) const
+{
     const bool local = _reference_frame.type() == ReferenceFrame::Local;
     _model->frameVelocityDerivatives(x.head(_nq),
                                      x.tail(_nv),
@@ -1413,9 +1699,8 @@ void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     const Mat3 Rt = _reference_frame.axes(x).transpose();
 
-    dX.setZero(3, _ndx);
-    dX.leftCols(_nv)  = Rt * _dVdq_scratch.bottomRows<3>();
-    dX.rightCols(_nv) = Rt * _dVdv_scratch.bottomRows<3>();
+    dX.leftCols(_nv)  += Rt * _dVdq_scratch.bottomRows<3>();
+    dX.rightCols(_nv) += Rt * _dVdv_scratch.bottomRows<3>();
 
     // Base axes turn with the base, which adds the bound's value crossed with
     // the base's angular tangent
@@ -1425,8 +1710,6 @@ void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
           Rt * _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, false)
                  .tail<3>());
     }
-
-    dU.setZero(3, u.size());
 }
 
 void FrameAngularVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -1443,6 +1726,24 @@ void FrameAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
                                             const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void FrameAngularVelocityBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                                const VecX &mu,
+                                                MatXRef     Pxx) const
+{
+}
+
+void FrameAngularVelocityBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                                const VecX &mu,
+                                                MatXRef     Pxu) const
+{
+}
+
+void FrameAngularVelocityBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                                const VecX &mu,
+                                                MatXRef     Puu) const
+{
 }
 
 // CenterOfMassBound
@@ -1513,10 +1814,17 @@ VecX CenterOfMassBound::evaluate(const VecX &x, const VecX &u) const
 void CenterOfMassBound::gradient(const VecX &x, const VecX &u, MatX &dX,
                                  MatX &dU) const
 {
+    dX.setZero(3, _ndx);
+    dU.setZero(3, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void CenterOfMassBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                                     MatXRef dU) const
+{
     const Mat3 Rt = _reference_frame.axes(x).transpose();
 
-    dX.setZero(3, _ndx);
-    dX.leftCols(_nv) = Rt * _model->jacobianCenterOfMass(x.head(_nq));
+    dX.leftCols(_nv) += Rt * _model->jacobianCenterOfMass(x.head(_nq));
 
     // Base axes turn with the base, which adds the bound's value crossed with
     // the base's angular tangent
@@ -1525,8 +1833,6 @@ void CenterOfMassBound::gradient(const VecX &x, const VecX &u, MatX &dX,
         dX.block<3, 3>(0, 3) +=
           skew(Rt * (_model->centerOfMass(x.head(_nq)) - _center));
     }
-
-    dU.setZero(3, u.size());
 }
 
 void CenterOfMassBound::hessprod_xx(const VecX &x, const VecX &u,
@@ -1545,6 +1851,21 @@ void CenterOfMassBound::hessprod_uu(const VecX &x, const VecX &u,
                                     const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void CenterOfMassBound::add_hessprod_xx(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void CenterOfMassBound::add_hessprod_xu(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void CenterOfMassBound::add_hessprod_uu(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatXRef Puu) const
+{
 }
 
 // ContactConstraint
@@ -1696,6 +2017,14 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
 void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                  MatX &dU) const
 {
+    dX.setZero(output_size(), 2 * _nv);
+    dU.setZero(output_size(), u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void ContactConstraint::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+                                     MatXRef dU) const
+{
     std::shared_ptr<terrain::Terrain> terrain = contact_terrain();
 
     Vec3 pos;
@@ -1704,7 +2033,6 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
 
     terrain::Terrain::TerrainPoint tp = terrain->at(pos[0], pos[1]);
 
-    dX.setZero(output_size(), 2 * _nv);
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_world_scratch);
     _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_local_scratch);
     MatX Jfw = _jac_world_scratch.topRows<3>();
@@ -1756,13 +2084,13 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
       (f_global.dot(dt2_dx) * Jfw.row(0) + f_global.dot(dt2_dy) * Jfw.row(1))
         .transpose();
 
-    dX.row(0).head(_nv) = dfn_dq.transpose();
-    dX.row(1).head(_nv) = (dft1_dq - _mu * dfn_dq).transpose();
-    dX.row(2).head(_nv) = (dft1_dq + _mu * dfn_dq).transpose();
-    dX.row(3).head(_nv) = (dft2_dq - _mu * dfn_dq).transpose();
-    dX.row(4).head(_nv) = (dft2_dq + _mu * dfn_dq).transpose();
+    dX.row(0).head(_nv) += dfn_dq.transpose();
+    dX.row(1).head(_nv) += (dft1_dq - _mu * dfn_dq).transpose();
+    dX.row(2).head(_nv) += (dft1_dq + _mu * dfn_dq).transpose();
+    dX.row(3).head(_nv) += (dft2_dq - _mu * dfn_dq).transpose();
+    dX.row(4).head(_nv) += (dft2_dq + _mu * dfn_dq).transpose();
 
-    dX.row(5).head(_nv) = dhdp.transpose() * Jfw;
+    dX.row(5).head(_nv) += dhdp.transpose() * Jfw;
 
     if (_no_slip)
     {
@@ -1773,28 +2101,26 @@ void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
                                          _dVdq_scratch,
                                          _dVdv_scratch);
 
-        dX.bottomLeftCorner(3, _nv)  = _dVdq_scratch.topRows<3>();
-        dX.bottomRightCorner(3, _nv) = _dVdv_scratch.topRows<3>();
+        dX.bottomLeftCorner(3, _nv)  += _dVdq_scratch.topRows<3>();
+        dX.bottomRightCorner(3, _nv) += _dVdv_scratch.topRows<3>();
     }
 
     double fn  = (f_global.transpose() * tp.normal)[0];
     double ft1 = (f_global.transpose() * tp.t1)[0];
     double ft2 = (f_global.transpose() * tp.t2)[0];
 
-    dU.setZero(output_size(), u.size());
-
     Vec3 dfn_dflocal  = R.transpose() * tp.normal;
     Vec3 dft1_dflocal = R.transpose() * tp.t1;
     Vec3 dft2_dflocal = R.transpose() * tp.t2;
 
-    dU.block<1, 3>(0, total_force_index) = dfn_dflocal.transpose();
-    dU.block<1, 3>(1, total_force_index) =
+    dU.block<1, 3>(0, total_force_index) += dfn_dflocal.transpose();
+    dU.block<1, 3>(1, total_force_index) +=
       (dft1_dflocal - _mu * dfn_dflocal).transpose();
-    dU.block<1, 3>(2, total_force_index) =
+    dU.block<1, 3>(2, total_force_index) +=
       (dft1_dflocal + _mu * dfn_dflocal).transpose();
-    dU.block<1, 3>(3, total_force_index) =
+    dU.block<1, 3>(3, total_force_index) +=
       (dft2_dflocal - _mu * dfn_dflocal).transpose();
-    dU.block<1, 3>(4, total_force_index) =
+    dU.block<1, 3>(4, total_force_index) +=
       (dft2_dflocal + _mu * dfn_dflocal).transpose();
 }
 
@@ -1813,6 +2139,21 @@ void ContactConstraint::hessprod_uu(const VecX &x, const VecX &u,
                                     const VecX &mu, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
+}
+
+void ContactConstraint::add_hessprod_xx(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatXRef Pxx) const
+{
+}
+
+void ContactConstraint::add_hessprod_xu(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatXRef Pxu) const
+{
+}
+
+void ContactConstraint::add_hessprod_uu(const VecX &x, const VecX &u,
+                                        const VecX &mu, MatXRef Puu) const
+{
 }
 
 }

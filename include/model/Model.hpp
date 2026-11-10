@@ -701,7 +701,7 @@ class Model
      *  - `joint_forces`: A vector of 6D forces, one for each of the model's
      *     joints; must already be sized (`_dims.total_joints`)
      */
-    void _calculateJointForces(const VecX                        &f,
+    void _calculateJointForces(const VecX                       &f,
                                const std::vector<const Force *> &force_data,
                                const std::vector<const Force *> &wrench_data,
                                std::vector<Vec6> &joint_forces) const;
