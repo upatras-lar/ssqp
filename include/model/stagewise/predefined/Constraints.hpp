@@ -1082,6 +1082,10 @@ class ContactConstraint : public StageConstraints
     mutable MatX                      _dVdq_scratch, _dVdv_scratch;
     std::shared_ptr<terrain::Terrain> _terrain;
 
+    // Scratch for the world force's derivative, and the derivatives of its
+    // normal and two tangent components as columns
+    mutable MatX _dforce_scratch, _dforce_components_scratch;
+
     std::shared_ptr<terrain::Terrain> contact_terrain() const;
 };
 

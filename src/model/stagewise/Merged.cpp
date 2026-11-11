@@ -331,8 +331,10 @@ std::vector<uint> MergedStageConstraints::state_only_rows() const
 
 std::vector<BoxRow> MergedStageConstraints::box_rows() const
 {
+    // Each box row is a different row, so there are at most as many as rows
     std::vector<BoxRow> rows;
-    uint                diff_row = 0;
+    rows.reserve(constraint_diff_size());
+    uint diff_row = 0;
 
     for (const auto &constraints : _constraints)
     {

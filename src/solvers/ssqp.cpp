@@ -1509,13 +1509,9 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 
         c = constraints[k]->evaluate(x.stage(k), u.stage(k));
 
-        VecX v =
-          constraints[k]
-            ->right_minus(c, constraints[k]->lower_bound())
-            .cwiseMin(0)
-            .cwiseAbs()
-            .cwiseMax(
-              constraints[k]->right_minus(c, constraints[k]->upper_bound()));
+        VecX v = constraints[k]->right_minus(c, constraints[k]->lower_bound());
+        v      = v.cwiseMin(0).cwiseAbs().cwiseMax(
+          constraints[k]->right_minus(c, constraints[k]->upper_bound()));
 
         // x_0 fixes the state-only rows of stage 0, so they are left out
         if (k == 0)

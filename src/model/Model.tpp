@@ -641,6 +641,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         const uint n      = _bounded_joint_indices.size();
 
         std::vector<BoxRow> rows;
+        rows.reserve(n + 2 * nv_reduced);
         for (uint i = 0; i < n; ++i)
         {
             rows.push_back(
@@ -680,8 +681,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           ndx,
           [this]() { return _bounded_joint_indices.size(); },
           [this]() { return _bounded_joint_indices.size(); },
-          [lb]() { return lb; },
-          [ub]() { return ub; },
+          [lb]() -> const VecX & { return lb; },
+          [ub]() -> const VecX & { return ub; },
           innate_constraint_eval,
           innate_constraint_grad,
           innate_state_only_rows,
@@ -715,8 +716,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           { return _bounded_joint_indices.size() + 2 * nv_reduced; },
           [this, nv_reduced]()
           { return _bounded_joint_indices.size() + 2 * nv_reduced; },
-          [lb]() { return lb; },
-          [ub]() { return ub; },
+          [lb]() -> const VecX & { return lb; },
+          [ub]() -> const VecX & { return ub; },
           innate_constraint_eval,
           innate_constraint_grad,
           innate_state_only_rows,
@@ -732,8 +733,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           { return _bounded_joint_indices.size() + nv_reduced; },
           [this, nv_reduced]()
           { return _bounded_joint_indices.size() + nv_reduced; },
-          [lb]() { return lb; },
-          [ub]() { return ub; },
+          [lb]() -> const VecX & { return lb; },
+          [ub]() -> const VecX & { return ub; },
           innate_constraint_eval,
           innate_constraint_grad,
           innate_state_only_rows,
@@ -847,17 +848,22 @@ Model::_makeStageIDTorqueConstraints(
             const MatX &da_daj  = cache.da_daj;
             const MatX &da_df   = cache.da_df;
 
-            MatX dX_full(ctx->nv, 2 * ctx->nv);
-            MatX dU_full(ctx->nv, ctx->nu + ctx->force_width);
+            MatX &dX_full = cache.dtau_dx_full;
+            MatX &dU_full = cache.dtau_du_full;
+            dX_full.resize(ctx->nv, 2 * ctx->nv);
+            dU_full.resize(ctx->nv, ctx->nu + ctx->force_width);
 
-            dX_full.leftCols(ctx->nv)  = dtau_dq + dtau_da * da_dq;
-            dX_full.rightCols(ctx->nv) = dtau_dv + dtau_da * da_dv;
-            dU_full.leftCols(ctx->nu)  = dtau_da * da_daj;
+            dX_full.leftCols(ctx->nv).noalias()  = dtau_da * da_dq;
+            dX_full.rightCols(ctx->nv).noalias() = dtau_da * da_dv;
+            dU_full.leftCols(ctx->nu).noalias()  = dtau_da * da_daj;
+            dX_full.leftCols(ctx->nv) += dtau_dq;
+            dX_full.rightCols(ctx->nv) += dtau_dv;
 
             if constexpr (WithForces)
             {
-                dU_full.rightCols(ctx->force_width) =
-                  -cache.Jf.transpose() + dtau_da * da_df;
+                dU_full.rightCols(ctx->force_width).noalias() =
+                  dtau_da * da_df;
+                dU_full.rightCols(ctx->force_width) -= cache.Jf.transpose();
             }
 
             uint offset = 0;
@@ -896,8 +902,8 @@ Model::_makeStageIDTorqueConstraints(
       2 * ctx->nv,
       [ctx]() { return ctx->nu; },
       [ctx]() { return ctx->nu; },
-      [lb]() { return lb; },
-      [ub]() { return ub; },
+      [lb]() -> const VecX & { return lb; },
+      [ub]() -> const VecX & { return ub; },
       innate_constraint_eval,
       innate_constraint_grad);
 }
@@ -974,7 +980,8 @@ void Model::_ensureTorque(DynamicsCache &cache) const
     {
         // The acceleration already computed the mass matrix and the bias
         // torque, joint forces included
-        cache.tau = cache.M * cache.ddq + cache.bias;
+        cache.tau.noalias() = cache.M * cache.ddq;
+        cache.tau += cache.bias;
     }
     else
     {
@@ -1105,22 +1112,24 @@ void Model::_calculateReducedInverseFullAcceleration(DynamicsCache &cache) const
 
     VecX &bias = cache.bias;
 
+    // The bias torque is RNEA at zero acceleration, which ddq still is
     if constexpr (WithForces)
     {
         _ensureJointForces(cache);
 
-        bias = pinocchio_wrapper::rnea(_impl, q, v, VecX::Zero(nv), cache.fext);
+        bias = pinocchio_wrapper::rnea(_impl, q, v, ddq, cache.fext);
     }
     else
     {
-        bias = pinocchio_wrapper::rnea(_impl, q, v, VecX::Zero(nv));
+        bias = pinocchio_wrapper::rnea(_impl, q, v, ddq);
     }
 
     const uint n_unact = nv - nu;
 
     Muu.resize(n_unact, n_unact);
     Muj.resize(n_unact, nu);
-    VecX bias_unact(n_unact);
+    VecX &bias_unact = cache.bias_unact;
+    bias_unact.resize(n_unact);
 
     uint offset = 0;
     if constexpr (FloatingBase)
@@ -1168,11 +1177,17 @@ void Model::_calculateReducedInverseFullAcceleration(DynamicsCache &cache) const
         bias_unact[i] = bias[true_i];
     }
 
-    VecX rhs = Muj * ctrl + bias_unact;
+    VecX &rhs = cache.rhs_unact;
+    rhs.noalias() = Muj * ctrl;
+    rhs += bias_unact;
 
     Muu_ldlt.compute(Muu);
 
-    VecX unact_ddq = -Muu_ldlt.solve(rhs);
+    // Negating the solution afterwards is exact, and keeps the solve from
+    // needing a temporary
+    VecX &unact_ddq = cache.ddq_unact;
+    unact_ddq       = Muu_ldlt.solve(rhs);
+    unact_ddq       = -unact_ddq;
 
     if constexpr (FloatingBase)
     {
@@ -1274,9 +1289,17 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
     da_dv_reordered  = MatX::Zero(nv, nv);
     da_daj_reordered = MatX::Zero(nv, nu);
 
-    da_dq_reordered.topLeftCorner(n_unact, nv) = -Muu_ldlt.solve(dtau_dq_unact);
-    da_dv_reordered.topLeftCorner(n_unact, nv) = -Muu_ldlt.solve(dtau_dv_unact);
-    da_daj_reordered.topRows(n_unact)          = -Muu_ldlt.solve(Muj);
+    // Solving into the blocks and negating them afterwards is exact, and keeps
+    // the solves from needing temporaries
+    auto da_dq_unact  = da_dq_reordered.topLeftCorner(n_unact, nv);
+    auto da_dv_unact  = da_dv_reordered.topLeftCorner(n_unact, nv);
+    auto da_daj_unact = da_daj_reordered.topRows(n_unact);
+    da_dq_unact       = Muu_ldlt.solve(dtau_dq_unact);
+    da_dv_unact       = Muu_ldlt.solve(dtau_dv_unact);
+    da_daj_unact      = Muu_ldlt.solve(Muj);
+    da_dq_unact       = -da_dq_unact;
+    da_dv_unact       = -da_dv_unact;
+    da_daj_unact      = -da_daj_unact;
     da_daj_reordered.bottomRows(nu).setIdentity();
 
     if constexpr (WithForces)

@@ -50,9 +50,10 @@ struct DynamicsCache
         acceleration_derivatives = false;
     }
 
-    // Joint forces and force Jacobian
+    // Joint forces and force Jacobian, with scratch for the frame Jacobians
+    // the force Jacobian takes its rows from
     std::vector<Vec6> fext;
-    MatX              Jf;
+    MatX              Jf, frame_jac;
 
     // Acceleration, along with the mass matrix parts, factorization and bias
     // torque ReducedInverseDynamics uses
@@ -71,10 +72,16 @@ struct DynamicsCache
     // respect to the actuated accelerations
     MatX da_dq, da_dv, da_daj, da_df, dtau_daj;
 
-    // Temporaries of the ReducedInverseDynamics acceleration derivatives
+    // Temporaries of the ReducedInverseDynamics acceleration and its
+    // derivatives
+    VecX bias_unact, rhs_unact, ddq_unact;
     MatX Ju;
     MatX dtau_dq_unact, dtau_dv_unact;
     MatX da_dq_reordered, da_dv_reordered, da_daj_reordered, da_df_reordered;
+
+    // Torque derivatives with respect to the whole state and controls, which
+    // the ReducedInverseDynamics torque constraint picks its rows from
+    MatX dtau_dx_full, dtau_du_full;
 };
 
 Vec3 logSO3(const Mat3 &mat);

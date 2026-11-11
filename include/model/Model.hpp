@@ -712,12 +712,13 @@ class Model
      *  - `joint_forces`: Same as in _calculateJointForces
      *  - `Jf_full`: The full force jacobian; must already be sized
      *     (`3 * force_data.size() + 6 * wrench_data.size()` x `_dims.nv`)
+     *  - `frame_jac`: Scratch for the force frames' Jacobians
      */
     void _calculateJointForcesAndJacobian(
       const VecX &q, const VecX &f,
       const std::vector<const Force *> &force_data,
       const std::vector<const Force *> &wrench_data,
-      std::vector<Vec6> &joint_forces, MatX &Jf_full) const;
+      std::vector<Vec6> &joint_forces, MatX &Jf_full, MatX &frame_jac) const;
 
     using DynamicsCache = pinocchio_wrapper::DynamicsCache;
 

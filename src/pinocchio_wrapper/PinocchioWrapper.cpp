@@ -46,6 +46,10 @@ struct KinematicsCache
     // Results for q and v
     bool velocities       = false;
     bool world_velocities = false;
+
+    // Joint forces in Pinocchio's type, kept so that passes with forces don't
+    // allocate them each time
+    pinocchio::container::aligned_vector<pinocchio::Force> forces;
 };
 
 struct ModelImpl
@@ -483,15 +487,16 @@ void crba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, MatX &M,
 VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
          const VecX &tau, const std::vector<Vec6> &fext)
 {
-    pinocchio::container::aligned_vector<pinocchio::Force> forces(fext.size());
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
 
+    auto &forces = cache.forces;
+    forces.resize(fext.size());
     for (uint i = 0; i < fext.size(); ++i)
     {
         forces[i].linear()  = fext[i].head(3);
         forces[i].angular() = fext[i].tail(3);
     }
 
-    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
     setVelocity(cache, v);
 
@@ -544,15 +549,16 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
                            const std::vector<Vec6> &fext, MatX &aba_partial_dq,
                            MatX &aba_partial_dv, MatX &Minv)
 {
-    pinocchio::container::aligned_vector<pinocchio::Force> forces(fext.size());
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
 
+    auto &forces = cache.forces;
+    forces.resize(fext.size());
     for (uint i = 0; i < fext.size(); ++i)
     {
         forces[i].linear()  = fext[i].head(3);
         forces[i].angular() = fext[i].tail(3);
     }
 
-    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
     setVelocity(cache, v);
 
@@ -591,17 +597,16 @@ VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
 VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
           const VecX &a, const std::vector<Vec6> &fext)
 {
-    pinocchio::container::aligned_vector<pinocchio::Force> forces(
-      fext.size(),
-      pinocchio::Force::Zero());
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
 
+    auto &forces = cache.forces;
+    forces.resize(fext.size());
     for (uint i = 0; i < fext.size(); ++i)
     {
         forces[i].linear()  = fext[i].head<3>();
         forces[i].angular() = fext[i].tail<3>();
     }
 
-    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
     setVelocity(cache, v);
 
@@ -643,17 +648,16 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
                             MatX &rnea_partial_dq, MatX &rnea_partial_dv,
                             MatX &rnea_partial_da)
 {
-    pinocchio::container::aligned_vector<pinocchio::Force> forces(
-      fext.size(),
-      pinocchio::Force::Zero());
+    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
 
+    auto &forces = cache.forces;
+    forces.resize(fext.size());
     for (uint i = 0; i < fext.size(); ++i)
     {
         forces[i].linear()  = fext[i].head<3>();
         forces[i].angular() = fext[i].tail<3>();
     }
 
-    KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
     setVelocity(cache, v);
 

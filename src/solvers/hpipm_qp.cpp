@@ -170,53 +170,30 @@ void hpipm_qp::_split_rows(const uint k, const uint nu, const bool fixed_state)
     const uint nx = _qp.dims.stage_state[k];
     const uint nc = _qp.dims.stage_constraint[k];
 
-    std::vector<std::vector<uint>> x_rows(nx), u_rows(nu);
-    std::vector<bool>              is_box(nc, false);
-    for (const model::BoxRow &box : _box_rows[k])
-    {
-        (box.is_control ? u_rows : x_rows)[box.index].push_back(box.row);
-        is_box[box.row] = true;
-    }
+    const std::vector<model::BoxRow> &box_rows = _box_rows[k];
 
     Stage &stage  = _stages[k];
     stage.x.fixed = fixed_state;
+    stage.x.layout(box_rows, false, nx);
+    stage.u.layout(box_rows, true, nu);
 
-    for (uint i = 0; i < nx; ++i)
+    std::vector<bool> is_box(nc, false);
+    for (const model::BoxRow &box : box_rows)
     {
-        if (fixed_state || !x_rows[i].empty())
-        {
-            stage.x.idx.push_back(i);
-            stage.x.rows.push_back(std::move(x_rows[i]));
-        }
+        is_box[box.row] = true;
     }
-    for (uint i = 0; i < nu; ++i)
-    {
-        if (!u_rows[i].empty())
-        {
-            stage.u.idx.push_back(i);
-            stage.u.rows.push_back(std::move(u_rows[i]));
-        }
-    }
+
+    uint ng = 0;
+    stage.general_rows.resize(nc);
     for (uint c = 0; c < nc; ++c)
     {
         if (!is_box[c])
         {
-            stage.general_rows.push_back(c);
+            stage.general_rows[ng++] = c;
         }
     }
+    stage.general_rows.resize(ng);
 
-    for (Boxes *boxes : { &stage.x, &stage.u })
-    {
-        const uint nb = boxes->idx.size();
-        boxes->lb_row.resize(nb);
-        boxes->ub_row.resize(nb);
-        boxes->lb.resize(nb);
-        boxes->ub.resize(nb);
-        boxes->lb_mask.resize(nb);
-        boxes->ub_mask.resize(nb);
-    }
-
-    const uint ng = stage.general_rows.size();
     stage.C.resize(ng, nx);
     stage.D.resize(ng, nu);
     stage.lg.resize(ng);
@@ -240,6 +217,16 @@ void hpipm_qp::_build()
     {
         _split_rows(horizon, 0, false);
     }
+
+    size_t max_rows = 0;
+    for (const Stage &stage : _stages)
+    {
+        max_rows = std::max({ max_rows,
+                              stage.general_rows.size(),
+                              stage.x.idx.size(),
+                              stage.u.idx.size() });
+    }
+    _lam.resize(2 * max_rows);
 
     hpipm_size_t dim_size = d_ocp_qp_dim_memsize(horizon);
     _hpipm_dim_mem        = malloc(dim_size);
@@ -427,20 +414,75 @@ void hpipm_qp::reset()
     _qp_uploaded = true;
 }
 
+void hpipm_qp::Boxes::layout(const std::vector<model::BoxRow> &box_rows,
+                             const bool control, const uint n)
+{
+    // The number of rows on each entry, later the position of its next row
+    std::vector<uint> next(n, 0);
+    for (const model::BoxRow &box : box_rows)
+    {
+        if (box.is_control == control)
+        {
+            ++next[box.index];
+        }
+    }
+
+    uint nb = 0;
+    for (uint i = 0; i < n; ++i)
+    {
+        if (fixed || next[i] > 0)
+        {
+            ++nb;
+        }
+    }
+
+    idx.reserve(nb);
+    start.reserve(nb + 1);
+    start.push_back(0);
+    for (uint i = 0; i < n; ++i)
+    {
+        if (fixed || next[i] > 0)
+        {
+            const uint first = start.back();
+            idx.push_back(i);
+            start.push_back(first + next[i]);
+            next[i] = first;
+        }
+    }
+
+    // Each entry's rows keep their declared order, which decides ties
+    rows.resize(start.back());
+    for (const model::BoxRow &box : box_rows)
+    {
+        if (box.is_control == control)
+        {
+            rows[next[box.index]++] = box.row;
+        }
+    }
+
+    lb_row.resize(nb);
+    ub_row.resize(nb);
+    lb.resize(nb);
+    ub.resize(nb);
+    lb_mask.resize(nb);
+    ub_mask.resize(nb);
+}
+
 void hpipm_qp::Boxes::merge(const VecX &cl, const VecX &cu)
 {
     const double inf   = std::numeric_limits<double>::infinity();
-    const double start = fixed ? 0.0 : inf;
+    const double bound = fixed ? 0.0 : inf;
 
     for (uint j = 0; j < idx.size(); ++j)
     {
         // The first of equally tight rows gives the side, and fixed entries
         // keep it unless a row is tighter
-        double lower = -start, upper = start;
+        double lower = -bound, upper = bound;
         lb_row[j] = -1;
         ub_row[j] = -1;
-        for (const uint row : rows[j])
+        for (uint r = start[j]; r < start[j + 1]; ++r)
         {
+            const uint row = rows[r];
             if (cl[row] > lower)
             {
                 lower     = cl[row];
@@ -477,16 +519,16 @@ void hpipm_qp::Boxes::merge(const VecX &cl, const VecX &cu)
     }
 }
 
-void hpipm_qp::Boxes::multipliers(const VecX &lam_lb, const VecX &lam_ub,
+void hpipm_qp::Boxes::multipliers(const double *lam_lb, const double *lam_ub,
                                   VecXRef mu) const
 {
     // Rows that give neither side of their box are inactive or tied with the
     // ones that do, so their multipliers are zero
     for (uint j = 0; j < idx.size(); ++j)
     {
-        for (const uint row : rows[j])
+        for (uint r = start[j]; r < start[j + 1]; ++r)
         {
-            mu[row] = 0.0;
+            mu[rows[r]] = 0.0;
         }
 
         if (lb_row[j] >= 0)
@@ -508,8 +550,9 @@ void hpipm_qp::_upload_constraints(const uint k, const MatX &D, const MatX *E,
 #ifndef NDEBUG
     for (uint j = 0; j < stage.x.idx.size(); ++j)
     {
-        for (const uint row : stage.x.rows[j])
+        for (uint r = stage.x.start[j]; r < stage.x.start[j + 1]; ++r)
         {
+            const uint row = stage.x.rows[r];
             assert(D.row(row).transpose() ==
                      VecX::Unit(D.cols(), stage.x.idx[j]) &&
                    (E == nullptr || E->row(row).isZero(0)) &&
@@ -518,8 +561,9 @@ void hpipm_qp::_upload_constraints(const uint k, const MatX &D, const MatX *E,
     }
     for (uint j = 0; j < stage.u.idx.size(); ++j)
     {
-        for (const uint row : stage.u.rows[j])
+        for (uint r = stage.u.start[j]; r < stage.u.start[j + 1]; ++r)
         {
+            const uint row = stage.u.rows[r];
             assert(D.row(row).isZero(0) &&
                    E->row(row).transpose() ==
                      VecX::Unit(E->cols(), stage.u.idx[j]) &&
@@ -655,24 +699,24 @@ void hpipm_qp::_get_multipliers(const uint k, Solution &sol) const
     const Stage &stage = _stages[k];
     VecXRef      mu    = sol.mu.stage(k);
 
-    VecX lg(stage.general_rows.size()), ug(stage.general_rows.size());
-    d_ocp_qp_sol_get_lam_lg(k, &_hpipm_data->sol, lg.data());
-    d_ocp_qp_sol_get_lam_ug(k, &_hpipm_data->sol, ug.data());
+    const uint ng    = stage.general_rows.size();
+    double    *lower = _lam.data();
+    double    *upper = lower + _lam.size() / 2;
 
-    for (uint g = 0; g < stage.general_rows.size(); ++g)
+    d_ocp_qp_sol_get_lam_lg(k, &_hpipm_data->sol, lower);
+    d_ocp_qp_sol_get_lam_ug(k, &_hpipm_data->sol, upper);
+    for (uint g = 0; g < ng; ++g)
     {
-        mu[stage.general_rows[g]] = lg[g] - ug[g];
+        mu[stage.general_rows[g]] = lower[g] - upper[g];
     }
 
-    VecX lbx(stage.x.idx.size()), ubx(stage.x.idx.size());
-    d_ocp_qp_sol_get_lam_lbx(k, &_hpipm_data->sol, lbx.data());
-    d_ocp_qp_sol_get_lam_ubx(k, &_hpipm_data->sol, ubx.data());
-    stage.x.multipliers(lbx, ubx, mu);
+    d_ocp_qp_sol_get_lam_lbx(k, &_hpipm_data->sol, lower);
+    d_ocp_qp_sol_get_lam_ubx(k, &_hpipm_data->sol, upper);
+    stage.x.multipliers(lower, upper, mu);
 
-    VecX lbu(stage.u.idx.size()), ubu(stage.u.idx.size());
-    d_ocp_qp_sol_get_lam_lbu(k, &_hpipm_data->sol, lbu.data());
-    d_ocp_qp_sol_get_lam_ubu(k, &_hpipm_data->sol, ubu.data());
-    stage.u.multipliers(lbu, ubu, mu);
+    d_ocp_qp_sol_get_lam_lbu(k, &_hpipm_data->sol, lower);
+    d_ocp_qp_sol_get_lam_ubu(k, &_hpipm_data->sol, upper);
+    stage.u.multipliers(lower, upper, mu);
 }
 
 uint hpipm_qp::iterations() const

@@ -750,7 +750,7 @@ void SquaredConfigurationErrorCost::set_weight(const double weight)
 
 void SquaredConfigurationErrorCost::set_weight(const VecX &weight)
 {
-    assert(weight.size() == (_free_flyer ? _nv - 7 : _nv) &&
+    assert(weight.size() == (_free_flyer ? _nv - 6 : _nv) &&
            "Invalid weight vector size");
 
     _weight = weight;
@@ -762,11 +762,10 @@ VecX SquaredConfigurationErrorCost::evaluate(const VecX &x, const VecX &u) const
 
     VecX diff = _model->difference(x.head(_nq), _full_desired_configuration);
 
-    return (Scalar()
-            << 0.5 * (_weight.array() *
-                      (_free_flyer ? diff.segment(6, _nv - 6) : diff).array())
-                       .matrix()
-                       .squaredNorm())
+    return (Scalar() << 0.5 * (_weight.array() *
+                               diff.tail(_free_flyer ? _nv - 6 : _nv).array())
+                                .matrix()
+                                .squaredNorm())
       .finished();
 }
 
@@ -784,21 +783,21 @@ void SquaredConfigurationErrorCost::add_gradient(const VecX &x, const VecX &u,
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
     VecX diff = _model->difference(x.head(_nq), _full_desired_configuration);
-    VecX weighted_diff =
-      _weight.array().square() *
-      (_free_flyer ? diff.segment(6, _nv - 6) : diff).array();
+    auto weighted_diff     = diff.tail(_free_flyer ? _nv - 6 : _nv);
+    weighted_diff.array() *= _weight.array().square();
 
-    MatX J = MatX::Zero(_nv, _nv);
+    MatX &J = _jac_scratch;
+    J.setZero(_nv, _nv);
     _model->dDifference(x.head(_nq), _full_desired_configuration, J, 0);
 
     if (_free_flyer)
     {
-        dx.segment(6, _nv - 6) +=
+        dx.segment(6, _nv - 6).noalias() +=
           J.bottomRightCorner(_nv - 6, _nv - 6).transpose() * weighted_diff;
     }
     else
     {
-        dx.head(_nv) += J.transpose() * weighted_diff;
+        dx.head(_nv).noalias() += J.transpose() * weighted_diff;
     }
 }
 
@@ -826,20 +825,24 @@ void SquaredConfigurationErrorCost::add_hessian_xx(const VecX &x, const VecX &u,
 {
     assert(x.size() >= _nq && "Invalid state passed (size < nq)");
 
-    MatX J = MatX::Zero(_nv, _nv);
+    MatX &J = _jac_scratch;
+    J.setZero(_nv, _nv);
     _model->dDifference(x.head(_nq), _full_desired_configuration, J, 0);
 
+    // Holds the transposed Jacobian times the squared weights
+    MatX &JtW = _weighted_jac_scratch;
     if (_free_flyer)
     {
-        Hxx.block(6, 6, _nv - 6, _nv - 6) +=
-          J.bottomRightCorner(_nv - 6, _nv - 6).transpose() *
-          _weight.array().square().matrix().asDiagonal() *
-          J.bottomRightCorner(_nv - 6, _nv - 6);
+        JtW.noalias() = J.bottomRightCorner(_nv - 6, _nv - 6).transpose() *
+                        _weight.array().square().matrix().asDiagonal();
+        Hxx.block(6, 6, _nv - 6, _nv - 6).noalias() +=
+          JtW * J.bottomRightCorner(_nv - 6, _nv - 6);
     }
     else
     {
-        Hxx.topLeftCorner(_nv, _nv) +=
-          J.transpose() * _weight.array().square().matrix().asDiagonal() * J;
+        JtW.noalias() =
+          J.transpose() * _weight.array().square().matrix().asDiagonal();
+        Hxx.topLeftCorner(_nv, _nv).noalias() += JtW * J;
     }
 }
 
@@ -1726,17 +1729,18 @@ void FrameSquaredTranslationErrorCost::add_gradient(const VecX &x,
 
     // Local or Base axes turn with the frame or the base, which adds the error
     // crossed with their angular tangent
-    MatX J = A.transpose() * _jac_scratch.topRows(3);
+    MatX &J     = _error_jac_scratch;
+    J.noalias() = A.transpose() * _jac_scratch.topRows(3);
     if (type == ReferenceFrame::Local)
     {
-        J += skew(error) * R.transpose() * _jac_scratch.bottomRows(3);
+        J.noalias() += skew(error) * R.transpose() * _jac_scratch.bottomRows(3);
     }
     else if (type == ReferenceFrame::Base)
     {
         J.middleCols<3>(3) += skew(error);
     }
 
-    dx.head(_nv) +=
+    dx.head(_nv).noalias() +=
       J.transpose() * (_weight.array().square() * error.array()).matrix();
 }
 
@@ -1769,7 +1773,7 @@ void FrameSquaredTranslationErrorCost::add_hessian_xx(const VecX &x,
 
     const ReferenceFrame::Type type = _reference_frame.type();
 
-    MatX J;
+    MatX &J = _error_jac_scratch;
     if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
     {
         // Gauss-Newton Hessian through the turning axes
@@ -1781,10 +1785,11 @@ void FrameSquaredTranslationErrorCost::add_hessian_xx(const VecX &x,
           type == ReferenceFrame::Local ? R : _reference_frame.axes(x);
         const Vec3 error = A.transpose() * (pos - _desired_translation);
 
-        J = A.transpose() * _jac_scratch.topRows(3);
+        J.noalias() = A.transpose() * _jac_scratch.topRows(3);
         if (type == ReferenceFrame::Local)
         {
-            J += skew(error) * R.transpose() * _jac_scratch.bottomRows(3);
+            J.noalias() +=
+              skew(error) * R.transpose() * _jac_scratch.bottomRows(3);
         }
         else
         {
@@ -1793,11 +1798,14 @@ void FrameSquaredTranslationErrorCost::add_hessian_xx(const VecX &x,
     }
     else
     {
-        J = _reference_frame.rotation().transpose() * _jac_scratch.topRows(3);
+        J.noalias() =
+          _reference_frame.rotation().transpose() * _jac_scratch.topRows(3);
     }
 
-    Hxx.topLeftCorner(_nv, _nv) +=
-      J.transpose() * _weight.array().square().matrix().asDiagonal() * J;
+    MatX &JtW = _weighted_jac_scratch;
+    JtW.noalias() =
+      J.transpose() * _weight.array().square().matrix().asDiagonal();
+    Hxx.topLeftCorner(_nv, _nv).noalias() += JtW * J;
 }
 
 void FrameSquaredTranslationErrorCost::add_hessian_xu(const VecX &x,
@@ -1892,9 +1900,9 @@ void FrameSquaredTerrainHeightErrorCost::add_gradient(const VecX &x,
 
     terrain::Terrain::TerrainPoint tp = cost_terrain()->at(pos[0], pos[1]);
 
-    dx.head(_nv) += _weight * _weight * (pos[2] - tp.height - _desired_height) *
-                    _jac_scratch.topRows(3).transpose() *
-                    Vec3(-tp.dhdx, -tp.dhdy, 1);
+    dx.head(_nv).noalias() +=
+      _weight * _weight * (pos[2] - tp.height - _desired_height) *
+      _jac_scratch.topRows(3).transpose() * Vec3(-tp.dhdx, -tp.dhdy, 1);
 }
 
 void FrameSquaredTerrainHeightErrorCost::hessian_xx(const VecX &x,
@@ -1932,9 +1940,12 @@ void FrameSquaredTerrainHeightErrorCost::add_hessian_xx(const VecX &x,
 
     terrain::Terrain::TerrainPoint tp = cost_terrain()->at(pos[0], pos[1]);
 
-    VecX dh = _jac_scratch.topRows(3).transpose() * Vec3(-tp.dhdx, -tp.dhdy, 1);
+    VecX &dh = _height_grad_scratch;
+    dh.noalias() =
+      _jac_scratch.topRows(3).transpose() * Vec3(-tp.dhdx, -tp.dhdy, 1);
 
-    Hxx.topLeftCorner(_nv, _nv) += _weight * _weight * dh * dh.transpose();
+    Hxx.topLeftCorner(_nv, _nv).noalias() +=
+      _weight * _weight * dh * dh.transpose();
 }
 
 void FrameSquaredTerrainHeightErrorCost::add_hessian_xu(const VecX &x,
@@ -2298,7 +2309,8 @@ void FrameSquaredPoseErrorCost::add_gradient(const VecX &x, const VecX &u,
     Vec6 log6  = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6 = pinocchio_wrapper::JlogSE3(d);
 
-    dx.head(_nv) += (Jlog6 * _jac_scratch).transpose() * _weight * log6;
+    dx.head(_nv).noalias() +=
+      _jac_scratch.transpose() * (Jlog6.transpose() * (_weight * log6));
 }
 
 void FrameSquaredPoseErrorCost::hessian_xx(const VecX &x, const VecX &u,
@@ -2332,9 +2344,12 @@ void FrameSquaredPoseErrorCost::add_hessian_xx(const VecX &x, const VecX &u,
     Vec6 log6  = pinocchio_wrapper::logSE3(d);
     Mat6 Jlog6 = pinocchio_wrapper::JlogSE3(d);
 
-    MatX J = Jlog6 * _jac_scratch;
+    MatX &J     = _error_jac_scratch;
+    J.noalias() = Jlog6 * _jac_scratch;
 
-    Hxx.topLeftCorner(_nv, _nv) += J.transpose() * _weight * J;
+    MatX &JtW                              = _weighted_jac_scratch;
+    JtW.noalias()                          = J.transpose() * _weight;
+    Hxx.topLeftCorner(_nv, _nv).noalias() += JtW * J;
 }
 
 void FrameSquaredPoseErrorCost::add_hessian_xu(const VecX &x, const VecX &u,

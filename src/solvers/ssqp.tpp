@@ -496,14 +496,12 @@ SolverState ssqp::_check_termination()
         {
             _cached_c[k] =
               constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
-            VecX below =
-              constraints[k]
-                ->right_minus(_cached_c[k], constraints[k]->lower_bound())
-                .cwiseMin(0);
-            VecX above =
-              constraints[k]
-                ->right_minus(_cached_c[k], constraints[k]->upper_bound())
-                .cwiseMax(0);
+            VecX below = constraints[k]->right_minus(
+              _cached_c[k], constraints[k]->lower_bound());
+            VecX above = constraints[k]->right_minus(
+              _cached_c[k], constraints[k]->upper_bound());
+            below = below.cwiseMin(0);
+            above = above.cwiseMax(0);
 
             // x_0 fixes the state-only rows of stage 0, so they are left out
             if (k == 0)

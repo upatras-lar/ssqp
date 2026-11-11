@@ -1174,10 +1174,10 @@ void FrameTranslationBound::add_gradient(const VecX &x, const VecX &u,
           type == ReferenceFrame::Local ? R : _reference_frame.axes(x);
         const Vec3 value = A.transpose() * (pos - _center);
 
-        dX.leftCols(_nv) += A.transpose() * _jac_scratch.topRows(3);
+        dX.leftCols(_nv).noalias() += A.transpose() * _jac_scratch.topRows(3);
         if (type == ReferenceFrame::Local)
         {
-            dX.leftCols(_nv) +=
+            dX.leftCols(_nv).noalias() +=
               skew(value) * R.transpose() * _jac_scratch.bottomRows(3);
         }
         else
@@ -1187,7 +1187,7 @@ void FrameTranslationBound::add_gradient(const VecX &x, const VecX &u,
     }
     else
     {
-        dX.leftCols(_nv) +=
+        dX.leftCols(_nv).noalias() +=
           _reference_frame.rotation().transpose() * _jac_scratch.topRows(3);
     }
 }
@@ -1698,14 +1698,17 @@ void FrameLinearVelocityBound::add_gradient(const VecX &x, const VecX &u,
           _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true)
             .head<3>();
 
-        _dVdq_scratch.topRows<3>() +=
-          _dVdv_scratch.bottomRows<3>().colwise().cross(velocity);
+        for (Eigen::Index j = 0; j < _dVdq_scratch.cols(); ++j)
+        {
+            _dVdq_scratch.col(j).head<3>() +=
+              _dVdv_scratch.col(j).tail<3>().cross(velocity);
+        }
         Rt    = _reference_frame.axes(x).transpose() * R;
         value = Rt * velocity;
     }
 
-    dX.leftCols(_nv)  += Rt * _dVdq_scratch.topRows<3>();
-    dX.rightCols(_nv) += Rt * _dVdv_scratch.topRows<3>();
+    dX.leftCols(_nv).noalias()  += Rt * _dVdq_scratch.topRows<3>();
+    dX.rightCols(_nv).noalias() += Rt * _dVdv_scratch.topRows<3>();
 
     // Base axes turn with the base, which adds the bound's value crossed with
     // the base's angular tangent
@@ -2194,8 +2197,8 @@ void ContactConstraint::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
 
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_world_scratch);
     _model->frameJacobian(x.head(_nq), _frame_id, true, _jac_local_scratch);
-    MatX Jfw = _jac_world_scratch.topRows<3>();
-    MatX Jfl = _jac_local_scratch.bottomRows<3>();
+    const auto Jfw = _jac_world_scratch.topRows<3>();
+    const auto Jfl = _jac_local_scratch.bottomRows<3>();
 
     uint total_force_index = _nu + 3 * _force->force_index;
 
@@ -2205,13 +2208,18 @@ void ContactConstraint::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
     f_skew << 0, -f_local[2], f_local[1], f_local[2], 0, -f_local[0],
       -f_local[1], f_local[0], 0;
 
-    MatX dfglobal_dq = -R * f_skew * Jfl;
+    MatX &dfglobal_dq     = _dforce_scratch;
+    dfglobal_dq.noalias() = -R * f_skew * Jfl;
 
     Vec3 dhdp = (Vec3() << -tp.dhdx, -tp.dhdy, 1).finished();
 
-    VecX dfn_dq  = dfglobal_dq.transpose() * tp.normal;
-    VecX dft1_dq = dfglobal_dq.transpose() * tp.t1;
-    VecX dft2_dq = dfglobal_dq.transpose() * tp.t2;
+    _dforce_components_scratch.resize(_nv, 3);
+    auto dfn_dq       = _dforce_components_scratch.col(0);
+    auto dft1_dq      = _dforce_components_scratch.col(1);
+    auto dft2_dq      = _dforce_components_scratch.col(2);
+    dfn_dq.noalias()  = dfglobal_dq.transpose() * tp.normal;
+    dft1_dq.noalias() = dfglobal_dq.transpose() * tp.t1;
+    dft2_dq.noalias() = dfglobal_dq.transpose() * tp.t2;
 
     // Terrain frame derivatives with respect to the frame's x and y position
     // The frame is built from the height gradient (see `TerrainPoint`)
@@ -2249,7 +2257,7 @@ void ContactConstraint::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
     dX.row(3).head(_nv) += (dft2_dq - _mu * dfn_dq).transpose();
     dX.row(4).head(_nv) += (dft2_dq + _mu * dfn_dq).transpose();
 
-    dX.row(5).head(_nv) += dhdp.transpose() * Jfw;
+    dX.row(5).head(_nv).noalias() += dhdp.transpose() * Jfw;
 
     if (_no_slip)
     {

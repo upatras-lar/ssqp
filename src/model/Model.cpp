@@ -1735,7 +1735,7 @@ void Model::_calculateJointForces(const VecX                       &f,
 void Model::_calculateJointForcesAndJacobian(
   const VecX &q, const VecX &f, const std::vector<const Force *> &force_data,
   const std::vector<const Force *> &wrench_data,
-  std::vector<Vec6> &joint_forces, MatX &Jf_full) const
+  std::vector<Vec6> &joint_forces, MatX &Jf_full, MatX &frame_jac) const
 {
     pinocchio_wrapper::computeJointJacobians(_impl, q);
 
@@ -1746,7 +1746,7 @@ void Model::_calculateJointForcesAndJacobian(
     Jf_full.setZero();
     std::fill(joint_forces.begin(), joint_forces.end(), Vec6::Zero());
 
-    MatX J6(6, _dims.nv);
+    frame_jac.resize(6, _dims.nv);
 
     for (uint i = 0; i < force_data.size(); ++i)
     {
@@ -1755,8 +1755,8 @@ void Model::_calculateJointForcesAndJacobian(
             continue;
         }
 
-        frameJacobian(force_data[i]->frame_id, true, J6);
-        Jf_full.block(3 * i, 0, 3, _dims.nv) = J6.topRows<3>();
+        frameJacobian(force_data[i]->frame_id, true, frame_jac);
+        Jf_full.block(3 * i, 0, 3, _dims.nv) = frame_jac.topRows<3>();
 
         Vec3 fi = f.segment(3 * i, 3);
 
@@ -1778,8 +1778,9 @@ void Model::_calculateJointForcesAndJacobian(
             continue;
         }
 
-        frameJacobian(wrench_data[i]->frame_id, true, J6);
-        Jf_full.block(offset + 6 * i, 0, 6, _dims.nv) = J6;
+        frameJacobian(wrench_data[i]->frame_id,
+                      true,
+                      Jf_full.block(offset + 6 * i, 0, 6, _dims.nv));
 
         Vec6 wi = f.segment(offset + 6 * i, 6);
 
@@ -1881,7 +1882,8 @@ void Model::_ensureForceJacobian(DynamicsCache &cache) const
                                      cache.forces,
                                      cache.wrenches,
                                      cache.fext,
-                                     cache.Jf);
+                                     cache.Jf,
+                                     cache.frame_jac);
     cache.joint_forces   = true;
     cache.force_jacobian = true;
 }

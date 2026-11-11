@@ -313,6 +313,9 @@ class SquaredConfigurationErrorCost : public StageCost
     VecX         _full_desired_configuration;
     const bool   _free_flyer;
     VecX         _weight;
+
+    // Scratch for the difference Jacobian and its weighted rows
+    mutable MatX _jac_scratch, _weighted_jac_scratch;
 };
 
 /** Predefined squared floating base translation error cost
@@ -634,6 +637,10 @@ class FrameSquaredTranslationErrorCost : public StageCost
     Vec3              _weight;
     ReferenceFrame    _reference_frame;
     mutable MatX      _jac_scratch;
+
+    // Scratch for the error Jacobian, and its transpose times the squared
+    // weights
+    mutable MatX _error_jac_scratch, _weighted_jac_scratch;
 };
 
 /** Predefined squared frame terrain height error cost
@@ -690,6 +697,9 @@ class FrameSquaredTerrainHeightErrorCost : public StageCost
     double            _desired_height;
     double            _weight;
     mutable MatX      _jac_scratch;
+
+    // Scratch for the gradient of the height above the terrain
+    mutable VecX _height_grad_scratch;
 
     std::shared_ptr<terrain::Terrain> _terrain;
 
@@ -833,6 +843,9 @@ class FrameSquaredPoseErrorCost : public StageCost
     const uint        _frame_id;
     Mat6              _weight;
     mutable MatX      _jac_scratch;
+
+    // Scratch for the error Jacobian, and its transpose times the weight
+    mutable MatX _error_jac_scratch, _weighted_jac_scratch;
 };
 
 /** Predefined squared frame velocity error cost

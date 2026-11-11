@@ -87,9 +87,10 @@ class hpipm_qp : public QPSolver
     // tightest of the rows
     struct Boxes
     {
-        // The entry of each box, and the rows that bound it
-        std::vector<int>               idx;
-        std::vector<std::vector<uint>> rows;
+        // The entry of each box, and the rows that bound it, with box j's rows
+        // at rows[start[j]] up to rows[start[j + 1]]
+        std::vector<int>  idx;
+        std::vector<uint> rows, start;
 
         // The row giving each side of each box, or -1 when none does
         std::vector<int> lb_row, ub_row;
@@ -102,13 +103,18 @@ class hpipm_qp : public QPSolver
         // Whether the entries are fixed to zero, as the initial state is
         bool fixed = false;
 
+        // Makes a box for each of the n entries with control or state box
+        // rows, or for every entry when they are fixed
+        void layout(const std::vector<model::BoxRow> &box_rows,
+                    const bool control, const uint n);
+
         // Sets the bounds from the rows' bounds, starting from [0, 0] when the
         // entries are fixed and from no bounds otherwise
         void merge(const VecX &cl, const VecX &cu);
 
         // Writes the multipliers of the boxes into the rows that gave their
         // bounds
-        void multipliers(const VecX &lam_lb, const VecX &lam_ub,
+        void multipliers(const double *lam_lb, const double *lam_ub,
                          VecXRef mu) const;
     };
 
@@ -152,6 +158,10 @@ class hpipm_qp : public QPSolver
     // The box layout the HPIPM structures were created for
     std::vector<std::vector<model::BoxRow>> _box_rows;
     std::vector<Stage>                      _stages;
+
+    // Holds the multipliers HPIPM returns for a stage's lower and upper
+    // sides, sized for the stage with the most constraints of one kind
+    mutable VecX _lam;
 
     // HPIPM stores the state/control cross term as nu-by-nx, whereas QPData
     // stores it as nx-by-nu. Keep the transposed upload buffers persistent.
