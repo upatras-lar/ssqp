@@ -1,5 +1,7 @@
 #include "model/Model.hpp"
 
+#include <numeric>
+
 namespace ssqp
 {
 namespace model
@@ -616,6 +618,21 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         }
     };
 
+    // The angle and velocity rows depend only on the state, unlike the forward
+    // dynamics control rows that follow them
+    auto innate_state_only_rows = [this, nv_reduced]()
+    {
+        uint n = _bounded_joint_indices.size();
+        if constexpr (SM != SolverMode::Kinematics)
+        {
+            n += nv_reduced;
+        }
+
+        std::vector<uint> rows(n);
+        std::iota(rows.begin(), rows.end(), 0);
+        return rows;
+    };
+
     // The bounds are linear, so their Hessian products default to zero
     const uint ndx = SM == SolverMode::Kinematics ? ctx->nv : 2 * ctx->nv;
 
@@ -629,7 +646,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [lb]() { return lb; },
           [ub]() { return ub; },
           innate_constraint_eval,
-          innate_constraint_grad);
+          innate_constraint_grad,
+          innate_state_only_rows);
     }
 
     else if constexpr (IsTerminal)
@@ -646,7 +664,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [this, ub, nv_reduced]()
           { return ub.head(_bounded_joint_indices.size() + nv_reduced); },
           innate_constraint_eval,
-          innate_constraint_grad);
+          innate_constraint_grad,
+          innate_state_only_rows);
     }
     else if constexpr (SM == SolverMode::ForwardDynamics)
     {
@@ -660,7 +679,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [lb]() { return lb; },
           [ub]() { return ub; },
           innate_constraint_eval,
-          innate_constraint_grad);
+          innate_constraint_grad,
+          innate_state_only_rows);
     }
     else if constexpr (SM == SolverMode::InverseDynamics ||
                        SM == SolverMode::ReducedInverseDynamics)
@@ -675,7 +695,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [lb]() { return lb; },
           [ub]() { return ub; },
           innate_constraint_eval,
-          innate_constraint_grad);
+          innate_constraint_grad,
+          innate_state_only_rows);
     }
 }
 

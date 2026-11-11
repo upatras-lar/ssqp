@@ -581,6 +581,21 @@ SolverState ssqp::solve(Guess &guess)
 
     _check_bounds();
 
+    _stage_0_state_only_rows.clear();
+    if (_model.horizon() > 0 && _model.constraints()[0] != nullptr)
+    {
+        const auto &constraints  = _model.constraints()[0];
+        _stage_0_state_only_rows = constraints->state_only_rows();
+
+#ifndef NDEBUG
+        for (const uint row : _stage_0_state_only_rows)
+        {
+            assert(row < constraints->constraint_diff_size() &&
+                   "Stage 0 state-only constraint row out of range");
+        }
+#endif
+    }
+
     _stale_iters = 0;
 
     _convergence_data.iteration_data.clear();
@@ -1469,14 +1484,25 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
         model::Model::StageScope stage_scope(_model, k);
 
         c = constraints[k]->evaluate(x.stage(k), u.stage(k));
-        sum +=
+
+        VecX v =
           constraints[k]
             ->right_minus(c, constraints[k]->lower_bound())
             .cwiseMin(0)
             .cwiseAbs()
             .cwiseMax(
-              constraints[k]->right_minus(c, constraints[k]->upper_bound()))
-            .lpNorm<Eigen::Infinity>();
+              constraints[k]->right_minus(c, constraints[k]->upper_bound()));
+
+        // x_0 fixes the state-only rows of stage 0, so they are left out
+        if (k == 0)
+        {
+            for (const uint row : _stage_0_state_only_rows)
+            {
+                v[row] = 0.0;
+            }
+        }
+
+        sum += v.lpNorm<Eigen::Infinity>();
     }
 
     if (constraints[horizon] != nullptr)
@@ -1524,6 +1550,15 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
             .cwiseAbs()
             .cwiseMax(
               constraints[k]->right_minus(c, constraints[k]->upper_bound()));
+
+        // x_0 fixes the state-only rows of stage 0, so they are left out
+        if (k == 0)
+        {
+            for (const uint row : _stage_0_state_only_rows)
+            {
+                v[row] = 0.0;
+            }
+        }
 
         sum += softmax_max(v, _params.merit_grad_softmax_beta);
     }
@@ -1580,6 +1615,15 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
           constraints[k]->right_minus(c0, lb).cwiseMin(0).cwiseAbs().cwiseMax(
             constraints[k]->right_minus(c0, ub));
 
+        // x_0 fixes the state-only rows of stage 0, so they are left out
+        if (k == 0)
+        {
+            for (const uint row : _stage_0_state_only_rows)
+            {
+                v[row] = 0.0;
+            }
+        }
+
         VecX w =
           (_params.merit_grad_softmax_beta * (v.array() - v.maxCoeff())).exp();
         w /= w.sum();
@@ -1594,6 +1638,14 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
             else if (c0[i] > ub[i])
             {
                 dv_dc[i] = +1.0;
+            }
+        }
+
+        if (k == 0)
+        {
+            for (const uint row : _stage_0_state_only_rows)
+            {
+                dv_dc[row] = 0.0;
             }
         }
 

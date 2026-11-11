@@ -43,6 +43,8 @@ class JointAngleConstraint : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
+    std::vector<uint> state_only_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -96,6 +98,8 @@ class JointVelocityConstraint : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<uint> state_only_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -213,6 +217,8 @@ class FloatingBaseTranslationBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
+    std::vector<uint> state_only_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -274,6 +280,8 @@ class FloatingBaseRotationBound : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<uint> state_only_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -344,6 +352,8 @@ class FloatingBasePoseBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
+    std::vector<uint> state_only_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -405,6 +415,8 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
+    std::vector<uint> state_only_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -465,6 +477,8 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<uint> state_only_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -530,6 +544,8 @@ class FrameTranslationBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
+    std::vector<uint> state_only_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -589,6 +605,8 @@ class FrameTerrainHeightBound : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<uint> state_only_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -650,6 +668,8 @@ class FrameRotationBound : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<uint> state_only_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -719,6 +739,8 @@ class FramePoseBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
+    std::vector<uint> state_only_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -783,6 +805,8 @@ class FrameLinearVelocityBound : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<uint> state_only_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -850,6 +874,8 @@ class FrameAngularVelocityBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
+    std::vector<uint> state_only_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -913,6 +939,8 @@ class CenterOfMassBound : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<uint> state_only_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -1004,6 +1032,8 @@ class ContactConstraint : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<uint> state_only_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 

@@ -113,6 +113,9 @@ inline auto ZeroHessprod = [](const VecX &x, const VecX &u, const VecX &v,
 inline auto DefaultRightMinus = [](const VecX &x, const VecX &y)
 { return x - y; };
 
+// No state-only constraint rows, so every row depends on the controls
+inline auto NoStateOnlyRows = []() { return std::vector<uint>(); };
+
 struct Dimensions
 {
     uint horizon;

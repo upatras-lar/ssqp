@@ -67,6 +67,11 @@ const VecX &StageConstraints::upper_bound() const
     return _default_ub;
 }
 
+std::vector<uint> StageConstraints::state_only_rows() const
+{
+    return {};
+}
+
 uint StageConstraints::constraint_diff_size() const
 {
     return output_size();

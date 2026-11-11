@@ -1239,8 +1239,7 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX &q,
 
 void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
                                      const std::string &frame, bool local,
-                                     Eigen::Ref<MatX> dVdq,
-                                     Eigen::Ref<MatX> dVdv) const
+                                     MatXRef dVdq, MatXRef dVdv) const
 {
     frameVelocityDerivatives(q,
                              v,
@@ -1252,8 +1251,7 @@ void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
 
 void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
                                      const uint frame_id, bool local,
-                                     Eigen::Ref<MatX> dVdq,
-                                     Eigen::Ref<MatX> dVdv) const
+                                     MatXRef dVdq, MatXRef dVdv) const
 {
     pinocchio_wrapper::frameVelocityDerivatives(_impl,
                                                 q,
@@ -1376,13 +1374,13 @@ const MatX Model::frameJacobian(const VecX &q, const uint frame_id,
 }
 
 void Model::frameJacobian(const VecX &q, const std::string &frame, bool local,
-                          Eigen::Ref<MatX> J) const
+                          MatXRef J) const
 {
     frameJacobian(q, pinocchio_wrapper::getFrameId(_impl, frame), local, J);
 }
 
 void Model::frameJacobian(const VecX &q, const uint frame_id, bool local,
-                          Eigen::Ref<MatX> J) const
+                          MatXRef J) const
 {
     // getFrameJacobian relies on J starting fully zeroed
     J.setZero();
@@ -1402,14 +1400,12 @@ const MatX Model::frameJacobian(const uint frame_id, bool local) const
     return J6;
 }
 
-void Model::frameJacobian(const std::string &frame, bool local,
-                          Eigen::Ref<MatX> J) const
+void Model::frameJacobian(const std::string &frame, bool local, MatXRef J) const
 {
     frameJacobian(pinocchio_wrapper::getFrameId(_impl, frame), local, J);
 }
 
-void Model::frameJacobian(const uint frame_id, bool local,
-                          Eigen::Ref<MatX> J) const
+void Model::frameJacobian(const uint frame_id, bool local, MatXRef J) const
 {
     // getFrameJacobian relies on J starting fully zeroed
     J.setZero();
@@ -1472,7 +1468,7 @@ MatX Model::getMatrixActuatedPart(const MatX &M) const
     return M_act;
 }
 
-void Model::getMatrixActuatedPart(const MatX &M, Eigen::Ref<MatX> out) const
+void Model::getMatrixActuatedPart(const MatX &M, MatXRef out) const
 {
     if (M.rows() != _dims.nv || M.cols() != _dims.nv)
     {

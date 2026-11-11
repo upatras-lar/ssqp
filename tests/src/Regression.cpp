@@ -1230,10 +1230,11 @@ class StateBound : public model::stagewise::StageConstraints
     {
         return x;
     }
-    void gradient(const VecX &, const VecX &, MatX &dx, MatX &du) const override
+    void gradient(const VecX &, const VecX &u, MatX &dx,
+                  MatX &du) const override
     {
         dx = MatX::Ones(1, 1);
-        du = MatX::Zero(1, 1);
+        du = MatX::Zero(1, u.size());
     }
     void hessprod_xx(const VecX &, const VecX &, const VecX &,
                      MatX &h) const override
@@ -1336,6 +1337,168 @@ void solverCrossedBounds(solvers::ssqp::QPSolverType backend)
     bound->set_upper_bound(3.0);
     require(solver.solve(guess) == solvers::SUCCESS,
             "Bounds fixed after the throw must solve again");
+}
+
+// A StateBound that declares its row as depending only on the state
+class StateOnlyBound : public StateBound
+{
+  public:
+    using StateBound::StateBound;
+    std::vector<uint> state_only_rows() const override
+    {
+        return { 0 };
+    }
+};
+
+// x_0 = 1 starts above the state bound 0.3 on every stage, which only the
+// controls of later stages can satisfy
+// The bound is active at stage 1, so x = (1, 0.3, 0.15) and u = (-0.7, -0.15)
+void solverStageZeroStateRows(solvers::ssqp::QPSolverType backend)
+{
+    model::Model::Config config;
+    for (uint k = 0; k <= 2; ++k)
+        config.dynamics.push_back(std::make_shared<Integrator>());
+    config.stage_cost    = std::make_shared<Quadratic>();
+    config.terminal_cost = std::make_shared<Quadratic>();
+    config.init_states   = { VecX::Constant(1, 1.0) };
+    model::Model model(2, 1.0);
+    for (uint k = 0; k <= 2; ++k)
+        model.addConstraints<StateOnlyBound>(k, -0.3, 0.3);
+    model.finalize(config);
+
+    solvers::ssqp        solver(model, accurateParams(backend));
+    solvers::ssqp::Guess guess(model.dims(), model.linear_dims());
+
+    const auto state = solver.solve(guess);
+    require(state == solvers::SUCCESS,
+            "A state bound violated by x_0 must not stop the solve (" +
+              solvers::to_string(state) + ")");
+    checkTrajectory(guess.x,
+                    guess.u,
+                    (VecX(3) << 1.0, 0.3, 0.15).finished(),
+                    (VecX(2) << -0.7, -0.15).finished());
+}
+
+// Rows declared state only must have a zero gradient with respect to u, and
+// every other row a nonzero one, for the innate and predefined constraints
+// Disabling the first added constraints moves the merged rows after them
+void stateOnlyRowsMatchGradients(const model::SolverMode mode)
+{
+    using namespace model::stagewise::predefined::constraints;
+
+    model::Model::Structure structure;
+    structure.from_preset = model::Preset::Go2;
+    structure.solver_mode = mode;
+    model::Model model(1, 0.01, structure);
+
+    const uint nj  = model.nv() - 6;
+    const VecX jb  = VecX::Ones(nj);
+    const VecX cb  = VecX::Ones(model.nu());
+    const Vec3 one = Vec3::Ones();
+    const Vec6 six = Vec6::Ones();
+    const Mat4 T   = Mat4::Identity();
+
+    std::shared_ptr<model::stagewise::StageConstraints> first =
+      model.addConstraints<JointAngleConstraint>(0, model, -jb, jb);
+    model.addConstraints<JointControlConstraint>(0, model, -cb, cb);
+
+    if (mode != model::SolverMode::Kinematics)
+    {
+        model.addConstraints<JointVelocityConstraint>(0, model, -jb, jb);
+        model.addConstraints<FloatingBaseTranslationBound>(0, model, -one, one);
+        model.addConstraints<FloatingBaseRotationBound>(0,
+                                                        model,
+                                                        Mat3::Identity(),
+                                                        -one,
+                                                        one);
+        model.addConstraints<FloatingBasePoseBound>(0, model, T, -six, six);
+        model.addConstraints<FloatingBaseLinearVelocityBound>(0,
+                                                              model,
+                                                              -one,
+                                                              one);
+        model.addConstraints<FloatingBaseAngularVelocityBound>(0,
+                                                               model,
+                                                               -one,
+                                                               one);
+        model.addConstraints<FrameTranslationBound>(0,
+                                                    model,
+                                                    "FL_foot",
+                                                    -one,
+                                                    one);
+        model.addConstraints<FrameTerrainHeightBound>(0,
+                                                      model,
+                                                      "FL_foot",
+                                                      -1.0,
+                                                      1.0);
+        model.addConstraints<FrameRotationBound>(0,
+                                                 model,
+                                                 "FL_foot",
+                                                 Mat3::Identity(),
+                                                 -one,
+                                                 one);
+        model.addConstraints<FramePoseBound>(0, model, "FL_foot", T, -six, six);
+        model.addConstraints<FrameLinearVelocityBound>(0,
+                                                       model,
+                                                       "FL_foot",
+                                                       -one,
+                                                       one);
+        model.addConstraints<FrameAngularVelocityBound>(0,
+                                                        model,
+                                                        "FL_foot",
+                                                        -one,
+                                                        one);
+        model.addConstraints<CenterOfMassBound>(0, model, -one, one);
+        model.addConstraints<ContactConstraint>(0, model, "FL_foot");
+        model.addConstraints<ContactConstraint>(
+          0,
+          model,
+          "RR_foot",
+          0.6,
+          std::numeric_limits<double>::infinity(),
+          0.0,
+          false);
+    }
+
+    for (uint k = 0; k <= 1; ++k)
+    {
+        model.addCost<Quadratic>(k);
+    }
+
+    model.finalize();
+
+    auto check = [&](const std::string &label)
+    {
+        const auto &constraints = model.constraints()[0];
+
+        VecX x = VecX::Random(model.dims().stage_state[0]);
+        x.segment<4>(3).normalize();
+        const VecX u = 10.0 * VecX::Random(model.dims().stage_control[0]);
+
+        MatX dX, dU;
+        constraints->gradient(x, u, dX, dU);
+
+        std::vector<bool> declared(dU.rows(), false);
+        for (const uint row : constraints->state_only_rows())
+        {
+            require(row < dU.rows(),
+                    label + ": row " + std::to_string(row) + " out of range");
+            declared[row] = true;
+        }
+
+        for (uint i = 0; i < dU.rows(); ++i)
+        {
+            const bool zero = (dU.row(i).array() == 0.0).all();
+            require(declared[i] == zero,
+                    label + ": row " + std::to_string(i) +
+                      (zero ? " depends only on x but is not declared"
+                            : " is declared but depends on u"));
+        }
+    };
+
+    check("All enabled");
+    first->set_enabled(false);
+    model.updateDimensions();
+    check("First added constraints disabled");
 }
 
 // Parameter files may leave out any parameter, which keeps its default
@@ -1853,6 +2016,9 @@ void addRegressionTests(TestContainer &tests)
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_SSQP_CrossedBounds_" + suffix,
           [=] { solverCrossedBounds(backend); }));
+        tests.addTest(std::make_shared<FunctionTest>(
+          "Regression_SSQP_StageZeroStateRows_" + suffix,
+          [=] { solverStageZeroStateRows(backend); }));
     }
     tests.addTest(
       std::make_shared<FunctionTest>("Regression_Model_CostToggling",
@@ -1873,6 +2039,17 @@ void addRegressionTests(TestContainer &tests)
           std::string("Regression_Model_DynamicsCachesMatchFreshModel_") +
             suffix,
           [mode = mode] { dynamicsCachesMatchFreshModel(mode); }));
+    }
+    for (const auto &[mode, suffix] :
+         { std::make_pair(model::SolverMode::Kinematics, "Kinematics"),
+           std::make_pair(model::SolverMode::ForwardDynamics, "Forward"),
+           std::make_pair(model::SolverMode::InverseDynamics, "Inverse"),
+           std::make_pair(model::SolverMode::ReducedInverseDynamics,
+                          "ReducedInverse") })
+    {
+        tests.addTest(std::make_shared<FunctionTest>(
+          std::string("Regression_Model_StateOnlyRowsMatchGradients_") + suffix,
+          [mode = mode] { stateOnlyRowsMatchGradients(mode); }));
     }
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_Model_MergedConstraintStacking",

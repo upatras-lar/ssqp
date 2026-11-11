@@ -172,6 +172,19 @@ void ssqp::_setup_qp()
             _qp.stages[k].cu =
               constraints[k]->right_minus(constraints[k]->upper_bound(), c);
 
+            // x_0 fixes the state-only rows of stage 0, so the QP leaves them
+            // unbounded
+            if (k == 0)
+            {
+                for (const uint row : _stage_0_state_only_rows)
+                {
+                    _qp.stages[0].cl[row] =
+                      -std::numeric_limits<double>::infinity();
+                    _qp.stages[0].cu[row] =
+                      std::numeric_limits<double>::infinity();
+                }
+            }
+
             logln_at(LogLevel::Debug, "cl: " << _qp.stages[k].cl.transpose());
             logln_at(LogLevel::Debug, "cu: " << _qp.stages[k].cu.transpose());
         }
@@ -483,15 +496,27 @@ SolverState ssqp::_check_termination()
         {
             _cached_c[k] =
               constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
-            csnorm = std::max(
+            VecX below =
               constraints[k]
                 ->right_minus(_cached_c[k], constraints[k]->lower_bound())
-                .cwiseMin(0)
-                .lpNorm<Eigen::Infinity>(),
+                .cwiseMin(0);
+            VecX above =
               constraints[k]
                 ->right_minus(_cached_c[k], constraints[k]->upper_bound())
-                .cwiseMax(0)
-                .lpNorm<Eigen::Infinity>());
+                .cwiseMax(0);
+
+            // x_0 fixes the state-only rows of stage 0, so they are left out
+            if (k == 0)
+            {
+                for (const uint row : _stage_0_state_only_rows)
+                {
+                    below[row] = 0.0;
+                    above[row] = 0.0;
+                }
+            }
+
+            csnorm = std::max(below.lpNorm<Eigen::Infinity>(),
+                              above.lpNorm<Eigen::Infinity>());
             if (csnorm > _params.constraint_tolerance)
             {
                 if constexpr (fullStagewiseConvergence)

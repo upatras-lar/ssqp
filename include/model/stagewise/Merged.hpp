@@ -99,6 +99,9 @@ class MergedStageConstraints : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
+    // The state-only rows of each enabled constraint, offset to its rows
+    std::vector<uint> state_only_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,

@@ -42,6 +42,11 @@ class StageConstraints : public Function
     // Get constraint upper bound
     virtual const VecX &upper_bound() const;
 
+    // Rows of the difference vector that depend only on $\boldsymbol{x}$, so
+    // their gradient with respect to $\boldsymbol{u}$ is always zero
+    // Defaults to none, so every row is treated as depending on $\boldsymbol{u}$
+    virtual std::vector<uint> state_only_rows() const;
+
     // Size of the difference vector: $\boldsymbol{c}_k(\boldsymbol{x}_1, \boldsymbol{u}_1) \ominus \boldsymbol{c}_k(\boldsymbol{x}_2, \boldsymbol{u}_2)$
     // Where $\ominus$: the defined right_minus operator
     virtual uint constraint_diff_size() const;

@@ -267,21 +267,19 @@ Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const VecX &q, const VecX &v,
-                              const std::string frame, Eigen::Ref<MatX> dVdq,
-                              Eigen::Ref<MatX> dVdv, bool local = false);
+                              const std::string frame, MatXRef dVdq,
+                              MatXRef dVdv, bool local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const VecX &q, const VecX &v, const uint frame_id,
-                              Eigen::Ref<MatX> dVdq, Eigen::Ref<MatX> dVdv,
-                              bool local = false);
+                              MatXRef dVdq, MatXRef dVdv, bool local = false);
 
 // Compute and get frame jacobian
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                   const std::string &frame, Eigen::Ref<MatX> J,
-                   bool local = false);
+                   const std::string &frame, MatXRef J, bool local = false);
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                   const uint frame_id, Eigen::Ref<MatX> J, bool local = false);
+                   const uint frame_id, MatXRef J, bool local = false);
 
 void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
                            const VecX                       &q);
@@ -289,11 +287,10 @@ void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
 // Get frame jacobian (assumes computeJointJacobians has been called, with no
 // dynamics pass at another point since)
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const std::string &frame, Eigen::Ref<MatX> J,
-                   bool local = false);
+                   const std::string &frame, MatXRef J, bool local = false);
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
-                   Eigen::Ref<MatX> J, bool local = false);
+                   MatXRef J, bool local = false);
 
 // Get center of mass
 Vec3 centerOfMass(const std::shared_ptr<ModelImpl> &impl, const VecX &q);

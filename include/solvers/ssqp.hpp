@@ -337,6 +337,12 @@ class ssqp
     // call, since both run at the same guess
     std::vector<VecX> _cached_f, _cached_c;
 
+    // Rows of the stage 0 constraints that depend only on the state, which
+    // x_0 fixes, so they are left out of the QP and of the violation
+    // Constraints may change between solves, so these are read at the start
+    // of each one
+    std::vector<uint> _stage_0_state_only_rows;
+
     uint _iter;
     uint _stale_iters;
 

@@ -1,6 +1,8 @@
 #include "model/stagewise/predefined/Constraints.hpp"
 #include "pinocchio_wrapper/PinocchioWrapper.hpp"
 
+#include <numeric>
+
 namespace ssqp
 {
 namespace model
@@ -11,6 +13,17 @@ namespace predefined
 {
 namespace constraints
 {
+namespace
+{
+// Rows 0 to n - 1, for constraints whose rows all depend only on the state
+std::vector<uint> all_rows(const uint n)
+{
+    std::vector<uint> rows(n);
+    std::iota(rows.begin(), rows.end(), 0);
+    return rows;
+}
+}
+
 // JointAngleConstraint
 JointAngleConstraint::JointAngleConstraint(const Model &model, const VecX &lb,
                                            const VecX        &ub,
@@ -56,6 +69,11 @@ const VecX &JointAngleConstraint::lower_bound() const
 const VecX &JointAngleConstraint::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> JointAngleConstraint::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
 }
 
 VecX JointAngleConstraint::evaluate(const VecX &x, const VecX &u) const
@@ -158,6 +176,11 @@ const VecX &JointVelocityConstraint::lower_bound() const
 const VecX &JointVelocityConstraint::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> JointVelocityConstraint::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
 }
 
 VecX JointVelocityConstraint::evaluate(const VecX &x, const VecX &u) const
@@ -369,6 +392,11 @@ const VecX &FloatingBaseTranslationBound::upper_bound() const
     return _ub;
 }
 
+std::vector<uint> FloatingBaseTranslationBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
+}
+
 VecX FloatingBaseTranslationBound::evaluate(const VecX &x, const VecX &u) const
 {
     return _reference_frame.axes(x).transpose() * (x.head<3>() - _center);
@@ -485,6 +513,11 @@ const VecX &FloatingBaseRotationBound::lower_bound() const
 const VecX &FloatingBaseRotationBound::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> FloatingBaseRotationBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
 }
 
 VecX FloatingBaseRotationBound::evaluate(const VecX &x, const VecX &u) const
@@ -624,6 +657,11 @@ const VecX &FloatingBasePoseBound::upper_bound() const
     return _ub;
 }
 
+std::vector<uint> FloatingBasePoseBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
+}
+
 VecX FloatingBasePoseBound::evaluate(const VecX &x, const VecX &u) const
 {
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
@@ -736,6 +774,11 @@ const VecX &FloatingBaseLinearVelocityBound::lower_bound() const
 const VecX &FloatingBaseLinearVelocityBound::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> FloatingBaseLinearVelocityBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
 }
 
 VecX FloatingBaseLinearVelocityBound::evaluate(const VecX &x,
@@ -867,6 +910,11 @@ const VecX &FloatingBaseAngularVelocityBound::lower_bound() const
 const VecX &FloatingBaseAngularVelocityBound::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> FloatingBaseAngularVelocityBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
 }
 
 VecX FloatingBaseAngularVelocityBound::evaluate(const VecX &x,
@@ -1018,6 +1066,11 @@ const VecX &FrameTranslationBound::upper_bound() const
     return _ub;
 }
 
+std::vector<uint> FrameTranslationBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
+}
+
 VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
 {
     Vec3 pos;
@@ -1151,6 +1204,11 @@ const VecX &FrameTerrainHeightBound::upper_bound() const
     return _ub;
 }
 
+std::vector<uint> FrameTerrainHeightBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
+}
+
 VecX FrameTerrainHeightBound::evaluate(const VecX &x, const VecX &u) const
 {
     Vec3 pos;
@@ -1262,6 +1320,11 @@ const VecX &FrameRotationBound::lower_bound() const
 const VecX &FrameRotationBound::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> FrameRotationBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
 }
 
 VecX FrameRotationBound::evaluate(const VecX &x, const VecX &u) const
@@ -1405,6 +1468,11 @@ const VecX &FramePoseBound::upper_bound() const
     return _ub;
 }
 
+std::vector<uint> FramePoseBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
+}
+
 VecX FramePoseBound::evaluate(const VecX &x, const VecX &u) const
 {
     Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
@@ -1519,6 +1587,11 @@ const VecX &FrameLinearVelocityBound::lower_bound() const
 const VecX &FrameLinearVelocityBound::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> FrameLinearVelocityBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
 }
 
 VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
@@ -1670,6 +1743,11 @@ const VecX &FrameAngularVelocityBound::upper_bound() const
     return _ub;
 }
 
+std::vector<uint> FrameAngularVelocityBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
+}
+
 VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
 {
     const bool local = _reference_frame.type() == ReferenceFrame::Local;
@@ -1803,6 +1881,11 @@ const VecX &CenterOfMassBound::lower_bound() const
 const VecX &CenterOfMassBound::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> CenterOfMassBound::state_only_rows() const
+{
+    return all_rows(constraint_diff_size());
 }
 
 VecX CenterOfMassBound::evaluate(const VecX &x, const VecX &u) const
@@ -1978,6 +2061,17 @@ const VecX &ContactConstraint::lower_bound() const
 const VecX &ContactConstraint::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<uint> ContactConstraint::state_only_rows() const
+{
+    // The height and no-slip rows, since the others bound the contact force
+    if (_no_slip)
+    {
+        return { 5, 6, 7, 8 };
+    }
+
+    return { 5 };
 }
 
 VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const

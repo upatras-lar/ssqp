@@ -455,13 +455,11 @@ class Model
     // (6 x nv)
     void frameVelocityDerivatives(const VecX &q, const VecX &v,
                                   const std::string &frame, bool local,
-                                  Eigen::Ref<MatX> dVdq,
-                                  Eigen::Ref<MatX> dVdv) const;
+                                  MatXRef dVdq, MatXRef dVdv) const;
 
     void frameVelocityDerivatives(const VecX &q, const VecX &v,
-                                  const uint frame_id, bool local,
-                                  Eigen::Ref<MatX> dVdq,
-                                  Eigen::Ref<MatX> dVdv) const;
+                                  const uint frame_id, bool local, MatXRef dVdq,
+                                  MatXRef dVdv) const;
 
     const VecX inverseKinematics(const VecX        &desired_translation,
                                  const MatX        &desired_rotation,
@@ -508,10 +506,10 @@ class Model
 
     // Output-buffer version of the above; `J` must already be sized (6 x nv)
     void frameJacobian(const VecX &q, const std::string &frame, bool local,
-                       Eigen::Ref<MatX> J) const;
+                       MatXRef J) const;
 
     void frameJacobian(const VecX &q, const uint frame_id, bool local,
-                       Eigen::Ref<MatX> J) const;
+                       MatXRef J) const;
 
     // Get frame jacobian (assuming computeJointJacobians has been called, with
     // no dynamics pass at another point since)
@@ -521,11 +519,9 @@ class Model
     const MatX frameJacobian(const uint frame_id, bool local = false) const;
 
     // Output-buffer version of the above; `J` must already be sized (6 x nv)
-    void frameJacobian(const std::string &frame, bool local,
-                       Eigen::Ref<MatX> J) const;
+    void frameJacobian(const std::string &frame, bool local, MatXRef J) const;
 
-    void frameJacobian(const uint frame_id, bool local,
-                       Eigen::Ref<MatX> J) const;
+    void frameJacobian(const uint frame_id, bool local, MatXRef J) const;
 
     // Get model center of mass for the given configuration
     const Vec3 centerOfMass(const VecX &q) const;
@@ -571,7 +567,7 @@ class Model
 
     // Output-buffer version of getMatrixActuatedPart; `out` must already be
     // sized (nu x nu) and is written in place, avoiding an allocation
-    void getMatrixActuatedPart(const MatX &M, Eigen::Ref<MatX> out) const;
+    void getMatrixActuatedPart(const MatX &M, MatXRef out) const;
 
     /** Returns the full acceleration vector
      * Input:

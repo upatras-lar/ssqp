@@ -306,6 +306,29 @@ const VecX &MergedStageConstraints::upper_bound() const
     return _ub;
 }
 
+std::vector<uint> MergedStageConstraints::state_only_rows() const
+{
+    std::vector<uint> rows;
+    uint              diff_row = 0;
+
+    for (const auto &constraints : _constraints)
+    {
+        if (!constraints->enabled())
+        {
+            continue;
+        }
+
+        for (const uint row : constraints->state_only_rows())
+        {
+            rows.push_back(diff_row + row);
+        }
+
+        diff_row += constraints->constraint_diff_size();
+    }
+
+    return rows;
+}
+
 VecX MergedStageConstraints::evaluate(const VecX &x, const VecX &u) const
 {
     VecX out(output_size());

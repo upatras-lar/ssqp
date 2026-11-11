@@ -946,8 +946,8 @@ Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const VecX &q, const VecX &v,
-                              const std::string frame, Eigen::Ref<MatX> dVdq,
-                              Eigen::Ref<MatX> dVdv, bool local)
+                              const std::string frame, MatXRef dVdq,
+                              MatXRef dVdv, bool local)
 {
     frameVelocityDerivatives(impl,
                              q,
@@ -960,8 +960,7 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
                               const VecX &q, const VecX &v, const uint frame_id,
-                              Eigen::Ref<MatX> dVdq, Eigen::Ref<MatX> dVdv,
-                              bool local)
+                              MatXRef dVdq, MatXRef dVdv, bool local)
 {
     pinocchio::Data &data = ensureVelocityDerivatives(impl, q, v).data;
 
@@ -979,13 +978,13 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                   const std::string &frame, Eigen::Ref<MatX> J, bool local)
+                   const std::string &frame, MatXRef J, bool local)
 {
     frameJacobian(impl, q, impl->model.getFrameId(frame), J, local);
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                   const uint frame_id, Eigen::Ref<MatX> J, bool local)
+                   const uint frame_id, MatXRef J, bool local)
 {
     pinocchio::getFrameJacobian(
       impl->model,
@@ -1003,13 +1002,13 @@ void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl,
-                   const std::string &frame, Eigen::Ref<MatX> J, bool local)
+                   const std::string &frame, MatXRef J, bool local)
 {
     frameJacobian(impl, impl->model.getFrameId(frame), J, local);
 }
 
 void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
-                   Eigen::Ref<MatX> J, bool local)
+                   MatXRef J, bool local)
 {
     pinocchio::getFrameJacobian(
       impl->model,

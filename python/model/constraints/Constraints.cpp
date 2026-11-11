@@ -25,7 +25,7 @@ using namespace model::stagewise::predefined::constraints;
 struct __attribute__((visibility("default"))) PyStageConstraints
   : StageConstraints
 {
-    NB_TRAMPOLINE(StageConstraints, 10);
+    NB_TRAMPOLINE(StageConstraints, 11);
 
     uint output_size() const override
     {
@@ -102,6 +102,20 @@ struct __attribute__((visibility("default"))) PyStageConstraints
             throw std::runtime_error(
               "Type mismatch in Python override of "
               "`StageConstraints::constraint_diff_size`: expected an integer");
+        }
+    }
+
+    std::vector<uint> state_only_rows() const override
+    {
+        try
+        {
+            NB_OVERRIDE(state_only_rows);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::state_only_rows`: "
+                                     "expected a list of integers");
         }
     }
 
@@ -247,6 +261,13 @@ void bind_Constraints(nb::module_ &m)
       .def("upper_bound",
            &StageConstraints::upper_bound,
            "Get the constraints' upper bound vector.")
+      .def("state_only_rows",
+           &StageConstraints::state_only_rows,
+           R"doc(
+        Rows of the difference vector that depend only on $\boldsymbol{x}$, so
+        their gradient with respect to $\boldsymbol{u}$ is always zero
+        Defaults to none, so every row is treated as depending on $\boldsymbol{u}$
+           )doc")
       .def("constraint_diff_size",
            &StageConstraints::constraint_diff_size,
            R"doc(
