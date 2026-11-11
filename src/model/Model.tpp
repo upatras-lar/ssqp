@@ -633,6 +633,43 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         return rows;
     };
 
+    // Every row bounds a single entry, at the same places the gradient adds
+    // its unit entries
+    auto innate_box_rows = [this, ctx, nv_reduced]()
+    {
+        const uint offset = FloatingBase ? 6 : 0;
+        const uint n      = _bounded_joint_indices.size();
+
+        std::vector<BoxRow> rows;
+        for (uint i = 0; i < n; ++i)
+        {
+            rows.push_back(
+              { i,
+                _bounded_joint_indices_to_tangent.at(_bounded_joint_indices[i]),
+                false });
+        }
+
+        if constexpr (SM == SolverMode::ForwardDynamics ||
+                      SM == SolverMode::InverseDynamics ||
+                      SM == SolverMode::ReducedInverseDynamics)
+        {
+            for (uint i = 0; i < nv_reduced; ++i)
+            {
+                rows.push_back({ n + i, ctx->nv + offset + i, false });
+            }
+        }
+
+        if constexpr (!IsTerminal && SM == SolverMode::ForwardDynamics)
+        {
+            for (uint i = 0; i < nv_reduced; ++i)
+            {
+                rows.push_back({ n + nv_reduced + i, offset + i, true });
+            }
+        }
+
+        return rows;
+    };
+
     // The bounds are linear, so their Hessian products default to zero
     const uint ndx = SM == SolverMode::Kinematics ? ctx->nv : 2 * ctx->nv;
 
@@ -647,7 +684,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [ub]() { return ub; },
           innate_constraint_eval,
           innate_constraint_grad,
-          innate_state_only_rows);
+          innate_state_only_rows,
+          innate_box_rows);
     }
 
     else if constexpr (IsTerminal)
@@ -665,7 +703,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           { return ub.head(_bounded_joint_indices.size() + nv_reduced); },
           innate_constraint_eval,
           innate_constraint_grad,
-          innate_state_only_rows);
+          innate_state_only_rows,
+          innate_box_rows);
     }
     else if constexpr (SM == SolverMode::ForwardDynamics)
     {
@@ -680,7 +719,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [ub]() { return ub; },
           innate_constraint_eval,
           innate_constraint_grad,
-          innate_state_only_rows);
+          innate_state_only_rows,
+          innate_box_rows);
     }
     else if constexpr (SM == SolverMode::InverseDynamics ||
                        SM == SolverMode::ReducedInverseDynamics)
@@ -696,7 +736,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
           [ub]() { return ub; },
           innate_constraint_eval,
           innate_constraint_grad,
-          innate_state_only_rows);
+          innate_state_only_rows,
+          innate_box_rows);
     }
 }
 

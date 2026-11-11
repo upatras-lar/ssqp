@@ -43,7 +43,8 @@ class JointAngleConstraint : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    std::vector<uint>   state_only_rows() const override;
+    std::vector<BoxRow> box_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -99,7 +100,8 @@ class JointVelocityConstraint : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    std::vector<uint>   state_only_rows() const override;
+    std::vector<BoxRow> box_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -156,6 +158,8 @@ class JointControlConstraint : public StageConstraints
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
+
+    std::vector<BoxRow> box_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
@@ -417,6 +421,10 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
 
     std::vector<uint> state_only_rows() const override;
 
+    // The rows are boxes only in the Local and Base frames, since in the
+    // others they depend on the base rotation
+    std::vector<BoxRow> box_rows() const override;
+
     VecX evaluate(const VecX &x, const VecX &u) const override;
 
     void gradient(const VecX &x, const VecX &u, MatX &dX,
@@ -479,6 +487,10 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
     const VecX &upper_bound() const override;
 
     std::vector<uint> state_only_rows() const override;
+
+    // The rows are boxes only in the Local and Base frames, since in the
+    // others they depend on the base rotation
+    std::vector<BoxRow> box_rows() const override;
 
     VecX evaluate(const VecX &x, const VecX &u) const override;
 

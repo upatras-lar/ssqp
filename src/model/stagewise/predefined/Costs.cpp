@@ -2725,10 +2725,12 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
 {
     assert(model.xml() && "Cannot use FramesInverseSquaredDistanceCost with a "
                           "custom Model");
+#ifndef NDEBUG
     for (uint i = 0; i < frames.size(); ++i)
     {
         assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
     }
+#endif
     set_distance_scale(distance_scale);
     set_reference_frame(reference_frame);
     _jac_scratch.resize(6, _nv);
@@ -2754,10 +2756,12 @@ FramesInverseSquaredDistanceCost::FramesInverseSquaredDistanceCost(
 {
     assert(model.xml() && "Cannot use FramesInverseSquaredDistanceCost with a "
                           "custom Model");
+#ifndef NDEBUG
     for (uint i = 0; i < frames.size(); ++i)
     {
         assert(model.hasFrame(frames[i]) && "Invalid frame for given model");
     }
+#endif
     set_distance_scale(distance_scale);
     set_reference_frame(reference_frame);
     _jac_scratch.resize(6, _nv);

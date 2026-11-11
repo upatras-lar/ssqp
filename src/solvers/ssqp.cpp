@@ -596,6 +596,30 @@ SolverState ssqp::solve(Guess &guess)
 #endif
     }
 
+    for (uint k = 0; k <= _model.horizon(); ++k)
+    {
+        _qp.box_rows[k].clear();
+        const auto &constraints = _model.constraints()[k];
+        if (constraints == nullptr)
+        {
+            continue;
+        }
+
+        _qp.box_rows[k] = constraints->box_rows();
+
+#ifndef NDEBUG
+        for (const model::BoxRow &box : _qp.box_rows[k])
+        {
+            assert(box.row < constraints->constraint_diff_size() &&
+                   "Box constraint row out of range");
+            assert((box.is_control ? k < _model.horizon() &&
+                                       box.index < _qp.dims.stage_control[k]
+                                   : box.index < _qp.dims.stage_state[k]) &&
+                   "Box constraint index out of range");
+        }
+#endif
+    }
+
     _stale_iters = 0;
 
     _convergence_data.iteration_data.clear();

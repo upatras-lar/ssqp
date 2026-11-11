@@ -116,6 +116,24 @@ inline auto DefaultRightMinus = [](const VecX &x, const VecX &y)
 // No state-only constraint rows, so every row depends on the controls
 inline auto NoStateOnlyRows = []() { return std::vector<uint>(); };
 
+// A constraint row whose gradient is always +1 on one state or control entry
+// and zero elsewhere, so it bounds that entry directly
+struct BoxRow
+{
+    uint row;        // Row of the constraint's difference vector
+    uint index;      // Entry of dx, or of du if is_control is set
+    bool is_control; // Whether the row bounds a control instead of a state
+
+    bool operator==(const BoxRow &other) const
+    {
+        return row == other.row && index == other.index &&
+               is_control == other.is_control;
+    }
+};
+
+// No box constraint rows, so every row is passed as a general constraint
+inline auto NoBoxRows = []() { return std::vector<BoxRow>(); };
+
 struct Dimensions
 {
     uint horizon;
@@ -470,6 +488,9 @@ struct QPData
     VecX qx_t;
     MatX Dt;
     VecX cl_t, cu_t;
+
+    // The box rows of each stage's constraints, including the terminal stage
+    std::vector<std::vector<model::BoxRow>> box_rows;
 
     QPData(const model::Dimensions &dims);
 };

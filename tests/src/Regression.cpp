@@ -1379,6 +1379,85 @@ void solverStageZeroStateRows(solvers::ssqp::QPSolverType backend)
                     (VecX(2) << -0.7, -0.15).finished());
 }
 
+// A StateOnlyBound on s x, with its bounds scaled by s, so only a scale of 1
+// makes its row a box row
+class ScaledStateBound : public StateOnlyBound
+{
+  public:
+    ScaledStateBound(double lb, double ub)
+      : StateOnlyBound(lb, ub)
+      , _lb(lb)
+      , _ub(ub)
+    {
+    }
+    void set_scale(double scale)
+    {
+        _scale = scale;
+        set_lower_bound(scale * _lb);
+        set_upper_bound(scale * _ub);
+    }
+    std::vector<model::BoxRow> box_rows() const override
+    {
+        if (_scale != 1.0)
+        {
+            return {};
+        }
+        return {
+            { 0, 0, false }
+        };
+    }
+    VecX evaluate(const VecX &x, const VecX &) const override
+    {
+        return _scale * x;
+    }
+    void gradient(const VecX &, const VecX &u, MatX &dx,
+                  MatX &du) const override
+    {
+        dx = MatX::Constant(1, 1, _scale);
+        du = MatX::Zero(1, u.size());
+    }
+
+  private:
+    double _lb, _ub;
+    double _scale = 1.0;
+};
+
+// The box layout is read on every solve, so a row that stops or starts being
+// a box row between solves of the same solver must still give the solution of
+// solverStageZeroStateRows
+void solverBoxLayoutChange(solvers::ssqp::QPSolverType backend)
+{
+    model::Model::Config config;
+    for (uint k = 0; k <= 2; ++k)
+        config.dynamics.push_back(std::make_shared<Integrator>());
+    config.stage_cost    = std::make_shared<Quadratic>();
+    config.terminal_cost = std::make_shared<Quadratic>();
+    config.init_states   = { VecX::Constant(1, 1.0) };
+    model::Model                                   model(2, 1.0);
+    std::vector<std::shared_ptr<ScaledStateBound>> bounds;
+    for (uint k = 0; k <= 2; ++k)
+        bounds.push_back(std::static_pointer_cast<ScaledStateBound>(
+          model.addConstraints<ScaledStateBound>(k, -0.3, 0.3)));
+    model.finalize(config);
+
+    solvers::ssqp solver(model, accurateParams(backend));
+    for (const double scale : { 1.0, 2.0, 1.0 })
+    {
+        for (const auto &bound : bounds) bound->set_scale(scale);
+
+        solver.reinitialize();
+        solvers::ssqp::Guess guess(model.dims(), model.linear_dims());
+        const auto           state = solver.solve(guess);
+        require(state == solvers::SUCCESS,
+                "Scale " + std::to_string(scale) + " must solve (" +
+                  solvers::to_string(state) + ")");
+        checkTrajectory(guess.x,
+                        guess.u,
+                        (VecX(3) << 1.0, 0.3, 0.15).finished(),
+                        (VecX(2) << -0.7, -0.15).finished());
+    }
+}
+
 // Rows declared state only must have a zero gradient with respect to u, and
 // every other row a nonzero one, for the innate and predefined constraints
 // Disabling the first added constraints moves the merged rows after them
@@ -1499,6 +1578,124 @@ void stateOnlyRowsMatchGradients(const model::SolverMode mode)
     first->set_enabled(false);
     model.updateDimensions();
     check("First added constraints disabled");
+}
+
+// Rows declared as box rows must have a gradient of +1 on their entry and
+// zero elsewhere, and no other row may have such a gradient, for the innate
+// and predefined constraints
+// Disabling the first added constraints moves the merged rows after them, and
+// a World frame base velocity bound is not a box
+void boxRowsMatchGradients(const model::SolverMode mode)
+{
+    using namespace model::stagewise::predefined::constraints;
+    using model::stagewise::predefined::ReferenceFrame;
+
+    model::Model::Structure structure;
+    structure.from_preset = model::Preset::Go2;
+    structure.solver_mode = mode;
+    model::Model model(1, 0.01, structure);
+
+    const uint nj  = model.nv() - 6;
+    const VecX jb  = VecX::Ones(nj);
+    const VecX cb  = VecX::Ones(model.nu());
+    const Vec3 one = Vec3::Ones();
+
+    std::shared_ptr<model::stagewise::StageConstraints> first =
+      model.addConstraints<JointAngleConstraint>(0, model, -jb, jb);
+    model.addConstraints<JointControlConstraint>(0, model, -cb, cb);
+
+    std::shared_ptr<FloatingBaseLinearVelocityBound> linear;
+    if (mode != model::SolverMode::Kinematics)
+    {
+        model.addConstraints<JointVelocityConstraint>(0, model, -jb, jb);
+        model.addConstraints<FrameTranslationBound>(0,
+                                                    model,
+                                                    "FL_foot",
+                                                    -one,
+                                                    one);
+        linear = std::static_pointer_cast<FloatingBaseLinearVelocityBound>(
+          model.addConstraints<FloatingBaseLinearVelocityBound>(0,
+                                                                model,
+                                                                -one,
+                                                                one));
+        model.addConstraints<FloatingBaseAngularVelocityBound>(
+          0,
+          model,
+          -one,
+          one,
+          ReferenceFrame::Base);
+        model.addConstraints<FloatingBaseAngularVelocityBound>(
+          0,
+          model,
+          -one,
+          one,
+          ReferenceFrame::World);
+        model.addConstraints<ContactConstraint>(0, model, "FL_foot");
+    }
+
+    for (uint k = 0; k <= 1; ++k)
+    {
+        model.addCost<Quadratic>(k);
+    }
+
+    model.finalize();
+
+    auto check = [&](const std::string &label)
+    {
+        const auto &constraints = model.constraints()[0];
+
+        VecX x = VecX::Random(model.dims().stage_state[0]);
+        x.segment<4>(3).normalize();
+        const VecX u = 10.0 * VecX::Random(model.dims().stage_control[0]);
+
+        MatX dX, dU;
+        constraints->gradient(x, u, dX, dU);
+
+        std::vector<bool> declared(dX.rows(), false);
+        for (const model::BoxRow &box : constraints->box_rows())
+        {
+            const std::string name = label + ": row " + std::to_string(box.row);
+            require(box.row < dX.rows(), name + " out of range");
+            require(!declared[box.row], name + " declared twice");
+            require(box.index < (box.is_control ? dU.cols() : dX.cols()),
+                    name + " has its index out of range");
+            declared[box.row] = true;
+
+            VecX expected_x = VecX::Zero(dX.cols());
+            VecX expected_u = VecX::Zero(dU.cols());
+            (box.is_control ? expected_u : expected_x)[box.index] = 1.0;
+            require(dX.row(box.row).transpose() == expected_x &&
+                      dU.row(box.row).transpose() == expected_u,
+                    name + " is declared but is not a unit row on its index");
+        }
+
+        for (uint i = 0; i < dX.rows(); ++i)
+        {
+            if (declared[i])
+            {
+                continue;
+            }
+
+            const uint ones = (dX.row(i).array() == 1.0).count() +
+                              (dU.row(i).array() == 1.0).count();
+            const uint zeros = (dX.row(i).array() == 0.0).count() +
+                               (dU.row(i).array() == 0.0).count();
+            require(ones != 1 || zeros != dX.cols() + dU.cols() - 1,
+                    label + ": row " + std::to_string(i) +
+                      " is a unit row but is not declared");
+        }
+    };
+
+    check("All enabled");
+    first->set_enabled(false);
+    model.updateDimensions();
+    check("First added constraints disabled");
+
+    if (linear)
+    {
+        linear->set_reference_frame(ReferenceFrame::World);
+        check("Linear velocity bound in the World frame");
+    }
 }
 
 // Parameter files may leave out any parameter, which keeps its default
@@ -2019,6 +2216,9 @@ void addRegressionTests(TestContainer &tests)
         tests.addTest(std::make_shared<FunctionTest>(
           "Regression_SSQP_StageZeroStateRows_" + suffix,
           [=] { solverStageZeroStateRows(backend); }));
+        tests.addTest(std::make_shared<FunctionTest>(
+          "Regression_SSQP_BoxLayoutChange_" + suffix,
+          [=] { solverBoxLayoutChange(backend); }));
     }
     tests.addTest(
       std::make_shared<FunctionTest>("Regression_Model_CostToggling",
@@ -2050,6 +2250,9 @@ void addRegressionTests(TestContainer &tests)
         tests.addTest(std::make_shared<FunctionTest>(
           std::string("Regression_Model_StateOnlyRowsMatchGradients_") + suffix,
           [mode = mode] { stateOnlyRowsMatchGradients(mode); }));
+        tests.addTest(std::make_shared<FunctionTest>(
+          std::string("Regression_Model_BoxRowsMatchGradients_") + suffix,
+          [mode = mode] { boxRowsMatchGradients(mode); }));
     }
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_Model_MergedConstraintStacking",

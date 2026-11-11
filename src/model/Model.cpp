@@ -1470,11 +1470,8 @@ MatX Model::getMatrixActuatedPart(const MatX &M) const
 
 void Model::getMatrixActuatedPart(const MatX &M, MatXRef out) const
 {
-    if (M.rows() != _dims.nv || M.cols() != _dims.nv)
-    {
-        throw std::runtime_error("Model::getMatrixActuatedPart: Incorrect "
-                                 "matrix size passed");
-    }
+    assert(M.rows() == _dims.nv && M.cols() == _dims.nv &&
+           "Model::getMatrixActuatedPart: Incorrect matrix size passed");
 
     if (_dims.nu == _dims.nv)
     {

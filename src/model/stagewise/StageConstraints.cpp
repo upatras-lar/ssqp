@@ -72,6 +72,11 @@ std::vector<uint> StageConstraints::state_only_rows() const
     return {};
 }
 
+std::vector<BoxRow> StageConstraints::box_rows() const
+{
+    return {};
+}
+
 uint StageConstraints::constraint_diff_size() const
 {
     return output_size();

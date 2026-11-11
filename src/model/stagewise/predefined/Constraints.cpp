@@ -76,6 +76,19 @@ std::vector<uint> JointAngleConstraint::state_only_rows() const
     return all_rows(constraint_diff_size());
 }
 
+std::vector<BoxRow> JointAngleConstraint::box_rows() const
+{
+    const uint offset = _free_flyer ? 6 : 0;
+
+    std::vector<BoxRow> rows;
+    for (uint i = 0; i < _njoints; ++i)
+    {
+        rows.push_back({ i, offset + i, false });
+    }
+
+    return rows;
+}
+
 VecX JointAngleConstraint::evaluate(const VecX &x, const VecX &u) const
 {
     return _free_flyer ? x.segment(7, _njoints) : x.head(_njoints);
@@ -183,6 +196,17 @@ std::vector<uint> JointVelocityConstraint::state_only_rows() const
     return all_rows(constraint_diff_size());
 }
 
+std::vector<BoxRow> JointVelocityConstraint::box_rows() const
+{
+    std::vector<BoxRow> rows;
+    for (uint i = 0; i < _njoints; ++i)
+    {
+        rows.push_back({ i, 2 * _nv - _njoints + i, false });
+    }
+
+    return rows;
+}
+
 VecX JointVelocityConstraint::evaluate(const VecX &x, const VecX &u) const
 {
     return x.tail(_njoints);
@@ -276,6 +300,17 @@ const VecX &JointControlConstraint::lower_bound() const
 const VecX &JointControlConstraint::upper_bound() const
 {
     return _ub;
+}
+
+std::vector<BoxRow> JointControlConstraint::box_rows() const
+{
+    std::vector<BoxRow> rows;
+    for (uint i = 0; i < _nu; ++i)
+    {
+        rows.push_back({ i, i, true });
+    }
+
+    return rows;
 }
 
 VecX JointControlConstraint::evaluate(const VecX &x, const VecX &u) const
@@ -781,6 +816,21 @@ std::vector<uint> FloatingBaseLinearVelocityBound::state_only_rows() const
     return all_rows(constraint_diff_size());
 }
 
+std::vector<BoxRow> FloatingBaseLinearVelocityBound::box_rows() const
+{
+    const ReferenceFrame::Type type = _reference_frame.type();
+    if (type != ReferenceFrame::Local && type != ReferenceFrame::Base)
+    {
+        return {};
+    }
+
+    return {
+        { 0,     _nv, false },
+        { 1, _nv + 1, false },
+        { 2, _nv + 2, false }
+    };
+}
+
 VecX FloatingBaseLinearVelocityBound::evaluate(const VecX &x,
                                                const VecX &u) const
 {
@@ -915,6 +965,21 @@ const VecX &FloatingBaseAngularVelocityBound::upper_bound() const
 std::vector<uint> FloatingBaseAngularVelocityBound::state_only_rows() const
 {
     return all_rows(constraint_diff_size());
+}
+
+std::vector<BoxRow> FloatingBaseAngularVelocityBound::box_rows() const
+{
+    const ReferenceFrame::Type type = _reference_frame.type();
+    if (type != ReferenceFrame::Local && type != ReferenceFrame::Base)
+    {
+        return {};
+    }
+
+    return {
+        { 0, _nv + 3, false },
+        { 1, _nv + 4, false },
+        { 2, _nv + 5, false }
+    };
 }
 
 VecX FloatingBaseAngularVelocityBound::evaluate(const VecX &x,

@@ -47,6 +47,11 @@ class StageConstraints : public Function
     // Defaults to none, so every row is treated as depending on $\boldsymbol{u}$
     virtual std::vector<uint> state_only_rows() const;
 
+    // Rows that bound a single state or control entry, which some QP solvers
+    // handle more cheaply than general constraints
+    // Defaults to none, so every row is passed as a general constraint
+    virtual std::vector<BoxRow> box_rows() const;
+
     // Size of the difference vector: $\boldsymbol{c}_k(\boldsymbol{x}_1, \boldsymbol{u}_1) \ominus \boldsymbol{c}_k(\boldsymbol{x}_2, \boldsymbol{u}_2)$
     // Where $\ominus$: the defined right_minus operator
     virtual uint constraint_diff_size() const;

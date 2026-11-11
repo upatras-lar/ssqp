@@ -82,6 +82,66 @@ class hpipm_qp : public QPSolver
     MatX feedbackGain(const uint k) const override;
 
   protected:
+    // Boxes on the entries of a stage's states or controls
+    // Every row on the same entry joins one box, whose bounds are the
+    // tightest of the rows
+    struct Boxes
+    {
+        // The entry of each box, and the rows that bound it
+        std::vector<int>               idx;
+        std::vector<std::vector<uint>> rows;
+
+        // The row giving each side of each box, or -1 when none does
+        std::vector<int> lb_row, ub_row;
+
+        // Copies of the bounds, since infinite bounds must be replaced, but
+        // the actual QP must not be altered
+        VecX                lb, ub;
+        std::vector<double> lb_mask, ub_mask;
+
+        // Whether the entries are fixed to zero, as the initial state is
+        bool fixed = false;
+
+        // Sets the bounds from the rows' bounds, starting from [0, 0] when the
+        // entries are fixed and from no bounds otherwise
+        void merge(const VecX &cl, const VecX &cu);
+
+        // Writes the multipliers of the boxes into the rows that gave their
+        // bounds
+        void multipliers(const VecX &lam_lb, const VecX &lam_ub,
+                         VecXRef mu) const;
+    };
+
+    // A stage's constraint rows, split into boxes and general rows
+    struct Stage
+    {
+        Boxes x, u;
+
+        // The rows passed as general constraints, with HPIPM's C and D
+        // holding their rows of the QP's D and E
+        std::vector<uint>   general_rows;
+        MatX                C, D;
+        VecX                lg, ug;
+        std::vector<double> lg_mask, ug_mask;
+    };
+
+    // Splits the rows by the box layout in _box_rows and creates the HPIPM
+    // structures for it
+    void _build();
+    void _free();
+
+    // Splits the rows of stage k into boxes and general rows, with a box on
+    // every state entry when the state is fixed
+    void _split_rows(const uint k, const uint nu, const bool fixed_state);
+
+    // Uploads the constraints of stage k, where E is null at the terminal
+    // stage since it has no controls
+    void _upload_constraints(const uint k, const MatX &D, const MatX *E,
+                             const VecX &cl, const VecX &cu);
+
+    // Reads the multipliers of stage k back into the rows they belong to
+    void _get_multipliers(const uint k, Solution &sol) const;
+
     const QPData &_qp;
     Params        _params;
     Solution      _solution;
@@ -89,18 +149,13 @@ class hpipm_qp : public QPSolver
     double       _reg;
     const double _reg_max = 1e8;
 
-    // Copies of lower/upper constraint vectors
-    // Required since infinity bounds must be replaced, but the actual QP
-    // must not be altered
-    std::vector<VecX> _cl, _cu;
+    // The box layout the HPIPM structures were created for
+    std::vector<std::vector<model::BoxRow>> _box_rows;
+    std::vector<Stage>                      _stages;
 
     // HPIPM stores the state/control cross term as nu-by-nx, whereas QPData
     // stores it as nx-by-nu. Keep the transposed upload buffers persistent.
     std::vector<MatX> _S;
-
-    // Masks to ignore open constraints
-    std::vector<std::vector<double>> _cl_masks;
-    std::vector<std::vector<double>> _cu_masks;
 
     int  _iter;
     int  _status;
@@ -111,11 +166,11 @@ class hpipm_qp : public QPSolver
     std::shared_ptr<hpipm_data> _hpipm_data;
 
     // Memory arenas (HPIPM uses custom allocators)
-    void *_hpipm_dim_mem;
-    void *_hpipm_qp_mem;
-    void *_hpipm_sol_mem;
-    void *_hpipm_arg_mem;
-    void *_hpipm_ws_mem;
+    void *_hpipm_dim_mem = nullptr;
+    void *_hpipm_qp_mem  = nullptr;
+    void *_hpipm_sol_mem = nullptr;
+    void *_hpipm_arg_mem = nullptr;
+    void *_hpipm_ws_mem  = nullptr;
 };
 }
 }

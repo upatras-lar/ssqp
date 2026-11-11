@@ -396,7 +396,10 @@ const std::string to_string(const SolverState &state)
     return "";
 }
 
-QPData::QPData(const model::Dimensions &dims) : dims(dims), stages(dims.horizon)
+QPData::QPData(const model::Dimensions &dims)
+  : dims(dims)
+  , stages(dims.horizon)
+  , box_rows(dims.horizon + 1)
 {
 }
 }

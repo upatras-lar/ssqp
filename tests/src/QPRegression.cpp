@@ -306,6 +306,116 @@ QPData conflictingQP()
     return qp;
 }
 
+#ifdef WITH_HPIPM
+// Rows of every kind a box can come from: stage 0 state rows, which merge into
+// the x_0 box, duplicates on one entry with different bounds, infinite sides
+// and terminal rows, mixed with general rows
+QPData boxQP()
+{
+    const double inf = std::numeric_limits<double>::infinity();
+    auto         qp  = makeQP(2, false);
+    setRows(qp,
+            0,
+            (MatX(6, 2) << 1, 0, 0, 1, 0, 0, 0.1, 0, 0, 0, 0, 0).finished(),
+            (MatX(6, 2) << 0, 0, 0, 0, 1, 0, 1, 0.2, 1, 0, 0, 1).finished(),
+            (VecX(6) << -inf, -0.5, -0.1, -0.25, -0.3, -0.05).finished(),
+            (VecX(6) << inf, 0.5, 0.1, 0.25, 0.05, inf).finished());
+    setRows(qp,
+            1,
+            (MatX(5, 2) << 1, 0, 0.5, 0.5, 1, 0, 0, 0, 0, 0).finished(),
+            (MatX(5, 2) << 0, 0, 0, 1, 0, 0, 0, 1, 1, 0).finished(),
+            (VecX(5) << -inf, -1, -0.2, -inf, -0.4).finished(),
+            (VecX(5) << 0.15, 1, inf, inf, 0.4).finished());
+    setRows(qp,
+            2,
+            (MatX(3, 2) << 1, 0, 1, 0, 1, 1).finished(),
+            MatX(),
+            (VecX(3) << -0.3, -0.1, -0.5).finished(),
+            (VecX(3) << 0.3, 0.4, 0.5).finished());
+    return qp;
+}
+
+// The box rows of boxQP, every one of them or only some
+std::vector<std::vector<model::BoxRow>> boxLayout(bool all)
+{
+    if (!all)
+    {
+        return { { { 2, 0, true } }, {}, { { 1, 0, false } } };
+    }
+
+    return {
+        { { 0, 0, false },
+         { 1, 1, false },
+         { 2, 0, true },
+         { 4, 0, true },
+         { 5, 1, true } },
+        { { 0, 0, false }, { 2, 0, false }, { 3, 1, true }, { 4, 0, true } },
+        { { 0, 0, false }, { 1, 0, false } }
+    };
+}
+
+QPSolver::Solution solveHPIPM(QPSolver &solver, const QPData &qp)
+{
+    QPSolver::Solution sol(qp.dims);
+    solver.reset();
+    const auto state = solver.solve(sol);
+    require(state == solvers::SUCCESS,
+            "QP must report success (" + solvers::to_string(state) + ")");
+    return sol;
+}
+
+void requireSameSolution(const QPSolver::Solution &actual,
+                         const QPSolver::Solution &expected,
+                         const std::string        &label)
+{
+    requireClose(actual.dx.vec, expected.dx.vec, label + ": dx", 1e-6, 1e-6);
+    requireClose(actual.du.vec, expected.du.vec, label + ": du", 1e-6, 1e-6);
+    requireClose(actual.lambda.vec,
+                 expected.lambda.vec,
+                 label + ": lambda",
+                 1e-6,
+                 1e-6);
+    requireClose(actual.mu.vec, expected.mu.vec, label + ": mu", 1e-6, 1e-6);
+}
+
+// Passing box rows as HPIPM boxes must give the solution and multipliers of
+// passing every row as a general constraint, also after the layout changes
+// on the same solver
+void hpipmBoxRows()
+{
+    auto qp       = boxQP();
+    auto general  = makeSolver(qp, solvers::ssqp::HPIPM);
+    auto expected = solveHPIPM(*general, qp);
+
+    // The QP must have active box rows on both sides for the multipliers to
+    // be checked
+    const auto box_rows = boxLayout(true);
+    bool       lower = false, upper = false;
+    for (uint k = 0; k <= qp.dims.horizon; ++k)
+    {
+        for (const model::BoxRow &box : box_rows[k])
+        {
+            lower = lower || expected.mu.stage(k)[box.row] > 1e-3;
+            upper = upper || expected.mu.stage(k)[box.row] < -1e-3;
+        }
+    }
+    require(lower && upper, "Box rows must be active on both sides");
+
+    qp.box_rows = boxLayout(true);
+    auto boxed  = makeSolver(qp, solvers::ssqp::HPIPM);
+    requireSameSolution(solveHPIPM(*boxed, qp), expected, "All box rows");
+
+    qp.box_rows = boxLayout(false);
+    requireSameSolution(solveHPIPM(*boxed, qp), expected, "Some box rows");
+
+    qp.box_rows = std::vector<std::vector<model::BoxRow>>(3);
+    requireSameSolution(solveHPIPM(*boxed, qp), expected, "No box rows");
+
+    qp.box_rows = boxLayout(true);
+    requireSameSolution(solveHPIPM(*boxed, qp), expected, "Box rows again");
+}
+#endif
+
 QPSolver::Solution qpInfeasibility(solvers::ssqp::QPSolverType backend,
                                    const QPData               &qp,
                                    solvers::SolverState        expected)
@@ -430,6 +540,10 @@ void addQPRegressionTests(TestContainer &tests)
           }
           require(threw, "The parallel solver needs SSQP_PIQP_OPENMP");
       }));
+#endif
+#ifdef WITH_HPIPM
+    tests.addTest(std::make_shared<FunctionTest>("Regression_QP_BoxRows_HPIPM",
+                                                 hpipmBoxRows));
 #endif
     // HPIPM does not report infeasibility
     std::vector<solvers::ssqp::QPSolverType> detecting { solvers::ssqp::ADMM };

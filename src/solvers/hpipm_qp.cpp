@@ -149,26 +149,101 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
   , _params(params)
   , _solution(qp.dims)
   , _reg(_params.reg_prim)
-  , _cl(_qp.dims.horizon + 1)
-  , _cu(_qp.dims.horizon + 1)
   , _S(_qp.dims.horizon)
-  , _cl_masks(_qp.dims.horizon + 1)
-  , _cu_masks(_qp.dims.horizon + 1)
   , _hpipm_data(std::make_shared<hpipm_data>())
 {
-    for (uint k = 0; k <= _qp.dims.horizon; ++k)
-    {
-        _cl[k].resize(_qp.dims.stage_constraint[k]);
-        _cu[k].resize(_qp.dims.stage_constraint[k]);
-        _cl_masks[k].resize(_qp.dims.stage_constraint[k]);
-        _cu_masks[k].resize(_qp.dims.stage_constraint[k]);
-    }
     for (uint k = 0; k < _qp.dims.horizon; ++k)
         _S[k].resize(_qp.dims.stage_control[k], _qp.dims.stage_state[k]);
 
-    hpipm_size_t dim_size = d_ocp_qp_dim_memsize(_qp.dims.horizon);
+    // reset() creates the HPIPM structures and uploads numeric QP data. The QP
+    // and its box layout are assembled by SSQP after this constructor
+    // returns, so defer both until the first solve.
+}
+
+hpipm_qp::~hpipm_qp()
+{
+    _free();
+}
+
+void hpipm_qp::_split_rows(const uint k, const uint nu, const bool fixed_state)
+{
+    const uint nx = _qp.dims.stage_state[k];
+    const uint nc = _qp.dims.stage_constraint[k];
+
+    std::vector<std::vector<uint>> x_rows(nx), u_rows(nu);
+    std::vector<bool>              is_box(nc, false);
+    for (const model::BoxRow &box : _box_rows[k])
+    {
+        (box.is_control ? u_rows : x_rows)[box.index].push_back(box.row);
+        is_box[box.row] = true;
+    }
+
+    Stage &stage  = _stages[k];
+    stage.x.fixed = fixed_state;
+
+    for (uint i = 0; i < nx; ++i)
+    {
+        if (fixed_state || !x_rows[i].empty())
+        {
+            stage.x.idx.push_back(i);
+            stage.x.rows.push_back(std::move(x_rows[i]));
+        }
+    }
+    for (uint i = 0; i < nu; ++i)
+    {
+        if (!u_rows[i].empty())
+        {
+            stage.u.idx.push_back(i);
+            stage.u.rows.push_back(std::move(u_rows[i]));
+        }
+    }
+    for (uint c = 0; c < nc; ++c)
+    {
+        if (!is_box[c])
+        {
+            stage.general_rows.push_back(c);
+        }
+    }
+
+    for (Boxes *boxes : { &stage.x, &stage.u })
+    {
+        const uint nb = boxes->idx.size();
+        boxes->lb_row.resize(nb);
+        boxes->ub_row.resize(nb);
+        boxes->lb.resize(nb);
+        boxes->ub.resize(nb);
+        boxes->lb_mask.resize(nb);
+        boxes->ub_mask.resize(nb);
+    }
+
+    const uint ng = stage.general_rows.size();
+    stage.C.resize(ng, nx);
+    stage.D.resize(ng, nu);
+    stage.lg.resize(ng);
+    stage.ug.resize(ng);
+    stage.lg_mask.resize(ng);
+    stage.ug_mask.resize(ng);
+}
+
+void hpipm_qp::_build()
+{
+    const uint horizon = _qp.dims.horizon;
+    _stages.assign(horizon + 1, Stage());
+
+    // x_0 is fixed by a box on every entry, which its state rows join
+    _split_rows(0, horizon > 0 ? _qp.dims.stage_control[0] : 0, true);
+    for (uint k = 1; k < horizon; ++k)
+    {
+        _split_rows(k, _qp.dims.stage_control[k], false);
+    }
+    if (horizon > 0)
+    {
+        _split_rows(horizon, 0, false);
+    }
+
+    hpipm_size_t dim_size = d_ocp_qp_dim_memsize(horizon);
     _hpipm_dim_mem        = malloc(dim_size);
-    d_ocp_qp_dim_create(_qp.dims.horizon, &_hpipm_data->dim, _hpipm_dim_mem);
+    d_ocp_qp_dim_create(horizon, &_hpipm_data->dim, _hpipm_dim_mem);
 
     set_stage_sizes();
 
@@ -176,6 +251,19 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
     hpipm_size_t qp_size = d_ocp_qp_memsize(&_hpipm_data->dim);
     _hpipm_qp_mem        = malloc(qp_size);
     d_ocp_qp_create(&_hpipm_data->dim, &_hpipm_data->qp, _hpipm_qp_mem);
+
+    // The box entries only change with the layout
+    for (uint k = 0; k <= horizon; ++k)
+    {
+        if (!_stages[k].x.idx.empty())
+        {
+            d_ocp_qp_set_idxbx(k, _stages[k].x.idx.data(), &_hpipm_data->qp);
+        }
+        if (!_stages[k].u.idx.empty())
+        {
+            d_ocp_qp_set_idxbu(k, _stages[k].u.idx.data(), &_hpipm_data->qp);
+        }
+    }
 
     // Allocate solution structure
     hpipm_size_t sol_size = d_ocp_qp_sol_memsize(&_hpipm_data->dim);
@@ -238,66 +326,62 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
                            &_hpipm_data->arg,
                            &_hpipm_data->ws,
                            _hpipm_ws_mem);
-
-    // reset() uploads numeric QP data. The QP is assembled by SSQP after this
-    // constructor returns, so defer that upload until the first solve.
 }
 
-hpipm_qp::~hpipm_qp()
+void hpipm_qp::_free()
 {
     if (_hpipm_ws_mem) free(_hpipm_ws_mem);
     if (_hpipm_arg_mem) free(_hpipm_arg_mem);
     if (_hpipm_sol_mem) free(_hpipm_sol_mem);
     if (_hpipm_qp_mem) free(_hpipm_qp_mem);
     if (_hpipm_dim_mem) free(_hpipm_dim_mem);
+
+    _hpipm_ws_mem  = nullptr;
+    _hpipm_arg_mem = nullptr;
+    _hpipm_sol_mem = nullptr;
+    _hpipm_qp_mem  = nullptr;
+    _hpipm_dim_mem = nullptr;
 }
 
 void hpipm_qp::set_stage_sizes()
 {
-    d_ocp_qp_dim_set_nbx(0, _qp.dims.stage_state[0], &_hpipm_data->dim);
-
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
         d_ocp_qp_dim_set_nx(k, _qp.dims.stage_state[k], &_hpipm_data->dim);
         d_ocp_qp_dim_set_nu(k, _qp.dims.stage_control[k], &_hpipm_data->dim);
-
-        if (_qp.dims.stage_constraint[k] > 0)
-        {
-            d_ocp_qp_dim_set_ng(k,
-                                _qp.dims.stage_constraint[k],
-                                &_hpipm_data->dim);
-        }
-    }
-
-    d_ocp_qp_dim_set_nx(_qp.dims.horizon,
-                        _qp.dims.stage_state[_qp.dims.horizon],
-                        &_hpipm_data->dim);
-
-    if (_qp.dims.stage_constraint[_qp.dims.horizon] > 0)
-    {
-        d_ocp_qp_dim_set_ng(_qp.dims.horizon,
-                            _qp.dims.stage_constraint[_qp.dims.horizon],
+        d_ocp_qp_dim_set_nbx(k, _stages[k].x.idx.size(), &_hpipm_data->dim);
+        d_ocp_qp_dim_set_nbu(k, _stages[k].u.idx.size(), &_hpipm_data->dim);
+        d_ocp_qp_dim_set_ng(k,
+                            _stages[k].general_rows.size(),
                             &_hpipm_data->dim);
     }
+
+    const uint horizon = _qp.dims.horizon;
+    d_ocp_qp_dim_set_nx(horizon,
+                        _qp.dims.stage_state[horizon],
+                        &_hpipm_data->dim);
+    d_ocp_qp_dim_set_nbx(horizon,
+                         _stages[horizon].x.idx.size(),
+                         &_hpipm_data->dim);
+    d_ocp_qp_dim_set_ng(horizon,
+                        _stages[horizon].general_rows.size(),
+                        &_hpipm_data->dim);
 }
 
 void hpipm_qp::reset()
 {
-    _reg = _params.reg_prim;
-    d_ocp_qp_ipm_arg_set_reg_prim(&_reg, &_hpipm_data->arg);
-
-    std::vector<int> idxbx(_qp.dims.stage_state[0]);
-    for (uint i = 0; i < idxbx.size(); ++i)
+    // The HPIPM structures are sized by the box layout, so a new layout needs
+    // new ones
+    if (_hpipm_dim_mem == nullptr || _qp.box_rows != _box_rows)
     {
-        idxbx[i] = i;
+        _free();
+        _box_rows = _qp.box_rows;
+        _build();
+        _solved = false;
     }
 
-    VecX lbx = VecX::Zero(_qp.dims.stage_state[0]);
-    VecX ubx = VecX::Zero(_qp.dims.stage_state[0]);
-
-    d_ocp_qp_set_idxbx(0, idxbx.data(), &_hpipm_data->qp);
-    d_ocp_qp_set_lbx(0, lbx.data(), &_hpipm_data->qp);
-    d_ocp_qp_set_ubx(0, ubx.data(), &_hpipm_data->qp);
+    _reg = _params.reg_prim;
+    d_ocp_qp_ipm_arg_set_reg_prim(&_reg, &_hpipm_data->arg);
 
     for (uint k = 0; k < _qp.dims.horizon; ++k)
     {
@@ -324,46 +408,11 @@ void hpipm_qp::reset()
                        (double *)(_qp.stages[k].qu.data()),
                        &_hpipm_data->qp);
 
-        if (_qp.dims.stage_constraint[k] > 0)
-        {
-            d_ocp_qp_set_C(k,
-                           (double *)(_qp.stages[k].D.data()),
-                           &_hpipm_data->qp);
-            d_ocp_qp_set_D(k,
-                           (double *)(_qp.stages[k].E.data()),
-                           &_hpipm_data->qp);
-
-            _cl[k] = _qp.stages[k].cl;
-            _cu[k] = _qp.stages[k].cu;
-
-            for (uint c = 0; c < _qp.dims.stage_constraint[k]; ++c)
-            {
-                if (std::isinf(_qp.stages[k].cl[c]))
-                {
-                    _cl[k][c]       = 0.0;
-                    _cl_masks[k][c] = 0.0;
-                }
-                else
-                {
-                    _cl_masks[k][c] = 1.0;
-                }
-
-                if (std::isinf(_qp.stages[k].cu[c]))
-                {
-                    _cu[k][c]       = 0.0;
-                    _cu_masks[k][c] = 0.0;
-                }
-                else
-                {
-                    _cu_masks[k][c] = 1.0;
-                }
-            }
-
-            d_ocp_qp_set_lg(k, (double *)(_cl[k].data()), &_hpipm_data->qp);
-            d_ocp_qp_set_ug(k, (double *)(_cu[k].data()), &_hpipm_data->qp);
-            d_ocp_qp_set_lg_mask(k, _cl_masks[k].data(), &_hpipm_data->qp);
-            d_ocp_qp_set_ug_mask(k, _cu_masks[k].data(), &_hpipm_data->qp);
-        }
+        _upload_constraints(k,
+                            _qp.stages[k].D,
+                            &_qp.stages[k].E,
+                            _qp.stages[k].cl,
+                            _qp.stages[k].cu);
     }
 
     d_ocp_qp_set_Q(_qp.dims.horizon,
@@ -373,53 +422,178 @@ void hpipm_qp::reset()
                    (double *)(_qp.qx_t.data()),
                    &_hpipm_data->qp);
 
-    if (_qp.dims.stage_constraint[_qp.dims.horizon] > 0)
+    _upload_constraints(_qp.dims.horizon, _qp.Dt, nullptr, _qp.cl_t, _qp.cu_t);
+
+    _qp_uploaded = true;
+}
+
+void hpipm_qp::Boxes::merge(const VecX &cl, const VecX &cu)
+{
+    const double inf   = std::numeric_limits<double>::infinity();
+    const double start = fixed ? 0.0 : inf;
+
+    for (uint j = 0; j < idx.size(); ++j)
     {
-        d_ocp_qp_set_C(_qp.dims.horizon,
-                       (double *)(_qp.Dt.data()),
-                       &_hpipm_data->qp);
-
-        _cl[_qp.dims.horizon] = _qp.cl_t;
-        _cu[_qp.dims.horizon] = _qp.cu_t;
-
-        for (uint c = 0; c < _qp.dims.stage_constraint[_qp.dims.horizon]; ++c)
+        // The first of equally tight rows gives the side, and fixed entries
+        // keep it unless a row is tighter
+        double lower = -start, upper = start;
+        lb_row[j] = -1;
+        ub_row[j] = -1;
+        for (const uint row : rows[j])
         {
-            if (std::isinf(_qp.cl_t[c]))
+            if (cl[row] > lower)
             {
-                _cl[_qp.dims.horizon][c]       = 0.0;
-                _cl_masks[_qp.dims.horizon][c] = 0.0;
+                lower     = cl[row];
+                lb_row[j] = row;
             }
-            else
+            if (cu[row] < upper)
             {
-                _cl_masks[_qp.dims.horizon][c] = 1.0;
-            }
-
-            if (std::isinf(_qp.cu_t[c]))
-            {
-                _cu[_qp.dims.horizon][c]       = 0.0;
-                _cu_masks[_qp.dims.horizon][c] = 0.0;
-            }
-            else
-            {
-                _cu_masks[_qp.dims.horizon][c] = 1.0;
+                upper     = cu[row];
+                ub_row[j] = row;
             }
         }
 
-        d_ocp_qp_set_lg(_qp.dims.horizon,
-                        (double *)(_cl[_qp.dims.horizon].data()),
-                        &_hpipm_data->qp);
-        d_ocp_qp_set_ug(_qp.dims.horizon,
-                        (double *)(_cu[_qp.dims.horizon].data()),
-                        &_hpipm_data->qp);
-        d_ocp_qp_set_lg_mask(_qp.dims.horizon,
-                             _cl_masks[_qp.dims.horizon].data(),
-                             &_hpipm_data->qp);
-        d_ocp_qp_set_ug_mask(_qp.dims.horizon,
-                             _cu_masks[_qp.dims.horizon].data(),
-                             &_hpipm_data->qp);
+        if (std::isinf(lower))
+        {
+            lb[j]      = 0.0;
+            lb_mask[j] = 0.0;
+        }
+        else
+        {
+            lb[j]      = lower;
+            lb_mask[j] = 1.0;
+        }
+
+        if (std::isinf(upper))
+        {
+            ub[j]      = 0.0;
+            ub_mask[j] = 0.0;
+        }
+        else
+        {
+            ub[j]      = upper;
+            ub_mask[j] = 1.0;
+        }
+    }
+}
+
+void hpipm_qp::Boxes::multipliers(const VecX &lam_lb, const VecX &lam_ub,
+                                  VecXRef mu) const
+{
+    // Rows that give neither side of their box are inactive or tied with the
+    // ones that do, so their multipliers are zero
+    for (uint j = 0; j < idx.size(); ++j)
+    {
+        for (const uint row : rows[j])
+        {
+            mu[row] = 0.0;
+        }
+
+        if (lb_row[j] >= 0)
+        {
+            mu[lb_row[j]] += lam_lb[j];
+        }
+        if (ub_row[j] >= 0)
+        {
+            mu[ub_row[j]] -= lam_ub[j];
+        }
+    }
+}
+
+void hpipm_qp::_upload_constraints(const uint k, const MatX &D, const MatX *E,
+                                   const VecX &cl, const VecX &cu)
+{
+    Stage &stage = _stages[k];
+
+#ifndef NDEBUG
+    for (uint j = 0; j < stage.x.idx.size(); ++j)
+    {
+        for (const uint row : stage.x.rows[j])
+        {
+            assert(D.row(row).transpose() ==
+                     VecX::Unit(D.cols(), stage.x.idx[j]) &&
+                   (E == nullptr || E->row(row).isZero(0)) &&
+                   "State box row is not +1 on its entry and zero elsewhere");
+        }
+    }
+    for (uint j = 0; j < stage.u.idx.size(); ++j)
+    {
+        for (const uint row : stage.u.rows[j])
+        {
+            assert(D.row(row).isZero(0) &&
+                   E->row(row).transpose() ==
+                     VecX::Unit(E->cols(), stage.u.idx[j]) &&
+                   "Control box row is not +1 on its entry and zero elsewhere");
+        }
+    }
+#endif
+
+    stage.x.merge(cl, cu);
+    if (!stage.x.idx.empty())
+    {
+        d_ocp_qp_set_lbx(k, stage.x.lb.data(), &_hpipm_data->qp);
+        d_ocp_qp_set_ubx(k, stage.x.ub.data(), &_hpipm_data->qp);
+        d_ocp_qp_set_lbx_mask(k, stage.x.lb_mask.data(), &_hpipm_data->qp);
+        d_ocp_qp_set_ubx_mask(k, stage.x.ub_mask.data(), &_hpipm_data->qp);
     }
 
-    _qp_uploaded = true;
+    stage.u.merge(cl, cu);
+    if (!stage.u.idx.empty())
+    {
+        d_ocp_qp_set_lbu(k, stage.u.lb.data(), &_hpipm_data->qp);
+        d_ocp_qp_set_ubu(k, stage.u.ub.data(), &_hpipm_data->qp);
+        d_ocp_qp_set_lbu_mask(k, stage.u.lb_mask.data(), &_hpipm_data->qp);
+        d_ocp_qp_set_ubu_mask(k, stage.u.ub_mask.data(), &_hpipm_data->qp);
+    }
+
+    const uint ng = stage.general_rows.size();
+    if (ng == 0)
+    {
+        return;
+    }
+
+    for (uint g = 0; g < ng; ++g)
+    {
+        const uint row = stage.general_rows[g];
+        stage.C.row(g) = D.row(row);
+
+        if (std::isinf(cl[row]))
+        {
+            stage.lg[g]      = 0.0;
+            stage.lg_mask[g] = 0.0;
+        }
+        else
+        {
+            stage.lg[g]      = cl[row];
+            stage.lg_mask[g] = 1.0;
+        }
+
+        if (std::isinf(cu[row]))
+        {
+            stage.ug[g]      = 0.0;
+            stage.ug_mask[g] = 0.0;
+        }
+        else
+        {
+            stage.ug[g]      = cu[row];
+            stage.ug_mask[g] = 1.0;
+        }
+    }
+
+    d_ocp_qp_set_C(k, stage.C.data(), &_hpipm_data->qp);
+    if (E != nullptr)
+    {
+        for (uint g = 0; g < ng; ++g)
+        {
+            stage.D.row(g) = E->row(stage.general_rows[g]);
+        }
+        d_ocp_qp_set_D(k, stage.D.data(), &_hpipm_data->qp);
+    }
+
+    d_ocp_qp_set_lg(k, stage.lg.data(), &_hpipm_data->qp);
+    d_ocp_qp_set_ug(k, stage.ug.data(), &_hpipm_data->qp);
+    d_ocp_qp_set_lg_mask(k, stage.lg_mask.data(), &_hpipm_data->qp);
+    d_ocp_qp_set_ug_mask(k, stage.ug_mask.data(), &_hpipm_data->qp);
 }
 
 void hpipm_qp::increaseRegularization()
@@ -464,27 +638,41 @@ SolverState hpipm_qp::solve(hpipm_qp::Solution &sol)
         d_ocp_qp_sol_get_u(k, &_hpipm_data->sol, sol.du.stage(k).data());
         d_ocp_qp_sol_get_pi(k, &_hpipm_data->sol, sol.lambda.stage(k).data());
 
-        VecX lg(_qp.dims.stage_constraint[k]), ug(_qp.dims.stage_constraint[k]);
-
-        d_ocp_qp_sol_get_lam_lg(k, &_hpipm_data->sol, lg.data());
-        d_ocp_qp_sol_get_lam_ug(k, &_hpipm_data->sol, ug.data());
-
-        sol.mu.stage(k) = lg - ug;
+        _get_multipliers(k, sol);
     }
 
     d_ocp_qp_sol_get_x(_qp.dims.horizon,
                        &_hpipm_data->sol,
                        sol.dx.stage(_qp.dims.horizon).data());
 
-    VecX lg(_qp.dims.stage_constraint[_qp.dims.horizon]),
-      ug(_qp.dims.stage_constraint[_qp.dims.horizon]);
-
-    d_ocp_qp_sol_get_lam_lg(_qp.dims.horizon, &_hpipm_data->sol, lg.data());
-    d_ocp_qp_sol_get_lam_ug(_qp.dims.horizon, &_hpipm_data->sol, ug.data());
-
-    sol.mu.stage(_qp.dims.horizon) = lg - ug;
+    _get_multipliers(_qp.dims.horizon, sol);
 
     return SUCCESS;
+}
+
+void hpipm_qp::_get_multipliers(const uint k, Solution &sol) const
+{
+    const Stage &stage = _stages[k];
+    VecXRef      mu    = sol.mu.stage(k);
+
+    VecX lg(stage.general_rows.size()), ug(stage.general_rows.size());
+    d_ocp_qp_sol_get_lam_lg(k, &_hpipm_data->sol, lg.data());
+    d_ocp_qp_sol_get_lam_ug(k, &_hpipm_data->sol, ug.data());
+
+    for (uint g = 0; g < stage.general_rows.size(); ++g)
+    {
+        mu[stage.general_rows[g]] = lg[g] - ug[g];
+    }
+
+    VecX lbx(stage.x.idx.size()), ubx(stage.x.idx.size());
+    d_ocp_qp_sol_get_lam_lbx(k, &_hpipm_data->sol, lbx.data());
+    d_ocp_qp_sol_get_lam_ubx(k, &_hpipm_data->sol, ubx.data());
+    stage.x.multipliers(lbx, ubx, mu);
+
+    VecX lbu(stage.u.idx.size()), ubu(stage.u.idx.size());
+    d_ocp_qp_sol_get_lam_lbu(k, &_hpipm_data->sol, lbu.data());
+    d_ocp_qp_sol_get_lam_ubu(k, &_hpipm_data->sol, ubu.data());
+    stage.u.multipliers(lbu, ubu, mu);
 }
 
 uint hpipm_qp::iterations() const

@@ -25,7 +25,7 @@ using namespace model::stagewise::predefined::constraints;
 struct __attribute__((visibility("default"))) PyStageConstraints
   : StageConstraints
 {
-    NB_TRAMPOLINE(StageConstraints, 11);
+    NB_TRAMPOLINE(StageConstraints, 12);
 
     uint output_size() const override
     {
@@ -116,6 +116,20 @@ struct __attribute__((visibility("default"))) PyStageConstraints
             throw std::runtime_error("Type mismatch in Python override of "
                                      "`StageConstraints::state_only_rows`: "
                                      "expected a list of integers");
+        }
+    }
+
+    std::vector<BoxRow> box_rows() const override
+    {
+        try
+        {
+            NB_OVERRIDE(box_rows);
+        }
+        catch (const nb::cast_error &e)
+        {
+            throw std::runtime_error("Type mismatch in Python override of "
+                                     "`StageConstraints::box_rows`: "
+                                     "expected a list of BoxRow");
         }
     }
 
@@ -232,6 +246,25 @@ struct __attribute__((visibility("default"))) PyStageConstraints
 
 void bind_Constraints(nb::module_ &m)
 {
+    nb::class_<BoxRow>(m, "BoxRow", R"doc(
+        A constraint row whose gradient is always +1 on one state or control
+        entry and zero elsewhere, so it bounds that entry directly
+        )doc")
+      .def(nb::init<uint, uint, bool>(),
+           nb::arg("row"),
+           nb::arg("index"),
+           nb::arg("is_control") = false)
+      .def_rw("row", &BoxRow::row, "Row of the constraint's difference vector")
+      .def_rw("index",
+              &BoxRow::index,
+              "Entry of dx, or of du if is_control is set")
+      .def_rw("is_control",
+              &BoxRow::is_control,
+              "Whether the row bounds a control instead of a state")
+      .def("__eq__",
+           [](const BoxRow &self, const BoxRow &other)
+           { return self == other; });
+
     nb::class_<StageConstraints, PyStageConstraints>(m,
                                                      "StageConstraints",
                                                      R"doc(
@@ -267,6 +300,13 @@ void bind_Constraints(nb::module_ &m)
         Rows of the difference vector that depend only on $\boldsymbol{x}$, so
         their gradient with respect to $\boldsymbol{u}$ is always zero
         Defaults to none, so every row is treated as depending on $\boldsymbol{u}$
+           )doc")
+      .def("box_rows",
+           &StageConstraints::box_rows,
+           R"doc(
+        Rows that bound a single state or control entry, which some QP solvers
+        handle more cheaply than general constraints
+        Defaults to none, so every row is passed as a general constraint
            )doc")
       .def("constraint_diff_size",
            &StageConstraints::constraint_diff_size,
