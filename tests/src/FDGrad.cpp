@@ -20,7 +20,7 @@ FDGradCost::FDGradCost(const std::string                  &name,
 {
 }
 
-void FDGradCost::_fd_grad(const VecX &x, const VecX &u, VecX &dx,
+void FDGradCost::_fd_grad(ConstVecXRef x, ConstVecXRef u, VecX &dx,
                           VecX &du) const
 {
     dx.resize(_ndx);
@@ -34,9 +34,10 @@ void FDGradCost::_fd_grad(const VecX &x, const VecX &u, VecX &dx,
         dx[i] = finiteDifference(
           [&](double step)
           {
-              return _cost->evaluate(
-                _model->dynamics()[_stage]->state_right_plus(x, step * e),
-                u)[0];
+              VecX xp, l;
+              _model->dynamics()[_stage]->state_right_plus(x, step * e, xp);
+              _cost->evaluate(xp, u, l);
+              return l[0];
           },
           std::max(_h, 1e-5));
     }
@@ -46,7 +47,12 @@ void FDGradCost::_fd_grad(const VecX &x, const VecX &u, VecX &dx,
         VecX e(_nu);
         e.setUnit(i);
         du[i] = finiteDifference(
-          [&](double step) { return _cost->evaluate(x, u + step * e)[0]; },
+          [&](double step)
+          {
+              VecX l;
+              _cost->evaluate(x, u + step * e, l);
+              return l[0];
+          },
           std::max(_h, 1e-5));
     }
 }
@@ -57,9 +63,11 @@ bool FDGradCost::run()
 
     for (uint i = 0; i < _ninputs; ++i)
     {
-        VecX x = _model->dynamics()[_stage]->state_right_plus(
+        VecX x;
+        _model->dynamics()[_stage]->state_right_plus(
           _model->dynamics()[_stage]->init_state(),
-          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0));
+          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0),
+          x);
         VecX u = randomVector(_model->dynamics()[_stage]->control_size(), 5.0);
 
         VecX dx, du, dxfd, dufd;
@@ -130,7 +138,7 @@ FDGradDynamics::FDGradDynamics(const std::string                   &name,
 {
 }
 
-void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
+void FDGradDynamics::_fd_grad(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                               MatX &dU) const
 {
     uint ndx = _dynamics->state_diff_size();
@@ -146,13 +154,13 @@ void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
         dX.col(i) = finiteDifferenceVector(
           [&](double step)
           {
-              return VecX((
-                _next_dynamics->state_right_minus(
-                  _dynamics->evaluate(_dynamics->state_right_plus(x, step * e),
-                                      u),
-                  _dynamics->evaluate(_dynamics->state_right_plus(x, -step * e),
-                                      u)) /
-                (2 * step)));
+              VecX xp, xm, fp, fm, df;
+              _dynamics->state_right_plus(x, step * e, xp);
+              _dynamics->state_right_plus(x, -step * e, xm);
+              _dynamics->evaluate(xp, u, fp);
+              _dynamics->evaluate(xm, u, fm);
+              _next_dynamics->state_right_minus(fp, fm, df);
+              return VecX(df / (2 * step));
           },
           _h);
     }
@@ -164,10 +172,11 @@ void FDGradDynamics::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
         dU.col(i) = finiteDifferenceVector(
           [&](double step)
           {
-              return VecX((_next_dynamics->state_right_minus(
-                             _dynamics->evaluate(x, u + step * e),
-                             _dynamics->evaluate(x, u - step * e)) /
-                           (2 * step)));
+              VecX fp, fm, df;
+              _dynamics->evaluate(x, u + step * e, fp);
+              _dynamics->evaluate(x, u - step * e, fm);
+              _next_dynamics->state_right_minus(fp, fm, df);
+              return VecX(df / (2 * step));
           },
           _h);
     }
@@ -179,9 +188,11 @@ bool FDGradDynamics::run()
 
     for (uint i = 0; i < _ninputs; ++i)
     {
-        VecX x = _model->dynamics()[_stage]->state_right_plus(
+        VecX x;
+        _model->dynamics()[_stage]->state_right_plus(
           _model->dynamics()[_stage]->init_state(),
-          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0));
+          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0),
+          x);
         VecX u = randomVector(_model->dynamics()[_stage]->control_size(), 5.0);
 
         MatX dX, dU, dXfd, dUfd;
@@ -272,7 +283,7 @@ FDGradDynamicsParameters::FDGradDynamicsParameters(
 {
 }
 
-MatX FDGradDynamicsParameters::_fd_grad(const VecX &x, const VecX &u)
+MatX FDGradDynamicsParameters::_fd_grad(ConstVecXRef x, ConstVecXRef u)
 {
     uint ndx    = _dynamics->state_diff_size();
     uint ntheta = _dynamics->parameter_size();
@@ -292,21 +303,25 @@ MatX FDGradDynamicsParameters::_fd_grad(const VecX &x, const VecX &u)
 
         // Update parameters and re-evaluate
         _dynamics->update_parameters(params_perturbed);
-        VecX eval_plus = _dynamics->evaluate(x, u);
+        VecX eval_plus;
+        _dynamics->evaluate(x, u, eval_plus);
 
         // Perturb parameter on other side
         params_perturbed -= 2 * _h * e;
 
         // Update and re-evaluate
         _dynamics->update_parameters(params_perturbed);
-        VecX eval_minus = _dynamics->evaluate(x, u);
+        VecX eval_minus;
+        _dynamics->evaluate(x, u, eval_minus);
 
         // Undo perturbation
         params_perturbed += _h * e;
 
         // Calculate column
-        dT.col(i) =
-          _next_dynamics->state_right_minus(eval_plus, eval_minus) / (2 * _h);
+        _next_dynamics->state_right_minus_into(eval_plus,
+                                               eval_minus,
+                                               dT.col(i));
+        dT.col(i) /= 2 * _h;
     }
 
     return dT;
@@ -325,9 +340,11 @@ bool FDGradDynamicsParameters::run()
 
     for (uint i = 0; i < _ninputs; ++i)
     {
-        VecX x = _model->dynamics()[_stage]->state_right_plus(
+        VecX x;
+        _model->dynamics()[_stage]->state_right_plus(
           _model->dynamics()[_stage]->init_state(),
-          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0));
+          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0),
+          x);
         VecX u = randomVector(_model->dynamics()[_stage]->control_size(), 5.0);
         VecX theta(ntheta);
 
@@ -402,7 +419,7 @@ FDGradConstraints::FDGradConstraints(const std::string                   &name,
 {
 }
 
-void FDGradConstraints::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
+void FDGradConstraints::_fd_grad(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                                  MatX &dU) const
 {
     dX.resize(_ndc, _ndx);
@@ -412,22 +429,24 @@ void FDGradConstraints::_fd_grad(const VecX &x, const VecX &u, MatX &dX,
     {
         VecX e(_ndx);
         e.setUnit(i);
-        dX.col(i) =
-          _constraints->right_minus(
-            _constraints->evaluate(_dynamics->state_right_plus(x, _h * e), u),
-            _constraints->evaluate(_dynamics->state_right_plus(x, -_h * e),
-                                   u)) /
-          (2 * _h);
+        VecX xp, xm, cp, cm;
+        _dynamics->state_right_plus(x, _h * e, xp);
+        _dynamics->state_right_plus(x, -_h * e, xm);
+        _constraints->evaluate(xp, u, cp);
+        _constraints->evaluate(xm, u, cm);
+        _constraints->right_minus_into(cp, cm, dX.col(i));
+        dX.col(i) /= 2 * _h;
     }
 
     for (uint i = 0; i < _nu; ++i)
     {
         VecX e(_nu);
         e.setUnit(i);
-        dU.col(i) =
-          _constraints->right_minus(_constraints->evaluate(x, u + _h * e),
-                                    _constraints->evaluate(x, u - _h * e)) /
-          (2 * _h);
+        VecX cp, cm;
+        _constraints->evaluate(x, u + _h * e, cp);
+        _constraints->evaluate(x, u - _h * e, cm);
+        _constraints->right_minus_into(cp, cm, dU.col(i));
+        dU.col(i) /= 2 * _h;
     }
 }
 
@@ -437,9 +456,11 @@ bool FDGradConstraints::run()
 
     for (uint i = 0; i < _ninputs; ++i)
     {
-        VecX x = _model->dynamics()[_stage]->state_right_plus(
+        VecX x;
+        _model->dynamics()[_stage]->state_right_plus(
           _model->dynamics()[_stage]->init_state(),
-          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0));
+          randomVector(_model->dynamics()[_stage]->state_diff_size(), 2.0),
+          x);
         VecX u = randomVector(_model->dynamics()[_stage]->control_size(), 5.0);
 
         MatX dX, dU, dXfd, dUfd;
@@ -547,7 +568,9 @@ void FDGradFullTrajectoryCost::_fd_grad(const solvers::FlatVec &x,
             dx.stage(k)[i] = finiteDifferenceCentral(
               [&](double step)
               {
-                  xp.stage(k) = dynamics[k]->state_right_plus(x_k, step * e);
+                  dynamics[k]->state_right_plus_into(x_k,
+                                                     step * e,
+                                                     xp.stage(k));
                   return _ssqp._lf(xp, u);
               },
               _h);
@@ -604,9 +627,10 @@ bool FDGradFullTrajectoryCost::run()
     {
         for (uint k = 0; k < x.stages(); ++k)
         {
-            x.stage(k) = _model->dynamics()[k]->state_right_plus(
+            _model->dynamics()[k]->state_right_plus_into(
               _model->dynamics()[k]->init_state(),
-              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0));
+              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0),
+              x.stage(k));
         }
 
         for (uint k = 0; k < u.stages(); ++k)
@@ -684,7 +708,9 @@ void FDGradFullTrajectoryStageGap::_fd_grad(const solvers::FlatVec &x,
             dx.stage(k)[i] = finiteDifference(
               [&](double step)
               {
-                  xp.stage(k) = dynamics[k]->state_right_plus(x_k, step * e);
+                  dynamics[k]->state_right_plus_into(x_k,
+                                                     step * e,
+                                                     xp.stage(k));
                   return _ssqp._gammaf_softmax(xp, u);
               },
               _h);
@@ -741,9 +767,10 @@ bool FDGradFullTrajectoryStageGap::run()
     {
         for (uint k = 0; k < x.stages(); ++k)
         {
-            x.stage(k) = _model->dynamics()[k]->state_right_plus(
+            _model->dynamics()[k]->state_right_plus_into(
               _model->dynamics()[k]->init_state(),
-              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0));
+              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0),
+              x.stage(k));
         }
 
         for (uint k = 0; k < u.stages(); ++k)
@@ -823,7 +850,9 @@ void FDGradFullTrajectoryConstraintViolation::_fd_grad(
             dx.stage(k)[i] = finiteDifference(
               [&](double step)
               {
-                  xp.stage(k) = dynamics[k]->state_right_plus(x_k, step * e);
+                  dynamics[k]->state_right_plus_into(x_k,
+                                                     step * e,
+                                                     xp.stage(k));
                   return _ssqp._cf_softmax(xp, u);
               },
               _h);
@@ -880,9 +909,10 @@ bool FDGradFullTrajectoryConstraintViolation::run()
     {
         for (uint k = 0; k < x.stages(); ++k)
         {
-            x.stage(k) = _model->dynamics()[k]->state_right_plus(
+            _model->dynamics()[k]->state_right_plus_into(
               _model->dynamics()[k]->init_state(),
-              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0));
+              randomVector(_model->dynamics()[k]->state_diff_size(), 2.0),
+              x.stage(k));
         }
 
         for (uint k = 0; k < u.stages(); ++k)

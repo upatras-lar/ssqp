@@ -59,13 +59,13 @@ int main()
         break;
     }
 
-    auto cost_eval =
-      [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    auto cost_eval = [target](const Eigen::VectorXd &x,
+                              const Eigen::VectorXd &u,
+                              Eigen::Ref<Eigen::VectorXd>
+                                out)
     {
-        return (Eigen::Vector<double, 1>()
-                << U_WGT * u.transpose() * u +
-                     Q_WGT * (x.head(STATE_SIZE) - target).squaredNorm())
-          .finished();
+        out[0] = U_WGT * u.transpose() * u +
+                 Q_WGT * (x.head(STATE_SIZE) - target).squaredNorm();
     };
 
     // The derivative functions add to their outputs
@@ -104,14 +104,13 @@ int main()
                                                      ssqp::model::ZeroHessian,
                                                      cost_hess_uu);
 
-    auto terminal_cost_eval =
-      [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    auto terminal_cost_eval = [target](const Eigen::VectorXd &x,
+                                       const Eigen::VectorXd &u,
+                                       Eigen::Ref<Eigen::VectorXd>
+                                         out)
     {
-        return (Eigen::Vector<double, 1>()
-                << QF_WGT *
-                     (Q_WGT * (x.head(STATE_SIZE) - target).squaredNorm() +
-                      x.tail(STATE_SIZE).squaredNorm()))
-          .finished();
+        out[0] = QF_WGT * (Q_WGT * (x.head(STATE_SIZE) - target).squaredNorm() +
+                           x.tail(STATE_SIZE).squaredNorm());
     };
 
     auto terminal_cost_grad = [target](const Eigen::VectorXd &x,

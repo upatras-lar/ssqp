@@ -17,6 +17,9 @@ Subclass `StageCost`/`StageDynamics`/`StageConstraints` and override the abstrac
 dynamics example; see [Costs, Constraints & Dynamics](concepts/costs-constraints-dynamics.md) for the full
 interface each one requires.
 
+In Python, the input vectors (`x`, `u` and the multipliers) are read-only views of the solver's data that are only
+valid during the call, so copy them (`x.copy()`) if you need to modify or keep them.
+
 === "Python"
 
     ```python
@@ -55,23 +58,22 @@ interface each one requires.
         uint control_size() const override { return 1; }
         uint output_size() const override { return 2; }
 
-        VecX evaluate(const VecX &x, const VecX &u) const override
+        void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override
         {
-            VecX xn(2);
-            xn << x(0) + x(1) * 0.1, x(1) + u(0) * 0.1;
-            return xn;
+            out.resize(2);
+            out << x(0) + x(1) * 0.1, x(1) + u(0) * 0.1;
         }
 
-        void gradient(const VecX &x, const VecX &u, MatX &dX, MatX &dU) const override
+        void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX, MatX &dU) const override
         {
             dX = (MatX(2, 2) << 1.0, 0.1, 0.0, 1.0).finished();
             dU = (MatX(2, 1) << 0.0, 0.1).finished();
         }
 
         // Linear dynamics: all Hessian-vector products are zero.
-        void hessprod_xx(const VecX &, const VecX &, const VecX &, MatX &Pxx) const override { Pxx.setZero(2, 2); }
-        void hessprod_xu(const VecX &, const VecX &, const VecX &, MatX &Pxu) const override { Pxu.setZero(2, 1); }
-        void hessprod_uu(const VecX &, const VecX &, const VecX &, MatX &Puu) const override { Puu.setZero(1, 1); }
+        void hessprod_xx(ConstVecXRef, ConstVecXRef, ConstVecXRef, MatX &Pxx) const override { Pxx.setZero(2, 2); }
+        void hessprod_xu(ConstVecXRef, ConstVecXRef, ConstVecXRef, MatX &Pxu) const override { Pxu.setZero(2, 1); }
+        void hessprod_uu(ConstVecXRef, ConstVecXRef, ConstVecXRef, MatX &Puu) const override { Puu.setZero(1, 1); }
     };
     ```
 
@@ -336,9 +338,10 @@ the measured state and the planned one, taken in the tangent space of the dynami
     const MatX K  = mpc.feedbackGain(0);
     const auto &dynamics = model.dynamics()[0];
 
+    VecX dx;
     while (!solved_again())
     {
-        const VecX dx = dynamics->state_right_minus(read_state(), x.stage(0));
+        dynamics->state_right_minus(read_state(), x.stage(0), dx);
         apply_controls(u.stage(0) + K * dx);
     }
     ```

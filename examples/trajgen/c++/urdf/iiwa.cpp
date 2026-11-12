@@ -43,13 +43,13 @@ int main()
     }
 
     // Define cost using lambdas
-    auto cost_eval =
-      [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    auto cost_eval = [target](const Eigen::VectorXd &x,
+                              const Eigen::VectorXd &u,
+                              Eigen::Ref<Eigen::VectorXd>
+                                out)
     {
-        return (Eigen::Vector<double, 1>()
-                << U_WGT * u.transpose() * u +
-                     Q_WGT * (x.head(7) - target).squaredNorm())
-          .finished();
+        out[0] = U_WGT * u.transpose() * u +
+                 Q_WGT * (x.head(7) - target).squaredNorm();
     };
 
     // The derivative functions add to their outputs
@@ -87,13 +87,13 @@ int main()
                                                      cost_hess_uu);
 
     // Define terminal cost with a larger terminal weight
-    auto terminal_cost_eval =
-      [target](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    auto terminal_cost_eval = [target](const Eigen::VectorXd &x,
+                                       const Eigen::VectorXd &u,
+                                       Eigen::Ref<Eigen::VectorXd>
+                                         out)
     {
-        return (Eigen::Vector<double, 1>()
-                << TERM_WGT * (Q_WGT * (x.head(7) - target).squaredNorm() +
-                               x.tail(7).squaredNorm()))
-          .finished();
+        out[0] = TERM_WGT * (Q_WGT * (x.head(7) - target).squaredNorm() +
+                             x.tail(7).squaredNorm());
     };
 
     auto terminal_cost_grad = [target](const Eigen::VectorXd &x,

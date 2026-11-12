@@ -47,25 +47,31 @@ void MergedStageCost::set_stage_forces(
     }
 }
 
-VecX MergedStageCost::evaluate(const VecX &x, const VecX &u) const
+void MergedStageCost::evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const
+{
+    out.resize(1);
+    evaluate_into(x, u, out);
+}
+
+void MergedStageCost::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                    VecXRef out) const
 {
     const bool any_enabled = enabled();
 
-    Scalar out;
+    Scalar value;
     out[0] = 0.0;
 
     for (uint i = 0; i < _costs.size(); ++i)
     {
         if (_is_enabled(i, any_enabled))
         {
-            out += _costs[i]->evaluate(x, u);
+            _costs[i]->evaluate_into(x, u, value);
+            out[0] += value[0];
         }
     }
-
-    return out;
 }
 
-void MergedStageCost::gradient(const VecX &x, const VecX &u, VecX &dx,
+void MergedStageCost::gradient(ConstVecXRef x, ConstVecXRef u, VecX &dx,
                                VecX &du) const
 {
     const bool any_enabled = enabled();
@@ -90,7 +96,7 @@ void MergedStageCost::gradient(const VecX &x, const VecX &u, VecX &dx,
     }
 }
 
-void MergedStageCost::add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+void MergedStageCost::add_gradient(ConstVecXRef x, ConstVecXRef u, VecXRef dx,
                                    VecXRef du) const
 {
     const bool any_enabled = enabled();
@@ -104,34 +110,37 @@ void MergedStageCost::add_gradient(const VecX &x, const VecX &u, VecXRef dx,
     }
 }
 
-void MergedStageCost::hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const
+void MergedStageCost::hessian_xx(ConstVecXRef x, ConstVecXRef u,
+                                 MatX &Hxx) const
 {
     _sum_hessian(x, u, Hxx, &StageCost::hessian_xx, &StageCost::add_hessian_xx);
 }
 
-void MergedStageCost::hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const
+void MergedStageCost::hessian_xu(ConstVecXRef x, ConstVecXRef u,
+                                 MatX &Hxu) const
 {
     _sum_hessian(x, u, Hxu, &StageCost::hessian_xu, &StageCost::add_hessian_xu);
 }
 
-void MergedStageCost::hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const
+void MergedStageCost::hessian_uu(ConstVecXRef x, ConstVecXRef u,
+                                 MatX &Huu) const
 {
     _sum_hessian(x, u, Huu, &StageCost::hessian_uu, &StageCost::add_hessian_uu);
 }
 
-void MergedStageCost::add_hessian_xx(const VecX &x, const VecX &u,
+void MergedStageCost::add_hessian_xx(ConstVecXRef x, ConstVecXRef u,
                                      MatXRef Hxx) const
 {
     _add_hessian(x, u, Hxx, &StageCost::add_hessian_xx);
 }
 
-void MergedStageCost::add_hessian_xu(const VecX &x, const VecX &u,
+void MergedStageCost::add_hessian_xu(ConstVecXRef x, ConstVecXRef u,
                                      MatXRef Hxu) const
 {
     _add_hessian(x, u, Hxu, &StageCost::add_hessian_xu);
 }
 
-void MergedStageCost::add_hessian_uu(const VecX &x, const VecX &u,
+void MergedStageCost::add_hessian_uu(ConstVecXRef x, ConstVecXRef u,
                                      MatXRef Huu) const
 {
     _add_hessian(x, u, Huu, &StageCost::add_hessian_uu);
@@ -142,7 +151,7 @@ bool MergedStageCost::_is_enabled(const uint i, const bool any_enabled) const
     return any_enabled ? _costs[i]->enabled() : i == 0;
 }
 
-void MergedStageCost::_sum_hessian(const VecX &x, const VecX &u, MatX &H,
+void MergedStageCost::_sum_hessian(ConstVecXRef x, ConstVecXRef u, MatX &H,
                                    const HessianFunc    hessian,
                                    const AddHessianFunc add_hessian) const
 {
@@ -168,7 +177,7 @@ void MergedStageCost::_sum_hessian(const VecX &x, const VecX &u, MatX &H,
     }
 }
 
-void MergedStageCost::_add_hessian(const VecX &x, const VecX &u, MatXRef H,
+void MergedStageCost::_add_hessian(ConstVecXRef x, ConstVecXRef u, MatXRef H,
                                    const AddHessianFunc add_hessian) const
 {
     const bool any_enabled = enabled();
@@ -245,9 +254,16 @@ uint MergedStageConstraints::constraint_diff_size() const
     return ndc;
 }
 
-VecX MergedStageConstraints::right_minus(const VecX &x, const VecX &y) const
+void MergedStageConstraints::right_minus(ConstVecXRef x, ConstVecXRef y,
+                                         VecX &out) const
 {
-    VecX out(constraint_diff_size());
+    out.resize(constraint_diff_size());
+    right_minus_into(x, y, out);
+}
+
+void MergedStageConstraints::right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                              VecXRef out) const
+{
     uint row = 0, diff_row = 0;
 
     for (const auto &constraints : _constraints)
@@ -260,14 +276,13 @@ VecX MergedStageConstraints::right_minus(const VecX &x, const VecX &y) const
         const uint nc  = constraints->output_size();
         const uint ndc = constraints->constraint_diff_size();
 
-        out.segment(diff_row, ndc) =
-          constraints->right_minus(x.segment(row, nc), y.segment(row, nc));
+        constraints->right_minus_into(x.segment(row, nc),
+                                      y.segment(row, nc),
+                                      out.segment(diff_row, ndc));
 
         row      += nc;
         diff_row += ndc;
     }
-
-    return out;
 }
 
 const VecX &MergedStageConstraints::lower_bound() const
@@ -306,34 +321,9 @@ const VecX &MergedStageConstraints::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> MergedStageConstraints::state_only_rows() const
+void MergedStageConstraints::state_only_rows(std::vector<uint> &out) const
 {
-    std::vector<uint> rows;
-    uint              diff_row = 0;
-
-    for (const auto &constraints : _constraints)
-    {
-        if (!constraints->enabled())
-        {
-            continue;
-        }
-
-        for (const uint row : constraints->state_only_rows())
-        {
-            rows.push_back(diff_row + row);
-        }
-
-        diff_row += constraints->constraint_diff_size();
-    }
-
-    return rows;
-}
-
-std::vector<BoxRow> MergedStageConstraints::box_rows() const
-{
-    // Each box row is a different row, so there are at most as many as rows
-    std::vector<BoxRow> rows;
-    rows.reserve(constraint_diff_size());
+    out.clear();
     uint diff_row = 0;
 
     for (const auto &constraints : _constraints)
@@ -343,37 +333,65 @@ std::vector<BoxRow> MergedStageConstraints::box_rows() const
             continue;
         }
 
-        for (BoxRow box : constraints->box_rows())
+        constraints->state_only_rows(_state_only_rows_scratch);
+        for (const uint row : _state_only_rows_scratch)
         {
-            box.row += diff_row;
-            rows.push_back(box);
+            out.push_back(diff_row + row);
         }
 
         diff_row += constraints->constraint_diff_size();
     }
-
-    return rows;
 }
 
-VecX MergedStageConstraints::evaluate(const VecX &x, const VecX &u) const
+void MergedStageConstraints::box_rows(std::vector<BoxRow> &out) const
 {
-    VecX out(output_size());
+    // Each box row is a different row, so there are at most as many as rows
+    out.clear();
+    out.reserve(constraint_diff_size());
+    uint diff_row = 0;
+
+    for (const auto &constraints : _constraints)
+    {
+        if (!constraints->enabled())
+        {
+            continue;
+        }
+
+        constraints->box_rows(_box_rows_scratch);
+        for (BoxRow box : _box_rows_scratch)
+        {
+            box.row += diff_row;
+            out.push_back(box);
+        }
+
+        diff_row += constraints->constraint_diff_size();
+    }
+}
+
+void MergedStageConstraints::evaluate(ConstVecXRef x, ConstVecXRef u,
+                                      VecX &out) const
+{
+    out.resize(output_size());
+    evaluate_into(x, u, out);
+}
+
+void MergedStageConstraints::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                           VecXRef out) const
+{
     uint row = 0;
 
     for (const auto &constraints : _constraints)
     {
         if (constraints->enabled())
         {
-            const uint nc         = constraints->output_size();
-            out.segment(row, nc)  = constraints->evaluate(x, u);
-            row                  += nc;
+            const uint nc = constraints->output_size();
+            constraints->evaluate_into(x, u, out.segment(row, nc));
+            row += nc;
         }
     }
-
-    return out;
 }
 
-void MergedStageConstraints::gradient(const VecX &x, const VecX &u, MatX &dX,
+void MergedStageConstraints::gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                                       MatX &dU) const
 {
     const uint ndc   = constraint_diff_size();
@@ -416,7 +434,7 @@ void MergedStageConstraints::gradient(const VecX &x, const VecX &u, MatX &dX,
     }
 }
 
-void MergedStageConstraints::add_gradient(const VecX &x, const VecX &u,
+void MergedStageConstraints::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                           MatXRef dX, MatXRef dU) const
 {
     uint row = 0;
@@ -437,8 +455,8 @@ void MergedStageConstraints::add_gradient(const VecX &x, const VecX &u,
     }
 }
 
-void MergedStageConstraints::hessprod_xx(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatX &Pxx) const
+void MergedStageConstraints::hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                         ConstVecXRef mu, MatX &Pxx) const
 {
     _sum_hessprod(x,
                   u,
@@ -448,8 +466,8 @@ void MergedStageConstraints::hessprod_xx(const VecX &x, const VecX &u,
                   &StageConstraints::add_hessprod_xx);
 }
 
-void MergedStageConstraints::hessprod_xu(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatX &Pxu) const
+void MergedStageConstraints::hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                         ConstVecXRef mu, MatX &Pxu) const
 {
     _sum_hessprod(x,
                   u,
@@ -459,8 +477,8 @@ void MergedStageConstraints::hessprod_xu(const VecX &x, const VecX &u,
                   &StageConstraints::add_hessprod_xu);
 }
 
-void MergedStageConstraints::hessprod_uu(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatX &Puu) const
+void MergedStageConstraints::hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                         ConstVecXRef mu, MatX &Puu) const
 {
     _sum_hessprod(x,
                   u,
@@ -470,26 +488,26 @@ void MergedStageConstraints::hessprod_uu(const VecX &x, const VecX &u,
                   &StageConstraints::add_hessprod_uu);
 }
 
-void MergedStageConstraints::add_hessprod_xx(const VecX &x, const VecX &u,
-                                             const VecX &mu, MatXRef Pxx) const
+void MergedStageConstraints::add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                             ConstVecXRef mu, MatXRef Pxx) const
 {
     _add_hessprod(x, u, mu, Pxx, &StageConstraints::add_hessprod_xx);
 }
 
-void MergedStageConstraints::add_hessprod_xu(const VecX &x, const VecX &u,
-                                             const VecX &mu, MatXRef Pxu) const
+void MergedStageConstraints::add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                             ConstVecXRef mu, MatXRef Pxu) const
 {
     _add_hessprod(x, u, mu, Pxu, &StageConstraints::add_hessprod_xu);
 }
 
-void MergedStageConstraints::add_hessprod_uu(const VecX &x, const VecX &u,
-                                             const VecX &mu, MatXRef Puu) const
+void MergedStageConstraints::add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                             ConstVecXRef mu, MatXRef Puu) const
 {
     _add_hessprod(x, u, mu, Puu, &StageConstraints::add_hessprod_uu);
 }
 
 void MergedStageConstraints::_sum_hessprod(
-  const VecX &x, const VecX &u, const VecX &mu, MatX &P,
+  ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu, MatX &P,
   const HessprodFunc hessprod, const AddHessprodFunc add_hessprod) const
 {
     bool first = true;
@@ -531,7 +549,7 @@ void MergedStageConstraints::_sum_hessprod(
 }
 
 void MergedStageConstraints::_add_hessprod(
-  const VecX &x, const VecX &u, const VecX &mu, MatXRef P,
+  ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu, MatXRef P,
   const AddHessprodFunc add_hessprod) const
 {
     uint row = 0;

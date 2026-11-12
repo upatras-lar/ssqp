@@ -56,11 +56,11 @@ void Search::_armijo_line_search(const VecX &gradient, const VecX &dTheta_log,
 
         double new_cost = 0.0;
 
+        VecX f, r_i;
         for (const auto &p : _data)
         {
-            VecX r_i =
-              _dynamics->state_right_minus(p.x_actual,
-                                           _dynamics->evaluate(p.x_prev, p.u));
+            _dynamics->evaluate(p.x_prev, p.u, f);
+            _dynamics->state_right_minus(p.x_actual, f, r_i);
 
             new_cost += 0.5 * r_i.squaredNorm();
         }
@@ -108,9 +108,11 @@ bool GradientDescent::_search()
 
         uint row = i * _state_size;
 
-        r.segment(row, _state_size) =
-          _dynamics->state_right_minus(p.x_actual,
-                                       _dynamics->evaluate(p.x_prev, p.u));
+        VecX f;
+        _dynamics->evaluate(p.x_prev, p.u, f);
+        _dynamics->state_right_minus_into(p.x_actual,
+                                          f,
+                                          r.segment(row, _state_size));
 
         J.block(row, 0, _state_size, _param_size) =
           -_dynamics->parameter_gradient(p.x_prev, p.u);
@@ -197,9 +199,11 @@ bool GaussNewton::_search()
         const DataPoint &p       = _data[i];
         uint             row_idx = i * _state_size;
 
-        _r.segment(row_idx, _state_size) =
-          _dynamics->state_right_minus(p.x_actual,
-                                       _dynamics->evaluate(p.x_prev, p.u));
+        VecX f;
+        _dynamics->evaluate(p.x_prev, p.u, f);
+        _dynamics->state_right_minus_into(p.x_actual,
+                                          f,
+                                          _r.segment(row_idx, _state_size));
 
         // Use precalculated jacobians
         _J.block(i * _state_size, 0, _state_size, _param_size) = -jacobians[i];

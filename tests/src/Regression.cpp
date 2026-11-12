@@ -270,7 +270,12 @@ void costToggling()
     merged->add(c);
     const VecX x = VecX::Constant(1, 2.0), u = VecX::Constant(1, 0.0);
     // Each enabled cost contributes 0.5 * |x|^2 = 2
-    auto value = [&]() { return merged->evaluate(x, u)[0]; };
+    auto value = [&]()
+    {
+        VecX l;
+        merged->evaluate(x, u, l);
+        return l[0];
+    };
     auto grad  = [&]()
     {
         VecX dx, du;
@@ -348,9 +353,9 @@ class ScaledRows : public model::stagewise::StageConstraints
     {
         return _ndc;
     }
-    VecX right_minus(const VecX &x, const VecX &y) const override
+    void right_minus(ConstVecXRef x, ConstVecXRef y, VecX &out) const override
     {
-        return (x - y).head(_ndc);
+        out = (x - y).head(_ndc);
     }
     const VecX &lower_bound() const override
     {
@@ -360,26 +365,26 @@ class ScaledRows : public model::stagewise::StageConstraints
     {
         return _ub;
     }
-    VecX evaluate(const VecX &x, const VecX &) const override
+    void evaluate(ConstVecXRef x, ConstVecXRef, VecX &out) const override
     {
-        return _s * x[0] * VecX::LinSpaced(_n, 1.0, _n);
+        out = _s * x[0] * VecX::LinSpaced(_n, 1.0, _n);
     }
-    void gradient(const VecX &, const VecX &, MatX &dx, MatX &du) const override
+    void gradient(ConstVecXRef, ConstVecXRef, MatX &dx, MatX &du) const override
     {
         dx = _s * VecX::LinSpaced(_ndc, 1.0, _ndc);
         du = MatX::Constant(_ndc, 1, -_s);
     }
-    void hessprod_xx(const VecX &, const VecX &, const VecX &mu,
+    void hessprod_xx(ConstVecXRef, ConstVecXRef, ConstVecXRef mu,
                      MatX &h) const override
     {
         h = MatX::Constant(1, 1, _s * mu.sum());
     }
-    void hessprod_xu(const VecX &, const VecX &, const VecX &mu,
+    void hessprod_xu(ConstVecXRef, ConstVecXRef, ConstVecXRef mu,
                      MatX &h) const override
     {
         h = MatX::Constant(1, 1, 2.0 * _s * mu.sum());
     }
-    void hessprod_uu(const VecX &, const VecX &, const VecX &mu,
+    void hessprod_uu(ConstVecXRef, ConstVecXRef, ConstVecXRef mu,
                      MatX &h) const override
     {
         h = MatX::Constant(1, 1, 3.0 * _s * mu.sum());
@@ -439,11 +444,12 @@ void mergedConstraintStacking()
             const uint n = p->output_size(), nd = p->constraint_diff_size();
             MatX       gx, gu, h;
 
-            value.segment(row, n) = p->evaluate(x, u);
-            lb.segment(row, n)    = p->lower_bound();
-            ub.segment(row, n)    = p->upper_bound();
-            diff.segment(diff_row, nd) =
-              p->right_minus(p->evaluate(x, u), p->lower_bound());
+            p->evaluate_into(x, u, value.segment(row, n));
+            lb.segment(row, n) = p->lower_bound();
+            ub.segment(row, n) = p->upper_bound();
+            p->right_minus_into(value.segment(row, n),
+                                p->lower_bound(),
+                                diff.segment(diff_row, nd));
 
             p->gradient(x, u, gx, gu);
             dX.middleRows(diff_row, nd) = gx;
@@ -464,11 +470,11 @@ void mergedConstraintStacking()
         require(merged.constraint_diff_size() == ndc, label + ": diff size");
         require(same(merged.lower_bound(), lb), label + ": lower bound");
         require(same(merged.upper_bound(), ub), label + ": upper bound");
-        require(same(merged.evaluate(x, u), value), label + ": value");
-        require(
-          same(merged.right_minus(merged.evaluate(x, u), merged.lower_bound()),
-               diff),
-          label + ": difference");
+        VecX mc, md;
+        merged.evaluate(x, u, mc);
+        merged.right_minus(mc, merged.lower_bound(), md);
+        require(same(mc, value), label + ": value");
+        require(same(md, diff), label + ": difference");
 
         MatX mX, mU, P;
         merged.gradient(x, u, mX, mU);
@@ -627,7 +633,7 @@ void finalizeInitControlsContract()
 // one (manifold difference via Pinocchio)
 void dDifferenceMatchesFiniteDifferenceOfDifference()
 {
-    auto check = [](const model::Model &model, const VecX &q0, const VecX &q1)
+    auto check = [](const model::Model &model, ConstVecXRef q0, ConstVecXRef q1)
     {
         const uint n  = static_cast<uint>(q0.size());
         MatX       J0 = MatX::Zero(n, n), J1 = MatX::Zero(n, n);
@@ -712,30 +718,27 @@ void innateTorqueBoundsAreEnforced()
     auto constraint = model->constraints()[0];
     require(constraint != nullptr, "Non-terminal stage has innate constraints");
 
-    const VecX &lb        = constraint->lower_bound();
-    const VecX &ub        = constraint->upper_bound();
-    auto        satisfies = [&](const VecX &c)
+    const VecX &lb = constraint->lower_bound();
+    const VecX &ub = constraint->upper_bound();
+    const VecX  x  = VecX::Zero(model->nq() + model->nv());
+
+    // Whether a constant control of tau on every joint satisfies the constraint
+    auto satisfies = [&](double tau)
     {
+        VecX c;
+        constraint->evaluate(x, VecX::Constant(model->nu(), tau), c);
         return (c.array() >= lb.array() - 1e-9).all() &&
                (c.array() <= ub.array() + 1e-9).all();
     };
 
-    const VecX x = VecX::Zero(model->nq() + model->nv());
-
-    require(satisfies(
-              constraint->evaluate(x, VecX::Constant(model->nu(), tau_bound))),
+    require(satisfies(tau_bound),
             "A control at +tau_bound must satisfy the torque constraint");
-    require(satisfies(
-              constraint->evaluate(x, VecX::Constant(model->nu(), -tau_bound))),
+    require(satisfies(-tau_bound),
             "A control at -tau_bound must satisfy the torque constraint");
-    require(
-      !satisfies(
-        constraint->evaluate(x, VecX::Constant(model->nu(), 1.1 * tau_bound))),
-      "A control above +tau_bound must violate the torque constraint");
-    require(
-      !satisfies(
-        constraint->evaluate(x, VecX::Constant(model->nu(), -1.1 * tau_bound))),
-      "A control below -tau_bound must violate the torque constraint");
+    require(!satisfies(1.1 * tau_bound),
+            "A control above +tau_bound must violate the torque constraint");
+    require(!satisfies(-1.1 * tau_bound),
+            "A control below -tau_bound must violate the torque constraint");
 }
 
 // On a floating-base model the joint control constraint must bound the first
@@ -763,7 +766,9 @@ void jointControlConstraintBoundsFirstControls()
         u.tail(3).setConstant(100.0);
         const VecX x = VecX::Zero(model.nq() + model.nv());
 
-        require(constraint.evaluate(x, u).isApprox(u.head(nu)),
+        VecX c;
+        constraint.evaluate(x, u, c);
+        require(c.isApprox(u.head(nu)),
                 "The constraint must evaluate to the first nu controls");
 
         MatX dX, dU;
@@ -807,8 +812,9 @@ void costSeesForcesAddedLater()
 
     const VecX tau =
       model.getActuatedTorqueVector(x, u, model.forces(0), model.wrenches(0));
-    require(std::abs(cost->evaluate(x, u)[0] - 0.5 * tau.squaredNorm()) <
-              1e-9 * tau.squaredNorm(),
+    VecX l;
+    cost->evaluate(x, u, l);
+    require(std::abs(l[0] - 0.5 * tau.squaredNorm()) < 1e-9 * tau.squaredNorm(),
             "The torque cost must include forces added after it was built");
 }
 
@@ -913,8 +919,10 @@ void heightmapSetHeightsMatchesNewTerrain()
     require(std::abs(old_terrain.at(pos[0], pos[1]).height -
                      expected.at(pos[0], pos[1]).height) > 1e-3,
             "The test grids must differ at the foot");
-    require(std::abs(contact->evaluate(x, u)[5] -
-                     (pos[2] - expected.at(pos[0], pos[1]).height)) < 1e-12,
+    VecX c;
+    contact->evaluate(x, u, c);
+    require(std::abs(c[5] - (pos[2] - expected.at(pos[0], pos[1]).height)) <
+              1e-12,
             "The contact constraint must use the new heights");
 }
 
@@ -951,20 +959,24 @@ void contactTerrainOverridesModelTerrain()
     x.tail(flat_model.nv()).setConstant(0.1);
     VecX u                     = VecX::Zero(flat_model.nu() + 3);
     u.tail<3>()                = Vec3(5.0, -3.0, 60.0);
-    const VecX flat_evaluation = contact->evaluate(x, u);
+    VecX flat_evaluation, c, expected_c;
+    contact->evaluate(x, u, flat_evaluation);
 
     contact->set_terrain(slope);
     MatX dX, dU, expected_dX, expected_dU;
     contact->gradient(x, u, dX, dU);
     expected->gradient(x, u, expected_dX, expected_dU);
-    require(contact->evaluate(x, u).isApprox(expected->evaluate(x, u)),
+    contact->evaluate(x, u, c);
+    expected->evaluate(x, u, expected_c);
+    require(c.isApprox(expected_c),
             "A contact's own terrain must replace the model's terrain");
     require(dX.isApprox(expected_dX) && dU.isApprox(expected_dU),
             "A contact's own terrain must replace the model's terrain in its "
             "gradient");
 
     contact->set_terrain(nullptr);
-    require(contact->evaluate(x, u).isApprox(flat_evaluation),
+    contact->evaluate(x, u, c);
+    require(c.isApprox(flat_evaluation),
             "Clearing a contact's terrain must restore the model's terrain");
 }
 
@@ -1226,27 +1238,27 @@ class StateBound : public model::stagewise::StageConstraints
     {
         return _ub;
     }
-    VecX evaluate(const VecX &x, const VecX &) const override
+    void evaluate(ConstVecXRef x, ConstVecXRef, VecX &out) const override
     {
-        return x;
+        out = x;
     }
-    void gradient(const VecX &, const VecX &u, MatX &dx,
+    void gradient(ConstVecXRef, ConstVecXRef u, MatX &dx,
                   MatX &du) const override
     {
         dx = MatX::Ones(1, 1);
         du = MatX::Zero(1, u.size());
     }
-    void hessprod_xx(const VecX &, const VecX &, const VecX &,
+    void hessprod_xx(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
     }
-    void hessprod_xu(const VecX &, const VecX &, const VecX &,
+    void hessprod_xu(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
     }
-    void hessprod_uu(const VecX &, const VecX &, const VecX &,
+    void hessprod_uu(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
@@ -1344,9 +1356,9 @@ class StateOnlyBound : public StateBound
 {
   public:
     using StateBound::StateBound;
-    std::vector<uint> state_only_rows() const override
+    void state_only_rows(std::vector<uint> &out) const override
     {
-        return { 0 };
+        out = { 0 };
     }
 };
 
@@ -1396,21 +1408,22 @@ class ScaledStateBound : public StateOnlyBound
         set_lower_bound(scale * _lb);
         set_upper_bound(scale * _ub);
     }
-    std::vector<model::BoxRow> box_rows() const override
+    void box_rows(std::vector<model::BoxRow> &out) const override
     {
         if (_scale != 1.0)
         {
-            return {};
+            out.clear();
+            return;
         }
-        return {
+        out = {
             { 0, 0, false }
         };
     }
-    VecX evaluate(const VecX &x, const VecX &) const override
+    void evaluate(ConstVecXRef x, ConstVecXRef, VecX &out) const override
     {
-        return _scale * x;
+        out = _scale * x;
     }
-    void gradient(const VecX &, const VecX &u, MatX &dx,
+    void gradient(ConstVecXRef, ConstVecXRef u, MatX &dx,
                   MatX &du) const override
     {
         dx = MatX::Constant(1, 1, _scale);
@@ -1557,7 +1570,9 @@ void stateOnlyRowsMatchGradients(const model::SolverMode mode)
         constraints->gradient(x, u, dX, dU);
 
         std::vector<bool> declared(dU.rows(), false);
-        for (const uint row : constraints->state_only_rows())
+        std::vector<uint> rows;
+        constraints->state_only_rows(rows);
+        for (const uint row : rows)
         {
             require(row < dU.rows(),
                     label + ": row " + std::to_string(row) + " out of range");
@@ -1651,8 +1666,10 @@ void boxRowsMatchGradients(const model::SolverMode mode)
         MatX dX, dU;
         constraints->gradient(x, u, dX, dU);
 
-        std::vector<bool> declared(dX.rows(), false);
-        for (const model::BoxRow &box : constraints->box_rows())
+        std::vector<bool>          declared(dX.rows(), false);
+        std::vector<model::BoxRow> boxes;
+        constraints->box_rows(boxes);
+        for (const model::BoxRow &box : boxes)
         {
             const std::string name = label + ": row " + std::to_string(box.row);
             require(box.row < dX.rows(), name + " out of range");
@@ -1802,8 +1819,8 @@ void kinematicsCachesMatchFreshModel()
     // Each kind of query, with its result flattened into a matrix
     auto query = [&](const model::Model &m,
                      uint kind,
-                     const VecX &q,
-                     const VecX &v,
+                     ConstVecXRef q,
+                     ConstVecXRef v,
                      uint frame) -> MatX
     {
         switch (kind)
@@ -1971,16 +1988,19 @@ void dynamicsCachesMatchFreshModel(const model::SolverMode mode)
                                              10.0 * x.tail<6>());
 
         MatX dX, dU;
+        VecX f;
 
         switch (kind)
         {
         case 0:
-            return m.dynamics()[k]->evaluate(x, u);
+            m.dynamics()[k]->evaluate(x, u, f);
+            return f;
         case 1:
             m.dynamics()[k]->gradient(x, u, dX, dU);
             break;
         case 2:
-            return m.constraints()[k]->evaluate(x, u);
+            m.constraints()[k]->evaluate(x, u, f);
+            return f;
         case 3:
             m.constraints()[k]->gradient(x, u, dX, dU);
             break;

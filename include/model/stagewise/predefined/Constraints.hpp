@@ -15,6 +15,41 @@ namespace predefined
 {
 namespace constraints
 {
+// Base of the predefined constraints, which implement the methods that write
+// to or add to outputs that are already sized
+// The methods that set their outputs size them and call those, and the
+// Hessian products default to zero
+class PredefinedStageConstraints : public StageConstraints
+{
+  public:
+    PredefinedStageConstraints(const Model &model, const std::string &name);
+
+    void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override;
+    void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
+                  MatX &dU) const override;
+    void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
+                     MatX &Pxx) const override;
+    void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
+                     MatX &Pxu) const override;
+    void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
+                     MatX &Puu) const override;
+
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override = 0;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
+                      MatXRef dU) const override   = 0;
+    void add_hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
+                         MatXRef Pxx) const override;
+    void add_hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
+                         MatXRef Pxu) const override;
+    void add_hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
+                         MatXRef Puu) const override;
+
+  protected:
+    // Size of the state difference
+    const uint _ndx;
+};
+
 /** Predefined joint angle constraint
  *
  * Creates a constraint on the joint angles of the model
@@ -30,7 +65,7 @@ namespace constraints
  *  - The model joint configuration is the first part of the state vector (size 
  *    `model.nq()`), appearing after the floating base (if present)
  */
-class JointAngleConstraint : public StageConstraints
+class JointAngleConstraint : public PredefinedStageConstraints
 {
   public:
     JointAngleConstraint(const Model &model, const VecX &lb, const VecX &ub,
@@ -43,33 +78,18 @@ class JointAngleConstraint : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint>   state_only_rows() const override;
-    std::vector<BoxRow> box_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
+    void box_rows(std::vector<BoxRow> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     VecX       _lb, _ub;
     const bool _free_flyer;
-    const uint _nv, _njoints, _ndx;
+    const uint _nv, _njoints;
 };
 
 /** Predefined joint velocity constraint
@@ -87,7 +107,7 @@ class JointAngleConstraint : public StageConstraints
  *  - The model joint velocity is the final part of the state vector (size
  *    `model.nv()`)
  */
-class JointVelocityConstraint : public StageConstraints
+class JointVelocityConstraint : public PredefinedStageConstraints
 {
   public:
     JointVelocityConstraint(const Model &model, const VecX &lb, const VecX &ub,
@@ -100,28 +120,13 @@ class JointVelocityConstraint : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint>   state_only_rows() const override;
-    std::vector<BoxRow> box_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
+    void box_rows(std::vector<BoxRow> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     VecX       _lb, _ub;
@@ -146,7 +151,7 @@ class JointVelocityConstraint : public StageConstraints
  *  - The model control is the first part of the control vector (size 
  *    `model.nu()`)
  */
-class JointControlConstraint : public StageConstraints
+class JointControlConstraint : public PredefinedStageConstraints
 {
   public:
     JointControlConstraint(const Model &model, const VecX &lb, const VecX &ub,
@@ -159,31 +164,16 @@ class JointControlConstraint : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<BoxRow> box_rows() const override;
+    void box_rows(std::vector<BoxRow> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     VecX       _lb, _ub;
-    const uint _nv, _nu, _ndx;
+    const uint _nv, _nu;
 };
 
 /** Floating base position bound constraint
@@ -203,7 +193,7 @@ class JointControlConstraint : public StageConstraints
  *  - The Model contains a floating-base where the base position is the first
  *    part of the configuration vector (first 3 elements of size `model.nq()`)
  */
-class FloatingBaseTranslationBound : public StageConstraints
+class FloatingBaseTranslationBound : public PredefinedStageConstraints
 {
   public:
     FloatingBaseTranslationBound(
@@ -221,31 +211,16 @@ class FloatingBaseTranslationBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model   *_model;
-    const uint     _nq, _nv, _ndx;
+    const uint     _nq, _nv;
     VecX           _lb, _ub;
     ReferenceFrame _reference_frame;
     Vec3           _center;
@@ -267,7 +242,7 @@ class FloatingBaseTranslationBound : public StageConstraints
  *  - The floating base orientation is represented as a rotation matrix in SE(3)
  *    and can be extracted from the base pose in the system state
  */
-class FloatingBaseRotationBound : public StageConstraints
+class FloatingBaseRotationBound : public PredefinedStageConstraints
 {
   public:
     FloatingBaseRotationBound(const Model &model, const Mat3 &Rref,
@@ -285,31 +260,16 @@ class FloatingBaseRotationBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model *_model;
-    const uint   _nq, _nv, _ndx;
+    const uint   _nq, _nv;
     Mat3         _Rref;
     VecX         _lb, _ub;
 };
@@ -331,7 +291,7 @@ class FloatingBaseRotationBound : public StageConstraints
  *  - The floating base pose is represented as an SE(3) transform and can be
  *    extracted from the base state in the system model
  */
-class FloatingBasePoseBound : public StageConstraints
+class FloatingBasePoseBound : public PredefinedStageConstraints
 {
   public:
     FloatingBasePoseBound(const Model &model, const Mat4 &Tref,
@@ -356,31 +316,16 @@ class FloatingBasePoseBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model *_model;
-    const uint   _nq, _nv, _ndx;
+    const uint   _nq, _nv;
     Mat4         _Tref, _Tref_inv;
     VecX         _lb, _ub;
 };
@@ -402,7 +347,7 @@ class FloatingBasePoseBound : public StageConstraints
  *  - The model joint velocity is the final part of the state vector (size
  *    `model.nv()`)
  */
-class FloatingBaseLinearVelocityBound : public StageConstraints
+class FloatingBaseLinearVelocityBound : public PredefinedStageConstraints
 {
   public:
     FloatingBaseLinearVelocityBound(
@@ -419,35 +364,20 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
     // The rows are boxes only in the Local and Base frames, since in the
     // others they depend on the base rotation
-    std::vector<BoxRow> box_rows() const override;
+    void box_rows(std::vector<BoxRow> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model   *_model;
-    const uint     _nq, _nv, _ndx;
+    const uint     _nq, _nv;
     VecX           _lb, _ub;
     ReferenceFrame _reference_frame;
 };
@@ -469,7 +399,7 @@ class FloatingBaseLinearVelocityBound : public StageConstraints
  *  - The model joint velocity is the final part of the state vector (size
  *    `model.nv()`)
  */
-class FloatingBaseAngularVelocityBound : public StageConstraints
+class FloatingBaseAngularVelocityBound : public PredefinedStageConstraints
 {
   public:
     FloatingBaseAngularVelocityBound(
@@ -486,35 +416,20 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
     // The rows are boxes only in the Local and Base frames, since in the
     // others they depend on the base rotation
-    std::vector<BoxRow> box_rows() const override;
+    void box_rows(std::vector<BoxRow> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model   *_model;
-    const uint     _nq, _nv, _ndx;
+    const uint     _nq, _nv;
     VecX           _lb, _ub;
     ReferenceFrame _reference_frame;
 };
@@ -536,7 +451,7 @@ class FloatingBaseAngularVelocityBound : public StageConstraints
  *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
-class FrameTranslationBound : public StageConstraints
+class FrameTranslationBound : public PredefinedStageConstraints
 {
   public:
     // Regular constructor
@@ -556,31 +471,16 @@ class FrameTranslationBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
-    const uint        _nq, _nv, _ndx;
+    const uint        _nq, _nv;
     const std::string _frame;
     const uint        _frame_id;
     VecX              _lb, _ub;
@@ -603,7 +503,7 @@ class FrameTranslationBound : public StageConstraints
  *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
-class FrameTerrainHeightBound : public StageConstraints
+class FrameTerrainHeightBound : public PredefinedStageConstraints
 {
   public:
     FrameTerrainHeightBound(const Model &model, const std::string &frame,
@@ -618,31 +518,16 @@ class FrameTerrainHeightBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
-    const uint        _nq, _nv, _ndx;
+    const uint        _nq, _nv;
     const std::string _frame;
     const uint        _frame_id;
     VecX              _lb, _ub;
@@ -663,7 +548,7 @@ class FrameTerrainHeightBound : public StageConstraints
  *  - The model joint configuration is the first part of the state vector (size 
  *    `model.nq()`)
  */
-class FrameRotationBound : public StageConstraints
+class FrameRotationBound : public PredefinedStageConstraints
 {
   public:
     FrameRotationBound(const Model &model, const std::string &frame,
@@ -681,31 +566,16 @@ class FrameRotationBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
-    const uint        _nq, _nv, _ndx;
+    const uint        _nq, _nv;
     const std::string _frame;
     const uint        _frame_id;
     Mat3              _Rref;
@@ -727,7 +597,7 @@ class FrameRotationBound : public StageConstraints
  *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
-class FramePoseBound : public StageConstraints
+class FramePoseBound : public PredefinedStageConstraints
 {
   public:
     FramePoseBound(const Model &model, const std::string &frame,
@@ -751,31 +621,16 @@ class FramePoseBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
-    const uint        _nq, _nv, _ndx;
+    const uint        _nq, _nv;
     const std::string _frame;
     const uint        _frame_id;
     Mat4              _Tref, _Tref_inv;
@@ -799,7 +654,7 @@ class FramePoseBound : public StageConstraints
  *  - The model joint velocity is the final part of the state vector (size
  *    `model.nv()`)
  */
-class FrameLinearVelocityBound : public StageConstraints
+class FrameLinearVelocityBound : public PredefinedStageConstraints
 {
   public:
     // Regular constructor
@@ -818,31 +673,16 @@ class FrameLinearVelocityBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
-    const uint        _nq, _nv, _ndx;
+    const uint        _nq, _nv;
     const std::string _frame;
     const uint        _frame_id;
     VecX              _lb, _ub;
@@ -867,7 +707,7 @@ class FrameLinearVelocityBound : public StageConstraints
  *  - The model joint velocity is the final part of the state vector (size
  *    `model.nv()`)
  */
-class FrameAngularVelocityBound : public StageConstraints
+class FrameAngularVelocityBound : public PredefinedStageConstraints
 {
   public:
     // Regular constructor
@@ -886,31 +726,16 @@ class FrameAngularVelocityBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model      *_model;
-    const uint        _nq, _nv, _ndx;
+    const uint        _nq, _nv;
     const std::string _frame;
     const uint        _frame_id;
     VecX              _lb, _ub;
@@ -934,7 +759,7 @@ class FrameAngularVelocityBound : public StageConstraints
  *  - The model joint configuration is the first part of the state vector (size
  *    `model.nq()`)
  */
-class CenterOfMassBound : public StageConstraints
+class CenterOfMassBound : public PredefinedStageConstraints
 {
   public:
     CenterOfMassBound(
@@ -952,31 +777,16 @@ class CenterOfMassBound : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model   *_model;
-    const uint     _nq, _nv, _ndx;
+    const uint     _nq, _nv;
     VecX           _lb, _ub;
     ReferenceFrame _reference_frame;
     Vec3           _center;
@@ -1010,7 +820,7 @@ class CenterOfMassBound : public StageConstraints
  * template type `ContactConstraint`. In that case, adding and assigning of the
  * force will be handled automatically.
  */
-class ContactConstraint : public StageConstraints
+class ContactConstraint : public PredefinedStageConstraints
 {
   public:
     ContactConstraint(
@@ -1045,27 +855,12 @@ class ContactConstraint : public StageConstraints
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
-                  MatX &dU) const override;
-
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                     MatX &Puu) const override;
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                         MatXRef Puu) const override;
 
   protected:
     const Model                      *_model;

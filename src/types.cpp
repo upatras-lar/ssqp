@@ -113,7 +113,7 @@ const Mat3 &ReferenceFrame::rotation() const
     return _rotation;
 }
 
-Mat3 ReferenceFrame::axes(const VecX &x) const
+Mat3 ReferenceFrame::axes(ConstVecXRef x) const
 {
     if (_type == Base)
     {
@@ -156,7 +156,7 @@ int sgn(double val)
     return (0.0 < val) - (val < 0.0);
 }
 
-double softmax_max(const VecX &v, double alpha)
+double softmax_max(ConstVecXRef v, double alpha)
 {
     const double m = v.maxCoeff();
     return m + std::log((alpha * (v.array() - m)).exp().sum()) / alpha;
@@ -268,7 +268,7 @@ Eigen::VectorBlock<VecX> FlatVec::stage(const uint k)
     return vec.segment(_acc_idx[k], _stage_sizes[k]);
 }
 
-const VecX FlatVec::stage(const uint k) const
+ConstVecXBlock FlatVec::stage(const uint k) const
 {
     return vec.segment(_acc_idx[k], _stage_sizes[k]);
 }

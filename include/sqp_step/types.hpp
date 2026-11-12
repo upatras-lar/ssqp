@@ -14,26 +14,24 @@ namespace ssqp
 namespace step
 {
 
+// A trajectory, or a step of one, viewed in place
 struct Point
 {
-    solvers::FlatVec x, u;
+    const solvers::FlatVec &x, &u;
 
-    // If copy is true, x/u are copied from the given vectors
-    // Otherwise, a zero-initialized Point of the same size is constructed
-    Point(const solvers::FlatVec &x, const solvers::FlatVec &u,
-          bool copy = true);
-
-    Point &operator=(const Point &p);
-
-    // Writes (this ⊕ alpha * offset) into `out`, using the dynamics' manifold
-    // right-plus for the state part
-    // `scaled_offset` is scratch storage for alpha * offset, scaled as a
-    // single whole-vector pass rather than per-stage so it stays vectorized
-    // Does not allocate, `out`/`scaled_offset` must already be sized like
-    // `this`/`offset`
+    // Writes (this ⊕ alpha * offset) into `x_out`/`u_out`, using the
+    // dynamics' manifold right-plus for the state part
+    // `scaled_dx`/`scaled_du` are scratch storage for alpha * offset, scaled
+    // as a single whole-vector pass rather than per-stage so it stays
+    // vectorized
+    // Does not allocate, the outputs and the scratch must already be sized
+    // like `this` and `offset`
     void dynamics_add_scaled(double alpha, const Point &offset,
                              const model::DynamicsContainer &dynamics,
-                             Point &scaled_offset, Point &out) const;
+                             solvers::FlatVec               &scaled_dx,
+                             solvers::FlatVec               &scaled_du,
+                             solvers::FlatVec               &x_out,
+                             solvers::FlatVec               &u_out) const;
 
     double infNorm();
 };

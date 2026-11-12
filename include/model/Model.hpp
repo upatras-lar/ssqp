@@ -425,39 +425,41 @@ class Model
 
     // Perform forward kinematics with the XML model dynamics
     const std::pair<Vec3, Mat3> forwardKinematics(
-      const VecX &q, const std::string &frame) const;
+      ConstVecXRef q, const std::string &frame) const;
 
-    const std::pair<Vec3, Mat3> forwardKinematics(const VecX &q,
-                                                  const uint  frame_id) const;
+    const std::pair<Vec3, Mat3> forwardKinematics(ConstVecXRef q,
+                                                  const uint   frame_id) const;
 
-    const Mat4 forwardKinematicsSE3(const VecX        &q,
+    const Mat4 forwardKinematicsSE3(ConstVecXRef       q,
                                     const std::string &frame) const;
 
-    const Mat4 forwardKinematicsSE3(const VecX &q, const uint frame_id) const;
+    const Mat4 forwardKinematicsSE3(ConstVecXRef q, const uint frame_id) const;
 
     // Get the velocity for a given frame
-    const Vec6 frameVelocity(const VecX &q, const VecX &v,
+    const Vec6 frameVelocity(ConstVecXRef q, ConstVecXRef v,
                              const std::string &frame,
                              bool               local = false) const;
 
-    const Vec6 frameVelocity(const VecX &q, const VecX &v, const uint frame_id,
-                             bool local = false) const;
+    const Vec6 frameVelocity(ConstVecXRef q, ConstVecXRef v,
+                             const uint frame_id, bool local = false) const;
 
-    std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &q, const VecX &v,
+    std::pair<MatX, MatX> frameVelocityDerivatives(ConstVecXRef       q,
+                                                   ConstVecXRef       v,
                                                    const std::string &frame,
                                                    bool local = false) const;
 
-    std::pair<MatX, MatX> frameVelocityDerivatives(const VecX &q, const VecX &v,
-                                                   const uint frame_id,
+    std::pair<MatX, MatX> frameVelocityDerivatives(ConstVecXRef q,
+                                                   ConstVecXRef v,
+                                                   const uint   frame_id,
                                                    bool local = false) const;
 
     // Output-buffer version of the above; `dVdq`/`dVdv` must already be sized
     // (6 x nv)
-    void frameVelocityDerivatives(const VecX &q, const VecX &v,
+    void frameVelocityDerivatives(ConstVecXRef q, ConstVecXRef v,
                                   const std::string &frame, bool local,
                                   MatXRef dVdq, MatXRef dVdv) const;
 
-    void frameVelocityDerivatives(const VecX &q, const VecX &v,
+    void frameVelocityDerivatives(ConstVecXRef q, ConstVecXRef v,
                                   const uint frame_id, bool local, MatXRef dVdq,
                                   MatXRef dVdv) const;
 
@@ -465,25 +467,51 @@ class Model
                                  const MatX        &desired_rotation,
                                  const std::string &joint);
 
-    const VecX forwardDynamics(const VecX &q, const VecX &v,
-                               const VecX &tau) const;
+    const VecX forwardDynamics(ConstVecXRef q, ConstVecXRef v,
+                               ConstVecXRef tau) const;
 
     const VecX forwardDynamics(
-      const VecX &q, const VecX &v, const VecX &tau,
+      ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
       const std::unordered_map<std::string, std::vector<Vec3>> &forces) const;
 
-    const VecX forwardDynamics(const VecX &q, const VecX &v, const VecX &tau,
+    const VecX forwardDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
                                const std::vector<Vec6> &joint_forces) const;
 
-    const VecX inverseDynamics(const VecX &q, const VecX &v,
-                               const VecX &a) const;
+    // Output-buffer versions of the above; `ddq` must already be sized (nv)
+    void forwardDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
+                         VecXRef ddq) const;
+
+    void forwardDynamics(
+      ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
+      const std::unordered_map<std::string, std::vector<Vec3>> &forces,
+      VecXRef                                                   ddq) const;
+
+    void forwardDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
+                         const std::vector<Vec6> &joint_forces,
+                         VecXRef                  ddq) const;
+
+    const VecX inverseDynamics(ConstVecXRef q, ConstVecXRef v,
+                               ConstVecXRef a) const;
 
     const VecX inverseDynamics(
-      const VecX &q, const VecX &v, const VecX &a,
+      ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
       const std::unordered_map<std::string, std::vector<Vec3>> &forces) const;
 
-    const VecX inverseDynamics(const VecX &q, const VecX &v, const VecX &a,
+    const VecX inverseDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
                                const std::vector<Vec6> &joint_forces) const;
+
+    // Output-buffer versions of the above; `tau` must already be sized (nv)
+    void inverseDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
+                         VecXRef tau) const;
+
+    void inverseDynamics(
+      ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
+      const std::unordered_map<std::string, std::vector<Vec3>> &forces,
+      VecXRef                                                   tau) const;
+
+    void inverseDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
+                         const std::vector<Vec6> &joint_forces,
+                         VecXRef                  tau) const;
 
     const void inverseDynamicsDerivatives(
       const Eigen::VectorXd &q, const Eigen::VectorXd &v,
@@ -498,17 +526,17 @@ class Model
       Eigen::MatrixXd &rnea_partial_da) const;
 
     // Get a frame jacobian based on the XML model dynamics
-    const MatX frameJacobian(const VecX &q, const std::string &frame,
+    const MatX frameJacobian(ConstVecXRef q, const std::string &frame,
                              bool local = false) const;
 
-    const MatX frameJacobian(const VecX &q, const uint frame_id,
+    const MatX frameJacobian(ConstVecXRef q, const uint frame_id,
                              bool local = false) const;
 
     // Output-buffer version of the above; `J` must already be sized (6 x nv)
-    void frameJacobian(const VecX &q, const std::string &frame, bool local,
+    void frameJacobian(ConstVecXRef q, const std::string &frame, bool local,
                        MatXRef J) const;
 
-    void frameJacobian(const VecX &q, const uint frame_id, bool local,
+    void frameJacobian(ConstVecXRef q, const uint frame_id, bool local,
                        MatXRef J) const;
 
     // Get frame jacobian (assuming computeJointJacobians has been called, with
@@ -524,10 +552,13 @@ class Model
     void frameJacobian(const uint frame_id, bool local, MatXRef J) const;
 
     // Get model center of mass for the given configuration
-    const Vec3 centerOfMass(const VecX &q) const;
+    const Vec3 centerOfMass(ConstVecXRef q) const;
 
     // Get model center of mass jacobian for the given configuration
-    const MatX jacobianCenterOfMass(const VecX &q) const;
+    const MatX jacobianCenterOfMass(ConstVecXRef q) const;
+
+    // Output-buffer version of the above; `J` must already be sized (3 x nv)
+    void jacobianCenterOfMass(ConstVecXRef q, MatXRef J) const;
 
     /** Returns a stacked vector of the current values of the loaded model's
      * dynamic parameters for every link
@@ -554,12 +585,15 @@ class Model
      * 
      * Returns: The joint torque regressor matrix
      */
-    const MatX getJointTorqueRegressor(const VecX &q, const VecX &v,
-                                       const VecX &a) const;
+    const MatX getJointTorqueRegressor(ConstVecXRef q, ConstVecXRef v,
+                                       ConstVecXRef a) const;
 
-    VecX difference(const VecX &q0, const VecX &q1) const;
+    VecX difference(ConstVecXRef q0, ConstVecXRef q1) const;
 
-    void dDifference(const VecX &q0, const VecX &q1, MatX &J,
+    // Output-buffer version of the above; `out` must already be sized (nv)
+    void difference(ConstVecXRef q0, ConstVecXRef q1, VecXRef out) const;
+
+    void dDifference(ConstVecXRef q0, ConstVecXRef q1, MatX &J,
                      const uint arg_pos) const;
 
     // Return the actuated part (nu x nu) of a matrix (nv x nv)
@@ -584,7 +618,13 @@ class Model
      * Note: XML-based function
      */
     VecX getFullAccelerationVector(
-      const VecX &x, const VecX &u,
+      ConstVecXRef x, ConstVecXRef u,
+      const std::vector<std::shared_ptr<Force>> &forces   = {},
+      const std::vector<std::shared_ptr<Force>> &wrenches = {}) const;
+
+    // Output-buffer version of the above; `a` must already be sized (nv)
+    void getFullAccelerationVector(
+      ConstVecXRef x, ConstVecXRef u, VecXRef a,
       const std::vector<std::shared_ptr<Force>> &forces   = {},
       const std::vector<std::shared_ptr<Force>> &wrenches = {}) const;
 
@@ -612,7 +652,13 @@ class Model
      *   mode
      */
     VecX getActuatedTorqueVector(
-      const VecX &x, const VecX &u,
+      ConstVecXRef x, ConstVecXRef u,
+      const std::vector<std::shared_ptr<Force>> &forces   = {},
+      const std::vector<std::shared_ptr<Force>> &wrenches = {}) const;
+
+    // Output-buffer version of the above; `tau` must already be sized (nu)
+    void getActuatedTorqueVector(
+      ConstVecXRef x, ConstVecXRef u, VecXRef tau,
       const std::vector<std::shared_ptr<Force>> &forces   = {},
       const std::vector<std::shared_ptr<Force>> &wrenches = {}) const;
 
@@ -624,7 +670,7 @@ class Model
      *  - `dtau_du`: derivative with respect to the controls (nu x u.size())
      */
     void getActuatedTorqueVectorDerivatives(
-      const VecX &x, const VecX &u, MatX &dtau_dx, MatX &dtau_du,
+      ConstVecXRef x, ConstVecXRef u, MatX &dtau_dx, MatX &dtau_du,
       const std::vector<std::shared_ptr<Force>> &forces   = {},
       const std::vector<std::shared_ptr<Force>> &wrenches = {}) const;
 
@@ -697,7 +743,7 @@ class Model
      *  - `joint_forces`: A vector of 6D forces, one for each of the model's
      *     joints; must already be sized (`_dims.total_joints`)
      */
-    void _calculateJointForces(const VecX                       &f,
+    void _calculateJointForces(ConstVecXRef                      f,
                                const std::vector<const Force *> &force_data,
                                const std::vector<const Force *> &wrench_data,
                                std::vector<Vec6> &joint_forces) const;
@@ -715,7 +761,7 @@ class Model
      *  - `frame_jac`: Scratch for the force frames' Jacobians
      */
     void _calculateJointForcesAndJacobian(
-      const VecX &q, const VecX &f,
+      ConstVecXRef q, ConstVecXRef f,
       const std::vector<const Force *> &force_data,
       const std::vector<const Force *> &wrench_data,
       std::vector<Vec6> &joint_forces, MatX &Jf_full, MatX &frame_jac) const;
@@ -730,7 +776,7 @@ class Model
      * missing, after the results it depends on
      */
     DynamicsCache &_dynamicsCache(
-      const VecX &x, const VecX &u,
+      ConstVecXRef x, ConstVecXRef u,
       const std::vector<std::shared_ptr<Force>> &forces,
       const std::vector<std::shared_ptr<Force>> &wrenches) const;
 
@@ -760,10 +806,11 @@ class Model
     template<bool FloatingBase, bool WithForces, SolverMode SM>
     void _ensureAccelerationDerivatives(DynamicsCache &cache) const;
 
-    // The non-force part of the controls with the unactuated entries zeroed,
-    // as ForwardDynamics applies them
+    // Writes the non-force part of the controls with the unactuated entries
+    // zeroed, as ForwardDynamics applies them, to ctrl, which must already be
+    // sized (nu)
     template<bool FloatingBase>
-    VecX _forwardDynamicsControls(const VecX &u) const;
+    void _forwardDynamicsControls(ConstVecXRef u, VecXRef ctrl) const;
 
     /** Calculates the full acceleration vector for ReducedInverseDynamics mode
      * at the cache's point, where the non-force part of the controls is the
@@ -812,7 +859,7 @@ class Model
      */
     template<bool FloatingBase, bool WithForces>
     void _getActuatedTorqueVectorReducedDerivatives(
-      const VecX &x, const VecX &u,
+      ConstVecXRef x, ConstVecXRef u,
       const std::vector<std::shared_ptr<Force>> &forces,
       const std::vector<std::shared_ptr<Force>> &wrenches, MatX &dtau_dx,
       MatX &dtau_du) const;

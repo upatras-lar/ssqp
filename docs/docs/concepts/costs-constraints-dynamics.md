@@ -9,6 +9,23 @@ You can implement any of these from scratch in Python (as in the [Quickstart](..
 C++, or use one of the predefined implementations that ship with SSQP, listed below and fully documented in the
 [Python API reference](../reference/model.md).
 
+### Inputs and outputs in C++
+
+In Python, every method returns its outputs. In C++, they are written into arguments instead, so that the solver can
+reuse its storage between calls:
+
+* The inputs are `ConstVecXRef` (`Eigen::Ref<const VecX>`), so blocks of larger vectors are passed without copies.
+* `evaluate(x, u, out)`, `gradient(x, u, dX, dU)`, the cost `hessian_*`, the `hessprod_*`, constraint `right_minus`
+  and dynamics `state_right_plus`/`state_right_minus` set their outputs, resizing them as needed. A cost's
+  `evaluate` writes a vector of size 1.
+* `evaluate_into`, `right_minus_into`, `state_right_plus_into` and `state_right_minus_into` write into an output
+  that is already sized, such as a block of a larger vector. `add_gradient`, `add_hessian_*` and `add_hessprod_*`
+  add to outputs that are already sized.
+
+A custom function only needs the first set: the base classes implement the second through it. The predefined
+functions do the opposite, deriving from `PredefinedStageCost`/`PredefinedStageConstraints`, which implement the
+first set through the second.
+
 ## Costs
 
 `StageCost` ($\ell_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}$, so `output_size()` is always `1`) requires:
@@ -96,6 +113,13 @@ size, and adds:
   $\geq 0$; pass equal bounds for an equality constraint)
 * `required_forces()` / `force_frame(i)`: for constraints that involve external contact forces (see
   [Contacts and forces](model.md#contacts-and-forces) in Model)
+* `state_only_rows()` (optional): the rows of the difference vector that depend only on $\boldsymbol{x}$. The
+  initial state fixes them at stage 0, so SSQP leaves them out there instead of letting a violated one make the QP
+  infeasible
+* `box_rows()` (optional): the rows whose gradient is always $+1$ on a single state or control entry, as
+  `BoxRow(row, index, is_control)`, which HPIPM handles as simple bounds instead of general constraints
+
+In C++, `state_only_rows` and `box_rows` overwrite a `std::vector` passed to them instead of returning one.
 
 ### Predefined constraints
 

@@ -33,13 +33,13 @@ class StageDynamics : public Function
     virtual uint state_diff_size() const;
 
     // Initial state vector (size $n_x$) (default $\boldsymbol{0}$)
-    virtual VecX init_state() const;
+    virtual const VecX &init_state() const;
 
     // Set the initial state vector
     virtual void set_init_state(const VecX &init_state);
 
     // Initial control vector (size $n_u$) (default $\boldsymbol{0}$)
-    virtual VecX init_control() const;
+    virtual const VecX &init_control() const;
 
     // Set the initial control vector
     virtual void set_init_control(const VecX &init_control);
@@ -58,14 +58,28 @@ class StageDynamics : public Function
      * Output: State $\boldsymbol{y}$ (size $n_x$)
      * Default behavior: $\boldsymbol{x} + \boldsymbol{dx}$
      */
-    virtual VecX state_right_plus(const VecX &x, const VecX &dx) const;
+    virtual void state_right_plus(ConstVecXRef x, ConstVecXRef dx,
+                                  VecX &out) const;
+
+    // Write $\boldsymbol{x} \oplus \boldsymbol{dx}$ to out, which must already
+    // be sized $n_x$
+    // Defaults to copying the output of state_right_plus
+    virtual void state_right_plus_into(ConstVecXRef x, ConstVecXRef dx,
+                                       VecXRef out) const;
 
     /** Defines right minus operator between states
      * Inputs: Composite states $\boldsymbol{x}$, $\boldsymbol{y}$ (vectors/lie group elements, size $n_x$)
      * Output: State difference vector $\boldsymbol{dx}$ (size $n_{dx}$)
      * Default behavior: $\boldsymbol{x} - \boldsymbol{y}$
      */
-    virtual VecX state_right_minus(const VecX &x, const VecX &y) const;
+    virtual void state_right_minus(ConstVecXRef x, ConstVecXRef y,
+                                   VecX &out) const;
+
+    // Write $\boldsymbol{x} \ominus \boldsymbol{y}$ to out, which must already
+    // be sized $n_{dx}$
+    // Defaults to copying the output of state_right_minus
+    virtual void state_right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                        VecXRef out) const;
 
     /** Get dynamics Jacobians with respect to $\boldsymbol{x}$ and $\boldsymbol{u}$, evaluated at
      * given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_x \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$ and $\nabla_u \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
@@ -73,50 +87,50 @@ class StageDynamics : public Function
      *  dX: gradient with respect to $\boldsymbol{x}$, $n_{dx} \times n_{dx}$
      *  dU: gradient with respect to $\boldsymbol{u}$, $n_{dx} \times n_u$
      */
-    virtual void gradient(const VecX &x, const VecX &u, MatX &dX,
+    virtual void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                           MatX &dU) const = 0;
 
     /** Get product $\nabla_{x} \lambda_k^\top \nabla_{x} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * Returns:
      *  Pxx: Product, $n_{dx} \times n_{dx}$
      */
-    virtual void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
-                             MatX &Pxx) const = 0;
+    virtual void hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                             ConstVecXRef lambda, MatX &Pxx) const = 0;
 
     /** Get product $\nabla_{x} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * Returns:
      *  Pxu: Product, $n_{dx} \times n_u$
      */
-    virtual void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
-                             MatX &Pxu) const = 0;
+    virtual void hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                             ConstVecXRef lambda, MatX &Pxu) const = 0;
 
     /** Get product $\nabla_{u} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * Returns:
      *  Puu: Product, $n_u \times n_u$
      */
-    virtual void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
-                             MatX &Puu) const = 0;
+    virtual void hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                             ConstVecXRef lambda, MatX &Puu) const = 0;
 
     /** Add $\nabla_{x} \lambda_k^\top \nabla_{x} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * to Pxx, which must already be $n_{dx} \times n_{dx}$
      * Defaults to adding the output of hessprod_xx
      */
-    virtual void add_hessprod_xx(const VecX &x, const VecX &u,
-                                 const VecX &lambda, MatXRef Pxx) const;
+    virtual void add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                 ConstVecXRef lambda, MatXRef Pxx) const;
 
     /** Add $\nabla_{x} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * to Pxu, which must already be $n_{dx} \times n_u$
      * Defaults to adding the output of hessprod_xu
      */
-    virtual void add_hessprod_xu(const VecX &x, const VecX &u,
-                                 const VecX &lambda, MatXRef Pxu) const;
+    virtual void add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                 ConstVecXRef lambda, MatXRef Pxu) const;
 
     /** Add $\nabla_{u} \lambda_k^\top \nabla_{u} \boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u})$
      * to Puu, which must already be $n_u \times n_u$
      * Defaults to adding the output of hessprod_uu
      */
-    virtual void add_hessprod_uu(const VecX &x, const VecX &u,
-                                 const VecX &lambda, MatXRef Puu) const;
+    virtual void add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                 ConstVecXRef lambda, MatXRef Puu) const;
 
     // Size of parameter vector $\theta$ (optional method)
     virtual uint parameter_size() const;
@@ -136,7 +150,7 @@ class StageDynamics : public Function
      * Note: Implementing this method is optional; this method allows for online
      * adaptation of any model parameters, $\theta$
      */
-    virtual MatX parameter_gradient(const VecX &x, const VecX &u) const;
+    virtual MatX parameter_gradient(ConstVecXRef x, ConstVecXRef u) const;
 
     /** Update parameter vector $\theta$
      *
@@ -149,11 +163,16 @@ class StageDynamics : public Function
     static uint TOTAL;
 
     VecX _init_state, _init_control;
+    // The zero vectors returned while no initial state or control is set
+    mutable VecX _default_init_state, _default_init_control;
 
   private:
     // Hold the outputs the default add methods add, one per product so that
     // each keeps its size between calls
     mutable MatX _add_scratch_xx, _add_scratch_xu, _add_scratch_uu;
+
+    // Hold the outputs the default operator into methods copy
+    mutable VecX _right_plus_scratch, _right_minus_scratch;
 };
 }
 }

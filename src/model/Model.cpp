@@ -1170,29 +1170,30 @@ const VecX Model::neutralPose() const
 }
 
 const std::pair<Vec3, Mat3> Model::forwardKinematics(
-  const VecX &q, const std::string &frame) const
+  ConstVecXRef q, const std::string &frame) const
 {
     return forwardKinematics(q, pinocchio_wrapper::getFrameId(_impl, frame));
 }
 
-const std::pair<Vec3, Mat3> Model::forwardKinematics(const VecX &q,
-                                                     const uint  frame_id) const
+const std::pair<Vec3, Mat3> Model::forwardKinematics(ConstVecXRef q,
+                                                     const uint frame_id) const
 {
     return pinocchio_wrapper::forwardKinematics(_impl, q, frame_id);
 }
 
-const Mat4 Model::forwardKinematicsSE3(const VecX        &q,
+const Mat4 Model::forwardKinematicsSE3(ConstVecXRef       q,
                                        const std::string &frame) const
 {
     return forwardKinematicsSE3(q, pinocchio_wrapper::getFrameId(_impl, frame));
 }
 
-const Mat4 Model::forwardKinematicsSE3(const VecX &q, const uint frame_id) const
+const Mat4 Model::forwardKinematicsSE3(ConstVecXRef q,
+                                       const uint   frame_id) const
 {
     return pinocchio_wrapper::forwardKinematicsSE3(_impl, q, frame_id);
 }
 
-const Vec6 Model::frameVelocity(const VecX &q, const VecX &v,
+const Vec6 Model::frameVelocity(ConstVecXRef q, ConstVecXRef v,
                                 const std::string &frame, bool local) const
 {
     return frameVelocity(q,
@@ -1201,15 +1202,15 @@ const Vec6 Model::frameVelocity(const VecX &q, const VecX &v,
                          local);
 }
 
-const Vec6 Model::frameVelocity(const VecX &q, const VecX &v,
+const Vec6 Model::frameVelocity(ConstVecXRef q, ConstVecXRef v,
                                 const uint frame_id, bool local) const
 {
     pinocchio_wrapper::forwardKinematics(_impl, q, v, frame_id);
     return pinocchio_wrapper::frameVelocity(_impl, frame_id, local);
 }
 
-std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
-                                                      const VecX        &v,
+std::pair<MatX, MatX> Model::frameVelocityDerivatives(ConstVecXRef       q,
+                                                      ConstVecXRef       v,
                                                       const std::string &frame,
                                                       bool local) const
 {
@@ -1219,10 +1220,10 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX        &q,
                                     local);
 }
 
-std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX &q,
-                                                      const VecX &v,
-                                                      const uint  frame_id,
-                                                      bool        local) const
+std::pair<MatX, MatX> Model::frameVelocityDerivatives(ConstVecXRef q,
+                                                      ConstVecXRef v,
+                                                      const uint   frame_id,
+                                                      bool         local) const
 {
     MatX dVdq(6, v.size()), dVdv(6, v.size());
 
@@ -1237,7 +1238,7 @@ std::pair<MatX, MatX> Model::frameVelocityDerivatives(const VecX &q,
     return { dVdq, dVdv };
 }
 
-void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
+void Model::frameVelocityDerivatives(ConstVecXRef q, ConstVecXRef v,
                                      const std::string &frame, bool local,
                                      MatXRef dVdq, MatXRef dVdv) const
 {
@@ -1249,7 +1250,7 @@ void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
                              dVdv);
 }
 
-void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
+void Model::frameVelocityDerivatives(ConstVecXRef q, ConstVecXRef v,
                                      const uint frame_id, bool local,
                                      MatXRef dVdq, MatXRef dVdv) const
 {
@@ -1262,15 +1263,42 @@ void Model::frameVelocityDerivatives(const VecX &q, const VecX &v,
                                                 local);
 }
 
-const VecX Model::forwardDynamics(const VecX &q, const VecX &v,
-                                  const VecX &tau) const
+const VecX Model::forwardDynamics(ConstVecXRef q, ConstVecXRef v,
+                                  ConstVecXRef tau) const
 {
-    return pinocchio_wrapper::aba(_impl, q, v, tau);
+    VecX ddq(_dims.nv);
+    forwardDynamics(q, v, tau, ddq);
+    return ddq;
 }
 
 const VecX Model::forwardDynamics(
-  const VecX &q, const VecX &v, const VecX &tau,
+  ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
   const std::unordered_map<std::string, std::vector<Vec3>> &forces) const
+{
+    VecX ddq(_dims.nv);
+    forwardDynamics(q, v, tau, forces, ddq);
+    return ddq;
+}
+
+const VecX Model::forwardDynamics(ConstVecXRef q, ConstVecXRef v,
+                                  ConstVecXRef             tau,
+                                  const std::vector<Vec6> &joint_forces) const
+{
+    VecX ddq(_dims.nv);
+    forwardDynamics(q, v, tau, joint_forces, ddq);
+    return ddq;
+}
+
+void Model::forwardDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
+                            VecXRef ddq) const
+{
+    pinocchio_wrapper::aba(_impl, q, v, tau, ddq);
+}
+
+void Model::forwardDynamics(
+  ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
+  const std::unordered_map<std::string, std::vector<Vec3>> &forces,
+  VecXRef                                                   ddq) const
 {
     std::vector<Vec6> joint_forces(_dims.total_joints, Vec6::Zero());
 
@@ -1286,24 +1314,52 @@ const VecX Model::forwardDynamics(
         }
     }
 
-    return pinocchio_wrapper::aba(_impl, q, v, tau, joint_forces);
+    pinocchio_wrapper::aba(_impl, q, v, tau, joint_forces, ddq);
 }
 
-const VecX Model::forwardDynamics(const VecX &q, const VecX &v, const VecX &tau,
-                                  const std::vector<Vec6> &joint_forces) const
+void Model::forwardDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
+                            const std::vector<Vec6> &joint_forces,
+                            VecXRef                  ddq) const
 {
-    return pinocchio_wrapper::aba(_impl, q, v, tau, joint_forces);
+    pinocchio_wrapper::aba(_impl, q, v, tau, joint_forces, ddq);
 }
 
-const VecX Model::inverseDynamics(const VecX &q, const VecX &v,
-                                  const VecX &a) const
+const VecX Model::inverseDynamics(ConstVecXRef q, ConstVecXRef v,
+                                  ConstVecXRef a) const
 {
-    return pinocchio_wrapper::rnea(_impl, q, v, a);
+    VecX tau(_dims.nv);
+    inverseDynamics(q, v, a, tau);
+    return tau;
 }
 
 const VecX Model::inverseDynamics(
-  const VecX &q, const VecX &v, const VecX &a,
+  ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
   const std::unordered_map<std::string, std::vector<Vec3>> &forces) const
+{
+    VecX tau(_dims.nv);
+    inverseDynamics(q, v, a, forces, tau);
+    return tau;
+}
+
+const VecX Model::inverseDynamics(ConstVecXRef q, ConstVecXRef v,
+                                  ConstVecXRef             a,
+                                  const std::vector<Vec6> &joint_forces) const
+{
+    VecX tau(_dims.nv);
+    inverseDynamics(q, v, a, joint_forces, tau);
+    return tau;
+}
+
+void Model::inverseDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
+                            VecXRef tau) const
+{
+    pinocchio_wrapper::rnea(_impl, q, v, a, tau);
+}
+
+void Model::inverseDynamics(
+  ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
+  const std::unordered_map<std::string, std::vector<Vec3>> &forces,
+  VecXRef                                                   tau) const
 {
     std::vector<Vec6> joint_forces(_dims.total_joints, Vec6::Zero());
 
@@ -1319,13 +1375,14 @@ const VecX Model::inverseDynamics(
         }
     }
 
-    return pinocchio_wrapper::rnea(_impl, q, v, a, joint_forces);
+    pinocchio_wrapper::rnea(_impl, q, v, a, joint_forces, tau);
 }
 
-const VecX Model::inverseDynamics(const VecX &q, const VecX &v, const VecX &a,
-                                  const std::vector<Vec6> &joint_forces) const
+void Model::inverseDynamics(ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
+                            const std::vector<Vec6> &joint_forces,
+                            VecXRef                  tau) const
 {
-    return pinocchio_wrapper::rnea(_impl, q, v, a, joint_forces);
+    pinocchio_wrapper::rnea(_impl, q, v, a, joint_forces, tau);
 }
 
 const void Model::inverseDynamicsDerivatives(
@@ -1358,13 +1415,13 @@ const void Model::inverseDynamicsDerivatives(
                                               rnea_partial_da);
 }
 
-const MatX Model::frameJacobian(const VecX &q, const std::string &frame,
+const MatX Model::frameJacobian(ConstVecXRef q, const std::string &frame,
                                 bool local) const
 {
     return frameJacobian(q, pinocchio_wrapper::getFrameId(_impl, frame), local);
 }
 
-const MatX Model::frameJacobian(const VecX &q, const uint frame_id,
+const MatX Model::frameJacobian(ConstVecXRef q, const uint frame_id,
                                 bool local) const
 {
     MatX J6 = MatX::Zero(6, _dims.nv);
@@ -1373,13 +1430,13 @@ const MatX Model::frameJacobian(const VecX &q, const uint frame_id,
     return J6;
 }
 
-void Model::frameJacobian(const VecX &q, const std::string &frame, bool local,
+void Model::frameJacobian(ConstVecXRef q, const std::string &frame, bool local,
                           MatXRef J) const
 {
     frameJacobian(q, pinocchio_wrapper::getFrameId(_impl, frame), local, J);
 }
 
-void Model::frameJacobian(const VecX &q, const uint frame_id, bool local,
+void Model::frameJacobian(ConstVecXRef q, const uint frame_id, bool local,
                           MatXRef J) const
 {
     // getFrameJacobian relies on J starting fully zeroed
@@ -1412,14 +1469,19 @@ void Model::frameJacobian(const uint frame_id, bool local, MatXRef J) const
     pinocchio_wrapper::frameJacobian(_impl, frame_id, J, local);
 }
 
-const Vec3 Model::centerOfMass(const VecX &q) const
+const Vec3 Model::centerOfMass(ConstVecXRef q) const
 {
     return pinocchio_wrapper::centerOfMass(_impl, q);
 }
 
-const MatX Model::jacobianCenterOfMass(const VecX &q) const
+const MatX Model::jacobianCenterOfMass(ConstVecXRef q) const
 {
     return pinocchio_wrapper::jacobianCenterOfMass(_impl, q);
+}
+
+void Model::jacobianCenterOfMass(ConstVecXRef q, MatXRef J) const
+{
+    pinocchio_wrapper::jacobianCenterOfMass(_impl, q, J);
 }
 
 const VecX Model::getAllDynamicParameters() const
@@ -1432,23 +1494,31 @@ void Model::setAllDynamicParameters(const VecX &parameters)
     pinocchio_wrapper::setAllDynamicParameters(_impl, parameters);
 }
 
-const MatX Model::getJointTorqueRegressor(const VecX &q, const VecX &v,
-                                          const VecX &a) const
+const MatX Model::getJointTorqueRegressor(ConstVecXRef q, ConstVecXRef v,
+                                          ConstVecXRef a) const
 {
     return pinocchio_wrapper::computeJointTorqueRegressor(_impl, q, v, a);
 }
 
-VecX Model::difference(const VecX &q0, const VecX &q1) const
+VecX Model::difference(ConstVecXRef q0, ConstVecXRef q1) const
+{
+    VecX out(_xml ? _dims.nv : q0.size());
+    difference(q0, q1, out);
+    return out;
+}
+
+void Model::difference(ConstVecXRef q0, ConstVecXRef q1, VecXRef out) const
 {
     if (_xml)
     {
-        return pinocchio_wrapper::difference(_impl, q1, q0);
+        pinocchio_wrapper::difference(_impl, q1, q0, out);
+        return;
     }
 
-    return q0 - q1;
+    out = q0 - q1;
 }
 
-void Model::dDifference(const VecX &q0, const VecX &q1, MatX &J,
+void Model::dDifference(ConstVecXRef q0, ConstVecXRef q1, MatX &J,
                         const uint arg_pos) const
 {
     if (_xml)
@@ -1492,7 +1562,17 @@ void Model::getMatrixActuatedPart(const MatX &M, MatXRef out) const
 }
 
 VecX Model::getFullAccelerationVector(
-  const VecX &x, const VecX &u,
+  ConstVecXRef x, ConstVecXRef u,
+  const std::vector<std::shared_ptr<Force>> &forces,
+  const std::vector<std::shared_ptr<Force>> &wrenches) const
+{
+    VecX a(_dims.nv);
+    getFullAccelerationVector(x, u, a, forces, wrenches);
+    return a;
+}
+
+void Model::getFullAccelerationVector(
+  ConstVecXRef x, ConstVecXRef u, VecXRef a,
   const std::vector<std::shared_ptr<Force>> &forces,
   const std::vector<std::shared_ptr<Force>> &wrenches) const
 {
@@ -1500,25 +1580,28 @@ VecX Model::getFullAccelerationVector(
     {
     default:
     case SolverMode::ForwardDynamics:
-        return forwardDynamics(x.head(_dims.nq),
-                               x.tail(_dims.nv),
-                               u.head(_dims.nv));
+        forwardDynamics(x.head(_dims.nq),
+                        x.tail(_dims.nv),
+                        u.head(_dims.nv),
+                        a);
+        return;
     case SolverMode::InverseDynamics:
-        return u.head(_dims.nv);
+        a = u.head(_dims.nv);
+        return;
     case SolverMode::ReducedInverseDynamics:
         auto ct_floating_base = to_compile_time(_free_flyer);
         auto ct_with_forces =
           to_compile_time(!forces.empty() || !wrenches.empty());
 
-        return std::visit(
-          [this, &x, &u, &forces, &wrenches](auto fb, auto wf)
+        std::visit(
+          [this, &x, &u, &a, &forces, &wrenches](auto fb, auto wf)
           {
               DynamicsCache &cache = _dynamicsCache(x, u, forces, wrenches);
               _ensureAcceleration<fb.value,
                                   wf.value,
                                   SolverMode::ReducedInverseDynamics>(cache);
 
-              return cache.ddq;
+              a = cache.ddq;
           },
           ct_floating_base,
           ct_with_forces);
@@ -1526,15 +1609,26 @@ VecX Model::getFullAccelerationVector(
 }
 
 VecX Model::getActuatedTorqueVector(
-  const VecX &x, const VecX &u,
+  ConstVecXRef x, ConstVecXRef u,
+  const std::vector<std::shared_ptr<Force>> &forces,
+  const std::vector<std::shared_ptr<Force>> &wrenches) const
+{
+    VecX tau(_solver_mode == SolverMode::ReducedInverseDynamics ? _dims.nu
+                                                                : _dims.nv);
+    getActuatedTorqueVector(x, u, tau, forces, wrenches);
+    return tau;
+}
+
+void Model::getActuatedTorqueVector(
+  ConstVecXRef x, ConstVecXRef u, VecXRef tau,
   const std::vector<std::shared_ptr<Force>> &forces,
   const std::vector<std::shared_ptr<Force>> &wrenches) const
 {
     auto ct_floating_base = to_compile_time(_free_flyer);
     auto ct_with_forces = to_compile_time(!forces.empty() || !wrenches.empty());
 
-    const VecX tau = std::visit(
-      [this, &x, &u, &forces, &wrenches](auto fb, auto wf)
+    const VecX &full_tau = std::visit(
+      [this, &x, &u, &forces, &wrenches](auto fb, auto wf) -> const VecX &
       {
           DynamicsCache &cache = _dynamicsCache(x, u, forces, wrenches);
 
@@ -1558,22 +1652,20 @@ VecX Model::getActuatedTorqueVector(
     // InverseDynamics (non-reduced): every joint is actuated (nu == nv)
     if (_solver_mode != SolverMode::ReducedInverseDynamics)
     {
-        return tau;
+        tau = full_tau;
+        return;
     }
 
     uint offset = _free_flyer ? 6 : 0;
-    VecX tau_act(_dims.nu);
 
     for (uint i = 0; i < _dims.nu; ++i)
     {
-        tau_act[i] = tau[offset + _actuated_joints[i]];
+        tau[i] = full_tau[offset + _actuated_joints[i]];
     }
-
-    return tau_act;
 }
 
 void Model::getActuatedTorqueVectorDerivatives(
-  const VecX &x, const VecX &u, MatX &dtau_dx, MatX &dtau_du,
+  ConstVecXRef x, ConstVecXRef u, MatX &dtau_dx, MatX &dtau_du,
   const std::vector<std::shared_ptr<Force>> &forces,
   const std::vector<std::shared_ptr<Force>> &wrenches) const
 {
@@ -1685,7 +1777,7 @@ VecX Model::_randomVector(const uint size, const double start,
     return start + (end - start) * 0.5 * (VecX::Random(size).array() + 1.0);
 }
 
-void Model::_calculateJointForces(const VecX                       &f,
+void Model::_calculateJointForces(ConstVecXRef                      f,
                                   const std::vector<const Force *> &force_data,
                                   const std::vector<const Force *> &wrench_data,
                                   std::vector<Vec6> &joint_forces) const
@@ -1733,7 +1825,7 @@ void Model::_calculateJointForces(const VecX                       &f,
 }
 
 void Model::_calculateJointForcesAndJacobian(
-  const VecX &q, const VecX &f, const std::vector<const Force *> &force_data,
+  ConstVecXRef q, ConstVecXRef f, const std::vector<const Force *> &force_data,
   const std::vector<const Force *> &wrench_data,
   std::vector<Vec6> &joint_forces, MatX &Jf_full, MatX &frame_jac) const
 {
@@ -1796,7 +1888,7 @@ void Model::_calculateJointForcesAndJacobian(
 }
 
 Model::DynamicsCache &Model::_dynamicsCache(
-  const VecX &x, const VecX &u,
+  ConstVecXRef x, ConstVecXRef u,
   const std::vector<std::shared_ptr<Force>> &forces,
   const std::vector<std::shared_ptr<Force>> &wrenches) const
 {

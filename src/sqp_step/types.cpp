@@ -4,38 +4,29 @@ namespace ssqp
 {
 namespace step
 {
-Point::Point(const solvers::FlatVec &x, const solvers::FlatVec &u, bool copy)
-  : x(x, copy)
-  , u(u, copy)
-{
-}
-
-Point &Point::operator=(const Point &p)
-{
-    x = p.x;
-    u = p.u;
-    return *this;
-}
-
 void Point::dynamics_add_scaled(double alpha, const Point &offset,
                                 const model::DynamicsContainer &dynamics,
-                                Point &scaled_offset, Point &out) const
+                                solvers::FlatVec               &scaled_dx,
+                                solvers::FlatVec               &scaled_du,
+                                solvers::FlatVec               &x_out,
+                                solvers::FlatVec               &u_out) const
 {
     assert(x.stages() == offset.x.stages() && u.stages() == offset.u.stages() &&
            "Point dynamics_add_scaled: stage mismatch");
 
-    scaled_offset.x.vec.noalias() = alpha * offset.x.vec;
-    scaled_offset.u.vec.noalias() = alpha * offset.u.vec;
+    scaled_dx.vec.noalias() = alpha * offset.x.vec;
+    scaled_du.vec.noalias() = alpha * offset.u.vec;
 
     for (uint k = 0; k < x.stages(); ++k)
     {
-        out.x.stage(k) =
-          dynamics[k]->state_right_plus(x.stage(k), scaled_offset.x.stage(k));
+        dynamics[k]->state_right_plus_into(x.stage(k),
+                                           scaled_dx.stage(k),
+                                           x_out.stage(k));
     }
 
     for (uint k = 0; k < u.stages(); ++k)
     {
-        out.u.stage(k) = u.stage(k) + scaled_offset.u.stage(k);
+        u_out.stage(k) = u.stage(k) + scaled_du.stage(k);
     }
 }
 

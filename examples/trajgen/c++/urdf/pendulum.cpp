@@ -32,10 +32,13 @@ Eigen::Matrix<double, N, N> Qf =
 
 int main()
 {
-    auto cost_eval = [](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    auto cost_eval = [](const Eigen::VectorXd &x,
+                        const Eigen::VectorXd &u,
+                        Eigen::Ref<Eigen::VectorXd>
+                          out)
     {
-        return 0.5 * (x - x_target).transpose() * Q * (x - x_target) +
-               0.5 * u.transpose() * R * u;
+        out = 0.5 * (x - x_target).transpose() * Q * (x - x_target) +
+              0.5 * u.transpose() * R * u;
     };
 
     // The derivative functions add to their outputs
@@ -69,9 +72,11 @@ int main()
                                                      ssqp::model::ZeroHessian,
                                                      cost_hess_uu);
 
-    auto terminal_cost_eval =
-      [](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
-    { return 0.5 * (x - x_target).transpose() * Qf * (x - x_target); };
+    auto terminal_cost_eval = [](const Eigen::VectorXd &x,
+                                 const Eigen::VectorXd &u,
+                                 Eigen::Ref<Eigen::VectorXd>
+                                   out)
+    { out = 0.5 * (x - x_target).transpose() * Qf * (x - x_target); };
 
     auto terminal_cost_grad = [](const Eigen::VectorXd &x,
                                  const Eigen::VectorXd &u,

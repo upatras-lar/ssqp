@@ -16,8 +16,7 @@ namespace stagewise
 {
 namespace factory
 {
-// Make stage functions from derivative functions that set their outputs,
-// sizing them
+// Make stage functions from functions that set their outputs, sizing them
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3>
@@ -52,8 +51,10 @@ inline std::shared_ptr<StageConstraints> make_constraints(
   BoxRowsFunction box_rows, ManifoldOperator op, HessprodFunction1 hess_xx,
   HessprodFunction2 hess_xu, HessprodFunction3 hess_uu);
 
-// Make stage functions from derivative functions that add to their outputs,
-// which are already sized, so the Hessians default to zero
+// Make stage functions from functions whose outputs are already sized, so the
+// Hessians default to zero
+// The evaluation and manifold operator functions write their outputs, while
+// the derivative functions add to them
 // ndx is the size of the state difference, which sizes the outputs when the
 // stage functions set them
 // The dynamics gradient still sets its outputs, as for make_dynamics
@@ -112,14 +113,15 @@ class FunctionStageCost : public StageCost
                              HessianFunction1 hess_xx, HessianFunction2 hess_xu,
                              HessianFunction3 hess_uu);
 
-    inline VecX evaluate(const VecX &x, const VecX &u) const override;
-    inline void gradient(const VecX &x, const VecX &u, VecX &dx,
+    inline void evaluate(ConstVecXRef x, ConstVecXRef u,
+                         VecX &out) const override;
+    inline void gradient(ConstVecXRef x, ConstVecXRef u, VecX &dx,
                          VecX &du) const override;
-    inline void hessian_xx(const VecX &x, const VecX &u,
+    inline void hessian_xx(ConstVecXRef x, ConstVecXRef u,
                            MatX &Hxx) const override;
-    inline void hessian_xu(const VecX &x, const VecX &u,
+    inline void hessian_xu(ConstVecXRef x, ConstVecXRef u,
                            MatX &Hxu) const override;
-    inline void hessian_uu(const VecX &x, const VecX &u,
+    inline void hessian_uu(ConstVecXRef x, ConstVecXRef u,
                            MatX &Huu) const override;
 
   protected:
@@ -164,21 +166,24 @@ class FunctionStageDynamics : public FunctionStageDynamicsBase
       HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
       HessprodFunction3 hess_uu);
 
-    inline VecX state_right_plus(const VecX &x, const VecX &dx) const override;
-    inline VecX state_right_minus(const VecX &x, const VecX &y) const override;
+    inline void state_right_plus(ConstVecXRef x, ConstVecXRef dx,
+                                 VecX &out) const override;
+    inline void state_right_minus(ConstVecXRef x, ConstVecXRef y,
+                                  VecX &out) const override;
 
-    inline VecX evaluate(const VecX &x, const VecX &u) const override;
+    inline void evaluate(ConstVecXRef x, ConstVecXRef u,
+                         VecX &out) const override;
 
-    inline void gradient(const VecX &x, const VecX &u, MatX &dX,
+    inline void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                          MatX &dU) const override;
 
-    inline void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Pxx) const override;
 
-    inline void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Pxu) const override;
 
-    inline void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Puu) const override;
 
   protected:
@@ -212,26 +217,28 @@ class FunctionStageConstraints : public StageConstraints
 
     inline uint constraint_diff_size() const override;
 
-    inline VecX right_minus(const VecX &x, const VecX &y) const override;
+    inline void right_minus(ConstVecXRef x, ConstVecXRef y,
+                            VecX &out) const override;
 
     inline const VecX &lower_bound() const override;
     inline const VecX &upper_bound() const override;
 
-    inline std::vector<uint>   state_only_rows() const override;
-    inline std::vector<BoxRow> box_rows() const override;
+    inline void state_only_rows(std::vector<uint> &out) const override;
+    inline void box_rows(std::vector<BoxRow> &out) const override;
 
-    inline VecX evaluate(const VecX &x, const VecX &u) const override;
+    inline void evaluate(ConstVecXRef x, ConstVecXRef u,
+                         VecX &out) const override;
 
-    inline void gradient(const VecX &x, const VecX &u, MatX &dX,
+    inline void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                          MatX &dU) const override;
 
-    inline void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Pxx) const override;
 
-    inline void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Pxu) const override;
 
-    inline void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Puu) const override;
 
   protected:
@@ -273,22 +280,26 @@ class FunctionStageAddCost
                                 HessianFunction2 hess_xu,
                                 HessianFunction3 hess_uu);
 
-    inline void gradient(const VecX &x, const VecX &u, VecX &dx,
+    inline void evaluate(ConstVecXRef x, ConstVecXRef u,
+                         VecX &out) const override;
+    inline void gradient(ConstVecXRef x, ConstVecXRef u, VecX &dx,
                          VecX &du) const override;
-    inline void hessian_xx(const VecX &x, const VecX &u,
+    inline void hessian_xx(ConstVecXRef x, ConstVecXRef u,
                            MatX &Hxx) const override;
-    inline void hessian_xu(const VecX &x, const VecX &u,
+    inline void hessian_xu(ConstVecXRef x, ConstVecXRef u,
                            MatX &Hxu) const override;
-    inline void hessian_uu(const VecX &x, const VecX &u,
+    inline void hessian_uu(ConstVecXRef x, ConstVecXRef u,
                            MatX &Huu) const override;
 
-    inline void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+    inline void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                              VecXRef out) const override;
+    inline void add_gradient(ConstVecXRef x, ConstVecXRef u, VecXRef dx,
                              VecXRef du) const override;
-    inline void add_hessian_xx(const VecX &x, const VecX &u,
+    inline void add_hessian_xx(ConstVecXRef x, ConstVecXRef u,
                                MatXRef Hxx) const override;
-    inline void add_hessian_xu(const VecX &x, const VecX &u,
+    inline void add_hessian_xu(ConstVecXRef x, ConstVecXRef u,
                                MatXRef Hxu) const override;
-    inline void add_hessian_uu(const VecX &x, const VecX &u,
+    inline void add_hessian_uu(ConstVecXRef x, ConstVecXRef u,
                                MatXRef Huu) const override;
 
   protected:
@@ -315,19 +326,34 @@ class FunctionStageAddDynamics
                                 HessprodFunction1, HessprodFunction2,
                                 HessprodFunction3>::FunctionStageDynamics;
 
-    inline void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void state_right_plus(ConstVecXRef x, ConstVecXRef dx,
+                                 VecX &out) const override;
+    inline void state_right_minus(ConstVecXRef x, ConstVecXRef y,
+                                  VecX &out) const override;
+    inline void evaluate(ConstVecXRef x, ConstVecXRef u,
+                         VecX &out) const override;
+    inline void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Pxx) const override;
-    inline void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Pxu) const override;
-    inline void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Puu) const override;
 
-    inline void add_hessprod_xx(const VecX &x, const VecX &u,
-                                const VecX &lambda, MatXRef Pxx) const override;
-    inline void add_hessprod_xu(const VecX &x, const VecX &u,
-                                const VecX &lambda, MatXRef Pxu) const override;
-    inline void add_hessprod_uu(const VecX &x, const VecX &u,
-                                const VecX &lambda, MatXRef Puu) const override;
+    inline void state_right_plus_into(ConstVecXRef x, ConstVecXRef dx,
+                                      VecXRef out) const override;
+    inline void state_right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                       VecXRef out) const override;
+    inline void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                              VecXRef out) const override;
+    inline void add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                ConstVecXRef lambda,
+                                MatXRef      Pxx) const override;
+    inline void add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                ConstVecXRef lambda,
+                                MatXRef      Pxu) const override;
+    inline void add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                ConstVecXRef lambda,
+                                MatXRef      Puu) const override;
 };
 
 // A FunctionStageConstraints whose gradient and Hessian product functions add
@@ -356,23 +382,34 @@ class FunctionStageAddConstraints
       const HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
       const HessprodFunction3 hess_uu);
 
-    inline void gradient(const VecX &x, const VecX &u, MatX &dX,
+    inline void right_minus(ConstVecXRef x, ConstVecXRef y,
+                            VecX &out) const override;
+    inline void evaluate(ConstVecXRef x, ConstVecXRef u,
+                         VecX &out) const override;
+    inline void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                          MatX &dU) const override;
-    inline void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Pxx) const override;
-    inline void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Pxu) const override;
-    inline void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
+    inline void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                             MatX &Puu) const override;
 
-    inline void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    inline void right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                 VecXRef out) const override;
+    inline void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                              VecXRef out) const override;
+    inline void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                              MatXRef dU) const override;
-    inline void add_hessprod_xx(const VecX &x, const VecX &u,
-                                const VecX &lambda, MatXRef Pxx) const override;
-    inline void add_hessprod_xu(const VecX &x, const VecX &u,
-                                const VecX &lambda, MatXRef Pxu) const override;
-    inline void add_hessprod_uu(const VecX &x, const VecX &u,
-                                const VecX &lambda, MatXRef Puu) const override;
+    inline void add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                ConstVecXRef lambda,
+                                MatXRef      Pxx) const override;
+    inline void add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                ConstVecXRef lambda,
+                                MatXRef      Pxu) const override;
+    inline void add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                ConstVecXRef lambda,
+                                MatXRef      Puu) const override;
 
   protected:
     const uint _ndx;

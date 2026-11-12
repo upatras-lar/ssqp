@@ -69,7 +69,7 @@ struct ModelImpl
     uint active_cache = 0;
 };
 
-bool sameBits(const VecX &a, const VecX &b)
+bool sameBits(ConstVecXRef a, ConstVecXRef b)
 {
     return a.size() == b.size() &&
            std::memcmp(a.data(), b.data(), a.size() * sizeof(double)) == 0;
@@ -78,7 +78,7 @@ bool sameBits(const VecX &a, const VecX &b)
 namespace
 {
 // Points the cache at configuration q, dropping results for any other one
-void setConfiguration(KinematicsCache &cache, const VecX &q)
+void setConfiguration(KinematicsCache &cache, ConstVecXRef q)
 {
     if (sameBits(cache.q, q))
     {
@@ -93,7 +93,7 @@ void setConfiguration(KinematicsCache &cache, const VecX &q)
 }
 
 // Points the cache at velocity v, dropping results for any other one
-void setVelocity(KinematicsCache &cache, const VecX &v)
+void setVelocity(KinematicsCache &cache, ConstVecXRef v)
 {
     if (sameBits(cache.v, v))
     {
@@ -111,7 +111,7 @@ void setVelocity(KinematicsCache &cache, const VecX &v)
 // of the pass computing them alone up to roundoff
 
 KinematicsCache &ensurePlacements(const std::shared_ptr<ModelImpl> &impl,
-                                  const VecX                       &q)
+                                  ConstVecXRef                      q)
 {
     KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
@@ -126,7 +126,7 @@ KinematicsCache &ensurePlacements(const std::shared_ptr<ModelImpl> &impl,
 }
 
 KinematicsCache &ensureJacobians(const std::shared_ptr<ModelImpl> &impl,
-                                 const VecX                       &q)
+                                 ConstVecXRef                      q)
 {
     KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
@@ -142,7 +142,7 @@ KinematicsCache &ensureJacobians(const std::shared_ptr<ModelImpl> &impl,
 }
 
 KinematicsCache &ensureVelocities(const std::shared_ptr<ModelImpl> &impl,
-                                  const VecX &q, const VecX &v)
+                                  ConstVecXRef q, ConstVecXRef v)
 {
     KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
@@ -161,7 +161,7 @@ KinematicsCache &ensureVelocities(const std::shared_ptr<ModelImpl> &impl,
 // Velocity derivatives only need the placements, the Jacobians and the joint
 // velocities in the world frame, which follow from the local ones
 KinematicsCache &ensureVelocityDerivatives(
-  const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v)
+  const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v)
 {
     ensureJacobians(impl, q);
     KinematicsCache &cache = ensureVelocities(impl, q, v);
@@ -408,16 +408,32 @@ std::pair<VecX, VecX> modelEffortLimits(const std::shared_ptr<ModelImpl> &impl)
     return { -impl->model.effortLimit, impl->model.effortLimit };
 }
 
-VecX integrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-               const VecX &v)
+VecX integrate(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+               ConstVecXRef v)
 {
-    return pinocchio::integrate(impl->model, q, v);
+    VecX out(impl->model.nq);
+    integrate(impl, q, v, out);
+    return out;
 }
 
-VecX difference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
-                const VecX &q1)
+void integrate(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+               ConstVecXRef v, VecXRef out)
 {
-    return pinocchio::difference(impl->model, q0, q1);
+    pinocchio::integrate(impl->model, q, v, out);
+}
+
+VecX difference(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q0,
+                ConstVecXRef q1)
+{
+    VecX out(impl->model.nv);
+    difference(impl, q0, q1, out);
+    return out;
+}
+
+void difference(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q0,
+                ConstVecXRef q1, VecXRef out)
+{
+    pinocchio::difference(impl->model, q0, q1, out);
 }
 
 void getFramejMfMatrix(const std::shared_ptr<ModelImpl> &impl,
@@ -462,7 +478,7 @@ Vec6 framejMfActWrench(const std::shared_ptr<ModelImpl> &impl,
     return res.toVector();
 }
 
-void crba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, MatX &M,
+void crba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, MatX &M,
           bool local)
 {
     KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
@@ -484,8 +500,24 @@ void crba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, MatX &M,
     M = cache.data.M.selfadjointView<Eigen::Upper>();
 }
 
-VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
-         const VecX &tau, const std::vector<Vec6> &fext)
+VecX aba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v,
+         ConstVecXRef tau, const std::vector<Vec6> &fext)
+{
+    VecX ddq(impl->model.nv);
+    aba(impl, q, v, tau, fext, ddq);
+    return ddq;
+}
+
+VecX aba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v,
+         ConstVecXRef tau)
+{
+    VecX ddq(impl->model.nv);
+    aba(impl, q, v, tau, ddq);
+    return ddq;
+}
+
+void aba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v,
+         ConstVecXRef tau, const std::vector<Vec6> &fext, VecXRef ddq)
 {
     KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
 
@@ -505,11 +537,11 @@ VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
     // The pass leaves the joint velocities, which need the placements too
     cache.velocities = cache.placements;
 
-    return cache.data.ddq;
+    ddq = cache.data.ddq;
 }
 
-VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
-         const VecX &tau)
+void aba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v,
+         ConstVecXRef tau, VecXRef ddq)
 {
     KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
@@ -520,11 +552,11 @@ VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
     // The pass leaves the joint velocities, which need the placements too
     cache.velocities = cache.placements;
 
-    return cache.data.ddq;
+    ddq = cache.data.ddq;
 }
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                           const VecX &q, const VecX &v, const VecX &tau,
+                           ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
                            MatX &aba_partial_dq, MatX &aba_partial_dv,
                            MatX &Minv)
 {
@@ -545,7 +577,7 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                           const VecX &q, const VecX &v, const VecX &tau,
+                           ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
                            const std::vector<Vec6> &fext, MatX &aba_partial_dq,
                            MatX &aba_partial_dv, MatX &Minv)
 {
@@ -579,8 +611,24 @@ void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
     Minv           = cache.data.Minv;
 }
 
-VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
-          const VecX &a)
+VecX rnea(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+          ConstVecXRef v, ConstVecXRef a)
+{
+    VecX tau(impl->model.nv);
+    rnea(impl, q, v, a, tau);
+    return tau;
+}
+
+VecX rnea(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+          ConstVecXRef v, ConstVecXRef a, const std::vector<Vec6> &fext)
+{
+    VecX tau(impl->model.nv);
+    rnea(impl, q, v, a, fext, tau);
+    return tau;
+}
+
+void rnea(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+          ConstVecXRef v, ConstVecXRef a, VecXRef tau)
 {
     KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
     setConfiguration(cache, q);
@@ -591,11 +639,12 @@ VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
     // The pass leaves the joint velocities, which need the placements too
     cache.velocities = cache.placements;
 
-    return cache.data.tau;
+    tau = cache.data.tau;
 }
 
-VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
-          const VecX &a, const std::vector<Vec6> &fext)
+void rnea(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+          ConstVecXRef v, ConstVecXRef a, const std::vector<Vec6> &fext,
+          VecXRef tau)
 {
     KinematicsCache &cache = *impl->kinematics_caches[impl->active_cache];
 
@@ -615,11 +664,11 @@ VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
     // The pass leaves the joint velocities, which need the placements too
     cache.velocities = cache.placements;
 
-    return cache.data.tau;
+    tau = cache.data.tau;
 }
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                            const VecX &q, const VecX &v, const VecX &a,
+                            ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
                             MatX &rnea_partial_dq, MatX &rnea_partial_dv,
                             MatX &rnea_partial_da)
 {
@@ -643,7 +692,7 @@ void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                            const VecX &q, const VecX &v, const VecX &a,
+                            ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
                             const std::vector<Vec6> &fext,
                             MatX &rnea_partial_dq, MatX &rnea_partial_dv,
                             MatX &rnea_partial_da)
@@ -863,8 +912,8 @@ VecX neutralPose(const std::shared_ptr<ModelImpl> &impl)
     return pinocchio::neutral(impl->model);
 }
 
-void dIntegrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                const VecX &v, MatX &J, const uint arg_pos)
+void dIntegrate(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+                ConstVecXRef v, MatX &J, const uint arg_pos)
 {
     pinocchio::dIntegrate(impl->model,
                           q,
@@ -873,8 +922,8 @@ void dIntegrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
                           static_cast<pinocchio::ArgumentPosition>(arg_pos));
 }
 
-void dDifference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
-                 const VecX &q1, MatX &J, const uint arg_pos)
+void dDifference(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q0,
+                 ConstVecXRef q1, MatX &J, const uint arg_pos)
 {
     pinocchio::dDifference(impl->model,
                            q0,
@@ -884,13 +933,14 @@ void dDifference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
 }
 
 std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
-                                        const VecX &q, const std::string &frame)
+                                        ConstVecXRef                      q,
+                                        const std::string                &frame)
 {
     return forwardKinematics(impl, q, impl->model.getFrameId(frame));
 }
 
 std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
-                                        const VecX &q, const uint frame_id)
+                                        ConstVecXRef q, const uint frame_id)
 {
     pinocchio::Data &data = ensurePlacements(impl, q).data;
     pinocchio::updateFramePlacement(impl->model, data, frame_id);
@@ -899,14 +949,14 @@ std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
 }
 
 std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
-                                        const VecX &q, const VecX &v,
+                                        ConstVecXRef q, ConstVecXRef v,
                                         const std::string &frame)
 {
     return forwardKinematics(impl, q, v, impl->model.getFrameId(frame));
 }
 
 std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
-                                        const VecX &q, const VecX &v,
+                                        ConstVecXRef q, ConstVecXRef v,
                                         const uint frame_id)
 {
     pinocchio::Data &data = ensureVelocities(impl, q, v).data;
@@ -915,14 +965,14 @@ std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
     return { data.oMf[frame_id].translation(), data.oMf[frame_id].rotation() };
 }
 
-Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                          const std::string &frame)
+Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
+                          ConstVecXRef q, const std::string &frame)
 {
     return forwardKinematicsSE3(impl, q, impl->model.getFrameId(frame));
 }
 
-Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                          const uint frame_id)
+Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
+                          ConstVecXRef q, const uint frame_id)
 {
     pinocchio::Data &data = ensurePlacements(impl, q).data;
     pinocchio::updateFramePlacement(impl->model, data, frame_id);
@@ -949,7 +999,7 @@ Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
 }
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const VecX &q, const VecX &v,
+                              ConstVecXRef q, ConstVecXRef v,
                               const std::string frame, MatXRef dVdq,
                               MatXRef dVdv, bool local)
 {
@@ -963,8 +1013,9 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 }
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const VecX &q, const VecX &v, const uint frame_id,
-                              MatXRef dVdq, MatXRef dVdv, bool local)
+                              ConstVecXRef q, ConstVecXRef v,
+                              const uint frame_id, MatXRef dVdq, MatXRef dVdv,
+                              bool local)
 {
     pinocchio::Data &data = ensureVelocityDerivatives(impl, q, v).data;
 
@@ -981,13 +1032,13 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
       dVdv);
 }
 
-void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
                    const std::string &frame, MatXRef J, bool local)
 {
     frameJacobian(impl, q, impl->model.getFrameId(frame), J, local);
 }
 
-void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
                    const uint frame_id, MatXRef J, bool local)
 {
     pinocchio::getFrameJacobian(
@@ -1000,7 +1051,7 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
 }
 
 void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
-                           const VecX                       &q)
+                           ConstVecXRef                      q)
 {
     ensureJacobians(impl, q);
 }
@@ -1023,14 +1074,23 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
       J);
 }
 
-Vec3 centerOfMass(const std::shared_ptr<ModelImpl> &impl, const VecX &q)
+Vec3 centerOfMass(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q)
 {
     return pinocchio::centerOfMass(impl->model, *impl->data, q, false);
 }
 
-MatX jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl, const VecX &q)
+MatX jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
+                          ConstVecXRef                      q)
 {
-    return pinocchio::jacobianCenterOfMass(impl->model, *impl->data, q, false);
+    MatX J(3, impl->model.nv);
+    jacobianCenterOfMass(impl, q, J);
+    return J;
+}
+
+void jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
+                          ConstVecXRef q, MatXRef J)
+{
+    J = pinocchio::jacobianCenterOfMass(impl->model, *impl->data, q, false);
 }
 
 VecX randomConfiguration(const std::shared_ptr<ModelImpl> &impl)
@@ -1084,7 +1144,7 @@ void setAllDynamicParameters(std::shared_ptr<ModelImpl> &impl,
 }
 
 MatX computeJointTorqueRegressor(const std::shared_ptr<ModelImpl> &impl,
-                                 const VecX &q, const VecX &v, const VecX &a)
+                                 ConstVecXRef q, ConstVecXRef v, ConstVecXRef a)
 {
     return pinocchio::computeJointTorqueRegressor(impl->model,
                                                   *impl->data,

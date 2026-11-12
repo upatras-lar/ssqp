@@ -35,7 +35,7 @@ class FDGradCost : public Test
     const uint                                         _ninputs;
     const double                                       _h;
 
-    void _fd_grad(const VecX &x, const VecX &u, VecX &dx, VecX &du) const;
+    void _fd_grad(ConstVecXRef x, ConstVecXRef u, VecX &dx, VecX &du) const;
 };
 
 /* Finite-differences gradient test for Dynamics functions
@@ -59,7 +59,7 @@ class FDGradDynamics : public Test
     const uint   _ninputs;
     const double _h;
 
-    void _fd_grad(const VecX &x, const VecX &u, MatX &dX, MatX &dU) const;
+    void _fd_grad(ConstVecXRef x, ConstVecXRef u, MatX &dX, MatX &dU) const;
 };
 
 class FDGradDynamicsParameters : public Test
@@ -81,7 +81,7 @@ class FDGradDynamicsParameters : public Test
     const double _h;
     const uint   _seed;
 
-    MatX _fd_grad(const VecX &x, const VecX &u);
+    MatX _fd_grad(ConstVecXRef x, ConstVecXRef u);
 };
 
 /* Finite-differences gradient test for Constraints functions
@@ -107,7 +107,7 @@ class FDGradConstraints : public Test
     const uint                                                _ninputs;
     const double                                              _h;
 
-    void _fd_grad(const VecX &x, const VecX &u, MatX &dX, MatX &dU) const;
+    void _fd_grad(ConstVecXRef x, ConstVecXRef u, MatX &dX, MatX &dU) const;
 };
 
 /* Finite-differences gradient test for total trajectory cost function _ssqp::_lf

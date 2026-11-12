@@ -24,9 +24,19 @@ uint StageDynamics::state_diff_size() const
     return state_size();
 }
 
-VecX StageDynamics::init_state() const
+const VecX &StageDynamics::init_state() const
 {
-    return _init_state.size() ? _init_state : VecX::Zero(state_size());
+    if (_init_state.size())
+    {
+        return _init_state;
+    }
+
+    if (static_cast<uint>(_default_init_state.size()) != state_size())
+    {
+        _default_init_state.setZero(state_size());
+    }
+
+    return _default_init_state;
 }
 
 void StageDynamics::set_init_state(const VecX &init_state)
@@ -36,9 +46,19 @@ void StageDynamics::set_init_state(const VecX &init_state)
     _init_state = init_state;
 }
 
-VecX StageDynamics::init_control() const
+const VecX &StageDynamics::init_control() const
 {
-    return _init_control.size() ? _init_control : VecX::Zero(control_size());
+    if (_init_control.size())
+    {
+        return _init_control;
+    }
+
+    if (static_cast<uint>(_default_init_control.size()) != control_size())
+    {
+        _default_init_control.setZero(control_size());
+    }
+
+    return _default_init_control;
 }
 
 void StageDynamics::set_init_control(const VecX &init_control)
@@ -48,32 +68,48 @@ void StageDynamics::set_init_control(const VecX &init_control)
     _init_control = init_control;
 }
 
-VecX StageDynamics::state_right_plus(const VecX &x, const VecX &dx) const
+void StageDynamics::state_right_plus(ConstVecXRef x, ConstVecXRef dx,
+                                     VecX &out) const
 {
-    return x + dx;
+    out = x + dx;
 }
 
-VecX StageDynamics::state_right_minus(const VecX &x, const VecX &y) const
+void StageDynamics::state_right_plus_into(ConstVecXRef x, ConstVecXRef dx,
+                                          VecXRef out) const
 {
-    return x - y;
+    state_right_plus(x, dx, _right_plus_scratch);
+    out = _right_plus_scratch;
 }
 
-void StageDynamics::add_hessprod_xx(const VecX &x, const VecX &u,
-                                    const VecX &lambda, MatXRef Pxx) const
+void StageDynamics::state_right_minus(ConstVecXRef x, ConstVecXRef y,
+                                      VecX &out) const
+{
+    out = x - y;
+}
+
+void StageDynamics::state_right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                           VecXRef out) const
+{
+    state_right_minus(x, y, _right_minus_scratch);
+    out = _right_minus_scratch;
+}
+
+void StageDynamics::add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                    ConstVecXRef lambda, MatXRef Pxx) const
 {
     hessprod_xx(x, u, lambda, _add_scratch_xx);
     Pxx += _add_scratch_xx;
 }
 
-void StageDynamics::add_hessprod_xu(const VecX &x, const VecX &u,
-                                    const VecX &lambda, MatXRef Pxu) const
+void StageDynamics::add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                    ConstVecXRef lambda, MatXRef Pxu) const
 {
     hessprod_xu(x, u, lambda, _add_scratch_xu);
     Pxu += _add_scratch_xu;
 }
 
-void StageDynamics::add_hessprod_uu(const VecX &x, const VecX &u,
-                                    const VecX &lambda, MatXRef Puu) const
+void StageDynamics::add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                    ConstVecXRef lambda, MatXRef Puu) const
 {
     hessprod_uu(x, u, lambda, _add_scratch_uu);
     Puu += _add_scratch_uu;
@@ -89,7 +125,7 @@ VecX StageDynamics::parameters() const
     return VecX::Zero(0);
 }
 
-MatX StageDynamics::parameter_gradient(const VecX &x, const VecX &u) const
+MatX StageDynamics::parameter_gradient(ConstVecXRef x, ConstVecXRef u) const
 {
     return MatX::Zero(state_diff_size(), 0);
 }

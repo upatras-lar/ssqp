@@ -35,26 +35,28 @@ class MergedStageCost : public StageCost
       const std::vector<std::shared_ptr<Force>> &forces,
       const std::vector<std::shared_ptr<Force>> &wrenches) override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
-    void gradient(const VecX &x, const VecX &u, VecX &dx,
+    void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override;
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
+    void gradient(ConstVecXRef x, ConstVecXRef u, VecX &dx,
                   VecX &du) const override;
-    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override;
-    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override;
-    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override;
+    void hessian_xx(ConstVecXRef x, ConstVecXRef u, MatX &Hxx) const override;
+    void hessian_xu(ConstVecXRef x, ConstVecXRef u, MatX &Hxu) const override;
+    void hessian_uu(ConstVecXRef x, ConstVecXRef u, MatX &Huu) const override;
 
-    void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, VecXRef dx,
                       VecXRef du) const override;
-    void add_hessian_xx(const VecX &x, const VecX &u,
+    void add_hessian_xx(ConstVecXRef x, ConstVecXRef u,
                         MatXRef Hxx) const override;
-    void add_hessian_xu(const VecX &x, const VecX &u,
+    void add_hessian_xu(ConstVecXRef x, ConstVecXRef u,
                         MatXRef Hxu) const override;
-    void add_hessian_uu(const VecX &x, const VecX &u,
+    void add_hessian_uu(ConstVecXRef x, ConstVecXRef u,
                         MatXRef Huu) const override;
 
   protected:
-    using HessianFunc    = void (StageCost::*)(const VecX &, const VecX &,
+    using HessianFunc    = void (StageCost::*)(ConstVecXRef, ConstVecXRef,
                                             MatX &) const;
-    using AddHessianFunc = void (StageCost::*)(const VecX &, const VecX &,
+    using AddHessianFunc = void (StageCost::*)(ConstVecXRef, ConstVecXRef,
                                                MatXRef) const;
 
     // Whether the i-th cost should be included
@@ -64,12 +66,12 @@ class MergedStageCost : public StageCost
 
     // Sum of one of the hessians over the summed costs
     // The first cost sizes H, and the others add to it
-    void _sum_hessian(const VecX &x, const VecX &u, MatX &H,
+    void _sum_hessian(ConstVecXRef x, ConstVecXRef u, MatX &H,
                       const HessianFunc    hessian,
                       const AddHessianFunc add_hessian) const;
 
     // Add one of the hessians of every summed cost to H
-    void _add_hessian(const VecX &x, const VecX &u, MatXRef H,
+    void _add_hessian(ConstVecXRef x, ConstVecXRef u, MatXRef H,
                       const AddHessianFunc add_hessian) const;
 
     std::vector<std::shared_ptr<StageCost>> _costs;
@@ -94,64 +96,73 @@ class MergedStageConstraints : public StageConstraints
     uint output_size() const override;
     uint constraint_diff_size() const override;
 
-    VecX right_minus(const VecX &x, const VecX &y) const override;
+    // Each enabled constraint writes to its own rows
+    void right_minus(ConstVecXRef x, ConstVecXRef y, VecX &out) const override;
+    void right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                          VecXRef out) const override;
 
     const VecX &lower_bound() const override;
     const VecX &upper_bound() const override;
 
     // The state-only rows of each enabled constraint, offset to its rows
-    std::vector<uint> state_only_rows() const override;
+    void state_only_rows(std::vector<uint> &out) const override;
 
     // The box rows of each enabled constraint, offset to its rows
-    std::vector<BoxRow> box_rows() const override;
+    void box_rows(std::vector<BoxRow> &out) const override;
 
-    VecX evaluate(const VecX &x, const VecX &u) const override;
+    // Each enabled constraint writes to its own rows
+    void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override;
+    void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                       VecXRef out) const override;
 
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
+    void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                   MatX &dU) const override;
 
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+    void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                      MatX &Pxx) const override;
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+    void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                      MatX &Pxu) const override;
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+    void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                      MatX &Puu) const override;
 
     // Each enabled constraint adds to its own rows
-    void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                       MatXRef dU) const override;
-    void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+    void add_hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                          MatXRef Pxx) const override;
-    void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+    void add_hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                          MatXRef Pxu) const override;
-    void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+    void add_hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                          MatXRef Puu) const override;
 
   protected:
-    using HessprodFunc = void (StageConstraints::*)(const VecX &, const VecX &,
-                                                    const VecX &, MatX &) const;
-    using AddHessprodFunc = void (StageConstraints::*)(const VecX &,
-                                                       const VecX &,
-                                                       const VecX &,
+    using HessprodFunc = void (StageConstraints::*)(ConstVecXRef, ConstVecXRef,
+                                                    ConstVecXRef, MatX &) const;
+    using AddHessprodFunc = void (StageConstraints::*)(ConstVecXRef,
+                                                       ConstVecXRef,
+                                                       ConstVecXRef,
                                                        MatXRef) const;
 
     // Sum of one of the hessprods over the enabled constraints, each with its
     // part of mu
     // The first constraints size P, and the others add to it
-    void _sum_hessprod(const VecX &x, const VecX &u, const VecX &mu, MatX &P,
+    void _sum_hessprod(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu, MatX &P,
                        const HessprodFunc    hessprod,
                        const AddHessprodFunc add_hessprod) const;
 
     // Add one of the hessprods of every enabled constraint to P, each with its
     // part of mu
-    void _add_hessprod(const VecX &x, const VecX &u, const VecX &mu, MatXRef P,
-                       const AddHessprodFunc add_hessprod) const;
+    void _add_hessprod(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
+                       MatXRef P, const AddHessprodFunc add_hessprod) const;
 
     std::vector<std::shared_ptr<StageConstraints>> _constraints;
     mutable VecX                                   _lb, _ub;
     // Gradients of each of the constraints, kept apart so that each keeps its
     // size between calls
     mutable std::vector<MatX> _dX_scratch, _dU_scratch;
+    // Rows of one constraint at a time, before they are offset to its rows
+    mutable std::vector<uint>   _state_only_rows_scratch;
+    mutable std::vector<BoxRow> _box_rows_scratch;
 };
 }
 }

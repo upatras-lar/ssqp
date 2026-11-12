@@ -477,6 +477,8 @@ ssqp::ssqp(const model::Model &model, const Params &params)
   , _cost_du(_guess.u, false)
   , _candidate_x(_guess.x, false)
   , _candidate_u(_guess.u, false)
+  , _scaled_dx(_prev_cost_dx, false)
+  , _scaled_du(_guess.u, false)
   , _tolerance_init(_params.tolerance)
   , _reduced_output(false)
 {
@@ -529,6 +531,21 @@ ssqp::ssqp(const model::Model &model, const Params &params)
 
     _cached_f.resize(lin_dims.horizon);
     _cached_c.resize(lin_dims.horizon + 1);
+
+    const std::vector<uint> &stage_c  = model.dims().stage_constraint;
+    const std::vector<uint> &stage_dc = lin_dims.stage_constraint;
+    const uint max_c  = *std::max_element(stage_c.begin(), stage_c.end());
+    const uint max_dc = *std::max_element(stage_dc.begin(), stage_dc.end());
+    const uint max_dx = *std::max_element(lin_dims.stage_state.begin(),
+                                          lin_dims.stage_state.end());
+    const uint max_u  = *std::max_element(lin_dims.stage_control.begin(),
+                                         lin_dims.stage_control.end());
+
+    _tmp_c.resize(max_c);
+    _tmp_below.resize(max_dc);
+    _tmp_above.resize(max_dc);
+    _tmp_con_dX.resize(max_dc, max_dx);
+    _tmp_con_dU.resize(max_dc, max_u);
 
     reinitialize();
 
@@ -584,8 +601,8 @@ SolverState ssqp::solve(Guess &guess)
     _stage_0_state_only_rows.clear();
     if (_model.horizon() > 0 && _model.constraints()[0] != nullptr)
     {
-        const auto &constraints  = _model.constraints()[0];
-        _stage_0_state_only_rows = constraints->state_only_rows();
+        const auto &constraints = _model.constraints()[0];
+        constraints->state_only_rows(_stage_0_state_only_rows);
 
 #ifndef NDEBUG
         for (const uint row : _stage_0_state_only_rows)
@@ -605,7 +622,7 @@ SolverState ssqp::solve(Guess &guess)
             continue;
         }
 
-        _qp.box_rows[k] = constraints->box_rows();
+        constraints->box_rows(_qp.box_rows[k]);
 
 #ifndef NDEBUG
         for (const model::BoxRow &box : _qp.box_rows[k])
@@ -732,6 +749,8 @@ SolverState ssqp::solve(Guess &guess)
               _model.dynamics(),
               _params.inv_alpha_scale_factor,
               _params.min_alpha,
+              _scaled_dx,
+              _scaled_du,
               _candidate_x,
               _candidate_u);
         }
@@ -802,6 +821,8 @@ SolverState ssqp::solve(Guess &guess)
               _model.dynamics(),
               _params.inv_alpha_scale_factor,
               _params.min_alpha,
+              _scaled_dx,
+              _scaled_du,
               _candidate_x,
               _candidate_u);
         }
@@ -1348,11 +1369,13 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
     for (uint k = 0; k < horizon; ++k)
     {
         model::Model::StageScope stage_scope(_model, k);
-        sum += costs[k]->evaluate(x.stage(k), u.stage(k))(0);
+        costs[k]->evaluate(x.stage(k), u.stage(k), _tmp_cost);
+        sum += _tmp_cost(0);
     }
 
     model::Model::StageScope stage_scope(_model, horizon);
-    return sum + costs[horizon]->evaluate(x.stage(horizon), _emptyVec)(0);
+    costs[horizon]->evaluate(x.stage(horizon), _emptyVec, _tmp_cost);
+    return sum + _tmp_cost(0);
 }
 
 void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
@@ -1363,18 +1386,24 @@ void ssqp::_lf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     const uint                   horizon = _model.horizon();
     const model::CostsContainer &costs   = _model.costs();
 
-    VecX dxk, duk;
     for (uint k = 0; k < horizon; ++k)
     {
         model::Model::StageScope stage_scope(_model, k);
-        costs[k]->gradient(x.stage(k), u.stage(k), dxk, duk);
-        dx.stage(k) = dxk;
-        du.stage(k) = duk;
+        dx.stage(k).setZero();
+        du.stage(k).setZero();
+        costs[k]->add_gradient(x.stage(k),
+                               u.stage(k),
+                               dx.stage(k),
+                               du.stage(k));
     }
 
     model::Model::StageScope stage_scope(_model, horizon);
-    costs[horizon]->gradient(x.stage(horizon), _emptyVec, dxk, duk);
-    dx.stage(horizon) = dxk;
+    VecX                     terminal_du;
+    dx.stage(horizon).setZero();
+    costs[horizon]->add_gradient(x.stage(horizon),
+                                 _emptyVec,
+                                 dx.stage(horizon),
+                                 terminal_du);
 }
 
 double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
@@ -1388,10 +1417,9 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
     for (uint k = 0; k < horizon; ++k)
     {
         model::Model::StageScope stage_scope(_model, k);
-        sum += (dynamics[k]->state_right_minus(
-                  dynamics[k]->evaluate(x.stage(k), u.stage(k)),
-                  x.stage(k + 1)))
-                 .lpNorm<Eigen::Infinity>();
+        dynamics[k]->evaluate(x.stage(k), u.stage(k), _tmp_f);
+        dynamics[k]->state_right_minus(_tmp_f, x.stage(k + 1), _tmp_gap);
+        sum += _tmp_gap.lpNorm<Eigen::Infinity>();
     }
 
     return sum;
@@ -1406,9 +1434,9 @@ double ssqp::_gammaf_softmax(const FlatVec &x, const FlatVec &u) const
     for (uint k = 0; k < horizon; ++k)
     {
         model::Model::StageScope stage_scope(_model, k);
-        Eigen::VectorXd          r = dynamics[k]->state_right_minus(
-          dynamics[k]->evaluate(x.stage(k), u.stage(k)),
-          x.stage(k + 1));
+        dynamics[k]->evaluate(x.stage(k), u.stage(k), _tmp_f);
+        dynamics[k]->state_right_minus(_tmp_f, x.stage(k + 1), _tmp_gap);
+        const VecX &r = _tmp_gap;
 
         double soft_inf =
           (_params.merit_grad_softmax_beta * r.array().abs()).exp().sum();
@@ -1433,21 +1461,24 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
     bool kinematic = _model.solverMode() == model::SolverMode::Kinematics;
 
-    MatX dXk, dUk;
+    MatX &dXk = _tmp_dyn_dX;
+    MatX &dUk = _tmp_dyn_dU;
     for (uint k = 0; k < horizon; ++k)
     {
         model::Model::StageScope stage_scope(_model, k);
 
-        VecX f_scratch;
         if (!reuse_cached_f)
         {
-            f_scratch = dynamics[k]->evaluate(x.stage(k), u.stage(k));
+            dynamics[k]->evaluate(x.stage(k), u.stage(k), _tmp_f);
         }
-        const VecX &f = reuse_cached_f ? _cached_f[k] : f_scratch;
+        const VecX &f = reuse_cached_f ? _cached_f[k] : _tmp_f;
 
-        VecX r_k = dynamics[k]->state_right_minus(f, x.stage(k + 1));
+        VecX &r_k = _tmp_gap;
+        dynamics[k]->state_right_minus(f, x.stage(k + 1), r_k);
 
-        VecX a = (_params.merit_grad_softmax_beta * r_k.array().abs()).exp();
+        // The weights share their buffer with w below
+        auto a = _tmp_gammaf_w.head(r_k.size());
+        a      = (_params.merit_grad_softmax_beta * r_k.array().abs()).exp();
         r_k    = (r_k.array().sign() * a.array()) / a.sum();
 
         _tmp_jr_inv_wrt_f.setZero();
@@ -1484,7 +1515,7 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         dx.stage(k).noalias() += dXk.transpose() * w;
         du.stage(k).noalias() += dUk.transpose() * w;
 
-        dx.stage(k + 1).head(nv) +=
+        dx.stage(k + 1).head(nv).noalias() +=
           _tmp_jr_inv_wrt_x.transpose() * r_k.head(nv);
     }
 }
@@ -1497,7 +1528,6 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
     const model::ConstraintsContainer &constraints = _model.constraints();
     double                             sum         = 0.0;
 
-    VecX c;
     for (uint k = 0; k < horizon; ++k)
     {
         if (constraints[k] == nullptr)
@@ -1507,11 +1537,17 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
 
         model::Model::StageScope stage_scope(_model, k);
 
-        c = constraints[k]->evaluate(x.stage(k), u.stage(k));
+        auto c     = _tmp_c.head(_model.dims().stage_constraint[k]);
+        auto v     = _tmp_below.head(_qp.dims.stage_constraint[k]);
+        auto above = _tmp_above.head(_qp.dims.stage_constraint[k]);
 
-        VecX v = constraints[k]->right_minus(c, constraints[k]->lower_bound());
-        v      = v.cwiseMin(0).cwiseAbs().cwiseMax(
-          constraints[k]->right_minus(c, constraints[k]->upper_bound()));
+        constraints[k]->evaluate_into(x.stage(k), u.stage(k), c);
+
+        constraints[k]->right_minus_into(c, constraints[k]->lower_bound(), v);
+        constraints[k]->right_minus_into(c,
+                                         constraints[k]->upper_bound(),
+                                         above);
+        v = v.cwiseMin(0).cwiseAbs().cwiseMax(above);
 
         // x_0 fixes the state-only rows of stage 0, so they are left out
         if (k == 0)
@@ -1529,15 +1565,22 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
     {
         model::Model::StageScope stage_scope(_model, horizon);
 
-        c    = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
-        sum += constraints[horizon]
-                 ->right_minus(c, constraints[horizon]->lower_bound())
-                 .cwiseMin(0)
-                 .cwiseAbs()
-                 .cwiseMax(constraints[horizon]->right_minus(
-                   c,
-                   constraints[horizon]->upper_bound()))
-                 .lpNorm<Eigen::Infinity>();
+        auto c     = _tmp_c.head(_model.dims().stage_constraint[horizon]);
+        auto v     = _tmp_below.head(_qp.dims.stage_constraint[horizon]);
+        auto above = _tmp_above.head(_qp.dims.stage_constraint[horizon]);
+
+        constraints[horizon]->evaluate_into(x.stage(horizon), _emptyVec, c);
+
+        constraints[horizon]->right_minus_into(
+          c,
+          constraints[horizon]->lower_bound(),
+          v);
+        constraints[horizon]->right_minus_into(
+          c,
+          constraints[horizon]->upper_bound(),
+          above);
+        sum +=
+          v.cwiseMin(0).cwiseAbs().cwiseMax(above).lpNorm<Eigen::Infinity>();
     }
 
     return sum;
@@ -1550,8 +1593,6 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 
     double sum = 0.0;
 
-    VecX c;
-
     for (uint k = 0; k < horizon; ++k)
     {
         if (constraints[k] == nullptr)
@@ -1561,15 +1602,17 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
 
         model::Model::StageScope stage_scope(_model, k);
 
-        c = constraints[k]->evaluate(x.stage(k), u.stage(k));
+        auto c     = _tmp_c.head(_model.dims().stage_constraint[k]);
+        auto v     = _tmp_below.head(_qp.dims.stage_constraint[k]);
+        auto above = _tmp_above.head(_qp.dims.stage_constraint[k]);
 
-        VecX v =
-          constraints[k]
-            ->right_minus(c, constraints[k]->lower_bound())
-            .cwiseMin(0)
-            .cwiseAbs()
-            .cwiseMax(
-              constraints[k]->right_minus(c, constraints[k]->upper_bound()));
+        constraints[k]->evaluate_into(x.stage(k), u.stage(k), c);
+
+        constraints[k]->right_minus_into(c, constraints[k]->lower_bound(), v);
+        constraints[k]->right_minus_into(c,
+                                         constraints[k]->upper_bound(),
+                                         above);
+        v = v.cwiseMin(0).cwiseAbs().cwiseMax(above);
 
         // x_0 fixes the state-only rows of stage 0, so they are left out
         if (k == 0)
@@ -1587,15 +1630,21 @@ double ssqp::_cf_softmax(const FlatVec &x, const FlatVec &u) const
     {
         model::Model::StageScope stage_scope(_model, horizon);
 
-        c = constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
+        auto c     = _tmp_c.head(_model.dims().stage_constraint[horizon]);
+        auto v     = _tmp_below.head(_qp.dims.stage_constraint[horizon]);
+        auto above = _tmp_above.head(_qp.dims.stage_constraint[horizon]);
 
-        VecX v = constraints[horizon]
-                   ->right_minus(c, constraints[horizon]->lower_bound())
-                   .cwiseMin(0)
-                   .cwiseAbs()
-                   .cwiseMax(constraints[horizon]->right_minus(
-                     c,
-                     constraints[horizon]->upper_bound()));
+        constraints[horizon]->evaluate_into(x.stage(horizon), _emptyVec, c);
+
+        constraints[horizon]->right_minus_into(
+          c,
+          constraints[horizon]->lower_bound(),
+          v);
+        constraints[horizon]->right_minus_into(
+          c,
+          constraints[horizon]->upper_bound(),
+          above);
+        v = v.cwiseMin(0).cwiseAbs().cwiseMax(above);
 
         sum += softmax_max(v, _params.merit_grad_softmax_beta);
     }
@@ -1611,7 +1660,6 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
     const uint                         horizon     = _model.horizon();
     const model::ConstraintsContainer &constraints = _model.constraints();
 
-    MatX dXk, dUk;
     for (uint k = 0; k < horizon; ++k)
     {
         if (constraints[k] == nullptr)
@@ -1621,19 +1669,26 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
         model::Model::StageScope stage_scope(_model, k);
 
-        VecX c_scratch;
+        const uint nc  = _model.dims().stage_constraint[k];
+        const uint ndc = _qp.dims.stage_constraint[k];
+
         if (!reuse_cached_c)
         {
-            c_scratch = constraints[k]->evaluate(x.stage(k), u.stage(k));
+            constraints[k]->evaluate_into(x.stage(k),
+                                          u.stage(k),
+                                          _tmp_c.head(nc));
         }
-        const VecX &c0 = reuse_cached_c ? _cached_c[k] : c_scratch;
+        ConstVecXRef c0 = reuse_cached_c ? ConstVecXRef(_cached_c[k])
+                                         : ConstVecXRef(_tmp_c.head(nc));
 
         const VecX &lb = constraints[k]->lower_bound();
         const VecX &ub = constraints[k]->upper_bound();
 
-        VecX v =
-          constraints[k]->right_minus(c0, lb).cwiseMin(0).cwiseAbs().cwiseMax(
-            constraints[k]->right_minus(c0, ub));
+        auto v     = _tmp_below.head(ndc);
+        auto above = _tmp_above.head(ndc);
+        constraints[k]->right_minus_into(c0, lb, v);
+        constraints[k]->right_minus_into(c0, ub, above);
+        v = v.cwiseMin(0).cwiseAbs().cwiseMax(above);
 
         // x_0 fixes the state-only rows of stage 0, so they are left out
         if (k == 0)
@@ -1644,20 +1699,21 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
             }
         }
 
-        VecX w =
+        // Softmax weights, signed by the side each row violates
+        auto c_k = above;
+        c_k =
           (_params.merit_grad_softmax_beta * (v.array() - v.maxCoeff())).exp();
-        w /= w.sum();
+        c_k /= c_k.sum();
 
-        VecX dv_dc = VecX::Zero(v.size());
         for (int i = 0; i < v.size(); ++i)
         {
             if (c0[i] < lb[i])
             {
-                dv_dc[i] = -1.0;
+                c_k[i] = -c_k[i];
             }
-            else if (c0[i] > ub[i])
+            else if (!(c0[i] > ub[i]))
             {
-                dv_dc[i] = +1.0;
+                c_k[i] = 0.0;
             }
         }
 
@@ -1665,13 +1721,15 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         {
             for (const uint row : _stage_0_state_only_rows)
             {
-                dv_dc[row] = 0.0;
+                c_k[row] = 0.0;
             }
         }
 
-        VecX c_k = w.cwiseProduct(dv_dc);
-
-        constraints[k]->gradient(x.stage(k), u.stage(k), dXk, dUk);
+        auto dXk = _tmp_con_dX.topLeftCorner(ndc, _qp.dims.stage_state[k]);
+        auto dUk = _tmp_con_dU.topLeftCorner(ndc, _qp.dims.stage_control[k]);
+        dXk.setZero();
+        dUk.setZero();
+        constraints[k]->add_gradient(x.stage(k), u.stage(k), dXk, dUk);
 
         dx.stage(k).noalias() += dXk.transpose() * c_k;
         du.stage(k).noalias() += dUk.transpose() * c_k;
@@ -1684,41 +1742,49 @@ void ssqp::_cf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
 
     model::Model::StageScope stage_scope(_model, horizon);
 
-    VecX c_scratch_H;
+    const uint nc  = _model.dims().stage_constraint[horizon];
+    const uint ndc = _qp.dims.stage_constraint[horizon];
+
     if (!reuse_cached_c)
     {
-        c_scratch_H =
-          constraints[horizon]->evaluate(x.stage(horizon), _emptyVec);
+        constraints[horizon]->evaluate_into(x.stage(horizon),
+                                            _emptyVec,
+                                            _tmp_c.head(nc));
     }
-    const VecX &c0 = reuse_cached_c ? _cached_c[horizon] : c_scratch_H;
+    ConstVecXRef c0 = reuse_cached_c ? ConstVecXRef(_cached_c[horizon])
+                                     : ConstVecXRef(_tmp_c.head(nc));
 
     const VecX &lb = constraints[horizon]->lower_bound();
     const VecX &ub = constraints[horizon]->upper_bound();
 
-    VecX v =
-      constraints[horizon]->right_minus(c0, lb).cwiseMin(0).cwiseAbs().cwiseMax(
-        constraints[horizon]->right_minus(c0, ub));
+    auto v     = _tmp_below.head(ndc);
+    auto above = _tmp_above.head(ndc);
+    constraints[horizon]->right_minus_into(c0, lb, v);
+    constraints[horizon]->right_minus_into(c0, ub, above);
+    v = v.cwiseMin(0).cwiseAbs().cwiseMax(above);
 
-    VecX w =
-      (_params.merit_grad_softmax_beta * (v.array() - v.maxCoeff())).exp();
-    w /= w.sum();
+    // Softmax weights, signed by the side each row violates
+    auto c_H = above;
+    c_H  = (_params.merit_grad_softmax_beta * (v.array() - v.maxCoeff())).exp();
+    c_H /= c_H.sum();
 
-    VecX dv_dc = VecX::Zero(v.size());
     for (int i = 0; i < v.size(); ++i)
     {
         if (c0[i] < lb[i])
         {
-            dv_dc[i] = -1.0;
+            c_H[i] = -c_H[i];
         }
-        else if (c0[i] > ub[i])
+        else if (!(c0[i] > ub[i]))
         {
-            dv_dc[i] = +1.0;
+            c_H[i] = 0.0;
         }
     }
 
-    VecX c_H = w.cwiseProduct(dv_dc);
-
-    constraints[horizon]->gradient(x.stage(horizon), _emptyVec, dXk, dUk);
+    // The terminal stage has no controls, so dU has no columns
+    auto dXk = _tmp_con_dX.topLeftCorner(ndc, _qp.dims.stage_state[horizon]);
+    auto dUk = _tmp_con_dU.topLeftCorner(ndc, 0);
+    dXk.setZero();
+    constraints[horizon]->add_gradient(x.stage(horizon), _emptyVec, dXk, dUk);
 
     dx.stage(horizon).noalias() += dXk.transpose() * c_H;
 }

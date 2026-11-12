@@ -25,26 +25,26 @@ class Integrator : public model::stagewise::StageDynamics
     {
         return 1;
     }
-    VecX evaluate(const VecX &x, const VecX &u) const override
+    void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override
     {
-        return x + u;
+        out = x + u;
     }
-    void gradient(const VecX &, const VecX &, MatX &dx, MatX &du) const override
+    void gradient(ConstVecXRef, ConstVecXRef, MatX &dx, MatX &du) const override
     {
         dx = MatX::Ones(1, 1);
         du = dx;
     }
-    void hessprod_xx(const VecX &, const VecX &, const VecX &,
+    void hessprod_xx(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
     }
-    void hessprod_xu(const VecX &, const VecX &, const VecX &,
+    void hessprod_xu(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
     }
-    void hessprod_uu(const VecX &, const VecX &, const VecX &,
+    void hessprod_uu(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
@@ -53,25 +53,25 @@ class Integrator : public model::stagewise::StageDynamics
 class Quadratic : public model::stagewise::StageCost
 {
   public:
-    VecX evaluate(const VecX &x, const VecX &u) const override
+    void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override
     {
-        return VecX::Constant(1, 0.5 * (x.squaredNorm() + u.squaredNorm()));
+        out = VecX::Constant(1, 0.5 * (x.squaredNorm() + u.squaredNorm()));
     }
-    void gradient(const VecX &x, const VecX &u, VecX &dx,
+    void gradient(ConstVecXRef x, ConstVecXRef u, VecX &dx,
                   VecX &du) const override
     {
         dx = x;
         du = u;
     }
-    void hessian_xx(const VecX &x, const VecX &, MatX &h) const override
+    void hessian_xx(ConstVecXRef x, ConstVecXRef, MatX &h) const override
     {
         h = MatX::Identity(x.size(), x.size());
     }
-    void hessian_xu(const VecX &x, const VecX &u, MatX &h) const override
+    void hessian_xu(ConstVecXRef x, ConstVecXRef u, MatX &h) const override
     {
         h = MatX::Zero(x.size(), u.size());
     }
-    void hessian_uu(const VecX &, const VecX &u, MatX &h) const override
+    void hessian_uu(ConstVecXRef, ConstVecXRef u, MatX &h) const override
     {
         h = MatX::Identity(u.size(), u.size());
     }
@@ -97,26 +97,26 @@ class ControlBound : public model::stagewise::StageConstraints
     {
         return _ub;
     }
-    VecX evaluate(const VecX &, const VecX &u) const override
+    void evaluate(ConstVecXRef, ConstVecXRef u, VecX &out) const override
     {
-        return u;
+        out = u;
     }
-    void gradient(const VecX &, const VecX &, MatX &dx, MatX &du) const override
+    void gradient(ConstVecXRef, ConstVecXRef, MatX &dx, MatX &du) const override
     {
         dx = MatX::Zero(1, 1);
         du = MatX::Ones(1, 1);
     }
-    void hessprod_xx(const VecX &, const VecX &, const VecX &,
+    void hessprod_xx(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
     }
-    void hessprod_xu(const VecX &, const VecX &, const VecX &,
+    void hessprod_xu(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);
     }
-    void hessprod_uu(const VecX &, const VecX &, const VecX &,
+    void hessprod_uu(ConstVecXRef, ConstVecXRef, ConstVecXRef,
                      MatX &h) const override
     {
         h = MatX::Zero(1, 1);

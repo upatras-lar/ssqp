@@ -12,6 +12,12 @@ const std::vector<std::string> Function::names() const
 {
     return _names;
 }
+
+void Function::evaluate_into(ConstVecXRef x, ConstVecXRef u, VecXRef out) const
+{
+    evaluate(x, u, _evaluate_scratch);
+    out = _evaluate_scratch;
+}
 }
 }
 }

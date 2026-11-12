@@ -45,12 +45,14 @@ class StageConstraints : public Function
     // Rows of the difference vector that depend only on $\boldsymbol{x}$, so
     // their gradient with respect to $\boldsymbol{u}$ is always zero
     // Defaults to none, so every row is treated as depending on $\boldsymbol{u}$
-    virtual std::vector<uint> state_only_rows() const;
+    // Overwrites `out`
+    virtual void state_only_rows(std::vector<uint> &out) const;
 
     // Rows that bound a single state or control entry, which some QP solvers
     // handle more cheaply than general constraints
     // Defaults to none, so every row is passed as a general constraint
-    virtual std::vector<BoxRow> box_rows() const;
+    // Overwrites `out`
+    virtual void box_rows(std::vector<BoxRow> &out) const;
 
     // Size of the difference vector: $\boldsymbol{c}_k(\boldsymbol{x}_1, \boldsymbol{u}_1) \ominus \boldsymbol{c}_k(\boldsymbol{x}_2, \boldsymbol{u}_2)$
     // Where $\ominus$: the defined right_minus operator
@@ -58,57 +60,64 @@ class StageConstraints : public Function
 
     // The $\ominus$ operator, which outputs the difference of two constraint
     // vectors in tangent space
-    virtual VecX right_minus(const VecX &x, const VecX &y) const;
+    // Default behavior: $\boldsymbol{x} - \boldsymbol{y}$
+    virtual void right_minus(ConstVecXRef x, ConstVecXRef y, VecX &out) const;
+
+    // Write $\boldsymbol{x} \ominus \boldsymbol{y}$ to out, which must already
+    // be sized to the difference vector
+    // Defaults to copying the output of right_minus
+    virtual void right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                  VecXRef out) const;
 
     // Get constraint Jacobians with respect to $\boldsymbol{x}$ and $\boldsymbol{u}$, evaluated at
     // given $(\boldsymbol{x}, \boldsymbol{u})$: $\nabla_x \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$ and $\nabla_u \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
     //  dX: gradient with respect to $\boldsymbol{x}$, $n_c \times n_{dx}$
     //  dU: gradient with respect to $\boldsymbol{u}$, $n_c \times n_u$
-    virtual void gradient(const VecX &x, const VecX &u, MatX &dX,
+    virtual void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                           MatX &dU) const = 0;
 
     // Get product $\nabla_{x} \mu_k^\top \nabla_{x} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
     //  Pxx: Product, $n_{dx} \times n_{dx}$
-    virtual void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+    virtual void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                              MatX &Pxx) const = 0;
 
     // Get product $\nabla_{x} \mu_k^\top \nabla_{u} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
     //  Pxu: Product, $n_{dx} \times n_u$
-    virtual void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+    virtual void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                              MatX &Pxu) const = 0;
 
     // Get product $\nabla_{u} \mu_k^\top \nabla_{u} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
     //  Puu: Product, $n_u \times n_u$
-    virtual void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+    virtual void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                              MatX &Puu) const = 0;
 
     // Add the constraint Jacobians to dX and dU, which must already be
     // $n_c \times n_{dx}$ and $n_c \times n_u$
     // Defaults to adding the output of gradient
-    virtual void add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+    virtual void add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                               MatXRef dU) const;
 
     // Add $\nabla_{x} \mu_k^\top \nabla_{x} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
     // to Pxx, which must already be $n_{dx} \times n_{dx}$
     // Defaults to adding the output of hessprod_xx
-    virtual void add_hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                                 MatXRef Pxx) const;
+    virtual void add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                 ConstVecXRef mu, MatXRef Pxx) const;
 
     // Add $\nabla_{x} \mu_k^\top \nabla_{u} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
     // to Pxu, which must already be $n_{dx} \times n_u$
     // Defaults to adding the output of hessprod_xu
-    virtual void add_hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                                 MatXRef Pxu) const;
+    virtual void add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                 ConstVecXRef mu, MatXRef Pxu) const;
 
     // Add $\nabla_{u} \mu_k^\top \nabla_{u} \boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u})$
     // to Puu, which must already be $n_u \times n_u$
     // Defaults to adding the output of hessprod_uu
-    virtual void add_hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                                 MatXRef Puu) const;
+    virtual void add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                 ConstVecXRef mu, MatXRef Puu) const;
 
   protected:
     bool        _enabled = true;
@@ -118,6 +127,9 @@ class StageConstraints : public Function
     // Lazily-computed default bounds (+-infinity), backing the default
     // lower_bound()/upper_bound() implementations
     mutable VecX _default_lb, _default_ub;
+
+    // Holds the output the default right_minus_into copies
+    mutable VecX _right_minus_scratch;
 
     // Hold the outputs the default add methods add, one per output so that
     // each keeps its size between calls

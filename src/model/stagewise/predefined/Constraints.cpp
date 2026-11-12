@@ -16,25 +16,87 @@ namespace constraints
 namespace
 {
 // Rows 0 to n - 1, for constraints whose rows all depend only on the state
-std::vector<uint> all_rows(const uint n)
+void all_rows(const uint n, std::vector<uint> &out)
 {
-    std::vector<uint> rows(n);
-    std::iota(rows.begin(), rows.end(), 0);
-    return rows;
+    out.resize(n);
+    std::iota(out.begin(), out.end(), 0);
 }
+}
+
+// PredefinedStageConstraints
+PredefinedStageConstraints::PredefinedStageConstraints(const Model       &model,
+                                                       const std::string &name)
+  : StageConstraints(name)
+  , _ndx(model.solverMode() == SolverMode::Kinematics ? model.nv()
+                                                      : 2 * model.nv())
+{
+}
+
+void PredefinedStageConstraints::evaluate(ConstVecXRef x, ConstVecXRef u,
+                                          VecX &out) const
+{
+    out.resize(output_size());
+    evaluate_into(x, u, out);
+}
+
+void PredefinedStageConstraints::gradient(ConstVecXRef x, ConstVecXRef u,
+                                          MatX &dX, MatX &dU) const
+{
+    const uint ndc = constraint_diff_size();
+    dX.setZero(ndc, _ndx);
+    dU.setZero(ndc, u.size());
+    add_gradient(x, u, dX, dU);
+}
+
+void PredefinedStageConstraints::hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                             ConstVecXRef mu, MatX &Pxx) const
+{
+    Pxx.setZero(_ndx, _ndx);
+    add_hessprod_xx(x, u, mu, Pxx);
+}
+
+void PredefinedStageConstraints::hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                             ConstVecXRef mu, MatX &Pxu) const
+{
+    Pxu.setZero(_ndx, u.size());
+    add_hessprod_xu(x, u, mu, Pxu);
+}
+
+void PredefinedStageConstraints::hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                             ConstVecXRef mu, MatX &Puu) const
+{
+    Puu.setZero(u.size(), u.size());
+    add_hessprod_uu(x, u, mu, Puu);
+}
+
+void PredefinedStageConstraints::add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                                 ConstVecXRef mu,
+                                                 MatXRef      Pxx) const
+{
+}
+
+void PredefinedStageConstraints::add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                                 ConstVecXRef mu,
+                                                 MatXRef      Pxu) const
+{
+}
+
+void PredefinedStageConstraints::add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                                 ConstVecXRef mu,
+                                                 MatXRef      Puu) const
+{
 }
 
 // JointAngleConstraint
 JointAngleConstraint::JointAngleConstraint(const Model &model, const VecX &lb,
                                            const VecX        &ub,
                                            const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _lb(lb)
   , _ub(ub)
   , _free_flyer(model.floatingBase())
   , _nv(model.nv())
   , _njoints(_free_flyer ? model.nq() - 7 : model.nq())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
 {
     // clang-format off
     assert((model.xml() || model.hasCustomProperties()) &&
@@ -71,38 +133,29 @@ const VecX &JointAngleConstraint::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> JointAngleConstraint::state_only_rows() const
+void JointAngleConstraint::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-std::vector<BoxRow> JointAngleConstraint::box_rows() const
+void JointAngleConstraint::box_rows(std::vector<BoxRow> &out) const
 {
     const uint offset = _free_flyer ? 6 : 0;
 
-    std::vector<BoxRow> rows;
+    out.clear();
     for (uint i = 0; i < _njoints; ++i)
     {
-        rows.push_back({ i, offset + i, false });
+        out.push_back({ i, offset + i, false });
     }
-
-    return rows;
 }
 
-VecX JointAngleConstraint::evaluate(const VecX &x, const VecX &u) const
+void JointAngleConstraint::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                         VecXRef out) const
 {
-    return _free_flyer ? x.segment(7, _njoints) : x.head(_njoints);
+    out = _free_flyer ? x.segment(7, _njoints) : x.head(_njoints);
 }
 
-void JointAngleConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                    MatX &dU) const
-{
-    dX.setZero(_njoints, _ndx);
-    dU.setZero(_njoints, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void JointAngleConstraint::add_gradient(const VecX &x, const VecX &u,
+void JointAngleConstraint::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                         MatXRef dX, MatXRef dU) const
 {
     if (_free_flyer)
@@ -115,42 +168,11 @@ void JointAngleConstraint::add_gradient(const VecX &x, const VecX &u,
     }
 }
 
-void JointAngleConstraint::hessprod_xx(const VecX &x, const VecX &u,
-                                       const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-void JointAngleConstraint::hessprod_xu(const VecX &x, const VecX &u,
-                                       const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-void JointAngleConstraint::hessprod_uu(const VecX &x, const VecX &u,
-                                       const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void JointAngleConstraint::add_hessprod_xx(const VecX &x, const VecX &u,
-                                           const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void JointAngleConstraint::add_hessprod_xu(const VecX &x, const VecX &u,
-                                           const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void JointAngleConstraint::add_hessprod_uu(const VecX &x, const VecX &u,
-                                           const VecX &mu, MatXRef Puu) const
-{
-}
-
 // JointVelocityConstraint
 JointVelocityConstraint::JointVelocityConstraint(const Model &model,
                                                  const VecX &lb, const VecX &ub,
                                                  const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _lb(lb)
   , _ub(ub)
   , _nv(model.nv())
@@ -191,82 +213,41 @@ const VecX &JointVelocityConstraint::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> JointVelocityConstraint::state_only_rows() const
+void JointVelocityConstraint::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-std::vector<BoxRow> JointVelocityConstraint::box_rows() const
+void JointVelocityConstraint::box_rows(std::vector<BoxRow> &out) const
 {
-    std::vector<BoxRow> rows;
+    out.clear();
     for (uint i = 0; i < _njoints; ++i)
     {
-        rows.push_back({ i, 2 * _nv - _njoints + i, false });
+        out.push_back({ i, 2 * _nv - _njoints + i, false });
     }
-
-    return rows;
 }
 
-VecX JointVelocityConstraint::evaluate(const VecX &x, const VecX &u) const
+void JointVelocityConstraint::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                            VecXRef out) const
 {
-    return x.tail(_njoints);
+    out = x.tail(_njoints);
 }
 
-void JointVelocityConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                       MatX &dU) const
-{
-    dX.setZero(_njoints, 2 * _nv);
-    dU.setZero(_njoints, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void JointVelocityConstraint::add_gradient(const VecX &x, const VecX &u,
+void JointVelocityConstraint::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                            MatXRef dX, MatXRef dU) const
 {
     dX.bottomRightCorner(_njoints, _njoints).diagonal().array() += 1.0;
-}
-
-void JointVelocityConstraint::hessprod_xx(const VecX &x, const VecX &u,
-                                          const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(2 * _nv, 2 * _nv);
-}
-void JointVelocityConstraint::hessprod_xu(const VecX &x, const VecX &u,
-                                          const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(2 * _nv, u.size());
-}
-void JointVelocityConstraint::hessprod_uu(const VecX &x, const VecX &u,
-                                          const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void JointVelocityConstraint::add_hessprod_xx(const VecX &x, const VecX &u,
-                                              const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void JointVelocityConstraint::add_hessprod_xu(const VecX &x, const VecX &u,
-                                              const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void JointVelocityConstraint::add_hessprod_uu(const VecX &x, const VecX &u,
-                                              const VecX &mu, MatXRef Puu) const
-{
 }
 
 // JointControlConstraint
 JointControlConstraint::JointControlConstraint(const Model &model,
                                                const VecX &lb, const VecX &ub,
                                                const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _lb(lb)
   , _ub(ub)
   , _nv(model.nv())
   , _nu(model.nu())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
 {
     // clang-format off
     assert((model.xml() || model.hasCustomProperties()) &&
@@ -302,65 +283,25 @@ const VecX &JointControlConstraint::upper_bound() const
     return _ub;
 }
 
-std::vector<BoxRow> JointControlConstraint::box_rows() const
+void JointControlConstraint::box_rows(std::vector<BoxRow> &out) const
 {
-    std::vector<BoxRow> rows;
+    out.clear();
     for (uint i = 0; i < _nu; ++i)
     {
-        rows.push_back({ i, i, true });
+        out.push_back({ i, i, true });
     }
-
-    return rows;
 }
 
-VecX JointControlConstraint::evaluate(const VecX &x, const VecX &u) const
+void JointControlConstraint::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                           VecXRef out) const
 {
-    return u.head(_nu);
+    out = u.head(_nu);
 }
 
-void JointControlConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                      MatX &dU) const
-{
-    dX.setZero(_nu, _ndx);
-    dU.setZero(_nu, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void JointControlConstraint::add_gradient(const VecX &x, const VecX &u,
+void JointControlConstraint::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                           MatXRef dX, MatXRef dU) const
 {
     dU.topLeftCorner(_nu, _nu).diagonal().array() += 1.0;
-}
-
-void JointControlConstraint::hessprod_xx(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-void JointControlConstraint::hessprod_xu(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-void JointControlConstraint::hessprod_uu(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void JointControlConstraint::add_hessprod_xx(const VecX &x, const VecX &u,
-                                             const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void JointControlConstraint::add_hessprod_xu(const VecX &x, const VecX &u,
-                                             const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void JointControlConstraint::add_hessprod_uu(const VecX &x, const VecX &u,
-                                             const VecX &mu, MatXRef Puu) const
-{
 }
 
 // FloatingBaseTranslationBound
@@ -368,11 +309,10 @@ FloatingBaseTranslationBound::FloatingBaseTranslationBound(
   const Model &model, const Vec3 &lb, const Vec3 &ub,
   const ReferenceFrame &reference_frame, const Vec3 &center,
   const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
   , _center(center)
@@ -427,26 +367,19 @@ const VecX &FloatingBaseTranslationBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FloatingBaseTranslationBound::state_only_rows() const
+void FloatingBaseTranslationBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FloatingBaseTranslationBound::evaluate(const VecX &x, const VecX &u) const
+void FloatingBaseTranslationBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                                 VecXRef out) const
 {
-    return _reference_frame.axes(x).transpose() * (x.head<3>() - _center);
+    out = _reference_frame.axes(x).transpose() * (x.head<3>() - _center);
 }
 
 // TODO: is this valid? recheck
-void FloatingBaseTranslationBound::gradient(const VecX &x, const VecX &u,
-                                            MatX &dX, MatX &dU) const
-{
-    dX.setZero(output_size(), _ndx);
-    dU.setZero(output_size(), u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FloatingBaseTranslationBound::add_gradient(const VecX &x, const VecX &u,
+void FloatingBaseTranslationBound::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                                 MatXRef dX, MatXRef dU) const
 {
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
@@ -464,53 +397,16 @@ void FloatingBaseTranslationBound::add_gradient(const VecX &x, const VecX &u,
     }
 }
 
-void FloatingBaseTranslationBound::hessprod_xx(const VecX &x, const VecX &u,
-                                               const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-
-void FloatingBaseTranslationBound::hessprod_xu(const VecX &x, const VecX &u,
-                                               const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-
-void FloatingBaseTranslationBound::hessprod_uu(const VecX &x, const VecX &u,
-                                               const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FloatingBaseTranslationBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                                   const VecX &mu,
-                                                   MatXRef     Pxx) const
-{
-}
-
-void FloatingBaseTranslationBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                                   const VecX &mu,
-                                                   MatXRef     Pxu) const
-{
-}
-
-void FloatingBaseTranslationBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                                   const VecX &mu,
-                                                   MatXRef     Puu) const
-{
-}
-
 // FloatingBaseRotationBound
 FloatingBaseRotationBound::FloatingBaseRotationBound(const Model       &model,
                                                      const Mat3        &Rref,
                                                      const Vec3        &lb,
                                                      const Vec3        &ub,
                                                      const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _Rref(Rref)
   , _lb(lb)
   , _ub(ub)
@@ -550,27 +446,20 @@ const VecX &FloatingBaseRotationBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FloatingBaseRotationBound::state_only_rows() const
+void FloatingBaseRotationBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FloatingBaseRotationBound::evaluate(const VecX &x, const VecX &u) const
+void FloatingBaseRotationBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                              VecXRef out) const
 {
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
 
-    return pinocchio_wrapper::logSO3(_Rref.transpose() * q.toRotationMatrix());
+    out = pinocchio_wrapper::logSO3(_Rref.transpose() * q.toRotationMatrix());
 }
 
-void FloatingBaseRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                         MatX &dU) const
-{
-    dX.setZero(3, _ndx);
-    dU.setZero(3, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FloatingBaseRotationBound::add_gradient(const VecX &x, const VecX &u,
+void FloatingBaseRotationBound::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                              MatXRef dX, MatXRef dU) const
 {
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
@@ -579,51 +468,15 @@ void FloatingBaseRotationBound::add_gradient(const VecX &x, const VecX &u,
       pinocchio_wrapper::JlogSO3(_Rref.transpose() * q.toRotationMatrix());
 }
 
-void FloatingBaseRotationBound::hessprod_xx(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-
-void FloatingBaseRotationBound::hessprod_xu(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-void FloatingBaseRotationBound::hessprod_uu(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FloatingBaseRotationBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                                const VecX &mu,
-                                                MatXRef     Pxx) const
-{
-}
-
-void FloatingBaseRotationBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                                const VecX &mu,
-                                                MatXRef     Pxu) const
-{
-}
-
-void FloatingBaseRotationBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                                const VecX &mu,
-                                                MatXRef     Puu) const
-{
-}
-
 // FloatingBasePoseBound
 FloatingBasePoseBound::FloatingBasePoseBound(const Model &model,
                                              const Mat4 &Tref, const Vec6 &lb,
                                              const Vec6        &ub,
                                              const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _Tref(Tref)
   , _Tref_inv(inverseSE3(Tref))
   , _lb(lb)
@@ -692,12 +545,13 @@ const VecX &FloatingBasePoseBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FloatingBasePoseBound::state_only_rows() const
+void FloatingBasePoseBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FloatingBasePoseBound::evaluate(const VecX &x, const VecX &u) const
+void FloatingBasePoseBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                          VecXRef out) const
 {
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
 
@@ -706,18 +560,10 @@ VecX FloatingBasePoseBound::evaluate(const VecX &x, const VecX &u) const
     Tfl.block<3, 1>(0, 3) = x.head<3>();
     Tfl(3, 3)             = 1.0;
 
-    return pinocchio_wrapper::logSE3(_Tref_inv * Tfl);
+    out = pinocchio_wrapper::logSE3(_Tref_inv * Tfl);
 }
 
-void FloatingBasePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                     MatX &dU) const
-{
-    dX.setZero(6, _ndx);
-    dU.setZero(6, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FloatingBasePoseBound::add_gradient(const VecX &x, const VecX &u,
+void FloatingBasePoseBound::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                          MatXRef dX, MatXRef dU) const
 {
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
@@ -732,48 +578,14 @@ void FloatingBasePoseBound::add_gradient(const VecX &x, const VecX &u,
     dX.topLeftCorner<6, 6>() += Jlog;
 }
 
-void FloatingBasePoseBound::hessprod_xx(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-
-void FloatingBasePoseBound::hessprod_xu(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-
-void FloatingBasePoseBound::hessprod_uu(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FloatingBasePoseBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void FloatingBasePoseBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void FloatingBasePoseBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatXRef Puu) const
-{
-}
-
 // FloatingBaseLinearVelocityBound
 FloatingBaseLinearVelocityBound::FloatingBaseLinearVelocityBound(
   const Model &model, const Vec3 &lb, const Vec3 &ub,
   const ReferenceFrame &reference_frame, const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
   , _reference_frame(reference_frame)
@@ -811,50 +623,47 @@ const VecX &FloatingBaseLinearVelocityBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FloatingBaseLinearVelocityBound::state_only_rows() const
+void FloatingBaseLinearVelocityBound::state_only_rows(
+  std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-std::vector<BoxRow> FloatingBaseLinearVelocityBound::box_rows() const
+void FloatingBaseLinearVelocityBound::box_rows(std::vector<BoxRow> &out) const
 {
     const ReferenceFrame::Type type = _reference_frame.type();
     if (type != ReferenceFrame::Local && type != ReferenceFrame::Base)
     {
-        return {};
+        out.clear();
+        return;
     }
 
-    return {
+    out = {
         { 0,     _nv, false },
         { 1, _nv + 1, false },
         { 2, _nv + 2, false }
     };
 }
 
-VecX FloatingBaseLinearVelocityBound::evaluate(const VecX &x,
-                                               const VecX &u) const
+void FloatingBaseLinearVelocityBound::evaluate_into(ConstVecXRef x,
+                                                    ConstVecXRef u,
+                                                    VecXRef      out) const
 {
     const ReferenceFrame::Type type = _reference_frame.type();
     if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
     {
-        return x.segment<3>(_nq);
+        out = x.segment<3>(_nq);
+        return;
     }
 
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
-    return _reference_frame.rotation().transpose() * q.toRotationMatrix() *
-           x.segment<3>(_nq);
+    out = _reference_frame.rotation().transpose() * q.toRotationMatrix() *
+          x.segment<3>(_nq);
 }
 
-void FloatingBaseLinearVelocityBound::gradient(const VecX &x, const VecX &u,
-                                               MatX &dX, MatX &dU) const
-{
-    dX.setZero(3, _ndx);
-    dU.setZero(3, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FloatingBaseLinearVelocityBound::add_gradient(const VecX &x, const VecX &u,
-                                                   MatXRef dX, MatXRef dU) const
+void FloatingBaseLinearVelocityBound::add_gradient(ConstVecXRef x,
+                                                   ConstVecXRef u, MatXRef dX,
+                                                   MatXRef dU) const
 {
     const ReferenceFrame::Type type = _reference_frame.type();
     if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
@@ -874,57 +683,14 @@ void FloatingBaseLinearVelocityBound::add_gradient(const VecX &x, const VecX &u,
     }
 }
 
-void FloatingBaseLinearVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
-                                                  const VecX &mu,
-                                                  MatX       &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-
-void FloatingBaseLinearVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
-                                                  const VecX &mu,
-                                                  MatX       &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-
-void FloatingBaseLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
-                                                  const VecX &mu,
-                                                  MatX       &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FloatingBaseLinearVelocityBound::add_hessprod_xx(const VecX &x,
-                                                      const VecX &u,
-                                                      const VecX &mu,
-                                                      MatXRef     Pxx) const
-{
-}
-
-void FloatingBaseLinearVelocityBound::add_hessprod_xu(const VecX &x,
-                                                      const VecX &u,
-                                                      const VecX &mu,
-                                                      MatXRef     Pxu) const
-{
-}
-
-void FloatingBaseLinearVelocityBound::add_hessprod_uu(const VecX &x,
-                                                      const VecX &u,
-                                                      const VecX &mu,
-                                                      MatXRef     Puu) const
-{
-}
-
 // FloatingBaseAngularVelocityBound
 FloatingBaseAngularVelocityBound::FloatingBaseAngularVelocityBound(
   const Model &model, const Vec3 &lb, const Vec3 &ub,
   const ReferenceFrame &reference_frame, const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
   , _reference_frame(reference_frame)
@@ -962,49 +728,45 @@ const VecX &FloatingBaseAngularVelocityBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FloatingBaseAngularVelocityBound::state_only_rows() const
+void FloatingBaseAngularVelocityBound::state_only_rows(
+  std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-std::vector<BoxRow> FloatingBaseAngularVelocityBound::box_rows() const
+void FloatingBaseAngularVelocityBound::box_rows(std::vector<BoxRow> &out) const
 {
     const ReferenceFrame::Type type = _reference_frame.type();
     if (type != ReferenceFrame::Local && type != ReferenceFrame::Base)
     {
-        return {};
+        out.clear();
+        return;
     }
 
-    return {
+    out = {
         { 0, _nv + 3, false },
         { 1, _nv + 4, false },
         { 2, _nv + 5, false }
     };
 }
 
-VecX FloatingBaseAngularVelocityBound::evaluate(const VecX &x,
-                                                const VecX &u) const
+void FloatingBaseAngularVelocityBound::evaluate_into(ConstVecXRef x,
+                                                     ConstVecXRef u,
+                                                     VecXRef      out) const
 {
     const ReferenceFrame::Type type = _reference_frame.type();
     if (type == ReferenceFrame::Local || type == ReferenceFrame::Base)
     {
-        return x.segment<3>(_nq + 3);
+        out = x.segment<3>(_nq + 3);
+        return;
     }
 
     Eigen::Quaterniond q(x[6], x[3], x[4], x[5]);
-    return _reference_frame.rotation().transpose() * q.toRotationMatrix() *
-           x.segment<3>(_nq + 3);
+    out = _reference_frame.rotation().transpose() * q.toRotationMatrix() *
+          x.segment<3>(_nq + 3);
 }
-void FloatingBaseAngularVelocityBound::gradient(const VecX &x, const VecX &u,
-                                                MatX &dX, MatX &dU) const
-{
-    dX.setZero(3, _ndx);
-    dU.setZero(3, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FloatingBaseAngularVelocityBound::add_gradient(const VecX &x,
-                                                    const VecX &u, MatXRef dX,
+void FloatingBaseAngularVelocityBound::add_gradient(ConstVecXRef x,
+                                                    ConstVecXRef u, MatXRef dX,
                                                     MatXRef dU) const
 {
     const ReferenceFrame::Type type = _reference_frame.type();
@@ -1025,58 +787,15 @@ void FloatingBaseAngularVelocityBound::add_gradient(const VecX &x,
     }
 }
 
-void FloatingBaseAngularVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
-                                                   const VecX &mu,
-                                                   MatX       &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-
-void FloatingBaseAngularVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
-                                                   const VecX &mu,
-                                                   MatX       &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-
-void FloatingBaseAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
-                                                   const VecX &mu,
-                                                   MatX       &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FloatingBaseAngularVelocityBound::add_hessprod_xx(const VecX &x,
-                                                       const VecX &u,
-                                                       const VecX &mu,
-                                                       MatXRef     Pxx) const
-{
-}
-
-void FloatingBaseAngularVelocityBound::add_hessprod_xu(const VecX &x,
-                                                       const VecX &u,
-                                                       const VecX &mu,
-                                                       MatXRef     Pxu) const
-{
-}
-
-void FloatingBaseAngularVelocityBound::add_hessprod_uu(const VecX &x,
-                                                       const VecX &u,
-                                                       const VecX &mu,
-                                                       MatXRef     Puu) const
-{
-}
-
 // FrameTranslationBound
 FrameTranslationBound::FrameTranslationBound(
   const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
   const ReferenceFrame &reference_frame, const Vec3 &center,
   const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _lb(lb)
@@ -1131,12 +850,13 @@ const VecX &FrameTranslationBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FrameTranslationBound::state_only_rows() const
+void FrameTranslationBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
+void FrameTranslationBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                          VecXRef out) const
 {
     Vec3 pos;
     Mat3 R;
@@ -1145,18 +865,10 @@ VecX FrameTranslationBound::evaluate(const VecX &x, const VecX &u) const
     const Mat3 A = _reference_frame.type() == ReferenceFrame::Local
                      ? R
                      : _reference_frame.axes(x);
-    return A.transpose() * (pos - _center);
+    out          = A.transpose() * (pos - _center);
 }
 
-void FrameTranslationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                     MatX &dU) const
-{
-    dX.setZero(3, _ndx);
-    dU.setZero(3, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FrameTranslationBound::add_gradient(const VecX &x, const VecX &u,
+void FrameTranslationBound::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                          MatXRef dX, MatXRef dU) const
 {
     _model->frameJacobian(x.head(_nq), _frame_id, false, _jac_scratch);
@@ -1192,48 +904,16 @@ void FrameTranslationBound::add_gradient(const VecX &x, const VecX &u,
     }
 }
 
-void FrameTranslationBound::hessprod_xx(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-void FrameTranslationBound::hessprod_xu(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-void FrameTranslationBound::hessprod_uu(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FrameTranslationBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void FrameTranslationBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void FrameTranslationBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatXRef Puu) const
-{
-}
-
 // FrameTerrainHeightBound
 FrameTerrainHeightBound::FrameTerrainHeightBound(const Model       &model,
                                                  const std::string &frame,
                                                  const double       lb,
                                                  const double       ub,
                                                  const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _lb(Scalar::Constant(lb))
@@ -1269,30 +949,22 @@ const VecX &FrameTerrainHeightBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FrameTerrainHeightBound::state_only_rows() const
+void FrameTerrainHeightBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FrameTerrainHeightBound::evaluate(const VecX &x, const VecX &u) const
+void FrameTerrainHeightBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                            VecXRef out) const
 {
     Vec3 pos;
     std::tie(pos, std::ignore) =
       _model->forwardKinematics(x.head(_nq), _frame_id);
 
-    return Scalar::Constant(pos[2] -
-                            _model->terrain()->at(pos[0], pos[1]).height);
+    out[0] = pos[2] - _model->terrain()->at(pos[0], pos[1]).height;
 }
 
-void FrameTerrainHeightBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                       MatX &dU) const
-{
-    dX.setZero(1, _ndx);
-    dU.setZero(1, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FrameTerrainHeightBound::add_gradient(const VecX &x, const VecX &u,
+void FrameTerrainHeightBound::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                            MatXRef dX, MatXRef dU) const
 {
     Vec3 pos;
@@ -1306,47 +978,15 @@ void FrameTerrainHeightBound::add_gradient(const VecX &x, const VecX &u,
       Vec3(-tp.dhdx, -tp.dhdy, 1).transpose() * _jac_scratch.topRows(3);
 }
 
-void FrameTerrainHeightBound::hessprod_xx(const VecX &x, const VecX &u,
-                                          const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-void FrameTerrainHeightBound::hessprod_xu(const VecX &x, const VecX &u,
-                                          const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-void FrameTerrainHeightBound::hessprod_uu(const VecX &x, const VecX &u,
-                                          const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FrameTerrainHeightBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                              const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void FrameTerrainHeightBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                              const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void FrameTerrainHeightBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                              const VecX &mu, MatXRef Puu) const
-{
-}
-
 // FrameRotationBound
 FrameRotationBound::FrameRotationBound(const Model       &model,
                                        const std::string &frame,
                                        const Mat3 &Rref, const Vec3 &lb,
                                        const Vec3 &ub, const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _Rref(Rref)
@@ -1387,30 +1027,23 @@ const VecX &FrameRotationBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FrameRotationBound::state_only_rows() const
+void FrameRotationBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FrameRotationBound::evaluate(const VecX &x, const VecX &u) const
+void FrameRotationBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                       VecXRef out) const
 {
     Mat3 Rf;
     std::tie(std::ignore, Rf) =
       _model->forwardKinematics(x.head(_nq), _frame_id);
 
-    return pinocchio_wrapper::logSO3(_Rref.transpose() * Rf);
+    out = pinocchio_wrapper::logSO3(_Rref.transpose() * Rf);
 }
 
-void FrameRotationBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                  MatX &dU) const
-{
-    dX.setZero(3, _ndx);
-    dU.setZero(3, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FrameRotationBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
-                                      MatXRef dU) const
+void FrameRotationBound::add_gradient(ConstVecXRef x, ConstVecXRef u,
+                                      MatXRef dX, MatXRef dU) const
 {
     Mat3 Rf;
     std::tie(std::ignore, Rf) =
@@ -1423,46 +1056,14 @@ void FrameRotationBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
     dX.leftCols(_nv) += Jlog * Jw;
 }
 
-void FrameRotationBound::hessprod_xx(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-void FrameRotationBound::hessprod_xu(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-void FrameRotationBound::hessprod_uu(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FrameRotationBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void FrameRotationBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void FrameRotationBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                         const VecX &mu, MatXRef Puu) const
-{
-}
-
 // FramePoseBound
 FramePoseBound::FramePoseBound(const Model &model, const std::string &frame,
                                const Mat4 &Tref, const Vec6 &lb, const Vec6 &ub,
                                const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _Tref(Tref)
@@ -1533,26 +1134,19 @@ const VecX &FramePoseBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FramePoseBound::state_only_rows() const
+void FramePoseBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FramePoseBound::evaluate(const VecX &x, const VecX &u) const
+void FramePoseBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                   VecXRef out) const
 {
     Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
-    return pinocchio_wrapper::logSE3(_Tref_inv * Tf);
+    out     = pinocchio_wrapper::logSE3(_Tref_inv * Tf);
 }
 
-void FramePoseBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                              MatX &dU) const
-{
-    dX.setZero(6, _ndx);
-    dU.setZero(6, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FramePoseBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+void FramePoseBound::add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                                   MatXRef dU) const
 {
     Mat4 Tf = _model->forwardKinematicsSE3(x.head(_nq), _frame_id);
@@ -1563,48 +1157,14 @@ void FramePoseBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
     dX.leftCols(_nv) += Jlog * _jac_scratch;
 }
 
-void FramePoseBound::hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
-                                 MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-
-void FramePoseBound::hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
-                                 MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-
-void FramePoseBound::hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
-                                 MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FramePoseBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void FramePoseBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void FramePoseBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                     const VecX &mu, MatXRef Puu) const
-{
-}
-
 // FrameLinearVelocityBound
 FrameLinearVelocityBound::FrameLinearVelocityBound(
   const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
   const ReferenceFrame &reference_frame, const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _lb(lb)
@@ -1654,28 +1214,21 @@ const VecX &FrameLinearVelocityBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FrameLinearVelocityBound::state_only_rows() const
+void FrameLinearVelocityBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FrameLinearVelocityBound::evaluate(const VecX &x, const VecX &u) const
+void FrameLinearVelocityBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                             VecXRef out) const
 {
     const bool local = _reference_frame.type() == ReferenceFrame::Local;
-    return _reference_frame.axes(x).transpose() *
-           _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local)
-             .head<3>();
+    out              = _reference_frame.axes(x).transpose() *
+          _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local)
+            .head<3>();
 }
 
-void FrameLinearVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                        MatX &dU) const
-{
-    dX.setZero(3, _ndx);
-    dU.setZero(3, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FrameLinearVelocityBound::add_gradient(const VecX &x, const VecX &u,
+void FrameLinearVelocityBound::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                             MatXRef dX, MatXRef dU) const
 {
     _model->frameVelocityDerivatives(x.head(_nq),
@@ -1718,49 +1271,14 @@ void FrameLinearVelocityBound::add_gradient(const VecX &x, const VecX &u,
     }
 }
 
-void FrameLinearVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
-                                           const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-void FrameLinearVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
-                                           const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-void FrameLinearVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
-                                           const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FrameLinearVelocityBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                               const VecX &mu,
-                                               MatXRef     Pxx) const
-{
-}
-
-void FrameLinearVelocityBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                               const VecX &mu,
-                                               MatXRef     Pxu) const
-{
-}
-
-void FrameLinearVelocityBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                               const VecX &mu,
-                                               MatXRef     Puu) const
-{
-}
-
 // FrameAngularVelocityBound
 FrameAngularVelocityBound::FrameAngularVelocityBound(
   const Model &model, const std::string &frame, const Vec3 &lb, const Vec3 &ub,
   const ReferenceFrame &reference_frame, const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _frame(frame)
   , _frame_id(model.frameId(frame))
   , _lb(lb)
@@ -1811,28 +1329,21 @@ const VecX &FrameAngularVelocityBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> FrameAngularVelocityBound::state_only_rows() const
+void FrameAngularVelocityBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX FrameAngularVelocityBound::evaluate(const VecX &x, const VecX &u) const
+void FrameAngularVelocityBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                              VecXRef out) const
 {
     const bool local = _reference_frame.type() == ReferenceFrame::Local;
-    return _reference_frame.axes(x).transpose() *
-           _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local)
-             .tail<3>();
+    out              = _reference_frame.axes(x).transpose() *
+          _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, local)
+            .tail<3>();
 }
 
-void FrameAngularVelocityBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                         MatX &dU) const
-{
-    dX.setZero(3, _ndx);
-    dU.setZero(3, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void FrameAngularVelocityBound::add_gradient(const VecX &x, const VecX &u,
+void FrameAngularVelocityBound::add_gradient(ConstVecXRef x, ConstVecXRef u,
                                              MatXRef dX, MatXRef dU) const
 {
     const bool local = _reference_frame.type() == ReferenceFrame::Local;
@@ -1858,51 +1369,16 @@ void FrameAngularVelocityBound::add_gradient(const VecX &x, const VecX &u,
     }
 }
 
-void FrameAngularVelocityBound::hessprod_xx(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-void FrameAngularVelocityBound::hessprod_xu(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-void FrameAngularVelocityBound::hessprod_uu(const VecX &x, const VecX &u,
-                                            const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void FrameAngularVelocityBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                                const VecX &mu,
-                                                MatXRef     Pxx) const
-{
-}
-
-void FrameAngularVelocityBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                                const VecX &mu,
-                                                MatXRef     Pxu) const
-{
-}
-
-void FrameAngularVelocityBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                                const VecX &mu,
-                                                MatXRef     Puu) const
-{
-}
-
 // CenterOfMassBound
 CenterOfMassBound::CenterOfMassBound(const Model &model, const Vec3 &lb,
                                      const Vec3           &ub,
                                      const ReferenceFrame &reference_frame,
                                      const Vec3           &center,
                                      const std::string    &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
-  , _ndx(model.solverMode() == SolverMode::Kinematics ? _nv : 2 * _nv)
   , _lb(lb)
   , _ub(ub)
   , _center(center)
@@ -1951,26 +1427,19 @@ const VecX &CenterOfMassBound::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> CenterOfMassBound::state_only_rows() const
+void CenterOfMassBound::state_only_rows(std::vector<uint> &out) const
 {
-    return all_rows(constraint_diff_size());
+    all_rows(constraint_diff_size(), out);
 }
 
-VecX CenterOfMassBound::evaluate(const VecX &x, const VecX &u) const
+void CenterOfMassBound::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                      VecXRef out) const
 {
-    return _reference_frame.axes(x).transpose() *
-           (_model->centerOfMass(x.head(_nq)) - _center);
+    out = _reference_frame.axes(x).transpose() *
+          (_model->centerOfMass(x.head(_nq)) - _center);
 }
 
-void CenterOfMassBound::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                 MatX &dU) const
-{
-    dX.setZero(3, _ndx);
-    dU.setZero(3, u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void CenterOfMassBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+void CenterOfMassBound::add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                                      MatXRef dU) const
 {
     const Mat3 Rt = _reference_frame.axes(x).transpose();
@@ -1986,46 +1455,13 @@ void CenterOfMassBound::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
     }
 }
 
-void CenterOfMassBound::hessprod_xx(const VecX &x, const VecX &u,
-                                    const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(_ndx, _ndx);
-}
-
-void CenterOfMassBound::hessprod_xu(const VecX &x, const VecX &u,
-                                    const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(_ndx, u.size());
-}
-
-void CenterOfMassBound::hessprod_uu(const VecX &x, const VecX &u,
-                                    const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void CenterOfMassBound::add_hessprod_xx(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void CenterOfMassBound::add_hessprod_xu(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void CenterOfMassBound::add_hessprod_uu(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatXRef Puu) const
-{
-}
-
 // ContactConstraint
 ContactConstraint::ContactConstraint(const Model       &model,
                                      const std::string &frame, const double mu,
                                      const double max_normal_force,
                                      const double eq_tol, const bool no_slip,
                                      const std::string &name)
-  : StageConstraints(name)
+  : PredefinedStageConstraints(model, name)
   , _model(&model)
   , _nq(model.nq())
   , _nv(model.nv())
@@ -2131,18 +1567,20 @@ const VecX &ContactConstraint::upper_bound() const
     return _ub;
 }
 
-std::vector<uint> ContactConstraint::state_only_rows() const
+void ContactConstraint::state_only_rows(std::vector<uint> &out) const
 {
     // The height and no-slip rows, since the others bound the contact force
     if (_no_slip)
     {
-        return { 5, 6, 7, 8 };
+        out = { 5, 6, 7, 8 };
+        return;
     }
 
-    return { 5 };
+    out = { 5 };
 }
 
-VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
+void ContactConstraint::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                      VecXRef out) const
 {
     std::shared_ptr<terrain::Terrain> terrain = contact_terrain();
 
@@ -2158,33 +1596,22 @@ VecX ContactConstraint::evaluate(const VecX &x, const VecX &u) const
     double ft1 = (f_global.transpose() * tp.t1)[0];
     double ft2 = (f_global.transpose() * tp.t2)[0];
 
-    VecX res(output_size());
-    res[0] = fn;
-    res[1] = ft1 - _mu * fn;
-    res[2] = ft1 + _mu * fn;
-    res[3] = ft2 - _mu * fn;
-    res[4] = ft2 + _mu * fn;
-    res[5] = pos[2] - tp.height;
+    out[0] = fn;
+    out[1] = ft1 - _mu * fn;
+    out[2] = ft1 + _mu * fn;
+    out[3] = ft2 - _mu * fn;
+    out[4] = ft2 + _mu * fn;
+    out[5] = pos[2] - tp.height;
 
     if (_no_slip)
     {
-        res.tail<3>() =
+        out.tail<3>() =
           _model->frameVelocity(x.head(_nq), x.tail(_nv), _frame_id, true)
             .head<3>();
     }
-
-    return res;
 }
 
-void ContactConstraint::gradient(const VecX &x, const VecX &u, MatX &dX,
-                                 MatX &dU) const
-{
-    dX.setZero(output_size(), 2 * _nv);
-    dU.setZero(output_size(), u.size());
-    add_gradient(x, u, dX, dU);
-}
-
-void ContactConstraint::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+void ContactConstraint::add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                                      MatXRef dU) const
 {
     std::shared_ptr<terrain::Terrain> terrain = contact_terrain();
@@ -2290,39 +1717,6 @@ void ContactConstraint::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
     dU.block<1, 3>(4, total_force_index) +=
       (dft2_dflocal + _mu * dfn_dflocal).transpose();
 }
-
-void ContactConstraint::hessprod_xx(const VecX &x, const VecX &u,
-                                    const VecX &mu, MatX &Pxx) const
-{
-    Pxx.setZero(2 * _nv, 2 * _nv);
-}
-
-void ContactConstraint::hessprod_xu(const VecX &x, const VecX &u,
-                                    const VecX &mu, MatX &Pxu) const
-{
-    Pxu.setZero(2 * _nv, u.size());
-}
-void ContactConstraint::hessprod_uu(const VecX &x, const VecX &u,
-                                    const VecX &mu, MatX &Puu) const
-{
-    Puu.setZero(u.size(), u.size());
-}
-
-void ContactConstraint::add_hessprod_xx(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatXRef Pxx) const
-{
-}
-
-void ContactConstraint::add_hessprod_xu(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatXRef Pxu) const
-{
-}
-
-void ContactConstraint::add_hessprod_uu(const VecX &x, const VecX &u,
-                                        const VecX &mu, MatXRef Puu) const
-{
-}
-
 }
 }
 }

@@ -77,11 +77,23 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    VecX init_state() const override
+    // Cast into an owned VecX and cache it, so we can hand back a reference
+    // with a stable lifetime, as for the constraint bounds
+    const VecX &init_state() const override
     {
         try
         {
-            NB_OVERRIDE(init_state);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "init_state",
+                                               false);
+            if (!nb_ticket.key.is_valid())
+            {
+                return NBBase::init_state();
+            }
+
+            _init_state_cache =
+              nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)());
+            return _init_state_cache;
         }
         catch (const nb::cast_error &e)
         {
@@ -91,11 +103,21 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    VecX init_control() const override
+    const VecX &init_control() const override
     {
         try
         {
-            NB_OVERRIDE(init_control);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "init_control",
+                                               false);
+            if (!nb_ticket.key.is_valid())
+            {
+                return NBBase::init_control();
+            }
+
+            _init_control_cache =
+              nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)());
+            return _init_control_cache;
         }
         catch (const nb::cast_error &e)
         {
@@ -105,11 +127,23 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    VecX state_right_plus(const VecX &x, const VecX &dx) const override
+    void state_right_plus(ConstVecXRef x, ConstVecXRef dx,
+                          VecX &out) const override
     {
         try
         {
-            NB_OVERRIDE(state_right_plus, x, dx);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "state_right_plus",
+                                               false);
+            if (nb_ticket.key.is_valid())
+            {
+                out = nb::cast<VecX>(
+                  nb_trampoline.base().attr(nb_ticket.key)(x, dx));
+            }
+            else
+            {
+                NBBase::state_right_plus(x, dx, out);
+            }
         }
         catch (const nb::cast_error &e)
         {
@@ -119,11 +153,23 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    VecX state_right_minus(const VecX &x, const VecX &y) const override
+    void state_right_minus(ConstVecXRef x, ConstVecXRef y,
+                           VecX &out) const override
     {
         try
         {
-            NB_OVERRIDE(state_right_minus, x, y);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "state_right_minus",
+                                               false);
+            if (nb_ticket.key.is_valid())
+            {
+                out = nb::cast<VecX>(
+                  nb_trampoline.base().attr(nb_ticket.key)(x, y));
+            }
+            else
+            {
+                NBBase::state_right_minus(x, y, out);
+            }
         }
         catch (const nb::cast_error &e)
         {
@@ -133,13 +179,13 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    VecX evaluate(const VecX &x, const VecX &u) const override
+    void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override
     {
         try
         {
             nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
-            return nb::cast<VecX>(
-              nb_trampoline.base().attr(nb_ticket.key)(x, u));
+            out =
+              nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
         }
         catch (const nb::cast_error &e)
         {
@@ -149,7 +195,7 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
+    void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                   MatX &dU) const override
     {
         try
@@ -167,7 +213,7 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &lambda,
+    void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                      MatX &Pxx) const override
     {
         try
@@ -186,7 +232,7 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &lambda,
+    void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                      MatX &Pxu) const override
     {
         try
@@ -205,7 +251,7 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
         }
     }
 
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &lambda,
+    void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef lambda,
                      MatX &Puu) const override
     {
         try
@@ -223,6 +269,8 @@ struct __attribute__((visibility("default"))) PyStageDynamics : StageDynamics
                                      "matrix (numpy.ndarray)");
         }
     }
+
+    mutable VecX _init_state_cache, _init_control_cache;
 };
 
 void bind_Dynamics(nb::module_ &m)
@@ -258,37 +306,55 @@ void bind_Dynamics(nb::module_ &m)
         "init_control",
         &StageDynamics::init_control,
         R"doc(Initial control vector (size $n_u$) (default $\boldsymbol{0}$).)doc")
-      .def("state_right_plus",
-           &StageDynamics::state_right_plus,
-           nb::arg("x"),
-           nb::arg("dx"),
-           R"doc(
+      .def(
+        "state_right_plus",
+        [](const StageDynamics &self, ConstVecXRef x, ConstVecXRef dx)
+        {
+            VecX out;
+            self.state_right_plus(x, dx, out);
+            return out;
+        },
+        nb::arg("x"),
+        nb::arg("dx"),
+        R"doc(
         Defines right plus operator between state vector and tangent space vector
         Inputs: State vector $\boldsymbol{x}$ (size $n_x$), state difference vector $\boldsymbol{dx}$ (size $n_{dx}$)
         Output: State $\boldsymbol{y}$ (size $n_x$)
         Default behavior: $\boldsymbol{x} + \boldsymbol{dx}$
            )doc")
-      .def("state_right_minus",
-           &StageDynamics::state_right_minus,
-           nb::arg("x"),
-           nb::arg("y"),
-           R"doc(
+      .def(
+        "state_right_minus",
+        [](const StageDynamics &self, ConstVecXRef x, ConstVecXRef y)
+        {
+            VecX out;
+            self.state_right_minus(x, y, out);
+            return out;
+        },
+        nb::arg("x"),
+        nb::arg("y"),
+        R"doc(
         Defines right minus operator between states
         Inputs: Composite states $\boldsymbol{x}$, $\boldsymbol{y}$ (vectors/lie group elements, size $n_x$)
         Output: State difference vector $\boldsymbol{dx}$ (size $n_{dx}$)
         Default behavior: $\boldsymbol{x} - \boldsymbol{y}$
            )doc")
-      .def("evaluate",
-           &StageDynamics::evaluate,
-           nb::arg("x"),
-           nb::arg("u"),
-           R"doc(
+      .def(
+        "evaluate",
+        [](const StageDynamics &self, ConstVecXRef x, ConstVecXRef u)
+        {
+            VecX out;
+            self.evaluate(x, u, out);
+            return out;
+        },
+        nb::arg("x"),
+        nb::arg("u"),
+        R"doc(
         Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
         Returns: output vector, $n \times 1$
             )doc")
       .def(
         "gradient",
-        [](const StageDynamics &self, const VecX &x, const VecX &u)
+        [](const StageDynamics &self, ConstVecXRef x, ConstVecXRef u)
         {
             MatX dX, dU;
             self.gradient(x, u, dX, dU);
@@ -306,9 +372,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_xx",
         [](const StageDynamics &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &lambda)
+           ConstVecXRef x,
+           ConstVecXRef u,
+           ConstVecXRef lambda)
         {
             MatX Pxx;
             self.hessprod_xx(x, u, lambda, Pxx);
@@ -325,9 +391,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_xu",
         [](const StageDynamics &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &lambda)
+           ConstVecXRef x,
+           ConstVecXRef u,
+           ConstVecXRef lambda)
         {
             MatX Pxu;
             self.hessprod_xu(x, u, lambda, Pxu);
@@ -344,9 +410,9 @@ void bind_Dynamics(nb::module_ &m)
       .def(
         "hessprod_uu",
         [](const StageDynamics &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &lambda)
+           ConstVecXRef x,
+           ConstVecXRef u,
+           ConstVecXRef lambda)
         {
             MatX Puu;
             self.hessprod_uu(x, u, lambda, Puu);

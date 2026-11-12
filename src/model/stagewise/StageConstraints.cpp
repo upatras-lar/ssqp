@@ -67,14 +67,14 @@ const VecX &StageConstraints::upper_bound() const
     return _default_ub;
 }
 
-std::vector<uint> StageConstraints::state_only_rows() const
+void StageConstraints::state_only_rows(std::vector<uint> &out) const
 {
-    return {};
+    out.clear();
 }
 
-std::vector<BoxRow> StageConstraints::box_rows() const
+void StageConstraints::box_rows(std::vector<BoxRow> &out) const
 {
-    return {};
+    out.clear();
 }
 
 uint StageConstraints::constraint_diff_size() const
@@ -82,12 +82,20 @@ uint StageConstraints::constraint_diff_size() const
     return output_size();
 }
 
-VecX StageConstraints::right_minus(const VecX &x, const VecX &y) const
+void StageConstraints::right_minus(ConstVecXRef x, ConstVecXRef y,
+                                   VecX &out) const
 {
-    return x - y;
+    out = x - y;
 }
 
-void StageConstraints::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+void StageConstraints::right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                        VecXRef out) const
+{
+    right_minus(x, y, _right_minus_scratch);
+    out = _right_minus_scratch;
+}
+
+void StageConstraints::add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                                     MatXRef dU) const
 {
     gradient(x, u, _add_scratch_dX, _add_scratch_dU);
@@ -95,22 +103,22 @@ void StageConstraints::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
     dU += _add_scratch_dU;
 }
 
-void StageConstraints::add_hessprod_xx(const VecX &x, const VecX &u,
-                                       const VecX &mu, MatXRef Pxx) const
+void StageConstraints::add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                       ConstVecXRef mu, MatXRef Pxx) const
 {
     hessprod_xx(x, u, mu, _add_scratch_xx);
     Pxx += _add_scratch_xx;
 }
 
-void StageConstraints::add_hessprod_xu(const VecX &x, const VecX &u,
-                                       const VecX &mu, MatXRef Pxu) const
+void StageConstraints::add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                       ConstVecXRef mu, MatXRef Pxu) const
 {
     hessprod_xu(x, u, mu, _add_scratch_xu);
     Pxu += _add_scratch_xu;
 }
 
-void StageConstraints::add_hessprod_uu(const VecX &x, const VecX &u,
-                                       const VecX &mu, MatXRef Puu) const
+void StageConstraints::add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                       ConstVecXRef mu, MatXRef Puu) const
 {
     hessprod_uu(x, u, mu, _add_scratch_uu);
     Puu += _add_scratch_uu;

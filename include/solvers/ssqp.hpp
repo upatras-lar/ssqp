@@ -324,6 +324,9 @@ class ssqp
     // Scratch trajectory overwritten by the line search each iteration
     FlatVec _candidate_x, _candidate_u;
 
+    // Scratch for the scaled QP step of the line search
+    FlatVec _scaled_dx, _scaled_du;
+
     // Scratch XML Jacobian-transform buffers for _setup_qp (nv/nu are
     // whole-model constants, not per-stage)
     MatX _tmp_jac_x, _tmp_jac_u, _tmp_jac_r_inv, _tmp_jac_r_inv_act;
@@ -331,6 +334,18 @@ class ssqp
     // Scratch manifold-difference buffers for _gammaf_grad
     mutable MatX _tmp_jr_inv_wrt_x, _tmp_jr_inv_wrt_f;
     mutable VecX _tmp_gammaf_w;
+
+    // Scratch for the stage evaluations of the merit functions and the
+    // termination check: dynamics and constraint outputs that aren't cached,
+    // the gap, the differences to the lower and upper bounds and the cost
+    // The constraint ones are sized for the largest stage and used through
+    // their heads
+    mutable VecX _tmp_f, _tmp_c, _tmp_gap, _tmp_below, _tmp_above, _tmp_cost;
+
+    // Scratch stage gradients for the merit function gradients
+    // The constraint ones are sized for the largest stage and used through
+    // their top left corners
+    mutable MatX _tmp_dyn_dX, _tmp_dyn_dU, _tmp_con_dX, _tmp_con_dU;
 
     // Per-stage dynamics/constraints evaluate() outputs at the current guess
     // Filled in by _check_termination and reused by the following _setup_qp

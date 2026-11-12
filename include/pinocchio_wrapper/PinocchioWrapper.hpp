@@ -16,7 +16,7 @@ namespace pinocchio_wrapper
 class ModelImpl;
 
 // Whether two vectors hold the same values, compared bitwise
-bool sameBits(const VecX &a, const VecX &b);
+bool sameBits(ConstVecXRef a, ConstVecXRef b);
 
 // Results of a stage's dynamics at one point, so that queries at the same
 // point share a single computation
@@ -82,6 +82,12 @@ struct DynamicsCache
     // Torque derivatives with respect to the whole state and controls, which
     // the ReducedInverseDynamics torque constraint picks its rows from
     MatX dtau_dx_full, dtau_du_full;
+
+    // Temporaries of the stage dynamics: the controls ForwardDynamics applies,
+    // the tangent step the configuration is integrated by and the integration
+    // Jacobians
+    VecX ctrl, step;
+    MatX Jint_q, Jint_v;
 };
 
 Vec3 logSO3(const Mat3 &mat);
@@ -179,11 +185,19 @@ std::pair<VecX, VecX> modelBounds(
 
 std::pair<VecX, VecX> modelEffortLimits(const std::shared_ptr<ModelImpl> &impl);
 
-VecX integrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-               const VecX &v);
+VecX integrate(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+               ConstVecXRef v);
 
-VecX difference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
-                const VecX &q1);
+// Output-buffer version of the above; `out` must already be sized (nq)
+void integrate(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+               ConstVecXRef v, VecXRef out);
+
+VecX difference(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q0,
+                ConstVecXRef q1);
+
+// Output-buffer version of the above; `out` must already be sized (nv)
+void difference(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q0,
+                ConstVecXRef q1, VecXRef out);
 
 void getFramejMfMatrix(const std::shared_ptr<ModelImpl> &impl,
                        const std::string &frame, uint &joint_id, Mat3 &rotation,
@@ -201,69 +215,84 @@ Vec6 framejMfActWrench(const std::shared_ptr<ModelImpl> &impl,
                        const uint frame_id, const Vec6 &wrench, uint &joint_id);
 
 // Output-buffer version; resizes `M` as needed
-void crba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, MatX &M,
+void crba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, MatX &M,
           bool local = false);
 
-VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
-         const VecX &tau);
+VecX aba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v,
+         ConstVecXRef tau);
 
-VecX aba(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
-         const VecX &tau, const std::vector<Vec6> &fext);
+VecX aba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v,
+         ConstVecXRef tau, const std::vector<Vec6> &fext);
+
+// Output-buffer versions of the above; `ddq` must already be sized (nv)
+void aba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v,
+         ConstVecXRef tau, VecXRef ddq);
+
+void aba(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q, ConstVecXRef v,
+         ConstVecXRef tau, const std::vector<Vec6> &fext, VecXRef ddq);
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                           const VecX &q, const VecX &v, const VecX &tau,
+                           ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
                            MatX &aba_partial_dq, MatX &aba_partial_dv,
                            MatX &Minv);
 
 void computeABADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                           const VecX &q, const VecX &v, const VecX &tau,
+                           ConstVecXRef q, ConstVecXRef v, ConstVecXRef tau,
                            const std::vector<Vec6> &fext, MatX &aba_partial_dq,
                            MatX &aba_partial_dv, MatX &Minv);
 
-VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
-          const VecX &a);
+VecX rnea(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+          ConstVecXRef v, ConstVecXRef a);
 
-VecX rnea(const std::shared_ptr<ModelImpl> &impl, const VecX &q, const VecX &v,
-          const VecX &a, const std::vector<Vec6> &fext);
+VecX rnea(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+          ConstVecXRef v, ConstVecXRef a, const std::vector<Vec6> &fext);
+
+// Output-buffer versions of the above; `tau` must already be sized (nv)
+void rnea(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+          ConstVecXRef v, ConstVecXRef a, VecXRef tau);
+
+void rnea(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+          ConstVecXRef v, ConstVecXRef a, const std::vector<Vec6> &fext,
+          VecXRef tau);
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                            const VecX &q, const VecX &v, const VecX &a,
+                            ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
                             MatX &rnea_partial_dq, MatX &rnea_partial_dv,
                             MatX &rnea_partial_da);
 
 void computeRNEADerivatives(const std::shared_ptr<ModelImpl> &impl,
-                            const VecX &q, const VecX &v, const VecX &a,
+                            ConstVecXRef q, ConstVecXRef v, ConstVecXRef a,
                             const std::vector<Vec6> &fext,
                             MatX &rnea_partial_dq, MatX &rnea_partial_dv,
                             MatX &rnea_partial_da);
 
-void dIntegrate(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                const VecX &v, MatX &J, const uint arg_pos);
+void dIntegrate(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
+                ConstVecXRef v, MatX &J, const uint arg_pos);
 
-void dDifference(const std::shared_ptr<ModelImpl> &impl, const VecX &q0,
-                 const VecX &q1, MatX &J, const uint arg_pos);
+void dDifference(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q0,
+                 ConstVecXRef q1, MatX &J, const uint arg_pos);
 
 // FK including updateFramePlacement
 std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
-                                        const VecX                       &q,
+                                        ConstVecXRef                      q,
                                         const std::string &frame);
 
 std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
-                                        const VecX &q, const uint frame_id);
+                                        ConstVecXRef q, const uint frame_id);
 
 // FK including updateFramePlacement, returning SE3 matrix
-Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                          const std::string &frame);
+Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
+                          ConstVecXRef q, const std::string &frame);
 
-Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
-                          const uint frame_id);
+Mat4 forwardKinematicsSE3(const std::shared_ptr<ModelImpl> &impl,
+                          ConstVecXRef q, const uint frame_id);
 
 std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
-                                        const VecX &q, const VecX &v,
+                                        ConstVecXRef q, ConstVecXRef v,
                                         const std::string &frame);
 
 std::pair<Vec3, Mat3> forwardKinematics(const std::shared_ptr<ModelImpl> &impl,
-                                        const VecX &q, const VecX &v,
+                                        ConstVecXRef q, ConstVecXRef v,
                                         const uint frame_id);
 
 Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl,
@@ -273,23 +302,24 @@ Vec6 frameVelocity(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
                    bool local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const VecX &q, const VecX &v,
+                              ConstVecXRef q, ConstVecXRef v,
                               const std::string frame, MatXRef dVdq,
                               MatXRef dVdv, bool local = false);
 
 void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
-                              const VecX &q, const VecX &v, const uint frame_id,
-                              MatXRef dVdq, MatXRef dVdv, bool local = false);
+                              ConstVecXRef q, ConstVecXRef v,
+                              const uint frame_id, MatXRef dVdq, MatXRef dVdv,
+                              bool local = false);
 
 // Compute and get frame jacobian
-void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
                    const std::string &frame, MatXRef J, bool local = false);
 
-void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const VecX &q,
+void frameJacobian(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q,
                    const uint frame_id, MatXRef J, bool local = false);
 
 void computeJointJacobians(const std::shared_ptr<ModelImpl> &impl,
-                           const VecX                       &q);
+                           ConstVecXRef                      q);
 
 // Get frame jacobian (assumes computeJointJacobians has been called, with no
 // dynamics pass at another point since)
@@ -300,10 +330,14 @@ void frameJacobian(const std::shared_ptr<ModelImpl> &impl, const uint frame_id,
                    MatXRef J, bool local = false);
 
 // Get center of mass
-Vec3 centerOfMass(const std::shared_ptr<ModelImpl> &impl, const VecX &q);
+Vec3 centerOfMass(const std::shared_ptr<ModelImpl> &impl, ConstVecXRef q);
 
 MatX jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
-                          const VecX                       &q);
+                          ConstVecXRef                      q);
+
+// Output-buffer version of the above; `J` must already be sized (3 x nv)
+void jacobianCenterOfMass(const std::shared_ptr<ModelImpl> &impl,
+                          ConstVecXRef q, MatXRef J);
 
 VecX randomConfiguration(const std::shared_ptr<ModelImpl> &impl);
 
@@ -313,7 +347,8 @@ void setAllDynamicParameters(std::shared_ptr<ModelImpl> &impl,
                              const VecX                 &parameters);
 
 MatX computeJointTorqueRegressor(const std::shared_ptr<ModelImpl> &impl,
-                                 const VecX &q, const VecX &v, const VecX &a);
+                                 ConstVecXRef q, ConstVecXRef v,
+                                 ConstVecXRef a);
 }
 }
 

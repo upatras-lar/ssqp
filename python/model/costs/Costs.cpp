@@ -26,14 +26,14 @@ struct __attribute__((visibility("default"))) PyStageCost : StageCost
 {
     NB_TRAMPOLINE(StageCost, 5);
 
-    VecX evaluate(const VecX &x, const VecX &u) const override
+    void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override
     {
         try
         {
             nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
-            return (Scalar() << nb::cast<double>(
-                      nb_trampoline.base().attr(nb_ticket.key)(x, u)))
-              .finished();
+            out.resize(1);
+            out[0] =
+              nb::cast<double>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
         }
         catch (const nb::cast_error &e)
         {
@@ -42,7 +42,7 @@ struct __attribute__((visibility("default"))) PyStageCost : StageCost
         }
     }
 
-    void gradient(const VecX &x, const VecX &u, VecX &dx,
+    void gradient(ConstVecXRef x, ConstVecXRef u, VecX &dx,
                   VecX &du) const override
     {
         try
@@ -59,7 +59,7 @@ struct __attribute__((visibility("default"))) PyStageCost : StageCost
         }
     }
 
-    void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const override
+    void hessian_xx(ConstVecXRef x, ConstVecXRef u, MatX &Hxx) const override
     {
         try
         {
@@ -77,7 +77,7 @@ struct __attribute__((visibility("default"))) PyStageCost : StageCost
         }
     }
 
-    void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const override
+    void hessian_xu(ConstVecXRef x, ConstVecXRef u, MatX &Hxu) const override
     {
         try
         {
@@ -95,7 +95,7 @@ struct __attribute__((visibility("default"))) PyStageCost : StageCost
         }
     }
 
-    void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const override
+    void hessian_uu(ConstVecXRef x, ConstVecXRef u, MatX &Huu) const override
     {
         try
         {
@@ -133,13 +133,23 @@ void bind_Costs(nb::module_ &m)
         cost on the stage is disabled
       )doc")
       .def("enabled", &StageCost::enabled, "Whether this cost is enabled")
-      .def("evaluate", &StageCost::evaluate, nb::arg("x"), nb::arg("u"), R"doc(
+      .def(
+        "evaluate",
+        [](const StageCost &self, ConstVecXRef x, ConstVecXRef u)
+        {
+            VecX out;
+            self.evaluate(x, u, out);
+            return out;
+        },
+        nb::arg("x"),
+        nb::arg("u"),
+        R"doc(
         Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
         Returns: output vector, $n \times 1$
       )doc")
       .def(
         "gradient",
-        [](const StageCost &self, const VecX &x, const VecX &u)
+        [](const StageCost &self, ConstVecXRef x, ConstVecXRef u)
         {
             VecX dx, du;
             self.gradient(x, u, dx, du);
@@ -156,7 +166,7 @@ void bind_Costs(nb::module_ &m)
         )doc")
       .def(
         "hessian_xx",
-        [](const StageCost &self, const VecX &x, const VecX &u)
+        [](const StageCost &self, ConstVecXRef x, ConstVecXRef u)
         {
             MatX Hxx;
             self.hessian_xx(x, u, Hxx);
@@ -173,7 +183,7 @@ void bind_Costs(nb::module_ &m)
         )doc")
       .def(
         "hessian_xu",
-        [](const StageCost &self, const VecX &x, const VecX &u)
+        [](const StageCost &self, ConstVecXRef x, ConstVecXRef u)
         {
             MatX Hxu;
             self.hessian_xu(x, u, Hxu);
@@ -190,7 +200,7 @@ void bind_Costs(nb::module_ &m)
         )doc")
       .def(
         "hessian_uu",
-        [](const StageCost &self, const VecX &x, const VecX &u)
+        [](const StageCost &self, ConstVecXRef x, ConstVecXRef u)
         {
             MatX Huu;
             self.hessian_uu(x, u, Huu);

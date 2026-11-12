@@ -105,11 +105,22 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    std::vector<uint> state_only_rows() const override
+    void state_only_rows(std::vector<uint> &out) const override
     {
         try
         {
-            NB_OVERRIDE(state_only_rows);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "state_only_rows",
+                                               false);
+            if (nb_ticket.key.is_valid())
+            {
+                out = nb::cast<std::vector<uint>>(
+                  nb_trampoline.base().attr(nb_ticket.key)());
+            }
+            else
+            {
+                NBBase::state_only_rows(out);
+            }
         }
         catch (const nb::cast_error &e)
         {
@@ -119,11 +130,22 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    std::vector<BoxRow> box_rows() const override
+    void box_rows(std::vector<BoxRow> &out) const override
     {
         try
         {
-            NB_OVERRIDE(box_rows);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "box_rows",
+                                               false);
+            if (nb_ticket.key.is_valid())
+            {
+                out = nb::cast<std::vector<BoxRow>>(
+                  nb_trampoline.base().attr(nb_ticket.key)());
+            }
+            else
+            {
+                NBBase::box_rows(out);
+            }
         }
         catch (const nb::cast_error &e)
         {
@@ -133,11 +155,22 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    VecX right_minus(const VecX &x, const VecX &y) const override
+    void right_minus(ConstVecXRef x, ConstVecXRef y, VecX &out) const override
     {
         try
         {
-            NB_OVERRIDE(right_minus, x, y);
+            nanobind::detail::ticket nb_ticket(nb_trampoline,
+                                               "right_minus",
+                                               false);
+            if (nb_ticket.key.is_valid())
+            {
+                out = nb::cast<VecX>(
+                  nb_trampoline.base().attr(nb_ticket.key)(x, y));
+            }
+            else
+            {
+                NBBase::right_minus(x, y, out);
+            }
         }
         catch (const nb::cast_error &e)
         {
@@ -147,13 +180,13 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    VecX evaluate(const VecX &x, const VecX &u) const override
+    void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const override
     {
         try
         {
             nanobind::detail::ticket nb_ticket(nb_trampoline, "evaluate", true);
-            return nb::cast<VecX>(
-              nb_trampoline.base().attr(nb_ticket.key)(x, u));
+            out =
+              nb::cast<VecX>(nb_trampoline.base().attr(nb_ticket.key)(x, u));
         }
         catch (const nb::cast_error &e)
         {
@@ -163,7 +196,7 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    void gradient(const VecX &x, const VecX &u, MatX &dX,
+    void gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                   MatX &dU) const override
     {
         try
@@ -181,7 +214,7 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    void hessprod_xx(const VecX &x, const VecX &u, const VecX &mu,
+    void hessprod_xx(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                      MatX &Pxx) const override
     {
         try
@@ -200,7 +233,7 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    void hessprod_xu(const VecX &x, const VecX &u, const VecX &mu,
+    void hessprod_xu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                      MatX &Pxu) const override
     {
         try
@@ -219,7 +252,7 @@ struct __attribute__((visibility("default"))) PyStageConstraints
         }
     }
 
-    void hessprod_uu(const VecX &x, const VecX &u, const VecX &mu,
+    void hessprod_uu(ConstVecXRef x, ConstVecXRef u, ConstVecXRef mu,
                      MatX &Puu) const override
     {
         try
@@ -294,16 +327,28 @@ void bind_Constraints(nb::module_ &m)
       .def("upper_bound",
            &StageConstraints::upper_bound,
            "Get the constraints' upper bound vector.")
-      .def("state_only_rows",
-           &StageConstraints::state_only_rows,
-           R"doc(
+      .def(
+        "state_only_rows",
+        [](const StageConstraints &self)
+        {
+            std::vector<uint> out;
+            self.state_only_rows(out);
+            return out;
+        },
+        R"doc(
         Rows of the difference vector that depend only on $\boldsymbol{x}$, so
         their gradient with respect to $\boldsymbol{u}$ is always zero
         Defaults to none, so every row is treated as depending on $\boldsymbol{u}$
            )doc")
-      .def("box_rows",
-           &StageConstraints::box_rows,
-           R"doc(
+      .def(
+        "box_rows",
+        [](const StageConstraints &self)
+        {
+            std::vector<BoxRow> out;
+            self.box_rows(out);
+            return out;
+        },
+        R"doc(
         Rows that bound a single state or control entry, which some QP solvers
         handle more cheaply than general constraints
         Defaults to none, so every row is passed as a general constraint
@@ -314,25 +359,37 @@ void bind_Constraints(nb::module_ &m)
         Size of the difference vector: $\boldsymbol{c}_k(\boldsymbol{x}_1, \boldsymbol{u}_1) \ominus \boldsymbol{c}_k(\boldsymbol{x}_2, \boldsymbol{u}_2)$
         Where $\ominus$: the defined right_minus operator
            )doc")
-      .def("right_minus",
-           &StageConstraints::right_minus,
-           nb::arg("x"),
-           nb::arg("y"),
-           R"doc(
+      .def(
+        "right_minus",
+        [](const StageConstraints &self, ConstVecXRef x, ConstVecXRef y)
+        {
+            VecX out;
+            self.right_minus(x, y, out);
+            return out;
+        },
+        nb::arg("x"),
+        nb::arg("y"),
+        R"doc(
         The $\ominus$ operator, which outputs the difference of two constraint
         vectors in tangent space
             )doc")
-      .def("evaluate",
-           &StageConstraints::evaluate,
-           nb::arg("x"),
-           nb::arg("u"),
-           R"doc(
+      .def(
+        "evaluate",
+        [](const StageConstraints &self, ConstVecXRef x, ConstVecXRef u)
+        {
+            VecX out;
+            self.evaluate(x, u, out);
+            return out;
+        },
+        nb::arg("x"),
+        nb::arg("u"),
+        R"doc(
         Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
         Returns: output vector, $n \times 1$
             )doc")
       .def(
         "gradient",
-        [](const StageConstraints &self, const VecX &x, const VecX &u)
+        [](const StageConstraints &self, ConstVecXRef x, ConstVecXRef u)
         {
             MatX dX, dU;
             self.gradient(x, u, dX, dU);
@@ -350,9 +407,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_xx",
         [](const StageConstraints &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &mu)
+           ConstVecXRef x,
+           ConstVecXRef u,
+           ConstVecXRef mu)
         {
             MatX Pxx;
             self.hessprod_xx(x, u, mu, Pxx);
@@ -369,9 +426,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_xu",
         [](const StageConstraints &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &mu)
+           ConstVecXRef x,
+           ConstVecXRef u,
+           ConstVecXRef mu)
         {
             MatX Pxu;
             self.hessprod_xu(x, u, mu, Pxu);
@@ -388,9 +445,9 @@ void bind_Constraints(nb::module_ &m)
       .def(
         "hessprod_uu",
         [](const StageConstraints &self,
-           const VecX &x,
-           const VecX &u,
-           const VecX &mu)
+           ConstVecXRef x,
+           ConstVecXRef u,
+           ConstVecXRef mu)
         {
             MatX Puu;
             self.hessprod_uu(x, u, mu, Puu);

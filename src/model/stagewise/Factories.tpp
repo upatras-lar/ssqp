@@ -229,21 +229,24 @@ FunctionStageCost<
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3>
-VecX FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
-                       HessianFunction2,
-                       HessianFunction3>::evaluate(const VecX &x,
-                                                   const VecX &u) const
+void
+FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
+                  HessianFunction2, HessianFunction3>::evaluate(ConstVecXRef x,
+                                                                ConstVecXRef u,
+                                                                VecX &out) const
 {
-    return _eval(x, u);
+    _eval(x, u, out);
 }
 
 template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction1, typename HessianFunction2,
          typename HessianFunction3>
-void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
-                       HessianFunction2,
-                       HessianFunction3>::gradient(const VecX &x, const VecX &u,
-                                                   VecX &dx, VecX &du) const
+void
+FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
+                  HessianFunction2, HessianFunction3>::gradient(ConstVecXRef x,
+                                                                ConstVecXRef u,
+                                                                VecX        &dx,
+                                                                VecX &du) const
 {
     _grad(x, u, dx, du);
 }
@@ -253,9 +256,9 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
                        HessianFunction2,
-                       HessianFunction3>::hessian_xx(const VecX &x,
-                                                     const VecX &u,
-                                                     MatX       &Hxx) const
+                       HessianFunction3>::hessian_xx(ConstVecXRef x,
+                                                     ConstVecXRef u,
+                                                     MatX        &Hxx) const
 {
     _hess_xx(x, u, Hxx);
 }
@@ -265,9 +268,9 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
                        HessianFunction2,
-                       HessianFunction3>::hessian_xu(const VecX &x,
-                                                     const VecX &u,
-                                                     MatX       &Hxu) const
+                       HessianFunction3>::hessian_xu(ConstVecXRef x,
+                                                     ConstVecXRef u,
+                                                     MatX        &Hxu) const
 {
     _hess_xu(x, u, Hxu);
 }
@@ -277,9 +280,9 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageCost<EvaluationFunction, GradientFunction, HessianFunction1,
                        HessianFunction2,
-                       HessianFunction3>::hessian_uu(const VecX &x,
-                                                     const VecX &u,
-                                                     MatX       &Huu) const
+                       HessianFunction3>::hessian_uu(ConstVecXRef x,
+                                                     ConstVecXRef u,
+                                                     MatX        &Huu) const
 {
     _hess_uu(x, u, Huu);
 }
@@ -350,37 +353,27 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
          typename EvaluationFunction, typename multiGradientFunction,
          typename HessprodFunction1, typename HessprodFunction2,
          typename HessprodFunction3>
-VecX FunctionStageDynamics<
-  ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
-  multiGradientFunction, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::state_right_plus(const VecX &x, const VecX &dx) const
-{
-    return _ops.right_plus(x, dx);
-}
-
-template<typename ManifoldOperator1, typename ManifoldOperator2,
-         typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
-VecX FunctionStageDynamics<
-  ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
-  multiGradientFunction, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::state_right_minus(const VecX &x, const VecX &y) const
-{
-    return _ops.right_minus(x, y);
-}
-
-template<typename ManifoldOperator1, typename ManifoldOperator2,
-         typename EvaluationFunction, typename multiGradientFunction,
-         typename HessprodFunction1, typename HessprodFunction2,
-         typename HessprodFunction3>
-VecX FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
+void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                            EvaluationFunction, multiGradientFunction,
                            HessprodFunction1, HessprodFunction2,
-                           HessprodFunction3>::evaluate(const VecX &x,
-                                                        const VecX &u) const
+                           HessprodFunction3>::state_right_plus(ConstVecXRef x,
+                                                                ConstVecXRef dx,
+                                                                VecX &out) const
 {
-    return _eval(x, u);
+    _ops.right_plus(x, dx, out);
+}
+
+template<typename ManifoldOperator1, typename ManifoldOperator2,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1, typename HessprodFunction2,
+         typename HessprodFunction3>
+void FunctionStageDynamics<
+  ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
+  multiGradientFunction, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::state_right_minus(ConstVecXRef x, ConstVecXRef y,
+                                        VecX &out) const
+{
+    _ops.right_minus(x, y, out);
 }
 
 template<typename ManifoldOperator1, typename ManifoldOperator2,
@@ -390,9 +383,24 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                            EvaluationFunction, multiGradientFunction,
                            HessprodFunction1, HessprodFunction2,
-                           HessprodFunction3>::gradient(const VecX &x,
-                                                        const VecX &u, MatX &dX,
-                                                        MatX &dU) const
+                           HessprodFunction3>::evaluate(ConstVecXRef x,
+                                                        ConstVecXRef u,
+                                                        VecX        &out) const
+{
+    _eval(x, u, out);
+}
+
+template<typename ManifoldOperator1, typename ManifoldOperator2,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1, typename HessprodFunction2,
+         typename HessprodFunction3>
+void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
+                           EvaluationFunction, multiGradientFunction,
+                           HessprodFunction1, HessprodFunction2,
+                           HessprodFunction3>::gradient(ConstVecXRef x,
+                                                        ConstVecXRef u,
+                                                        MatX        &dX,
+                                                        MatX        &dU) const
 {
     _grad(x, u, dX, dU);
 }
@@ -404,9 +412,9 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                            EvaluationFunction, multiGradientFunction,
                            HessprodFunction1, HessprodFunction2,
-                           HessprodFunction3>::hessprod_xx(const VecX &x,
-                                                           const VecX &u,
-                                                           const VecX &lambda,
+                           HessprodFunction3>::hessprod_xx(ConstVecXRef x,
+                                                           ConstVecXRef u,
+                                                           ConstVecXRef lambda,
                                                            MatX &Pxx) const
 {
     _hess_xx(x, u, lambda, Pxx);
@@ -419,9 +427,9 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                            EvaluationFunction, multiGradientFunction,
                            HessprodFunction1, HessprodFunction2,
-                           HessprodFunction3>::hessprod_xu(const VecX &x,
-                                                           const VecX &u,
-                                                           const VecX &lambda,
+                           HessprodFunction3>::hessprod_xu(ConstVecXRef x,
+                                                           ConstVecXRef u,
+                                                           ConstVecXRef lambda,
                                                            MatX &Pxu) const
 {
     _hess_xu(x, u, lambda, Pxu);
@@ -434,9 +442,9 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageDynamics<ManifoldOperator1, ManifoldOperator2,
                            EvaluationFunction, multiGradientFunction,
                            HessprodFunction1, HessprodFunction2,
-                           HessprodFunction3>::hessprod_uu(const VecX &x,
-                                                           const VecX &u,
-                                                           const VecX &lambda,
+                           HessprodFunction3>::hessprod_uu(ConstVecXRef x,
+                                                           ConstVecXRef u,
+                                                           ConstVecXRef lambda,
                                                            MatX &Puu) const
 {
     _hess_uu(x, u, lambda, Puu);
@@ -448,20 +456,19 @@ template<typename NOutFunction, typename NdcFunction,
          typename StateOnlyRowsFunction, typename BoxRowsFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-FunctionStageConstraints<
-  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
-  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
-  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::
+FunctionStageConstraints<NOutFunction, NdcFunction, LowerBoundFunction,
+                         UpperBoundFunction, EvaluationFunction,
+                         multiGradientFunction, StateOnlyRowsFunction,
+                         BoxRowsFunction, ManifoldOperator, HessprodFunction1,
+                         HessprodFunction2, HessprodFunction3>::
   FunctionStageConstraints(
     const std::vector<std::string> names, const NOutFunction nout,
     const NdcFunction ndc, const LowerBoundFunction lb,
     const UpperBoundFunction ub, const EvaluationFunction eval,
     const multiGradientFunction grad,
-    const StateOnlyRowsFunction state_only_rows,
-    const BoxRowsFunction box_rows, const ManifoldOperator op,
-    const HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
-    const HessprodFunction3 hess_uu)
+    const StateOnlyRowsFunction state_only_rows, const BoxRowsFunction box_rows,
+    const ManifoldOperator op, const HessprodFunction1 hess_xx,
+    const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu)
   : _nout(std::move(nout))
   , _ndc(std::move(ndc))
   , _lb(std::move(lb))
@@ -548,58 +555,13 @@ template<typename NOutFunction, typename NdcFunction,
          typename StateOnlyRowsFunction, typename BoxRowsFunction,
          typename ManifoldOperator, typename HessprodFunction1,
          typename HessprodFunction2, typename HessprodFunction3>
-std::vector<uint> FunctionStageConstraints<
+void FunctionStageConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::state_only_rows() const
+  HessprodFunction3>::state_only_rows(std::vector<uint> &out) const
 {
-    return _state_only_rows();
-}
-
-template<typename NOutFunction, typename NdcFunction,
-         typename LowerBoundFunction, typename UpperBoundFunction,
-         typename EvaluationFunction, typename multiGradientFunction,
-         typename StateOnlyRowsFunction, typename BoxRowsFunction,
-         typename ManifoldOperator, typename HessprodFunction1,
-         typename HessprodFunction2, typename HessprodFunction3>
-std::vector<BoxRow> FunctionStageConstraints<
-  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
-  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
-  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::box_rows() const
-{
-    return _box_rows();
-}
-
-template<typename NOutFunction, typename NdcFunction,
-         typename LowerBoundFunction, typename UpperBoundFunction,
-         typename EvaluationFunction, typename multiGradientFunction,
-         typename StateOnlyRowsFunction, typename BoxRowsFunction,
-         typename ManifoldOperator, typename HessprodFunction1,
-         typename HessprodFunction2, typename HessprodFunction3>
-VecX FunctionStageConstraints<
-  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
-  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
-  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::right_minus(const VecX &x, const VecX &y) const
-{
-    return _op(x, y);
-}
-
-template<typename NOutFunction, typename NdcFunction,
-         typename LowerBoundFunction, typename UpperBoundFunction,
-         typename EvaluationFunction, typename multiGradientFunction,
-         typename StateOnlyRowsFunction, typename BoxRowsFunction,
-         typename ManifoldOperator, typename HessprodFunction1,
-         typename HessprodFunction2, typename HessprodFunction3>
-VecX FunctionStageConstraints<
-  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
-  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
-  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::evaluate(const VecX &x, const VecX &u) const
-{
-    return _eval(x, u);
+    _state_only_rows(out);
 }
 
 template<typename NOutFunction, typename NdcFunction,
@@ -612,7 +574,53 @@ void FunctionStageConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::gradient(const VecX &x, const VecX &u, MatX &dX,
+  HessprodFunction3>::box_rows(std::vector<BoxRow> &out) const
+{
+    _box_rows(out);
+}
+
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename StateOnlyRowsFunction, typename BoxRowsFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+void FunctionStageConstraints<
+  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
+  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
+  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::right_minus(ConstVecXRef x, ConstVecXRef y,
+                                  VecX &out) const
+{
+    _op(x, y, out);
+}
+
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename StateOnlyRowsFunction, typename BoxRowsFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+void FunctionStageConstraints<
+  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
+  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
+  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const
+{
+    _eval(x, u, out);
+}
+
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename StateOnlyRowsFunction, typename BoxRowsFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+void FunctionStageConstraints<
+  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
+  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
+  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                                MatX &dU) const
 {
     _grad(x, u, dX, dU);
@@ -628,8 +636,8 @@ void FunctionStageConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_xx(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Pxx) const
+  HessprodFunction3>::hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Pxx) const
 {
     _hess_xx(x, u, lambda, Pxx);
 }
@@ -644,8 +652,8 @@ void FunctionStageConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_xu(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Pxu) const
+  HessprodFunction3>::hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Pxu) const
 {
     _hess_xu(x, u, lambda, Pxu);
 }
@@ -660,8 +668,8 @@ void FunctionStageConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_uu(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Puu) const
+  HessprodFunction3>::hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Puu) const
 {
     _hess_uu(x, u, lambda, Puu);
 }
@@ -692,8 +700,21 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageAddCost<EvaluationFunction, GradientFunction,
                           HessianFunction1, HessianFunction2,
-                          HessianFunction3>::gradient(const VecX &x,
-                                                      const VecX &u, VecX &dx,
+                          HessianFunction3>::evaluate(ConstVecXRef x,
+                                                      ConstVecXRef u,
+                                                      VecX        &out) const
+{
+    out.resize(1);
+    evaluate_into(x, u, out);
+}
+
+template<typename EvaluationFunction, typename GradientFunction,
+         typename HessianFunction1, typename HessianFunction2,
+         typename HessianFunction3>
+void FunctionStageAddCost<EvaluationFunction, GradientFunction,
+                          HessianFunction1, HessianFunction2,
+                          HessianFunction3>::gradient(ConstVecXRef x,
+                                                      ConstVecXRef u, VecX &dx,
                                                       VecX &du) const
 {
     dx.setZero(_ndx);
@@ -706,9 +727,9 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageAddCost<EvaluationFunction, GradientFunction,
                           HessianFunction1, HessianFunction2,
-                          HessianFunction3>::hessian_xx(const VecX &x,
-                                                        const VecX &u,
-                                                        MatX       &Hxx) const
+                          HessianFunction3>::hessian_xx(ConstVecXRef x,
+                                                        ConstVecXRef u,
+                                                        MatX        &Hxx) const
 {
     Hxx.setZero(_ndx, _ndx);
     add_hessian_xx(x, u, Hxx);
@@ -719,9 +740,9 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageAddCost<EvaluationFunction, GradientFunction,
                           HessianFunction1, HessianFunction2,
-                          HessianFunction3>::hessian_xu(const VecX &x,
-                                                        const VecX &u,
-                                                        MatX       &Hxu) const
+                          HessianFunction3>::hessian_xu(ConstVecXRef x,
+                                                        ConstVecXRef u,
+                                                        MatX        &Hxu) const
 {
     Hxu.setZero(_ndx, u.size());
     add_hessian_xu(x, u, Hxu);
@@ -732,9 +753,9 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageAddCost<EvaluationFunction, GradientFunction,
                           HessianFunction1, HessianFunction2,
-                          HessianFunction3>::hessian_uu(const VecX &x,
-                                                        const VecX &u,
-                                                        MatX       &Huu) const
+                          HessianFunction3>::hessian_uu(ConstVecXRef x,
+                                                        ConstVecXRef u,
+                                                        MatX        &Huu) const
 {
     Huu.setZero(u.size(), u.size());
     add_hessian_uu(x, u, Huu);
@@ -745,10 +766,22 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageAddCost<EvaluationFunction, GradientFunction,
                           HessianFunction1, HessianFunction2,
-                          HessianFunction3>::add_gradient(const VecX &x,
-                                                          const VecX &u,
-                                                          VecXRef     dx,
-                                                          VecXRef     du) const
+                          HessianFunction3>::evaluate_into(ConstVecXRef x,
+                                                           ConstVecXRef u,
+                                                           VecXRef out) const
+{
+    this->_eval(x, u, out);
+}
+
+template<typename EvaluationFunction, typename GradientFunction,
+         typename HessianFunction1, typename HessianFunction2,
+         typename HessianFunction3>
+void FunctionStageAddCost<EvaluationFunction, GradientFunction,
+                          HessianFunction1, HessianFunction2,
+                          HessianFunction3>::add_gradient(ConstVecXRef x,
+                                                          ConstVecXRef u,
+                                                          VecXRef      dx,
+                                                          VecXRef      du) const
 {
     this->_grad(x, u, dx, du);
 }
@@ -758,8 +791,8 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageAddCost<EvaluationFunction, GradientFunction,
                           HessianFunction1, HessianFunction2,
-                          HessianFunction3>::add_hessian_xx(const VecX &x,
-                                                            const VecX &u,
+                          HessianFunction3>::add_hessian_xx(ConstVecXRef x,
+                                                            ConstVecXRef u,
                                                             MatXRef Hxx) const
 {
     this->_hess_xx(x, u, Hxx);
@@ -770,8 +803,8 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageAddCost<EvaluationFunction, GradientFunction,
                           HessianFunction1, HessianFunction2,
-                          HessianFunction3>::add_hessian_xu(const VecX &x,
-                                                            const VecX &u,
+                          HessianFunction3>::add_hessian_xu(ConstVecXRef x,
+                                                            ConstVecXRef u,
                                                             MatXRef Hxu) const
 {
     this->_hess_xu(x, u, Hxu);
@@ -782,8 +815,8 @@ template<typename EvaluationFunction, typename GradientFunction,
          typename HessianFunction3>
 void FunctionStageAddCost<EvaluationFunction, GradientFunction,
                           HessianFunction1, HessianFunction2,
-                          HessianFunction3>::add_hessian_uu(const VecX &x,
-                                                            const VecX &u,
+                          HessianFunction3>::add_hessian_uu(ConstVecXRef x,
+                                                            ConstVecXRef u,
                                                             MatXRef Huu) const
 {
     this->_hess_uu(x, u, Huu);
@@ -797,8 +830,51 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageAddDynamics<
   ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
   multiGradientFunction, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_xx(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Pxx) const
+  HessprodFunction3>::state_right_plus(ConstVecXRef x, ConstVecXRef dx,
+                                       VecX &out) const
+{
+    out.resize(this->_nx);
+    state_right_plus_into(x, dx, out);
+}
+
+template<typename ManifoldOperator1, typename ManifoldOperator2,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1, typename HessprodFunction2,
+         typename HessprodFunction3>
+void FunctionStageAddDynamics<
+  ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
+  multiGradientFunction, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::state_right_minus(ConstVecXRef x, ConstVecXRef y,
+                                        VecX &out) const
+{
+    out.resize(this->_ndx);
+    state_right_minus_into(x, y, out);
+}
+
+template<typename ManifoldOperator1, typename ManifoldOperator2,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1, typename HessprodFunction2,
+         typename HessprodFunction3>
+void FunctionStageAddDynamics<ManifoldOperator1, ManifoldOperator2,
+                              EvaluationFunction, multiGradientFunction,
+                              HessprodFunction1, HessprodFunction2,
+                              HessprodFunction3>::evaluate(ConstVecXRef x,
+                                                           ConstVecXRef u,
+                                                           VecX &out) const
+{
+    out.resize(this->_nout);
+    evaluate_into(x, u, out);
+}
+
+template<typename ManifoldOperator1, typename ManifoldOperator2,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1, typename HessprodFunction2,
+         typename HessprodFunction3>
+void FunctionStageAddDynamics<
+  ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
+  multiGradientFunction, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Pxx) const
 {
     Pxx.setZero(this->_ndx, this->_ndx);
     add_hessprod_xx(x, u, lambda, Pxx);
@@ -811,8 +887,8 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageAddDynamics<
   ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
   multiGradientFunction, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_xu(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Pxu) const
+  HessprodFunction3>::hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Pxu) const
 {
     Pxu.setZero(this->_ndx, this->_nu);
     add_hessprod_xu(x, u, lambda, Pxu);
@@ -825,8 +901,8 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageAddDynamics<
   ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
   multiGradientFunction, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_uu(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Puu) const
+  HessprodFunction3>::hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Puu) const
 {
     Puu.setZero(this->_nu, this->_nu);
     add_hessprod_uu(x, u, lambda, Puu);
@@ -839,8 +915,47 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageAddDynamics<
   ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
   multiGradientFunction, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::add_hessprod_xx(const VecX &x, const VecX &u,
-                                      const VecX &lambda, MatXRef Pxx) const
+  HessprodFunction3>::state_right_plus_into(ConstVecXRef x, ConstVecXRef dx,
+                                            VecXRef out) const
+{
+    this->_ops.right_plus(x, dx, out);
+}
+
+template<typename ManifoldOperator1, typename ManifoldOperator2,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1, typename HessprodFunction2,
+         typename HessprodFunction3>
+void FunctionStageAddDynamics<
+  ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
+  multiGradientFunction, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::state_right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                             VecXRef out) const
+{
+    this->_ops.right_minus(x, y, out);
+}
+
+template<typename ManifoldOperator1, typename ManifoldOperator2,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1, typename HessprodFunction2,
+         typename HessprodFunction3>
+void FunctionStageAddDynamics<
+  ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
+  multiGradientFunction, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                    VecXRef out) const
+{
+    this->_eval(x, u, out);
+}
+
+template<typename ManifoldOperator1, typename ManifoldOperator2,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename HessprodFunction1, typename HessprodFunction2,
+         typename HessprodFunction3>
+void FunctionStageAddDynamics<
+  ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
+  multiGradientFunction, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                      ConstVecXRef lambda, MatXRef Pxx) const
 {
     this->_hess_xx(x, u, lambda, Pxx);
 }
@@ -852,8 +967,8 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageAddDynamics<
   ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
   multiGradientFunction, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::add_hessprod_xu(const VecX &x, const VecX &u,
-                                      const VecX &lambda, MatXRef Pxu) const
+  HessprodFunction3>::add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                      ConstVecXRef lambda, MatXRef Pxu) const
 {
     this->_hess_xu(x, u, lambda, Pxu);
 }
@@ -865,8 +980,8 @@ template<typename ManifoldOperator1, typename ManifoldOperator2,
 void FunctionStageAddDynamics<
   ManifoldOperator1, ManifoldOperator2, EvaluationFunction,
   multiGradientFunction, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::add_hessprod_uu(const VecX &x, const VecX &u,
-                                      const VecX &lambda, MatXRef Puu) const
+  HessprodFunction3>::add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                      ConstVecXRef lambda, MatXRef Puu) const
 {
     this->_hess_uu(x, u, lambda, Puu);
 }
@@ -887,10 +1002,9 @@ FunctionStageAddConstraints<
     const std::vector<std::string> names, const uint ndx, NOutFunction nout,
     NdcFunction ndc, const LowerBoundFunction lb, const UpperBoundFunction ub,
     const EvaluationFunction eval, const multiGradientFunction grad,
-    const StateOnlyRowsFunction state_only_rows,
-    const BoxRowsFunction box_rows, const ManifoldOperator op,
-    const HessprodFunction1 hess_xx, const HessprodFunction2 hess_xu,
-    const HessprodFunction3 hess_uu)
+    const StateOnlyRowsFunction state_only_rows, const BoxRowsFunction box_rows,
+    const ManifoldOperator op, const HessprodFunction1 hess_xx,
+    const HessprodFunction2 hess_xu, const HessprodFunction3 hess_uu)
   : FunctionStageConstraints<
       NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
       EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
@@ -914,7 +1028,41 @@ void FunctionStageAddConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::gradient(const VecX &x, const VecX &u, MatX &dX,
+  HessprodFunction3>::right_minus(ConstVecXRef x, ConstVecXRef y,
+                                  VecX &out) const
+{
+    out.resize(this->constraint_diff_size());
+    right_minus_into(x, y, out);
+}
+
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename StateOnlyRowsFunction, typename BoxRowsFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+void FunctionStageAddConstraints<
+  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
+  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
+  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::evaluate(ConstVecXRef x, ConstVecXRef u,
+                               VecX &out) const
+{
+    out.resize(this->output_size());
+    evaluate_into(x, u, out);
+}
+
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename StateOnlyRowsFunction, typename BoxRowsFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+void FunctionStageAddConstraints<
+  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
+  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
+  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::gradient(ConstVecXRef x, ConstVecXRef u, MatX &dX,
                                MatX &dU) const
 {
     const uint ndc = this->constraint_diff_size();
@@ -933,8 +1081,8 @@ void FunctionStageAddConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_xx(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Pxx) const
+  HessprodFunction3>::hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Pxx) const
 {
     Pxx.setZero(_ndx, _ndx);
     add_hessprod_xx(x, u, lambda, Pxx);
@@ -950,8 +1098,8 @@ void FunctionStageAddConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_xu(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Pxu) const
+  HessprodFunction3>::hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Pxu) const
 {
     Pxu.setZero(_ndx, u.size());
     add_hessprod_xu(x, u, lambda, Pxu);
@@ -967,8 +1115,8 @@ void FunctionStageAddConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::hessprod_uu(const VecX &x, const VecX &u,
-                                  const VecX &lambda, MatX &Puu) const
+  HessprodFunction3>::hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                  ConstVecXRef lambda, MatX &Puu) const
 {
     Puu.setZero(u.size(), u.size());
     add_hessprod_uu(x, u, lambda, Puu);
@@ -984,7 +1132,39 @@ void FunctionStageAddConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::add_gradient(const VecX &x, const VecX &u, MatXRef dX,
+  HessprodFunction3>::right_minus_into(ConstVecXRef x, ConstVecXRef y,
+                                       VecXRef out) const
+{
+    this->_op(x, y, out);
+}
+
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename StateOnlyRowsFunction, typename BoxRowsFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+void FunctionStageAddConstraints<
+  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
+  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
+  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                                    VecXRef out) const
+{
+    this->_eval(x, u, out);
+}
+
+template<typename NOutFunction, typename NdcFunction,
+         typename LowerBoundFunction, typename UpperBoundFunction,
+         typename EvaluationFunction, typename multiGradientFunction,
+         typename StateOnlyRowsFunction, typename BoxRowsFunction,
+         typename ManifoldOperator, typename HessprodFunction1,
+         typename HessprodFunction2, typename HessprodFunction3>
+void FunctionStageAddConstraints<
+  NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
+  EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
+  BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
+  HessprodFunction3>::add_gradient(ConstVecXRef x, ConstVecXRef u, MatXRef dX,
                                    MatXRef dU) const
 {
     this->_grad(x, u, dX, dU);
@@ -1000,8 +1180,8 @@ void FunctionStageAddConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::add_hessprod_xx(const VecX &x, const VecX &u,
-                                      const VecX &lambda, MatXRef Pxx) const
+  HessprodFunction3>::add_hessprod_xx(ConstVecXRef x, ConstVecXRef u,
+                                      ConstVecXRef lambda, MatXRef Pxx) const
 {
     this->_hess_xx(x, u, lambda, Pxx);
 }
@@ -1016,8 +1196,8 @@ void FunctionStageAddConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::add_hessprod_xu(const VecX &x, const VecX &u,
-                                      const VecX &lambda, MatXRef Pxu) const
+  HessprodFunction3>::add_hessprod_xu(ConstVecXRef x, ConstVecXRef u,
+                                      ConstVecXRef lambda, MatXRef Pxu) const
 {
     this->_hess_xu(x, u, lambda, Pxu);
 }
@@ -1032,8 +1212,8 @@ void FunctionStageAddConstraints<
   NOutFunction, NdcFunction, LowerBoundFunction, UpperBoundFunction,
   EvaluationFunction, multiGradientFunction, StateOnlyRowsFunction,
   BoxRowsFunction, ManifoldOperator, HessprodFunction1, HessprodFunction2,
-  HessprodFunction3>::add_hessprod_uu(const VecX &x, const VecX &u,
-                                      const VecX &lambda, MatXRef Puu) const
+  HessprodFunction3>::add_hessprod_uu(ConstVecXRef x, ConstVecXRef u,
+                                      ConstVecXRef lambda, MatXRef Puu) const
 {
     this->_hess_uu(x, u, lambda, Puu);
 }

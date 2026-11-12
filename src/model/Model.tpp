@@ -63,24 +63,12 @@ template<bool FloatingBase, bool WithForces, SolverMode SM,
 std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
   const std::shared_ptr<const _StageDynamicsContext> &ctx) const
 {
-    auto right_plus = [this, ctx](const VecX &x, const VecX &dx)
+    auto right_plus = [this, ctx](ConstVecXRef x, ConstVecXRef dx, VecXRef out)
     {
-        VecX out;
-
-        if constexpr (SM == SolverMode::Kinematics)
-        {
-            out.resize(ctx->nq);
-        }
-        else if constexpr (SM == SolverMode::ForwardDynamics ||
-                           SM == SolverMode::InverseDynamics ||
-                           SM == SolverMode::ReducedInverseDynamics)
-        {
-            out.resize(ctx->nq + ctx->nv);
-        }
-
-        out.head(ctx->nq) = pinocchio_wrapper::integrate(_impl,
-                                                         x.head(ctx->nq),
-                                                         dx.head(ctx->nv));
+        pinocchio_wrapper::integrate(_impl,
+                                     x.head(ctx->nq),
+                                     dx.head(ctx->nv),
+                                     out.head(ctx->nq));
 
         if constexpr (SM == SolverMode::ForwardDynamics ||
                       SM == SolverMode::InverseDynamics ||
@@ -88,27 +76,14 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         {
             out.tail(ctx->nv) = x.tail(ctx->nv) + dx.tail(ctx->nv);
         }
-
-        return out;
     };
 
-    auto right_minus = [this, ctx](const VecX &x, const VecX &y)
+    auto right_minus = [this, ctx](ConstVecXRef x, ConstVecXRef y, VecXRef out)
     {
-        VecX out;
-        if constexpr (SM == SolverMode::Kinematics)
-        {
-            out.resize(ctx->nv);
-        }
-        else if constexpr (SM == SolverMode::ForwardDynamics ||
-                           SM == SolverMode::InverseDynamics ||
-                           SM == SolverMode::ReducedInverseDynamics)
-        {
-            out.resize(2 * ctx->nv);
-        }
-
-        out.head(ctx->nv) = pinocchio_wrapper::difference(_impl,
-                                                          y.head(ctx->nq),
-                                                          x.head(ctx->nq));
+        pinocchio_wrapper::difference(_impl,
+                                      y.head(ctx->nq),
+                                      x.head(ctx->nq),
+                                      out.head(ctx->nv));
 
         if constexpr (SM == SolverMode::ForwardDynamics ||
                       SM == SolverMode::InverseDynamics ||
@@ -116,8 +91,6 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         {
             out.tail(ctx->nv) = x.tail(ctx->nv) - y.tail(ctx->nv);
         }
-
-        return out;
     };
 
     ManifoldOperators<decltype(right_plus), decltype(right_minus)> ops = {
@@ -125,80 +98,47 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
         right_minus
     };
 
-    auto dyn_eval = [this, ctx](const VecX &x, const VecX &u)
+    auto dyn_eval = [this, ctx](ConstVecXRef x, ConstVecXRef u, VecXRef out)
     {
-        VecX q    = x.head(ctx->nq);
-        VecX ctrl = u.head(ctx->nu);
-
-        VecX v;
-
-        if constexpr (SM == SolverMode::ForwardDynamics ||
-                      SM == SolverMode::InverseDynamics ||
-                      SM == SolverMode::ReducedInverseDynamics)
-        {
-            v = x.tail(ctx->nv);
-        }
-
-        VecX out;
+        ConstVecXRef q = x.head(ctx->nq);
 
         // TODO: forces in kinematic mode? (maybe free variables?)
         if constexpr (SM == SolverMode::Kinematics)
         {
-            out.resize(ctx->nq);
-            out = pinocchio_wrapper::integrate(_impl, q, ctrl * _dt);
+            pinocchio_wrapper::integrate(_impl, q, u.head(ctx->nu) * _dt, out);
         }
         else if constexpr (SM == SolverMode::ForwardDynamics ||
                            SM == SolverMode::InverseDynamics ||
                            SM == SolverMode::ReducedInverseDynamics)
         {
-            VecX ddq;
+            ConstVecXRef v = x.tail(ctx->nv);
 
-            if constexpr (SM == SolverMode::InverseDynamics)
-            {
-                ddq = ctrl;
-            }
-            else
-            {
-                DynamicsCache &cache =
-                  _dynamicsCache(x, u, ctx->force_data, ctx->wrench_data);
-                _ensureAcceleration<FloatingBase, WithForces, SM>(cache);
-                ddq = cache.ddq;
-            }
-
-            out.resize(ctx->nq + ctx->nv);
+            DynamicsCache &cache =
+              _dynamicsCache(x, u, ctx->force_data, ctx->wrench_data);
+            _ensureAcceleration<FloatingBase, WithForces, SM>(cache);
+            const VecX &ddq  = cache.ddq;
+            VecX       &step = cache.step;
 
             if constexpr (IS == IntegrationScheme::ExplicitEuler)
             {
-                out.head(ctx->nq) =
-                  pinocchio_wrapper::integrate(_impl, q, v * _dt);
+                step = v * _dt;
+                pinocchio_wrapper::integrate(_impl, q, step, out.head(ctx->nq));
                 out.tail(ctx->nv) = v + ddq * _dt;
             }
             else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
             {
                 out.tail(ctx->nv) = v + ddq * _dt;
-                out.head(ctx->nq) =
-                  pinocchio_wrapper::integrate(_impl,
-                                               q,
-                                               out.tail(ctx->nv) * _dt);
+                step              = out.tail(ctx->nv) * _dt;
+                pinocchio_wrapper::integrate(_impl, q, step, out.head(ctx->nq));
             }
         }
-
-        return out;
     };
 
     auto dyn_grad =
-      [this, ctx](const VecX &x, const VecX &u, MatX &dX, MatX &dU)
+      [this, ctx](ConstVecXRef x, ConstVecXRef u, MatX &dX, MatX &dU)
     {
-        VecX q    = x.head(ctx->nq);
-        VecX ctrl = u.head(ctx->nu);
-
-        VecX v;
-        if constexpr (SM == SolverMode::ForwardDynamics ||
-                      SM == SolverMode::InverseDynamics ||
-                      SM == SolverMode::ReducedInverseDynamics)
-        {
-            v = x.tail(ctx->nv);
-        }
+        ConstVecXRef q    = x.head(ctx->nq);
+        ConstVecXRef ctrl = u.head(ctx->nu);
 
         if constexpr (SM == SolverMode::Kinematics)
         {
@@ -219,7 +159,9 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             DynamicsCache &cache =
               _dynamicsCache(x, u, ctx->force_data, ctx->wrench_data);
 
-            VecX vn;
+            ConstVecXRef v = x.tail(ctx->nv);
+
+            VecX &step = cache.step;
 
             if constexpr (SM == SolverMode::ForwardDynamics ||
                           SM == SolverMode::ReducedInverseDynamics)
@@ -229,23 +171,23 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
                 if constexpr (IS == IntegrationScheme::ExplicitEuler)
                 {
-                    vn = v;
+                    step = v * _dt;
                 }
                 else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
                 {
                     _ensureAcceleration<FloatingBase, WithForces, SM>(cache);
-                    vn = v + cache.ddq * _dt;
+                    step = (v + cache.ddq * _dt) * _dt;
                 }
             }
             else if constexpr (SM == SolverMode::InverseDynamics)
             {
                 if constexpr (IS == IntegrationScheme::ExplicitEuler)
                 {
-                    vn = v;
+                    step = v * _dt;
                 }
                 else if constexpr (IS == IntegrationScheme::SemiImplicitEuler)
                 {
-                    vn = v + ctrl * _dt;
+                    step = (v + ctrl * _dt) * _dt;
                 }
             }
 
@@ -253,11 +195,14 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
             const MatX &ddq_dv = cache.ddq_dv;
             const MatX &Minv   = cache.Minv;
 
-            MatX Jint_q = MatX::Zero(ctx->nv, ctx->nv);
-            MatX Jint_v = MatX::Zero(ctx->nv, ctx->nv);
+            // dIntegrate only writes each joint's block
+            MatX &Jint_q = cache.Jint_q;
+            MatX &Jint_v = cache.Jint_v;
+            Jint_q.setZero(ctx->nv, ctx->nv);
+            Jint_v.setZero(ctx->nv, ctx->nv);
 
-            pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_q, 0);
-            pinocchio_wrapper::dIntegrate(_impl, q, vn * _dt, Jint_v, 1);
+            pinocchio_wrapper::dIntegrate(_impl, q, step, Jint_q, 0);
+            pinocchio_wrapper::dIntegrate(_impl, q, step, Jint_v, 1);
 
             dX.setZero(2 * ctx->nv, 2 * ctx->nv);
             dU.setZero(2 * ctx->nv, ctx->nu + ctx->force_width);
@@ -290,8 +235,8 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
 
                     if constexpr (WithForces)
                     {
-                        dU.bottomRightCorner(ctx->nv, ctx->force_width) =
-                          Minv * cache.Jf.transpose() * _dt;
+                        dU.bottomRightCorner(ctx->nv, ctx->force_width)
+                          .noalias() = _dt * Minv * cache.Jf.transpose();
                     }
                 }
                 else if constexpr (SM == SolverMode::InverseDynamics)
@@ -324,13 +269,14 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                     dX.bottomRightCorner(ctx->nv, ctx->nv) =
                       MatX::Identity(ctx->nv, ctx->nv) + ddq_dv * _dt;
 
-                    dX.topLeftCorner(ctx->nv, ctx->nv) =
-                      Jint_q +
-                      Jint_v * dX.bottomLeftCorner(ctx->nv, ctx->nv) * _dt;
-                    dX.topRightCorner(ctx->nv, ctx->nv) =
-                      Jint_v * dX.bottomRightCorner(ctx->nv, ctx->nv) * _dt;
+                    dX.topLeftCorner(ctx->nv, ctx->nv) = Jint_q;
+                    dX.topLeftCorner(ctx->nv, ctx->nv).noalias() +=
+                      _dt * Jint_v * dX.bottomLeftCorner(ctx->nv, ctx->nv);
+                    dX.topRightCorner(ctx->nv, ctx->nv).noalias() =
+                      _dt * Jint_v * dX.bottomRightCorner(ctx->nv, ctx->nv);
 
-                    MatX Gtau = Minv;
+                    auto Gtau = dU.bottomLeftCorner(ctx->nv, ctx->nv);
+                    Gtau      = Minv * _dt;
 
                     uint offset = 0;
                     if constexpr (FloatingBase)
@@ -344,19 +290,17 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                         Gtau.col(offset + j).setZero();
                     }
 
-                    dU.bottomLeftCorner(ctx->nv, ctx->nv) = Gtau * _dt;
-                    dU.topLeftCorner(ctx->nv, ctx->nv) =
-                      Jint_v * dU.bottomLeftCorner(ctx->nv, ctx->nv) * _dt;
+                    dU.topLeftCorner(ctx->nv, ctx->nv).noalias() =
+                      _dt * Jint_v * Gtau;
 
                     if constexpr (WithForces)
                     {
-                        MatX Gforce = Minv * cache.Jf.transpose();
+                        auto Gforce =
+                          dU.bottomRightCorner(ctx->nv, ctx->force_width);
+                        Gforce.noalias() = _dt * Minv * cache.Jf.transpose();
 
-                        dU.bottomRightCorner(ctx->nv, ctx->force_width) =
-                          Gforce * _dt;
-                        dU.topRightCorner(ctx->nv, ctx->force_width) =
-                          Jint_v *
-                          dU.bottomRightCorner(ctx->nv, ctx->force_width) * _dt;
+                        dU.topRightCorner(ctx->nv, ctx->force_width)
+                          .noalias() = _dt * Jint_v * Gforce;
                     }
                 }
                 else if constexpr (SM == SolverMode::InverseDynamics)
@@ -377,23 +321,24 @@ std::shared_ptr<stagewise::StageDynamics> Model::_makeStageDynamics(
                     dX.bottomRightCorner(ctx->nv, ctx->nv) =
                       MatX::Identity(ctx->nv, ctx->nv) + cache.da_dv * _dt;
 
-                    dX.topLeftCorner(ctx->nv, ctx->nv) =
-                      Jint_q +
-                      Jint_v * dX.bottomLeftCorner(ctx->nv, ctx->nv) * _dt;
-                    dX.topRightCorner(ctx->nv, ctx->nv) =
-                      Jint_v * dX.bottomRightCorner(ctx->nv, ctx->nv) * _dt;
+                    dX.topLeftCorner(ctx->nv, ctx->nv) = Jint_q;
+                    dX.topLeftCorner(ctx->nv, ctx->nv).noalias() +=
+                      _dt * Jint_v * dX.bottomLeftCorner(ctx->nv, ctx->nv);
+                    dX.topRightCorner(ctx->nv, ctx->nv).noalias() =
+                      _dt * Jint_v * dX.bottomRightCorner(ctx->nv, ctx->nv);
 
                     dU.bottomLeftCorner(ctx->nv, ctx->nu) = cache.da_daj * _dt;
-                    dU.topLeftCorner(ctx->nv, ctx->nu) =
-                      Jint_v * dU.bottomLeftCorner(ctx->nv, ctx->nu) * _dt;
+                    dU.topLeftCorner(ctx->nv, ctx->nu).noalias() =
+                      _dt * Jint_v * dU.bottomLeftCorner(ctx->nv, ctx->nu);
 
                     if constexpr (WithForces)
                     {
                         dU.bottomRightCorner(ctx->nv, ctx->force_width) =
                           cache.da_df * _dt;
-                        dU.topRightCorner(ctx->nv, ctx->force_width) =
-                          Jint_v *
-                          dU.bottomRightCorner(ctx->nv, ctx->force_width) * _dt;
+                        dU.topRightCorner(ctx->nv, ctx->force_width)
+                          .noalias() =
+                          _dt * Jint_v *
+                          dU.bottomRightCorner(ctx->nv, ctx->force_width);
                     }
                 }
             }
@@ -510,24 +455,8 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
     }
 
     auto innate_constraint_eval =
-      [this, ctx, nv_reduced](const VecX &x, const VecX &u)
+      [this, ctx, nv_reduced](ConstVecXRef x, ConstVecXRef u, VecXRef c)
     {
-        VecX c;
-
-        if constexpr (SM == SolverMode::Kinematics)
-        {
-            c.resize(_bounded_joint_indices.size());
-        }
-        else if constexpr (IsTerminal || SM == SolverMode::InverseDynamics ||
-                           SM == SolverMode::ReducedInverseDynamics)
-        {
-            c.resize(_bounded_joint_indices.size() + nv_reduced);
-        }
-        else if constexpr (SM == SolverMode::ForwardDynamics)
-        {
-            c.resize(_bounded_joint_indices.size() + 2 * nv_reduced);
-        }
-
         for (uint i = 0; i < _bounded_joint_indices.size(); ++i)
         {
             c[i] =
@@ -553,14 +482,12 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
                 c.tail(nv_reduced) = u.head(nv_reduced);
             }
         }
-
-        return c;
     };
 
     // Adds the unit entries of the bounded joints, on top of what dX and dU
     // already hold
-    auto innate_constraint_grad = [this, ctx, nv_reduced](const VecX &x,
-                                                          const VecX &u,
+    auto innate_constraint_grad = [this, ctx, nv_reduced](ConstVecXRef x,
+                                                          ConstVecXRef u,
                                                           MatXRef dX,
                                                           MatXRef dU)
     {
@@ -620,7 +547,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
 
     // The angle and velocity rows depend only on the state, unlike the forward
     // dynamics control rows that follow them
-    auto innate_state_only_rows = [this, nv_reduced]()
+    auto innate_state_only_rows = [this, nv_reduced](std::vector<uint> &out)
     {
         uint n = _bounded_joint_indices.size();
         if constexpr (SM != SolverMode::Kinematics)
@@ -628,23 +555,22 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
             n += nv_reduced;
         }
 
-        std::vector<uint> rows(n);
-        std::iota(rows.begin(), rows.end(), 0);
-        return rows;
+        out.resize(n);
+        std::iota(out.begin(), out.end(), 0);
     };
 
     // Every row bounds a single entry, at the same places the gradient adds
     // its unit entries
-    auto innate_box_rows = [this, ctx, nv_reduced]()
+    auto innate_box_rows = [this, ctx, nv_reduced](std::vector<BoxRow> &out)
     {
         const uint offset = FloatingBase ? 6 : 0;
         const uint n      = _bounded_joint_indices.size();
 
-        std::vector<BoxRow> rows;
-        rows.reserve(n + 2 * nv_reduced);
+        out.clear();
+        out.reserve(n + 2 * nv_reduced);
         for (uint i = 0; i < n; ++i)
         {
-            rows.push_back(
+            out.push_back(
               { i,
                 _bounded_joint_indices_to_tangent.at(_bounded_joint_indices[i]),
                 false });
@@ -656,7 +582,7 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         {
             for (uint i = 0; i < nv_reduced; ++i)
             {
-                rows.push_back({ n + i, ctx->nv + offset + i, false });
+                out.push_back({ n + i, ctx->nv + offset + i, false });
             }
         }
 
@@ -664,11 +590,9 @@ std::shared_ptr<stagewise::StageConstraints> Model::_makeStageInnateConstraints(
         {
             for (uint i = 0; i < nv_reduced; ++i)
             {
-                rows.push_back({ n + nv_reduced + i, offset + i, true });
+                out.push_back({ n + nv_reduced + i, offset + i, true });
             }
         }
-
-        return rows;
     };
 
     // The bounds are linear, so their Hessian products default to zero
@@ -799,10 +723,9 @@ Model::_makeStageIDTorqueConstraints(
         }
     }
 
-    auto innate_constraint_eval = [this, ctx](const VecX &x, const VecX &u)
+    auto innate_constraint_eval =
+      [this, ctx](ConstVecXRef x, ConstVecXRef u, VecXRef c)
     {
-        VecX c(ctx->nu);
-
         DynamicsCache &cache =
           _dynamicsCache(x, u, ctx->force_data, ctx->wrench_data);
         _ensureTorque<FloatingBase, WithForces, SM>(cache);
@@ -826,12 +749,10 @@ Model::_makeStageIDTorqueConstraints(
         {
             c = tau;
         }
-
-        return c;
     };
 
     auto innate_constraint_grad =
-      [this, ctx](const VecX &x, const VecX &u, MatXRef dX, MatXRef dU)
+      [this, ctx](ConstVecXRef x, ConstVecXRef u, MatXRef dX, MatXRef dU)
     {
         DynamicsCache &cache =
           _dynamicsCache(x, u, ctx->force_data, ctx->wrench_data);
@@ -909,9 +830,9 @@ Model::_makeStageIDTorqueConstraints(
 }
 
 template<bool FloatingBase>
-VecX Model::_forwardDynamicsControls(const VecX &u) const
+void Model::_forwardDynamicsControls(ConstVecXRef u, VecXRef ctrl) const
 {
-    VecX ctrl = u.head(_dims.nu);
+    ctrl = u.head(_dims.nu);
 
     uint offset = 0;
 
@@ -925,8 +846,6 @@ VecX Model::_forwardDynamicsControls(const VecX &u) const
     {
         ctrl[offset + j] = 0.0;
     }
-
-    return ctrl;
 }
 
 template<bool FloatingBase, bool WithForces, SolverMode SM>
@@ -939,18 +858,22 @@ void Model::_ensureAcceleration(DynamicsCache &cache) const
 
     if constexpr (SM == SolverMode::ForwardDynamics)
     {
-        const VecX q    = cache.x.head(_dims.nq);
-        const VecX v    = cache.x.tail(_dims.nv);
-        const VecX ctrl = _forwardDynamicsControls<FloatingBase>(cache.u);
+        ConstVecXRef q = cache.x.head(_dims.nq);
+        ConstVecXRef v = cache.x.tail(_dims.nv);
+
+        cache.ctrl.resize(_dims.nu);
+        _forwardDynamicsControls<FloatingBase>(cache.u, cache.ctrl);
+
+        cache.ddq.resize(_dims.nv);
 
         if constexpr (WithForces)
         {
             _ensureJointForces(cache);
-            cache.ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl, cache.fext);
+            pinocchio_wrapper::aba(_impl, q, v, cache.ctrl, cache.fext, cache.ddq);
         }
         else
         {
-            cache.ddq = pinocchio_wrapper::aba(_impl, q, v, ctrl);
+            pinocchio_wrapper::aba(_impl, q, v, cache.ctrl, cache.ddq);
         }
     }
     else if constexpr (SM == SolverMode::InverseDynamics)
@@ -985,17 +908,19 @@ void Model::_ensureTorque(DynamicsCache &cache) const
     }
     else
     {
-        const VecX q = cache.x.head(_dims.nq);
-        const VecX v = cache.x.tail(_dims.nv);
+        ConstVecXRef q = cache.x.head(_dims.nq);
+        ConstVecXRef v = cache.x.tail(_dims.nv);
+
+        cache.tau.resize(_dims.nv);
 
         if constexpr (WithForces)
         {
             _ensureJointForces(cache);
-            cache.tau = inverseDynamics(q, v, cache.ddq, cache.fext);
+            inverseDynamics(q, v, cache.ddq, cache.fext, cache.tau);
         }
         else
         {
-            cache.tau = inverseDynamics(q, v, cache.ddq);
+            inverseDynamics(q, v, cache.ddq, cache.tau);
         }
     }
 
@@ -1012,8 +937,8 @@ void Model::_ensureTorqueDerivatives(DynamicsCache &cache) const
 
     _ensureAcceleration<FloatingBase, WithForces, SM>(cache);
 
-    const VecX q = cache.x.head(_dims.nq);
-    const VecX v = cache.x.tail(_dims.nv);
+    ConstVecXRef q = cache.x.head(_dims.nq);
+    ConstVecXRef v = cache.x.tail(_dims.nv);
 
     if constexpr (WithForces)
     {
@@ -1051,9 +976,12 @@ void Model::_ensureAccelerationDerivatives(DynamicsCache &cache) const
 
     if constexpr (SM == SolverMode::ForwardDynamics)
     {
-        const VecX q    = cache.x.head(_dims.nq);
-        const VecX v    = cache.x.tail(_dims.nv);
-        const VecX ctrl = _forwardDynamicsControls<FloatingBase>(cache.u);
+        ConstVecXRef q = cache.x.head(_dims.nq);
+        ConstVecXRef v = cache.x.tail(_dims.nv);
+
+        cache.ctrl.resize(_dims.nu);
+        _forwardDynamicsControls<FloatingBase>(cache.u, cache.ctrl);
+        const VecX &ctrl = cache.ctrl;
 
         if constexpr (WithForces)
         {
@@ -1093,9 +1021,9 @@ void Model::_calculateReducedInverseFullAcceleration(DynamicsCache &cache) const
     const uint nv = _dims.nv;
     const uint nu = _dims.nu;
 
-    const VecX q    = cache.x.head(_dims.nq);
-    const VecX v    = cache.x.tail(nv);
-    const VecX ctrl = cache.u.head(nu);
+    ConstVecXRef q    = cache.x.head(_dims.nq);
+    ConstVecXRef v    = cache.x.tail(nv);
+    ConstVecXRef ctrl = cache.u.head(nu);
 
     const std::vector<uint> &actuated_joints   = _actuated_joints;
     const std::vector<uint> &unactuated_joints = _unactuated_joints;
@@ -1111,17 +1039,18 @@ void Model::_calculateReducedInverseFullAcceleration(DynamicsCache &cache) const
     pinocchio_wrapper::crba(_impl, q, M, true);
 
     VecX &bias = cache.bias;
+    bias.resize(nv);
 
     // The bias torque is RNEA at zero acceleration, which ddq still is
     if constexpr (WithForces)
     {
         _ensureJointForces(cache);
 
-        bias = pinocchio_wrapper::rnea(_impl, q, v, ddq, cache.fext);
+        pinocchio_wrapper::rnea(_impl, q, v, ddq, cache.fext, bias);
     }
     else
     {
-        bias = pinocchio_wrapper::rnea(_impl, q, v, ddq);
+        pinocchio_wrapper::rnea(_impl, q, v, ddq, bias);
     }
 
     const uint n_unact = nv - nu;
@@ -1369,7 +1298,7 @@ void Model::_calculateReducedInverseFullAccelerationDerivatives(
 
 template<bool FloatingBase, bool WithForces>
 void Model::_getActuatedTorqueVectorReducedDerivatives(
-  const VecX &x, const VecX &u,
+  ConstVecXRef x, ConstVecXRef u,
   const std::vector<std::shared_ptr<Force>> &forces,
   const std::vector<std::shared_ptr<Force>> &wrenches, MatX &dtau_dx,
   MatX &dtau_du) const

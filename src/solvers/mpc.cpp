@@ -115,10 +115,11 @@ std::pair<FlatVec, FlatVec> MPC::step(const VecX &state)
             _model.setInitControl(k, _prev_controls->stage(k + 1));
         }
 
-        _model.setInitState(
-          H,
-          _model.dynamics()[H - 1]->evaluate(_prev_states->stage(H),
-                                             _prev_controls->stage(H - 1)));
+        VecX terminal_state;
+        _model.dynamics()[H - 1]->evaluate(_prev_states->stage(H),
+                                           _prev_controls->stage(H - 1),
+                                           terminal_state);
+        _model.setInitState(H, terminal_state);
         _model.setInitControl(H - 1, _prev_controls->stage(H - 1));
     }
 

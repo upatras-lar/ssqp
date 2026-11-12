@@ -22,8 +22,15 @@ class Function
     virtual uint output_size() const = 0;
 
     // Evaluate function $f(\boldsymbol{x}, \boldsymbol{u})$
-    // Returns: output vector, $n \times 1$
-    virtual VecX evaluate(const VecX &x, const VecX &u) const = 0;
+    // Returns:
+    //  out: output vector, $n \times 1$
+    virtual void evaluate(ConstVecXRef x, ConstVecXRef u, VecX &out) const = 0;
+
+    // Write $f(\boldsymbol{x}, \boldsymbol{u})$ to out, which must already be
+    // sized $n$
+    // Defaults to copying the output of evaluate
+    virtual void evaluate_into(ConstVecXRef x, ConstVecXRef u,
+                               VecXRef out) const;
 
     // Gradients
     // Derived classes should implement gradients as vectors (if $n = 1$) or
@@ -35,6 +42,11 @@ class Function
 
   protected:
     std::vector<std::string> _names;
+
+  private:
+    // Holds the output the default evaluate_into copies, so that it keeps its
+    // size between calls
+    mutable VecX _evaluate_scratch;
 };
 }
 }

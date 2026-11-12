@@ -36,15 +36,17 @@ void ssqp::_setup_qp()
                                   _qp.stages[k].B);
 
             // Cached by _check_termination otherwise, at the same guess
-            _cached_f[k] =
-              dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
+            dynamics[k]->evaluate(_guess.x.stage(k),
+                                  _guess.u.stage(k),
+                                  _cached_f[k]);
         }
 
         const VecX &f = _cached_f[k];
 
         // Get gamma_k
-        _qp.stages[k].gamma =
-          dynamics[k]->state_right_minus(f, _guess.x.stage(k + 1));
+        dynamics[k]->state_right_minus(f,
+                                       _guess.x.stage(k + 1),
+                                       _qp.stages[k].gamma);
 
         if constexpr (XMLModel)
         {
@@ -163,14 +165,17 @@ void ssqp::_setup_qp()
             // Cached by _check_termination otherwise, at the same guess
             if constexpr (firstSetup)
             {
-                _cached_c[k] = constraints[k]->evaluate(_guess.x.stage(k),
-                                                        _guess.u.stage(k));
+                constraints[k]->evaluate(_guess.x.stage(k),
+                                         _guess.u.stage(k),
+                                         _cached_c[k]);
             }
             const VecX &c = _cached_c[k];
-            _qp.stages[k].cl =
-              constraints[k]->right_minus(constraints[k]->lower_bound(), c);
-            _qp.stages[k].cu =
-              constraints[k]->right_minus(constraints[k]->upper_bound(), c);
+            constraints[k]->right_minus(constraints[k]->lower_bound(),
+                                        c,
+                                        _qp.stages[k].cl);
+            constraints[k]->right_minus(constraints[k]->upper_bound(),
+                                        c,
+                                        _qp.stages[k].cu);
 
             // x_0 fixes the state-only rows of stage 0, so the QP leaves them
             // unbounded
@@ -247,18 +252,20 @@ void ssqp::_setup_qp()
         // Cached by _check_termination otherwise, at the same guess
         if constexpr (firstSetup)
         {
-            _cached_c[_qp.dims.horizon] =
-              constraints[_qp.dims.horizon]->evaluate(
-                _guess.x.stage(_qp.dims.horizon),
-                _emptyVec);
+            constraints[_qp.dims.horizon]->evaluate(
+              _guess.x.stage(_qp.dims.horizon),
+              _emptyVec,
+              _cached_c[_qp.dims.horizon]);
         }
         const VecX &ct = _cached_c[_qp.dims.horizon];
-        _qp.cl_t       = constraints[_qp.dims.horizon]->right_minus(
+        constraints[_qp.dims.horizon]->right_minus(
           constraints[_qp.dims.horizon]->lower_bound(),
-          ct);
-        _qp.cu_t = constraints[_qp.dims.horizon]->right_minus(
+          ct,
+          _qp.cl_t);
+        constraints[_qp.dims.horizon]->right_minus(
           constraints[_qp.dims.horizon]->upper_bound(),
-          ct);
+          ct,
+          _qp.cu_t);
 
         logln_at(LogLevel::Debug, "cl: " << _qp.cl_t.transpose());
         logln_at(LogLevel::Debug, "cu: " << _qp.cu_t.transpose());
@@ -456,12 +463,13 @@ SolverState ssqp::_check_termination()
         // Stage gap violation
         // Cached here for the _setup_qp call following this iteration, which
         // runs at the same guess
-        _cached_f[k] =
-          dynamics[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
-        double gap_norm =
-          dynamics[k]
-            ->state_right_minus(_cached_f[k], _guess.x.stage(k + 1))
-            .lpNorm<Eigen::Infinity>();
+        dynamics[k]->evaluate(_guess.x.stage(k),
+                              _guess.u.stage(k),
+                              _cached_f[k]);
+        dynamics[k]->state_right_minus(_cached_f[k],
+                                       _guess.x.stage(k + 1),
+                                       _tmp_gap);
+        double gap_norm = _tmp_gap.lpNorm<Eigen::Infinity>();
         if (gap_norm > _params.constraint_tolerance)
         {
             if constexpr (fullStagewiseConvergence)
@@ -494,12 +502,18 @@ SolverState ssqp::_check_termination()
         // runs at the same guess
         if (constraints[k] != nullptr)
         {
-            _cached_c[k] =
-              constraints[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k));
-            VecX below = constraints[k]->right_minus(
-              _cached_c[k], constraints[k]->lower_bound());
-            VecX above = constraints[k]->right_minus(
-              _cached_c[k], constraints[k]->upper_bound());
+            constraints[k]->evaluate(_guess.x.stage(k),
+                                     _guess.u.stage(k),
+                                     _cached_c[k]);
+            const uint ndc   = _qp.dims.stage_constraint[k];
+            auto       below = _tmp_below.head(ndc);
+            auto       above = _tmp_above.head(ndc);
+            constraints[k]->right_minus_into(_cached_c[k],
+                                             constraints[k]->lower_bound(),
+                                             below);
+            constraints[k]->right_minus_into(_cached_c[k],
+                                             constraints[k]->upper_bound(),
+                                             above);
             below = below.cwiseMin(0);
             above = above.cwiseMax(0);
 
@@ -559,18 +573,22 @@ SolverState ssqp::_check_termination()
     {
         model::Model::StageScope stage_scope(_model, horizon);
 
-        _cached_c[horizon] =
-          constraints[horizon]->evaluate(_guess.x.stage(horizon), _emptyVec);
-        csnorm = std::max(constraints[horizon]
-                            ->right_minus(_cached_c[horizon],
-                                          constraints[horizon]->lower_bound())
-                            .cwiseMin(0)
-                            .lpNorm<Eigen::Infinity>(),
-                          constraints[horizon]
-                            ->right_minus(_cached_c[horizon],
-                                          constraints[horizon]->upper_bound())
-                            .cwiseMax(0)
-                            .lpNorm<Eigen::Infinity>());
+        constraints[horizon]->evaluate(_guess.x.stage(horizon),
+                                       _emptyVec,
+                                       _cached_c[horizon]);
+        const uint ndc   = _qp.dims.stage_constraint[horizon];
+        auto       below = _tmp_below.head(ndc);
+        auto       above = _tmp_above.head(ndc);
+        constraints[horizon]->right_minus_into(
+          _cached_c[horizon],
+          constraints[horizon]->lower_bound(),
+          below);
+        constraints[horizon]->right_minus_into(
+          _cached_c[horizon],
+          constraints[horizon]->upper_bound(),
+          above);
+        csnorm = std::max(below.cwiseMin(0).lpNorm<Eigen::Infinity>(),
+                          above.cwiseMax(0).lpNorm<Eigen::Infinity>());
 
         if (csnorm > _params.constraint_tolerance)
         {
@@ -607,13 +625,13 @@ SolverState ssqp::_check_termination()
         for (uint k = 0; k < horizon; ++k)
         {
             model::Model::StageScope stage_scope(_model, k);
-            _convergence_data.iteration_data.back().costs[k] =
-              costs[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k))[0];
+            costs[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k), _tmp_cost);
+            _convergence_data.iteration_data.back().costs[k] = _tmp_cost[0];
         }
 
         model::Model::StageScope terminal_cost_scope(_model, horizon);
-        _convergence_data.iteration_data.back().costs[horizon] =
-          costs[horizon]->evaluate(_guess.x.stage(horizon), _emptyVec)[0];
+        costs[horizon]->evaluate(_guess.x.stage(horizon), _emptyVec, _tmp_cost);
+        _convergence_data.iteration_data.back().costs[horizon] = _tmp_cost[0];
 
         if (_convergence_data.iteration_data.back().first_violation_stage != -1)
         {

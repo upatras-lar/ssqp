@@ -46,7 +46,7 @@ class StageCost : public Function
     // Returns:
     //  dx: gradient with respect to $\boldsymbol{x}$, $n_{dx} \times 1$
     //  du: gradient with respect to $\boldsymbol{u}$, $n_u \times 1$
-    virtual void gradient(const VecX &x, const VecX &u, VecX &dx,
+    virtual void gradient(ConstVecXRef x, ConstVecXRef u, VecX &dx,
                           VecX &du) const = 0;
 
     // Get cost function hessian matrix with respect to $\boldsymbol{xx}$, evaluated at given
@@ -54,44 +54,47 @@ class StageCost : public Function
     // $\nabla_{xx}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
     //  Hxx: Hessian matrix, $n_{dx} \times n_{dx}$
-    virtual void hessian_xx(const VecX &x, const VecX &u, MatX &Hxx) const = 0;
+    virtual void hessian_xx(ConstVecXRef x, ConstVecXRef u,
+                            MatX &Hxx) const = 0;
 
     // Get cost function hessian matrix with respect to $\boldsymbol{xu}$, evaluated at given
     // $(\boldsymbol{x}, \boldsymbol{u})$:
     // $\nabla_{xu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
     //  Hxu: Hessian matrix, $n_{dx} \times n_u$
-    virtual void hessian_xu(const VecX &x, const VecX &u, MatX &Hxu) const = 0;
+    virtual void hessian_xu(ConstVecXRef x, ConstVecXRef u,
+                            MatX &Hxu) const = 0;
 
     // Get cost function hessian matrix with respect to $\boldsymbol{uu}$, evaluated at given
     // $(\boldsymbol{x}, \boldsymbol{u})$:
     // $\nabla_{uu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$
     // Returns:
     //  Huu: Hessian matrix, $n_u \times n_u$
-    virtual void hessian_uu(const VecX &x, const VecX &u, MatX &Huu) const = 0;
+    virtual void hessian_uu(ConstVecXRef x, ConstVecXRef u,
+                            MatX &Huu) const = 0;
 
     // Add the cost gradients to dx and du, which must already be sized
     // $n_{dx}$ and $n_u$
     // Defaults to adding the output of gradient
-    virtual void add_gradient(const VecX &x, const VecX &u, VecXRef dx,
+    virtual void add_gradient(ConstVecXRef x, ConstVecXRef u, VecXRef dx,
                               VecXRef du) const;
 
     // Add $\nabla_{xx}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$ to Hxx, which
     // must already be $n_{dx} \times n_{dx}$
     // Defaults to adding the output of hessian_xx
-    virtual void add_hessian_xx(const VecX &x, const VecX &u,
+    virtual void add_hessian_xx(ConstVecXRef x, ConstVecXRef u,
                                 MatXRef Hxx) const;
 
     // Add $\nabla_{xu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$ to Hxu, which
     // must already be $n_{dx} \times n_u$
     // Defaults to adding the output of hessian_xu
-    virtual void add_hessian_xu(const VecX &x, const VecX &u,
+    virtual void add_hessian_xu(ConstVecXRef x, ConstVecXRef u,
                                 MatXRef Hxu) const;
 
     // Add $\nabla_{uu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})$ to Huu, which
     // must already be $n_u \times n_u$
     // Defaults to adding the output of hessian_uu
-    virtual void add_hessian_uu(const VecX &x, const VecX &u,
+    virtual void add_hessian_uu(ConstVecXRef x, ConstVecXRef u,
                                 MatXRef Huu) const;
 
   protected:

@@ -96,25 +96,32 @@ using DMatX = Eigen::DiagonalMatrix<double, -1>;
 using VecXRef = Eigen::Ref<VecX>;
 using MatXRef = Eigen::Ref<MatX>;
 
+// Read-only views of a vector or of a block of one, so passing a block
+// doesn't copy it
+using ConstVecXRef = Eigen::Ref<const VecX>;
+
+// A read-only segment of a vector
+using ConstVecXBlock = Eigen::VectorBlock<const VecX>;
+
 void   print_matrix_dimensions(const MatX &mat);
 int    sgn(double val);
-double softmax_max(const VecX &v, double alpha);
+double softmax_max(ConstVecXRef v, double alpha);
 // The cross product matrix of v, such that skew(v) * a = v x a
 Mat3 skew(const Vec3 &v);
 
 namespace model
 {
 // Hessians and Hessian products that are zero, which add nothing
-inline auto ZeroHessian = [](const VecX &x, const VecX &u, MatXRef H) {};
+inline auto ZeroHessian = [](ConstVecXRef x, ConstVecXRef u, MatXRef H) {};
 
-inline auto ZeroHessprod = [](const VecX &x, const VecX &u, const VecX &v,
+inline auto ZeroHessprod = [](ConstVecXRef x, ConstVecXRef u, ConstVecXRef v,
                               MatXRef P) {};
 
-inline auto DefaultRightMinus = [](const VecX &x, const VecX &y)
-{ return x - y; };
+inline auto DefaultRightMinus = [](ConstVecXRef x, ConstVecXRef y, VecXRef out)
+{ out = x - y; };
 
 // No state-only constraint rows, so every row depends on the controls
-inline auto NoStateOnlyRows = []() { return std::vector<uint>(); };
+inline auto NoStateOnlyRows = [](std::vector<uint> &out) { out.clear(); };
 
 // A constraint row whose gradient is always +1 on one state or control entry
 // and zero elsewhere, so it bounds that entry directly
@@ -132,7 +139,7 @@ struct BoxRow
 };
 
 // No box constraint rows, so every row is passed as a general constraint
-inline auto NoBoxRows = []() { return std::vector<BoxRow>(); };
+inline auto NoBoxRows = [](std::vector<BoxRow> &out) { out.clear(); };
 
 struct Dimensions
 {
@@ -345,7 +352,7 @@ class ReferenceFrame
     // The rotation of World, Fixed or Base axes, reading the base's rotation
     // from the state x of a floating base model for Base. Local axes depend
     // on the cost or constraint, and give identity here
-    Mat3 axes(const VecX &x) const;
+    Mat3 axes(ConstVecXRef x) const;
 
     // Throws std::invalid_argument if the type is not one of the given ones,
     // or is Base on a model without a floating base
@@ -388,8 +395,8 @@ struct FlatVec
 
     // Return a stage vector reference for setting
     Eigen::VectorBlock<VecX> stage(const uint k);
-    // Return a const stage vector for reading
-    const VecX stage(const uint k) const;
+    // Return a read-only stage vector reference
+    ConstVecXBlock stage(const uint k) const;
     // Return the total number of stages
     const uint stages() const;
 

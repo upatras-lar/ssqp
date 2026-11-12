@@ -13,17 +13,16 @@ std::shared_ptr<ssqp::model::stagewise::StageCost> getCost(
   const double weight = 1)
 {
     // Evaluation function
-    auto cost_eval =
-      [weight](const Eigen::VectorXd &x, const Eigen::VectorXd &u)
+    auto cost_eval = [weight](const Eigen::VectorXd &x,
+                              const Eigen::VectorXd &u,
+                              Eigen::Ref<Eigen::VectorXd>
+                                out)
     {
         Eigen::VectorXd q(6);
         q << std::sin(x[0]), std::sin(x[1]), 1 - std::cos(x[0]),
           1 - std::cos(x[1]), 0.1 * x[2], 0.1 * x[3];
 
-        Eigen::Vector<double, 1> res;
-        res[0] = weight * 0.5 * q.transpose() * q;
-
-        return res;
+        out[0] = weight * 0.5 * q.transpose() * q;
     };
 
     // Gradient function, which adds to dx and du (the gradient with respect to
