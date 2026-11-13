@@ -1440,7 +1440,7 @@ void Model::frameJacobian(ConstVecXRef q, const uint frame_id, bool local,
                           MatXRef J) const
 {
     // getFrameJacobian relies on J starting fully zeroed
-    J.setZero();
+    set_zero(J);
     pinocchio_wrapper::frameJacobian(_impl, q, frame_id, J, local);
 }
 
@@ -1465,7 +1465,7 @@ void Model::frameJacobian(const std::string &frame, bool local, MatXRef J) const
 void Model::frameJacobian(const uint frame_id, bool local, MatXRef J) const
 {
     // getFrameJacobian relies on J starting fully zeroed
-    J.setZero();
+    set_zero(J);
     pinocchio_wrapper::frameJacobian(_impl, frame_id, J, local);
 }
 

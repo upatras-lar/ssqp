@@ -352,6 +352,14 @@ class ssqp
     // call, since both run at the same guess
     std::vector<VecX> _cached_f, _cached_c;
 
+    // Per-stage results of the last _lf, _gammaf and _cf calls: the costs,
+    // the dynamics evaluate() outputs and gap norms, and the constraints
+    // evaluate() outputs and violation norms
+    // The line search evaluates the point it accepts last, so
+    // _check_termination reads these instead of evaluating the new guess again
+    mutable std::vector<double> _trial_costs, _trial_gaps, _trial_violations;
+    mutable std::vector<VecX>   _trial_f, _trial_c;
+
     // Rows of the stage 0 constraints that depend only on the state, which
     // x_0 fixes, so they are left out of the QP and of the violation
     // Constraints may change between solves, so these are read at the start

@@ -109,6 +109,20 @@ double softmax_max(ConstVecXRef v, double alpha);
 // The cross product matrix of v, such that skew(v) * a = v x a
 Mat3 skew(const Vec3 &v);
 
+// Zeroes m in a single fill when its storage is contiguous, since setZero on
+// a MatXRef fills it one column at a time
+inline void set_zero(MatXRef m)
+{
+    if (m.outerStride() == m.rows())
+    {
+        Eigen::Map<VecX>(m.data(), m.size()).setZero();
+    }
+    else
+    {
+        m.setZero();
+    }
+}
+
 namespace model
 {
 // Hessians and Hessian products that are zero, which add nothing

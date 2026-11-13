@@ -450,26 +450,21 @@ SolverState ssqp::_check_termination()
 
     if constexpr (fullStagewiseConvergence)
     {
-        _convergence_data.iteration_data.back().costs.resize(horizon + 1);
         _convergence_data.iteration_data.back().gap_violations.resize(horizon);
         _convergence_data.iteration_data.back().constraint_violations.resize(
           horizon + 1);
     }
 
+    // The line search evaluated the current guess last, so its dynamics and
+    // constraints evaluate() outputs are cached for the _setup_qp call
+    // following this iteration, which runs at the same guess
+    std::swap(_cached_f, _trial_f);
+    std::swap(_cached_c, _trial_c);
+
     for (uint k = 0; k < horizon; ++k)
     {
-        model::Model::StageScope stage_scope(_model, k);
-
         // Stage gap violation
-        // Cached here for the _setup_qp call following this iteration, which
-        // runs at the same guess
-        dynamics[k]->evaluate(_guess.x.stage(k),
-                              _guess.u.stage(k),
-                              _cached_f[k]);
-        dynamics[k]->state_right_minus(_cached_f[k],
-                                       _guess.x.stage(k + 1),
-                                       _tmp_gap);
-        double gap_norm = _tmp_gap.lpNorm<Eigen::Infinity>();
+        double gap_norm = _trial_gaps[k];
         if (gap_norm > _params.constraint_tolerance)
         {
             if constexpr (fullStagewiseConvergence)
@@ -495,63 +490,29 @@ SolverState ssqp::_check_termination()
             }
         }
 
-        double csnorm = 0.0;
-
         // Stage constraint violation
-        // Cached here for the _setup_qp call following this iteration, which
-        // runs at the same guess
-        if (constraints[k] != nullptr)
+        double csnorm = _trial_violations[k];
+        if (csnorm > _params.constraint_tolerance)
         {
-            constraints[k]->evaluate(_guess.x.stage(k),
-                                     _guess.u.stage(k),
-                                     _cached_c[k]);
-            const uint ndc   = _qp.dims.stage_constraint[k];
-            auto       below = _tmp_below.head(ndc);
-            auto       above = _tmp_above.head(ndc);
-            constraints[k]->right_minus_into(_cached_c[k],
-                                             constraints[k]->lower_bound(),
-                                             below);
-            constraints[k]->right_minus_into(_cached_c[k],
-                                             constraints[k]->upper_bound(),
-                                             above);
-            below = below.cwiseMin(0);
-            above = above.cwiseMax(0);
-
-            // x_0 fixes the state-only rows of stage 0, so they are left out
-            if (k == 0)
+            if constexpr (fullStagewiseConvergence)
             {
-                for (const uint row : _stage_0_state_only_rows)
-                {
-                    below[row] = 0.0;
-                    above[row] = 0.0;
-                }
-            }
-
-            csnorm = std::max(below.lpNorm<Eigen::Infinity>(),
-                              above.lpNorm<Eigen::Infinity>());
-            if (csnorm > _params.constraint_tolerance)
-            {
-                if constexpr (fullStagewiseConvergence)
-                {
-                    if (_convergence_data.iteration_data.back()
-                          .first_violation_stage == -1)
-                    {
-                        _stale_iters = 0;
-                        _convergence_data.iteration_data.back()
-                          .first_violation_stage = k;
-                        _convergence_data.iteration_data.back().violation =
-                          csnorm;
-                    }
-                }
-                else
+                if (_convergence_data.iteration_data.back()
+                      .first_violation_stage == -1)
                 {
                     _stale_iters = 0;
                     _convergence_data.iteration_data.back()
-                      .first_violation_stage                          = k;
+                      .first_violation_stage = k;
                     _convergence_data.iteration_data.back().violation = csnorm;
-
-                    return ONGOING;
                 }
+            }
+            else
+            {
+                _stale_iters = 0;
+                _convergence_data.iteration_data.back().first_violation_stage =
+                  k;
+                _convergence_data.iteration_data.back().violation = csnorm;
+
+                return ONGOING;
             }
         }
 
@@ -564,55 +525,30 @@ SolverState ssqp::_check_termination()
         }
     }
 
-    double csnorm = 0.0;
-
     // Terminal constraint violation
-    // Cached here for the _setup_qp call following this iteration, which
-    // runs at the same guess
-    if (constraints[horizon] != nullptr)
+    double csnorm = _trial_violations[horizon];
+    if (csnorm > _params.constraint_tolerance)
     {
-        model::Model::StageScope stage_scope(_model, horizon);
-
-        constraints[horizon]->evaluate(_guess.x.stage(horizon),
-                                       _emptyVec,
-                                       _cached_c[horizon]);
-        const uint ndc   = _qp.dims.stage_constraint[horizon];
-        auto       below = _tmp_below.head(ndc);
-        auto       above = _tmp_above.head(ndc);
-        constraints[horizon]->right_minus_into(
-          _cached_c[horizon],
-          constraints[horizon]->lower_bound(),
-          below);
-        constraints[horizon]->right_minus_into(
-          _cached_c[horizon],
-          constraints[horizon]->upper_bound(),
-          above);
-        csnorm = std::max(below.cwiseMin(0).lpNorm<Eigen::Infinity>(),
-                          above.cwiseMax(0).lpNorm<Eigen::Infinity>());
-
-        if (csnorm > _params.constraint_tolerance)
+        if constexpr (fullStagewiseConvergence)
         {
-            if constexpr (fullStagewiseConvergence)
+            if (_convergence_data.iteration_data.back().first_violation_stage ==
+                -1)
             {
-                if (_convergence_data.iteration_data.back()
-                      .first_violation_stage == -1)
-                {
-                    _stale_iters = 0;
-                    _convergence_data.iteration_data.back()
-                      .first_violation_stage                          = horizon;
-                    _convergence_data.iteration_data.back().violation = csnorm;
-                }
-            }
-            else
-            {
-
                 _stale_iters = 0;
                 _convergence_data.iteration_data.back().first_violation_stage =
                   horizon;
                 _convergence_data.iteration_data.back().violation = csnorm;
-
-                return ONGOING;
             }
+        }
+        else
+        {
+
+            _stale_iters = 0;
+            _convergence_data.iteration_data.back().first_violation_stage =
+              horizon;
+            _convergence_data.iteration_data.back().violation = csnorm;
+
+            return ONGOING;
         }
     }
 
@@ -620,18 +556,7 @@ SolverState ssqp::_check_termination()
     {
         _convergence_data.iteration_data.back().constraint_violations[horizon] =
           csnorm;
-
-        const model::CostsContainer &costs = _model.costs();
-        for (uint k = 0; k < horizon; ++k)
-        {
-            model::Model::StageScope stage_scope(_model, k);
-            costs[k]->evaluate(_guess.x.stage(k), _guess.u.stage(k), _tmp_cost);
-            _convergence_data.iteration_data.back().costs[k] = _tmp_cost[0];
-        }
-
-        model::Model::StageScope terminal_cost_scope(_model, horizon);
-        costs[horizon]->evaluate(_guess.x.stage(horizon), _emptyVec, _tmp_cost);
-        _convergence_data.iteration_data.back().costs[horizon] = _tmp_cost[0];
+        _convergence_data.iteration_data.back().costs = _trial_costs;
 
         if (_convergence_data.iteration_data.back().first_violation_stage != -1)
         {

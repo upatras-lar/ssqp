@@ -532,6 +532,12 @@ ssqp::ssqp(const model::Model &model, const Params &params)
     _cached_f.resize(lin_dims.horizon);
     _cached_c.resize(lin_dims.horizon + 1);
 
+    _trial_costs.resize(lin_dims.horizon + 1);
+    _trial_gaps.resize(lin_dims.horizon);
+    _trial_violations.resize(lin_dims.horizon + 1);
+    _trial_f.resize(lin_dims.horizon);
+    _trial_c.resize(lin_dims.horizon + 1);
+
     const std::vector<uint> &stage_c  = model.dims().stage_constraint;
     const std::vector<uint> &stage_dc = lin_dims.stage_constraint;
     const uint max_c  = *std::max_element(stage_c.begin(), stage_c.end());
@@ -1370,11 +1376,13 @@ double ssqp::_lf(const FlatVec &x, const FlatVec &u) const
     {
         model::Model::StageScope stage_scope(_model, k);
         costs[k]->evaluate(x.stage(k), u.stage(k), _tmp_cost);
-        sum += _tmp_cost(0);
+        _trial_costs[k]  = _tmp_cost(0);
+        sum             += _tmp_cost(0);
     }
 
     model::Model::StageScope stage_scope(_model, horizon);
     costs[horizon]->evaluate(x.stage(horizon), _emptyVec, _tmp_cost);
+    _trial_costs[horizon] = _tmp_cost(0);
     return sum + _tmp_cost(0);
 }
 
@@ -1417,9 +1425,10 @@ double ssqp::_gammaf(const FlatVec &x, const FlatVec &u) const
     for (uint k = 0; k < horizon; ++k)
     {
         model::Model::StageScope stage_scope(_model, k);
-        dynamics[k]->evaluate(x.stage(k), u.stage(k), _tmp_f);
-        dynamics[k]->state_right_minus(_tmp_f, x.stage(k + 1), _tmp_gap);
-        sum += _tmp_gap.lpNorm<Eigen::Infinity>();
+        dynamics[k]->evaluate(x.stage(k), u.stage(k), _trial_f[k]);
+        dynamics[k]->state_right_minus(_trial_f[k], x.stage(k + 1), _tmp_gap);
+        _trial_gaps[k]  = _tmp_gap.lpNorm<Eigen::Infinity>();
+        sum            += _trial_gaps[k];
     }
 
     return sum;
@@ -1532,16 +1541,17 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
     {
         if (constraints[k] == nullptr)
         {
+            _trial_violations[k] = 0.0;
             continue;
         }
 
         model::Model::StageScope stage_scope(_model, k);
 
-        auto c     = _tmp_c.head(_model.dims().stage_constraint[k]);
-        auto v     = _tmp_below.head(_qp.dims.stage_constraint[k]);
-        auto above = _tmp_above.head(_qp.dims.stage_constraint[k]);
+        VecX &c     = _trial_c[k];
+        auto  v     = _tmp_below.head(_qp.dims.stage_constraint[k]);
+        auto  above = _tmp_above.head(_qp.dims.stage_constraint[k]);
 
-        constraints[k]->evaluate_into(x.stage(k), u.stage(k), c);
+        constraints[k]->evaluate(x.stage(k), u.stage(k), c);
 
         constraints[k]->right_minus_into(c, constraints[k]->lower_bound(), v);
         constraints[k]->right_minus_into(c,
@@ -1558,18 +1568,21 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
             }
         }
 
-        sum += v.lpNorm<Eigen::Infinity>();
+        _trial_violations[k]  = v.lpNorm<Eigen::Infinity>();
+        sum                  += _trial_violations[k];
     }
+
+    _trial_violations[horizon] = 0.0;
 
     if (constraints[horizon] != nullptr)
     {
         model::Model::StageScope stage_scope(_model, horizon);
 
-        auto c     = _tmp_c.head(_model.dims().stage_constraint[horizon]);
-        auto v     = _tmp_below.head(_qp.dims.stage_constraint[horizon]);
-        auto above = _tmp_above.head(_qp.dims.stage_constraint[horizon]);
+        VecX &c     = _trial_c[horizon];
+        auto  v     = _tmp_below.head(_qp.dims.stage_constraint[horizon]);
+        auto  above = _tmp_above.head(_qp.dims.stage_constraint[horizon]);
 
-        constraints[horizon]->evaluate_into(x.stage(horizon), _emptyVec, c);
+        constraints[horizon]->evaluate(x.stage(horizon), _emptyVec, c);
 
         constraints[horizon]->right_minus_into(
           c,
@@ -1579,8 +1592,9 @@ double ssqp::_cf(const FlatVec &x, const FlatVec &u) const
           c,
           constraints[horizon]->upper_bound(),
           above);
-        sum +=
+        _trial_violations[horizon] =
           v.cwiseMin(0).cwiseAbs().cwiseMax(above).lpNorm<Eigen::Infinity>();
+        sum += _trial_violations[horizon];
     }
 
     return sum;

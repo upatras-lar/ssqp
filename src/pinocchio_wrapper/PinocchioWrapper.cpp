@@ -1019,8 +1019,8 @@ void frameVelocityDerivatives(const std::shared_ptr<ModelImpl> &impl,
 {
     pinocchio::Data &data = ensureVelocityDerivatives(impl, q, v).data;
 
-    dVdq.setZero();
-    dVdv.setZero();
+    set_zero(dVdq);
+    set_zero(dVdv);
 
     pinocchio::getFrameVelocityDerivatives(
       impl->model,
