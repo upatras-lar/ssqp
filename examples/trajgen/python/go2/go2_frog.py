@@ -51,7 +51,7 @@ HORIZON = 300
 dt = 0.01
 
 # Weights
-A_WGT = 1e-7
+A_WGT = 1e-6
 V_WGT = 1e-4
 U_WGT = 5e-5
 F_WGT = 5e-4

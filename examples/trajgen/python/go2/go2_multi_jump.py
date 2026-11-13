@@ -17,7 +17,7 @@ dt = 0.01
 
 # Weights
 A_WGT = 1e-5
-V_WGT = 1e-3
+V_WGT = 1e-4
 U_WGT = 1e-4
 F_WGT = 1e-4
 TF_WGT = 1e-1

@@ -10,7 +10,7 @@ from ssqpy.model import costs, constraints
 import numpy as np
 from math import pi
 
-from trajgen.python.utils.GaitManager import GaitManager
+from trajgen.python.go2.utils.GaitManager import GaitManager
 
 
 def cvt(

@@ -17,7 +17,9 @@ python visualize.py -u ../assets/urdf/go2/go2.urdf -i ../trajgen/data/go2_jump.j
 
 ## `visualize.py`
 
-The script starts a viser server on port 8080, so after launching it, open `http://localhost:8080` in a browser to see the robot. Orbit, pan and zoom with the mouse. It plays the trajectory back at the time step the solver used, so the motion plays at real time, and the speed can be scaled with `--delay-factor`.
+The script starts a viser server on port 8080, so after launching it, open `http://localhost:8080` in a browser to see the robot. The camera starts framed on the space the robot moves through over the whole trajectory, viewed from its left side and from above. Orbit, pan and zoom with the mouse. It plays the trajectory back at the time step the solver used, so the motion plays at real time, and the speed can be scaled with `--delay-factor`.
+
+The Record button in the viewer's panel saves a video of the next playthrough, from its first stage to its last, rendering every stage from that browser's current camera at the size of its view. It is saved to `--record-path`, or by default to the input's name in the current directory (such as `go2_jump.mp4`), and clicking it again records over it. Run with `--loop` to set up the camera before recording. Playback runs at the speed of rendering while recording, which is slower than real time, but the video plays at the trajectory's real time (scaled by `--delay-factor`). This needs `ffmpeg` installed.
 
 The trajectory file must be the JSON written by `solver.write`, and the URDF given must be the one of the model that generated it, since the state in the file is mapped onto the URDF's joints. Models with floating bases (the quadrupeds and humanoids) and fixed bases (arms and pendulums) are both supported. If the trajectory has contact forces, they can be drawn as arrows at the feet.
 
@@ -29,6 +31,7 @@ If the file contains a terrain (a slope, stairs, or a heightmap, as set on the m
 | `-i`, `--input` | Path to the trajectory JSON file (required) |
 | `-d`, `--delay-factor` | Factor to delay each time step by, to slow down (above 1) or speed up (below 1) playback (default 1.0) |
 | `-l`, `--loop` | Loop the trajectory after it ends |
+| `-r`, `--record-path` | Path to save recordings from the Record button to (default: the input's name with `.mp4`, in the current directory) |
 | `-g`, `--no-ground` | Do not draw the ground |
 | `-f`, `--forces` | Draw the contact forces |
 | `--goal X Y Z` | Draw a goal point |

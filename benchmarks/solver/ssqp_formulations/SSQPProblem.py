@@ -124,6 +124,10 @@ class SSQPProblem(ProblemWrapper):
                 ssqp_params.hpipmParams.square_root_riccati = parameters[
                     "hpipm_square_root_riccati"
                 ]
+        elif "qp_solver" in parameters and parameters["qp_solver"] == "piqp":
+            ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.PIQP
+            ssqp_params.piqpParams.eps_abs = parameters.get("piqp_tol", 1e-3)
+            ssqp_params.piqpParams.eps_rel = parameters.get("piqp_tol", 1e-3)
         else:
             ssqp_params.admmParams.max_iter = parameters.get(
                 "admm_max_iter", 100
@@ -155,11 +159,11 @@ class SSQPProblem(ProblemWrapper):
                 ssqp_params.admmParams.alpha = parameters["admm_alpha"]
 
         self.solver = ssqpy.solvers.ssqp(self.model, ssqp_params)
-        self._benchmark_solver = (
-            "ssqp-hpipm"
-            if ssqp_params.qp_solver_type == ssqpy.solvers.QPSolverType.HPIPM
-            else "ssqp-admm"
-        )
+        self._benchmark_solver = {
+            ssqpy.solvers.QPSolverType.ADMM: "ssqp-admm",
+            ssqpy.solvers.QPSolverType.HPIPM: "ssqp-hpipm",
+            ssqpy.solvers.QPSolverType.PIQP: "ssqp-piqp",
+        }[ssqp_params.qp_solver_type]
         self.status, _, _ = self.solver.solve()
 
         convergence_data = self.solver.getConvergenceData()

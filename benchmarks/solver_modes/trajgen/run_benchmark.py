@@ -215,7 +215,8 @@ def get_params(model, qp_solver_type):
         params.admmParams.warm_start = False
     else:
         params.hpipmParams.max_iter = 20
-        params.hpipmParams.square_root_riccati = True
+        params.hpipmParams.square_root_riccati = False
+        params.hpipmParams.mu0 = 1.0
         params.hpipmParams.tol_stat = 1e-3
         params.hpipmParams.tol_comp = 1e-3
         params.hpipmParams.tol_eq = 1e-3

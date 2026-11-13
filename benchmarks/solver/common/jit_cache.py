@@ -8,6 +8,7 @@ same problem at several tolerances. This pins the filename instead.
 
 import hashlib
 import os
+import shutil
 
 
 class JitCacheMiss(Exception):
@@ -24,11 +25,14 @@ def base_jit_options(opt_level="O3"):
     gcc's optimization passes scale worse than linearly with the size of
     CasADi's generated (flat, unrolled) C code, so a large enough problem
     needs a lower opt_level (--jit-opt-level) to compile at all.
+
+    Compiles through ccache when it's installed, plain gcc otherwise
     """
+    compiler = "ccache gcc" if shutil.which("ccache") else "gcc"
     return {
         "jit": True,
         "compiler": "shell",
-        "jit_options": {"compiler": "ccache gcc", "flags": [f"-{opt_level}"]},
+        "jit_options": {"compiler": compiler, "flags": [f"-{opt_level}"]},
     }
 
 

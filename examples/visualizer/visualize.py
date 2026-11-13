@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import argparse
 import json
+import subprocess
 from time import sleep, time
 
 
@@ -63,6 +64,15 @@ def parse_args():
         "--loop",
         action=argparse.BooleanOptionalAction,
         help="Whether to loop solution after ending",
+    )
+
+    parser.add_argument(
+        "-r",
+        "--record-path",
+        type=str,
+        help="Path to save recordings to, made with the Record button in the "
+        "viewer; if not passed, the input's name is used, such as "
+        "go2_jump.mp4 in the current directory",
     )
 
     parser.add_argument(
@@ -427,13 +437,6 @@ if args.shaded_model_base or args.shaded_model_configuration:
         updated_cfg = True
 
 
-# Move client camera to initial position
-@server.on_client_connect
-def _(client):
-    client.camera.position = (0.8, 1, 0.8)
-    client.camera.look_at = (0, 0, 0)
-
-
 JOINT_TYPE_NVALS = {
     "revolute": 1,
     "continuous": 2,
@@ -505,8 +508,127 @@ configuration_key = (
     "joint_configuration" if data["properties"]["floating_base"] else "state"
 )
 
+
+def base_transform(stage):
+    # World transform of the robot's base at the given stage
+    T = np.eye(4)
+    if data["properties"]["floating_base"]:
+        q = stage["orientation"]
+        T[:3, :3] = quaternion_to_rotation_matrix([q[3], q[0], q[1], q[2]])
+        T[:3, 3] = stage["position"]
+    return T
+
+
+# Find the box the robot moves through over the whole trajectory
+corner_signs = np.array(
+    [[i & 1, (i >> 1) & 1, (i >> 2) & 1] for i in range(8)], dtype=bool
+)
+corners = []
+for k in range(data["properties"]["horizon"]):
+    stage = data["stage_data"][k]
+    urdf._urdf.update_cfg(process_state(stage[configuration_key]))
+    lower, upper = urdf._urdf.scene.bounds
+    T = base_transform(stage)
+    corners.append(np.where(corner_signs, upper, lower) @ T[:3, :3].T + T[:3, 3])
+corners = np.concatenate(corners)
+motion_lower = corners.min(axis=0)
+motion_upper = corners.max(axis=0)
+
+CAMERA_ELEVATION = np.radians(30)
+CAMERA_YAW = np.radians(30)
+CAMERA_MARGIN = 0.7
+CAMERA_PAN = 0.2
+
+
+def camera_view(fov, aspect):
+    # Views the motion box from the left of its longer horizontal axis,
+    # slightly from the front and above, close enough that it fills the view
+    center = (motion_lower + motion_upper) / 2
+    extent = motion_upper - motion_lower
+    azimuth = (np.pi / 2 if extent[0] >= extent[1] else 0.0) - CAMERA_YAW
+
+    forward = -np.array(
+        [
+            np.cos(CAMERA_ELEVATION) * np.cos(azimuth),
+            np.cos(CAMERA_ELEVATION) * np.sin(azimuth),
+            np.sin(CAMERA_ELEVATION),
+        ]
+    )
+    right = np.cross(forward, [0.0, 0.0, 1.0])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, forward)
+
+    # Distance at which every corner of the box is inside both fields of view
+    tan_v = np.tan(fov / 2) * CAMERA_MARGIN
+    tan_h = tan_v * aspect
+    box = np.where(corner_signs, motion_upper, motion_lower) - center
+    distance = np.max(
+        np.maximum(np.abs(box @ right) / tan_h, np.abs(box @ up) / tan_v)
+        - box @ forward
+    )
+
+    # Pan the view down, so the robot sits a little above the middle
+    look_at = center - CAMERA_PAN * distance * np.tan(fov / 2) * up
+
+    return look_at - distance * forward, look_at
+
+
+# Move client camera to the view of the motion
+@server.on_client_connect
+def _(client):
+    position, look_at = camera_view(client.camera.fov, client.camera.aspect)
+    client.camera.up_direction = (0.0, 0.0, 1.0)
+    client.camera.position = position
+    client.camera.look_at = look_at
+
+
+record_path = args.record_path or f"{Path(args.input).stem}.mp4"
+record_client = None
+recorder = None
+
+record_button = server.gui.add_button("Record")
+
+
+# Records the next loop from the camera of the client that clicked
+@record_button.on_click
+def _(event):
+    global record_client
+    record_button.disabled = True
+    record_client = event.client
+    print("Recording the next loop")
+
+
 # Main loop
 while True:
+    if record_client is not None:
+        # Frames are rendered at the browser's size, rounded down to even
+        # for the video encoder, and piped to ffmpeg at the trajectory's
+        # playback rate
+        record_width = record_client.camera.image_width // 2 * 2
+        record_height = record_client.camera.image_height // 2 * 2
+        recorder = subprocess.Popen(
+            [
+                "ffmpeg",
+                "-y",
+                "-loglevel",
+                "error",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-s",
+                f"{record_width}x{record_height}",
+                "-framerate",
+                str(1.0 / (data["properties"]["dt"] * args.delay_factor)),
+                "-i",
+                "-",
+                "-pix_fmt",
+                "yuv420p",
+                record_path,
+            ],
+            stdin=subprocess.PIPE,
+        )
+
     # Animate each stage
     for k in range(data["properties"]["horizon"]):
         start = time()
@@ -564,6 +686,11 @@ while True:
 
                 forces.visible = True
 
+        if recorder is not None:
+            frame = record_client.get_render(record_height, record_width)
+            recorder.stdin.write(frame.tobytes())
+            continue
+
         sleep(
             max(
                 0,
@@ -572,5 +699,15 @@ while True:
             )
         )
 
-    if not args.loop:
+    if recorder is not None:
+        recorder.stdin.close()
+        recorder.wait()
+        recorder = None
+        record_client = None
+        record_button.disabled = False
+        print(f"Saved recording to {record_path}")
+
+    # Without looping, a recording requested during the playback still
+    # plays the trajectory once more
+    if not args.loop and record_client is None:
         break

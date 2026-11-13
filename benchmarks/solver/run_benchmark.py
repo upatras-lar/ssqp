@@ -58,6 +58,7 @@ def parse_args():
         choices=[
             "ssqp-admm",
             "ssqp-hpipm",
+            "ssqp-piqp",
             "fatrop",
             "ipopt",
             "aligator",
@@ -154,9 +155,9 @@ def parse_args():
         default="forward",
         help=(
             "Dynamics formulation to solve. 'inverse' is supported for "
-            "SSQP (ssqp-admm/ssqp-hpipm), where it maps to SolverMode."
-            "InverseDynamics, or SolverMode.ReducedInverseDynamics for "
-            "problems with a floating base (see SolverMode's docstring in "
+            "SSQP (ssqp-admm/ssqp-hpipm/ssqp-piqp), where it maps to "
+            "SolverMode.InverseDynamics, or SolverMode.ReducedInverseDynamics "
+            "for problems with a floating base (see SolverMode's docstring in "
             "include/types.hpp), and for the CasADi-based solvers "
             "(fatrop/ipopt), which formulate the equivalent explicit-"
             "equality-constrained scheme by hand (see CasadiProblem.solve()). "
@@ -288,11 +289,14 @@ problems_to_run = ALL_PROBLEMS if args.all_problems else [args.problem]
 ALL_SOLVERS = [
     "ssqp-admm",
     "ssqp-hpipm",
+    "ssqp-piqp",
     "fatrop",
     "ipopt",
     "aligator",
     "mim_solvers",
 ]
+# SSQP with each of its QP backends, all solved through the same wrappers
+SSQP_SOLVERS = {"ssqp-admm", "ssqp-hpipm", "ssqp-piqp"}
 # mim_solvers/aligator only build a forward-dynamics problem (see their
 # ProblemWrapper implementations); there is no inverse-dynamics formulation
 # to select for them
@@ -475,9 +479,7 @@ def run_solver(problem, solver):
     problem_wrapper_t = None
     constructor_parameters = {}
     solve_parameters = {}
-    if problem in DUFFING_PROBLEMS and (
-        solver == "ssqp-admm" or solver == "ssqp-hpipm"
-    ):
+    if problem in DUFFING_PROBLEMS and solver in SSQP_SOLVERS:
         from ssqp_formulations.SSQPDuffingProblem import SSQPDuffingProblem
 
         problem_wrapper_t = SSQPDuffingProblem
@@ -498,11 +500,14 @@ def run_solver(problem, solver):
             solve_parameters["admm_adaptive_rho_tolerance"] = 5
             solve_parameters["admm_rho_update_iter_freq"] = 25
             solve_parameters["admm_warm_start"] = True
-        else:
+        elif solver == "ssqp-hpipm":
             solve_parameters["qp_solver"] = "hpipm"
             solve_parameters["hpipm_tol"] = tolerance / 10
+        else:
+            solve_parameters["qp_solver"] = "piqp"
+            solve_parameters["piqp_tol"] = tolerance / 10
 
-    elif solver == "ssqp-admm" or solver == "ssqp-hpipm":
+    elif solver in SSQP_SOLVERS:
         import ssqpy
         from ssqp_formulations.SSQPProblem import SSQPProblem
 
@@ -549,9 +554,12 @@ def run_solver(problem, solver):
             solve_parameters["admm_adaptive_rho_tolerance"] = 5
             solve_parameters["admm_rho_update_iter_freq"] = 25
             solve_parameters["admm_warm_start"] = True
-        else:
+        elif solver == "ssqp-hpipm":
             solve_parameters["qp_solver"] = "hpipm"
             solve_parameters["hpipm_tol"] = tolerance / 10
+        else:
+            solve_parameters["qp_solver"] = "piqp"
+            solve_parameters["piqp_tol"] = tolerance / 10
 
     elif problem in DUFFING_PROBLEMS and solver == "mim_solvers":
         from mim_solvers_formulations.MimSolversDuffingProblem import (
@@ -833,6 +841,7 @@ NON_DUFFING_MEMORY_ESTIMATE_BYTES = (
 DUFFING_SOLVER_MEM_MULTIPLIER = {
     "ssqp-admm": 1.25,
     "ssqp-hpipm": 1.3,
+    "ssqp-piqp": 3.0,
     "fatrop": 2.0,
     "ipopt": 0.3,
     "aligator": 2.25,

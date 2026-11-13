@@ -18,6 +18,7 @@
 /benchmarks/solver_modes/trajgen/pendubot_plots.py
 /benchmarks/solver_modes/mpc/data/*
 /benchmarks/solver/data/*
+/benchmarks/rerun_data/*
 
 # Documentation
 /docs/site/*
@@ -45,6 +46,7 @@
 /PERFORMANCE.md
 /perf*
 /benchmarks/solver/go2_wheelie*
+/benchmarks/rerun_all.py
 
 # General filenames to always skip
 __pycache__

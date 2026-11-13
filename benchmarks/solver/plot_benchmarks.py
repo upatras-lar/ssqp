@@ -33,7 +33,7 @@ from common.benchmark_config import TOLERANCE, tolerance_label
 # A fixed identity -> color mapping, assigned once and never reassigned
 # based on which solvers happen to have a result for a given problem, since
 # otherwise a missing solver would silently repaint every solver after it
-# from one plot to the next, using the first six slots (in order) of a
+# from one plot to the next, using the first seven slots (in order) of a
 # categorical palette whose *adjacent* pairs (the relevant comparison
 # within one bar-chart panel) validate colorblind-safe; since these bars
 # are also individually labeled on the x-axis, identity never rests on
@@ -42,6 +42,7 @@ from common.benchmark_config import TOLERANCE, tolerance_label
 SOLVER_COLORS = {
     "ssqp-admm": "#2a78d6",  # blue
     "ssqp-hpipm": "#eb6834",  # orange
+    "ssqp-piqp": "#6250d6",  # violet
     "fatrop": "#1baf7a",  # aqua
     "ipopt": "#eda100",  # yellow
     "aligator": "#e87ba4",  # magenta
