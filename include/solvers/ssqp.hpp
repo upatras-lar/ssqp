@@ -31,8 +31,6 @@ class FDGradFullTrajectoryConstraintViolation;
 
 namespace solvers
 {
-auto to_compile_time(bool b);
-
 /** Load a previously generated SSQP trajectory from a file
  * Input:
  *  - `filepath`: The path for the trajectory file output by `ssqp::write`
@@ -251,6 +249,8 @@ class ssqp
         std::vector<double> constraint_violations;
 
         void print() const;
+
+        void take_memory(IterationConvergenceData &from);
     };
 
     struct ConvergenceData
@@ -291,8 +291,12 @@ class ssqp
     const model::Model &model() const;
 
     // Reset the internal guess from the model's current initial states and
-    // controls.
+    // controls
     void reinitialize();
+
+    // Adapts the solver to the model's dimensions after they change, leaving
+    // it as a newly constructed one would be
+    void updateDimensions();
 
     // Solve the defined problem using SSQP
     SolverState solve(Guess &guess);
@@ -317,9 +321,13 @@ class ssqp
     Guess                     _guess;
     QPData                    _qp;
     std::unique_ptr<QPSolver> _qp_solver;
+    QPSolver::Solution        _qp_sol;
 
     FlatVec _prev_cost_dx, _prev_cost_du;
     FlatVec _cost_dx, _cost_du;
+
+    // Lagrangian gradients of the termination check
+    FlatVec _lagrangian_dx, _lagrangian_du;
 
     // Scratch trajectory overwritten by the line search each iteration
     FlatVec _candidate_x, _candidate_u;
@@ -372,6 +380,10 @@ class ssqp
     double _tolerance_init;
 
     ConvergenceData _convergence_data;
+
+    // Holds the per-stage vectors of earlier solves' iteration data, so that
+    // new iteration data reuses their storage
+    std::vector<IterationConvergenceData> _iteration_pool;
 
     bool _reduced_output;
 

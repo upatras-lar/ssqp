@@ -142,7 +142,6 @@ piqp_qp::piqp_qp(const QPData &qp, const Params &params)
   , _params(params)
   , _solution(qp.dims)
   , _reg(_params.reg_prim)
-  , _piqp_data(std::make_shared<piqp_data>())
 {
 #ifndef PIQP_HAS_OPENMP
     if (_params.parallel)
@@ -151,6 +150,21 @@ piqp_qp::piqp_qp(const QPData &qp, const Params &params)
                                  "building with SSQP_PIQP_OPENMP");
     }
 #endif
+
+    updateDimensions();
+}
+
+void piqp_qp::updateDimensions()
+{
+    // The sparsity patterns and the solver set up for them depend on the
+    // dimensions, so they are created again
+    _piqp_data   = std::make_shared<piqp_data>();
+    _iter        = 0;
+    _qp_uploaded = false;
+    _setup_done  = false;
+    _reg         = _params.reg_prim;
+
+    _solution.resize(_qp.dims);
 
     _piqp_data->x_off.resize(_qp.dims.horizon + 1);
     _piqp_data->u_off.resize(_qp.dims.horizon);
@@ -266,7 +280,7 @@ piqp_qp::piqp_qp(const QPData &qp, const Params &params)
     settings.delta_init          = _params.delta_init;
 
     // reset() uploads numeric QP data. The QP is assembled by SSQP after this
-    // constructor returns, so defer that upload until the first solve.
+    // returns, so defer that upload until the first solve.
 }
 
 piqp_qp::~piqp_qp() {}

@@ -219,9 +219,15 @@ namespace solvers
 {
 FlatVec::FlatVec(const uint total_size, const std::vector<uint> &dims)
   : vec(total_size)
-  , _stage_sizes(dims.size())
-  , _acc_idx(dims.size())
 {
+    resize(dims);
+}
+
+void FlatVec::resize(const std::vector<uint> &dims)
+{
+    _stage_sizes.resize(dims.size());
+    _acc_idx.resize(dims.size());
+
     _max_dim        = dims[0];
     _stage_sizes[0] = dims[0];
     _acc_idx[0]     = 0;
@@ -233,7 +239,7 @@ FlatVec::FlatVec(const uint total_size, const std::vector<uint> &dims)
         _acc_idx[k]     = _acc_idx[k - 1] + _stage_sizes[k - 1];
     }
 
-    vec.setZero();
+    vec.setZero(_acc_idx.back() + _stage_sizes.back());
 }
 
 FlatVec::FlatVec(const uint total_size, const std::vector<VecX> &vectors)

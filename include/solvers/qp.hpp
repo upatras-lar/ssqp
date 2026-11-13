@@ -17,9 +17,15 @@ class QPSolver
         FlatVec lambda, mu;
 
         Solution(const model::Dimensions &dims);
+
+        // Resize based on stage sizes given in dims, initializing to 0
+        void resize(const model::Dimensions &dims);
     };
 
     virtual ~QPSolver() = default;
+
+    // Adapts the solver to the dimensions of its QP after they change
+    virtual void updateDimensions() = 0;
 
     virtual void        reset()                  = 0;
     virtual void        increaseRegularization() = 0;

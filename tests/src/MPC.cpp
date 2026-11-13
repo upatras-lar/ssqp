@@ -102,20 +102,63 @@ bool MPCStepTest::run()
             return false;
         }
 
+        // A solver built for the current dimensions, with the parameters MPC
+        // gives its own, starting from the guess the last step set
+        solvers::ssqp::Params fresh_params = ssqp_params;
+        fresh_params.max_iter              = mpc_params.sqp_iters;
+        fresh_params.max_time              = mpc_params.max_time;
+        fresh_params.admm_params.max_iter  = mpc_params.qp_iters;
+        fresh_params.hpipm_params.max_iter = mpc_params.qp_iters;
+        fresh_params.piqp_params.max_iter  = mpc_params.qp_iters;
+
+        const auto matches_fresh_solver =
+          [&model, &fresh_params](
+            const std::pair<solvers::FlatVec, solvers::FlatVec> &solution)
+        {
+            solvers::ssqp        fresh(*model, fresh_params);
+            solvers::ssqp::Guess guess(model->dims(), model->linear_dims());
+            fresh.solve(guess);
+            return solution.first.vec == guess.x.vec &&
+                   solution.second.vec == guess.u.vec;
+        };
+
         // Changing the enabled state changes the QP dimensions. The next step
-        // must rebuild the persistent solver before solving the new QP.
+        // resizes the persistent solver, which must then solve the new QP as a
+        // newly built one would
         control_constraint->set_enabled(false);
-        if (!valid_solution(mpc.step(state)))
+        const auto disabled = mpc.step(state);
+        if (!valid_solution(disabled))
         {
             _failed_logs.push_back("MPC step after a dimension change returned "
                                    "an invalid solution\n");
             return false;
         }
+        if (!matches_fresh_solver(disabled))
+        {
+            _failed_logs.push_back("MPC step after a dimension change differs "
+                                   "from a newly built solver\n");
+            return false;
+        }
 
-        if (mpc.getConvergenceData().size() != 3)
+        control_constraint->set_enabled(true);
+        const auto enabled = mpc.step(state);
+        if (!valid_solution(enabled))
+        {
+            _failed_logs.push_back("MPC step after a second dimension change "
+                                   "returned an invalid solution\n");
+            return false;
+        }
+        if (!matches_fresh_solver(enabled))
+        {
+            _failed_logs.push_back("MPC step after a second dimension change "
+                                   "differs from a newly built solver\n");
+            return false;
+        }
+
+        if (mpc.getConvergenceData().size() != 4)
         {
             _failed_logs.push_back(
-              "MPC convergence data did not record all three steps\n");
+              "MPC convergence data did not record all four steps\n");
             return false;
         }
 

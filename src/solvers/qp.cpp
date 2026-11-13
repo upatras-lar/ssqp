@@ -11,5 +11,13 @@ QPSolver::Solution::Solution(const model::Dimensions &dims)
   , mu(dims.constraint, dims.stage_constraint)
 {
 }
+
+void QPSolver::Solution::resize(const model::Dimensions &dims)
+{
+    dx.resize(dims.stage_state);
+    du.resize(dims.stage_control);
+    lambda.resize(dims.stage_state);
+    mu.resize(dims.stage_constraint);
+}
 }
 }

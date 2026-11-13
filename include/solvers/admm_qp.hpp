@@ -87,6 +87,8 @@ class admm_qp : public QPSolver
 
     admm_qp(const QPData &qp, const Params &params = Params::Default());
 
+    void updateDimensions() override;
+
     void reset() override;
 
     void increaseRegularization() override;

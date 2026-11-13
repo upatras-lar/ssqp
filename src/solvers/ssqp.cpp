@@ -7,12 +7,16 @@ namespace ssqp
 {
 namespace solvers
 {
+
+namespace
+{
 auto to_compile_time(bool b)
 {
     using T = std::integral_constant<bool, true>;
     using F = std::integral_constant<bool, false>;
     using V = std::variant<T, F>;
     return b ? V { T {} } : V { F {} };
+}
 }
 
 std::pair<FlatVec, FlatVec> loadTrajectory(const std::string &filepath)
@@ -423,6 +427,19 @@ void ssqp::IterationConvergenceData::print() const
     std::cout << "------------------------------------" << std::endl;
 }
 
+// Moves storage from passed object's vectors to this object's ones
+void ssqp::IterationConvergenceData::take_memory(
+  ssqp::IterationConvergenceData &from)
+{
+    costs.swap(from.costs);
+    gap_violations.swap(from.gap_violations);
+    constraint_violations.swap(from.constraint_violations);
+
+    costs.clear();
+    gap_violations.clear();
+    constraint_violations.clear();
+}
+
 void ssqp::ConvergenceData::print() const
 {
     std::cout << "SSQP Convergence Data" << std::endl;
@@ -454,16 +471,6 @@ ssqp::ssqp(model::Model &model, const Params &params)
     {
         model.finalize();
     }
-
-    const model::Dimensions lin_dims = model.linear_dims();
-
-    uint max_x = *std::max_element(lin_dims.stage_state.begin(),
-                                   lin_dims.stage_state.end());
-    uint max_u = *std::max_element(lin_dims.stage_control.begin(),
-                                   lin_dims.stage_control.end());
-
-    _tmp.x1.resize(max_x);
-    _tmp.u1.resize(max_u);
 }
 
 ssqp::ssqp(const model::Model &model, const Params &params)
@@ -471,10 +478,13 @@ ssqp::ssqp(const model::Model &model, const Params &params)
   , _model(model)
   , _guess(model.dims(), model.linear_dims())
   , _qp(model.linear_dims())
+  , _qp_sol(model.linear_dims())
   , _prev_cost_dx(model.linear_dims().state, model.linear_dims().stage_state)
   , _cost_dx(_prev_cost_dx, false)
   , _prev_cost_du(_guess.u, false)
   , _cost_du(_guess.u, false)
+  , _lagrangian_dx(_prev_cost_dx, false)
+  , _lagrangian_du(_guess.u, false)
   , _candidate_x(_guess.x, false)
   , _candidate_u(_guess.u, false)
   , _scaled_dx(_prev_cost_dx, false)
@@ -512,8 +522,6 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         break;
     }
 
-    const model::Dimensions &lin_dims = model.linear_dims();
-
     if (model.xml())
     {
         const uint nv = model.nv();
@@ -529,31 +537,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
         _tmp_gammaf_w.resize(2 * nv);
     }
 
-    _cached_f.resize(lin_dims.horizon);
-    _cached_c.resize(lin_dims.horizon + 1);
-
-    _trial_costs.resize(lin_dims.horizon + 1);
-    _trial_gaps.resize(lin_dims.horizon);
-    _trial_violations.resize(lin_dims.horizon + 1);
-    _trial_f.resize(lin_dims.horizon);
-    _trial_c.resize(lin_dims.horizon + 1);
-
-    const std::vector<uint> &stage_c  = model.dims().stage_constraint;
-    const std::vector<uint> &stage_dc = lin_dims.stage_constraint;
-    const uint max_c  = *std::max_element(stage_c.begin(), stage_c.end());
-    const uint max_dc = *std::max_element(stage_dc.begin(), stage_dc.end());
-    const uint max_dx = *std::max_element(lin_dims.stage_state.begin(),
-                                          lin_dims.stage_state.end());
-    const uint max_u  = *std::max_element(lin_dims.stage_control.begin(),
-                                         lin_dims.stage_control.end());
-
-    _tmp_c.resize(max_c);
-    _tmp_below.resize(max_dc);
-    _tmp_above.resize(max_dc);
-    _tmp_con_dX.resize(max_dc, max_dx);
-    _tmp_con_dU.resize(max_dc, max_u);
-
-    reinitialize();
+    updateDimensions();
 
     if (_params.constraint_tolerance < 0.0)
     {
@@ -591,6 +575,63 @@ void ssqp::reinitialize()
 
     _prev_cost_dx.vec.setZero();
     _prev_cost_du.vec.setZero();
+}
+
+void ssqp::updateDimensions()
+{
+    const model::Dimensions &dims     = _model.dims();
+    const model::Dimensions &lin_dims = _model.linear_dims();
+
+    _guess.x.resize(dims.stage_state);
+    _guess.u.resize(dims.stage_control);
+    _guess.lambda.resize(lin_dims.stage_state);
+    _guess.mu.resize(dims.stage_constraint);
+
+    _qp.dims = lin_dims;
+    _qp.stages.resize(lin_dims.horizon);
+    _qp.box_rows.resize(lin_dims.horizon + 1);
+    _qp_solver->updateDimensions();
+    _qp_sol.resize(lin_dims);
+
+    _prev_cost_dx.resize(lin_dims.stage_state);
+    _cost_dx.resize(lin_dims.stage_state);
+    _lagrangian_dx.resize(lin_dims.stage_state);
+    _scaled_dx.resize(lin_dims.stage_state);
+    _prev_cost_du.resize(dims.stage_control);
+    _cost_du.resize(dims.stage_control);
+    _lagrangian_du.resize(dims.stage_control);
+    _scaled_du.resize(dims.stage_control);
+    _candidate_x.resize(dims.stage_state);
+    _candidate_u.resize(dims.stage_control);
+
+    _cached_f.resize(lin_dims.horizon);
+    _cached_c.resize(lin_dims.horizon + 1);
+
+    _trial_costs.resize(lin_dims.horizon + 1);
+    _trial_gaps.resize(lin_dims.horizon);
+    _trial_violations.resize(lin_dims.horizon + 1);
+    _trial_f.resize(lin_dims.horizon);
+    _trial_c.resize(lin_dims.horizon + 1);
+
+    const std::vector<uint> &stage_c  = dims.stage_constraint;
+    const std::vector<uint> &stage_dc = lin_dims.stage_constraint;
+    const uint max_c  = *std::max_element(stage_c.begin(), stage_c.end());
+    const uint max_dc = *std::max_element(stage_dc.begin(), stage_dc.end());
+    const uint max_dx = *std::max_element(lin_dims.stage_state.begin(),
+                                          lin_dims.stage_state.end());
+    const uint max_u  = *std::max_element(lin_dims.stage_control.begin(),
+                                         lin_dims.stage_control.end());
+
+    _tmp_c.resize(max_c);
+    _tmp_below.resize(max_dc);
+    _tmp_above.resize(max_dc);
+    _tmp_con_dX.resize(max_dc, max_dx);
+    _tmp_con_dU.resize(max_dc, max_u);
+
+    _tmp.x1.resize(max_dx);
+    _tmp.u1.resize(max_u);
+
+    reinitialize();
 }
 
 const model::Model &ssqp::model() const
@@ -645,8 +686,21 @@ SolverState ssqp::solve(Guess &guess)
 
     _stale_iters = 0;
 
-    _convergence_data.iteration_data.clear();
-    _convergence_data.iteration_data.reserve(_params.max_iter);
+    // The previous solve's iteration data returns its per-stage vectors to
+    // the pool
+    std::vector<IterationConvergenceData> &iteration_data =
+      _convergence_data.iteration_data;
+    if (_iteration_pool.size() < iteration_data.size())
+    {
+        _iteration_pool.resize(iteration_data.size());
+    }
+    for (uint i = 0; i < iteration_data.size(); ++i)
+    {
+        _iteration_pool[i].take_memory(iteration_data[i]);
+    }
+
+    iteration_data.clear();
+    iteration_data.reserve(_params.max_iter);
     _convergence_data.loose_success      = false;
     _convergence_data.constraint_success = false;
     _convergence_data.max_iter_reached   = false;
@@ -680,13 +734,21 @@ SolverState ssqp::solve(Guess &guess)
         _filter_memory.push_front(_current_metrics);
     }
 
-    QPSolver::Solution sol(_qp.dims);
+    QPSolver::Solution &sol = _qp_sol;
+    sol.dx.vec.setZero();
+    sol.du.vec.setZero();
+    sol.lambda.vec.setZero();
+    sol.mu.vec.setZero();
 
     _params.tolerance = _tolerance_init;
 
     for (_iter = 0; _iter < _params.max_iter; ++_iter)
     {
-        _convergence_data.iteration_data.push_back(IterationConvergenceData());
+        iteration_data.push_back(IterationConvergenceData());
+        if (_iter < _iteration_pool.size())
+        {
+            iteration_data.back().take_memory(_iteration_pool[_iter]);
+        }
 
         auto        start_iter_time = std::chrono::high_resolution_clock::now();
         SolverState state           = _qp_solver->solve(sol);

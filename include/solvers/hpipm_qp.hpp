@@ -72,6 +72,7 @@ class hpipm_qp : public QPSolver
     hpipm_qp &operator=(const hpipm_qp &) = delete;
 
     void        set_stage_sizes();
+    void        updateDimensions() override;
     void        reset() override;
     void        increaseRegularization() override;
     SolverState solve(QPSolver::Solution &sol) override;

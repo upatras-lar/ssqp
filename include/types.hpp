@@ -407,6 +407,9 @@ struct FlatVec
     // If copy is true, operators are also copied (argument ignored)
     FlatVec(const FlatVec &other, bool copy = true);
 
+    // Resize based on stage sizes given in dims, initializing to 0
+    void resize(const std::vector<uint> &dims);
+
     // Return a stage vector reference for setting
     Eigen::VectorBlock<VecX> stage(const uint k);
     // Return a read-only stage vector reference

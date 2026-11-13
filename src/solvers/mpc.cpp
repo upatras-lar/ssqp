@@ -48,6 +48,8 @@ MPC::MPC(model::Model &model, const Params &params,
     _solver             = std::make_unique<ssqp>(_model, _ssqp_params);
     _solver_dims        = _model.dims();
     _solver_linear_dims = _model.linear_dims();
+    _solution =
+      std::make_unique<ssqp::Guess>(_model.dims(), _model.linear_dims());
 }
 
 // Sets MPC warm-start to the given state and zero controls
@@ -115,19 +117,27 @@ std::pair<FlatVec, FlatVec> MPC::step(const VecX &state)
             _model.setInitControl(k, _prev_controls->stage(k + 1));
         }
 
-        VecX terminal_state;
         _model.dynamics()[H - 1]->evaluate(_prev_states->stage(H),
                                            _prev_controls->stage(H - 1),
-                                           terminal_state);
-        _model.setInitState(H, terminal_state);
+                                           _terminal_state);
+        _model.setInitState(H, _terminal_state);
         _model.setInitControl(H - 1, _prev_controls->stage(H - 1));
     }
 
     std::pair<FlatVec, FlatVec> p = step();
-    _prev_states                  = std::make_unique<FlatVec>(p.first);
-    _prev_controls                = std::make_unique<FlatVec>(p.second);
 
-    return { p.first, p.second };
+    if (_prev_states == nullptr)
+    {
+        _prev_states   = std::make_unique<FlatVec>(p.first);
+        _prev_controls = std::make_unique<FlatVec>(p.second);
+    }
+    else
+    {
+        *_prev_states   = p.first;
+        *_prev_controls = p.second;
+    }
+
+    return p;
 }
 
 std::pair<FlatVec, FlatVec> MPC::step(const std::vector<VecX> &states,
@@ -164,25 +174,27 @@ std::pair<FlatVec, FlatVec> MPC::step()
 {
     _model.updateDimensions();
 
-    if (!_solver || !same_dimensions(_solver_dims, _model.dims()) ||
+    // updateDimensions also reinitializes the solver
+    if (!same_dimensions(_solver_dims, _model.dims()) ||
         !same_dimensions(_solver_linear_dims, _model.linear_dims()))
     {
-        _solver             = std::make_unique<ssqp>(_model, _ssqp_params);
+        _solver->updateDimensions();
         _solver_dims        = _model.dims();
         _solver_linear_dims = _model.linear_dims();
     }
+    else
+    {
+        _solver->reinitialize();
+    }
 
-    _solver->reinitialize();
-
-    ssqp::Guess solution(_model.dims(), _model.linear_dims());
-    SolverState state = _solver->solve(solution);
+    SolverState state = _solver->solve(*_solution);
 
     if (_keep_convergence_data)
     {
         _convergence_data.push_back(_solver->convergenceData());
     }
 
-    return { solution.x, solution.u };
+    return { _solution->x, _solution->u };
 }
 
 MatX MPC::feedbackGain(const uint k) const

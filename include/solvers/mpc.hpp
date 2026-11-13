@@ -89,7 +89,13 @@ class MPC
     std::unique_ptr<ssqp> _solver;
     model::Dimensions     _solver_dims, _solver_linear_dims;
 
+    // The solution of the last step
+    std::unique_ptr<ssqp::Guess> _solution;
+
     std::unique_ptr<FlatVec> _prev_states = nullptr, _prev_controls = nullptr;
+
+    // Terminal state of the shifted previous solution
+    VecX _terminal_state;
 
     const bool                         _keep_convergence_data;
     std::vector<ssqp::ConvergenceData> _convergence_data;

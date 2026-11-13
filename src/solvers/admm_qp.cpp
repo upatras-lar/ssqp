@@ -133,15 +133,32 @@ admm_qp::admm_qp(const QPData &qp, const Params &params)
   , _abs_tolerance_init(_params.abs_tolerance)
   , _rel_tolerance_init(_params.rel_tolerance)
 {
+    updateDimensions();
+}
+
+void admm_qp::updateDimensions()
+{
+    const model::Dimensions &dims = _qp.dims;
+
+    _solution.resize(dims);
+    _z.resize(dims.stage_constraint);
+    _y.resize(dims.stage_constraint);
+    _rho.resize(dims.stage_constraint);
+    _rho_inv.resize(dims.stage_constraint);
+
+    _rho_common = _params.init_rho;
     _rho.vec.setConstant(_params.init_rho);
     _rho_inv.vec.setConstant(1 / _params.init_rho);
 
+    _K.clear();
+    _reg_incr = 0;
+
     uint max_x =
-      *std::max_element(qp.dims.stage_state.begin(), qp.dims.stage_state.end());
-    uint max_u = *std::max_element(qp.dims.stage_control.begin(),
-                                   qp.dims.stage_control.end());
-    uint max_c = *std::max_element(qp.dims.stage_constraint.begin(),
-                                   qp.dims.stage_constraint.end());
+      *std::max_element(dims.stage_state.begin(), dims.stage_state.end());
+    uint max_u =
+      *std::max_element(dims.stage_control.begin(), dims.stage_control.end());
+    uint max_c = *std::max_element(dims.stage_constraint.begin(),
+                                   dims.stage_constraint.end());
 
     _tmp.x1.resize(max_x);
     _tmp.x2.resize(max_x);

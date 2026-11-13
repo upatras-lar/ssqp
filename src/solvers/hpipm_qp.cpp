@@ -153,7 +153,9 @@ hpipm_qp::hpipm_qp(const QPData &qp, const Params &params)
   , _hpipm_data(std::make_shared<hpipm_data>())
 {
     for (uint k = 0; k < _qp.dims.horizon; ++k)
+    {
         _S[k].resize(_qp.dims.stage_control[k], _qp.dims.stage_state[k]);
+    }
 
     // reset() creates the HPIPM structures and uploads numeric QP data. The QP
     // and its box layout are assembled by SSQP after this constructor
@@ -353,6 +355,23 @@ void hpipm_qp::set_stage_sizes()
     d_ocp_qp_dim_set_ng(horizon,
                         _stages[horizon].general_rows.size(),
                         &_hpipm_data->dim);
+}
+
+void hpipm_qp::updateDimensions()
+{
+    // The HPIPM structures are sized by the dimensions, so the next reset
+    // creates new ones
+    _free();
+    _solved      = false;
+    _qp_uploaded = false;
+
+    _solution.resize(_qp.dims);
+
+    _S.resize(_qp.dims.horizon);
+    for (uint k = 0; k < _qp.dims.horizon; ++k)
+    {
+        _S[k].resize(_qp.dims.stage_control[k], _qp.dims.stage_state[k]);
+    }
 }
 
 void hpipm_qp::reset()

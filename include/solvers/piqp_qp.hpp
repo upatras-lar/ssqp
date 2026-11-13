@@ -56,6 +56,7 @@ class piqp_qp : public QPSolver
     piqp_qp(const piqp_qp &)            = delete;
     piqp_qp &operator=(const piqp_qp &) = delete;
 
+    void        updateDimensions() override;
     void        reset() override;
     void        increaseRegularization() override;
     SolverState solve(QPSolver::Solution &sol) override;

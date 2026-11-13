@@ -297,8 +297,10 @@ SolverState ssqp::_check_termination()
     const model::ConstraintsContainer &constraints = _model.constraints();
 
     // Jacobian over x and y of lagrangian at current guess
-    FlatVec lagrangian_dx(_cost_dx, false);
-    FlatVec lagrangian_du(_cost_du, false);
+    FlatVec &lagrangian_dx = _lagrangian_dx;
+    FlatVec &lagrangian_du = _lagrangian_du;
+    lagrangian_dx.vec.setZero();
+    lagrangian_du.vec.setZero();
 
     // Cost gradients for loose success
     VecX tmp_vec;
