@@ -595,13 +595,17 @@ def pin_to_feet(height, bottoms, x0, y0):
 
 
 def unseen(height):
-    """Mask of the unknown cells with no known cell next to them
+    """Mask of the unknown cells of larger unknown areas: those with no known
+    cell next to them, and the unknown cells next to those
 
     An unknown cell next to a known one is mostly a gap between points, but
     larger unknown areas are mostly hidden from the sensor, like the ground
-    just past a drop
+    just past a drop. Their border cells count too, so that the edge of a
+    surface that hides the ground behind it is where its known cells end
     """
-    return np.all(neighbours(np.isnan(height), constant_values=True), axis=0)
+    unknown = np.isnan(height)
+    inner = np.all(neighbours(unknown, constant_values=True), axis=0)
+    return unknown & np.any(neighbours(inner, constant_values=False), axis=0)
 
 
 def edge_distance(height, unseen_cells):
