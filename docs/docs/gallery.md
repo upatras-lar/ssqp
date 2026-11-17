@@ -37,7 +37,7 @@ currently configured for `setWalk`, but swapping in any of the others produces t
 different footfall pattern, worth trying if you want to see how SSQP handles a substantially different contact
 sequence with no other changes to the problem.
 
-**Solve time:** 3.3 s (10 iterations, HPIPM)
+**Solve time:** 3.6 s (8 iterations, HPIPM)
 
 **Formulation:** `ForwardDynamics`
 
@@ -55,7 +55,7 @@ example of just how expressive per-stage contact scheduling is: nothing about th
 "gait" in the periodic-footfall sense at all, an arbitrary, asymmetric, non-repeating sequence of which feet touch
 the ground when is just as representable as a standard one.
 
-**Solve time:** 4.1 s (19 iterations, HPIPM)
+**Solve time:** 1.2 s (14 iterations, HPIPM)
 
 **Formulation:** `ReducedInverseDynamics`
 
@@ -73,7 +73,7 @@ windows (`JUMP_STEPS`), landing on a different combination of feet in each of th
 (`LAND_SEQ`: back feet, then right feet, then left feet, then front feet), rather than returning to a full
 four-foot stance every time.
 
-**Solve time:** 13.8 s (93 iterations, ADMM)
+**Solve time:** 2.2 s (17 iterations, HPIPM)
 
 **Formulation:** `ReducedInverseDynamics`
 
@@ -90,7 +90,7 @@ on a humanoid: each of G1's feet is modeled as four independent corner contact p
 contact per foot, as a flat foot actually needs to resist tipping, not just slipping or lifting off, giving the
 solver 8 simultaneous contact constraints to schedule per stance stage instead of Go2's 4.
 
-**Solve time:** 8.2 s (13 iterations, HPIPM)
+**Solve time:** 3.4 s (17 iterations, HPIPM)
 
 **Formulation:** `ReducedInverseDynamics`
 
@@ -109,7 +109,7 @@ brought on and off gradually rather than all at once, one toe/heel pair engaging
 to a real heel-to-toe rolling contact than an instantaneous flat-footed stomp. A hand-tuned per-joint regularization
 weight also damps the hip-yaw joints specifically, keeping the walk heading straight instead of shuffling sideways.
 
-**Solve time:** 9.2 s (17 iterations, HPIPM)
+**Solve time:** 3.4 s (22 iterations, HPIPM)
 
 **Formulation:** `ReducedInverseDynamics`
 
@@ -128,6 +128,6 @@ in detail (including the unconstrained comparison) in
 [Panda Circle (Trajectory Generation)](examples/panda-circle-trajgen.md); the same motion also appears as a live,
 closed-loop MPC example in [Panda Circle (MPC)](examples/panda-circle-mpc.md).
 
-**Solve time:** 0.5 s (6 iterations, HPIPM)
+**Solve time:** 0.2 s (6 iterations, HPIPM)
 
 **Formulation:** `InverseDynamics`

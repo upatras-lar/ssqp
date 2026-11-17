@@ -76,11 +76,9 @@ above (bounds and dynamics-transition defect), against the shared tolerance of `
 
 | Dynamics Mode | Runtime | Iterations | Final Cost | Constraint Violation |
 | --- | :---: | :---: | :---: | :---: |
-| `ForwardDynamics` | 257.3 s | 936 | 0.0463 | 0.129 |
-| `InverseDynamics` | 310.5 s | 1000\* | 0.0337 | 4261.8 |
-| `ReducedInverseDynamics` | 47.9 s | 174 | 0.0456 | 0.253 |
-
-\* Hit the 1000-iteration cap without meeting the solver's convergence criterion.
+| `ForwardDynamics` | 9.1 s | 64 | 0.0507 | 0.219 |
+| `InverseDynamics` | 25.6 s | 282 | 0.0748 | 0.121 |
+| `ReducedInverseDynamics` | 3.4 s | 30 | 0.0527 | 0.124 |
 
 ## G1 Jump
 
@@ -89,6 +87,8 @@ fixed-choreography problem setup as [Go2 Multi Jump](#go2-multi-jump), benchmark
 
 | Dynamics Mode | Runtime | Iterations | Final Cost | Constraint Violation |
 | --- | :---: | :---: | :---: | :---: |
-| `ForwardDynamics` | 215.0 s | 244 | 0.7592 | 0.154 |
-| `InverseDynamics` | 37.4 s | 46 | 0.7530 | 0.198 |
-| `ReducedInverseDynamics` | 12.8 s | 17 | 0.7549 | 0.032 |
+| `ForwardDynamics` | 59.0 s | 218 | 0.7534 | 0.173 |
+| `InverseDynamics` | 338.2 s | 1000\* | 0.8314 | 26.814 |
+| `ReducedInverseDynamics` | 8.0 s | 38 | 0.7539 | 0.097 |
+
+\* Hit the 1000-iteration cap without meeting the solver's convergence criterion.

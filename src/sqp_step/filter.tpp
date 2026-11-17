@@ -33,9 +33,9 @@ bool filter(const std::tuple<double, double, double> &previous_metrics,
         }
     }
 
-    return v1 <= std::get<0>(previous_metrics) ||
-           v2 <= std::get<1>(previous_metrics) ||
-           v3 <= std::get<2>(previous_metrics);
+    return v1 < std::get<0>(previous_metrics) ||
+           v2 < std::get<1>(previous_metrics) ||
+           v3 < std::get<2>(previous_metrics);
 }
 
 }

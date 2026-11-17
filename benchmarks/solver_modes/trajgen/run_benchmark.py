@@ -1,4 +1,5 @@
 import argparse
+import gc
 import multiprocessing
 import json
 from os import remove
@@ -105,7 +106,7 @@ def parse_args():
     return args
 
 
-def get_problems(model, dynamics_mode, n_problems, horizon):
+def get_problems_generator(model, dynamics_mode, n_problems, horizon):
     if model == "pendubot":
         return problems.generate_pendubot_problems(
             n_problems, horizon, dynamics_mode
@@ -225,7 +226,7 @@ def get_params(model, qp_solver_type):
     return params
 
 
-def benchmark(probs, sqp_params, save_to):
+def benchmark(probsgen, n_problems, sqp_params, save_to):
     """
     Benchmark given problems using the provided parameters and save all
     results to provided filename
@@ -236,15 +237,19 @@ def benchmark(probs, sqp_params, save_to):
 
     tmp_filepath = f"data/tmp{pid}.json"
 
-    for i, problem in enumerate(probs):
+    for i, problem in enumerate(probsgen):
         solver = ssqpy.solvers.ssqp(problem, sqp_params)
+
+        # The previous problem's model is in a reference cycle, so only the
+        # cycle collector frees it
+        gc.collect()
 
         try:
             solver.solve()
         except RuntimeError as e:
             results.append({"failed": True, "error": str(e)})
             print(
-                f"Process {pid} progress: {(i + 1) / len(probs) * 100}% "
+                f"Process {pid} progress: {(i + 1) / n_problems * 100}% "
                 f"(problem {i} failed: {e})"
             )
             continue
@@ -256,7 +261,7 @@ def benchmark(probs, sqp_params, save_to):
 
         results.append(data)
 
-        print(f"Process {pid} progress: {(i + 1) / len(probs) * 100}%")
+        print(f"Process {pid} progress: {(i + 1) / n_problems * 100}%")
 
     if isfile(tmp_filepath):
         remove(tmp_filepath)
@@ -269,11 +274,18 @@ def run(model, mode, qp_solver, n_problems, horizon):
     dynamics_mode = MODE_TO_SOLVER_MODE[mode]
     qp_solver_type = QP_SOLVER_TYPES[qp_solver]
 
-    probs = get_problems(model, dynamics_mode, n_problems, horizon)
+    probsgen = get_problems_generator(
+        model, dynamics_mode, n_problems, horizon
+    )
     params = get_params(model, qp_solver_type)
 
+    # go2_multi_jump/g1_jump are a single problem each
+    if model in ("go2_multi_jump", "g1_jump"):
+        n_problems = 1
+
     benchmark(
-        probs,
+        probsgen,
+        n_problems,
         params,
         f"data/results/{model}_{qp_solver}_{mode}.json",
     )

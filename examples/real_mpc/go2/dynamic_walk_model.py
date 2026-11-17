@@ -67,11 +67,14 @@ FOOTHOLD_FREEZE_STAGES = 4
 FREE_FOOTHOLD_XY_WGT = 0.3
 
 # The touchdown stays in a box around the planned foothold on its contact
-# plane, with half sizes FREE_FOOTHOLD_BOX forward and to the side of the base,
-# shrunk near edges to the edge distance less FOOTHOLD_EDGE_MARGIN. The map
-# measures edge distances up to FREE_FOOTHOLD_EDGE_RANGE, so no edge is near
-# at that distance or more
+# plane, with half sizes FREE_FOOTHOLD_BOX forward and to the side of the base.
+# Near edges the box shrinks with the edge distance, from its full size at
+# FREE_FOOTHOLD_EDGE_RANGE to FREE_FOOTHOLD_MIN_BOX at FOOTHOLD_EDGE_MARGIN, so
+# that its size changes smoothly as the foothold moves and the touchdown keeps
+# some freedom. The map measures edge distances up to FREE_FOOTHOLD_EDGE_RANGE,
+# so no edge is near at that distance or more
 FREE_FOOTHOLD_BOX = (0.06, 0.04)
+FREE_FOOTHOLD_MIN_BOX = 0.02
 FREE_FOOTHOLD_EDGE_RANGE = 0.08
 
 # Footholds stay FOOTHOLD_EDGE_MARGIN away from edges in the terrain, which
@@ -1779,9 +1782,15 @@ def create_controller(
         distance = get_edge_distance(
             *compute_foot_sphere_center_xy(foothold, yaw)
         )
-        half = np.array(FREE_FOOTHOLD_BOX)
-        if distance < FREE_FOOTHOLD_EDGE_RANGE:
-            half = np.minimum(half, max(distance - FOOTHOLD_EDGE_MARGIN, 0.0))
+        share = np.clip(
+            (distance - FOOTHOLD_EDGE_MARGIN)
+            / (FREE_FOOTHOLD_EDGE_RANGE - FOOTHOLD_EDGE_MARGIN),
+            0.0,
+            1.0,
+        )
+        half = FREE_FOOTHOLD_MIN_BOX + share * (
+            np.array(FREE_FOOTHOLD_BOX) - FREE_FOOTHOLD_MIN_BOX
+        )
         normal = (
             fit_terrain_plane_at_foothold(foothold).at(*foothold[:2]).normal
         )

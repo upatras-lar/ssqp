@@ -402,6 +402,7 @@ PROBLEM_SOLVER_OVERRIDES = {
     },
     ("go2_wheelie", "ssqp-hpipm"): {
         "hpipm_split_step": True,
+        "line_search": "merit",
     },
     ("go2_frog", "ssqp-hpipm"): {
         "hpipm_square_root_riccati": False,

@@ -122,15 +122,23 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v7.0.1
+
       - uses: actions/download-artifact@v8.0.2
         with:
           path: dist
           merge-multiple: true
 
+      # The release notes are the CHANGELOG.md section for this version
+      - name: Extract changelog section
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '/^## /{p = index($0, "## [" v "]") == 1; next} p' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "::error::No CHANGELOG.md entry for $GITHUB_REF_NAME"; exit 1; }
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --notes-file notes.md
 
   publish:
     needs: release

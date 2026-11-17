@@ -7,9 +7,9 @@ interface (costs, constraints, `finalize`, `solve`, `save`) with one subclass pe
 into that backend's own API, so a given problem stays defined once while every solver attempts the same costs and
 constraints on it.
 
-Six solvers are compared:
+Seven solvers are compared:
 
-* `ssqp-admm` / `ssqp-hpipm`: SSQP itself, using the two per-stage QP backends described in
+* `ssqp-admm` / `ssqp-hpipm` / `ssqp-piqp`: SSQP itself, using the three per-stage QP backends described in
   [QP Solvers](concepts/qp-solvers.md)
 * `fatrop` / `ipopt`: formulated through [CasADi](https://web.casadi.org/)'s `Opti` stack, solved with the
   respective plugin
@@ -17,14 +17,14 @@ Six solvers are compared:
 * `mim_solvers`: [mim_solvers](https://github.com/machines-in-motion/mim_solvers)' CSQP, built on
   [Crocoddyl](https://github.com/loco-3d/crocoddyl)
 
-All six are run to the same nominal tolerance (`1e-2` by default, see
+All seven are run to the same nominal tolerance (`1e-2` by default, see
 [`benchmark_config.py`](https://github.com/upatras-lar/ssqp/blob/main/benchmarks/solver/common/benchmark_config.py)), even
 though that tolerance bounds a different internal quantity for each (SSQP's per-stage KKT/constraint residual,
 Fatrop/Ipopt's scaled KKT error, Aligator's primal-dual residual, CSQP's convergence gap), since reimplementing
 every solver's own termination criterion for an exact match isn't practical.
 
 !!! note "On fairness"
-    A fully fair, apples-to-apples comparison across six independent solver codebases is close to impossible: each
+    A fully fair, apples-to-apples comparison across seven independent solver codebases is close to impossible: each
     has its own convergence criterion, its own QP backend and warm-starting strategy, its own default
     tuning, and its own years of separate engineering investment behind it. These benchmarks are not a claim that
     SSQP is faster or higher-quality than any of the others. The goal is to give a rough sense of where SSQP sits

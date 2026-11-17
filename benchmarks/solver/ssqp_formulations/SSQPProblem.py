@@ -94,6 +94,11 @@ class SSQPProblem(ProblemWrapper):
 
         ssqp_params.max_iter = parameters.get("max_iter", 1000)
         ssqp_params.tolerance = parameters.get("tolerance", 1e-2)
+        # Left at ssqpParams()'s own default unless explicitly passed
+        if parameters.get("line_search") == "merit":
+            ssqp_params.line_search_method = (
+                ssqpy.solvers.LineSearchMethod.Merit
+            )
 
         if "qp_solver" in parameters and parameters["qp_solver"] == "hpipm":
             ssqp_params.qp_solver_type = ssqpy.solvers.QPSolverType.HPIPM

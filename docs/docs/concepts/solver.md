@@ -120,7 +120,7 @@ method (`line_search_method`):
     and it is otherwise accepted only if it improves on at least one measure of the current guess:
 
     $$
-    J^+ \leq J_0 \;\vee\; \Gamma^+ \leq \Gamma_0 \;\vee\; C^+ \leq C_0
+    J^+ < J_0 \;\vee\; \Gamma^+ < \Gamma_0 \;\vee\; C^+ < C_0
     $$
 
     The accepted triple is then pushed to the filter. No simultaneous improvement on all three measures is required.

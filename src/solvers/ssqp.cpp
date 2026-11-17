@@ -1238,7 +1238,7 @@ bool ssqp::write(const std::string &filepath)
     }
     j["properties"]["xml"]     = loaded_from_xml;
     j["properties"]["terrain"] = _model.terrain()->to_json();
-    bool floating_base;
+    bool floating_base         = false;
     uint nq, nv, nu, njoints;
     if (loaded_from_xml || _model.hasCustomProperties())
     {

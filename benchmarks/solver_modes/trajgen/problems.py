@@ -106,8 +106,6 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
 
     dt = 0.01
 
-    problems = []
-
     init_states = cvt(n, v_lo=[-1.0, -1.0], v_hi=[1.0, 1.0])
 
     for i in range(n):
@@ -146,9 +144,7 @@ def generate_pendubot_problems(n, horizon, dynamics_mode):
 
         model.finalize(init_states=init_states[i])
 
-        problems.append(model)
-
-    return problems
+        yield model
 
 
 def generate_panda_feasible_region_problems(
@@ -185,8 +181,6 @@ def generate_panda_feasible_region_problems(
         4.72139930268247e-06,
         3.344468750010948e-05,
     ]
-
-    problems = []
 
     for i in range(n_problems):
 
@@ -251,9 +245,7 @@ def generate_panda_feasible_region_problems(
 
         obstacle_problem.finalize(init_states=init_state)
 
-        problems.append(obstacle_problem)
-
-    return problems
+        yield obstacle_problem
 
 
 def yaw_to_quaternion(yaw):
@@ -279,8 +271,6 @@ def rotation_matrix_to_quaternion(R):
 
 def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
     rng = np.random.default_rng(seed)
-
-    problems = []
 
     # Model Parameters
     nq = 19
@@ -432,9 +422,7 @@ def generate_go2_walk_problems(n_problems, dynamics_mode, seed=42):
 
         model.finalize(init_states=init)
 
-        problems.append(model)
-
-    return problems
+        yield model
 
 
 def generate_go2_multi_jump_problems(dynamics_mode):
@@ -614,7 +602,7 @@ def generate_go2_multi_jump_problems(dynamics_mode):
 
     model.finalize(init_states=init)
 
-    return [model]
+    yield model
 
 
 def generate_g1_jump_problems(dynamics_mode):
@@ -703,4 +691,4 @@ def generate_g1_jump_problems(dynamics_mode):
 
     model.finalize(init_states=init)
 
-    return [model]
+    yield model
