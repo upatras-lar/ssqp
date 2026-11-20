@@ -7,7 +7,7 @@ dynamics/constraints at each iteration. `StageCost`, `StageDynamics` and `StageC
 
 You can implement any of these from scratch in Python (as in the [Quickstart](../getting-started/quickstart.md)) or
 C++, or use one of the predefined implementations that ship with SSQP, listed below and fully documented in the
-[Python API reference](../reference/model.md).
+[Python API reference](../reference/ssqpy/model/index.md).
 
 ### Inputs and outputs in C++
 
@@ -51,7 +51,7 @@ objectives, all built on Pinocchio kinematics for XML-based models:
 `FrameSquaredPoseErrorCost`, `FrameSquaredVelocityErrorCost`, `CenterOfMassTrackingCost`,
 `FramesInverseSquaredDistanceCost`.
 
-See [`ssqpy.model.costs`](../reference/model-costs.md) for constructor arguments and details for each.
+See [`ssqpy.model.costs`](../reference/ssqpy/model/costs.md) for constructor arguments and details for each.
 
 Predefined costs and constraints refer to the model they are built with rather than copying it, so they always see
 its current forces and terrain. In C++, the model must outlive them, and a `Model` cannot be copied. In Python, each
@@ -131,7 +131,7 @@ In C++, `state_only_rows` and `box_rows` overwrite a `std::vector` passed to the
 `Model.addContactConstraint` constructs and wires up for you (friction cone + non-penetration against the model's
 [terrain](terrain.md) + no-slip zero velocity, which `no_slip=False` turns off).
 
-See [`ssqpy.model.constraints`](../reference/model-constraints.md) for constructor arguments and details for each.
+See [`ssqpy.model.constraints`](../reference/ssqpy/model/constraints.md) for constructor arguments and details for each.
 
 ## Reference frames
 

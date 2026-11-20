@@ -1,0 +1,3616 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Structure-exploiting Sequential Quadratic Programming for Optimal Control">
+      
+      
+      
+      
+      
+        <link rel="prev" href="../model/">
+      
+      
+        <link rel="next" href="../terrain/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/ssqp-mark-adaptive.svg">
+      <meta name="generator" content="zensical-0.1.2">
+    
+    
+      
+        <title>Costs, Constraints & Dynamics - SSQP</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="SSQP" class="md-header__button md-logo" aria-label="SSQP" data-md-component="logo">
+      
+  <img src="../../assets/ssqp-mark.svg" alt="SSQP">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SSQP
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Costs, Constraints & Dynamics
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/upatras-lar/ssqp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    upatras-lar/ssqp
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../faq/" class="md-tabs__link">
+        
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../model/" class="md-tabs__link">
+          
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../benchmarks/" class="md-tabs__link">
+          
+  
+  Benchmarks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Python API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cpp-reference/" class="md-tabs__link">
+          
+  
+  C++ API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="SSQP" class="md-nav__button md-logo" aria-label="SSQP" data-md-component="logo">
+      
+  <img src="../../assets/ssqp-mark.svg" alt="SSQP">
+
+    </a>
+    SSQP
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/upatras-lar/ssqp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    upatras-lar/ssqp
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting Started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Getting Started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Installation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  FAQ
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Concepts
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Concepts
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Costs, Constraints & Dynamics
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Costs, Constraints & Dynamics
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-and-outputs-in-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Inputs and outputs in C++
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Costs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Costs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#predefined-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Predefined costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dynamics
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dynamics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manifold-valued-states" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Manifold-valued states
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Constraints
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Constraints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#predefined-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Predefined constraints
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reference frames
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reference frames">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bound-centers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bound centers
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#moving-axes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Moving axes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#innate-xml-derived-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Innate (XML-derived) constraints
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../terrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Terrain
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  SSQP Solver
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../qp-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  QP Solvers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../parameter-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parameter Search
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Examples
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Gallery
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Gallery
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Trajectory Generation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gallery-simulated-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Simulated MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gallery-real-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Real MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Walkthroughs
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Walkthroughs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/pendubot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Pendubot Swing-Up
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/panda-circle-trajgen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Panda Circle (Trajectory Generation)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/go2-jump/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Go2 Jump
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/panda-circle-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Panda Circle (MPC)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/go2-walking-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Go2 Walking (MPC)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Benchmarks
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Benchmarks
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks-solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Solver
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks-solver-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Solver Modes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Python API Reference
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Python API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/ssqpy/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ssqpy
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  ssqpy
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_2_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/ssqpy/model/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  model
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2_2" id="__nav_7_2_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_2_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_2_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  model
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/model/costs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  costs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/model/constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  constraints
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/model/dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  dynamics
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/model/terrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  terrain
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/ssqpy/solvers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  solvers
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2_3" id="__nav_7_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  solvers
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/solvers/search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  search
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  C++ API Reference
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  C++ API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ssqp
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  ssqp
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/model/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  model
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2" id="__nav_8_2_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_2_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  model
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/model/stagewise/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  stagewise
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_3" id="__nav_8_2_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_2_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  stagewise
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/stagewise/factory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  factory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_3_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/model/stagewise/predefined/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  predefined
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_3_3" id="__nav_8_2_2_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_8_2_2_3_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_3_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  predefined
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/stagewise/predefined/constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  constraints
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/stagewise/predefined/costs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  costs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/model/terrain/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  terrain
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_4" id="__nav_8_2_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_2_2_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  terrain
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/terrain/predefined/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  predefined
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/param_search/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  param_search
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_3" id="__nav_8_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  param_search
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/param_search/dynamics_params/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  dynamics_params
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  solvers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/step/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  step
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-and-outputs-in-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Inputs and outputs in C++
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Costs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Costs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#predefined-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Predefined costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dynamics
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dynamics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manifold-valued-states" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Manifold-valued states
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Constraints
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Constraints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#predefined-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Predefined constraints
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reference frames
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reference frames">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bound-centers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bound centers
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#moving-axes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Moving axes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#innate-xml-derived-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Innate (XML-derived) constraints
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../model/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Concepts
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+    <a href="https://github.com/upatras-lar/ssqp/edit/main/docs/docs/concepts/costs-constraints-dynamics.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="costs-constraints-dynamics">Costs, Constraints &amp; Dynamics<a class="headerlink" href="#costs-constraints-dynamics" title="Permanent link">&para;</a></h1>
+<p>Costs, dynamics and constraints are all <em>stagewise functions</em>: they evaluate at a single stage's
+<span class="arithmatex">\((\boldsymbol{x}, \boldsymbol{u})\)</span> and provide the derivatives SSQP needs to quadratize the cost and linearize the
+dynamics/constraints at each iteration. <code>StageCost</code>, <code>StageDynamics</code> and <code>StageConstraints</code> all extend a common
+<code>Function</code> interface (<code>evaluate</code>, <code>output_size</code>, <code>names</code>), then add their own gradient/Hessian requirements.</p>
+<p>You can implement any of these from scratch in Python (as in the <a href="../../getting-started/quickstart/">Quickstart</a>) or
+C++, or use one of the predefined implementations that ship with SSQP, listed below and fully documented in the
+<a href="../../reference/ssqpy/model/">Python API reference</a>.</p>
+<h3 id="inputs-and-outputs-in-c">Inputs and outputs in C++<a class="headerlink" href="#inputs-and-outputs-in-c" title="Permanent link">&para;</a></h3>
+<p>In Python, every method returns its outputs. In C++, they are written into arguments instead, so that the solver can
+reuse its storage between calls:</p>
+<ul>
+<li>The inputs are <code>ConstVecXRef</code> (<code>Eigen::Ref&lt;const VecX&gt;</code>), so blocks of larger vectors are passed without copies.</li>
+<li><code>evaluate(x, u, out)</code>, <code>gradient(x, u, dX, dU)</code>, the cost <code>hessian_*</code>, the <code>hessprod_*</code>, constraint <code>right_minus</code>
+  and dynamics <code>state_right_plus</code>/<code>state_right_minus</code> set their outputs, resizing them as needed. A cost's
+  <code>evaluate</code> writes a vector of size 1.</li>
+<li><code>evaluate_into</code>, <code>right_minus_into</code>, <code>state_right_plus_into</code> and <code>state_right_minus_into</code> write into an output
+  that is already sized, such as a block of a larger vector. <code>add_gradient</code>, <code>add_hessian_*</code> and <code>add_hessprod_*</code>
+  add to outputs that are already sized.</li>
+</ul>
+<p>A custom function only needs the first set: the base classes implement the second through it. The predefined
+functions do the opposite, deriving from <code>PredefinedStageCost</code>/<code>PredefinedStageConstraints</code>, which implement the
+first set through the second.</p>
+<h2 id="costs">Costs<a class="headerlink" href="#costs" title="Permanent link">&para;</a></h2>
+<p><code>StageCost</code> (<span class="arithmatex">\(\ell_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}\)</span>, so <code>output_size()</code> is always <code>1</code>) requires:</p>
+<ul>
+<li><code>evaluate(x, u)</code>: the scalar cost</li>
+<li><code>gradient(x, u)</code>: <span class="arithmatex">\(\nabla_x \ell_k\)</span> and <span class="arithmatex">\(\nabla_u \ell_k\)</span></li>
+<li><code>hessian_xx(x, u)</code>, <code>hessian_xu(x, u)</code>, <code>hessian_uu(x, u)</code>: the cost Hessian blocks</li>
+</ul>
+<p>Costs can be named, enabled/disabled at runtime (<code>set_enabled</code>/<code>enabled</code>, though a stage always keeps at least one
+cost, so disabling every cost on a stage has no effect), and multiple costs can be added to the same stage via
+<code>Model.addCost</code> / <code>Model.addRunningCost</code>.</p>
+<h3 id="predefined-costs">Predefined costs<a class="headerlink" href="#predefined-costs" title="Permanent link">&para;</a></h3>
+<p><code>ssqpy.model.costs</code> (<code>ssqp::model::stagewise</code> in C++) ships a library of squared-error costs for common OCP
+objectives, all built on Pinocchio kinematics for XML-based models:</p>
+<p><code>SquaredJointAngleCost</code>, <code>SquaredJointVelocityCost</code>, <code>SquaredControlCost</code>, <code>SquaredIDTorqueCost</code>,
+<code>SquaredForceCost</code>, <code>SquaredConfigurationErrorCost</code>, <code>FloatingBaseSquaredTranslationErrorCost</code>,
+<code>FloatingBaseSquaredRotationErrorCost</code>, <code>FloatingBaseSquaredPoseErrorCost</code>,
+<code>FloatingBaseSquaredVelocityErrorCost</code>, <code>FrameSquaredTranslationErrorCost</code>, <code>FrameSquaredTerrainHeightErrorCost</code>,
+<code>FrameSquaredRotationErrorCost</code>,
+<code>FrameSquaredPoseErrorCost</code>, <code>FrameSquaredVelocityErrorCost</code>, <code>CenterOfMassTrackingCost</code>,
+<code>FramesInverseSquaredDistanceCost</code>.</p>
+<p>See <a href="../../reference/ssqpy/model/costs/"><code>ssqpy.model.costs</code></a> for constructor arguments and details for each.</p>
+<p>Predefined costs and constraints refer to the model they are built with rather than copying it, so they always see
+its current forces and terrain. In C++, the model must outlive them, and a <code>Model</code> cannot be copied. In Python, each
+one keeps its model alive.</p>
+<h2 id="dynamics">Dynamics<a class="headerlink" href="#dynamics" title="Permanent link">&para;</a></h2>
+<p><code>StageDynamics</code> (<span class="arithmatex">\(\boldsymbol{f}_k(\boldsymbol{x}, \boldsymbol{u}) \in \mathcal{R}^{n_x}\)</span>) requires:</p>
+<ul>
+<li><code>state_size()</code>, <code>control_size()</code>: dimensions of <span class="arithmatex">\(\boldsymbol{x}\)</span> and <span class="arithmatex">\(\boldsymbol{u}\)</span></li>
+<li><code>evaluate(x, u)</code>: the next state</li>
+<li><code>gradient(x, u)</code>: <span class="arithmatex">\(\nabla_x \boldsymbol{f}_k\)</span>, <span class="arithmatex">\(\nabla_u \boldsymbol{f}_k\)</span></li>
+<li><code>hessprod_xx</code>, <code>hessprod_xu</code>, <code>hessprod_uu</code>: vector-Hessian products against the Lagrange multiplier
+  <span class="arithmatex">\(\boldsymbol{\lambda}_k\)</span> (used instead of raw Hessians, since <span class="arithmatex">\(n_x\)</span> can be large)</li>
+</ul>
+<p>Dynamics also define the manifold structure of the state through <code>state_right_plus</code>/<code>state_right_minus</code> (and
+<code>state_diff_size</code>, when the tangent space differs in size from the state itself). For a Euclidean state these
+default to plain vector addition/subtraction; for states that include e.g. a floating-base orientation (a Lie
+group element), they implement the appropriate manifold operators. Predefined, XML-based dynamics already handle
+this correctly for the selected <a href="../model/#solver-mode"><code>SolverMode</code></a> and <a href="../model/#integration-scheme"><code>Integration</code></a>.</p>
+<h3 id="manifold-valued-states">Manifold-valued states<a class="headerlink" href="#manifold-valued-states" title="Permanent link">&para;</a></h3>
+<p>Not every model's state lives in a flat Euclidean space <span class="arithmatex">\(\mathcal{R}^{n_x}\)</span>. A floating-base robot's orientation,
+for example, is an element of the Lie group <span class="arithmatex">\(SO(3)\)</span> (or its full pose, <span class="arithmatex">\(SE(3)\)</span>), not a vector: adding two
+orientations, or taking their plain difference, isn't a well-defined operation. Rather than requiring
+<span class="arithmatex">\(\boldsymbol{x} \in \mathcal{R}^{n_x}\)</span>, SSQP treats a dynamics function's domain as an arbitrary composite
+manifold: a state can combine one or more manifold-valued segments with one or more ordinary Euclidean segments,
+and every place SSQP would otherwise use vector addition/subtraction instead goes through two operators:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{x} \oplus \boldsymbol{dx}\)</span> (<code>state_right_plus</code>): retracts a tangent-space update <span class="arithmatex">\(\boldsymbol{dx}\)</span>
+  onto the manifold at <span class="arithmatex">\(\boldsymbol{x}\)</span>, producing a new state.</li>
+<li><span class="arithmatex">\(\boldsymbol{x}_1 \ominus \boldsymbol{x}_2\)</span> (<code>state_right_minus</code>): the tangent-space displacement between two
+  states, i.e. their local, chart-consistent difference.</li>
+</ul>
+<p>For a purely Euclidean state, these reduce to plain vector addition/subtraction, and <code>state_diff_size()</code> (the
+tangent space dimension <span class="arithmatex">\(n_{dx}\)</span>) defaults to <code>state_size()</code> (<span class="arithmatex">\(n_x\)</span>). For a manifold-valued segment, <span class="arithmatex">\(n_{dx}\)</span> can
+differ from <span class="arithmatex">\(n_x\)</span>: a quaternion-parameterized <span class="arithmatex">\(SO(3)\)</span> orientation, for instance, contributes 4 parameters to
+<span class="arithmatex">\(n_x\)</span> but only 3 degrees of freedom to <span class="arithmatex">\(n_{dx}\)</span>. SSQP linearizes, integrates and reports convergence norms in the
+tangent space, never in the raw parameterization, so the gradients/Hessians returned by <code>gradient</code>/<code>hessprod_*</code>
+are always sized against <code>state_diff_size()</code> (<span class="arithmatex">\(n_{dx} \times n_{dx}\)</span> or <span class="arithmatex">\(n_{dx} \times n_u\)</span>), not <code>state_size()</code>.</p>
+<p>XML-based (Pinocchio-backed) models handle all of this automatically: a <code>free_flyer=True</code> model's floating-base
+pose is represented and integrated as its native <span class="arithmatex">\(SE(3)\)</span>/quaternion manifold element, and the predefined
+costs/constraints that touch floating-base or frame poses (e.g. <code>FloatingBaseSquaredPoseErrorCost</code>,
+<code>FrameTranslationBound</code>) use the corresponding Lie-group log/exp maps internally, consistent with the selected
+<a href="../model/#integration-scheme"><code>Integration</code></a> scheme. Custom dynamics only need to implement
+<code>state_right_plus</code>/<code>state_right_minus</code> (and <code>state_diff_size</code>, if it differs from <code>state_size</code>) to opt into the
+same treatment for their own manifold-valued states.</p>
+<h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h2>
+<p><code>StageConstraints</code> (<span class="arithmatex">\(\boldsymbol{c}_k(\boldsymbol{x}, \boldsymbol{u}) \geq \boldsymbol{0}\)</span>, or bounded via
+<code>lower_bound()</code>/<code>upper_bound()</code>) mirrors <code>StageDynamics</code>' derivative interface (<code>gradient</code> and
+<code>hessprod_xx</code>, <code>hessprod_xu</code>, <code>hessprod_uu</code> against a multiplier <span class="arithmatex">\(\boldsymbol{\mu}_k\)</span>) for an arbitrary output
+size, and adds:</p>
+<ul>
+<li><code>lower_bound()</code> / <code>upper_bound()</code>: per-element bounds (defaults to <span class="arithmatex">\([0, \infty)\)</span>, i.e. an inequality
+  <span class="arithmatex">\(\geq 0\)</span>; pass equal bounds for an equality constraint)</li>
+<li><code>required_forces()</code> / <code>force_frame(i)</code>: for constraints that involve external contact forces (see
+  <a href="../model/#contacts-and-forces">Contacts and forces</a> in Model)</li>
+<li><code>state_only_rows()</code> (optional): the rows of the difference vector that depend only on <span class="arithmatex">\(\boldsymbol{x}\)</span>. The
+  initial state fixes them at stage 0, so SSQP leaves them out there instead of letting a violated one make the QP
+  infeasible</li>
+<li><code>box_rows()</code> (optional): the rows whose gradient is always <span class="arithmatex">\(+1\)</span> on a single state or control entry, as
+  <code>BoxRow(row, index, is_control)</code>, which HPIPM handles as simple bounds instead of general constraints</li>
+</ul>
+<p>In C++, <code>state_only_rows</code> and <code>box_rows</code> overwrite a <code>std::vector</code> passed to them instead of returning one.</p>
+<h3 id="predefined-constraints">Predefined constraints<a class="headerlink" href="#predefined-constraints" title="Permanent link">&para;</a></h3>
+<p><code>ssqpy.model.constraints</code> provides: <code>JointAngleConstraint</code>, <code>JointVelocityConstraint</code>, <code>JointControlConstraint</code>,
+<code>FloatingBaseTranslationBound</code>, <code>FloatingBaseRotationBound</code>, <code>FloatingBasePoseBound</code>,
+<code>FloatingBaseLinearVelocityBound</code>, <code>FloatingBaseAngularVelocityBound</code>, <code>FrameTranslationBound</code>,
+<code>FrameTerrainHeightBound</code>, <code>FrameRotationBound</code>, <code>FramePoseBound</code>, <code>FrameLinearVelocityBound</code>, <code>FrameAngularVelocityBound</code>,
+<code>CenterOfMassBound</code>. The C++ library additionally defines <code>ContactConstraint</code> directly, which
+<code>Model.addContactConstraint</code> constructs and wires up for you (friction cone + non-penetration against the model's
+<a href="../terrain/">terrain</a> + no-slip zero velocity, which <code>no_slip=False</code> turns off).</p>
+<p>See <a href="../../reference/ssqpy/model/constraints/"><code>ssqpy.model.constraints</code></a> for constructor arguments and details for each.</p>
+<h2 id="reference-frames">Reference frames<a class="headerlink" href="#reference-frames" title="Permanent link">&para;</a></h2>
+<p>Predefined costs and constraints on a position or a velocity take a <code>reference_frame</code>, either as a constructor
+argument or through <code>set_reference_frame</code>. It selects the axes that a cost's error, weights and desired value, or a
+constraint's bounds, are expressed along. Only the axes change: positions keep the world origin. A world vector
+<span class="arithmatex">\(\boldsymbol{v}\)</span> is expressed along axes with rotation <span class="arithmatex">\(R\)</span> (whose columns are the axes in world coordinates) as
+<span class="arithmatex">\(R^\top \boldsymbol{v}\)</span>.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Axes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ReferenceFrame.World</code></td>
+<td>The world axes</td>
+</tr>
+<tr>
+<td><code>ReferenceFrame.Local</code></td>
+<td>The axes of the frame the cost or constraint acts on, moving with it</td>
+</tr>
+<tr>
+<td><code>ReferenceFrame.Base</code></td>
+<td>The axes of the model's floating base, moving with it. On floating base terms this is the same as <code>Local</code></td>
+</tr>
+<tr>
+<td><code>ReferenceFrame(rotation)</code></td>
+<td>Fixed axes given by a rotation matrix. A 3x3 array converts to these implicitly</td>
+</tr>
+<tr>
+<td><code>ReferenceFrame.yaw(angle)</code></td>
+<td>Fixed axes rotated about the world <span class="arithmatex">\(z\)</span> axis</td>
+</tr>
+<tr>
+<td><code>ReferenceFrame.normal(normal, yaw=0.0)</code></td>
+<td>Fixed axes with <span class="arithmatex">\(z\)</span> along a surface normal and <span class="arithmatex">\(x\)</span> along the horizontal direction at angle <code>yaw</code> from the world <span class="arithmatex">\(x\)</span> axis, projected onto the surface</td>
+</tr>
+</tbody>
+</table>
+<p>In C++, the same options are <code>ReferenceFrame::World</code>, <code>ReferenceFrame::Local</code>, <code>ReferenceFrame::Base</code>,
+<code>ReferenceFrame(rotation)</code>, <code>ReferenceFrame::yaw(angle)</code> and <code>ReferenceFrame::normal(normal, yaw)</code>, in
+<code>ssqp::model::stagewise::predefined</code>.</p>
+<p>Each term supports the options that make sense for it. Positions, a frame's linear velocity bound and its velocity
+cost default to the world axes, while floating base velocities, which the state holds in the base frame, and a
+frame's angular velocity bound default to <code>Local</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Options</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FrameTranslationBound</code>, <code>FrameSquaredTranslationErrorCost</code></td>
+<td>World, Fixed, Local, Base</td>
+<td>World</td>
+</tr>
+<tr>
+<td><code>FloatingBaseTranslationBound</code>, <code>FloatingBaseSquaredTranslationErrorCost</code></td>
+<td>World, Fixed, Local (= Base)</td>
+<td>World</td>
+</tr>
+<tr>
+<td><code>FloatingBaseLinearVelocityBound</code>, <code>FloatingBaseAngularVelocityBound</code>, <code>FloatingBaseSquaredVelocityErrorCost</code></td>
+<td>Local (= Base, the base frame), World, Fixed</td>
+<td>Local</td>
+</tr>
+<tr>
+<td><code>FrameLinearVelocityBound</code>, <code>FrameSquaredVelocityErrorCost</code></td>
+<td>World, Local, Fixed, Base</td>
+<td>World</td>
+</tr>
+<tr>
+<td><code>FrameAngularVelocityBound</code></td>
+<td>Local, World, Fixed, Base</td>
+<td>Local</td>
+</tr>
+<tr>
+<td><code>CenterOfMassBound</code>, <code>CenterOfMassTrackingCost</code>, <code>FramesInverseSquaredDistanceCost</code></td>
+<td>World, Fixed, Base</td>
+<td>World</td>
+</tr>
+</tbody>
+</table>
+<p>Rotation and pose costs and bounds are not in the list: they already measure their error along their reference's
+axes, so choosing the reference rotation chooses the axes. For <code>FramesInverseSquaredDistanceCost</code>, the reference
+frame sets the axes the distance scale applies along.</p>
+<p>Passing an option a term does not support raises <code>ValueError</code> (<code>std::invalid_argument</code> in C++), as does <code>Base</code> on a
+model without a floating base, or a rotation that is not orthonormal with determinant 1.</p>
+<h3 id="bound-centers">Bound centers<a class="headerlink" href="#bound-centers" title="Permanent link">&para;</a></h3>
+<p>The position bounds (<code>FrameTranslationBound</code>, <code>FloatingBaseTranslationBound</code> and <code>CenterOfMassBound</code>) also take a
+<code>center</code> <span class="arithmatex">\(\boldsymbol{c}\)</span>, through the constructor or <code>set_center</code>, which moves the bounds' origin whatever the
+reference frame:</p>
+<div class="arithmatex">\[
+\boldsymbol{b}_l \leq R^\top (\boldsymbol{p} - \boldsymbol{c}) \leq \boldsymbol{b}_u
+\]</div>
+<p>For example, a box around a foothold, aligned with the robot's yaw and updated at each MPC step:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ssqpy.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReferenceFrame</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">costs</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">box</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">FrameTranslationBound</span><span class="p">(</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">model</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">"FL_foot"</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">lb</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">0.05</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.03</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">]),</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">ub</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">]),</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">reference_frame</span><span class="o">=</span><span class="n">ReferenceFrame</span><span class="o">.</span><span class="n">yaw</span><span class="p">(</span><span class="n">robot_yaw</span><span class="p">),</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">center</span><span class="o">=</span><span class="n">foothold</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Later, for a new plan</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">box</span><span class="o">.</span><span class="n">set_reference_frame</span><span class="p">(</span><span class="n">ReferenceFrame</span><span class="o">.</span><span class="n">yaw</span><span class="p">(</span><span class="n">new_robot_yaw</span><span class="p">))</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">box</span><span class="o">.</span><span class="n">set_center</span><span class="p">(</span><span class="n">new_foothold</span><span class="p">)</span>
+</code></pre></div>
+<p>Similarly, a commanded base velocity given in world axes can be tracked directly, rather than converted to the base
+frame first:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">costs</span><span class="o">.</span><span class="n">FloatingBaseSquaredVelocityErrorCost</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">model</span><span class="p">,</span> <span class="n">v_command</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">reference_frame</span><span class="o">=</span><span class="n">ReferenceFrame</span><span class="o">.</span><span class="n">World</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="moving-axes">Moving axes<a class="headerlink" href="#moving-axes" title="Permanent link">&para;</a></h3>
+<p><code>Local</code> and <code>Base</code> axes depend on the state, so the derivatives of these terms include how the axes turn with the
+frame or the base. On a bound, this gives the solver a second way to satisfy it: turning the frame or the base
+instead of moving the point. With <code>Base</code> axes on a foot box, for example, the plan may yaw or pitch the body to fit
+the foot inside. That is the intended behaviour for bounds meant relative to the body. When it is not, use fixed
+axes, such as <code>ReferenceFrame.yaw</code> with the planned yaw of each stage.</p>
+<h2 id="innate-xml-derived-constraints">Innate (XML-derived) constraints<a class="headerlink" href="#innate-xml-derived-constraints" title="Permanent link">&para;</a></h2>
+<p>When a model is built from a URDF/MJCF file, joint position, velocity and torque limits declared in the XML are
+added automatically as constraints unless <code>ignore_innate_constraints=True</code> is passed to the <code>Model</code> constructor.
+<code>finalize</code>'s <code>custom_lower_position_bounds</code>, <code>custom_upper_position_bounds</code>, <code>custom_velocity_bounds</code> and
+<code>custom_torque_bounds</code> arguments override the XML-derived values in place.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../model/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Model">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Model
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../terrain/" class="md-footer__link md-footer__link--next" aria-label="Next: Terrain">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Terrain
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025-2026 Nick Karydakis, Konstantinos Chatzilygeroudis and the Laboratory of Automation and Robotics (LAR), University of Patras
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/upatras-lar/ssqp" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../javascripts/benchmark-tolerance.js"></script>
+      
+        <script src="../../javascripts/lar-button.js"></script>
+      
+    
+  </body>
+</html>

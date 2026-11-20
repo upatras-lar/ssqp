@@ -17,7 +17,7 @@ state, x, u = solver.solve()
 ```
 
 `params`/keyword arguments accepted by the constructor are defined by `ssqpParams`
-(see the [API reference](../reference/solvers.md#ssqpy.solvers.ssqpParams) for the exhaustive, current list); the
+(see the [API reference](../reference/ssqpy/solvers/index.md#ssqpy.solvers.ssqpParams) for the exhaustive, current list); the
 most commonly tuned are summarized below.
 
 ## Formulation
@@ -86,7 +86,7 @@ $$
 
 The result reports a `SolverState` (`Success`, `LooseSuccess`, `ConstraintSuccess`, `PrimalInfeasible`,
 `MaxIterReached`, `Ongoing`, …)
-and detailed [`ssqpConvergenceData`](../reference/solvers.md#ssqpy.solvers.ssqpConvergenceData), covering per-iteration
+and detailed [`ssqpConvergenceData`](../reference/ssqpy/solvers/index.md#ssqpy.solvers.ssqpConvergenceData), covering per-iteration
 timing, step size, norms, cost and violation, retrievable via `solver.getConvergenceData()`.
 
 ## Line search

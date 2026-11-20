@@ -85,7 +85,7 @@ position.
 Since the MPC model only has stages for the *next* `mpc_H` steps, but the target trajectory `traj` describes a
 full 400-step circle, `update_pose_costs` slides the window: given the current real-time stage, it pushes the
 correct upcoming target point into each stage's pose cost via `set_desired_translation`, a mutator exposed on
-[`FrameSquaredPoseErrorCost`](../reference/model-costs.md) for exactly this purpose (predefined costs' target
+[`FrameSquaredPoseErrorCost`](../reference/ssqpy/model/costs.md) for exactly this purpose (predefined costs' target
 values aren't fixed at construction time). This is called once per simulation step, after `mpc.step`, so the model
 is always tracking the correct absolute segment of the circle regardless of how short its own horizon is; without
 this call, the MPC model would keep re-solving the same fixed 10-stage arc it was built with, forever, instead of

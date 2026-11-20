@@ -828,7 +828,7 @@ def create_controller(
         # it takes off at, its takeoff height and speed, its height at
         # touchdown, the force limit on each foot in the landing, how far its
         # legs tuck in, the change to the legs' landing configuration for the
-        # base's tilt in the air of a forward jump, the legs' configuration
+        # base's tilt in the air, the legs' configuration
         # through each stage of its flight, and for forward jumps the terrain
         # height it takes off from and where each foot lands
         "jump_start": None,
@@ -2293,10 +2293,10 @@ def create_controller(
             name: (state[:3] + R @ feet[name])[2] for name in FOOT_NAMES
         }
 
-        # In the air of a forward jump, the legs land level for however the
-        # base has tilted
+        # In the air of a jump, the legs land level for however the base has
+        # tilted
         est["landing_tilt"] = None
-        if est["jump_ground"] is not None and is_robot_airborne(current_stage):
+        if est["jump_start"] is not None and is_robot_airborne(current_stage):
             est["landing_tilt"] = compute_landing_tilt_correction(R)
 
         # In the air, the landing moves to when the lowest foot is predicted
@@ -2312,8 +2312,8 @@ def create_controller(
                 state[:3] + R @ (foot_offsets[name] - reach)
                 for name in FOOT_NAMES
             ]
-            # A forward jump tilts the legs to keep the feet level below the
-            # base, at the landing height
+            # A jump tilts the legs to keep the feet level below the base, at
+            # the landing height
             if est["landing_tilt"] is not None:
                 for p in feet_down:
                     p[2] = state[2] - est["jump_land_height"]
@@ -2326,8 +2326,8 @@ def create_controller(
             drop = max(min(p[2] - z for p, z in zip(feet_down, below)), 0.0)
             fall_time = (rise + np.sqrt(rise**2 + 2 * g * drop)) / g
             stages = round(fall_time / MPC_DT)
-            # With foot contacts measured, a forward jump's landing starts at
-            # the first stage after the feet are predicted to touch down,
+            # With foot contacts measured, a jump's landing starts at the
+            # first stage after the feet are predicted to touch down,
             # since a landing that starts early stops the feet in the air and
             # folds the legs, while touching down early starts it anyway
             if est["landing_tilt"] is not None and contacts is not None:

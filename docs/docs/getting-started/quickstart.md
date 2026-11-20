@@ -42,8 +42,8 @@ the terminal stage.
 stage, the same object is repeated (as above). See [Model](../concepts/model.md) for the full set of `finalize` arguments (XML
 loading, joint limits, initial guesses, etc.).
 
-`solver.solve()` returns the solver's [`SolverState`](../reference/solvers.md), and the resulting state and control
-trajectories as [`FlatVec`](../reference/solvers.md) objects, flattened, stagewise vectors that can be indexed with
+`solver.solve()` returns the solver's [`SolverState`](../reference/ssqpy/solvers/index.md), and the resulting state and control
+trajectories as [`FlatVec`](../reference/ssqpy/solvers/index.md) objects, flattened, stagewise vectors that can be indexed with
 `.stage(k)` or converted with `.toarray()`.
 
 ## Next steps

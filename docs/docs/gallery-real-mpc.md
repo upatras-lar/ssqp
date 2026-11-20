@@ -17,7 +17,7 @@ before running it on your own robot.
 ## Pendubot Swing-Up
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 300px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/pendubot_real_mpc.mp4" type="video/mp4">
+  <source src="assets/pendubot_real_mpc.mp4" type="video/mp4">
 </video>
 
 The pendubot, a double pendulum with only its shoulder joint actuated, swinging up and balancing on real hardware.
@@ -30,7 +30,7 @@ connected to the motors. This is the real counterpart of the simulated
 ## Acrobot Swing-Up
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 300px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/acrobot_real_mpc.mp4" type="video/mp4">
+  <source src="assets/acrobot_real_mpc.mp4" type="video/mp4">
 </video>
 
 The acrobot, the same double pendulum with only its elbow joint actuated instead, swinging up and balancing. Produced
@@ -55,7 +55,7 @@ originally tuned for, with tighter computing limits. The code for our submission
 ## Panda Reaching a Target
 
 <video controls loop muted playsinline style="display: block; margin: 0 auto; width: 720px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/panda_real_mpc.mp4" type="video/mp4">
+  <source src="assets/panda_real_mpc.mp4" type="video/mp4">
 </video>
 
 A Franka Emika Panda moving its end effector to a target position, in two runs of the `target` task from
@@ -76,7 +76,7 @@ specific to it. The robot tracks the MPC's joint references with a compliant joi
 ## Go2 Trot Across Terrain, in unitree_mujoco
 
 <video controls loop muted playsinline style="display: block; margin: 0 auto; width: 720px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_unitree_mujoco_mpc.mp4" type="video/mp4">
+  <source src="assets/go2_unitree_mujoco_mpc.mp4" type="video/mp4">
 </video>
 
 The Go2 trotting over bars, a step, stairs, a slope and rough terrain, with the gamepad commanding its velocity. This
@@ -123,7 +123,7 @@ the actuators, the contacts and the sensors are still models of the real ones.
 ## Go2 Trot
 
 <video controls loop muted playsinline preload="metadata" style="display: block; margin: 0 auto; width: 720px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_trot_real_mpc.mp4" type="video/mp4">
+  <source src="assets/go2_trot_real_mpc.mp4" type="video/mp4">
 </video>
 
 From here on, the videos are of the real Go2, running the same controller as in the simulation above: the whole-body
@@ -137,7 +137,7 @@ The video also includes changing the base height, as well as the leg swing heigh
 ## Go2 Jump
 
 <video controls loop muted playsinline preload="metadata" style="display: block; margin: 0 auto; width: 720px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_jump_real_mpc.mp4" type="video/mp4">
+  <source src="assets/go2_jump_real_mpc.mp4" type="video/mp4">
 </video>
 
 A sequence of jumps in place in between trots. The jump is part of the same MPC problem as the walk: the base follows
@@ -148,7 +148,7 @@ steps its feet back under the hips after the landing and goes on trotting.
 ## Go2 Walk
 
 <video controls loop muted playsinline preload="metadata" style="display: block; margin: 0 auto; width: 720px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_walk_real_mpc.mp4" type="video/mp4">
+  <source src="assets/go2_walk_real_mpc.mp4" type="video/mp4">
 </video>
 
 A slower walking gait, which lifts one foot at a time instead of a diagonal pair, so that three feet are on the ground
@@ -158,10 +158,10 @@ at all times. It is one of the gaits the gamepad switches between while the robo
 
 <div class="video-pair">
   <video controls loop muted playsinline preload="metadata">
-    <source src="../assets/go2_push1_real_mpc.mp4" type="video/mp4">
+    <source src="assets/go2_push1_real_mpc.mp4" type="video/mp4">
   </video>
   <video controls loop muted playsinline preload="metadata">
-    <source src="../assets/go2_push2_real_mpc.mp4" type="video/mp4">
+    <source src="assets/go2_push2_real_mpc.mp4" type="video/mp4">
   </video>
 </div>
 
@@ -174,10 +174,10 @@ moves the base fast enough starts the robot stepping, so that its feet can catch
 
 <div class="video-pair">
   <video controls loop muted playsinline preload="metadata">
-    <source src="../assets/go2_terrain_trot1_real_mpc.mp4" type="video/mp4">
+    <source src="assets/go2_terrain_trot1_real_mpc.mp4" type="video/mp4">
   </video>
   <video controls loop muted playsinline preload="metadata">
-    <source src="../assets/go2_terrain_trot2_real_mpc.mp4" type="video/mp4">
+    <source src="assets/go2_terrain_trot2_real_mpc.mp4" type="video/mp4">
   </video>
 </div>
 

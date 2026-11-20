@@ -1,0 +1,3968 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Structure-exploiting Sequential Quadratic Programming for Optimal Control">
+      
+      
+      
+      
+      
+        <link rel="prev" href="../panda-circle-mpc/">
+      
+      
+        <link rel="next" href="../../benchmarks/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/ssqp-mark-adaptive.svg">
+      <meta name="generator" content="zensical-0.1.2">
+    
+    
+      
+        <title>Go2 Walking (MPC) - SSQP</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="SSQP" class="md-header__button md-logo" aria-label="SSQP" data-md-component="logo">
+      
+  <img src="../../assets/ssqp-mark.svg" alt="SSQP">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SSQP
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Go2 Walking (MPC)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/upatras-lar/ssqp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    upatras-lar/ssqp
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../faq/" class="md-tabs__link">
+        
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/model/" class="md-tabs__link">
+          
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../benchmarks/" class="md-tabs__link">
+          
+  
+  Benchmarks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Python API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cpp-reference/" class="md-tabs__link">
+          
+  
+  C++ API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="SSQP" class="md-nav__button md-logo" aria-label="SSQP" data-md-component="logo">
+      
+  <img src="../../assets/ssqp-mark.svg" alt="SSQP">
+
+    </a>
+    SSQP
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/upatras-lar/ssqp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    upatras-lar/ssqp
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting Started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Getting Started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Installation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  FAQ
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Concepts
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Concepts
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/costs-constraints-dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Costs, Constraints & Dynamics
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/terrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Terrain
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  SSQP Solver
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/qp-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  QP Solvers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/parameter-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parameter Search
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Examples
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Gallery
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Gallery
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Trajectory Generation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gallery-simulated-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Simulated MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gallery-real-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Real MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Walkthroughs
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_5_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Walkthroughs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pendubot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Pendubot Swing-Up
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../panda-circle-trajgen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Panda Circle (Trajectory Generation)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go2-jump/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Go2 Jump
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../panda-circle-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Panda Circle (MPC)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Go2 Walking (MPC)
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Go2 Walking (MPC)
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Weights
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building the model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-gait" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The gait
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-reference-trajectory" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The reference trajectory
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#costs-and-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Costs and constraints
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-joystick" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reading the joystick
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#retargeting-the-horizon-every-stage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Retargeting the horizon every stage
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-jump" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The jump
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solver-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Solver parameters
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-simulation-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The simulation loop
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Running it
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#things-to-try" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Things to try
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Benchmarks
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Benchmarks
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks-solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Solver
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks-solver-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Solver Modes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Python API Reference
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Python API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/ssqpy/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ssqpy
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  ssqpy
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_2_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/ssqpy/model/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  model
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2_2" id="__nav_7_2_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_2_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_2_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  model
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/model/costs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  costs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/model/constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  constraints
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/model/dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  dynamics
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/model/terrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  terrain
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/ssqpy/solvers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  solvers
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2_3" id="__nav_7_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  solvers
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssqpy/solvers/search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  search
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  C++ API Reference
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  C++ API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ssqp
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  ssqp
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/model/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  model
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2" id="__nav_8_2_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_2_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  model
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/model/stagewise/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  stagewise
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_3" id="__nav_8_2_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_2_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  stagewise
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/stagewise/factory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  factory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_3_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/model/stagewise/predefined/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  predefined
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_3_3" id="__nav_8_2_2_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_8_2_2_3_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_3_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  predefined
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/stagewise/predefined/constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  constraints
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/stagewise/predefined/costs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  costs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/model/terrain/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  terrain
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_4" id="__nav_8_2_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_2_2_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  terrain
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/model/terrain/predefined/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  predefined
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../cpp-reference/ssqp/param_search/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  param_search
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_3" id="__nav_8_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  param_search
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/param_search/dynamics_params/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  dynamics_params
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  solvers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp-reference/ssqp/step/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  step
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Weights
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building the model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-gait" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The gait
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-reference-trajectory" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The reference trajectory
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#costs-and-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Costs and constraints
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-joystick" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reading the joystick
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#retargeting-the-horizon-every-stage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Retargeting the horizon every stage
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-jump" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The jump
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solver-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Solver parameters
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-simulation-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The simulation loop
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Running it
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#things-to-try" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Things to try
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../pendubot/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Walkthroughs
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+    <a href="https://github.com/upatras-lar/ssqp/edit/main/docs/docs/examples/go2-walking-mpc.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="go2-walking-mpc">Go2 Walking (MPC)<a class="headerlink" href="#go2-walking-mpc" title="Permanent link">&para;</a></h1>
+<p><a href="https://github.com/upatras-lar/ssqp/blob/main/examples/mujoco_mpc/go2/go2_walking.py"><code>examples/mujoco_mpc/go2/go2_walking.py</code></a>
+walks a Unitree Go2 quadruped around in a live <a href="https://mujoco.org/">MuJoCo</a> simulation, with a trot driven by a
+gamepad: the sticks command a forward, sideways and turning velocity, and further buttons change the base height,
+tilt and step height, or make the robot jump in place. Everything is planned by a single whole-body
+<a href="../../concepts/mpc/">MPC</a> that solves for joint accelerations and contact forces, and the torques that come out of it
+are applied to the simulator directly.</p>
+<p>It combines two earlier examples. From <a href="../go2-jump/">Go2 Jump</a> it takes the Go2 model, the
+<code>ReducedInverseDynamics</code> <a href="../../concepts/model/#solver-mode">solver mode</a> and the idea of scheduling contacts per
+stage, but where the jump fixed its schedule once, here it is <em>regenerated at every plan stage</em> from the joystick.
+From <a href="../panda-circle-mpc/">Panda Circle (MPC)</a> it takes the receding-horizon loop and the pattern of keeping the
+costs in lists, so that each step can point them at a different target. What is new is the part in the middle: the
+code that turns "go forward at 0.4 m/s" into a base trajectory, a set of footholds and swing paths, and finally a
+setting for each cost and constraint of the model.</p>
+<p>The model itself knows nothing about gaits. This is worth keeping in mind while reading the script: the SSQP model
+is built once, as a list of generic costs and contact constraints, and everything that makes it walk is in how they
+are updated.</p>
+<h2 id="timing">Timing<a class="headerlink" href="#timing" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>        <span class="n">description</span><span class="o">=</span><span class="s2">"Go2 walking MPC in MuJoCo using SSQP"</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="s2">"-q"</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">"--qp-solver"</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">"admm"</span><span class="p">,</span> <span class="s2">"hpipm"</span><span class="p">,</span> <span class="s2">"piqp"</span><span class="p">],</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="n">default</span><span class="o">=</span><span class="s2">"hpipm"</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="n">help</span><span class="o">=</span><span class="s2">"QP solver used at each SSQP iteration"</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="p">)</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">return</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+</code></pre></div>
+<p>There are two clocks. MuJoCo runs at <code>dt</code> = 2 ms. The MPC has 20 stages of <code>mpc_dt</code> = 24 ms, so it plans 0.48 s
+ahead. They are related by <code>STAGE_EVERY</code>, the 12 simulation steps in one plan stage, and <code>mpc_dt</code> is required to be a
+multiple of <code>dt</code> for this to be a whole number. The script keeps a counter <code>stage</code> that advances once per plan stage,
+not once per simulation step, and the whole planner is written in stages: the gait period, the jump phases and the
+base references are all counted in them.</p>
+<p>The MPC is also solved once per stage, which is every 24 ms of simulation time. Solving every simulation step would
+be 12 times more work for little gain, since the plan only has a new first stage every <code>mpc_dt</code> anyway. The simulation
+is synced with the controller, so if a solve takes longer than 24 ms of real time, the simulation simply runs slower
+than real time.</p>
+<h2 id="weights">Weights<a class="headerlink" href="#weights" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ssqpy</span><span class="o">.</span><span class="n">setSilentMode</span><span class="p">()</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">np</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">suppress</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">dt</span> <span class="o">=</span> <span class="mf">0.002</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">mpc_H</span> <span class="o">=</span> <span class="mi">20</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Keep mpc_dt a multiple of dt, so that plan stages line up with sim steps</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">mpc_dt</span> <span class="o">=</span> <span class="mf">0.024</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># stage indexes the plan (mpc_dt per step), so only advance it once per</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># planning step, not every simulation step</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">STAGE_EVERY</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">mpc_dt</span> <span class="o">/</span> <span class="n">dt</span><span class="p">)</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># Print and sync the viewer once per plan stage, so that each measured window</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="c1"># holds exactly one MPC solve</span>
+</code></pre></div>
+<p><code>T_WGT</code> and <code>R_WGT</code> weigh position and rotation tracking, the base's and the feet's. <code>C_WGT</code> is a weak pull of the
+joints toward a nominal standing configuration, <code>V_WGT</code> penalizes joint velocity, and <code>U_WGT</code> and <code>F_WGT</code> penalize the
+control and the contact forces. The meaning of the <em>control</em> depends on the dynamics mode: in forward dynamics it is a
+joint torque, but in <code>ReducedInverseDynamics</code> it is a joint acceleration, which has very different units, so the
+weight is different for each (with <code>U_WGT</code> much smaller for accelerations). Changing the mode in this script without
+checking the weights would silently retune the controller.</p>
+<h2 id="building-the-model">Building the model<a class="headerlink" href="#building-the-model" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">JUMP_LAND_STAGES</span> <span class="o">=</span> <span class="mi">12</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># Base height at takeoff and touchdown</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">JUMP_TAKEOFF_HEIGHT</span> <span class="o">=</span> <span class="mf">0.36</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Weight holding the legs in their takeoff configuration while in the air,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># where the feet and the base's path can no longer be steered</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">JUMP_CONFIG_WGT</span> <span class="o">=</span> <span class="mf">1.0</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">GRAVITY</span> <span class="o">=</span> <span class="mf">9.81</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">JUMP_SPEED</span> <span class="o">=</span> <span class="n">GRAVITY</span> <span class="o">*</span> <span class="n">JUMP_FLIGHT_STAGES</span> <span class="o">*</span> <span class="n">mpc_dt</span> <span class="o">/</span> <span class="mi">2</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">JUMP_CROUCH_HEIGHT</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">JUMP_TAKEOFF_HEIGHT</span> <span class="o">-</span> <span class="n">JUMP_SPEED</span> <span class="o">*</span> <span class="n">JUMP_PUSH_STAGES</span> <span class="o">*</span> <span class="n">mpc_dt</span> <span class="o">/</span> <span class="mi">2</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">)</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">JUMP_LAND_HEIGHT</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">JUMP_TAKEOFF_HEIGHT</span> <span class="o">-</span> <span class="n">JUMP_SPEED</span> <span class="o">*</span> <span class="n">JUMP_LAND_STAGES</span> <span class="o">*</span> <span class="n">mpc_dt</span> <span class="o">/</span> <span class="mi">2</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">THIGH_LENGTH</span> <span class="o">=</span> <span class="mf">0.213</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="c1"># Distance from the knee to the foot frame</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">CALF_LENGTH</span> <span class="o">=</span> <span class="mf">0.23648</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">model</span> <span class="o">=</span> <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="n">mpc_H</span><span class="p">,</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="n">mpc_dt</span><span class="p">,</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>    <span class="n">mjcf_path</span><span class="o">=</span><span class="s2">"../../assets/mjcf/go2/go2.xml"</span><span class="p">,</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="n">free_flyer</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>    <span class="n">solver_mode</span><span class="o">=</span><span class="n">dynamics_mode</span><span class="p">,</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="p">)</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="n">nq</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">getnq</span><span class="p">()</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="n">nv</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">getnv</span><span class="p">()</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="n">nu</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">getnu</span><span class="p">()</span>
+</code></pre></div>
+<p>The model is built from the robot's MJCF file with <code>free_flyer=True</code> (the <a href="../go2-jump/">Go2 Jump</a> example uses the
+<code>Go2</code> preset instead). MuJoCo simulates the same robot description, in a scene file that adds the floor and
+obstacles. The initial configuration places the base at <code>BASE_HEIGHT</code> of
+0.34 m and sets every leg with <code>leg_config</code>, the closed-form hip, thigh and calf angles that put the foot straight
+below the hip at that height (a two-link inverse kinematics problem, using the thigh and calf lengths). The base
+quaternion is the identity, so the robot starts facing along <span class="arithmatex">\(+x\)</span>, away from the obstacles in the scene.</p>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>    <span class="c1"># Hip, thigh and calf angles placing the foot straight below the hip</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">calf</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="p">(</span><span class="n">height</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">THIGH_LENGTH</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">CALF_LENGTH</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">THIGH_LENGTH</span> <span class="o">*</span> <span class="n">CALF_LENGTH</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">thigh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsin</span><span class="p">(</span><span class="o">-</span><span class="n">CALF_LENGTH</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">calf</span><span class="p">)</span> <span class="o">/</span> <span class="n">height</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">thigh</span><span class="p">,</span> <span class="n">calf</span><span class="p">])</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">base_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">BASE_HEIGHT</span><span class="p">])</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">base_config</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">leg_config</span><span class="p">(</span><span class="n">BASE_HEIGHT</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="c1"># Initial configuration</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">init_state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">37</span><span class="p">)</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="n">init_state</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_pos</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">init_state</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">init_state</span><span class="p">[</span><span class="mi">7</span><span class="p">:</span><span class="mi">19</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_config</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">foot_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"FL_foot"</span><span class="p">,</span> <span class="s2">"FR_foot"</span><span class="p">,</span> <span class="s2">"RL_foot"</span><span class="p">,</span> <span class="s2">"RR_foot"</span><span class="p">]</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="c1"># Trot pairs, swinging in alternate gait periods</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="n">SWING_PAIRS</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">"FL_foot"</span><span class="p">,</span> <span class="s2">"RR_foot"</span><span class="p">],</span> <span class="p">[</span><span class="s2">"FR_foot"</span><span class="p">,</span> <span class="s2">"RL_foot"</span><span class="p">]]</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="c1"># The base starts facing along the world x axis, away from the scene's</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="c1"># obstacles</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="c1"># Foot positions relative to the base, on the ground</span>
+</code></pre></div>
+<p>Two sets of geometry are computed from the initial pose with forward kinematics. <code>foot_offsets</code> is each foot's
+position relative to the base, flattened to the ground, which is where the foot would stand when the robot is
+upright; the planner uses it as the foot's <em>nominal</em> position under the base. <code>hip_offsets</code> and <code>HIP_LENGTH</code> give the
+hip geometry that the leg inverse kinematics (<code>leg_ik</code>, further down in the script) needs, since the Go2's thigh is
+offset sideways from the hip joint.</p>
+<h2 id="the-gait">The gait<a class="headerlink" href="#the-gait" title="Permanent link">&para;</a></h2>
+<p>A trot moves diagonal pairs of feet together. <code>SWING_PAIRS</code> lists the two pairs, and they take turns: in even
+gait periods FL and RR swing while FR and RL stand, and in odd periods the roles swap. <code>GAIT_PERIOD</code> is 10 stages
+(0.24 s), so every foot swings for 0.24 s and then stands for 0.24 s, always with two feet on the ground.</p>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>    <span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">predict_poses</span><span class="p">(</span><span class="n">pose</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">predicted</span> <span class="o">=</span> <span class="p">[</span><span class="n">pose</span><span class="p">]</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">yaw</span> <span class="o">=</span> <span class="n">predicted</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</code></pre></div>
+<p><code>foothold(name, period)</code> answers where a foot should land at the end of its swing in a given period. The answer is
+the spot that puts the foot at its nominal position under the base <em>when the base passes over it</em> in the middle of
+the following stance, using the base poses predicted from the current velocity command (<code>poses</code>, below). A robot
+that wants to go forward will therefore put its feet ahead of where they are, proportionally to the command, and one
+that wants to turn will land its feet on an arc. For periods that are already over (<code>pose_stage</code> has moved past
+them), the foothold is where the foot actually landed, kept in <code>landed</code>.</p>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>    <span class="n">blend</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">phase</span><span class="p">))</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">return</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">blend</span><span class="p">)</span> <span class="o">*</span> <span class="n">JUMP_LAND_HEIGHT</span> <span class="o">+</span> <span class="n">blend</span> <span class="o">*</span> <span class="n">base_height</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">jump_foothold</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="c1"># Where the foot stands through the jump, which is where its last swing</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="c1"># before the jump lands</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">period</span> <span class="o">=</span> <span class="n">jump_start</span> <span class="o">//</span> <span class="n">GAIT_PERIOD</span> <span class="o">-</span> <span class="mi">1</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SWING_PAIRS</span><span class="p">[</span><span class="n">period</span> <span class="o">%</span> <span class="mi">2</span><span class="p">]:</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="n">period</span> <span class="o">-=</span> <span class="mi">1</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="k">return</span> <span class="n">foothold</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">in_flight</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="c1"># Whether all feet are in the air at stage k</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="n">j</span> <span class="o">=</span> <span class="n">jump_stage</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>    <span class="n">flight</span> <span class="o">=</span> <span class="n">JUMP_CROUCH_STAGES</span> <span class="o">+</span> <span class="n">JUMP_PUSH_STAGES</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>    <span class="k">return</span> <span class="n">j</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">flight</span> <span class="o">&lt;=</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">flight</span> <span class="o">+</span> <span class="n">JUMP_FLIGHT_STAGES</span>
+</code></pre></div>
+<p><code>foot_reference(name, k)</code> is what the model needs: given a foot and a plan stage <span class="arithmatex">\(k\)</span> (which may be anywhere in the
+future), the position the foot should be at and whether it is swinging. A foot that is not in the swing pair for
+that period stays at the foothold of its last swing. A swinging foot interpolates from its previous foothold to the
+next with a cosine blend, which gives it zero velocity at both ends so that it lifts off and touches down without
+sliding, and a raised-sine bump of <code>step_height</code> on top of that clears the ground in the middle of the swing.</p>
+<h2 id="the-reference-trajectory">The reference trajectory<a class="headerlink" href="#the-reference-trajectory" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>    <span class="c1"># Base orientation relative to the walking direction</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="k">return</span> <span class="n">rotation_z</span><span class="p">(</span><span class="n">yaw</span><span class="p">)</span> <span class="o">@</span> <span class="n">rotation_y</span><span class="p">(</span><span class="o">-</span><span class="n">pitch</span><span class="p">)</span> <span class="o">@</span> <span class="n">rotation_x</span><span class="p">(</span><span class="n">roll</span><span class="p">)</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">stance_config</span><span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">pitch</span><span class="p">,</span> <span class="n">roll</span><span class="p">,</span> <span class="n">yaw</span><span class="p">):</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="c1"># Joint angles keeping each foot on its nominal spot on the ground, with</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="c1"># the base at the given height and orientation</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">R</span> <span class="o">=</span> <span class="n">base_rotation</span><span class="p">(</span><span class="n">pitch</span><span class="p">,</span> <span class="n">roll</span><span class="p">,</span> <span class="n">yaw</span><span class="p">)</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">height</span><span class="p">])</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="p">[</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>            <span class="n">leg_ik</span><span class="p">(</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>                <span class="n">R</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">foot_offsets</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">-</span> <span class="n">base</span><span class="p">)</span> <span class="o">-</span> <span class="n">hip_offsets</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>                <span class="mi">1</span> <span class="k">if</span> <span class="n">foot_offsets</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>            <span class="p">)</span>
+</code></pre></div>
+<p><code>predict_poses</code> extends the base's pose <span class="arithmatex">\((x, y, \text{yaw})\)</span> forward for <code>count</code> stages by integrating the current
+velocity command, as if it were held constant. The command is in the base frame, so each step rotates it by the yaw.
+These poses are used both as the base's reference, and, through <code>foothold</code>, to decide where the feet land. The
+planner looks <code>mpc_H + 3 * GAIT_PERIOD</code> stages ahead rather than just <code>mpc_H</code>, since a foot swinging at the end of
+the horizon needs the base pose from the <em>stance after</em> its swing to know where to land.</p>
+<h2 id="costs-and-constraints">Costs and constraints<a class="headerlink" href="#costs-and-constraints" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>    <span class="c1"># Returns the foot's reference position at stage k and whether it swings</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="k">if</span> <span class="n">jump_stage</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>        <span class="k">return</span> <span class="n">jump_foothold</span><span class="p">(</span><span class="n">name</span><span class="p">),</span> <span class="n">in_flight</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">period</span><span class="p">,</span> <span class="n">phase</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">GAIT_PERIOD</span><span class="p">)</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">phase</span> <span class="o">/=</span> <span class="n">GAIT_PERIOD</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SWING_PAIRS</span><span class="p">[</span><span class="n">period</span> <span class="o">%</span> <span class="mi">2</span><span class="p">]:</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        <span class="k">return</span> <span class="n">foothold</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">period</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="kc">False</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="c1"># Ease in and out of the swing, so that the foot lifts off and touches</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="c1"># down without sliding</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">blend</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">phase</span><span class="p">))</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="n">p</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">blend</span><span class="p">)</span> <span class="o">*</span> <span class="n">foothold</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">period</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">blend</span> <span class="o">*</span> <span class="n">foothold</span><span class="p">(</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>        <span class="n">name</span><span class="p">,</span> <span class="n">period</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="p">)</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    <span class="n">p</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">step_height</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">phase</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>    <span class="k">return</span> <span class="n">p</span><span class="p">,</span> <span class="kc">True</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="n">config_cost</span> <span class="o">=</span> <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">costs</span><span class="o">.</span><span class="n">SquaredConfigurationErrorCost</span><span class="p">(</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>    <span class="n">model</span><span class="p">,</span> <span class="n">init_state</span><span class="p">[</span><span class="mi">7</span><span class="p">:</span><span class="n">nq</span><span class="p">],</span> <span class="n">C_WGT</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="p">)</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="n">v_cost</span> <span class="o">=</span> <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">costs</span><span class="o">.</span><span class="n">SquaredJointVelocityCost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">V_WGT</span><span class="p">)</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="n">u_cost</span> <span class="o">=</span> <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">costs</span><span class="o">.</span><span class="n">SquaredControlCost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">U_WGT</span><span class="p">)</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="n">f_cost</span> <span class="o">=</span> <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">costs</span><span class="o">.</span><span class="n">SquaredForceCost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">F_WGT</span><span class="p">)</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="n">base_costs</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="n">flight_costs</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="n">foot_funcs</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">foot_names</span><span class="p">}</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">mpc_H</span><span class="p">):</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>    <span class="n">model</span><span class="o">.</span><span class="n">addCost</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">config_cost</span><span class="p">)</span>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>    <span class="n">model</span><span class="o">.</span><span class="n">addCost</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v_cost</span><span class="p">)</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>    <span class="n">model</span><span class="o">.</span><span class="n">addCost</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">u_cost</span><span class="p">)</span>
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>    <span class="n">model</span><span class="o">.</span><span class="n">addCost</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">f_cost</span><span class="p">)</span>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>    <span class="n">base_costs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a>        <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">costs</span><span class="o">.</span><span class="n">FrameSquaredPoseErrorCost</span><span class="p">(</span>
+<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a>            <span class="n">model</span><span class="p">,</span> <span class="s2">"base_link"</span><span class="p">,</span> <span class="n">base_pos</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">T_WGT</span><span class="p">,</span> <span class="n">R_WGT</span>
+<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a>        <span class="p">)</span>
+<a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a>    <span class="p">)</span>
+<a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a>    <span class="n">model</span><span class="o">.</span><span class="n">addCost</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">base_costs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a>
+<a id="__codelineno-7-45" name="__codelineno-7-45" href="#__codelineno-7-45"></a>    <span class="n">flight_costs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-7-46" name="__codelineno-7-46" href="#__codelineno-7-46"></a>        <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">costs</span><span class="o">.</span><span class="n">SquaredConfigurationErrorCost</span><span class="p">(</span>
+<a id="__codelineno-7-47" name="__codelineno-7-47" href="#__codelineno-7-47"></a>            <span class="n">model</span><span class="p">,</span>
+<a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a>            <span class="n">stance_config</span><span class="p">(</span><span class="n">JUMP_TAKEOFF_HEIGHT</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<a id="__codelineno-7-49" name="__codelineno-7-49" href="#__codelineno-7-49"></a>            <span class="n">JUMP_CONFIG_WGT</span><span class="p">,</span>
+</code></pre></div>
+<p>The shared costs (<code>config_cost</code>, <code>v_cost</code>, <code>u_cost</code>, <code>f_cost</code>) are single objects added to every stage, since they do
+not change from stage to stage. The remaining ones are created <em>per stage</em> and kept in lists, so that
+<code>update_model</code> can later retarget the one for stage <code>idx</code> independently:</p>
+<ul>
+<li><code>base_costs[idx]</code> is a <code>FrameSquaredPoseErrorCost</code> on <code>base_link</code>, tracking the commanded base pose.</li>
+<li><code>foot_funcs[name][idx]</code> holds, for each foot, a <code>FrameSquaredTranslationErrorCost</code> and the foot's contact
+  constraint. The contact constraint has a friction coefficient of 0.6, a 150 N normal force limit, and
+  <code>no_slip=False</code>, so that stance feet are not forced to a zero velocity.</li>
+<li><code>flight_costs[idx]</code> is a configuration cost that is only used for the jump.</li>
+</ul>
+<p>Every foot has <em>both</em> a contact constraint and a tracking cost at every stage; which of them is actually active
+depends on whether the foot is swinging, and is decided at run time (below). This is the contact scheduling from
+<a href="../go2-jump/#the-per-stage-loop-stance-flight-stance">Go2 Jump</a>, done with <code>set_enabled</code> on constraints and costs that
+already exist, rather than by choosing which ones to add.</p>
+<h2 id="reading-the-joystick">Reading the joystick<a class="headerlink" href="#reading-the-joystick" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>    <span class="k">global</span> <span class="n">jump_start</span><span class="p">,</span> <span class="n">jump_button_held</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="c1"># Forget the jump once it is over</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="k">if</span> <span class="p">(</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="n">jump_start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="ow">and</span> <span class="n">current_stage</span> <span class="o">&gt;=</span> <span class="n">jump_start</span> <span class="o">+</span> <span class="n">JUMP_PERIODS</span> <span class="o">*</span> <span class="n">GAIT_PERIOD</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="p">):</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">jump_start</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="c1"># Schedule a jump on each new press of the jump button</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="n">held</span> <span class="o">=</span> <span class="n">JUMP_BUTTON</span> <span class="ow">in</span> <span class="n">joystick</span><span class="o">.</span><span class="n">buttons</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="k">if</span> <span class="p">(</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>        <span class="n">held</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>        <span class="ow">and</span> <span class="ow">not</span> <span class="n">jump_button_held</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>        <span class="ow">and</span> <span class="n">jump_start</span> <span class="ow">is</span> <span class="kc">None</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>        <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v_cmd</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">JUMP_MAX_VEL</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    <span class="p">):</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>        <span class="n">jump_start</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_stage</span> <span class="o">//</span> <span class="n">GAIT_PERIOD</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">GAIT_PERIOD</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>    <span class="n">jump_button_held</span> <span class="o">=</span> <span class="n">held</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>        <span class="n">joystick</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">MAX_VEL_FRONT</span><span class="p">,</span> <span class="n">MAX_VEL_BACK</span><span class="p">,</span> <span class="n">MAX_VEL_SIDE</span><span class="p">,</span> <span class="n">MAX_VEL_YAW</span><span class="p">)</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>    <span class="p">)</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>    <span class="k">if</span> <span class="n">jump_start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>        <span class="n">target</span><span class="p">[:]</span> <span class="o">=</span> <span class="mf">0.0</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>    <span class="n">max_change</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">MAX_ACC</span><span class="p">,</span> <span class="n">MAX_ACC</span><span class="p">,</span> <span class="n">MAX_YAW_ACC</span><span class="p">])</span> <span class="o">*</span> <span class="n">mpc_dt</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>    <span class="n">v_cmd</span><span class="p">[:]</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="n">v_cmd</span><span class="p">,</span> <span class="o">-</span><span class="n">max_change</span><span class="p">,</span> <span class="n">max_change</span><span class="p">)</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a>
+<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a>    <span class="n">base_height</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span>
+<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a>        <span class="n">base_height</span> <span class="o">-</span> <span class="n">joystick</span><span class="o">.</span><span class="n">dpad_y</span> <span class="o">*</span> <span class="n">HEIGHT_RATE</span> <span class="o">*</span> <span class="n">mpc_dt</span><span class="p">,</span>
+<a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a>        <span class="n">MIN_BASE_HEIGHT</span><span class="p">,</span>
+<a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a>        <span class="n">MAX_BASE_HEIGHT</span><span class="p">,</span>
+<a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a>    <span class="p">)</span>
+<a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a>
+<a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a>    <span class="n">step_height</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span>
+<a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a>        <span class="n">step_height</span> <span class="o">+</span> <span class="n">joystick</span><span class="o">.</span><span class="n">dpad_x</span> <span class="o">*</span> <span class="n">STEP_HEIGHT_RATE</span> <span class="o">*</span> <span class="n">mpc_dt</span><span class="p">,</span>
+<a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a>        <span class="n">MIN_STEP_HEIGHT</span><span class="p">,</span>
+<a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a>        <span class="n">MAX_STEP_HEIGHT</span><span class="p">,</span>
+<a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a>    <span class="p">)</span>
+<a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a>
+<a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a>    <span class="n">tilt</span> <span class="o">=</span> <span class="p">(</span><span class="n">PITCH_UP_BUTTON</span> <span class="ow">in</span> <span class="n">joystick</span><span class="o">.</span><span class="n">buttons</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span>
+<a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a>        <span class="n">PITCH_DOWN_BUTTON</span> <span class="ow">in</span> <span class="n">joystick</span><span class="o">.</span><span class="n">buttons</span>
+<a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a>    <span class="p">)</span>
+</code></pre></div>
+<p><code>update_command</code> is called once per stage and turns the gamepad state into the quantities the planner uses. The
+stick command is first read, scaled to the maximum speeds <code>MAX_VEL_FRONT</code>, <code>MAX_VEL_SIDE</code> and so on, and then
+<code>v_cmd</code> moves toward it by at most <code>MAX_ACC * mpc_dt</code> per stage, so the robot cannot be asked to accelerate faster
+than it can follow. The remaining inputs are rate-limited in the same way, each one a value with a range and a rate:
+the D-pad moves <code>base_height</code> and <code>step_height</code>, and pairs of buttons set <code>base_pitch</code>, <code>base_roll</code> and <code>base_yaw</code> to
+a limit while held, and back to zero when released.</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sticks</td>
+<td>Forward, sideways and yaw velocity command</td>
+</tr>
+<tr>
+<td>D-pad up and down</td>
+<td>Base height</td>
+</tr>
+<tr>
+<td>D-pad left and right</td>
+<td>Step height</td>
+</tr>
+<tr>
+<td><code>BTN_Z</code>, <code>BTN_TR</code></td>
+<td>Pitch the base up or down</td>
+</tr>
+<tr>
+<td><code>BTN_NORTH</code>, <code>BTN_EAST</code></td>
+<td>Roll the base to the left or right</td>
+</tr>
+<tr>
+<td><code>BTN_WEST</code>, <code>BTN_TL</code></td>
+<td>Turn the front to the left or right, with the feet staying in place</td>
+</tr>
+<tr>
+<td><code>BTN_C</code></td>
+<td>Jump in place, when the command is near rest</td>
+</tr>
+</tbody>
+</table>
+<p>The names are evdev codes, which map to different physical buttons on different gamepads.</p>
+<h2 id="retargeting-the-horizon-every-stage">Retargeting the horizon every stage<a class="headerlink" href="#retargeting-the-horizon-every-stage" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>        <span class="n">tilt</span> <span class="o">*</span> <span class="n">MAX_BASE_PITCH</span> <span class="o">-</span> <span class="n">base_pitch</span><span class="p">,</span> <span class="o">-</span><span class="n">max_change</span><span class="p">,</span> <span class="n">max_change</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="p">)</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">tilt</span> <span class="o">=</span> <span class="p">(</span><span class="n">ROLL_RIGHT_BUTTON</span> <span class="ow">in</span> <span class="n">joystick</span><span class="o">.</span><span class="n">buttons</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="n">ROLL_LEFT_BUTTON</span> <span class="ow">in</span> <span class="n">joystick</span><span class="o">.</span><span class="n">buttons</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="p">)</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">max_change</span> <span class="o">=</span> <span class="n">ROLL_RATE</span> <span class="o">*</span> <span class="n">mpc_dt</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">base_roll</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">tilt</span> <span class="o">*</span> <span class="n">MAX_BASE_ROLL</span> <span class="o">-</span> <span class="n">base_roll</span><span class="p">,</span> <span class="o">-</span><span class="n">max_change</span><span class="p">,</span> <span class="n">max_change</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="p">)</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="n">turn</span> <span class="o">=</span> <span class="p">(</span><span class="n">YAW_LEFT_BUTTON</span> <span class="ow">in</span> <span class="n">joystick</span><span class="o">.</span><span class="n">buttons</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>        <span class="n">YAW_RIGHT_BUTTON</span> <span class="ow">in</span> <span class="n">joystick</span><span class="o">.</span><span class="n">buttons</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="p">)</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="n">max_change</span> <span class="o">=</span> <span class="n">YAW_RATE</span> <span class="o">*</span> <span class="n">mpc_dt</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    <span class="n">base_yaw</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>        <span class="n">turn</span> <span class="o">*</span> <span class="n">MAX_BASE_YAW</span> <span class="o">-</span> <span class="n">base_yaw</span><span class="p">,</span> <span class="o">-</span><span class="n">max_change</span><span class="p">,</span> <span class="n">max_change</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>    <span class="p">)</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a><span class="k">def</span><span class="w"> </span><span class="nf">update_model</span><span class="p">(</span><span class="n">current_stage</span><span class="p">):</span>
+<a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>    <span class="k">global</span> <span class="n">pose_stage</span><span class="p">,</span> <span class="n">poses</span>
+<a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>
+<a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>    <span class="c1"># Feet finishing their swing keep the foothold they were aiming for</span>
+<a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>    <span class="n">period</span> <span class="o">=</span> <span class="n">current_stage</span> <span class="o">//</span> <span class="n">GAIT_PERIOD</span>
+<a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>    <span class="k">if</span> <span class="n">current_stage</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">current_stage</span> <span class="o">%</span> <span class="n">GAIT_PERIOD</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">SWING_PAIRS</span><span class="p">[(</span><span class="n">period</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span><span class="p">]:</span>
+<a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>            <span class="n">landed</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">foothold</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">period</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>
+<a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>    <span class="c1"># Look far enough ahead for the footholds of every swing in the horizon</span>
+<a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a>    <span class="n">poses</span> <span class="o">=</span> <span class="n">predict_poses</span><span class="p">(</span>
+<a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>        <span class="n">poses</span><span class="p">[</span><span class="n">current_stage</span> <span class="o">-</span> <span class="n">pose_stage</span><span class="p">],</span> <span class="n">mpc_H</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">GAIT_PERIOD</span>
+<a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a>    <span class="p">)</span>
+<a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a>    <span class="n">pose_stage</span> <span class="o">=</span> <span class="n">current_stage</span>
+<a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a>
+<a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a>    <span class="n">config_cost</span><span class="o">.</span><span class="n">set_desired_configuration</span><span class="p">(</span>
+<a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a>        <span class="n">stance_config</span><span class="p">(</span><span class="n">base_height</span><span class="p">,</span> <span class="n">base_pitch</span><span class="p">,</span> <span class="n">base_roll</span><span class="p">,</span> <span class="n">base_yaw</span><span class="p">)</span>
+<a id="__codelineno-9-38" name="__codelineno-9-38" href="#__codelineno-9-38"></a>    <span class="p">)</span>
+<a id="__codelineno-9-39" name="__codelineno-9-39" href="#__codelineno-9-39"></a>
+<a id="__codelineno-9-40" name="__codelineno-9-40" href="#__codelineno-9-40"></a>    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">mpc_H</span><span class="p">):</span>
+<a id="__codelineno-9-41" name="__codelineno-9-41" href="#__codelineno-9-41"></a>        <span class="n">k</span> <span class="o">=</span> <span class="n">current_stage</span> <span class="o">+</span> <span class="n">idx</span>
+<a id="__codelineno-9-42" name="__codelineno-9-42" href="#__codelineno-9-42"></a>        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">yaw</span> <span class="o">=</span> <span class="n">poses</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+<a id="__codelineno-9-43" name="__codelineno-9-43" href="#__codelineno-9-43"></a>
+<a id="__codelineno-9-44" name="__codelineno-9-44" href="#__codelineno-9-44"></a>        <span class="n">j</span> <span class="o">=</span> <span class="n">jump_stage</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+<a id="__codelineno-9-45" name="__codelineno-9-45" href="#__codelineno-9-45"></a>        <span class="n">height</span> <span class="o">=</span> <span class="n">base_height</span> <span class="k">if</span> <span class="n">j</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">jump_base_height</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+<a id="__codelineno-9-46" name="__codelineno-9-46" href="#__codelineno-9-46"></a>        <span class="n">base_costs</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">set_desired_translation</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">height</span><span class="p">]))</span>
+</code></pre></div>
+<p><code>update_model</code> is what makes the robot walk, and is called once per plan stage, after the joystick is read. It does
+five things:</p>
+<ol>
+<li><strong>Records landed feet.</strong> On the first stage of each new gait period, the pair that just finished swinging has
+   landed at its target foothold, and <code>landed</code> is updated, so from now on the foot references use where the feet
+   <em>are</em>, not where they were planned to land.</li>
+<li><strong>Rebuilds the base poses</strong>, starting from the pose the plan has reached, with the latest command.</li>
+<li><strong>Sets the nominal configuration.</strong> <code>config_cost</code> is pointed at <code>stance_config(...)</code>, the leg angles that keep
+   every foot on its nominal spot with the base at the commanded height and orientation. This is how the D-pad
+   and the tilt buttons work: they do not command anything directly, they change what "standing" means.</li>
+<li><strong>Sets the base cost</strong> of every stage to the pose for that stage and the tilt commands. The stage <span class="arithmatex">\(k\)</span> of the model
+   corresponds to the absolute stage <code>current_stage + idx</code> of the gait, which is what <code>foot_reference</code> takes.</li>
+<li><strong>Sets each foot.</strong> Swinging feet have their contact constraint disabled and their cost tracking the swing path.
+   Stance feet have the contact constraint enabled and a cost holding them at their foothold. As the comment in
+   the code says, the constraint only bounds the foot's height, so the cost is also what stops stance feet sliding.</li>
+</ol>
+<p>Note that the schedule is entirely periodic: at every stage the same function is evaluated at a different <span class="arithmatex">\(k\)</span>, and
+the window slides along, with a foot's contact turning off as its swing enters the horizon and on again as it leaves
+it. This is why no part of the model ever needs to be rebuilt after <code>model.finalize</code>.</p>
+<h2 id="the-jump">The jump<a class="headerlink" href="#the-jump" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>    <span class="k">return</span> <span class="n">predicted</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">foothold</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">period</span><span class="p">):</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="c1"># Where the foot lands at the end of its swing in the given period, placed</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="c1"># so that the base passes over the foot's nominal position mid-stance</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="k">if</span> <span class="p">(</span><span class="n">period</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">GAIT_PERIOD</span> <span class="o">&lt;=</span> <span class="n">pose_stage</span><span class="p">:</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>        <span class="k">return</span> <span class="n">landed</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">yaw</span> <span class="o">=</span> <span class="n">poses</span><span class="p">[</span><span class="nb">int</span><span class="p">((</span><span class="n">period</span> <span class="o">+</span> <span class="mf">1.5</span><span class="p">)</span> <span class="o">*</span> <span class="n">GAIT_PERIOD</span><span class="p">)</span> <span class="o">-</span> <span class="n">pose_stage</span><span class="p">]</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span> <span class="o">+</span> <span class="n">rotation_z</span><span class="p">(</span><span class="n">yaw</span><span class="p">)</span> <span class="o">@</span> <span class="n">foot_offsets</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">jump_stage</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="c1"># Stage k's index within the jump, or None outside of it</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="k">if</span> <span class="n">jump_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>        <span class="k">return</span> <span class="kc">None</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="n">j</span> <span class="o">=</span> <span class="n">k</span> <span class="o">-</span> <span class="n">jump_start</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="k">return</span> <span class="n">j</span> <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">JUMP_PERIODS</span> <span class="o">*</span> <span class="n">GAIT_PERIOD</span> <span class="k">else</span> <span class="kc">None</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="k">def</span><span class="w"> </span><span class="nf">jump_base_height</span><span class="p">(</span><span class="n">j</span><span class="p">):</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>    <span class="c1"># Base reference height at stage j of the jump</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>    <span class="n">push</span> <span class="o">=</span> <span class="n">JUMP_CROUCH_STAGES</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>    <span class="n">flight</span> <span class="o">=</span> <span class="n">push</span> <span class="o">+</span> <span class="n">JUMP_PUSH_STAGES</span>
+</code></pre></div>
+<p>Pressing the jump button when the command is near rest schedules a jump in place, starting at the next gait period.
+It reuses the machinery above rather than adding a new one. During the jump (<code>jump_stage(k)</code> is not <code>None</code>):</p>
+<ul>
+<li>The base height reference follows <code>jump_base_height</code>: a crouch, a push-off with constant acceleration up to the
+  takeoff speed, a ballistic flight, a landing that decelerates, and a recovery back to the normal height. The
+  takeoff speed <code>JUMP_SPEED</code> is set from the flight time, so that the base lands at the height it left. The velocity
+  command is held at zero throughout.</li>
+<li>All four feet stand at the same footholds, those of their last swing before the jump (<code>jump_foothold</code>).</li>
+<li>In flight (<code>in_flight(k)</code>), every foot is marked as swinging, so <em>all</em> contact constraints and foot costs are
+  disabled. The base's translation weight is zeroed too, since its path can no longer be steered once the feet are off
+  the ground, and a <code>flight_costs</code> configuration cost is enabled instead to hold the legs in their takeoff pose.</li>
+</ul>
+<p>This is the same stance, flight, stance structure as <a href="../go2-jump/">Go2 Jump</a>, but built from the pieces that already
+exist for walking, and decided at every stage instead of once.</p>
+<h2 id="solver-parameters">Solver parameters<a class="headerlink" href="#solver-parameters" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">foot_names</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>            <span class="n">foot_pos</span><span class="p">,</span> <span class="n">swinging</span> <span class="o">=</span> <span class="n">foot_reference</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>            <span class="n">foot_cost</span><span class="p">,</span> <span class="n">foot_constraint</span> <span class="o">=</span> <span class="n">foot_funcs</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>            <span class="c1"># Swinging feet track their swing trajectory, while stance feet</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>            <span class="c1"># stay in contact. The contact constraint only bounds the foot's</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>            <span class="c1"># height, so the tracking cost also keeps stance feet from sliding</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>            <span class="n">foot_constraint</span><span class="o">.</span><span class="n">set_enabled</span><span class="p">(</span><span class="ow">not</span> <span class="n">swinging</span><span class="p">)</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>            <span class="n">foot_cost</span><span class="o">.</span><span class="n">set_enabled</span><span class="p">(</span><span class="ow">not</span> <span class="n">flight</span><span class="p">)</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>            <span class="n">foot_cost</span><span class="o">.</span><span class="n">set_desired_translation</span><span class="p">(</span><span class="n">foot_pos</span><span class="p">)</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="n">update_model</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="n">model</span><span class="o">.</span><span class="n">addCost</span><span class="p">(</span><span class="n">mpc_H</span><span class="p">,</span> <span class="n">v_cost</span><span class="p">)</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="n">model</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">init_states</span><span class="o">=</span><span class="p">[</span><span class="n">init_state</span><span class="p">])</span>
+</code></pre></div>
+<p><a href="../../concepts/qp-solvers/">HPIPM</a> is the QP solver, with tolerances of <span class="arithmatex">\(10^{-4}\)</span>. The <code>MPC</code> wrapper is given just two
+SQP iterations, since the problem is warm started from the previous stage's solution (see
+<a href="../../concepts/mpc/#warm-starting">Warm-starting</a>). The <code>admm_params</code> are set in the script but unused, as long as the
+QP solver type is HPIPM.</p>
+<h2 id="the-simulation-loop">The simulation loop<a class="headerlink" href="#the-simulation-loop" title="Permanent link">&para;</a></h2>
+<div class="highlight"><span class="filename">examples/mujoco_mpc/go2/go2_walking.py</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Start the viewer maximized</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">glfw</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">glfw</span><span class="o">.</span><span class="n">window_hint</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">MAXIMIZED</span><span class="p">,</span> <span class="n">glfw</span><span class="o">.</span><span class="n">TRUE</span><span class="p">)</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="k">with</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">viewer</span><span class="o">.</span><span class="n">launch_passive</span><span class="p">(</span><span class="n">mjmodel</span><span class="p">,</span> <span class="n">mjdata</span><span class="p">)</span> <span class="k">as</span> <span class="n">viewer</span><span class="p">:</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="k">while</span> <span class="n">viewer</span><span class="o">.</span><span class="n">is_running</span><span class="p">():</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>        <span class="n">display</span> <span class="o">=</span> <span class="n">step</span> <span class="o">%</span> <span class="n">DISPLAY_EVERY</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">        </span><span class="sd">"""</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="sd">        if display:</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="sd">            print(f"\rSimulation time: {mjdata.time:.2f}s")</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="sd">            if step &gt; 0:</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="sd">                loop_rate = DISPLAY_EVERY / (time() - display_time)</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="sd">                print(</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="sd">                    f"\rLoop frequency: {loop_rate:.2f}Hz\t"</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="sd">                    f"MPC frequency: {(loop_rate / STAGE_EVERY):.2f}Hz"</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="sd">                )</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="sd">            display_time = time()</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="sd">        """</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>        <span class="n">state</span> <span class="o">=</span> <span class="n">mujoco_to_ssqp_state</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">mjdata</span><span class="o">.</span><span class="n">qpos</span><span class="p">,</span> <span class="n">mjdata</span><span class="o">.</span><span class="n">qvel</span><span class="p">)))</span>
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>        <span class="n">state</span> <span class="o">=</span> <span class="n">clip_joints_to_limits</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">mjmodel</span><span class="p">)</span>
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>
+<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a>        <span class="c1"># Solve once per plan stage and hold the stage's torques in between,</span>
+<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>        <span class="c1"># as the planner assumes</span>
+<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>        <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="n">STAGE_EVERY</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>                <span class="n">x</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="n">mpc</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+<a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>                <span class="n">xk</span> <span class="o">=</span> <span class="n">ssqp_to_mujoco_state</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">stage</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>
+<a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>                <span class="k">if</span> <span class="n">dynamics_mode</span> <span class="o">==</span> <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">SolverMode</span><span class="o">.</span><span class="n">ForwardDynamics</span><span class="p">:</span>
+<a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>                    <span class="n">uk</span> <span class="o">=</span> <span class="n">ssqp_to_mujoco_control</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">stage</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a>                <span class="k">elif</span> <span class="p">(</span>
+<a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>                    <span class="n">dynamics_mode</span>
+<a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>                    <span class="o">==</span> <span class="n">ssqpy</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">SolverMode</span><span class="o">.</span><span class="n">ReducedInverseDynamics</span>
+<a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a>                <span class="p">):</span>
+<a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a>                    <span class="n">uk</span> <span class="o">=</span> <span class="n">ssqp_to_mujoco_control</span><span class="p">(</span>
+<a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a>                        <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+<a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a>                            <span class="p">(</span>
+<a id="__codelineno-12-41" name="__codelineno-12-41" href="#__codelineno-12-41"></a>                                <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">6</span><span class="p">),</span>
+<a id="__codelineno-12-42" name="__codelineno-12-42" href="#__codelineno-12-42"></a>                                <span class="n">model</span><span class="o">.</span><span class="n">getActuatedTorqueVector</span><span class="p">(</span>
+<a id="__codelineno-12-43" name="__codelineno-12-43" href="#__codelineno-12-43"></a>                                    <span class="n">state</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">stage</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">model</span><span class="o">.</span><span class="n">getForces</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+<p>Every simulation step, the state is read from MuJoCo and converted (quaternion order, base velocity frame and joint
+ordering, by <code>utils_go2_mujoco.py</code>) and clipped to the joint limits that the model enforces, because MuJoCo's joint
+limits are soft. Then:</p>
+<ul>
+<li><strong>Every <code>STAGE_EVERY</code> steps</strong>, <code>mpc.step(state)</code> solves. From the result it keeps the next stage's state <code>xk</code>, as
+  a joint target, and the torques that the first stage's accelerations and forces need at the <em>current</em> measured
+  state, from <code>model.getActuatedTorqueVector</code>. In forward dynamics mode, the control is the torque already. If the
+  solver fails with a regularization error, the loop exits.</li>
+<li><strong>Every step</strong>, the command applied is those torques, held until the next solve, plus a small joint PD term
+  (<code>Kp</code> = 0.01) toward the next stage's joint position and velocity, which corrects drift between solves. The
+  <code>[6:18]</code> slice drops the base entries, which are not actuated, and <code>ssqp_to_mujoco_ctrl_kin</code> reorders the legs for
+  MuJoCo's actuators.</li>
+<li><strong>Every <code>STAGE_EVERY</code> steps</strong>, after the command is set, <code>stage</code> advances and <code>update_command</code> and <code>update_model</code>
+  run, so the <em>next</em> solve sees the retargeted horizon. They run before <code>mj_step</code>, in the same iteration.</li>
+</ul>
+<p>The torques are therefore computed once per solve, from the state at that moment, and held for the 12 simulation
+steps of the stage. This matches the planner's assumption that the controls are constant over a stage.</p>
+<h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
+<p>From <code>examples/mujoco_mpc/go2/</code>, with a gamepad connected, the environment set up per
+<a href="../../getting-started/installation/#using-the-python-bindings">Installation</a> and MuJoCo's own virtual environment
+per <a href="../../examples/">Examples</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>python<span class="w"> </span>go2_walking.py
+</code></pre></div>
+<p>The MuJoCo viewer opens maximized and the robot stands. Use the sticks to walk, and the other controls to change the
+posture. The script does not wait to match real time, so the simulation runs as fast as the solves allow, and
+printing the frequency is available in the commented block at the top of the loop. The <code>inputs</code> package is needed to
+read the gamepad.</p>
+<h2 id="things-to-try">Things to try<a class="headerlink" href="#things-to-try" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Change <code>GAIT_PERIOD</code> to make the trot faster or slower, and see how the speeds that work change with it.</li>
+<li>Raise <code>STEP_HEIGHT</code>, or the base height, and check how the robot handles it.</li>
+<li>Lower <code>mpc_H</code>, and notice that the footholds near the end of the horizon, and so the response to a command change,
+  get less accurate.</li>
+<li>Set <code>Kp</code> to zero to see how much the small PD term between solves contributes.</li>
+<li>Change <code>dynamics_mode</code> to <code>ForwardDynamics</code> and retune <code>U_WGT</code> and <code>F_WGT</code>: the weights are different for the two
+  modes for a reason.</li>
+<li>Press the jump button while walking: it is ignored unless the velocity command is below <code>JUMP_MAX_VEL</code>.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../panda-circle-mpc/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Panda Circle (MPC)">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Panda Circle (MPC)
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../benchmarks/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Overview
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025-2026 Nick Karydakis, Konstantinos Chatzilygeroudis and the Laboratory of Automation and Robotics (LAR), University of Patras
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/upatras-lar/ssqp" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../javascripts/benchmark-tolerance.js"></script>
+      
+        <script src="../../javascripts/lar-button.js"></script>
+      
+    
+  </body>
+</html>

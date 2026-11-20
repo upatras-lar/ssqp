@@ -23,6 +23,8 @@
 # Documentation
 /docs/site/*
 /docs/docvenv/*
+/docs/api/*
+/docs/docs/cpp-reference/ssqp/
 
 # Virtual environments
 /nbvenv/*

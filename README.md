@@ -1,4 +1,9 @@
-# SSQP
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://lar.upatras.gr/ssqp/assets/ssqp-logo-dark.svg">
+    <img alt="SSQP" src="https://lar.upatras.gr/ssqp/assets/ssqp-logo.svg" width="360">
+  </picture>
+</h1>
 
 [![CI](https://github.com/upatras-lar/ssqp/actions/workflows/ci.yml/badge.svg)](https://github.com/upatras-lar/ssqp/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/ssqp)](https://pypi.org/project/ssqp/)

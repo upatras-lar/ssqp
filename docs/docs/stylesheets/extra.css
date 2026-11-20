@@ -1,23 +1,67 @@
+:root,
 [data-md-color-scheme="default"] {
-  --md-default-bg-color: #f8f4e8;
-  --md-default-bg-color--light: #f8f4e8b3;
-  --md-default-bg-color--lighter: #f8f4e84d;
-  --md-default-bg-color--lightest: #f8f4e81f;
-  --md-footer-bg-color: hsl(225deg 12% 18%);
-  --md-footer-bg-color--dark: hsl(225deg 12% 12%);
+  --md-primary-fg-color: #c62828;
+  --md-accent-fg-color: #c62828;
+  --md-accent-fg-color--transparent: rgba(198, 40, 40, 0.08);
+  --md-typeset-a-color: #c62828;
 }
 
-[data-md-color-scheme="default"][data-md-color-primary="black"] {
-  --md-primary-fg-color: hsl(225deg 12% 18%);
-  --md-primary-fg-color--light: hsl(225deg 12% 18% / 0.7);
-  --md-primary-fg-color--dark: hsl(225deg 12% 12%);
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #b71c1c;
+  --md-accent-fg-color: #b71c1c;
+  --md-accent-fg-color--transparent: rgba(183, 28, 28, 0.15);
+  --md-typeset-a-color: #b71c1c;
 }
 
-[data-md-color-scheme="default"][data-md-color-primary="black"] .md-header,
-[data-md-color-scheme="default"][data-md-color-primary="black"] .md-tabs,
-[data-md-color-scheme="default"][data-md-color-primary="black"] .md-nav__source,
-[data-md-color-scheme="default"][data-md-color-primary="black"] .md-nav--primary .md-nav__title[for="__drawer"] {
-  background-color: hsl(225deg 12% 18%);
+.md-grid {
+  max-width: 1500px;
+}
+
+/* Home page: the logo beside the opening paragraph and the problem formulation */
+.home-intro {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.md-typeset .home-intro h1 {
+  flex: 0 0 340px;
+  margin: 0;
+}
+
+.home-intro > div {
+  flex: 1;
+  min-width: 0;
+}
+
+@media screen and (max-width: 60em) {
+  .home-intro {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .md-typeset .home-intro h1 {
+    flex-basis: auto;
+    max-width: 100%;
+  }
+}
+
+/* The red S of the logo, on the site name in the header */
+.md-header__topic:first-child .md-ellipsis::first-letter {
+  color: #c62828;
+}
+
+[data-md-color-scheme="slate"] .md-header__topic:first-child .md-ellipsis::first-letter {
+  color: #b71c1c;
+}
+
+/* The header takes one logo file, so the dark scheme shows the dark mark in place of the light one */
+[data-md-color-scheme="slate"] .md-logo img {
+  visibility: hidden;
+}
+
+[data-md-color-scheme="slate"] .md-logo {
+  background: url("../assets/ssqp-mark-dark.svg") center / contain no-repeat content-box;
 }
 
 .tolerance-select {
@@ -45,31 +89,25 @@
 }
 
 .lar-button {
-  position: absolute;
-  top: 50%;
-  left: 0.8rem;
-  transform: translateY(-50%);
-  z-index: 1;
-  padding: 0.2rem 0.7rem;
+  flex-shrink: 0;
+  margin: 0 0.4rem 0 0.2rem;
+  padding: 0.2rem 0.6rem;
   border: 0.05rem solid currentcolor;
   border-radius: 0.2rem;
-  color: var(--md-primary-bg-color);
+  color: var(--md-default-fg-color);
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  opacity: 0.85;
-  transition: opacity 0.25s, background-color 0.25s;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0.75;
+  transition: opacity 0.25s, color 0.25s;
 }
 
-.lar-button:hover {
-  background-color: var(--md-primary-bg-color--lightest);
+.lar-button:hover,
+.lar-button:focus {
+  color: var(--md-accent-fg-color);
   opacity: 1;
-}
-
-@media screen and (max-width: 76.1875em) {
-  .lar-button {
-    display: none;
-  }
 }
 
 .gallery-switch {
@@ -80,24 +118,6 @@
 }
 .gallery-switch p {
   display: contents;
-}
-
-.md-typeset .md-button {
-  padding: 0.35em 1.1em;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  border-width: 1px;
-  border-radius: 2em;
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.md-typeset .md-button strong {
-  font-weight: inherit;
-}
-
-.md-typeset .md-button--primary {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 
 .video-pair {

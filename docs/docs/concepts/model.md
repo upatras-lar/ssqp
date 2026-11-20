@@ -75,7 +75,7 @@ Model(horizon: int, dt: float, **kwargs)
 `model.finalize(**kwargs)` accepts, among others: `costs` / `stage_cost` / `terminal_cost`, `dynamics`,
 `constraints`, `custom_lower_position_bounds` / `custom_upper_position_bounds` / `custom_velocity_bounds` /
 `custom_torque_bounds` (override XML-derived innate constraint bounds), and `init_states` / `init_controls` (initial
-guesses). See the [API reference](../reference/model.md#ssqpy.model.Model.finalize) for the complete, up-to-date
+guesses). See the [API reference](../reference/ssqpy/model/index.md#ssqpy.model.Model.finalize) for the complete, up-to-date
 list.
 
 ## Solver mode
@@ -105,4 +105,4 @@ that both adds a contact constraint (friction cone, non-penetration and, unless 
 velocity bound on the frame) *and* the associated force in one call; this is the mechanism
 used by legged-robot examples (e.g. Go2, G1) to model foot contacts against the [terrain](terrain.md).
 
-See the [Python API reference](../reference/model.md) for the full `Model` method list.
+See the [Python API reference](../reference/ssqpy/model/index.md) for the full `Model` method list.

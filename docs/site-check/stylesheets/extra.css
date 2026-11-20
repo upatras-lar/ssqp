@@ -1,0 +1,165 @@
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #c62828;
+  --md-accent-fg-color: #c62828;
+  --md-accent-fg-color--transparent: rgba(198, 40, 40, 0.08);
+  --md-typeset-a-color: #c62828;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #b71c1c;
+  --md-accent-fg-color: #b71c1c;
+  --md-accent-fg-color--transparent: rgba(183, 28, 28, 0.15);
+  --md-typeset-a-color: #b71c1c;
+}
+
+.md-grid {
+  max-width: 1500px;
+}
+
+/* Home page: the logo beside the opening paragraph and the problem formulation */
+.home-intro {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.md-typeset .home-intro h1 {
+  flex: 0 0 340px;
+  margin: 0;
+}
+
+.home-intro > div {
+  flex: 1;
+  min-width: 0;
+}
+
+@media screen and (max-width: 60em) {
+  .home-intro {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .md-typeset .home-intro h1 {
+    flex-basis: auto;
+    max-width: 100%;
+  }
+}
+
+/* The red S of the logo, on the site name in the header */
+.md-header__topic:first-child .md-ellipsis::first-letter {
+  color: #c62828;
+}
+
+[data-md-color-scheme="slate"] .md-header__topic:first-child .md-ellipsis::first-letter {
+  color: #b71c1c;
+}
+
+/* The header takes one logo file, so the dark scheme shows the dark mark in place of the light one */
+[data-md-color-scheme="slate"] .md-logo img {
+  visibility: hidden;
+}
+
+[data-md-color-scheme="slate"] .md-logo {
+  background: url("../assets/ssqp-mark-dark.svg") center / contain no-repeat content-box;
+}
+
+.tolerance-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  margin: 1em 0;
+  position: sticky;
+  top: var(--tolerance-select-top, 2.4rem);
+  z-index: 2;
+  background-color: var(--md-default-bg-color);
+  padding: 0.5em 0.75em;
+  border-radius: 0.2em;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.tolerance-select select {
+  font: inherit;
+  color: inherit;
+  background-color: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2em;
+  padding: 0.2em 0.4em;
+}
+
+.lar-button {
+  flex-shrink: 0;
+  margin: 0 0.4rem 0 0.2rem;
+  padding: 0.2rem 0.6rem;
+  border: 0.05rem solid currentcolor;
+  border-radius: 0.2rem;
+  color: var(--md-default-fg-color);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0.75;
+  transition: opacity 0.25s, color 0.25s;
+}
+
+.lar-button:hover,
+.lar-button:focus {
+  color: var(--md-accent-fg-color);
+  opacity: 1;
+}
+
+.gallery-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.2rem;
+}
+.gallery-switch p {
+  display: contents;
+}
+
+.video-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.video-pair video {
+  flex: 1 1 18rem;
+  min-width: 0;
+  width: 48%;
+  border-radius: 8px;
+}
+
+.sample-results {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.sample-results figure {
+  margin: 0;
+}
+
+.sample-results video {
+  width: 100%;
+  display: block;
+  border-radius: 8px;
+}
+
+.sample-results figcaption {
+  margin-top: 0.3rem;
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--md-default-fg-color--light);
+}
+
+@media (max-width: 30rem) {
+  .sample-results {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,5468 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Structure-exploiting Sequential Quadratic Programming for Optimal Control">
+      
+      
+      
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../constraints/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../../assets/ssqp-mark-adaptive.svg">
+      <meta name="generator" content="zensical-0.1.2">
+    
+    
+      
+        <title>costs - SSQP</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../../.." title="SSQP" class="md-header__button md-logo" aria-label="SSQP" data-md-component="logo">
+      
+  <img src="../../../../assets/ssqp-mark.svg" alt="SSQP">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SSQP
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              costs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/upatras-lar/ssqp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    upatras-lar/ssqp
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../../faq/" class="md-tabs__link">
+        
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../../concepts/model/" class="md-tabs__link">
+          
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../../examples/" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../../benchmarks/" class="md-tabs__link">
+          
+  
+  Benchmarks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../../" class="md-tabs__link">
+          
+  
+  Python API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../../cpp-reference/" class="md-tabs__link">
+          
+  
+  C++ API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../../.." title="SSQP" class="md-nav__button md-logo" aria-label="SSQP" data-md-component="logo">
+      
+  <img src="../../../../assets/ssqp-mark.svg" alt="SSQP">
+
+    </a>
+    SSQP
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/upatras-lar/ssqp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    upatras-lar/ssqp
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting Started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Getting Started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Installation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  FAQ
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Concepts
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Concepts
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../concepts/model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../concepts/costs-constraints-dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Costs, Constraints & Dynamics
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../concepts/terrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Terrain
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../concepts/solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  SSQP Solver
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../concepts/qp-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  QP Solvers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../concepts/mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../concepts/parameter-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parameter Search
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Examples
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Gallery
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Gallery
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Trajectory Generation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../gallery-simulated-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Simulated MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../gallery-real-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Real MPC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Walkthroughs
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Walkthroughs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/pendubot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Pendubot Swing-Up
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/panda-circle-trajgen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Panda Circle (Trajectory Generation)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/go2-jump/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Go2 Jump
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/panda-circle-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Panda Circle (MPC)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/go2-walking-mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Go2 Walking (MPC)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Benchmarks
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Benchmarks
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../benchmarks-solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Solver
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../benchmarks-solver-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Solver Modes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Python API Reference
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Python API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ssqpy
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2" id="__nav_7_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_7_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  ssqpy
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  model
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2_2" id="__nav_7_2_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_2_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_7_2_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  model
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  costs
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  costs
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#ssqpy.model.costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        costs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="costs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.StageCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        StageCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredJointAngleCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredJointAngleCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredJointVelocityCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredJointVelocityCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredControlCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredControlCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredIDTorqueCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredIDTorqueCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredForceCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredForceCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredConfigurationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredConfigurationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FloatingBaseSquaredTranslationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FloatingBaseSquaredTranslationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FloatingBaseSquaredRotationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FloatingBaseSquaredRotationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FloatingBaseSquaredPoseErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FloatingBaseSquaredVelocityErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredTranslationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredTranslationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredTerrainHeightErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredRotationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredRotationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredPoseErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredPoseErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredVelocityErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredVelocityErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.CenterOfMassTrackingCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CenterOfMassTrackingCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FramesInverseSquaredDistanceCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FramesInverseSquaredDistanceCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  constraints
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  dynamics
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../terrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  terrain
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../solvers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  solvers
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2_3" id="__nav_7_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  solvers
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../solvers/search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  search
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../cpp-reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  C++ API Reference
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  C++ API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../cpp-reference/ssqp/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ssqp
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  ssqp
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../cpp-reference/ssqp/model/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  model
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2" id="__nav_8_2_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_2_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  model
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cpp-reference/ssqp/model/presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../cpp-reference/ssqp/model/stagewise/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  stagewise
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_3" id="__nav_8_2_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_2_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  stagewise
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cpp-reference/ssqp/model/stagewise/factory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  factory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_3_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../cpp-reference/ssqp/model/stagewise/predefined/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  predefined
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_3_3" id="__nav_8_2_2_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_8_2_2_3_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_3_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  predefined
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cpp-reference/ssqp/model/stagewise/predefined/constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  constraints
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cpp-reference/ssqp/model/stagewise/predefined/costs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  costs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../cpp-reference/ssqp/model/terrain/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  terrain
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_2_4" id="__nav_8_2_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_2_2_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_2_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  terrain
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cpp-reference/ssqp/model/terrain/predefined/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  predefined
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../cpp-reference/ssqp/param_search/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  param_search
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8_2_3" id="__nav_8_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  param_search
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cpp-reference/ssqp/param_search/dynamics_params/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  dynamics_params
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cpp-reference/ssqp/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  solvers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cpp-reference/ssqp/step/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  step
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#ssqpy.model.costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        costs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="costs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.StageCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        StageCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredJointAngleCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredJointAngleCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredJointVelocityCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredJointVelocityCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredControlCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredControlCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredIDTorqueCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredIDTorqueCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredForceCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredForceCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.SquaredConfigurationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SquaredConfigurationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FloatingBaseSquaredTranslationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FloatingBaseSquaredTranslationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FloatingBaseSquaredRotationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FloatingBaseSquaredRotationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FloatingBaseSquaredPoseErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FloatingBaseSquaredVelocityErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredTranslationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredTranslationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredTerrainHeightErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredRotationErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredRotationErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredPoseErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredPoseErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FrameSquaredVelocityErrorCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FrameSquaredVelocityErrorCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.CenterOfMassTrackingCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CenterOfMassTrackingCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssqpy.model.costs.FramesInverseSquaredDistanceCost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FramesInverseSquaredDistanceCost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../../../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../../../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Python API Reference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    ssqpy
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    model
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+    <a href="https://github.com/upatras-lar/ssqp/edit/main/docs/docs/reference/ssqpy/model/costs.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="ssqpymodelcosts">ssqpy.model.costs<a class="headerlink" href="#ssqpymodelcosts" title="Permanent link">&para;</a></h1>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="ssqpy.model.costs" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">costs</span>
+
+
+<a href="#ssqpy.model.costs" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Submodule containing classes for assigning costs to optimization stages.<br />
+This includes the general <code>StageCost</code> class, as well as predefined costs<br />
+for ease of use.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.StageCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">StageCost</span>
+
+
+<a href="#ssqpy.model.costs.StageCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>General abstract constraint function for an optimization stage <span class="arithmatex">\(k\)</span>: <span class="arithmatex">\(\ell_k(\boldsymbol{x}, \boldsymbol{u})\)</span><br />
+Defines the required functions for a stage cost, while providing<br />
+default implementations for some</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.StageCost.names" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">names</span>
+
+
+<a href="#ssqpy.model.costs.StageCost.names" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">names</span><span class="p">()</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get all cost names for StageCost.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.StageCost.set_enabled" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_enabled</span>
+
+
+<a href="#ssqpy.model.costs.StageCost.set_enabled" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_enabled</span><span class="p">(</span><span class="n">enabled</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Set enabled status for StageCost<br />
+A stage always keeps at least one cost, so this has no effect if every<br />
+cost on the stage is disabled</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.StageCost.enabled" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">enabled</span>
+
+
+<a href="#ssqpy.model.costs.StageCost.enabled" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">enabled</span><span class="p">()</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether this cost is enabled</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.StageCost.evaluate" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">evaluate</span>
+
+
+<a href="#ssqpy.model.costs.StageCost.evaluate" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Evaluate function <span class="arithmatex">\(f(\boldsymbol{x}, \boldsymbol{u})\)</span><br />
+Returns: output vector, <span class="arithmatex">\(n \times 1\)</span></p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.StageCost.gradient" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">gradient</span>
+
+
+<a href="#ssqpy.model.costs.StageCost.gradient" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get cost Jacobians with respect to <span class="arithmatex">\(\boldsymbol{x}\)</span> and <span class="arithmatex">\(\boldsymbol{u}\)</span>, evaluated at<br />
+given <span class="arithmatex">\((\boldsymbol{x}, \boldsymbol{u})\)</span>: <span class="arithmatex">\(\nabla_x \ell_k(\boldsymbol{x}, \boldsymbol{u})\)</span> and <span class="arithmatex">\(\nabla_u \ell_k(\boldsymbol{x}, \boldsymbol{u})\)</span><br />
+Returns:<br />
+    dx: gradient with respect to <span class="arithmatex">\(\boldsymbol{x}\)</span>, <span class="arithmatex">\(n_{dx} \times 1\)</span><br />
+    du: gradient with respect to <span class="arithmatex">\(\boldsymbol{u}\)</span>, <span class="arithmatex">\(n_u \times 1\)</span></p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.StageCost.hessian_xx" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">hessian_xx</span>
+
+
+<a href="#ssqpy.model.costs.StageCost.hessian_xx" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hessian_xx</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get cost function hessian matrix with respect to <span class="arithmatex">\(\boldsymbol{xx}\)</span>, evaluated at given<br />
+<span class="arithmatex">\((\boldsymbol{x}, \boldsymbol{u})\)</span>:<br />
+<span class="arithmatex">\(\nabla_{xx}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})\)</span><br />
+Returns:<br />
+ Hxx: Hessian matrix, <span class="arithmatex">\(n_{dx} \times n_{dx}\)</span></p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.StageCost.hessian_xu" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">hessian_xu</span>
+
+
+<a href="#ssqpy.model.costs.StageCost.hessian_xu" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hessian_xu</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get cost function hessian matrix with respect to <span class="arithmatex">\(\boldsymbol{xu}\)</span>, evaluated at given<br />
+<span class="arithmatex">\((\boldsymbol{x}, \boldsymbol{u})\)</span>:<br />
+<span class="arithmatex">\(\nabla_{xu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})\)</span><br />
+Returns:<br />
+ Hxu: Hessian matrix, <span class="arithmatex">\(n_{dx} \times n_u\)</span></p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.StageCost.hessian_uu" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">hessian_uu</span>
+
+
+<a href="#ssqpy.model.costs.StageCost.hessian_uu" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hessian_uu</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get cost function hessian matrix with respect to <span class="arithmatex">\(\boldsymbol{uu}\)</span>, evaluated at given<br />
+<span class="arithmatex">\((\boldsymbol{x}, \boldsymbol{u})\)</span>:<br />
+<span class="arithmatex">\(\nabla_{uu}^2 \ell_k(\boldsymbol{x}, \boldsymbol{u})\)</span><br />
+Returns:<br />
+ Huu: Hessian matrix, <span class="arithmatex">\(n_u \times n_u\)</span></p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.SquaredJointAngleCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SquaredJointAngleCost</span>
+
+
+<a href="#ssqpy.model.costs.SquaredJointAngleCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared joint angle cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{ang} \rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{x}_{ang}\)</span> is the angular (position) part of the state
+   Note that this will ignore the first 7 elements if the model has a 
+   floating base</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the angular term</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size 
+   <code>model.nq()</code>), appearing after the floating base (if present)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.SquaredJointVelocityCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SquaredJointVelocityCost</span>
+
+
+<a href="#ssqpy.model.costs.SquaredJointVelocityCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared joint velocity cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{x}_{vel} \rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{x}_{vel}\)</span> is the velocity part of the state</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the velocity term</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint velocity is the final part of the state vector (size
+   <code>model.nv()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.SquaredControlCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SquaredControlCost</span>
+
+
+<a href="#ssqpy.model.costs.SquaredControlCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared control cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{ctrl} \rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{u}_{ctrl}\)</span> is the control part of the controls</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the control term</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model control is the first part of the control vector (size 
+   <code>model.nu()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.SquaredIDTorqueCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SquaredIDTorqueCost</span>
+
+
+<a href="#ssqpy.model.costs.SquaredIDTorqueCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared inverse dynamics torque cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{\tau} \rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{\tau}\)</span> is the actuated-joint torque caused by the controls</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the torque term</li>
+</ul>
+<p>Note that this cost assumes inverse dynamics is being used (i.e. treats<br />
+controls as accelerations)</p>
+<p>Assumes:</p>
+<ul>
+<li>The model is in Inverse Dynamics or Reduced Inverse Dynamics mode,
+   such that the state is made up of configuration and velocity and
+   the controls are made up of accelerations (including base, for
+   Inverse Dynamics; actuated joints only, for Reduced Inverse
+   Dynamics) and potential forces</li>
+</ul>
+<p>The torque accounts for the forces of the stage the cost is added to,<br />
+which the model passes in when it's finalized. A single instance can<br />
+only be added to several stages if they all have the same forces, so<br />
+construct one instance per stage otherwise</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.SquaredForceCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SquaredForceCost</span>
+
+
+<a href="#ssqpy.model.costs.SquaredForceCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared force cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \boldsymbol{u}_{f} \rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{u}_{f}\)</span> is the force part of the controls</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the force term</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model forces make up the second and final part of the control vector,
+   following the control part of size <code>model.nu()</code>, for any remaining
+   elements</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.SquaredConfigurationErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SquaredConfigurationErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.SquaredConfigurationErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared configuration error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{q} - \boldsymbol{q}_d)\rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{q}\)</span> is the configuration part of the state</li>
+<li><span class="arithmatex">\(\boldsymbol{q}_d\)</span> is the desired configuration</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight for the configuration error</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size 
+   <code>model.nq()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.SquaredConfigurationErrorCost.set_desired_configuration" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_configuration</span>
+
+
+<a href="#ssqpy.model.costs.SquaredConfigurationErrorCost.set_desired_configuration" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_configuration</span><span class="p">(</span><span class="n">desired_configuration</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired configuration.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FloatingBaseSquaredTranslationErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FloatingBaseSquaredTranslationErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredTranslationErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared floating base translation error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{t}_f - \boldsymbol{t}_d)\rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{t}_f\)</span> is the floating base translation (in <span class="arithmatex">\(\mathcal{R}^3\)</span>)</li>
+<li><span class="arithmatex">\(\boldsymbol{t}_d\)</span> is the desired translation of the floating base (in <span class="arithmatex">\(\mathcal{R}^3\)</span>)</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the translation error</li>
+<li><span class="arithmatex">\(R\)</span> is the rotation of the reference frame the error is expressed in
+(World, Fixed, Local or Base, identity for World, with Local and Base
+both the base's axes)</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+<code>model.nq()</code>)</li>
+<li>The floating base translation is extracted from the base pose of the model
+state representation</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredTranslationErrorCost.set_desired_translation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_translation</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredTranslationErrorCost.set_desired_translation" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_translation</span><span class="p">(</span><span class="n">desired_translation</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired translation.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredTranslationErrorCost.set_reference_frame" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_reference_frame</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredTranslationErrorCost.set_reference_frame" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_reference_frame</span><span class="p">(</span><span class="n">reference_frame</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the reference frame the error is expressed in.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FloatingBaseSquaredRotationErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FloatingBaseSquaredRotationErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredRotationErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared floating base rotation error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot \log_{SO(3)}(R_f^\top R_d)\rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(R_f\)</span> is the floating base rotation (in <span class="arithmatex">\(\mathit{SO3}\)</span>)</li>
+<li><span class="arithmatex">\(R_d\)</span> is the desired rotation of the floating base (in <span class="arithmatex">\(\mathit{SO3}\)</span>)</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the rotation error</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+   <code>model.nq()</code>)</li>
+<li>The floating base orientation is extracted from the base pose of the model
+   state representation</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredRotationErrorCost.set_desired_rotation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_rotation</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredRotationErrorCost.set_desired_rotation" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_rotation</span><span class="p">(</span><span class="n">desired_rotation</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired rotation.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FloatingBaseSquaredPoseErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared floating base pose error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(D = \log_{SE(3)} T^{-1}T_d\)</span></li>
+<li><span class="arithmatex">\(T\)</span> is the floating base pose (in <span class="arithmatex">\(\mathit{SE3}\)</span>)</li>
+<li><span class="arithmatex">\(T_d\)</span> is the desired floating base pose (in <span class="arithmatex">\(\mathit{SE3}\)</span>)</li>
+<li><span class="arithmatex">\(W\)</span> is a weight matrix, made up of parameters <span class="arithmatex">\(w_p\)</span> for translation and <span class="arithmatex">\(w_r\)</span>
+   for rotation</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+   <code>model.nq()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_desired_pose" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_pose</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_desired_pose" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_pose</span><span class="p">(</span><span class="n">desired_pose</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired pose.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_desired_translation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_translation</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_desired_translation" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_translation</span><span class="p">(</span><span class="n">desired_translation</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the translation of the desired pose.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_desired_rotation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_rotation</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_desired_rotation" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_rotation</span><span class="p">(</span><span class="n">desired_rotation</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the rotation of the desired pose.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_translation_weight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_translation_weight</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_translation_weight" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_translation_weight</span><span class="p">(</span><span class="n">translation_weight</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the weight on the translation error.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_rotation_weight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_rotation_weight</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredPoseErrorCost.set_rotation_weight" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_rotation_weight</span><span class="p">(</span><span class="n">rotation_weight</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the weight on the rotation error.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FloatingBaseSquaredVelocityErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared floating base velocity error cost</p>
+<p>Defines the cost term<br />
+<span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_b - \boldsymbol{v}_d)\rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{v}_b\)</span> is the floating base velocity (in <span class="arithmatex">\(\mathcal{R}^6\)</span>), with
+   its linear and angular parts expressed in the reference frame (Local or
+   Base by default, both the base frame, World or Fixed)</li>
+<li><span class="arithmatex">\(\boldsymbol{v}_d\)</span> is the desired floating base velocity (in <span class="arithmatex">\(\mathcal{R}^6\)</span>),
+   expressed in the same reference frame</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the velocity error</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+   <code>model.nq()</code>)</li>
+<li>The model joint velocity is the final part of the state vector (size
+   <code>model.nv()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost.set_desired_velocity" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_velocity</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost.set_desired_velocity" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_velocity</span><span class="p">(</span><span class="n">desired_velocity</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired velocity, expressed in the reference frame.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost.set_reference_frame" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_reference_frame</span>
+
+
+<a href="#ssqpy.model.costs.FloatingBaseSquaredVelocityErrorCost.set_reference_frame" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_reference_frame</span><span class="p">(</span><span class="n">reference_frame</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the reference frame the error is expressed in.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FrameSquaredTranslationErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FrameSquaredTranslationErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredTranslationErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared frame translation error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{t} - \boldsymbol{t}_d)\rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{t}\)</span> is the frame translation for a given frame of the model (in <span class="arithmatex">\(\mathcal{R}^3\)</span>)</li>
+<li><span class="arithmatex">\(\boldsymbol{t}_d\)</span> is the desired translation for that frame (in <span class="arithmatex">\(\mathcal{R}^3\)</span>)</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the translation error</li>
+<li><span class="arithmatex">\(R\)</span> is the rotation of the reference frame the error is expressed in
+   (World, Fixed, Local or Base, identity for World)</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+   <code>model.nq()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredTranslationErrorCost.set_desired_translation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_translation</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredTranslationErrorCost.set_desired_translation" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_translation</span><span class="p">(</span><span class="n">desired_translation</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired translation.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredTranslationErrorCost.set_reference_frame" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_reference_frame</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredTranslationErrorCost.set_reference_frame" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_reference_frame</span><span class="p">(</span><span class="n">reference_frame</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the reference frame the error is expressed in.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FrameSquaredTerrainHeightErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FrameSquaredTerrainHeightErrorCost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">desired_height</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared frame terrain height error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} w^2 (p_z - h(p_x, p_y) - d_d)^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{p}\)</span> is the frame translation for a given frame of the model (in <span class="arithmatex">\(\mathcal{R}^3\)</span>)</li>
+<li><span class="arithmatex">\(h\)</span> is the height of the terrain at the frame's horizontal position, the
+   model's terrain unless the cost is given one of its own</li>
+<li><span class="arithmatex">\(d_d\)</span> is the desired height of the frame above the terrain</li>
+<li><span class="arithmatex">\(w\)</span> is the weight on the height error</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+   <code>model.nq()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost.set_desired_height" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_height</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost.set_desired_height" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_height</span><span class="p">(</span><span class="n">desired_height</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired height above the terrain.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost.set_weight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_weight</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost.set_weight" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_weight</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the weight of each element.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost.set_terrain" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_terrain</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredTerrainHeightErrorCost.set_terrain" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_terrain</span><span class="p">(</span><span class="n">terrain</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the terrain this cost measures the frame's height above in place<br />
+of the model's terrain<br />
+Passing <code>None</code> restores the model's terrain</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FrameSquaredRotationErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FrameSquaredRotationErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredRotationErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared frame rotation error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert w \log_{SO(3)}R^\top R_d\rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(R\)</span> is the frame rotation for a given frame of the model (in <span class="arithmatex">\(\mathit{SO3}\)</span>)</li>
+<li><span class="arithmatex">\(R_d\)</span> is the desired rotation for that frame (in <span class="arithmatex">\(\mathit{SO3}\)</span>)</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the rotation error</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size 
+   <code>model.nq()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredRotationErrorCost.set_desired_rotation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_rotation</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredRotationErrorCost.set_desired_rotation" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_rotation</span><span class="p">(</span><span class="n">desired_rotation</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired rotation.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FrameSquaredPoseErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FrameSquaredPoseErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredPoseErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared frame pose error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} D^\top W D\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(D = \log_{SE(3)} T^{-1}T_d\)</span></li>
+<li><span class="arithmatex">\(T\)</span> is the frame pose for a given frame of the model (in <span class="arithmatex">\(\mathit{SE3}\)</span>)</li>
+<li><span class="arithmatex">\(T_d\)</span> is the desired pose for that frame (in <span class="arithmatex">\(\mathit{SE3}\)</span>)</li>
+<li><span class="arithmatex">\(W\)</span> is a weight matrix, made up of parameters <span class="arithmatex">\(w_p\)</span> for translation and <span class="arithmatex">\(w_r\)</span>
+   for rotation</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size 
+   <code>model.nq()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredPoseErrorCost.set_desired_pose" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_pose</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredPoseErrorCost.set_desired_pose" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_pose</span><span class="p">(</span><span class="n">desired_pose</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired pose.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredPoseErrorCost.set_desired_translation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_translation</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredPoseErrorCost.set_desired_translation" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_translation</span><span class="p">(</span><span class="n">desired_translation</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the translation of the desired pose.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredPoseErrorCost.set_desired_rotation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_rotation</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredPoseErrorCost.set_desired_rotation" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_rotation</span><span class="p">(</span><span class="n">desired_rotation</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the rotation of the desired pose.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredPoseErrorCost.set_translation_weight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_translation_weight</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredPoseErrorCost.set_translation_weight" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_translation_weight</span><span class="p">(</span><span class="n">translation_weight</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the weight on the translation error.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredPoseErrorCost.set_rotation_weight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_rotation_weight</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredPoseErrorCost.set_rotation_weight" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_rotation_weight</span><span class="p">(</span><span class="n">rotation_weight</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the weight on the rotation error.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FrameSquaredVelocityErrorCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FrameSquaredVelocityErrorCost</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredVelocityErrorCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined squared frame velocity error cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot (\boldsymbol{v}_f - \boldsymbol{v}_d)\rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{v}_f\)</span> is the frame velocity for a given frame of the model
+   (in <span class="arithmatex">\(\mathcal{R}^6\)</span>), with its linear and angular parts expressed in the
+   reference frame (World by default, Local, Fixed or Base)</li>
+<li><span class="arithmatex">\(\boldsymbol{v}_d\)</span> is the desired velocity for that frame (in <span class="arithmatex">\(\mathcal{R}^6\)</span>),
+   expressed in the same reference frame</li>
+<li><span class="arithmatex">\(\boldsymbol{w}\)</span> is the weight on the velocity error</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+   <code>model.nq()</code>)</li>
+<li>The model joint velocity is the final part of the state vector (size
+   <code>model.nv()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredVelocityErrorCost.set_desired_velocity" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_desired_velocity</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredVelocityErrorCost.set_desired_velocity" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_desired_velocity</span><span class="p">(</span><span class="n">desired_velocity</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the desired velocity, expressed in the reference frame.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FrameSquaredVelocityErrorCost.set_reference_frame" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_reference_frame</span>
+
+
+<a href="#ssqpy.model.costs.FrameSquaredVelocityErrorCost.set_reference_frame" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_reference_frame</span><span class="p">(</span><span class="n">reference_frame</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the reference frame the error is expressed in.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.CenterOfMassTrackingCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">CenterOfMassTrackingCost</span>
+
+
+<a href="#ssqpy.model.costs.CenterOfMassTrackingCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined center of mass (CoM) tracking cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \frac{1}{2} \lVert \boldsymbol{w} \odot R^\top (\boldsymbol{c} - \boldsymbol{c}_r)\rVert_2^2\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{c}\)</span> is the center of mass for the model (in <span class="arithmatex">\(\mathcal{R}^3\)</span>)</li>
+<li><span class="arithmatex">\(\boldsymbol{c}_r\)</span> is the reference point for the center of mass (in <span class="arithmatex">\(\mathcal{R}^3\)</span>)</li>
+<li><span class="arithmatex">\(R\)</span> is the rotation of the reference frame the error is expressed in
+   (World, Fixed or Base, identity for World)</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+   <code>model.nq()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.CenterOfMassTrackingCost.set_reference_frame" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_reference_frame</span>
+
+
+<a href="#ssqpy.model.costs.CenterOfMassTrackingCost.set_reference_frame" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_reference_frame</span><span class="p">(</span><span class="n">reference_frame</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the reference frame the error is expressed in.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.CenterOfMassTrackingCost.set_cref" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_cref</span>
+
+
+<a href="#ssqpy.model.costs.CenterOfMassTrackingCost.set_cref" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_cref</span><span class="p">(</span><span class="n">cref</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the reference point for the center of mass.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="ssqpy.model.costs.FramesInverseSquaredDistanceCost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">FramesInverseSquaredDistanceCost</span>
+
+
+<a href="#ssqpy.model.costs.FramesInverseSquaredDistanceCost" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;StageCost&lt;/span&gt; (&lt;code&gt;ssqpy.model.costs.StageCost&lt;/code&gt;)" href="./#ssqpy.model.costs.StageCost">StageCost</a></code></p>
+
+
+
+        <p>Predefined frames squared inverse distance cost</p>
+<p>Defines the cost term <span class="arithmatex">\(\ell(\boldsymbol{x}, \boldsymbol{u}) = \sum_{i &lt; j} \frac{w}{2 \lVert \boldsymbol{\sigma} \odot R^\top (\boldsymbol{t}_i - \boldsymbol{t}_j)\rVert_2^2}\)</span></p>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\boldsymbol{t}_i\)</span> is the frame translation for frame <span class="arithmatex">\(i\)</span> of the model (in <span class="arithmatex">\(\mathcal{R}^3\)</span>)</li>
+<li><span class="arithmatex">\(w\)</span> is the weight on the translation error</li>
+<li><span class="arithmatex">\(\boldsymbol{\sigma}\)</span> is the distance scale, a per-axis vector (in <span class="arithmatex">\(\mathcal{R}^3\)</span>) determining the
+   scaling factor for each axis; the factors work in an inverse manner, i.e.
+   larger values place less importance on an axis, while smaller ones place
+   more</li>
+<li><span class="arithmatex">\(R\)</span> is the rotation of the reference frame whose axes the distance scale
+   applies along (World, Fixed or Base, identity for World)</li>
+</ul>
+<p>Assumes:</p>
+<ul>
+<li>The model joint configuration is the first part of the state vector (size
+   <code>model.nq()</code>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FramesInverseSquaredDistanceCost.set_reference_frame" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_reference_frame</span>
+
+
+<a href="#ssqpy.model.costs.FramesInverseSquaredDistanceCost.set_reference_frame" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_reference_frame</span><span class="p">(</span><span class="n">reference_frame</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the reference frame whose axes the distance scale applies along.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="ssqpy.model.costs.FramesInverseSquaredDistanceCost.set_weight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">set_weight</span>
+
+
+<a href="#ssqpy.model.costs.FramesInverseSquaredDistanceCost.set_weight" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_weight</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Sets the weight.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: ssqpy.model">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                ssqpy.model
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../constraints/" class="md-footer__link md-footer__link--next" aria-label="Next: constraints">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                constraints
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025-2026 Nick Karydakis, Konstantinos Chatzilygeroudis and the Laboratory of Automation and Robotics (LAR), University of Patras
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/upatras-lar/ssqp" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../../../..","features":["content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow"],"redirect":null,"search":"../../../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      
+        <script src="../../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../../../javascripts/benchmark-tolerance.js"></script>
+      
+        <script src="../../../../javascripts/lar-button.js"></script>
+      
+    
+  </body>
+</html>

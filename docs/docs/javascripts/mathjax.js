@@ -7,7 +7,9 @@ window.MathJax = {
     displayMath: [["\\[", "\\]"]],
     processEscapes: true,
     processEnvironments: true,
-    packages: { "[+]": ["boldsymbol"] }
+    packages: { "[+]": ["boldsymbol"] },
+    // Used by the C++ API reference
+    macros: { norm: ["\\left\\lVert #1\\right\\rVert", 1] }
   },
   options: {
     ignoreHtmlClass: ".*|",

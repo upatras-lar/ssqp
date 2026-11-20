@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Doxygen INPUT_FILTER: hides protected/private members from the docs.
+"""Doxygen input filter: hides protected/private members and converts math.
 
 Doxygen has no "EXTRACT_PROTECTED" setting -- a protected/private member is
 emitted as soon as it has a doc comment, and (confirmed directly in Doxygen's
@@ -9,7 +9,7 @@ the access specifier the declaration itself sits under). There is no config
 option that reliably keeps these out of the generated reference.
 
 Doxygen supports piping every input file through an external command before
-parsing it (INPUT_FILTER, configured in mkdocs.yml) and parses whatever that
+parsing it (FILTER_PATTERNS, configured in Doxyfile) and parses whatever that
 command prints to stdout -- the actual files on disk are never touched. This
 filter finds every `protected:`/`private:` access-specifier section in a
 class/struct body and wraps it in `@cond`/`@endcond`, Doxygen's own "skip
@@ -18,6 +18,11 @@ the first place (rather than being generated and then filtered back out of
 the rendered markdown). Detection is purely structural (brace depth), not
 keyed to any specific class or member name, so this applies uniformly to
 every class in the codebase, including ones added later.
+
+The header comments write math GitHub-style, as `$...$` and `$$...$$`, which
+Doxygen does not recognize. The filter rewrites them to Doxygen's `\\f$...\\f$`
+and `\\f[...\\f]` formulas, which Doxygen keeps intact in its XML output
+instead of parsing them as Markdown.
 """
 
 from __future__ import annotations
@@ -26,6 +31,8 @@ import re
 import sys
 
 _ACCESS_RE = re.compile(r"\b(public|protected|private)\s*:")
+_DISPLAY_MATH_RE = re.compile(r"\$\$(.+?)\$\$", re.S)
+_INLINE_MATH_RE = re.compile(r"\$([^$\n]+?)\$")
 
 
 def _brace_depths(text: str) -> list[int]:
@@ -89,10 +96,15 @@ def hide_non_public_sections(text: str) -> str:
     return "".join(out)
 
 
+def convert_math(text: str) -> str:
+    text = _DISPLAY_MATH_RE.sub(lambda m: r"\f[" + m.group(1) + r"\f]", text)
+    return _INLINE_MATH_RE.sub(lambda m: r"\f$" + m.group(1) + r"\f$", text)
+
+
 def main() -> None:
     with open(sys.argv[1], "r", encoding="utf-8") as f:
         text = f.read()
-    sys.stdout.write(hide_non_public_sections(text))
+    sys.stdout.write(convert_math(hide_non_public_sections(text)))
 
 
 if __name__ == "__main__":

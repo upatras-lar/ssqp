@@ -25,7 +25,7 @@ back.
 ## Go2 Walk
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_walk.mp4" type="video/mp4">
+  <source src="assets/go2_walk.mp4" type="video/mp4">
 </video>
 
 The Go2 quadruped walking 2 meters forward. Produced by
@@ -44,7 +44,7 @@ sequence with no other changes to the problem.
 ## Go2 Frog
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_frog.mp4" type="video/mp4">
+  <source src="assets/go2_frog.mp4" type="video/mp4">
 </video>
 
 The Go2 bounding forward 2 meters with a frog-like, feet-together gait, rather than the alternating-diagonal
@@ -62,7 +62,7 @@ the ground when is just as representable as a standard one.
 ## Go2 Multi-Jump
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_multi_jump.mp4" type="video/mp4">
+  <source src="assets/go2_multi_jump.mp4" type="video/mp4">
 </video>
 
 The Go2 performing five jumps in place (the same start and end position), also seen on the [Home](index.md) page.
@@ -80,7 +80,7 @@ four-foot stance every time.
 ## G1 Jump
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/g1_jump.mp4" type="video/mp4">
+  <source src="assets/g1_jump.mp4" type="video/mp4">
 </video>
 
 The Unitree G1 humanoid jumping vertically in place, torso held level and upright throughout. Produced by
@@ -97,7 +97,7 @@ solver 8 simultaneous contact constraints to schedule per stance stage instead o
 ## G1 Walk
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/g1_walk.mp4" type="video/mp4">
+  <source src="assets/g1_walk.mp4" type="video/mp4">
 </video>
 
 The Unitree G1 humanoid walking 3 meters forward. Produced by
@@ -116,7 +116,7 @@ weight also damps the hip-yaw joints specifically, keeping the walk heading stra
 ## Panda Circle
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/panda_circle.mp4" type="video/mp4">
+  <source src="assets/panda_circle.mp4" type="video/mp4">
 </video>
 
 A Franka Panda end effector tracing a circle in task space via frame-pose tracking costs, constrained (with `--constrain`, the

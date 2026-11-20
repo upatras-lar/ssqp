@@ -3,11 +3,11 @@ hide:
   - navigation
 ---
 
-# SSQP
+<div class="home-intro" markdown>
 
-<video autoplay loop muted playsinline style="float: left; width: 340px; margin: 0.25rem 1.5rem 1rem 0; border-radius: 8px;">
-  <source src="assets/go2_multi_jump.mp4" type="video/mp4">
-</video>
+<h1><img src="assets/ssqp-logo.svg#only-light" alt="SSQP" width="340"><img src="assets/ssqp-logo-dark.svg#only-dark" alt="SSQP" width="340"></h1>
+
+<div markdown>
 
 SSQP is an implementation of a **S**tructure-exploiting **S**equential **Q**uadratic **P**rogramming (SQP) Non-Linear
 Problem (NLP) solver that works natively on manifolds, specifically tailored to Optimal Control Problems (OCPs) of the following form:
@@ -21,6 +21,10 @@ $$
     \boldsymbol{c}_H(\boldsymbol{x}_H) \geq \boldsymbol{0} &
 \end{split}
 $$
+
+</div>
+
+</div>
 
 Where:
 

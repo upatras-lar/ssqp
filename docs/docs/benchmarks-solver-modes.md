@@ -48,14 +48,14 @@ python plot.py pendubot -q hpipm
 The same [Pendubot Swing-Up](examples/pendubot.md) problem as in the solver benchmarks, run here with a randomized
 target configuration per problem, comparing `ForwardDynamics` against `InverseDynamics`.
 
-<img src="../assets/solver_modes_pendubot.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
+<img src="assets/solver_modes_pendubot.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
 
 ## Panda
 
 The Franka Panda reaching random targets within its feasible region, comparing `ForwardDynamics` against
 `InverseDynamics`.
 
-<img src="../assets/solver_modes_panda.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
+<img src="assets/solver_modes_panda.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
 
 ## Go2
 
@@ -63,7 +63,7 @@ The Go2 quadruped walking to a randomized target pose, comparing all three dynam
 `InverseDynamics`, and `ReducedInverseDynamics` (which propagates the unactuated floating base implicitly instead of
 constraining it explicitly).
 
-<img src="../assets/solver_modes_go2.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
+<img src="assets/solver_modes_go2.png" style="display: block; margin: 0 auto; max-width: 50%; border-radius: 8px;">
 
 ## Go2 Multi Jump
 

@@ -16,7 +16,7 @@ simulator, SSQP re-solves a short horizon at every control step, and only the fi
 ## Pendubot Swing-Up
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/pendubot_mujoco_mpc.mp4" type="video/mp4">
+  <source src="assets/pendubot_mujoco_mpc.mp4" type="video/mp4">
 </video>
 
 The pendubot, a double pendulum with only its shoulder joint actuated, swinging up and balancing upright. Produced by
@@ -28,7 +28,7 @@ this problem is covered in [Pendubot Swing-Up](examples/pendubot.md).
 ## Panda Obstacle Avoidance
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/panda_mujoco_mpc.mp4" type="video/mp4">
+  <source src="assets/panda_mujoco_mpc.mp4" type="video/mp4">
 </video>
 
 A Franka Panda reaching a new random goal every few seconds, drawn as a red sphere, while a random pillar placed
@@ -41,7 +41,7 @@ closely related [Panda Circle (MPC)](examples/panda-circle-mpc.md) is covered in
 ## Go2 Standing on Three Legs
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_standing_mujoco_mpc.webm" type="video/webm">
+  <source src="assets/go2_standing_mujoco_mpc.webm" type="video/webm">
 </video>
 
 The Go2 standing on three legs, with a fourth foot lifted, while pushes of increasing force are applied to it in the
@@ -53,7 +53,7 @@ that contact, and the optimization soon fails.
 ## Go2 Walking
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 520px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/go2_walking_mujoco_mpc.webm" type="video/webm">
+  <source src="assets/go2_walking_mujoco_mpc.webm" type="video/webm">
 </video>
 
 A gamepad-driven trot, showing the walk itself, jumping in place, turning the base's orientation while the feet stay

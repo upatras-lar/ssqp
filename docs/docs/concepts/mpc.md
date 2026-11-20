@@ -30,7 +30,7 @@ what actually bound the per-step solve time:
 * `sqp_iters`: maximum SSQP iterations per MPC step (default keeps this low, e.g. `5`–`10`, since MPC relies on
   warm-starting rather than solving to full convergence every step)
 * `qp_iters`: maximum QP solver iterations per SSQP iteration
-* `keep_convergence_data`: whether to retain per-step [`ssqpConvergenceData`](../reference/solvers.md), retrievable
+* `keep_convergence_data`: whether to retain per-step [`ssqpConvergenceData`](../reference/ssqpy/solvers/index.md), retrievable
   via `mpc.getConvergenceData()`, for logging/analysis
 
 ## Warm-starting
@@ -42,7 +42,7 @@ what actually bound the per-step solve time:
 * `step(states, controls)`: warm-start explicitly with the given trajectories instead of the previous solution.
 * `step()`: advance using the current internal guess as-is.
 
-Every `step` variant returns the full `(x, u)` [`FlatVec`](../reference/solvers.md#ssqpy.solvers.FlatVec)
+Every `step` variant returns the full `(x, u)` [`FlatVec`](../reference/ssqpy/solvers/index.md#ssqpy.solvers.FlatVec)
 trajectories; in a control loop you typically only apply `u.stage(0)` before the next `step` call.
 
 See [`examples/mujoco_mpc`](../examples.md) and [`examples/real_mpc`](../examples.md) for complete simulated and

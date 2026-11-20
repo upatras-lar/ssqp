@@ -95,7 +95,7 @@ a different QP backend; this is a much less pathological problem than Pendubot's
 trap to route around), so the default `ADMM` solver, given a reasonably good initial guess, is enough. After
 solving, `model.forwardKinematics(q, "panda_ee")` is used (in the plotting code that follows, not shown here) to
 recover the actual end-effector path from the solved joint trajectory, for comparison against the target `traj`,
-using the same [Pinocchio-backed algorithm](../cpp-reference/model.md#function-forwardkinematics) used internally
+using the same [Pinocchio-backed algorithm](../cpp-reference/ssqp/model/index.md#ssqp.model.Model.forwardKinematics) used internally
 by the frame-based costs and constraints; this is exactly how you'd check tracking accuracy for any frame-based
 task, not just in plotting code.
 

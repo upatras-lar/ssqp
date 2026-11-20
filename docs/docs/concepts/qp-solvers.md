@@ -129,5 +129,5 @@ PIQP differs from the other backends in a few ways:
 gain matrices $P, K$) and a full `unconstrained` solve. It is not exposed as a standalone `QPSolverType`; instead it
 backs the ADMM solver's per-iteration linear solves.
 
-See the [API reference](../reference/solvers.md) for `ssqpParams`, `admmParams`, `hpipmParams` and `piqpParams` in
+See the [API reference](../reference/ssqpy/solvers/index.md) for `ssqpParams`, `admmParams`, `hpipmParams` and `piqpParams` in
 full.

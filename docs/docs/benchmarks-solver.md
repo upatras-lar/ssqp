@@ -121,40 +121,40 @@ python plot_grid_search.py duffing_local --duffing-m 2 4 16 64 256 --duffing-hor
 ## Pendubot
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_pendubot.mp4" type="video/mp4">
+  <source src="assets/benchmark_pendubot.mp4" type="video/mp4">
 </video>
 
 The [Pendubot Swing-Up](examples/pendubot.md) problem: an underactuated double pendulum swinging from hanging to
 upright, actuated at the shoulder joint only.
 
-<img src="../assets/pendubot_benchmark_tol_0_01.png" data-benchmark="pendubot" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+<img src="assets/pendubot_benchmark_tol_0_01.png" data-benchmark="pendubot" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Go2 Standing
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_go2_standing.mp4" type="video/mp4">
+  <source src="assets/benchmark_go2_standing.mp4" type="video/mp4">
 </video>
 
 The Go2 quadruped holding a fixed standing configuration, all four feet in contact throughout, with no other motion
 target. A short, contact-heavy but otherwise static regulation problem.
 
-<img src="../assets/go2_standing_benchmark_tol_0_01.png" data-benchmark="go2_standing" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+<img src="assets/go2_standing_benchmark_tol_0_01.png" data-benchmark="go2_standing" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Go2 Jump
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_go2_jump.mp4" type="video/mp4">
+  <source src="assets/benchmark_go2_jump.mp4" type="video/mp4">
 </video>
 
 The [Go2 Jump](examples/go2-jump.md) problem: stance, flight, stance, with all four feet leaving the ground for a
 scheduled window in the middle and landing back at a specified footprint. In this case, the front left foot has _no contact_ and, therefore, should always remain in air.
 
-<img src="../assets/go2_jump_benchmark_tol_0_01.png" data-benchmark="go2_jump" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+<img src="assets/go2_jump_benchmark_tol_0_01.png" data-benchmark="go2_jump" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Go2 Wheelie
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_go2_wheelie.mp4" type="video/mp4">
+  <source src="assets/benchmark_go2_wheelie.mp4" type="video/mp4">
 </video>
 
 The Go2 rearing up on its rear two feet: the rear feet stay in stance for the whole horizon, while the front two
@@ -162,12 +162,12 @@ lift off for a window in the middle and come back down at the end. Unlike [Go2 J
 trajectory for the freed feet; the standing-configuration cost is what pulls them (and the rest of the robot) back
 down once the window closes.
 
-<img src="../assets/go2_wheelie_benchmark_tol_0_01.png" data-benchmark="go2_wheelie" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+<img src="assets/go2_wheelie_benchmark_tol_0_01.png" data-benchmark="go2_wheelie" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Go2 Frog
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_go2_frog.mp4" type="video/mp4">
+  <source src="assets/benchmark_go2_frog.mp4" type="video/mp4">
 </video>
 
 A longer, four-hop bounding motion 2 meters forward, with staggered per-leg liftoff/landing and brief full-flight
@@ -177,12 +177,12 @@ directly rather than through the benchmark harness, as [Go2 Frog](gallery.md#go2
 mim_solvers and Aligator both failed to converge on this problem (see "Known gaps" above), so only the two SSQP
 solvers are meaningfully compared below.
 
-<img src="../assets/go2_frog_benchmark_tol_0_01.png" data-benchmark="go2_frog" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+<img src="assets/go2_frog_benchmark_tol_0_01.png" data-benchmark="go2_frog" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Panda Circle
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="../assets/benchmark_panda_circle.mp4" type="video/mp4">
+  <source src="assets/benchmark_panda_circle.mp4" type="video/mp4">
 </video>
 
 The Franka Panda tracing the circular (green) end effector path in task space via frame-pose tracking costs, additionally
@@ -190,7 +190,7 @@ constrained to the rectangular window (red) inscribed in that circle, same as
 [Panda Circle (Trajectory Generation)](examples/panda-circle-trajgen.md), reformulated here in
 `ForwardDynamics` mode (torque-actuated) so every backend solves an equivalent problem.
 
-<img src="../assets/panda_circle_benchmark_tol_0_01.png" data-benchmark="panda_circle" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+<img src="assets/panda_circle_benchmark_tol_0_01.png" data-benchmark="panda_circle" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ## Coupled Oscillators
 
@@ -206,8 +206,8 @@ solver ran but didn't converge is marked with a red X.
 
 ### Local Coupling
 
-<img src="../assets/duffing_local_benchmark_tol_0_01.png" data-benchmark="duffing_local" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+<img src="assets/duffing_local_benchmark_tol_0_01.png" data-benchmark="duffing_local" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
 
 ### Global Coupling
 
-<img src="../assets/duffing_global_benchmark_tol_0_01.png" data-benchmark="duffing_global" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">
+<img src="assets/duffing_global_benchmark_tol_0_01.png" data-benchmark="duffing_global" style="display: block; margin: 0 auto; max-width: 100%; border-radius: 8px;">

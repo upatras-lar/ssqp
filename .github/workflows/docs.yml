@@ -32,7 +32,7 @@ jobs:
           sudo apt-get install -y \
             build-essential cmake git python3-dev python3-numpy python3-venv \
             libeigen3-dev libboost-filesystem-dev libboost-serialization-dev \
-            doxygen graphviz
+            doxygen
 
       # -march=native bakes the runner CPU into the cached build
       - name: Identify CPU
@@ -58,9 +58,16 @@ jobs:
           python3 -m venv docvenv
           docvenv/bin/pip install -r docs/requirements.txt
 
+      # The C++ API reference pages are generated from Doxygen's XML
+      - name: Build the C++ reference
+        working-directory: docs
+        run: |
+          doxygen Doxyfile
+          python3 cpp_reference.py api/xml docs/cpp-reference/ssqp
+
       - name: Build documentation
         working-directory: docs
-        run: ../docvenv/bin/mkdocs build --strict
+        run: ../docvenv/bin/zensical build --clean --strict
 
       # Pull requests only build the docs
       - name: Deploy website

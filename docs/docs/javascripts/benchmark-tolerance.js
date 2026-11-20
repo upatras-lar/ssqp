@@ -5,9 +5,6 @@ function applyBenchmarkTolerance(tolerance) {
     const link = img.closest("a.glightbox");
     if (link) link.href = img.src;
   });
-  // Rebuilds glightbox's element list so the zoomed view matches the
-  // tolerance just applied, instead of the one baked in at page load
-  lightbox.reload();
 }
 
 // Keeps the sticky selector flush under Material's fixed header, and pushes

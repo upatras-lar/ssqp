@@ -1,0 +1,3 @@
+# ssqpy
+
+::: ssqpy
