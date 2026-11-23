@@ -248,8 +248,14 @@ JUMP_LAND_FORCE = 90.0
 # down rather than on schedule. Feet still in the air then keep swinging over
 # the plan's next JUMP_TOUCH_STAGES, until they touch down as well
 JUMP_TOUCH_STAGES = 0
-# Stages after every foot has landed before the feet step back under the hips
+# Stages after every foot has landed before the feet step back under the hips.
+# They wait longer while the base still moves faster than JUMP_TROT_SPEED
+# (m/s), up to JUMP_TROT_MAX_DELAY stages, and the plan sees the steps coming
+# JUMP_TROT_NOTICE stages ahead
 JUMP_TROT_DELAY = 20
+JUMP_TROT_MAX_DELAY = 40
+JUMP_TROT_SPEED = 0.15
+JUMP_TROT_NOTICE = 10
 # How many gait cycles to perform after landing
 JUMP_TROT_CYCLES = 2
 # Forward jump, started by the forward jump button in the same way as the jump
@@ -270,7 +276,7 @@ JUMP_TROT_CYCLES = 2
 # FORWARD_JUMP_MAX_SPEED, or when the feet would land on different levels
 FORWARD_JUMP_DISTANCE = 0.6
 FORWARD_JUMP_RISE = 0.04
-FORWARD_JUMP_EDGE_MARGIN = 0.12
+FORWARD_JUMP_EDGE_MARGIN = 0.20
 FORWARD_JUMP_MAX_DISTANCE = 1.0
 FORWARD_JUMP_CROUCH_HEIGHT = 0.15
 FORWARD_JUMP_TAKEOFF_HEIGHT = 0.38
@@ -858,6 +864,10 @@ def create_controller(
         # Feet still in the air once the landing has started, which swing
         # until the stage before touch_stage
         "falling_feet": set(),
+        # Stage at which every foot had landed, and whether the trot still
+        # waits for the base to slow down
+        "all_landed": None,
+        "trot_waiting": False,
         "touch_stage": 0,
         "ground_mode": GROUND_MODE_NORMAL,
         "no_contact_time": 0.0,
@@ -2120,6 +2130,8 @@ def create_controller(
                 est["takeoff_at"] = est["jump_start"] + get_takeoff_stage()
                 est["falling_feet"] = set()
                 est["flight_configs"] = compute_jump_flight_configurations()
+                est["touchdown_reset"] = False
+                est["all_landed"] = None
         est["jump_held"] = jump
         est["forward_jump_held"] = forward_jump
 
@@ -2131,35 +2143,45 @@ def create_controller(
         j = get_jump_stage(current_stage)
         takeoff = get_takeoff_stage()
         touchdown = get_landing_stage()
+
+        def reset_height_at_touchdown(touching):
+            # The base's height from the feet that touched down
+            est["touchdown_reset"] = True
+            _, positions, _ = estimate_base_motion_from_stance_feet(
+                config, vel, touching
+            )
+            reset = np.mean([positions[n][2] for n in touching])
+            # Forward jumps land away from where the feet took off, so the
+            # height comes from the terrain where they touch down
+            if est["jump_landing"] is not None:
+                _, R, feet = estimate_robot_state(config, vel)
+                reset = np.mean(
+                    [
+                        project_point_to_terrain(
+                            est["filter"][1][:3] + R @ feet[n]
+                        )[2]
+                        - (R @ feet[n])[2]
+                        for n in touching
+                    ]
+                )
+            # The filter runs alongside, so it takes the reset as well
+            filter_time, x, P = est["filter"]
+            x = x.copy()
+            x[2] = reset
+            est["filter"] = (filter_time, x, P)
+            est["filter_reset"] = reset
+
         if contacts is not None and j is not None:
             touching = [n for n, c in zip(FOOT_NAMES, contacts) if c]
             if takeoff + 1 < j < touchdown and touching:
                 est["jump_start"] = current_stage - touchdown
                 est["falling_feet"] = set(FOOT_NAMES) - set(touching)
-                _, positions, _ = estimate_base_motion_from_stance_feet(
-                    config, vel, touching
-                )
-                reset = np.mean([positions[n][2] for n in touching])
-                # Forward jumps land away from where the feet took off, so
-                # the height comes from the terrain where they touch down
-                if est["jump_landing"] is not None:
-                    _, R, feet = estimate_robot_state(config, vel)
-                    reset = np.mean(
-                        [
-                            project_point_to_terrain(
-                                est["filter"][1][:3] + R @ feet[n]
-                            )[2]
-                            - (R @ feet[n])[2]
-                            for n in touching
-                        ]
-                    )
-                # The filter runs alongside, so it takes the reset as well
-                filter_time, x, P = est["filter"]
-                x = x.copy()
-                x[2] = reset
-                est["filter"] = (filter_time, x, P)
-                est["filter_reset"] = reset
+                reset_height_at_touchdown(touching)
             elif touchdown <= j < touchdown + est["jump_land"]:
+                # A touchdown after the landing started on schedule resets
+                # the height as well
+                if touching and not est["touchdown_reset"]:
+                    reset_height_at_touchdown(touching)
                 est["falling_feet"] -= set(touching)
             else:
                 est["falling_feet"] = set()
@@ -2173,13 +2195,22 @@ def create_controller(
             j is not None
             and touchdown <= j <= touchdown + est["jump_land"]
             and not est["falling_feet"]
-            and est["gait_start"] is None
+            and est["all_landed"] is None
         ):
-            est["gait_start"] = current_stage + 1 + JUMP_TROT_DELAY
-            est["gait_stop"] = (
-                est["gait_start"]
-                + JUMP_TROT_CYCLES * get_gait_cycle_length_stages()
-            )
+            est["all_landed"] = current_stage
+            est["trot_waiting"] = True
+        if est["trot_waiting"]:
+            waited = current_stage - est["all_landed"]
+            slow = np.linalg.norm(est["filter"][1][3:5]) < JUMP_TROT_SPEED
+            if slow or waited + JUMP_TROT_NOTICE >= JUMP_TROT_MAX_DELAY:
+                est["trot_waiting"] = False
+                est["gait_start"] = current_stage + 1 + max(
+                    JUMP_TROT_DELAY - waited, JUMP_TROT_NOTICE
+                )
+                est["gait_stop"] = (
+                    est["gait_start"]
+                    + JUMP_TROT_CYCLES * get_gait_cycle_length_stages()
+                )
         if est["jump_start"] is not None:
             moving = False
             orientation = [0, 0, 0]
