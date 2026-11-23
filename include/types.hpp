@@ -267,6 +267,8 @@ inline const std::unordered_map<std::string, SolverMode> str_to_DM = {
     { "ReducedInverseDynamics", SolverMode::ReducedInverseDynamics }
 };
 
+namespace presets
+{
 /** Model Preset
  * Selects a URDF baked into the ssqp binary at build time, so a model can be
  * built without the caller supplying a urdf_path (see model/presets/Presets.hpp)
@@ -311,6 +313,7 @@ inline const std::unordered_map<std::string, Preset> str_to_Preset = {
     {          "Talos",          Preset::Talos },
     { "DoublePendulum", Preset::DoublePendulum }
 };
+}
 
 namespace stagewise
 {

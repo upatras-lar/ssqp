@@ -15,7 +15,6 @@ site_description = "Structure-exploiting Sequential Quadratic Programming for Op
 repo_url = "https://github.com/upatras-lar/ssqp"
 repo_name = "upatras-lar/ssqp"
 copyright = "Copyright &copy; 2025-2026 Nick Karydakis, Konstantinos Chatzilygeroudis and the Laboratory of Automation and Robotics (LAR), University of Patras"
-edit_uri = "edit/main/docs/docs/"
 dev_addr = "150.140.184.35:8000"
 docs_dir = "docs"
 site_dir = "site"
@@ -118,7 +117,6 @@ language = "en"
 logo = "assets/ssqp-mark.svg"
 favicon = "assets/ssqp-mark-adaptive.svg"
 features = [
-  "content.action.edit",
   "content.code.annotate",
   "content.code.copy",
   "content.code.select",

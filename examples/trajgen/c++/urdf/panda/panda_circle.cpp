@@ -111,7 +111,7 @@ int main()
 
     // Define SSQP model
     ssqp::model::Model::Structure model_structure;
-    model_structure.from_preset = ssqp::model::Preset::Panda;
+    model_structure.from_preset = ssqp::model::presets::Preset::Panda;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     Eigen::VectorXd init_state = Eigen::VectorXd::Zero(2 * STATE_SIZE);

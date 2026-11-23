@@ -142,7 +142,7 @@ int main()
                                                      terminal_cost_hess_xx);
 
     ssqp::model::Model::Structure model_structure;
-    model_structure.from_preset = ssqp::model::Preset::Panda;
+    model_structure.from_preset = ssqp::model::presets::Preset::Panda;
 
     ssqp::model::Model::Config model_config;
     model_config.stage_cost    = cost;

@@ -92,7 +92,7 @@ class Model
         std::string                       urdf_path;
         std::string                       mjcf_path;
         bool                              free_flyer  = false;
-        Preset                            from_preset = Preset::None;
+        presets::Preset                   from_preset = presets::Preset::None;
         std::shared_ptr<terrain::Terrain> terrain     = nullptr;
         SolverMode                        solver_mode = ForwardDynamics;
         IntegrationScheme                 integration = SemiImplicitEuler;

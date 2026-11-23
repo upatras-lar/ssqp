@@ -1,7 +1,7 @@
 <h1>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://lar.upatras.gr/ssqp/assets/ssqp-logo-dark.svg">
-    <img alt="SSQP" src="https://lar.upatras.gr/ssqp/assets/ssqp-logo.svg" width="360">
+    <source media="(prefers-color-scheme: dark)" srcset="https://lar.upatras.gr/ssqp/assets/ssqp-logo-tagline-dark.svg">
+    <img alt="SSQP: Structure-exploiting Sequential Quadratic Programming" src="https://lar.upatras.gr/ssqp/assets/ssqp-logo-tagline.svg" width="360">
   </picture>
 </h1>
 

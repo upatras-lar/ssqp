@@ -26,6 +26,10 @@ $$
 
 </div>
 
+<div class="content-row" markdown>
+
+<div class="content-list" markdown>
+
 Where:
 
 * $\boldsymbol{x}$ and $\boldsymbol{u}$ are the optimization variables corresponding to the system state and controls,
@@ -33,6 +37,18 @@ Where:
 * $\ell_k(\cdot) \in \mathcal{R}$ is the cost function for optimization stage $k$,
 * $\boldsymbol{f}_k(\cdot) \in \mathcal{R}^{n_x}$ is the dynamics function for optimization stage $k$, and
 * $\boldsymbol{c}_k(\cdot) \in \mathcal{R}^{n_c}$ is the constraints function for optimization stage $k$.
+
+</div>
+
+<div class="content-video">
+
+<video autoplay loop muted playsinline style="float: left; width: 300px; margin: 0.25rem 1.5rem 1rem 0; border-radius: 8px;">
+  <source src="assets/go2_multi_jump.mp4" type="video/mp4">
+</video>
+
+</div>
+
+</div>
 
 This problem formulation splits the OCP into multiple stages up to a desired time horizon and allows the user to
 assign costs and constraints for each of those stages.

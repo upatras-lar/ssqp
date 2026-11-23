@@ -30,15 +30,15 @@ model = ssqpy.model.Model(horizon, dt)
 A model can be defined in two ways, which can also be mixed:
 
 1. **Custom function objects**: subclass `StageCost`, `StageDynamics` and (optionally) `StageConstraints` and pass
-   instances to `model.finalize(...)`, as in the [Quickstart](../getting-started/quickstart.md). This is required
+   instances to `model.finalize(...)`, as in the [Quickstart](../getting-started/quickstart.md) example. This is required
    for systems that are not described by a robot XML file (e.g. simplified/reduced models).
 2. **XML description files**: pass `urdf_path` or `mjcf_path` to the constructor to load a robot description via
    [Pinocchio](https://github.com/stack-of-tasks/pinocchio). This gives access to robot algorithms (forward/inverse
    dynamics, kinematics, Jacobians) that the [predefined costs and constraints](costs-constraints-dynamics.md) use
    internally, and lets you use `Model.addContactConstraint` for contact-implicit stages.
 
-When a model is constructed from an XML file, it is not immediately usable for optimization: call `finalize()` to
-assign costs/dynamics/constraints (explicitly, or letting the model build its own robot dynamics) before solving.
+When a model is constructed from an XML file, it is not immediately usable for optimization. Assign costs and
+constraints to it, then call `finalize()` before solving.
 `model.finalized` reports whether this has happened.
 
 ### Built-in presets
@@ -50,8 +50,8 @@ A handful of common robots are baked into the ssqp binary as URDF presets, so th
 model = ssqpy.model.Model(horizon, dt, from_preset=ssqpy.model.Preset.Go2)
 ```
 
-Available presets: `Go2`, `A1`, `Panda`, `G1`, `Talos`, `DoublePendulum` (`ssqpy.model.Preset.NONE` is the default,
-meaning no preset). Each preset fixes its own `urdf_path` and `free_flyer`, so `from_preset` is mutually exclusive
+Available presets: `Go2`, `A1`, `Panda`, `G1`, `Talos`, `DoublePendulum` (`ssqpy.model.Preset.NONE` is the default). 
+Each preset fixes its own `urdf_path` and `free_flyer`, so `from_preset` is mutually exclusive
 with `urdf_path`, `mjcf_path` and `free_flyer`; passing both raises an error.
 
 ### Constructor arguments
@@ -68,7 +68,7 @@ Model(horizon: int, dt: float, **kwargs)
 | `solver_mode` | The [`SolverMode`](#solver-mode) formulation to optimize in |
 | `integration` | The [`Integration`](#integration-scheme) scheme used to propagate state |
 | `ignore_innate_constraints` | Whether to ignore joint/velocity/torque limits declared in the XML |
-| `actuated_joints` | Restrict actuation to a subset of joint indices |
+| `actuated_joints` | Restrict actuation to this subset of joint indices |
 
 ### `finalize` arguments
 

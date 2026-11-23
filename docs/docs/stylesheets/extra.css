@@ -163,3 +163,37 @@
     grid-template-columns: 1fr;
   }
 }
+
+.content-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 30px;
+    width: 120%;
+}
+
+.content-list {
+    flex: 1;
+    min-width: 0;
+}
+
+.content-video {
+    flex: 0 0 40%;
+}
+
+.content-video iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    border-radius: 8px;
+}
+
+/* Responsive layout for mobile devices */
+@media (max-width: 768px) {
+    .content-row {
+        flex-direction: column;
+    }
+
+    .content-video {
+        width: 100%;
+    }
+}

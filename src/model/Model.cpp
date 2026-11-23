@@ -91,7 +91,7 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
     _lin_dims.stage_control.resize(_lin_dims.horizon);
     _lin_dims.stage_constraint.resize(_lin_dims.horizon + 1);
 
-    if (structure.from_preset != Preset::None &&
+    if (structure.from_preset != presets::Preset::None &&
         (!structure.urdf_path.empty() || !structure.mjcf_path.empty() ||
          structure.free_flyer))
     {
@@ -101,13 +101,13 @@ Model::Model(uint horizon, double dt, const Model::Structure &structure)
     }
 
     _xml = !structure.urdf_path.empty() || !structure.mjcf_path.empty() ||
-           structure.from_preset != Preset::None;
+           structure.from_preset != presets::Preset::None;
 
     if (_xml)
     {
         _impl = pinocchio_wrapper::makeImpl();
 
-        if (structure.from_preset != Preset::None)
+        if (structure.from_preset != presets::Preset::None)
         {
             _free_flyer = presets::freeFlyer(structure.from_preset);
             pinocchio_wrapper::buildModelFromUrdfXML(

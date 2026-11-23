@@ -751,7 +751,7 @@ void jointControlConstraintBoundsFirstControls()
                        model::SolverMode::ForwardDynamics })
     {
         model::Model::Structure structure;
-        structure.from_preset = model::Preset::Go2;
+        structure.from_preset = model::presets::Preset::Go2;
         structure.solver_mode = mode;
         model::Model model(1, 0.01, structure);
 
@@ -789,7 +789,7 @@ void costSeesForcesAddedLater()
     using model::stagewise::predefined::costs::SquaredJointVelocityCost;
 
     model::Model::Structure structure;
-    structure.from_preset = model::Preset::Go2;
+    structure.from_preset = model::presets::Preset::Go2;
     structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
     model::Model model(1, 0.01, structure);
 
@@ -827,7 +827,7 @@ void torqueCostRejectsDifferentStageForces()
     using model::stagewise::predefined::costs::SquaredJointVelocityCost;
 
     model::Model::Structure structure;
-    structure.from_preset = model::Preset::Go2;
+    structure.from_preset = model::presets::Preset::Go2;
     structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
     model::Model model(2, 0.01, structure);
 
@@ -873,7 +873,7 @@ void heightmapSetHeightsMatchesNewTerrain()
       std::make_shared<HeightmapTerrain>(old_heights, 0.1, -0.3, -0.4);
 
     model::Model::Structure structure;
-    structure.from_preset = model::Preset::Go2;
+    structure.from_preset = model::presets::Preset::Go2;
     structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
     structure.terrain     = terrain;
     model::Model model(1, 0.01, structure);
@@ -937,7 +937,7 @@ void contactTerrainOverridesModelTerrain()
       model::terrain::make_terrain<SlopeTerrain>(0.3, -0.2, 0.1);
 
     model::Model::Structure flat_structure;
-    flat_structure.from_preset = model::Preset::Go2;
+    flat_structure.from_preset = model::presets::Preset::Go2;
     flat_structure.solver_mode = model::SolverMode::ReducedInverseDynamics;
     model::Model flat_model(1, 0.01, flat_structure);
     auto         contact = std::static_pointer_cast<ContactConstraint>(
@@ -984,7 +984,7 @@ void contactTerrainOverridesModelTerrain()
 void modelFromPresetMatchesUrdfPath()
 {
     model::Model::Structure preset_structure;
-    preset_structure.from_preset = model::Preset::Go2;
+    preset_structure.from_preset = model::presets::Preset::Go2;
     model::Model preset_model(1, 0.01, preset_structure);
 
     model::Model::Structure path_structure;
@@ -1002,7 +1002,7 @@ void modelFromPresetMatchesUrdfPath()
 void modelFromPresetRejectsConflictingFields()
 {
     model::Model::Structure structure;
-    structure.from_preset = model::Preset::Go2;
+    structure.from_preset = model::presets::Preset::Go2;
     structure.urdf_path   = "examples/assets/urdf/go2/go2.urdf";
 
     bool threw = false;
@@ -1479,7 +1479,7 @@ void stateOnlyRowsMatchGradients(const model::SolverMode mode)
     using namespace model::stagewise::predefined::constraints;
 
     model::Model::Structure structure;
-    structure.from_preset = model::Preset::Go2;
+    structure.from_preset = model::presets::Preset::Go2;
     structure.solver_mode = mode;
     model::Model model(1, 0.01, structure);
 
@@ -1606,7 +1606,7 @@ void boxRowsMatchGradients(const model::SolverMode mode)
     using model::stagewise::predefined::ReferenceFrame;
 
     model::Model::Structure structure;
-    structure.from_preset = model::Preset::Go2;
+    structure.from_preset = model::presets::Preset::Go2;
     structure.solver_mode = mode;
     model::Model model(1, 0.01, structure);
 
@@ -1782,7 +1782,7 @@ void paramsJsonOptionalKeys()
 void kinematicsCachesMatchFreshModel()
 {
     model::Model::Structure structure;
-    structure.from_preset = model::Preset::Go2;
+    structure.from_preset = model::presets::Preset::Go2;
     const uint   horizon  = 2;
     model::Model model(horizon, 0.01, structure);
 
@@ -1912,7 +1912,7 @@ void dynamicsCachesMatchFreshModel(const model::SolverMode mode)
     using model::stagewise::predefined::costs::SquaredJointVelocityCost;
 
     model::Model::Structure structure;
-    structure.from_preset = model::Preset::Go2;
+    structure.from_preset = model::presets::Preset::Go2;
     structure.solver_mode = mode;
     const uint horizon    = 2;
 

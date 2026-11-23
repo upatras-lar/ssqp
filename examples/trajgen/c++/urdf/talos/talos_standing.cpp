@@ -31,7 +31,7 @@ int main()
 {
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.from_preset = ssqp::model::Preset::Talos;
+    model_structure.from_preset = ssqp::model::presets::Preset::Talos;
     // model_structure.solver_mode = ssqp::model::SolverMode::InverseDynamics;
     ssqp::model::Model model(HORIZON, dt, model_structure);
     // model.printFramesAndJoints();

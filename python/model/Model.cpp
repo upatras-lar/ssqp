@@ -24,6 +24,7 @@ using namespace model::stagewise;
 using namespace model::stagewise::predefined;
 using namespace model::stagewise::predefined::constraints;
 using namespace model::terrain;
+using namespace model::presets;
 
 // Visits the Python objects the model holds a reference to, which are the
 // costs, constraints, dynamics and terrain passed to it from Python. Costs and

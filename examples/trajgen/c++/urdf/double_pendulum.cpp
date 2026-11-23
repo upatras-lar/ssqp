@@ -76,7 +76,7 @@ int main()
 {
     // Initialize model structure
     ssqp::model::Model::Structure structure;
-    structure.from_preset = ssqp::model::Preset::DoublePendulum;
+    structure.from_preset = ssqp::model::presets::Preset::DoublePendulum;
     // Ignore constraints outlined in URDF
     structure.ignore_innate_constraints = true;
     // Allow only joint 1 (second joint) to be actuated

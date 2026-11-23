@@ -63,7 +63,7 @@ int main()
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.from_preset = ssqp::model::Preset::A1;
+    model_structure.from_preset = ssqp::model::presets::Preset::A1;
     ssqp::model::Model model(HORIZON, dt, model_structure);
 
     std::vector<Eigen::VectorXd> init_controls;

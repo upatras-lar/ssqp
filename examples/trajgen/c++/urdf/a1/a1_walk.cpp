@@ -68,7 +68,7 @@ int main()
 
     // Initialize model
     ssqp::model::Model::Structure model_structure;
-    model_structure.from_preset = ssqp::model::Preset::A1;
+    model_structure.from_preset = ssqp::model::presets::Preset::A1;
 
     // Select inverse dynamics mode
     model_structure.solver_mode = ssqp::model::SolverMode::InverseDynamics;

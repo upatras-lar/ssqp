@@ -17,10 +17,8 @@ back.
 !!! info "Solve times"
     Each solve time and iteration count below is from a single run of the linked script on this machine: an Intel
     Core i9-14900K (24 cores / 32 threads), 64 GB RAM, Ubuntu 24.04. Both are SSQP's own reported figures, not the
-    script's total wall-clock time, so setup (URDF loading, model construction) isn't included. Each script was run
-    with both of SSQP's per-stage QP backends (see [QP Solvers](concepts/qp-solvers.md)), ADMM and HPIPM, and the
-    faster of the two is shown, labeled accordingly. Treat these as a feel for solve difficulty rather than a
-    rigorous benchmark, for which see [Benchmarks](benchmarks.md).
+    script's total wall-clock time, so setup (URDF loading, model construction) isn't included. Treat these as a 
+    feel for solve difficulty. For a more rigorous benchmark, see [Benchmarks](benchmarks.md).
 
 ## Go2 Walk
 
