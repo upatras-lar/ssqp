@@ -1,3 +1,4 @@
+# --8<-- [start:setup]
 import ssqpy
 import numpy as np
 import argparse
@@ -93,7 +94,9 @@ for k in range(H + 1):
 Rd = np.eye(3)
 Rd[1, 1] = -1
 Rd[2, 2] = -1
+# --8<-- [end:setup]
 
+# --8<-- [start:model]
 # Create an SSQP model with H and dt, from the URDF at the below path
 model = ssqpy.model.Model(
     H,
@@ -126,7 +129,9 @@ init_state[:nq] = [
     0.0,
     0.0,
 ]
+# --8<-- [end:model]
 
+# --8<-- [start:box-constraint]
 # Create a box constraint for the position of the end effector
 # This will constrain the position within `vlines[0]` <= p[1] <= `vlines[1]` in the
 # y-axis and `hlines[0]` <= p[2] <= `hlines[1]` in the z-axis
@@ -137,7 +142,9 @@ ub = np.array((np.inf, constraint_vlines[1], constraint_hlines[1]))
 box_constraint = ssqpy.model.constraints.FrameTranslationBound(
     model, "panda_ee", lb, ub
 )
+# --8<-- [end:box-constraint]
 
+# --8<-- [start:stage-costs]
 for k in range(H):
     # Add a squared pose error cost for the end effector (`"panda_ee"` frame) to
     # follow the generated trajectory, while keeping its orientation at `Rd`
@@ -150,13 +157,14 @@ for k in range(H):
         ),
     )
 
-    # Add regularization costs for joint velocity (v) and control (u)
-    model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT))
-    model.addCost(k, ssqpy.model.costs.SquaredControlCost(model, U_WGT))
-
     if CONSTRAIN:
         # Add the previously created box constraint to stage k
         model.addConstraints(k, box_constraint)
+
+# Add regularization costs for joint velocity (v) and control (u) to every
+# stage except the terminal one
+model.addRunningCost(ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT))
+model.addRunningCost(ssqpy.model.costs.SquaredControlCost(model, U_WGT))
 
 # Add the same pose error for the terminal stage
 model.addCost(
@@ -173,7 +181,9 @@ model.addCost(H, ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT))
 if CONSTRAIN:
     # Add box constraint to terminal stage as well
     model.addConstraints(H, box_constraint)
+    # --8<-- [end:stage-costs]
 
+# --8<-- [start:solve]
 # Finalize the model
 # This will generate the final model, ready for use by SSQP for optimization
 # By passing a single configuration as an init_state, this configuration will
@@ -207,6 +217,7 @@ state, x, u = solver.solve()
 solver.write(args.output)
 
 print(f"Solver state: {state}")
+# --8<-- [end:solve]
 
 # Plot error and end effector position on 2D plane, compared to expected
 # unconstrained and constrained position

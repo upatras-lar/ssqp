@@ -92,13 +92,13 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-for k in range(H):
-    # Add regularization costs
-    model.addCost(k, joint_angle_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+# Add regularization costs
+model.addRunningCost(joint_angle_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
 
+for k in range(H):
     model.addCost(
         k,
         costs.FrameSquaredPoseErrorCost(

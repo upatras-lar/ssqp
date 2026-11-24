@@ -70,13 +70,13 @@ int main()
 
     uint JUMP_STAGES = HORIZON / REPEATS;
 
+    // Add regularization cost for velocity, controls and forces
+    model.addRunningCost<costs::SquaredJointVelocityCost>(model, V_WGT);
+    model.addRunningCost<costs::SquaredControlCost>(model, U_WGT);
+    model.addRunningCost<costs::SquaredForceCost>(model, F_WGT);
+
     for (uint k = 0; k < HORIZON; ++k)
     {
-        // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
-        model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
-        model.addCost<costs::SquaredForceCost>(k, model, F_WGT);
-
         // Get stage index relative to jumps
         uint rel_k = k % JUMP_STAGES;
 

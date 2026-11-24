@@ -135,10 +135,6 @@ int main()
                                                         T_WGT,
                                                         R_WGT);
 
-        // Add regularization costs
-        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
-        model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
-
         if (CONSTRAIN)
         {
             // Constrain within rectangle
@@ -154,6 +150,10 @@ int main()
                                                                      ub);
         }
     }
+
+    // Add regularization costs
+    model.addRunningCost<costs::SquaredJointVelocityCost>(model, V_WGT);
+    model.addRunningCost<costs::SquaredControlCost>(model, U_WGT);
 
     Eigen::Matrix4d desired_pose        = Eigen::Matrix4d::Zero();
     desired_pose.topLeftCorner<3, 3>()  = Rd;

@@ -56,12 +56,12 @@ def get_target_model(dynamics_mode, target_pos=np.array((0.46, 0.35, 0.0))):
         model, "panda_ee", desired_pose, T_WGT, R_WGT
     )
 
-    for k in range(MPC_H):
-        model.addCost(k, v_cost)
-        model.addCost(k, u_cost)
-        model.addCost(k, pose_error)
-        model.addCost(k, config_cost)
+    model.addRunningCost(v_cost)
+    model.addRunningCost(u_cost)
+    model.addRunningCost(pose_error)
+    model.addRunningCost(config_cost)
 
+    for k in range(MPC_H):
         model.addConstraints(k, box_constraint)
 
     model.addCost(MPC_H, pose_error)
@@ -122,10 +122,9 @@ def get_reset_model(dynamics_mode):
         model, target_init_state[:nq], C_WGT
     )
 
-    for k in range(MPC_H):
-        model.addCost(k, v_cost)
-        model.addCost(k, u_cost)
-        model.addCost(k, init_config_cost)
+    model.addRunningCost(v_cost)
+    model.addRunningCost(u_cost)
+    model.addRunningCost(init_config_cost)
 
     model.addCost(MPC_H, v_cost)
     model.addCost(MPC_H, init_config_cost)
@@ -212,6 +211,10 @@ def get_circle_model(dynamics_mode, constrain=False):
     v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
     u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
+    model.addRunningCost(v_cost)
+    model.addRunningCost(u_cost)
+    model.addRunningCost(config_cost)
+
     for k in range(MPC_H):
         pose_costs.append(
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
@@ -219,9 +222,6 @@ def get_circle_model(dynamics_mode, constrain=False):
             )
         )
 
-        model.addCost(k, v_cost)
-        model.addCost(k, u_cost)
-        model.addCost(k, config_cost)
         model.addCost(k, pose_costs[-1])
 
         if constrain:
@@ -280,14 +280,12 @@ def get_sequence_model(dynamics_mode, constrain=False):
     traj = []
 
     for k in range(H + 1):
-        k_between = (k % point_steps) / point_steps
-        prev_point = points[k_between % len(points)]
-        next_point = points[(k_between + 1) % len(points)]
+        idx = k // point_steps
+        t = (k % point_steps) / point_steps
+        prev_point = points[idx % len(points)]
+        next_point = points[(idx + 1) % len(points)]
 
-        traj.append(
-            (k_between / point_steps) * next_point
-            + (1 - k_between / point_steps) * prev_point
-        )
+        traj.append(t * next_point + (1 - t) * prev_point)
 
     Rd = np.eye(3)
     Rd[1, 1] = -1
@@ -334,6 +332,10 @@ def get_sequence_model(dynamics_mode, constrain=False):
     v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
     u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
+    model.addRunningCost(v_cost)
+    model.addRunningCost(u_cost)
+    model.addRunningCost(config_cost)
+
     for k in range(MPC_H):
         pose_costs.append(
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
@@ -341,9 +343,6 @@ def get_sequence_model(dynamics_mode, constrain=False):
             )
         )
 
-        model.addCost(k, v_cost)
-        model.addCost(k, u_cost)
-        model.addCost(k, config_cost)
         model.addCost(k, pose_costs[-1])
 
     pose_costs.append(

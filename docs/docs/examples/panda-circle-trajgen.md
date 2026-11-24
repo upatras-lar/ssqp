@@ -11,7 +11,7 @@ real (non-XML-derived) box constraint, and `InverseDynamics` mode.
 ## Setup and the target trajectory
 
 ```python title="examples/trajgen/python/panda/panda_circle.py"
---8<-- "examples/trajgen/python/panda/panda_circle.py:1:87"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:setup"
 ```
 
 The circular path is precomputed as a plain Python list of 3D points, one per stage, parameterized by angular
@@ -30,7 +30,7 @@ decides whether the box constraint (below) is actually applied.
 ## Building the model
 
 ```python title="examples/trajgen/python/panda/panda_circle.py"
---8<-- "examples/trajgen/python/panda/panda_circle.py:89:120"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:model"
 ```
 
 This model uses `InverseDynamics` [solver mode](../concepts/model.md#solver-mode), so controls are joint
@@ -49,7 +49,7 @@ See [`finalize` arguments](../concepts/model.md#finalize-arguments) in Model.
 ## A real constraint: keeping the end effector inside a box
 
 ```python title="examples/trajgen/python/panda/panda_circle.py"
---8<-- "examples/trajgen/python/panda/panda_circle.py:122:131"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:box-constraint"
 ```
 
 `FrameTranslationBound` is a [predefined constraint](../concepts/costs-constraints-dynamics.md#predefined-constraints)
@@ -68,7 +68,7 @@ be re-instantiated per stage unless their bounds actually differ.
 ## Per-stage costs and constraints
 
 ```python title="examples/trajgen/python/panda/panda_circle.py"
---8<-- "examples/trajgen/python/panda/panda_circle.py:133:167"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:stage-costs"
 ```
 
 `FrameSquaredPoseErrorCost` is added at every stage with that stage's own target point from `traj` and the fixed
@@ -87,7 +87,7 @@ too.
 ## Solving
 
 ```python title="examples/trajgen/python/panda/panda_circle.py"
---8<-- "examples/trajgen/python/panda/panda_circle.py:169:199"
+--8<-- "examples/trajgen/python/panda/panda_circle.py:solve"
 ```
 
 The solver parameters here are mostly tightened tolerances (`admm_abs_tolerance`/`admm_rel_tolerance`) rather than

@@ -221,26 +221,25 @@ int main()
                      current_step);
 
     // Add costs for each stage, including horizon
-    for (uint k = 0; k <= HORIZON; ++k)
-    {
-        model.addCost<costs::FrameSquaredPoseErrorCost>(
-          k,
-          model,
-          "trunk",
-          base_pos,
-          Eigen::Matrix3d::Identity(),
-          T_WGT,
-          R_WGT);
+    auto pose_cost = model.addRunningCost<costs::FrameSquaredPoseErrorCost>(
+      model,
+      "trunk",
+      base_pos,
+      Eigen::Matrix3d::Identity(),
+      T_WGT,
+      R_WGT);
 
-        model.addCost<costs::SquaredJointAngleCost>(k, model, A_WGT);
-        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
+    auto angle_cost =
+      model.addRunningCost<costs::SquaredJointAngleCost>(model, A_WGT);
+    auto vel_cost =
+      model.addRunningCost<costs::SquaredJointVelocityCost>(model, V_WGT);
 
-        if (k != HORIZON)
-        {
-            model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
-            model.addCost<costs::SquaredForceCost>(k, model, F_WGT);
-        }
-    }
+    model.addRunningCost<costs::SquaredControlCost>(model, U_WGT);
+    model.addRunningCost<costs::SquaredForceCost>(model, F_WGT);
+
+    model.addCost(HORIZON, pose_cost);
+    model.addCost(HORIZON, angle_cost);
+    model.addCost(HORIZON, vel_cost);
 
     ssqp::model::Model::Config model_config;
     model_config.init_states   = { init };

@@ -22,7 +22,7 @@ are updated.
 ## Timing
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:20:33"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:timing"
 ```
 
 There are two clocks. MuJoCo runs at `dt` = 2 ms. The MPC has 20 stages of `mpc_dt` = 24 ms, so it plans 0.48 s
@@ -39,7 +39,7 @@ than real time.
 ## Weights
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:35:50"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:weights"
 ```
 
 `T_WGT` and `R_WGT` weigh position and rotation tracking, the base's and the feet's. `C_WGT` is a weak pull of the
@@ -52,7 +52,7 @@ checking the weights would silently retune the controller.
 ## Building the model
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:131:162"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:model"
 ```
 
 The model is built from the robot's MJCF file with `free_flyer=True` (the [Go2 Jump](go2-jump.md) example uses the
@@ -63,7 +63,7 @@ below the hip at that height (a two-link inverse kinematics problem, using the t
 quaternion is the identity, so the robot starts facing along $+x$, away from the obstacles in the scene.
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:165:194"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:feet"
 ```
 
 Two sets of geometry are computed from the initial pose with forward kinematics. `foot_offsets` is each foot's
@@ -79,7 +79,7 @@ gait periods FL and RR swing while FR and RL stand, and in odd periods the roles
 (0.24 s), so every foot swings for 0.24 s and then stands for 0.24 s, always with two feet on the ground.
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:295:301"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:foothold"
 ```
 
 `foothold(name, period)` answers where a foot should land at the end of its swing in a given period. The answer is
@@ -90,7 +90,7 @@ that wants to turn will land its feet on an arc. For periods that are already ov
 them), the foothold is where the foot actually landed, kept in `landed`.
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:354:372"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:foot-reference"
 ```
 
 `foot_reference(name, k)` is what the model needs: given a foot and a plan stage $k$ (which may be anywhere in the
@@ -102,7 +102,7 @@ sliding, and a raised-sine bump of `step_height` on top of that clears the groun
 ## The reference trajectory
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:278:292"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:predict-poses"
 ```
 
 `predict_poses` extends the base's pose $(x, y, \text{yaw})$ forward for `count` stages by integrating the current
@@ -114,7 +114,7 @@ the horizon needs the base pose from the *stance after* its swing to know where 
 ## Costs and constraints
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:375:423"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:costs"
 ```
 
 The shared costs (`config_cost`, `v_cost`, `u_cost`, `f_cost`) are single objects added to every stage, since they do
@@ -135,7 +135,7 @@ already exist, rather than by choosing which ones to add.
 ## Reading the joystick
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:448:490"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:joystick"
 ```
 
 `update_command` is called once per stage and turns the gamepad state into the quantities the planner uses. The
@@ -160,7 +160,7 @@ The names are evdev codes, which map to different physical buttons on different 
 ## Retargeting the horizon every stage
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:493:538"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:update-model"
 ```
 
 `update_model` is what makes the robot walk, and is called once per plan stage, after the joystick is read. It does
@@ -186,7 +186,7 @@ it. This is why no part of the model ever needs to be rebuilt after `model.final
 ## The jump
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:312:335"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:jump-height"
 ```
 
 Pressing the jump button when the command is near rest schedules a jump in place, starting at the next gait period.
@@ -207,7 +207,7 @@ exist for walking, and decided at every stage instead of once.
 ## Solver parameters
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:548:567"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:solver-params"
 ```
 
 [HPIPM](../concepts/qp-solvers.md) is the QP solver, with tolerances of $10^{-4}$. The `MPC` wrapper is given just two
@@ -218,7 +218,7 @@ QP solver type is HPIPM.
 ## The simulation loop
 
 ```python title="examples/mujoco_mpc/go2/go2_walking.py"
---8<-- "examples/mujoco_mpc/go2/go2_walking.py:605:648"
+--8<-- "examples/mujoco_mpc/go2/go2_walking.py:sim-loop"
 ```
 
 Every simulation step, the state is read from MuJoCo and converted (quaternion order, base velocity frame and joint

@@ -210,16 +210,16 @@ def add_right_cc(stance_start_steps):
 
 stance_start_steps = 0
 
+# Add regularization costs
+model.addRunningCost(config_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
+
+model.addRunningCost(pose_cost)
+model.addRunningCost(rot_cost)
+
 for k in range(H):
-    # Add regularization costs
-    model.addCost(k, config_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
-
-    model.addCost(k, pose_cost)
-    model.addCost(k, rot_cost)
-
     model.addConstraints(k, fb_height_bound)
 
     model.addConstraints(k, left_foot_ag_bound_1)

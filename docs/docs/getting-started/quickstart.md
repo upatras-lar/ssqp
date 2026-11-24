@@ -14,7 +14,7 @@ Custom dynamics subclass `ssqpy.model.dynamics.StageDynamics` and must provide, 
 and only needed if you want exact second-order information):
 
 ```python title="examples/trajgen/python/di.py"
---8<-- "examples/trajgen/python/di.py:13:54"
+--8<-- "examples/trajgen/python/di.py:dynamics"
 ```
 
 The state is $[p, v]$ (position, velocity), the control is a scalar acceleration $u$, and `evaluate` implements
@@ -26,7 +26,7 @@ Custom costs subclass `ssqpy.model.costs.StageCost` and must provide `evaluate`,
 `hessian_xu` and `hessian_uu`:
 
 ```python title="examples/trajgen/python/di.py"
---8<-- "examples/trajgen/python/di.py:57:80"
+--8<-- "examples/trajgen/python/di.py:cost"
 ```
 
 This penalizes deviation of the position $p$ from a target of $1.0$, applied both at every running stage and at
@@ -35,7 +35,7 @@ the terminal stage.
 ## 3. Build the model and solve
 
 ```python title="examples/trajgen/python/di.py"
---8<-- "examples/trajgen/python/di.py:83:103"
+--8<-- "examples/trajgen/python/di.py:solve"
 ```
 
 `model.finalize` takes one dynamics object per stage, so `H + 1` entries; since these dynamics are the same at every

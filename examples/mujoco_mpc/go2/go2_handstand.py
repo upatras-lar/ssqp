@@ -112,15 +112,15 @@ foot_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, "FL_foot", foot_pos, FOOT_WGT
 )
 
-for k in range(mpc_H):
-    model.addCost(k, config_cost)
-    model.addCost(k, v_cost)
-    model.addCost(k, u_cost)
-    model.addCost(k, f_cost)
-    model.addCost(k, com_cost)
-    model.addCost(k, foot_cost)
-    model.addCost(k, base_rot_cost)
+model.addRunningCost(config_cost)
+model.addRunningCost(v_cost)
+model.addRunningCost(u_cost)
+model.addRunningCost(f_cost)
+model.addRunningCost(com_cost)
+model.addRunningCost(foot_cost)
+model.addRunningCost(base_rot_cost)
 
+for k in range(mpc_H):
     model.addContactConstraint(
         k, "FL_foot", CONTACT_MU, eq_tol=CONTACT_EQ_TOL, no_slip=False
     )

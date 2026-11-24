@@ -106,11 +106,11 @@ eef_bound = ssqpy.model.constraints.FrameTranslationBound(
     np.array((np.inf, np.inf, np.inf)),
 )
 
-for k in range(H):
-    model.addCost(k, rot_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
+model.addRunningCost(rot_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
 
+for k in range(H):
     if k > 50 and k < H - 50:
         model.addConstraints(k, eef_bound)
 

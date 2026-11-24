@@ -189,11 +189,10 @@ if args.constrain:
         )
         model.addConstraints(k + 1, height_bounds[-1])
 
-for k in range(MPC_H):
-    model.addCost(k, angle_cost)
-    model.addCost(k, v_cost)
-    model.addCost(k, u_cost)
-    model.addCost(k, pose_error)
+model.addRunningCost(angle_cost)
+model.addRunningCost(v_cost)
+model.addRunningCost(u_cost)
+model.addRunningCost(pose_error)
 
 model.addCost(MPC_H, angle_cost)
 model.addCost(MPC_H, pose_error)

@@ -260,11 +260,12 @@ JUMP_TROT_NOTICE = 10
 JUMP_TROT_CYCLES = 2
 # Forward jump, started by the forward jump button in the same way as the jump
 # in place, with the same crouch stages. The base leans back as it crouches to
-# FORWARD_JUMP_CROUCH_HEIGHT, and pushes off up to FORWARD_JUMP_TAKEOFF_HEIGHT,
-# speeding up forward as well. It keeps its speed in the air while the legs
-# tuck in by FORWARD_JUMP_TUCK and swing forward, touches down at
-# FORWARD_JUMP_LAND_HEIGHT and stops its fall by the crouch height, with each
-# foot pushing with up to FORWARD_JUMP_LAND_FORCE. It stops its forward speed
+# FORWARD_JUMP_PUSH_HEIGHT, which keeps the knees off the ground, and pushes
+# off up to FORWARD_JUMP_TAKEOFF_HEIGHT, speeding up forward as well. It keeps
+# its speed in the air while the legs tuck in by FORWARD_JUMP_TUCK and swing
+# forward, touches down at FORWARD_JUMP_LAND_HEIGHT and stops its fall by
+# FORWARD_JUMP_CROUCH_HEIGHT, with each foot pushing with up to
+# FORWARD_JUMP_LAND_FORCE. It stops its forward speed
 # at FORWARD_JUMP_BRAKE, which friction allows, landing with the feet far
 # enough ahead to do so. Where the terrain rises by more than
 # FORWARD_JUMP_RISE ahead of the front feet, the jump lands on it with the rear
@@ -278,11 +279,12 @@ FORWARD_JUMP_DISTANCE = 0.6
 FORWARD_JUMP_RISE = 0.04
 FORWARD_JUMP_EDGE_MARGIN = 0.20
 FORWARD_JUMP_MAX_DISTANCE = 1.0
+FORWARD_JUMP_PUSH_HEIGHT = 0.19
 FORWARD_JUMP_CROUCH_HEIGHT = 0.15
 FORWARD_JUMP_TAKEOFF_HEIGHT = 0.38
 FORWARD_JUMP_LAND_HEIGHT = 0.32
 FORWARD_JUMP_LAND_FORCE = 200.0
-FORWARD_JUMP_BRAKE = 4.0
+FORWARD_JUMP_BRAKE = 3.0
 FORWARD_JUMP_TUCK = 0.15
 FORWARD_JUMP_HEIGHT = 0.2
 FORWARD_JUMP_CLEARANCE = 0.1
@@ -1642,7 +1644,7 @@ def create_controller(
         if speed > FORWARD_JUMP_MAX_SPEED:
             print(f"Not jumping forward, {rise:.2f} m up is too high")
             return False
-        travel = FORWARD_JUMP_TAKEOFF_HEIGHT - FORWARD_JUMP_CROUCH_HEIGHT
+        travel = FORWARD_JUMP_TAKEOFF_HEIGHT - FORWARD_JUMP_PUSH_HEIGHT
         speed *= FORWARD_JUMP_RISE_GAIN
 
         est["jump_distance"] = np.mean(
@@ -1681,6 +1683,9 @@ def create_controller(
     flight_vel_costs = []
     foot_funcs = {name: [] for name in FOOT_NAMES}
 
+    for cost in [config_cost, v_cost, u_cost, f_cost, w_cost]:
+        model.addRunningCost(cost)
+
     for k in range(MPC_H):
         base_costs.append(
             ssqpy.model.costs.FrameSquaredPoseErrorCost(
@@ -1697,8 +1702,6 @@ def create_controller(
                 model, JUMP_FLIGHT_VEL_WGT
             )
         )
-        for cost in [config_cost, v_cost, u_cost, f_cost, w_cost]:
-            model.addCost(k, cost)
         model.addCost(k, base_costs[-1])
         model.addCost(k, flight_costs[-1])
         model.addCost(k, flight_vel_costs[-1])
@@ -2204,8 +2207,10 @@ def create_controller(
             slow = np.linalg.norm(est["filter"][1][3:5]) < JUMP_TROT_SPEED
             if slow or waited + JUMP_TROT_NOTICE >= JUMP_TROT_MAX_DELAY:
                 est["trot_waiting"] = False
-                est["gait_start"] = current_stage + 1 + max(
-                    JUMP_TROT_DELAY - waited, JUMP_TROT_NOTICE
+                est["gait_start"] = (
+                    current_stage
+                    + 1
+                    + max(JUMP_TROT_DELAY - waited, JUMP_TROT_NOTICE)
                 )
                 est["gait_stop"] = (
                     est["gait_start"]

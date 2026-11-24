@@ -12,7 +12,7 @@ configuring solver parameters. It builds directly on [Panda Circle](panda-circle
 ## Setup
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:1:72"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:setup"
 ```
 
 `ReducedInverseDynamics` [solver mode](../concepts/model.md#solver-mode) is used, with the `Go2`
@@ -31,7 +31,7 @@ forces become part of the optimization below.
 ## Initial state and a static-equilibrium initial guess
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:74:88"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:initial-guess"
 ```
 
 `base_config` is a standing crouch pose, repeated for all four legs (each leg's three joints get the same
@@ -45,7 +45,7 @@ iterations just discovering that a standing robot needs to push against the grou
 ## Costs and reusable constraint objects
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:90:131"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:costs"
 ```
 
 Regularization costs (joint angle, velocity, control, force, and a configuration-tracking cost pulling toward the
@@ -61,7 +61,7 @@ objects will be attached to every stage:
 ## The per-stage loop: stance, flight, stance
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:133:172"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:stage-loop"
 ```
 
 Every stage gets the regularization costs and the position/head bounds unconditionally; those don't depend on
@@ -93,7 +93,7 @@ something more complex than a single stage-index check.
 ## Terminal stage: settle into a landing footprint
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:174:226"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:terminal"
 ```
 
 At the terminal stage, a zero base-velocity constraint asks the robot to be at rest, and each foot gets a
@@ -107,7 +107,7 @@ inside the stance branch) something concrete to converge back onto.
 ## Solving, with object-based parameter configuration
 
 ```python title="examples/trajgen/python/go2/go2_jump.py"
---8<-- "examples/trajgen/python/go2/go2_jump.py:228:260"
+--8<-- "examples/trajgen/python/go2/go2_jump.py:solve"
 ```
 
 Rather than passing `admm_`/`hpipm_`-prefixed keyword arguments (as in [Pendubot](pendubot.md)), this example

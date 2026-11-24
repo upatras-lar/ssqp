@@ -13,7 +13,7 @@ long target trajectory, retargeted every step.
 ## Setup
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:1:80"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:setup"
 ```
 
 Two different horizons are in play here, and the distinction matters: `H`/`dt` (400 steps at 0.01s) describe the
@@ -46,7 +46,7 @@ robot's sensors and actuators would.
 ## The target trajectory
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:83:92"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:trajectory"
 ```
 
 Identical in spirit to the trajectory-generation example: a full circle, precomputed as `H + 1` points, though this
@@ -56,7 +56,7 @@ trajectory MPC is chasing; the MPC model itself, built next, has no idea the ful
 ## Building the (short-horizon) model
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:94:161"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:model"
 ```
 
 The model itself has `mpc_H` stages, not `H`: as far as this `Model` object is concerned, the "problem" is only
@@ -79,7 +79,7 @@ position.
 ## Retargeting the horizon every step
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:164:167"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:retarget"
 ```
 
 Since the MPC model only has stages for the *next* `mpc_H` steps, but the target trajectory `traj` describes a
@@ -94,7 +94,7 @@ progressing around the circle.
 ## MPC and solver parameters
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:170:179"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:mpc-params"
 ```
 
 `ssqpy.solvers.MPC` wraps the model with its own iteration budget (`sqp_iters=4`, `qp_iters=100`), deliberately
@@ -108,7 +108,7 @@ trajectory that was already nearly right one timestep ago (see
 ## The simulation loop
 
 ```python title="examples/mujoco_mpc/panda/panda_circle.py"
---8<-- "examples/mujoco_mpc/panda/panda_circle.py:181:234"
+--8<-- "examples/mujoco_mpc/panda/panda_circle.py:sim-loop"
 ```
 
 Each iteration: read the current MuJoCo state (`qpos`/`qvel`), which is treated as ground truth and fed to SSQP as

@@ -97,14 +97,14 @@ base_pose_cost = costs.FrameSquaredPoseErrorCost(
     model, "base", base_pos, base_rot, T_BASE_WGT, R_BASE_WGT
 )
 
-for k in range(HORIZON):
-    # Add regularization costs
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
-    model.addCost(k, config_cost)
-    model.addCost(k, base_pose_cost)
+# Add regularization costs
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
+model.addRunningCost(config_cost)
+model.addRunningCost(base_pose_cost)
 
+for k in range(HORIZON):
     # Stand on the front left foot only
     model.addContactConstraint(k, "FL_foot", eq_tol=0.01)
 

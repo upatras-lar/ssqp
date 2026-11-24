@@ -1,3 +1,4 @@
+# --8<-- [start:setup]
 import ssqpy
 import ssqpy.model.costs as costs
 import ssqpy.model.constraints as constraints
@@ -78,7 +79,9 @@ model = ssqpy.model.Model(
 nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
+# --8<-- [end:setup]
 
+# --8<-- [start:initial-guess]
 # Initial and final positions
 base_pos = np.array([0.0, 0.0, 0.3879793820122])
 base_config = np.array([0.0, pi / 6, -pi / 3] * 4)
@@ -94,7 +97,9 @@ init_control[-10] = 3.75 * 9.81
 init_control[-7] = 3.75 * 9.81
 init_control[-4] = 3.75 * 9.81
 init_control[-1] = 3.75 * 9.81
+# --8<-- [end:initial-guess]
 
+# --8<-- [start:costs]
 joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
 joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
@@ -137,15 +142,17 @@ head_constraint = constraints.FrameTranslationBound(
 )
 
 init_controls = []
+# --8<-- [end:costs]
+
+# --8<-- [start:stage-loop]
+# Add regularization costs
+model.addRunningCost(joint_angle_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
+model.addRunningCost(config_cost)
 
 for k in range(HORIZON):
-    # Add regularization costs
-    model.addCost(k, joint_angle_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
-    model.addCost(k, config_cost)
-
     model.addConstraints(k, fl_foot_pos_bound)
     model.addConstraints(k, fr_foot_pos_bound)
     model.addConstraints(k, rl_foot_pos_bound)
@@ -178,7 +185,9 @@ for k in range(HORIZON):
         continue
 
     init_controls.append(np.zeros(nu))
+    # --8<-- [end:stage-loop]
 
+# --8<-- [start:terminal]
 model.addCost(HORIZON, joint_vel_cost)
 
 model.addConstraints(
@@ -232,7 +241,9 @@ model.addConstraints(
 
 # Finalize the model with our state and controls
 model.finalize(init_states=init)
+# --8<-- [end:terminal]
 
+# --8<-- [start:solve]
 # SSQP model parameters
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.loose_success = True
@@ -268,3 +279,4 @@ state, x, u = solver.solve()
 print("Solver state:", state)
 
 solver.write(args.output)
+# --8<-- [end:solve]

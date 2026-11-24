@@ -130,11 +130,10 @@ tip_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, "tip", np.array((0.0, 0.0, tip_height)), TIP_WGT
 )
 
-for k in range(MPC_H):
-    model.addCost(k, vel_cost)
-    model.addCost(k, u_cost)
-    model.addCost(k, elbow_cost)
-    model.addCost(k, tip_cost)
+model.addRunningCost(vel_cost)
+model.addRunningCost(u_cost)
+model.addRunningCost(elbow_cost)
+model.addRunningCost(tip_cost)
 
 model.addCost(MPC_H, vel_cost)
 model.addCost(MPC_H, elbow_cost)

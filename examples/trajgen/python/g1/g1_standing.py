@@ -81,13 +81,13 @@ left_hand_translation_cost = costs.FrameSquaredTranslationErrorCost(
     model, "left_wrist_roll_rubber_hand", np.array((0, 0.2, 0.7)), 0.5
 )
 
-for k in range(H):
-    # Add regularization costs
-    model.addCost(k, joint_angle_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+# Add regularization costs
+model.addRunningCost(joint_angle_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
 
+for k in range(H):
     model.addCost(
         k,
         costs.FrameSquaredPoseErrorCost(
@@ -99,9 +99,6 @@ for k in range(H):
             R_BASE_WGT,
         ),
     )
-
-    model.addCost(k, right_hand_translation_cost)
-    model.addCost(k, left_hand_translation_cost)
 
     # Add contact constraints for points on left foot
     model.addContactConstraint(
@@ -129,6 +126,9 @@ for k in range(H):
     model.addContactConstraint(
         k, "right_pm", eq_tol=0.01, max_normal_force=MAX_NORMAL_FORCE
     )
+
+model.addRunningCost(right_hand_translation_cost)
+model.addRunningCost(left_hand_translation_cost)
 
 # Add regularization costs at the terminal stage
 model.addCost(H, joint_angle_cost)

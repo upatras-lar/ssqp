@@ -88,13 +88,13 @@ int main()
                       std::numeric_limits<double>::infinity(),
                       std::numeric_limits<double>::infinity());
 
+    // Add regularization cost for velocity, controls and forces
+    model.addRunningCost<costs::SquaredJointVelocityCost>(model, V_WGT);
+    model.addRunningCost<costs::SquaredControlCost>(model, U_WGT);
+    model.addRunningCost<costs::SquaredForceCost>(model, F_WGT);
+
     for (uint k = 0; k < HORIZON; ++k)
     {
-        // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
-        model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
-        model.addCost<costs::SquaredForceCost>(k, model, F_WGT);
-
         // Add contact constraints for front left and rear right feet
 
         model.addConstraints<constraints::ContactConstraint>(k,

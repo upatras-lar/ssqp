@@ -110,10 +110,9 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     np.array((1.0, 0.0)),
 )
 
-for k in range(MPC_H):
-    model.addCost(k, vel_cost)
-    model.addCost(k, u_cost)
-    model.addCost(k, tip_cost)
+model.addRunningCost(vel_cost)
+model.addRunningCost(u_cost)
+model.addRunningCost(tip_cost)
 
 model.addCost(MPC_H, tip_cost)
 model.addCost(MPC_H, config_cost)

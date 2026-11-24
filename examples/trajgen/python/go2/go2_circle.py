@@ -154,19 +154,19 @@ for k in range(HORIZON):
     )
     model.addCost(k, trunk_cost)
 
-    # Regularization
-    joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
-    control_cost = costs.SquaredControlCost(model, U_WGT)
-    force_cost = costs.SquaredForceCost(model, F_WGT)
-
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
-
     # 4-foot contact phase (standing)
     for foot in ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]:
 
         model.addContactConstraint(k, foot, eq_tol=0.01)
+
+# Regularization
+joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
+control_cost = costs.SquaredControlCost(model, U_WGT)
+force_cost = costs.SquaredForceCost(model, F_WGT)
+
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
 
 
 # Terminal trunk tracking cost

@@ -140,6 +140,8 @@ distance_bounds = (
 hold_cost = ssqpy.model.costs.FrameSquaredTranslationErrorCost(
     model, "panda_ee", start, HOLD_WGT
 )
+joint_vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
+control_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
 for k in range(H + 1):
     # Penalize the target's offset across the x and y axes, leaving the z axis
@@ -157,10 +159,6 @@ for k in range(H + 1):
             reference_frame=look_frame,
         ),
     )
-    model.addCost(k, hold_cost)
-    model.addCost(k, ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT))
-    if k < H:
-        model.addCost(k, ssqpy.model.costs.SquaredControlCost(model, U_WGT))
 
     # Keep the end effector between the two distances from the target along
     # the z axis: ahead of it along the end effector's own axes, or above it
@@ -179,6 +177,12 @@ for k in range(H + 1):
                 center=target[k],
             ),
         )
+
+model.addRunningCost(hold_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addCost(H, hold_cost)
+model.addCost(H, joint_vel_cost)
 
 model.finalize(init_states=init_state)
 

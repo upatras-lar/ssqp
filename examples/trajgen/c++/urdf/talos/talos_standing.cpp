@@ -49,22 +49,21 @@ int main()
     //                .first.transpose()
     //           << std::endl;
 
+    model.addRunningCost<costs::FrameSquaredPoseErrorCost>(
+      model,
+      "torso_1_link",
+      base_pos,
+      Eigen::Matrix3d::Identity(),
+      T_WGT,
+      R_WGT);
+
+    // Add regularization cost for velocity, controls and forces
+    model.addRunningCost<costs::SquaredJointVelocityCost>(model, V_WGT);
+    model.addRunningCost<costs::SquaredControlCost>(model, U_WGT);
+    model.addRunningCost<costs::SquaredForceCost>(model, F_WGT);
+
     for (uint k = 0; k < HORIZON; ++k)
     {
-        model.addCost<costs::FrameSquaredPoseErrorCost>(
-          k,
-          model,
-          "torso_1_link",
-          base_pos,
-          Eigen::Matrix3d::Identity(),
-          T_WGT,
-          R_WGT);
-
-        // Add regularization cost for velocity, controls and forces
-        model.addCost<costs::SquaredJointVelocityCost>(k, model, V_WGT);
-        model.addCost<costs::SquaredControlCost>(k, model, U_WGT);
-        model.addCost<costs::SquaredForceCost>(k, model, F_WGT);
-
         model.addConstraints<constraints::ContactConstraint>(k,
                                                              model,
                                                              "left_mm",

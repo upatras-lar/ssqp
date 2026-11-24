@@ -95,12 +95,12 @@ joint_angle_cost = costs.SquaredJointAngleCost(model, A_WGT)
 joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 
-for k in range(HORIZON):
-    # Add regularization costs at each time step
-    model.addCost(k, joint_angle_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
+# Add regularization costs at each time step
+model.addRunningCost(joint_angle_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
 
+for k in range(HORIZON):
     # If before jump
     if k < STEPS_BEFORE:
         # Add an increasing weight to the forces as we move closer to the jump

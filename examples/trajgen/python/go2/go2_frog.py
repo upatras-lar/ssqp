@@ -186,18 +186,18 @@ rot_constraint = constraints.FloatingBaseRotationBound(
 
 init_controls = []
 
+# Add regularization costs
+model.addRunningCost(joint_angle_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
+
+model.addRunningCost(fl_foot_z_cost)
+model.addRunningCost(fr_foot_z_cost)
+model.addRunningCost(rl_foot_z_cost)
+model.addRunningCost(rr_foot_z_cost)
+
 for k in range(HORIZON):
-    # Add regularization costs
-    model.addCost(k, joint_angle_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
-
-    model.addCost(k, fl_foot_z_cost)
-    model.addCost(k, fr_foot_z_cost)
-    model.addCost(k, rl_foot_z_cost)
-    model.addCost(k, rr_foot_z_cost)
-
     model.addConstraints(k, rot_constraint)
     model.addConstraints(k, fl_foot_ag_bound)
     model.addConstraints(k, fr_foot_ag_bound)

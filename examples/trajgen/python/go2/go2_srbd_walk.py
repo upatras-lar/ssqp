@@ -70,6 +70,16 @@ com_ref, xb_ref, p_ref = go2_planner.generate_references(
     v_cmd, go2_planner.config.INIT_CONFIG, np.zeros(3), 0.0, H, dt, go2_model
 )
 
+vel_cost = go2_srbd.VelocityCost(weight_vel)
+angvel_cost = go2_srbd.AngularVelocityCost(weight_angularvel)
+control_cost = go2_srbd.ControlRegularizationCost(
+    weight_forces, weight_foot_vel
+)
+
+model.addRunningCost(vel_cost)
+model.addRunningCost(angvel_cost)
+model.addRunningCost(control_cost)
+
 for k in range(H):
     stage_p_ref = {foot: p_ref[foot][k] for foot in p_ref}
 
@@ -77,19 +87,11 @@ for k in range(H):
     orientation_cost = go2_srbd.OrientationTrackingCost(
         xb_ref[k], weight_orientation
     )
-    vel_cost = go2_srbd.VelocityCost(weight_vel)
-    angvel_cost = go2_srbd.AngularVelocityCost(weight_angularvel)
     foot_cost = go2_srbd.FootTrackingCost(stage_p_ref, weight_feet)
-    control_cost = go2_srbd.ControlRegularizationCost(
-        weight_forces, weight_foot_vel
-    )
 
     model.addCost(k, com_cost)
     model.addCost(k, orientation_cost)
-    model.addCost(k, vel_cost)
-    model.addCost(k, angvel_cost)
     model.addCost(k, foot_cost)
-    model.addCost(k, control_cost)
 
     height_constraint = go2_srbd.CoMHeightConstraint(z_min)
     model.addConstraints(k, height_constraint)

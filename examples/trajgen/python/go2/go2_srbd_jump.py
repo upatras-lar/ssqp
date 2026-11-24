@@ -65,11 +65,11 @@ control_cost = go2_srbd.ControlRegularizationCost(
     weight_forces, weight_foot_vel
 )
 
-for k in range(H):
-    model.addCost(k, vel_cost)
-    model.addCost(k, angvel_cost)
-    model.addCost(k, control_cost)
+model.addRunningCost(vel_cost)
+model.addRunningCost(angvel_cost)
+model.addRunningCost(control_cost)
 
+for k in range(H):
     for i, foot in enumerate(go2_srbd.FEET):
         foot_reachability_constraint = go2_srbd.FootReachabilityConstraint(
             i, L_max

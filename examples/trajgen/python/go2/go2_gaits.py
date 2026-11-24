@@ -157,12 +157,12 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-for k in range(HORIZON):
-    # Add the regularization costs for each stage
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+# Add the regularization costs for each stage
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
 
+for k in range(HORIZON):
     # Add a cost to keep the orientation of the robot roughly parallel to the
     # terrain
     model.addCost(
@@ -173,8 +173,8 @@ for k in range(HORIZON):
     )
 
 
-for k in range(HORIZON + 1):
-    model.addCost(k, config_cost)
+model.addRunningCost(config_cost)
+model.addCost(HORIZON, config_cost)
 
 # Add a velocity regularization cost for the final stage
 model.addCost(HORIZON, costs.SquaredJointVelocityCost(model, 1e3))

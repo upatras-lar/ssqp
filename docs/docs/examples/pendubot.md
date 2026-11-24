@@ -14,7 +14,7 @@ predefined costs, and a scheduling trick that's worth understanding before movin
 ## Setup
 
 ```python title="examples/trajgen/python/double_pendulum/pendubot.py"
---8<-- "examples/trajgen/python/double_pendulum/pendubot.py:1:37"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:setup"
 ```
 
 The model is loaded straight from a URDF, so no custom dynamics are needed; see
@@ -37,7 +37,7 @@ guess for every stage is the pendubot at rest, and the whole trajectory has to b
 ## Building the model
 
 ```python title="examples/trajgen/python/double_pendulum/pendubot.py"
---8<-- "examples/trajgen/python/double_pendulum/pendubot.py:39:49"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:model"
 ```
 
 `ForwardDynamics` is the default [solver mode](../concepts/model.md#solver-mode), where controls are joint torques:
@@ -48,7 +48,7 @@ Jump](go2-jump.md)).
 ## Costs, and why the tracking cost turns on late
 
 ```python title="examples/trajgen/python/double_pendulum/pendubot.py"
---8<-- "examples/trajgen/python/double_pendulum/pendubot.py:51:64"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:costs"
 ```
 
 Three [predefined costs](../concepts/costs-constraints-dynamics.md#predefined-costs) are used:
@@ -74,7 +74,7 @@ applied too early or too uniformly across the horizon.
 ## Solving
 
 ```python title="examples/trajgen/python/double_pendulum/pendubot.py"
---8<-- "examples/trajgen/python/double_pendulum/pendubot.py:66:88"
+--8<-- "examples/trajgen/python/double_pendulum/pendubot.py:solve"
 ```
 
 Solver and QP parameters are passed as keyword arguments: `hpipm_`/`admm_`-prefixed ones configure the

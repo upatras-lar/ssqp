@@ -30,6 +30,7 @@ def parse_args():
 
 args = parse_args()
 
+# --8<-- [start:dynamics]
 # Horizon and time step
 H, dt = 10, 0.1
 
@@ -72,8 +73,10 @@ class DoubleIntegrator(ssqpy.model.dynamics.StageDynamics):
 
     def hessprod_uu(self, x, u, lambda_):
         return np.zeros((1, 1))
+        # --8<-- [end:dynamics]
 
 
+# --8<-- [start:cost]
 # Drives the position towards 1
 class Cost(costs.StageCost):
     def evaluate(self, x, u):
@@ -98,8 +101,10 @@ class Cost(costs.StageCost):
 
     def hessian_uu(self, x, u):
         return np.zeros((1, 1))
+        # --8<-- [end:cost]
 
 
+# --8<-- [start:solve]
 stage_cost = Cost()
 
 model = ssqpy.model.Model(H, dt)
@@ -126,3 +131,4 @@ print("x:")
 x.print()
 print("u:")
 u.print()
+# --8<-- [end:solve]

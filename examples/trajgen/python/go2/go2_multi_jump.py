@@ -189,13 +189,13 @@ base_pos_bound = constraints.FrameTranslationBound(
 
 init_controls = []
 
-for k in range(HORIZON):
-    # Add regularization costs
-    model.addCost(k, joint_angle_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+# Add regularization costs
+model.addRunningCost(joint_angle_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
 
+for k in range(HORIZON):
     # Add bounds for head and feet to keep valid positions
     model.addConstraints(k, head_pos_bound)
 

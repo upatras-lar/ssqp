@@ -86,16 +86,12 @@ int main()
     // Note: Model will be unfinalized and not yet ready for use in SSQP
     ssqp::model::Model model(HORIZON, dt, structure);
 
-    // Add costs to each stage
-    for (uint k = 0; k < HORIZON; ++k)
-    {
-        // Add cost using the addCost method for stage k
-        // For the cost, we pass the custom StageCost object created by getCost
-        model.addCost(k, getCost());
-        // Also add a predefined cost of type SquaredControlCost to stage k
-        // with arguments nv = 2 and weight = 1e-5
-        model.addCost<costs::SquaredControlCost>(k, model, 1e-5);
-    }
+    // Add costs to each non-terminal stage using the addRunningCost method
+    // For the cost, we pass the custom StageCost object created by getCost
+    model.addRunningCost(getCost());
+    // Also add a predefined cost of type SquaredControlCost to each
+    // non-terminal stage with arguments nv = 2 and weight = 1e-5
+    model.addRunningCost<costs::SquaredControlCost>(model, 1e-5);
 
     // Add terminal cost with larger weight
     model.addCost(HORIZON, getCost(100.0));

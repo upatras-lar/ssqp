@@ -1,3 +1,4 @@
+# --8<-- [start:setup]
 import mujoco
 import mujoco.viewer
 import glfw
@@ -86,8 +87,10 @@ DISTANCE = 2 * pi
 square_side_hlf = cr / sqrt(2)
 constraint_hlines = [cz - square_side_hlf, cz + square_side_hlf]
 constraint_vlines = [cy - square_side_hlf, cy + square_side_hlf]
+# --8<-- [end:setup]
 
 
+# --8<-- [start:trajectory]
 traj = []
 
 for k in range(H + 1):
@@ -98,7 +101,9 @@ for k in range(H + 1):
 Rd = np.eye(3)
 Rd[1, 1] = -1
 Rd[2, 2] = -1
+# --8<-- [end:trajectory]
 
+# --8<-- [start:model]
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
@@ -141,6 +146,10 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
 v_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 
+model.addRunningCost(v_cost)
+model.addRunningCost(u_cost)
+model.addRunningCost(config_cost)
+
 for k in range(mpc_H):
     pose_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
@@ -148,9 +157,6 @@ for k in range(mpc_H):
         )
     )
 
-    model.addCost(k, v_cost)
-    model.addCost(k, u_cost)
-    model.addCost(k, config_cost)
     model.addCost(k, pose_costs[-1])
 
     if CONSTRAIN:
@@ -167,14 +173,18 @@ model.addCost(mpc_H, pose_costs[-1])
 
 if CONSTRAIN:
     model.addConstraints(mpc_H, box_constraint)
+    # --8<-- [end:model]
 
 
+# --8<-- [start:retarget]
 # Shift the desired poses forward along the (looping) trajectory
 def update_pose_costs(current_stage):
     for k in range(current_stage, current_stage + mpc_H):
         pose_costs[k - current_stage].set_desired_translation(traj[k % H])
+        # --8<-- [end:retarget]
 
 
+# --8<-- [start:mpc-params]
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
 ssqp_params.qp_solver_type = getattr(
@@ -187,7 +197,9 @@ mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/panda/panda.xml")
 mjdata = mujoco.MjData(mjmodel)
 
 mjdata.qpos = init_state[:9]
+# --8<-- [end:mpc-params]
 
+# --8<-- [start:sim-loop]
 elapsed = 0
 steps = 0
 total_steps = int(1 / dt)
@@ -242,6 +254,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             sleep(to_sleep)
 
 print()
+# --8<-- [end:sim-loop]
 
 if PLOT:
     state_data = np.array(state_data)

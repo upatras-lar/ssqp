@@ -87,13 +87,13 @@ force_cost = costs.SquaredForceCost(model, F_WGT)
 
 init_controls = []
 
-for k in range(H):
-    # Add regularization costs
-    model.addCost(k, joint_angle_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+# Add regularization costs
+model.addRunningCost(joint_angle_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
 
+for k in range(H):
     # Add a frame squared pose error cost for the torso to remain in the
     # position (0.0, 0.15, 1.072)
     # This moves it slightly closer to the left foot that's on the ground,

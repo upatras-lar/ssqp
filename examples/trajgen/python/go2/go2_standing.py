@@ -95,13 +95,13 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT, "Velocity cost")
 control_cost = costs.SquaredControlCost(model, U_WGT, "Control cost")
 force_cost = costs.SquaredForceCost(model, F_WGT, "Force cost")
 
-for k in range(HORIZON):
-    # Add regularization costs
-    # model.addCost(k, config_cost)
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+# Add regularization costs
+# model.addRunningCost(config_cost)
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
 
+for k in range(HORIZON):
     # Add a standing phase (4 feet on the ground)
     model.addContactConstraint(k, "FL_foot", name="FL foot contact constraint")
 

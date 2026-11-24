@@ -37,6 +37,7 @@ ssqpy.setSilentMode()
 np.set_printoptions(suppress=True)
 
 
+# --8<-- [start:timing]
 dt = 0.002
 mpc_H = 20
 # Keep mpc_dt a multiple of dt, so that plan stages line up with sim steps
@@ -51,7 +52,9 @@ STAGE_EVERY = round(mpc_dt / dt)
 DISPLAY_EVERY = STAGE_EVERY
 
 dynamics_mode = ssqpy.model.SolverMode.ReducedInverseDynamics
+# --8<-- [end:timing]
 
+# --8<-- [start:weights]
 T_WGT = 1.0
 R_WGT = 1.0
 C_WGT = 1e-2
@@ -68,6 +71,7 @@ elif dynamics_mode == ssqpy.model.SolverMode.ReducedInverseDynamics:
     F_WGT = 2e-4
 
 CONTACT_MU = 0.6
+# --8<-- [end:weights]
 
 # Plan stages per swing phase
 GAIT_PERIOD = 10
@@ -148,6 +152,7 @@ THIGH_LENGTH = 0.213
 # Distance from the knee to the foot frame
 CALF_LENGTH = 0.23648
 
+# --8<-- [start:model]
 model = ssqpy.model.Model(
     mpc_H,
     mpc_dt,
@@ -180,8 +185,10 @@ init_state = np.zeros(37)
 init_state[:3] = base_pos
 init_state[6] = 1.0
 init_state[7:19] = base_config
+# --8<-- [end:model]
 
 
+# --8<-- [start:feet]
 foot_names = ["FL_foot", "FR_foot", "RL_foot", "RR_foot"]
 
 # Trot pairs, swinging in alternate gait periods
@@ -212,6 +219,7 @@ HIP_LENGTH = abs(
     model.forwardKinematics(init_state[:nq], "FL_thigh")[0][1]
     - model.forwardKinematics(init_state[:nq], "FL_hip")[0][1]
 )
+# --8<-- [end:feet]
 
 # Commanded velocity (forward, sideways and yaw) in the base frame
 v_cmd = np.zeros(3)
@@ -295,6 +303,7 @@ def stance_config(height, pitch, roll, yaw):
     )
 
 
+# --8<-- [start:predict-poses]
 def predict_poses(pose, count):
     predicted = [pose]
     for _ in range(count):
@@ -310,8 +319,10 @@ def predict_poses(pose, count):
             )
         )
     return predicted
+    # --8<-- [end:predict-poses]
 
 
+# --8<-- [start:foothold]
 def foothold(name, period):
     # Where the foot lands at the end of its swing in the given period, placed
     # so that the base passes over the foot's nominal position mid-stance
@@ -319,6 +330,7 @@ def foothold(name, period):
         return landed[name]
     x, y, yaw = poses[int((period + 1.5) * GAIT_PERIOD) - pose_stage]
     return np.array([x, y, 0.0]) + rotation_z(yaw) @ foot_offsets[name]
+    # --8<-- [end:foothold]
 
 
 def jump_stage(k):
@@ -329,6 +341,7 @@ def jump_stage(k):
     return j if 0 <= j < JUMP_PERIODS * GAIT_PERIOD else None
 
 
+# --8<-- [start:jump-height]
 def jump_base_height(j):
     # Base reference height at stage j of the jump
     push = JUMP_CROUCH_STAGES
@@ -353,6 +366,7 @@ def jump_base_height(j):
     phase = (j - recover) / (JUMP_PERIODS * GAIT_PERIOD - recover)
     blend = 0.5 * (1 - np.cos(np.pi * phase))
     return (1 - blend) * JUMP_LAND_HEIGHT + blend * base_height
+    # --8<-- [end:jump-height]
 
 
 def jump_foothold(name):
@@ -371,6 +385,7 @@ def in_flight(k):
     return j is not None and flight <= j < flight + JUMP_FLIGHT_STAGES
 
 
+# --8<-- [start:foot-reference]
 def foot_reference(name, k):
     # Returns the foot's reference position at stage k and whether it swings
     if jump_stage(k) is not None:
@@ -390,8 +405,10 @@ def foot_reference(name, k):
     )
     p[2] += step_height * np.sin(np.pi * phase) ** 2
     return p, True
+    # --8<-- [end:foot-reference]
 
 
+# --8<-- [start:costs]
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     model, init_state[7:nq], C_WGT
 )
@@ -403,12 +420,12 @@ base_costs = []
 flight_costs = []
 foot_funcs = {name: [] for name in foot_names}
 
-for k in range(mpc_H):
-    model.addCost(k, config_cost)
-    model.addCost(k, v_cost)
-    model.addCost(k, u_cost)
-    model.addCost(k, f_cost)
+model.addRunningCost(config_cost)
+model.addRunningCost(v_cost)
+model.addRunningCost(u_cost)
+model.addRunningCost(f_cost)
 
+for k in range(mpc_H):
     base_costs.append(
         ssqpy.model.costs.FrameSquaredPoseErrorCost(
             model, "base_link", base_pos, R, T_WGT, R_WGT
@@ -441,6 +458,7 @@ for k in range(mpc_H):
         model.addCost(k, foot_cost)
 
         foot_funcs[name].append((foot_cost, foot_constraint))
+        # --8<-- [end:costs]
 
 
 def update_command(joystick, current_stage):
@@ -465,6 +483,7 @@ def update_command(joystick, current_stage):
         jump_start = (current_stage // GAIT_PERIOD + 1) * GAIT_PERIOD
     jump_button_held = held
 
+    # --8<-- [start:joystick]
     target = np.array(
         joystick.read(MAX_VEL_FRONT, MAX_VEL_BACK, MAX_VEL_SIDE, MAX_VEL_YAW)
     )
@@ -508,8 +527,10 @@ def update_command(joystick, current_stage):
     base_yaw += np.clip(
         turn * MAX_BASE_YAW - base_yaw, -max_change, max_change
     )
+    # --8<-- [end:joystick]
 
 
+# --8<-- [start:update-model]
 def update_model(current_stage):
     global pose_stage, poses
 
@@ -556,6 +577,7 @@ def update_model(current_stage):
             foot_constraint.set_enabled(not swinging)
             foot_cost.set_enabled(not flight)
             foot_cost.set_desired_translation(foot_pos)
+            # --8<-- [end:update-model]
 
 
 update_model(0)
@@ -565,6 +587,7 @@ model.addCost(mpc_H, v_cost)
 model.finalize(init_states=[init_state])
 
 
+# --8<-- [start:solver-params]
 ssqp_params = ssqpy.solvers.ssqpParams()
 ssqp_params.tolerance = 1e-2
 ssqp_params.qp_solver_type = getattr(
@@ -587,6 +610,7 @@ hpipm_params.tol_ineq = 1e-4
 ssqp_params.hpipmParams = hpipm_params
 
 mpc = ssqpy.solvers.MPC(model, ssqp_params, sqp_iters=2, qp_iters=100)
+# --8<-- [end:solver-params]
 
 mjmodel = mujoco.MjModel.from_xml_path("../../assets/mjcf/go2/scene.xml")
 mjdata = mujoco.MjData(mjmodel)
@@ -624,6 +648,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             display_time = time()
         """
 
+        # --8<-- [start:sim-loop]
         state = mujoco_to_ssqp_state(np.hstack((mjdata.qpos, mjdata.qvel)))
         state = clip_joints_to_limits(state, mjmodel)
 
@@ -668,6 +693,7 @@ with mujoco.viewer.launch_passive(mjmodel, mjdata) as viewer:
             update_model(stage)
 
         mujoco.mj_step(mjmodel, mjdata)
+        # --8<-- [end:sim-loop]
 
         if display:
             viewer.sync()

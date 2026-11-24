@@ -1,3 +1,4 @@
+# --8<-- [start:setup]
 import ssqpy
 import numpy as np
 import argparse
@@ -43,7 +44,9 @@ C_WGT = 5.0
 
 DESIRED_CONFIG = np.array((-1.0, 0.0, 1.0, 0.0))
 # DESIRED_CONFIG = np.array((np.pi, 0.0))
+# --8<-- [end:setup]
 
+# --8<-- [start:model]
 model = ssqpy.model.Model(
     H,
     dt,
@@ -55,22 +58,26 @@ model = ssqpy.model.Model(
 nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
+# --8<-- [end:model]
 
+# --8<-- [start:costs]
 vel_cost = ssqpy.model.costs.SquaredJointVelocityCost(model, V_WGT)
 u_cost = ssqpy.model.costs.SquaredControlCost(model, U_WGT)
 config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     model, DESIRED_CONFIG, C_WGT
 )
 
-for k in range(H):
-    model.addCost(k, vel_cost)
-    model.addCost(k, u_cost)
+model.addRunningCost(vel_cost)
+model.addRunningCost(u_cost)
 
+for k in range(H):
     if k > 150:
         model.addCost(k, config_cost)
 
 model.finalize(terminal_cost=config_cost)
+# --8<-- [end:costs]
 
+# --8<-- [start:solve]
 solver = ssqpy.solvers.ssqp(
     model,
     tolerance=1e-2,
@@ -88,3 +95,4 @@ state, x, u = solver.solve()
 print("Solver state:", state)
 
 solver.write(args.output)
+# --8<-- [end:solve]

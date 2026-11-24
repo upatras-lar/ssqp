@@ -182,12 +182,12 @@ force_cost = costs.SquaredForceCost(model, F_WGT)
 
 init_controls = []
 
-for k in range(H - FINAL_STANDING_STEPS):
-    # Add regularization costs
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
+# Add regularization costs
+model.addRunningCost(joint_vel_cost)
+model.addRunningCost(control_cost)
+model.addRunningCost(force_cost)
 
+for k in range(H - FINAL_STANDING_STEPS):
     # Add contact for the appropriate foot
     if (k // FOOT_SWING_STEPS) % 2 == 0:
         model.addContactConstraint(k, "left_mm", eq_tol=0.01)
@@ -206,11 +206,6 @@ for k in range(H - FINAL_STANDING_STEPS):
 
 # Add final standing phase
 for k in range(H - FINAL_STANDING_STEPS, H):
-    # Add regularization costs
-    model.addCost(k, joint_vel_cost)
-    model.addCost(k, control_cost)
-    model.addCost(k, force_cost)
-
     # Add contacts for both feet
     model.addContactConstraint(k, "left_mm", eq_tol=0.01)
     model.addContactConstraint(k, "left_mp", eq_tol=0.01)

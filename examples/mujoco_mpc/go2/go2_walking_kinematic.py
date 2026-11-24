@@ -185,7 +185,7 @@ base_height_constraint = constraints.FrameTranslationBound(
         (-np.inf, -np.inf, go2_planner.config.ReferenceGeneration.zb_min)
     ),
     np.array((np.inf, np.inf, go2_planner.config.ReferenceGeneration.zb_max)),
-    "Base Height Constraint",
+    name="Base Height Constraint",
 )
 
 com_costs = []
@@ -196,7 +196,7 @@ line_segment_costs = []
 
 for k in range(MPC_H + 1):
     com_cost = costs.CenterOfMassTrackingCost(
-        model, com_ref[k], q_c, f"CoM Cost {k}"
+        model, com_ref[k], q_c, name=f"CoM Cost {k}"
     )
 
     com_costs.append(com_cost)
@@ -221,7 +221,7 @@ for k in range(MPC_H + 1):
             go2_planner.config.FRAME_NAMES[foot],
             p_ref[foot][k][0],
             q_sw,
-            f"Foot {foot} Swing Cost {k}",
+            name=f"Foot {foot} Swing Cost {k}",
         )
 
         feet_costs[foot].append(foot_translation_cost)
@@ -232,7 +232,7 @@ for k in range(MPC_H + 1):
             go2_planner.config.FRAME_NAMES[foot],
             p_ref[foot][k][0],
             p_ref[foot][k][0],
-            f"Foot {foot} Stance Constraint {k}",
+            name=f"Foot {foot} Stance Constraint {k}",
         )
 
         feet_constraints[foot].append(foot_translation_bound)
@@ -256,13 +256,12 @@ for k in range(MPC_H + 1):
     line_segment_costs.append(line_segment_cost)
     model.addCost(k, line_segment_cost)
 
-    model.addCost(k, config_cost)
-
-    if k != MPC_H:
-        model.addCost(k, vel_cost)
-
     if k > 0:
         model.addConstraints(k, base_height_constraint)
+
+model.addRunningCost(config_cost)
+model.addRunningCost(vel_cost)
+model.addCost(MPC_H, config_cost)
 
 model.finalize(
     init_states=[go2_planner.config.INIT_CONFIG],

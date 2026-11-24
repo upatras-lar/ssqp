@@ -71,10 +71,10 @@ config_cost = ssqpy.model.costs.SquaredConfigurationErrorCost(
     model, DESIRED_CONFIG, C_WGT
 )
 
-for k in range(H):
-    model.addCost(k, vel_cost)
-    model.addCost(k, u_cost)
+model.addRunningCost(vel_cost)
+model.addRunningCost(u_cost)
 
+for k in range(H):
     if k > 150:
         model.addCost(k, config_cost)
 
