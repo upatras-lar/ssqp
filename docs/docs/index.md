@@ -5,7 +5,7 @@ hide:
 
 <div class="home-intro" markdown>
 
-<h1><img src="assets/ssqp-logo.svg#only-light" alt="SSQP" width="340"><img src="assets/ssqp-logo-dark.svg#only-dark" alt="SSQP" width="340"></h1>
+<h1><video class="logo-anim only-light" src="assets/ssqp-logo-anim.mp4" aria-label="SSQP" width="352" autoplay loop muted playsinline></video><video class="logo-anim only-dark" src="assets/ssqp-logo-anim-dark.mp4" aria-label="SSQP" width="352" autoplay loop muted playsinline></video></h1>
 
 <div markdown>
 

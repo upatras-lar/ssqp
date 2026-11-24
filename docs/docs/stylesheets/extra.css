@@ -25,8 +25,20 @@
 }
 
 .md-typeset .home-intro h1 {
-  flex: 0 0 340px;
+  flex: 0 0 352px;
   margin: 0;
+}
+
+/* The animated logo, one video per colour scheme */
+.md-typeset .logo-anim {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .logo-anim.only-light,
+[data-md-color-scheme="default"] .md-typeset .logo-anim.only-dark {
+  display: none;
 }
 
 .home-intro > div {
