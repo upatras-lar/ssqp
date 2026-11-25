@@ -75,6 +75,33 @@ four-foot stance every time.
 
 **Formulation:** `ReducedInverseDynamics`
 
+## Go2 Frontflip
+
+<div class="video-pair">
+  <video autoplay loop muted playsinline>
+    <source src="assets/go2_frontflip1.mp4" type="video/mp4">
+  </video>
+  <video autoplay loop muted playsinline>
+    <source src="assets/go2_frontflip2.mp4" type="video/mp4">
+  </video>
+</div>
+
+The Go2 doing a forward flip, turning once about its pitch axis and landing back on all four feet, in two runs of
+[`go2_frontflip.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/go2/go2_frontflip.py)
+with different takeoffs. On the left, with `--rear-lead -5`, the front feet leave the ground 5 stages before the
+rear feet, and the whole turn happens in the 0.5 s in the air. On the right, with `--rear-lead 40`, the rear feet
+leave 40 stages before the front feet instead, so the robot tips forward over its front feet until it is just past
+vertical, then pushes off from there. That leaves only about three quarters of the turn for the air, and the robot
+spins noticeably slower. In both, the rear feet land first, with the front feet following a few stages later. The
+rotation is the tricky part to express: a full turn ends in the same orientation it started from, so a target on
+the final orientation alone doesn't ask for any turn at all. Instead, a bound around a reference rotation that
+advances steadily from the first liftoff to the final landing tells the solver which way to turn, and the initial
+guess follows the same reference along a ballistic arc.
+
+**Solve time:** 3.3 s (47 iterations, HPIPM) on the left, 3.8 s (41 iterations, HPIPM) on the right
+
+**Formulation:** `ReducedInverseDynamics`
+
 ## G1 Jump
 
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">

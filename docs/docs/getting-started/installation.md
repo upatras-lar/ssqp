@@ -60,9 +60,7 @@ git clone --recurse-submodules git@github.com:upatras-lar/ssqp.git
 The dependencies fetched by CMake (see [`cmake/`](https://github.com/upatras-lar/ssqp/tree/main/cmake)) require
 network access during the build. The first build will take noticeably longer than subsequent ones since it has to
 compile Pinocchio and, if enabled, HPIPM/BLASFEO from source (PIQP itself is header-only); later builds only recompile them if their vendored
-sources change. The [`.ci/Dockerfile`](https://github.com/upatras-lar/ssqp/blob/main/.ci/Dockerfile) documents a working system
-setup (Ubuntu 24.04, Eigen3, Boost) to have in place before running CMake; Boost is included there so CI doesn't pay
-the fetch-and-build cost on every run, not because it's strictly required (see [Dependencies](#dependencies) above).
+sources change.
 
 ## Building the library
 
@@ -177,7 +175,7 @@ alignment must match between SSQP and the code calling it.
 
 Each [GitHub release](https://github.com/upatras-lar/ssqp/releases) provides prebuilt packages for Linux x86_64.
 Like the pip wheels, they are built with `-march=x86-64-v3` and need a CPU with AVX2 and FMA, and they include the
-HPIPM QP solver.
+HPIPM and PIQP QP solvers.
 
 On Ubuntu 22.04 or 24.04, download the `.deb` for your Ubuntu version and install it with apt, which also installs
 Eigen:

@@ -215,6 +215,15 @@ A series of jumps that moves the robot forward, with the final position fixed as
 | `-d`, `--distance` | Distance to travel along the x axis (default 2.0) |
 | `-o`, `--output` | Output JSON file |
 
+#### `python/go2/go2_frontflip.py`
+
+A forward flip, turning once about the pitch axis and landing back on all four feet. By default the rear feet leave the ground first, so the robot tips forward over its front feet before it pushes off, and less of the turn is left for the air. The first pair of feet leaves at a fixed step and the other pair follows after the rear lead. The robot is then in the air for 0.5 s, and the rear feet land first, followed by the front feet. A bound on the base orientation around a reference, which turns at a constant rate from when the first feet leave the ground until the front feet land, makes the robot turn forward rather than backward. The initial guess follows the same reference on a ballistic arc. Bounds on the head, knees and base keep the body off the ground, and the trajectory ends standing still.
+
+| Parameter | Description |
+|---|---|
+| `--rear-lead` | Steps the rear feet leave the ground before the front feet, negative for the front feet to leave first (default 10) |
+| `-o`, `--output` | Output JSON file |
+
 #### `python/go2/go2_gaits.py`
 
 Gaits generated with the `GaitManager` helper, optionally on a slope that rises along the x axis, followed by a stretch of standing on all four feet.
@@ -291,6 +300,17 @@ The G1 walks forward, with alternating foot swings.
 | `-d`, `--distance` | Distance to walk along the x axis (default 3.0) |
 | `--foot-swing-steps` | Steps for each foot swing (default 25) |
 | `--standing-steps` | Steps to stand for at the start and the end (default 15) |
+| `-o`, `--output` | Output JSON file |
+
+#### `python/g1/g1_pushups.py`
+
+The G1 does push-ups from a plank, on the front corners of its feet and its fingertips. The G1's wrists only roll, so its hands can't lie flat with the arms under the shoulders, and it pushes up on its fingertips instead. The contact frames for them are in [`g1_29dof_hands.urdf`](../assets/urdf/g1/g1_29dof_hands.urdf), a copy of the G1 URDF with those two frames added, which this example loads instead of the preset; use it to visualize the result too. A cost on the torso height lowers and raises the body, a configuration cost keeps the legs and waist straight, and a bound keeps the elbows from bending past straight, so the arms bend the right way.
+
+| Parameter | Description |
+|---|---|
+| `-n`, `--num-pushups` | Number of push-ups (default 2) |
+| `-d`, `--depth` | How far the torso is lowered in each push-up (default 0.15) |
+| `-p`, `--period` | Duration of each push-up, in seconds (default 1.6) |
 | `-o`, `--output` | Output JSON file |
 
 ### Talos

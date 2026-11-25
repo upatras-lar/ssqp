@@ -3,7 +3,7 @@
 This walks through the smallest complete SSQP problem: driving a 1D double integrator to a target position, with
 custom (non-robot) dynamics and a custom cost. It corresponds to
 [`examples/trajgen/python/di.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/di.py); the
-code blocks below are pulled live from that file at doc build time.
+code blocks below are pulled live from that file at documentation build time.
 
 Make sure `ssqpy` is importable first; see [Installation](installation.md).
 

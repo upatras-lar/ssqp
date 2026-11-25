@@ -35,7 +35,7 @@ def parse_args():
         "-q",
         "--qp-solver",
         choices=["admm", "hpipm", "piqp"],
-        default="piqp",
+        default="hpipm",
         help="QP solver used at each SSQP iteration",
     )
 

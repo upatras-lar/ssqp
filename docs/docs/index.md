@@ -42,8 +42,8 @@ Where:
 
 <div class="content-video">
 
-<video autoplay loop muted playsinline style="float: left; width: 300px; margin: 0.25rem 1.5rem 1rem 0; border-radius: 8px;">
-  <source src="assets/go2_multi_jump.mp4" type="video/mp4">
+<video autoplay loop muted playsinline style="float: left; width: 400px; margin: 0.25rem 1.5rem 1rem 0; border-radius: 8px;">
+  <source src="assets/trajgen_compilation.mp4" type="video/mp4">
 </video>
 
 </div>
