@@ -42,6 +42,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        "-t",
+        "--two-limbs",
+        action="store_true",
+        help="Push up on the left hand and right foot only, with the right "
+        "hand on the back and the left leg raised",
+    )
+
+    parser.add_argument(
         "-o",
         "--output",
         default="../../data/g1_pushups.json",
@@ -135,11 +143,6 @@ bottom_config = np.concatenate(
     ]
 )
 
-init = np.zeros(nq + nv)
-init[:3] = base_pos
-init[3:7] = base_quat
-init[7:nq] = plank_config
-
 contact_frames = [
     "left_pp",
     "left_pm",
@@ -152,6 +155,47 @@ contact_frames = [
     "right_heel_pinky",
     "right_palm_front",
 ]
+
+if args.two_limbs:
+    # Plank on the left hand and right foot, with the hand under the chest,
+    # the foot further out and the body balanced over the line between them,
+    # the right hand resting on the back and the left leg raised behind
+    base_pos = np.array([-0.0315, 0.0197, 0.2909])
+    base_quat = np.array([0.00694, 0.61728, -0.02255, 0.78639])
+    back_arm_config = np.array([0.6, -0.25, 0.0, 0.2, 0.0, 0.0, 0.0])
+    plank_config = np.concatenate(
+        [
+            [0.16134, 0.0, 0.0, 0.05622, 0.53622, 0.0],
+            [0.04979, -0.1851, 0.08232, -0.12512, 0.35414, -0.07779],
+            [-0.00947, 0.00579, -0.00161],
+            [-0.89543, -0.07952, 0.37377, 1.4, 1.69406, 0.1555, 1.90177],
+            back_arm_config,
+        ]
+    )
+
+    # Pose at the bottom, with the body rolled slightly towards the left arm
+    bottom_config = np.concatenate(
+        [
+            [0.13254, 0.0, 0.0, 0.07148, 0.27327, 0.0],
+            [0.00739, -0.29452, 0.04321, -0.0935, 0.18787, -0.20496],
+            [-0.00243, 0.02074, 0.00385],
+            [0.27445, -0.28825, -0.14969, -0.25582, 1.73259, 0.00466, 1.51478],
+            back_arm_config,
+        ]
+    )
+
+    contact_frames = [
+        "right_pp",
+        "right_pm",
+        "left_heel_thumb",
+        "left_heel_pinky",
+        "left_palm_front",
+    ]
+
+init = np.zeros(nq + nv)
+init[:3] = base_pos
+init[3:7] = base_quat
+init[7:nq] = plank_config
 
 # Initial control, with the robot's weight split evenly between the contacts
 # Each contact force is expressed in its own frame

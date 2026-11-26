@@ -140,21 +140,28 @@ weight also damps the hip-yaw joints specifically, keeping the walk heading stra
 
 ## G1 Push-Ups
 
-<video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 420px; max-width: 100%; border-radius: 8px;">
-  <source src="assets/g1_pushups.mp4" type="video/mp4">
-</video>
+<div class="video-pair">
+  <video autoplay loop muted playsinline>
+    <source src="assets/g1_pushups.mp4" type="video/mp4">
+  </video>
+  <video autoplay loop muted playsinline>
+    <source src="assets/g1_pushups_two_limbs.mp4" type="video/mp4">
+  </video>
+</div>
 
-The 29 DoF Unitree G1 doing two push-ups from a plank, on the front corners of its feet and its flat palms. Produced
-by [`g1_pushups.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/g1/g1_pushups.py). Each
-hand has three contact points on the flat part of the palm, so together with the toes the solver handles 10
-simultaneous contacts throughout. A cost on the torso height lowers and raises the body, while a configuration cost
-moves the robot between the plank and a bottom pose with the forearms upright and the elbows tucked in, following
-the same timing. Both poses are fixed ahead of time, and the solver works out the motion between them, along with
-the contact forces that support it. The example loads its own copy of the G1 URDF with the palm contact frames added,
-and with stronger, more flexible wrists than the real robot's, so the palms can lie flat and carry the robot's
-weight.
+The 29 DoF Unitree G1 doing two push-ups from a plank, on the front corners of its feet and its flat palms, in two runs
+of [`g1_pushups.py`](https://github.com/upatras-lar/ssqp/blob/main/examples/trajgen/python/g1/g1_pushups.py). On the
+left, the robot uses all four limbs. Each hand has three contact points on the flat part of the palm, so together
+with the toes the solver handles 10 simultaneous contacts throughout. On the right, with `--two-limbs`, it pushes up
+on its left hand and right foot only, with the right hand resting on its back and the left leg raised behind. The
+hand moves in under the chest and the foot further out, so the body stays balanced over the narrow line between
+them. In both, a cost on the torso height lowers and raises the body, while a configuration cost moves the robot
+between the plank and a bottom pose with the forearms upright and the elbows tucked in, following the same timing.
+Both poses are fixed ahead of time, and the solver works out the motion between them, along with the contact forces
+that support it. The example loads its own copy of the G1 URDF with the palm contact frames added, and with stronger,
+more flexible wrists than the real robot's, so the palms can lie flat and carry the robot's weight.
 
-**Solve time:** 1.2 s (3 iterations, HPIPM)
+**Solve time:** 1.2 s (3 iterations, HPIPM) on the left, 2.1 s (9 iterations, HPIPM) on the right
 
 **Formulation:** `ReducedInverseDynamics`
 

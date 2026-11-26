@@ -304,13 +304,14 @@ The G1 walks forward, with alternating foot swings.
 
 #### `python/g1/g1_pushups.py`
 
-The 29 DoF G1 does push-ups from a plank, on the front corners of its feet and its flat palms, with the fingers forward. It loads [`g1_29dof_hands.urdf`](../assets/urdf/g1/g1_29dof_hands.urdf) instead of the preset, a copy of the G1 URDF with contact frames on the feet and palms; use it to visualize the result too. The palm contacts sit on the flat part of the palm, so the curled fingers dip slightly into the ground. In that copy the wrist pitch and yaw effort limits are raised so the wrists can bear the robot's weight, and the wrist yaw range is widened so the palms can lie flat while the forearms lean back in the plank. A cost on the torso height lowers and raises the body, while a configuration cost moves the robot between the plank and a bottom pose with the forearms upright and the elbows close to the body, keeping the legs and waist straight. A bound keeps the elbows from bending past straight.
+The 29 DoF G1 does push-ups from a plank, on the front corners of its feet and its flat palms, with the fingers forward. It loads [`g1_29dof_hands.urdf`](../assets/urdf/g1/g1_29dof_hands.urdf) instead of the preset, a copy of the G1 URDF with contact frames on the feet and palms; use it to visualize the result too. The palm contacts sit on the flat part of the palm, so the curled fingers dip slightly into the ground. In that copy the wrist pitch and yaw effort limits are raised so the wrists can bear the robot's weight, and the wrist yaw range is widened so the palms can lie flat while the forearms lean back in the plank. A cost on the torso height lowers and raises the body, while a configuration cost moves the robot between the plank and a bottom pose with the forearms upright and the elbows close to the body, keeping the legs and waist straight. A bound keeps the elbows from bending past straight. With `--two-limbs`, the robot pushes up on its left hand and right foot only, with the right hand resting on its back and the left leg raised behind. The hand moves in under the chest and the foot further out, so the body stays balanced over the line between them.
 
 | Parameter | Description |
 |---|---|
 | `-n`, `--num-pushups` | Number of push-ups (default 2) |
 | `-d`, `--depth` | How far the torso is lowered in each push-up (default 0.14) |
 | `-p`, `--period` | Duration of each push-up, in seconds (default 1.6) |
+| `-t`, `--two-limbs` | Push up on the left hand and right foot only |
 | `-o`, `--output` | Output JSON file |
 | `-q`, `--qp-solver` | QP solver used at each SSQP iteration, `admm`, `hpipm` or `piqp` (default `hpipm`) |
 
