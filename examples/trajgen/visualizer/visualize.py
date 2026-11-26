@@ -6,6 +6,7 @@ import argparse
 import json
 import subprocess
 from time import sleep, time
+from os import path, makedirs
 
 
 def quaternion_to_rotation_matrix(q):
@@ -252,9 +253,7 @@ def terrain_mesh(terrain, x_range, y_range):
                     grid_mesh(
                         [edge, edge],
                         [y0, y1],
-                        np.array(
-                            [[levels[i]] * 2, [levels[i + 1]] * 2]
-                        ),
+                        np.array([[levels[i]] * 2, [levels[i + 1]] * 2]),
                     )
                 )
 
@@ -270,7 +269,9 @@ def terrain_mesh(terrain, x_range, y_range):
 
 # Draw the terrain around the robot's trajectory
 # Files without a terrain are drawn as flat ground
-terrain = data["properties"].get("terrain", {"type": "flat", "base_height": 0.0})
+terrain = data["properties"].get(
+    "terrain", {"type": "flat", "base_height": 0.0}
+)
 
 if not args.no_ground:
     if data["properties"]["floating_base"]:
@@ -357,7 +358,11 @@ if args.circle:
     server.scene.add_spline_catmull_rom(
         "/circle",
         points=np.stack(
-            [np.full_like(theta, cx), cy + cr * np.cos(theta), cz + cr * np.sin(theta)],
+            [
+                np.full_like(theta, cx),
+                cy + cr * np.cos(theta),
+                cz + cr * np.sin(theta),
+            ],
             axis=1,
         ),
         closed=True,
@@ -529,7 +534,9 @@ for k in range(data["properties"]["horizon"]):
     urdf._urdf.update_cfg(process_state(stage[configuration_key]))
     lower, upper = urdf._urdf.scene.bounds
     T = base_transform(stage)
-    corners.append(np.where(corner_signs, upper, lower) @ T[:3, :3].T + T[:3, 3])
+    corners.append(
+        np.where(corner_signs, upper, lower) @ T[:3, :3].T + T[:3, 3]
+    )
 corners = np.concatenate(corners)
 motion_lower = corners.min(axis=0)
 motion_upper = corners.max(axis=0)
@@ -582,7 +589,13 @@ def _(client):
     client.camera.look_at = look_at
 
 
-record_path = args.record_path or f"{Path(args.input).stem}.mp4"
+if args.record_path:
+    record_path = args.record_path
+else:
+    if not path.exists("output"):
+        makedirs("output")
+    record_path = f"output/{Path(args.input).stem}.mp4"
+
 record_client = None
 recorder = None
 

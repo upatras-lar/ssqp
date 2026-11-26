@@ -787,12 +787,13 @@
       </geometry>
     </collision>
   </link>
+  <!-- Wrist yaw range widened from 1.614 to 2.2 so the palms can lie flat with the forearms leaning back -->
   <joint name="left_wrist_yaw_joint" type="revolute">
     <origin xyz="0.046 0 0" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
     <parent link="left_wrist_pitch_link"/>
     <child link="left_wrist_yaw_link"/>
-    <limit effort="25" velocity="22" lower="-1.614429558" upper="1.614429558"/>
+    <limit effort="25" velocity="22" lower="-2.2" upper="2.2"/>
   </joint>
   <link name="left_wrist_yaw_link">
     <inertial>
@@ -996,12 +997,13 @@
       </geometry>
     </collision>
   </link>
+  <!-- Wrist yaw range widened from 1.614 to 2.2 so the palms can lie flat with the forearms leaning back -->
   <joint name="right_wrist_yaw_joint" type="revolute">
     <origin xyz="0.046 0 0" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
     <parent link="right_wrist_pitch_link"/>
     <child link="right_wrist_yaw_link"/>
-    <limit effort="25" velocity="22" lower="-1.614429558" upper="1.614429558"/>
+    <limit effort="25" velocity="22" lower="-2.2" upper="2.2"/>
   </joint>
   <link name="right_wrist_yaw_link">
     <inertial>
@@ -1043,10 +1045,10 @@
     </visual>
   </link>
 
-  <!-- Palm contact frames, on the heel of the palm and the curled fingertips -->
+  <!-- Palm contact frames, on the heel and the front of the flat palm -->
   <link name="left_heel_thumb" />
   <link name="left_heel_pinky" />
-  <link name="left_fingers" />
+  <link name="left_palm_front" />
   <joint name="left_heel_thumb_fix_joint" type="fixed">
       <parent link="left_rubber_hand" />
       <child link="left_heel_thumb" />
@@ -1057,14 +1059,14 @@
       <child link="left_heel_pinky" />
       <origin rpy="0 0 0" xyz="0.01 -0.013 -0.02" />
   </joint>
-  <joint name="left_fingers_fix_joint" type="fixed">
+  <joint name="left_palm_front_fix_joint" type="fixed">
       <parent link="left_rubber_hand" />
-      <child link="left_fingers" />
-      <origin rpy="0 0 0" xyz="0.12 -0.047 0" />
+      <child link="left_palm_front" />
+      <origin rpy="0 0 0" xyz="0.07 -0.013 0" />
   </joint>
   <link name="right_heel_thumb" />
   <link name="right_heel_pinky" />
-  <link name="right_fingers" />
+  <link name="right_palm_front" />
   <joint name="right_heel_thumb_fix_joint" type="fixed">
       <parent link="right_rubber_hand" />
       <child link="right_heel_thumb" />
@@ -1075,9 +1077,9 @@
       <child link="right_heel_pinky" />
       <origin rpy="0 0 0" xyz="0.01 0.013 -0.02" />
   </joint>
-  <joint name="right_fingers_fix_joint" type="fixed">
+  <joint name="right_palm_front_fix_joint" type="fixed">
       <parent link="right_rubber_hand" />
-      <child link="right_fingers" />
-      <origin rpy="0 0 0" xyz="0.12 0.047 0" />
+      <child link="right_palm_front" />
+      <origin rpy="0 0 0" xyz="0.07 0.013 0" />
   </joint>
 </robot>

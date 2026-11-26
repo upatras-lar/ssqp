@@ -652,7 +652,7 @@ The [`visualizer` example](examples.md) renders a written-out trajectory JSON ag
 ```bash
 cd examples
 source setup_env.sh
-python visualizer/visualize.py -u path/to/robot.urdf -i path/to/trajectory.json
+python trajgen/visualizer/visualize.py -u path/to/robot.urdf -i path/to/trajectory.json
 ```
 
 ## How do I use SSQP from C++ without the Python bindings at all?

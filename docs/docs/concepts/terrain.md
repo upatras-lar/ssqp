@@ -51,7 +51,7 @@ between solves, never while a solver is running (`MPC.step` releases the GIL, so
 Pass a terrain to a model with `Model(..., terrain=terrain)`.
 
 `solver.write(...)` stores a description of the terrain under `properties.terrain` in the output file, with a `type`
-(`flat`, `slope`, `step` or `heightmap`) and its parameters. `visualizer/visualize.py` reads it and draws the terrain
+(`flat`, `slope`, `step` or `heightmap`) and its parameters. `trajgen/visualizer/visualize.py` reads it and draws the terrain
 around the trajectory. Custom terrains are stored as `{"type": "custom"}` and are not drawn. Files without a terrain
 are drawn as flat ground at $z = 0$.
 

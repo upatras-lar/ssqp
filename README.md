@@ -60,7 +60,7 @@ and [C++](https://lar.upatras.gr/ssqp/cpp-reference/) API references.
 | `examples/mujoco_mpc/` | MPC examples using MuJoCo |
 | `examples/real_mpc/` | MPC examples for real systems |
 | `benchmarks/` | Solver and formulation benchmarks |
-| `examples/visualizer/` | Trajectory visualization utilities |
+| `examples/trajgen/visualizer/` | Trajectory visualization utilities |
 | `examples/models/` | Custom model implementations and utilities |
 | `examples/assets/` | URDF and MJCF model assets |
 | `tests/` | Unit, regression, gradient, and sanitizer test infrastructure |

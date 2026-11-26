@@ -29,7 +29,7 @@ def parse_args():
         "-d",
         "--depth",
         type=float,
-        default=0.15,
+        default=0.14,
         help="How far the torso is lowered in each push-up",
     )
 
@@ -77,10 +77,11 @@ V_WGT = 1e-2
 U_WGT = 1e-3
 F_WGT = 1e-4
 BODY_WGT = 1.0
-ARM_WGT = 1e-2
+ARM_WGT = 0.1
 HEIGHT_WGT = 3.0
 
-# The 29 DoF G1 URDF with contact frames on the palms and stronger wrists
+# The 29 DoF G1 URDF with contact frames on the palms and stronger, more
+# flexible wrists
 URDF_PATH = "../../../assets/urdf/g1/g1_29dof_hands.urdf"
 
 model = ssqpy.model.Model(
@@ -95,19 +96,43 @@ nq = model.getnq()
 nv = model.getnv()
 nu = model.getnu()
 
+# Mirrors a left arm configuration onto the right arm
+ARM_MIRROR = np.array([1, -1, -1, 1, -1, 1, -1])
+
 # Plank pose, on the front corners of the feet and the palms, with the body
-# straight, the arms straight and the palms flat, fingers forward, slightly
-# ahead of the shoulders
-base_pos = np.array([0.0, 0.0, 0.30393])
-base_quat = np.array([0.0, 0.60424, 0.0, 0.7968])
+# straight, the arms almost straight and the palms flat, fingers forward,
+# slightly behind the shoulders
+base_pos = np.array([0.0, 0.0, 0.2772])
+base_quat = np.array([0.0, 0.61758, 0.0, 0.7865])
 leg_config = np.array([0.0, 0.0, 0.0, 0.0, 0.5236, 0.0])
 waist_config = np.zeros(3)
 left_arm_config = np.array(
-    [-1.2589, 0.0171, 0.88209, 1.5, -0.94957, -0.1274, -1.30934]
+    [-0.76519, 0.16366, 0.35562, 1.4, 1.71647, -0.11291, 1.97018]
 )
-right_arm_config = left_arm_config * np.array([1, -1, -1, 1, -1, 1, -1])
 plank_config = np.concatenate(
-    [leg_config, leg_config, waist_config, left_arm_config, right_arm_config]
+    [
+        leg_config,
+        leg_config,
+        waist_config,
+        left_arm_config,
+        left_arm_config * ARM_MIRROR,
+    ]
+)
+
+# Pose at the bottom of each push-up, with the forearms upright and the
+# elbows close to the body
+bottom_leg_config = np.array([0.0, 0.0, 0.0, 0.0, 0.24203, 0.0])
+bottom_left_arm_config = np.array(
+    [0.30051, 0.1932, -0.05335, -0.30618, 1.38954, 0.02651, 1.51925]
+)
+bottom_config = np.concatenate(
+    [
+        bottom_leg_config,
+        bottom_leg_config,
+        waist_config,
+        bottom_left_arm_config,
+        bottom_left_arm_config * ARM_MIRROR,
+    ]
 )
 
 init = np.zeros(nq + nv)
@@ -122,10 +147,10 @@ contact_frames = [
     "right_pm",
     "left_heel_thumb",
     "left_heel_pinky",
-    "left_fingers",
+    "left_palm_front",
     "right_heel_thumb",
     "right_heel_pinky",
-    "right_fingers",
+    "right_palm_front",
 ]
 
 # Initial control, with the robot's weight split evenly between the contacts
@@ -144,14 +169,14 @@ for i, frame in enumerate(contact_frames):
 top_height = model.forwardKinematics(init[:nq], "torso_link")[0][2]
 
 
-def torso_height(k):
-    # Lowers and raises the torso once in each push-up, holding the plank
-    # before the first and after the last
+def dip(k):
+    # Goes from 0 in the plank to 1 at the bottom and back once in each
+    # push-up, holding the plank before the first and after the last
     t = k - START_HOLD_STEPS
     if t < 0 or t >= args.num_pushups * PUSHUP_STEPS:
-        return top_height
+        return 0.0
     phase = 2 * pi * (t % PUSHUP_STEPS) / PUSHUP_STEPS
-    return top_height - args.depth * (1 - np.cos(phase)) / 2
+    return (1 - np.cos(phase)) / 2
 
 
 # Regularization costs
@@ -159,8 +184,8 @@ joint_vel_cost = costs.SquaredJointVelocityCost(model, V_WGT)
 control_cost = costs.SquaredControlCost(model, U_WGT)
 force_cost = costs.SquaredForceCost(model, F_WGT)
 
-# Keep the legs and waist as in the plank, so the body stays straight, while
-# leaving the arms free to bend
+# Keep the legs and waist close to the reference pose, so the body stays
+# straight, while guiding the arms more loosely
 config_weights = np.full(nu, BODY_WGT)
 config_weights[15:] = ARM_WGT
 config_cost = costs.SquaredConfigurationErrorCost(
@@ -170,7 +195,6 @@ config_cost = costs.SquaredConfigurationErrorCost(
 model.addRunningCost(joint_vel_cost)
 model.addRunningCost(control_cost)
 model.addRunningCost(force_cost)
-model.addRunningCost(config_cost)
 
 # Keep the elbows from bending past straight, so the arms bend the right way
 elbow_upper = np.full(nu, np.inf)
@@ -182,14 +206,23 @@ elbow_bound = constraints.JointAngleConstraint(
 for k in range(H):
     model.addConstraints(k, elbow_bound)
 
-    # Follow the torso height reference
+    # Follow the torso height reference, with the pose moving between the
+    # plank and the bottom pose along with it
     model.addCost(
         k,
         costs.FrameSquaredTranslationErrorCost(
             model,
             "torso_link",
-            np.array((0.0, 0.0, torso_height(k))),
+            np.array((0.0, 0.0, top_height - args.depth * dip(k))),
             np.array((0.0, 0.0, HEIGHT_WGT)),
+        ),
+    )
+    model.addCost(
+        k,
+        costs.SquaredConfigurationErrorCost(
+            model,
+            plank_config + dip(k) * (bottom_config - plank_config),
+            config_weights,
         ),
     )
 

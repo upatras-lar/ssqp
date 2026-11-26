@@ -1,6 +1,6 @@
 # Trajectory generation examples
 
-These examples use SSQP to generate trajectories offline, as optimal control problems (OCPs) solved from scratch. Each one defines a model, costs and constraints over a finite horizon, often with next to no initialization beyond the starting state, and lets the solver find the whole trajectory. Nothing here runs against a simulator or a real system. The result is written to a JSON file, which can be visualized with the [`visualizer`](../visualizer) example or loaded for analysis.
+These examples use SSQP to generate trajectories offline, as optimal control problems (OCPs) solved from scratch. Each one defines a model, costs and constraints over a finite horizon, often with next to no initialization beyond the starting state, and lets the solver find the whole trajectory. Nothing here runs against a simulator or a real system. The result is written to a JSON file, which can be visualized with the [`visualizer`](visualizer) example or loaded for analysis.
 
 There are two sets of examples, covering the same library from two sides:
 
@@ -47,10 +47,10 @@ A few of the C++ examples have a constant marked `@script-parameter` near the to
 
 Every example prints the final solver state to the terminal, such as `Success`, when it finishes. The analytical examples, which have no robot to visualize, also print the full state and control trajectories.
 
-Trajectories are written to `data/*.json`. This folder is not tracked by git. Visualize a result with the [`visualizer`](../visualizer), giving it the URDF of the model and the JSON file:
+Trajectories are written to `data/*.json`. This folder is not tracked by git. Visualize a result with the [`visualizer`](visualizer), giving it the URDF of the model and the JSON file:
 
 ```
-python visualize.py --urdf-path ../assets/urdf/go2/go2.urdf --input ../trajgen/data/go2_jump.json
+python visualize.py --urdf-path ../../assets/urdf/go2/go2.urdf --input ../data/go2_jump.json
 ```
 
 ## Directory structure
@@ -141,8 +141,8 @@ The Panda's end effector keeps pointing at a target moving on a circle on the ta
 It writes the target's position at each stage to its own file, which `visualize.py` draws with `--target`. From the `visualizer` directory:
 
 ```bash
-python visualize.py -u ../assets/urdf/panda/panda.urdf -i ../trajgen/data/panda_look_at.json \
-    --target ../trajgen/data/panda_look_at_target.json
+python visualize.py -u ../../assets/urdf/panda/panda.urdf -i ../data/panda_look_at.json \
+    --target ../data/panda_look_at_target.json
 ```
 
 | Parameter | Description |
@@ -304,14 +304,15 @@ The G1 walks forward, with alternating foot swings.
 
 #### `python/g1/g1_pushups.py`
 
-The G1 does push-ups from a plank, on the front corners of its feet and its fingertips. The G1's wrists only roll, so its hands can't lie flat with the arms under the shoulders, and it pushes up on its fingertips instead. The contact frames for them are in [`g1_29dof_hands.urdf`](../assets/urdf/g1/g1_29dof_hands.urdf), a copy of the G1 URDF with those two frames added, which this example loads instead of the preset; use it to visualize the result too. A cost on the torso height lowers and raises the body, a configuration cost keeps the legs and waist straight, and a bound keeps the elbows from bending past straight, so the arms bend the right way.
+The 29 DoF G1 does push-ups from a plank, on the front corners of its feet and its flat palms, with the fingers forward. It loads [`g1_29dof_hands.urdf`](../assets/urdf/g1/g1_29dof_hands.urdf) instead of the preset, a copy of the G1 URDF with contact frames on the feet and palms; use it to visualize the result too. The palm contacts sit on the flat part of the palm, so the curled fingers dip slightly into the ground. In that copy the wrist pitch and yaw effort limits are raised so the wrists can bear the robot's weight, and the wrist yaw range is widened so the palms can lie flat while the forearms lean back in the plank. A cost on the torso height lowers and raises the body, while a configuration cost moves the robot between the plank and a bottom pose with the forearms upright and the elbows close to the body, keeping the legs and waist straight. A bound keeps the elbows from bending past straight.
 
 | Parameter | Description |
 |---|---|
 | `-n`, `--num-pushups` | Number of push-ups (default 2) |
-| `-d`, `--depth` | How far the torso is lowered in each push-up (default 0.15) |
+| `-d`, `--depth` | How far the torso is lowered in each push-up (default 0.14) |
 | `-p`, `--period` | Duration of each push-up, in seconds (default 1.6) |
 | `-o`, `--output` | Output JSON file |
+| `-q`, `--qp-solver` | QP solver used at each SSQP iteration, `admm`, `hpipm` or `piqp` (default `hpipm`) |
 
 ### Talos
 

@@ -34,7 +34,8 @@
 /examples/real_mpc/double_pendulum/candlevenv/*
 /examples/real_mpc/go2/unitree-sdk-venv/*
 /examples/cloud_pendulum/cloud-pendulum-venv/*
-/examples/visualizer/viser-venv/*
+/examples/trajgen/visualizer/viser-venv/*
+/examples/trajgen/visualizer/output/*
 /benchmarks/benchmark-venv/*
 
 # Scripts & examples
