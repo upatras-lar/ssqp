@@ -193,6 +193,11 @@ ssqp::Params::Params(const std::string &filepath)
     skip_last_termination_check =
       j.value("skip_last_termination_check", skip_last_termination_check);
 
+    damping_init   = j.value("damping_init", damping_init);
+    damping_min    = j.value("damping_min", damping_min);
+    damping_max    = j.value("damping_max", damping_max);
+    damping_factor = j.value("damping_factor", damping_factor);
+
     if (j.value("qp_solver_type", "") == "HPIPM")
     {
 #ifdef WITH_HPIPM
@@ -289,6 +294,12 @@ void ssqp::Params::print() const
               << std::endl;
 
     std::cout << "---------------" << std::endl;
+    std::cout << "Initial damping: " << damping_init << std::endl;
+    std::cout << "Minimum damping: " << damping_min << std::endl;
+    std::cout << "Maximum damping: " << damping_max << std::endl;
+    std::cout << "Damping factor: " << damping_factor << std::endl;
+
+    std::cout << "---------------" << std::endl;
     std::cout << "QP Solver: " << QPSolverTypeName(qp_solver_type) << std::endl;
     std::cout << "---------------" << std::endl;
 
@@ -343,6 +354,11 @@ void ssqp::Params::write(nlohmann::ordered_json &j) const
     j["skip_regularization"]         = skip_regularization;
     j["stop_on_qp_infeasibility"]    = stop_on_qp_infeasibility;
     j["skip_last_termination_check"] = skip_last_termination_check;
+
+    j["damping_init"]   = damping_init;
+    j["damping_min"]    = damping_min;
+    j["damping_max"]    = damping_max;
+    j["damping_factor"] = damping_factor;
 
     if (qp_solver_type == QPSolverType::ADMM)
     {
@@ -490,6 +506,7 @@ ssqp::ssqp(const model::Model &model, const Params &params)
   , _scaled_dx(_prev_cost_dx, false)
   , _scaled_du(_guess.u, false)
   , _tolerance_init(_params.tolerance)
+  , _damping(0.0)
   , _reduced_output(false)
 {
     switch (_params.qp_solver_type)
@@ -716,6 +733,8 @@ SolverState ssqp::solve(Guess &guess)
 
     auto xml_model = to_compile_time(_model.xml());
 
+    _damping = 0.0;
+
     std::visit([this](auto xml) { _setup_qp<true, xml.value>(); }, xml_model);
     _qp_solver->reset();
 
@@ -923,12 +942,47 @@ SolverState ssqp::solve(Guess &guess)
                                            start_time);
             }
 
+            // With damping, the retry solves the same QP with more damping,
+            // until it reaches its largest weight
+            if (_params.damping_init > 0.0 && _damping < _params.damping_max)
+            {
+                const double damping =
+                  _damping == 0.0 ? _params.damping_init
+                                  : std::min(_damping * _params.damping_factor,
+                                             _params.damping_max);
+                _add_damping(damping - _damping);
+                _damping = damping;
+
+                logln_at(LogLevel::Debug,
+                         "Line search failed, increasing damping");
+                _qp_solver->reset();
+                --_iter;
+                continue;
+            }
+
             logln_at(LogLevel::Debug,
                      "Line search failed, "
                      "increasing regularization");
             _qp_solver->increaseRegularization();
             --_iter;
             continue;
+        }
+
+        // Shortened steps start or raise the damping, full steps lower it
+        // until it is turned off again
+        if (_params.damping_init > 0.0)
+        {
+            if (_convergence_data.iteration_data.back().step_size < 1.0)
+            {
+                _damping = _damping == 0.0
+                             ? _params.damping_init
+                             : std::min(_damping * _params.damping_factor,
+                                        _params.damping_max);
+            }
+            else if ((_damping /= _params.damping_factor) < _params.damping_min)
+            {
+                _damping = 0.0;
+            }
         }
 
         _guess.x         = _candidate_x;
@@ -1589,6 +1643,17 @@ void ssqp::_gammaf_grad(const FlatVec &x, const FlatVec &u, FlatVec &dx,
         dx.stage(k + 1).head(nv).noalias() +=
           _tmp_jr_inv_wrt_x.transpose() * r_k.head(nv);
     }
+}
+
+void ssqp::_add_damping(const double weight)
+{
+    for (uint k = 0; k < _qp.dims.horizon; ++k)
+    {
+        _qp.stages[k].Qxx.diagonal().array() += weight;
+        _qp.stages[k].Quu.diagonal().array() += weight;
+    }
+
+    _qp.Qxx_t.diagonal().array() += weight;
 }
 
 double ssqp::_cf(const FlatVec &x, const FlatVec &u) const

@@ -281,6 +281,26 @@ void bind_ssqp(nb::module_ &m)
         A solve that converges on that iteration then reports reaching
         max_iter
         )doc")
+      .def_rw("damping_init",
+              &ssqp::Params::damping_init,
+              R"doc(
+        Weight added to the diagonal of the QP Hessian once a line search
+        shortens a step, which keeps steps short where the cost has little
+        curvature
+        The weight is then multiplied by `damping_factor` after each
+        shortened or failed line search and divided by it after each full
+        step, and damping turns off again below `damping_min`
+        Use 0.0 to disable damping
+        )doc")
+      .def_rw("damping_min",
+              &ssqp::Params::damping_min,
+              "Smallest damping weight.")
+      .def_rw("damping_max",
+              &ssqp::Params::damping_max,
+              "Largest damping weight.")
+      .def_rw("damping_factor",
+              &ssqp::Params::damping_factor,
+              "Factor the damping weight changes by.")
       .def_rw("qp_solver_type",
               &ssqp::Params::qp_solver_type,
               "The type of QP solver to use.")
@@ -575,6 +595,23 @@ void bind_ssqp(nb::module_ &m)
             {
                 params.skip_last_termination_check =
                   nb::cast<bool>(kwargs["skip_last_termination_check"]);
+            }
+            if (kwargs.contains("damping_init"))
+            {
+                params.damping_init = nb::cast<double>(kwargs["damping_init"]);
+            }
+            if (kwargs.contains("damping_min"))
+            {
+                params.damping_min = nb::cast<double>(kwargs["damping_min"]);
+            }
+            if (kwargs.contains("damping_max"))
+            {
+                params.damping_max = nb::cast<double>(kwargs["damping_max"]);
+            }
+            if (kwargs.contains("damping_factor"))
+            {
+                params.damping_factor =
+                  nb::cast<double>(kwargs["damping_factor"]);
             }
             if (kwargs.contains("qp_solver_type"))
             {

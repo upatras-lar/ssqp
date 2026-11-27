@@ -1122,17 +1122,8 @@ void setAllDynamicParameters(std::shared_ptr<ModelImpl> &impl,
 {
     for (uint i = 1; i < impl->model.njoints; ++i)
     {
-        const VecX parameters_i = parameters.segment<10>(10 * (i - 1));
-
-        const double m   = parameters_i[0];
-        const Vec3   com = parameters_i.segment<3>(1) / m;
-        Mat3         I;
-
-        I << parameters_i[4], parameters_i[5], parameters_i[6], parameters_i[5],
-          parameters_i[7], parameters_i[8], parameters_i[6], parameters_i[8],
-          parameters_i[9];
-
-        impl->model.inertias[i] = pinocchio::Inertia(m, com, I);
+        impl->model.inertias[i] = pinocchio::Inertia::FromDynamicParameters(
+          parameters.segment<10>(10 * (i - 1)));
     }
 
     // Dynamics results depend on the inertias, which the caches' keys don't

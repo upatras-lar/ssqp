@@ -50,6 +50,8 @@
 /perf*
 /benchmarks/solver/go2_wheelie*
 /benchmarks/rerun_all.py
+/ARTICULUS_GAPS.md
+/DIFFERENTIABLE.md
 
 # General filenames to always skip
 __pycache__

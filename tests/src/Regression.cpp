@@ -1018,6 +1018,54 @@ void modelFromPresetRejectsConflictingFields()
             "from_preset combined with urdf_path must throw invalid_argument");
 }
 
+// Setting the dynamic parameters the model reports must leave it unchanged,
+// and since inverse dynamics are linear in them, scaling them must scale the
+// torques by the same factor
+void dynamicParametersRoundTrip()
+{
+    model::Model::Structure structure;
+    structure.from_preset = model::presets::Preset::Go2;
+    model::Model model(1, 0.01, structure);
+
+    std::mt19937                           rng(3);
+    std::uniform_real_distribution<double> uniform(-1.0, 1.0);
+
+    auto random_vector = [&](uint size)
+    {
+        VecX out(size);
+        for (uint i = 0; i < size; ++i) out[i] = uniform(rng);
+        return out;
+    };
+
+    VecX q          = random_vector(model.nq());
+    q.segment<4>(3) = q.segment<4>(3).normalized();
+    const VecX v    = random_vector(model.nv());
+    const VecX a    = random_vector(model.nv());
+
+    const VecX parameters = model.getAllDynamicParameters();
+    const VecX tau        = model.inverseDynamics(q, v, a);
+
+    model.setAllDynamicParameters(parameters);
+    requireClose(model.getAllDynamicParameters(),
+                 parameters,
+                 "Setting the reported dynamic parameters must not change them",
+                 1e-12,
+                 1e-12);
+    requireClose(model.inverseDynamics(q, v, a),
+                 tau,
+                 "Setting the reported dynamic parameters must not change "
+                 "the torques",
+                 1e-10,
+                 1e-10);
+
+    model.setAllDynamicParameters(1.1 * parameters);
+    requireClose(model.inverseDynamics(q, v, a),
+                 1.1 * tau,
+                 "Scaling the dynamic parameters must scale the torques",
+                 1e-10,
+                 1e-10);
+}
+
 // A free-flying body with no joints and no linear forces can only be rotated
 // via a wrench's moment; solving to a target orientation is a direct
 // end-to-end check that the solver actually exploits wrench dynamics, not
@@ -2187,6 +2235,9 @@ void addRegressionTests(TestContainer &tests)
     tests.addTest(std::make_shared<FunctionTest>(
       "Regression_ModelFromPreset_RejectsConflictingFields",
       modelFromPresetRejectsConflictingFields));
+    tests.addTest(
+      std::make_shared<FunctionTest>("Regression_DynamicParameters_RoundTrip",
+                                     dynamicParametersRoundTrip));
     tests.addTest(
       std::make_shared<FunctionTest>("Regression_WrenchRotatesFloatingBody",
                                      wrenchRotatesFloatingBody));

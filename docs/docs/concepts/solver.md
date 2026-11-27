@@ -145,6 +145,22 @@ If the line search fails to find an acceptable step even at `min_alpha`, SSQP by
 regularization and retries; set `accept_worse_update` to accept the `min_alpha` step anyway, or
 `skip_regularization` to raise an exception immediately instead of regularizing.
 
+### Damping
+
+The QP Hessian only holds the curvature of the costs, so where the costs leave many directions nearly flat, such as a
+humanoid given only a few task space goals, the QP can propose steps far larger than its model is good for. The line
+search then keeps shortening them and the solver makes little progress. Setting `damping_init` to a positive value
+adds a weight $\delta$ to the diagonal of the QP Hessian once a line search shortens a step:
+
+$$
+\boldsymbol{Q}_k \leftarrow \boldsymbol{Q}_k + \delta \boldsymbol{I}
+$$
+
+$\delta$ starts at `damping_init`, is multiplied by `damping_factor` after each shortened or failed line search (a
+failed one retries the same QP with more damping, up to `damping_max`) and is divided by it after each full step,
+turning off again once it drops below `damping_min`. Problems whose steps are never shortened solve exactly as without
+damping. Damping is off by default.
+
 ## Choosing a QP solver
 
 `qp_solver_type` selects between the three [QP solvers](qp-solvers.md) (`ADMM`, `HPIPM` or `PIQP`);

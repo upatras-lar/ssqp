@@ -174,6 +174,22 @@ class ssqp
         // max_iter
         bool skip_last_termination_check = false;
 
+        // Damping parameters
+
+        // Weight added to the diagonal of the QP Hessian once a line search
+        // shortens a step, which keeps steps short where the cost has little
+        // curvature
+        // The weight is then multiplied by `damping_factor` after each
+        // shortened or failed line search and divided by it after each full
+        // step, and damping turns off again below `damping_min`
+        // Use 0.0 to disable damping
+        double damping_init = 0.0;
+        // Smallest and largest damping weights
+        double damping_min = 1e-6;
+        double damping_max = 1e6;
+        // Factor the damping weight changes by
+        double damping_factor = 2.0;
+
         // Whether to calculate full stage costs and violations at each step
         // This is usually skipped once a violation is detected to speed up
         // termination criteria checking, but can be enabled for logging
@@ -379,6 +395,9 @@ class ssqp
 
     double _tolerance_init;
 
+    // Current weight added to the diagonal of the QP Hessian
+    double _damping;
+
     ConvergenceData _convergence_data;
 
     // Holds the per-stage vectors of earlier solves' iteration data, so that
@@ -392,6 +411,9 @@ class ssqp
     // evaluate() outputs and gradients from
     template<bool firstSetup, bool XMLModel = true>
     void _setup_qp();
+
+    // Adds a weight to the diagonal of the QP Hessian at every stage
+    void _add_damping(double weight);
 
     template<bool fullStagewiseConvergence>
     SolverState _check_termination();

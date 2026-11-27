@@ -276,6 +276,11 @@ void ssqp::_setup_qp()
         _qp.cl_t = _emptyVec;
         _qp.cu_t = _emptyVec;
     }
+
+    if (_damping > 0.0)
+    {
+        _add_damping(_damping);
+    }
 }
 
 template<bool fullStagewiseConvergence>
